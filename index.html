@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d1117" />
+  <title>Agent Trials · 训练工作台</title>
+  <style>
+    :root {
+      --ink: #0d1117;
+      --ink-2: #121923;
+      --ink-3: #19222f;
+      --line: rgba(225, 232, 239, .12);
+      --line-strong: rgba(225, 232, 239, .2);
+      --paper: #f4f0e8;
+      --paper-2: #ebe6dc;
+      --paper-3: #ded8cd;
+      --text: #e7edf1;
+      --muted: #8d9aa7;
+      --muted-dark: #66727b;
+      --mint: #b9f6cd;
+      --mint-deep: #63d69c;
+      --orange: #f5b66e;
+      --coral: #ff8e79;
+      --blue: #9cc7ff;
+      --radius: 18px;
+      --shadow: 0 20px 70px rgba(0, 0, 0, .22);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--text);
+      background: var(--ink);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; }
+    button { border: 0; cursor: pointer; }
+    ::selection { background: rgba(185, 246, 205, .32); color: var(--text); }
+
+    .app-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 248px minmax(0, 1fr);
+      background:
+        radial-gradient(circle at 78% -8%, rgba(99, 214, 156, .08), transparent 28rem),
+        radial-gradient(circle at 18% 100%, rgba(156, 199, 255, .05), transparent 28rem),
+        var(--ink);
+    }
+
+    .sidebar {
+      min-height: 100vh;
+      padding: 28px 18px 20px;
+      border-right: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 0 10px 30px;
+    }
+    .brand-mark {
+      width: 31px;
+      height: 31px;
+      position: relative;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(185,246,205,.75);
+      border-radius: 10px;
+      transform: rotate(45deg);
+    }
+    .brand-mark::before,
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      background: var(--mint);
+      transform: rotate(-45deg);
+      border-radius: 3px;
+    }
+    .brand-mark::before { width: 12px; height: 2px; }
+    .brand-mark::after { width: 2px; height: 12px; }
+    .brand-name {
+      color: var(--paper);
+      font-size: 15px;
+      letter-spacing: -.02em;
+      font-weight: 700;
+    }
+    .brand-sub {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    .workspace-switcher {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 0 4px 28px;
+      padding: 11px 12px;
+      color: var(--paper);
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      font-size: 12px;
+    }
+    .workspace-switcher span:last-child { color: var(--muted); font-size: 14px; }
+
+    .nav-label {
+      padding: 0 12px 10px;
+      color: #5d6a76;
+      font-size: 10px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    .nav-list { display: grid; gap: 4px; }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      padding: 11px 12px;
+      color: var(--muted);
+      background: transparent;
+      border-radius: 11px;
+      text-align: left;
+      font-size: 13px;
+      transition: color .2s ease, background .2s ease, transform .2s ease;
+    }
+    .nav-item:hover { color: var(--paper); background: rgba(255,255,255,.045); transform: translateX(2px); }
+    .nav-item.is-active { color: var(--ink); background: var(--mint); font-weight: 700; }
+    .nav-icon { width: 18px; height: 18px; display: grid; place-items: center; flex: 0 0 18px; }
+    .nav-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .nav-count { margin-left: auto; min-width: 21px; padding: 3px 6px; border-radius: 8px; color: var(--orange); background: rgba(245,182,110,.11); font-size: 10px; text-align: center; }
+    .nav-item.is-active .nav-count { color: var(--ink); background: rgba(13,17,23,.12); }
+
+    .sidebar-foot { margin-top: auto; padding-top: 24px; border-top: 1px solid var(--line); }
+    .profile-mini { display: flex; align-items: center; gap: 10px; padding: 9px 10px; }
+    .avatar { width: 31px; height: 31px; display: grid; place-items: center; border-radius: 50%; background: #26394a; color: var(--mint); font-size: 11px; font-weight: 800; }
+    .profile-mini strong { display: block; color: var(--paper); font-size: 12px; font-weight: 650; }
+    .profile-mini span { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+    .profile-more { margin-left: auto; color: var(--muted); font-size: 16px; }
+
+    .main { min-width: 0; padding: 0 42px 58px; }
+    .topbar {
+      height: 76px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+    }
+    .crumb { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 12px; }
+    .crumb b { color: var(--paper); font-weight: 650; }
+    .crumb-sep { color: #4f5b66; }
+    .top-actions { display: flex; align-items: center; gap: 10px; }
+    .date-label { margin-right: 10px; color: var(--muted); font-size: 11px; }
+    .icon-btn {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      background: transparent;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      transition: color .2s, border-color .2s, background .2s;
+    }
+    .icon-btn:hover { color: var(--paper); border-color: var(--line-strong); background: rgba(255,255,255,.05); }
+    .icon-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+    .hero {
+      min-height: 188px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      align-items: center;
+      gap: 30px;
+      padding: 36px 0 30px;
+      border-bottom: 1px solid var(--line);
+    }
+    .eyebrow { display: flex; align-items: center; gap: 8px; color: var(--mint-deep); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; font-weight: 800; }
+    .eyebrow-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mint-deep); box-shadow: 0 0 0 4px rgba(99,214,156,.12); }
+    h1 { margin: 12px 0 9px; color: var(--paper); font-size: clamp(34px, 4.1vw, 53px); line-height: .98; letter-spacing: -.06em; font-weight: 730; }
+    .hero-copy { max-width: 520px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+    .hero-actions { display: flex; align-items: center; gap: 12px; margin-top: 25px; }
+    .primary-btn { display: inline-flex; align-items: center; gap: 9px; padding: 12px 16px; color: var(--ink); background: var(--mint); border-radius: 10px; font-size: 12px; font-weight: 800; transition: transform .2s, box-shadow .2s; }
+    .primary-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(185,246,205,.13); }
+    .primary-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .quiet-link { padding: 12px 4px; color: var(--muted); background: transparent; font-size: 12px; }
+    .quiet-link:hover { color: var(--paper); }
+
+    .hero-progress { display: flex; align-items: center; gap: 17px; justify-content: flex-end; }
+    .orbit {
+      --progress: 62%;
+      width: 105px;
+      height: 105px;
+      display: grid;
+      place-items: center;
+      position: relative;
+      border-radius: 50%;
+      background: conic-gradient(var(--mint) 0 var(--progress), #2a3541 var(--progress) 100%);
+      animation: orbit-in .9s cubic-bezier(.2,.7,.2,1) both;
+    }
+    .orbit::before { content: ""; position: absolute; inset: 8px; border-radius: 50%; background: var(--ink-2); }
+    .orbit-core { position: relative; text-align: center; }
+    .orbit-value { color: var(--paper); font-size: 25px; line-height: 1; letter-spacing: -.06em; font-weight: 760; }
+    .orbit-label { margin-top: 5px; color: var(--muted); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+    .progress-caption { max-width: 130px; }
+    .progress-caption strong { display: block; color: var(--paper); font-size: 13px; font-weight: 650; }
+    .progress-caption span { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+
+    .stats-strip { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); }
+    .stat { min-height: 86px; display: flex; align-items: center; gap: 14px; padding: 16px 18px 16px 0; border-right: 1px solid var(--line); }
+    .stat:not(:first-child) { padding-left: 22px; }
+    .stat:last-child { border-right: 0; }
+    .stat-mark { width: 25px; height: 25px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--mint); }
+    .stat-mark svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .stat small { display: block; color: var(--muted); font-size: 10px; }
+    .stat strong { display: block; margin-top: 5px; color: var(--paper); font-size: 18px; letter-spacing: -.04em; font-weight: 720; }
+    .stat strong em { margin-left: 5px; color: var(--mint-deep); font-size: 10px; font-style: normal; letter-spacing: 0; }
+
+    .content-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(290px, .8fr); gap: 22px; padding-top: 25px; }
+    .practice-panel { overflow: hidden; color: var(--ink); background: var(--paper); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 25px 27px 18px; }
+    .panel-kicker { color: var(--muted-dark); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; font-weight: 800; }
+    .panel-title { margin: 7px 0 0; color: var(--ink); font-size: 22px; letter-spacing: -.045em; font-weight: 760; }
+    .panel-subtitle { margin: 6px 0 0; color: var(--muted-dark); font-size: 11px; }
+    .panel-action { padding: 6px 0; color: var(--muted-dark); background: transparent; font-size: 11px; }
+    .panel-action:hover { color: var(--ink); }
+    .tabs { display: flex; align-items: center; gap: 20px; padding: 0 27px; border-bottom: 1px solid rgba(13,17,23,.12); }
+    .tab { position: relative; padding: 12px 0 13px; color: var(--muted-dark); background: transparent; font-size: 11px; }
+    .tab::after { content: ""; position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: transparent; }
+    .tab.is-active { color: var(--ink); font-weight: 750; }
+    .tab.is-active::after { background: var(--ink); }
+    .queue-list { padding: 7px 27px 6px; }
+    .queue-item { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 13px; padding: 15px 0; border-bottom: 1px solid rgba(13,17,23,.1); transition: padding .2s, transform .2s; }
+    .queue-item:last-child { border-bottom: 0; }
+    .queue-item:hover { padding-right: 5px; padding-left: 5px; transform: translateX(2px); }
+    .queue-state { width: 24px; height: 24px; display: grid; place-items: center; border: 1px solid rgba(13,17,23,.22); border-radius: 50%; color: var(--muted-dark); }
+    .queue-state svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .queue-state.is-done { color: var(--ink); background: var(--mint-deep); border-color: var(--mint-deep); }
+    .queue-state.is-now { color: var(--paper); background: var(--ink); border-color: var(--ink); }
+    .queue-title { display: block; color: var(--ink); font-size: 13px; font-weight: 700; letter-spacing: -.015em; }
+    .queue-meta { display: flex; align-items: center; gap: 8px; margin-top: 5px; color: var(--muted-dark); font-size: 10px; }
+    .queue-meta i { width: 3px; height: 3px; display: inline-block; border-radius: 50%; background: #9d9a91; }
+    .queue-tag { padding: 5px 7px; color: var(--muted-dark); background: rgba(13,17,23,.055); border-radius: 6px; font-size: 10px; white-space: nowrap; }
+    .queue-tag.orange { color: #985a21; background: rgba(245,182,110,.2); }
+    .queue-tag.mint { color: #28714a; background: rgba(99,214,156,.2); }
+    .queue-footer { display: flex; align-items: center; justify-content: space-between; padding: 16px 27px 20px; background: rgba(13,17,23,.035); }
+    .queue-footer span { color: var(--muted-dark); font-size: 10px; }
+    .queue-footer button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 10px; color: var(--ink); background: transparent; font-size: 11px; font-weight: 750; }
+    .queue-footer button:hover { color: #476f5a; }
+    .queue-footer svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+    .insight-column { display: grid; gap: 22px; }
+    .dark-panel { padding: 23px; background: var(--ink-2); border: 1px solid var(--line); border-radius: var(--radius); }
+    .dark-panel-head { display: flex; align-items: flex-start; justify-content: space-between; }
+    .dark-kicker { color: var(--muted); font-size: 10px; letter-spacing: .13em; text-transform: uppercase; }
+    .dark-title { margin: 7px 0 0; color: var(--paper); font-size: 17px; letter-spacing: -.04em; font-weight: 700; }
+    .mastery-list { display: grid; gap: 17px; margin-top: 25px; }
+    .mastery-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+    .mastery-label { color: #b6c0c7; font-size: 11px; }
+    .mastery-value { color: var(--paper); font-size: 11px; font-weight: 720; }
+    .bar { height: 4px; grid-column: 1 / -1; overflow: hidden; border-radius: 999px; background: #2b3642; }
+    .bar i { display: block; height: 100%; border-radius: inherit; background: var(--mint); transform-origin: left; animation: bar-in .8s .15s cubic-bezier(.2,.7,.2,1) both; }
+    .bar i.orange { background: var(--orange); }
+    .bar i.blue { background: var(--blue); }
+    .bar i.coral { background: var(--coral); }
+    .insight-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 25px; padding-top: 16px; border-top: 1px solid var(--line); }
+    .insight-foot span { color: var(--muted); font-size: 10px; }
+    .insight-foot b { color: var(--mint); font-size: 11px; font-weight: 700; }
+
+    .week-panel { min-height: 169px; padding-bottom: 18px; }
+    .week-head { display: flex; align-items: center; justify-content: space-between; }
+    .week-score { color: var(--mint); font-size: 12px; font-weight: 750; }
+    .sparkline { width: 100%; height: 70px; margin-top: 20px; overflow: visible; }
+    .sparkline .grid-line { stroke: rgba(225,232,239,.1); stroke-width: 1; stroke-dasharray: 2 5; }
+    .sparkline .trend { fill: none; stroke: var(--mint); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .sparkline .area { fill: url(#areaFill); opacity: .55; }
+    .sparkline circle { fill: var(--mint); stroke: var(--ink-2); stroke-width: 3; }
+    .days { display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 3px; color: #66727d; font-size: 9px; text-align: center; }
+
+    .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; padding-top: 22px; }
+    .activity-panel, .note-panel { padding: 23px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(18,25,35,.8); }
+    .light-title { margin: 7px 0 0; color: var(--paper); font-size: 16px; letter-spacing: -.035em; font-weight: 700; }
+    .activity-chart { height: 127px; display: flex; align-items: flex-end; gap: 10px; padding: 26px 5px 0; }
+    .day-column { height: 100%; display: grid; flex: 1; grid-template-rows: 1fr 13px; gap: 8px; align-items: end; text-align: center; }
+    .bar-stack { height: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 4px; }
+    .chart-bar { width: 9px; min-height: 5px; border-radius: 4px 4px 2px 2px; background: #32404d; transition: height .45s cubic-bezier(.2,.7,.2,1); }
+    .chart-bar.active { background: var(--mint); }
+    .chart-bar.secondary { background: #526378; }
+    .day-column span { color: #66727d; font-size: 9px; }
+    .note-panel { position: relative; overflow: hidden; }
+    .note-panel::after { content: ""; position: absolute; right: -40px; bottom: -55px; width: 190px; height: 190px; border: 1px solid rgba(185,246,205,.15); border-radius: 50%; box-shadow: 0 0 0 18px rgba(185,246,205,.025), 0 0 0 36px rgba(185,246,205,.018); }
+    .note-copy { max-width: 350px; margin-top: 18px; color: var(--muted); font-size: 12px; line-height: 1.65; }
+    .note-row { display: flex; align-items: center; gap: 10px; margin-top: 19px; color: var(--paper); font-size: 11px; }
+    .note-bullet { width: 7px; height: 7px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 0 4px rgba(245,182,110,.1); }
+
+    .toast { position: fixed; right: 28px; bottom: 26px; z-index: 20; max-width: 300px; padding: 13px 15px; color: var(--ink); background: var(--mint); border-radius: 11px; box-shadow: 0 14px 40px rgba(0,0,0,.3); font-size: 12px; font-weight: 700; transform: translateY(22px); opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; }
+    .toast.is-visible { opacity: 1; transform: translateY(0); }
+
+    .modal-backdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 20px; background: rgba(5,8,12,.78); backdrop-filter: blur(10px); opacity: 0; pointer-events: none; transition: opacity .25s ease; }
+    .modal-backdrop.is-open { opacity: 1; pointer-events: auto; }
+    .practice-modal { width: min(720px, 100%); overflow: hidden; color: var(--ink); background: var(--paper); border-radius: 20px; box-shadow: 0 30px 120px rgba(0,0,0,.48); transform: translateY(15px) scale(.98); transition: transform .3s cubic-bezier(.2,.7,.2,1); }
+    .modal-backdrop.is-open .practice-modal { transform: translateY(0) scale(1); }
+    .modal-top { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid rgba(13,17,23,.12); }
+    .modal-step { color: var(--muted-dark); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; font-weight: 800; }
+    .modal-close { width: 30px; height: 30px; display: grid; place-items: center; color: var(--muted-dark); background: transparent; border-radius: 8px; font-size: 20px; }
+    .modal-close:hover { color: var(--ink); background: rgba(13,17,23,.07); }
+    .modal-content { padding: 27px 30px 30px; }
+    .modal-tag { color: #41785a; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; font-weight: 800; }
+    .modal-question { max-width: 600px; margin: 11px 0 22px; color: var(--ink); font-size: 25px; line-height: 1.16; letter-spacing: -.05em; font-weight: 760; }
+    .modal-context { margin: 0 0 22px; padding: 15px 16px; color: #536069; background: rgba(13,17,23,.055); border-left: 3px solid var(--mint-deep); border-radius: 0 9px 9px 0; font-size: 12px; line-height: 1.65; }
+    .answer-list { display: grid; gap: 9px; }
+    .answer-option { display: flex; align-items: flex-start; gap: 11px; width: 100%; padding: 13px 14px; color: var(--ink); background: rgba(255,255,255,.45); border: 1px solid rgba(13,17,23,.15); border-radius: 10px; text-align: left; font-size: 12px; line-height: 1.5; transition: background .2s, border-color .2s, transform .2s; }
+    .answer-option:hover { border-color: rgba(13,17,23,.45); transform: translateX(2px); }
+    .answer-option.is-selected { background: rgba(185,246,205,.5); border-color: #5fae7a; }
+    .answer-option.is-correct { background: rgba(99,214,156,.25); border-color: #5fae7a; }
+    .answer-option.is-wrong { background: rgba(255,142,121,.18); border-color: #d87a67; }
+    .answer-letter { width: 22px; height: 22px; display: grid; place-items: center; flex: 0 0 22px; border: 1px solid rgba(13,17,23,.2); border-radius: 7px; color: var(--muted-dark); font-size: 10px; font-weight: 800; }
+    .modal-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 25px; }
+    .modal-hint { color: var(--muted-dark); font-size: 10px; }
+    .submit-btn { padding: 11px 15px; color: var(--paper); background: var(--ink); border-radius: 9px; font-size: 11px; font-weight: 800; transition: transform .2s, background .2s; }
+    .submit-btn:hover { background: #263545; transform: translateY(-1px); }
+    .feedback { display: none; margin-top: 17px; padding: 13px 14px; color: #356347; background: rgba(99,214,156,.18); border-radius: 9px; font-size: 11px; line-height: 1.55; }
+    .feedback.is-visible { display: block; animation: fade-up .3s ease both; }
+
+    @keyframes orbit-in { from { opacity: 0; transform: rotate(-60deg) scale(.8); } to { opacity: 1; transform: rotate(0) scale(1); } }
+    @keyframes bar-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    @keyframes fade-up { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 1050px) {
+      .app-shell { grid-template-columns: 216px minmax(0, 1fr); }
+      .main { padding-right: 26px; padding-left: 26px; }
+      .hero { grid-template-columns: minmax(0, 1fr) 260px; }
+      .hero-progress { justify-content: flex-start; }
+      .content-grid { grid-template-columns: 1fr; }
+      .insight-column { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 760px) {
+      .app-shell { display: block; }
+      .sidebar { position: static; height: auto; min-height: auto; padding: 17px 17px 12px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .brand { padding-bottom: 15px; }
+      .workspace-switcher, .nav-label, .sidebar-foot { display: none; }
+      .nav-list { display: flex; overflow-x: auto; gap: 5px; padding-bottom: 4px; scrollbar-width: none; }
+      .nav-list::-webkit-scrollbar { display: none; }
+      .nav-item { flex: 0 0 auto; width: auto; padding: 9px 11px; }
+      .nav-item span:not(.nav-icon):not(.nav-count) { display: none; }
+      .nav-count { margin-left: 0; }
+      .main { padding: 0 17px 40px; }
+      .topbar { height: 62px; }
+      .date-label { display: none; }
+      .hero { display: block; padding: 30px 0 25px; }
+      h1 { font-size: 41px; }
+      .hero-progress { margin-top: 27px; }
+      .stats-strip { grid-template-columns: repeat(2, 1fr); }
+      .stat, .stat:not(:first-child) { padding: 14px 13px 14px 0; border-bottom: 1px solid var(--line); }
+      .stat:nth-child(odd) { border-right: 1px solid var(--line); }
+      .stat:nth-child(even) { padding-left: 15px; border-right: 0; }
+      .stat:nth-last-child(-n+2) { border-bottom: 0; }
+      .content-grid, .bottom-grid, .insight-column { grid-template-columns: 1fr; }
+      .panel-head, .queue-list, .tabs { padding-right: 20px; padding-left: 20px; }
+      .queue-footer { padding-right: 20px; padding-left: 20px; }
+      .modal-content { padding: 23px 20px 22px; }
+      .modal-question { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="主导航">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <div class="brand-name">Agent Trials</div>
+          <div class="brand-sub">Learning Harness</div>
+        </div>
+      </div>
+
+      <button class="workspace-switcher" type="button" data-toast="工作区切换将在接入账号后开放">
+        <span>我的训练台</span><span>⌄</span>
+      </button>
+
+      <div class="nav-label">Workspace</div>
+      <nav class="nav-list">
+        <button class="nav-item is-active" type="button" data-view="dashboard">
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 13h6V4H4zM14 20h6v-9h-6zM14 8h6V4h-6zM4 20h6v-3H4z"/></svg></span><span>训练总览</span>
+        </button>
+        <button class="nav-item" type="button" data-view="practice">
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M5 5.5A2.5 2.5 0 0 1 7.5 3H20v15H7.5A2.5 2.5 0 0 0 5 20.5z"/><path d="M5 5.5v15M8 7h8M8 11h8"/></svg></span><span>刷题</span><span class="nav-count">6</span>
+        </button>
+        <button class="nav-item" type="button" data-view="review">
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/><path d="m17 16 2 2 3-4"/></svg></span><span>复习队列</span><span class="nav-count">8</span>
+        </button>
+        <button class="nav-item" type="button" data-view="library">
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"/><path d="M5 18a2 2 0 0 0 2 2h12M8 8h7M8 12h7"/></svg></span><span>题库</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-foot">
+        <div class="nav-label">Account</div>
+        <div class="profile-mini">
+          <div class="avatar">JT</div>
+          <div><strong>j-tide</strong><span>连续学习 12 天</span></div>
+          <div class="profile-more">···</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="crumb"><span>Workspace</span><span class="crumb-sep">/</span><b>训练总览</b></div>
+        <div class="top-actions">
+          <span class="date-label">2026年9月19日 · 周六</span>
+          <button class="icon-btn" type="button" aria-label="搜索" data-toast="搜索会在题库接入后启用"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg></button>
+          <button class="icon-btn" type="button" aria-label="通知" data-toast="今天没有新的提醒"><svg viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></button>
+        </div>
+      </header>
+
+      <section class="hero" aria-labelledby="page-title">
+        <div>
+          <div class="eyebrow"><span class="eyebrow-dot"></span>Saturday · Focus session</div>
+          <h1 id="page-title">保持锋利，<br />一题一题来。</h1>
+          <p class="hero-copy">今天的训练从 Agent 基础开始。先完成 4 道核心题，再用一组间隔复习把薄弱点稳住。</p>
+          <div class="hero-actions">
+            <button class="primary-btn" type="button" id="startPractice">继续训练 <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></button>
+            <button class="quiet-link" type="button" id="quickReview">先看复习队列</button>
+          </div>
+        </div>
+        <div class="hero-progress">
+          <div class="orbit" id="orbit"><div class="orbit-core"><div class="orbit-value" id="orbitValue">62%</div><div class="orbit-label">今日完成</div></div></div>
+          <div class="progress-caption"><strong>6 / 10 题</strong><span>还剩 4 题，预计需要 24 分钟。</span></div>
+        </div>
+      </section>
+
+      <section class="stats-strip" aria-label="学习统计">
+        <div class="stat"><div class="stat-mark"><svg viewBox="0 0 24 24"><path d="M5 12.5 9.5 17 19 7.5"/></svg></div><div><small>今日正确率</small><strong id="accuracyValue">82% <em>+6%</em></strong></div></div>
+        <div class="stat"><div class="stat-mark" style="color:var(--orange)"><svg viewBox="0 0 24 24"><path d="M12 3v4M5.6 5.6l2.8 2.8M3 12h4M5.6 18.4l2.8-2.8M12 21v-4M18.4 18.4l-2.8-2.8M21 12h-4M18.4 5.6l-2.8 2.8"/><circle cx="12" cy="12" r="3.5"/></svg></div><div><small>连续学习</small><strong>12 天 <em style="color:var(--orange)">个人最佳</em></strong></div></div>
+        <div class="stat"><div class="stat-mark" style="color:var(--blue)"><svg viewBox="0 0 24 24"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h3"/></svg></div><div><small>已掌握概念</small><strong>24 <em style="color:var(--blue)">+3 本周</em></strong></div></div>
+        <div class="stat"><div class="stat-mark" style="color:var(--coral)"><svg viewBox="0 0 24 24"><path d="M12 4v8l5 3"/><circle cx="12" cy="12" r="8"/></svg></div><div><small>待复习</small><strong>8 <em style="color:var(--coral)">今天到期</em></strong></div></div>
+      </section>
+
+      <section class="content-grid">
+        <section class="practice-panel" aria-labelledby="practice-title">
+          <div class="panel-head">
+            <div><div class="panel-kicker">Your next moves</div><h2 class="panel-title" id="practice-title">今天的训练</h2><p class="panel-subtitle">按当前掌握度，为你排好了顺序。</p></div>
+            <button class="panel-action" type="button" data-toast="筛选器会在题库接入后开放">筛选 · 排序</button>
+          </div>
+          <div class="tabs" role="tablist">
+            <button class="tab is-active" type="button" role="tab" data-tab="today">今日计划 <span>4</span></button>
+            <button class="tab" type="button" role="tab" data-tab="review">复习队列 <span>8</span></button>
+          </div>
+          <div class="queue-list" id="queueList"></div>
+          <div class="queue-footer"><span id="queueHint">基于你的目标：Agent Engineer 面试</span><button type="button" id="shuffleBtn">换一组 <svg viewBox="0 0 24 24"><path d="M3 7h3c4 0 5 10 9 10h6M17 5l4 2-4 2M17 15l4 2-4 2"/></svg></button></div>
+        </section>
+
+        <aside class="insight-column" aria-label="学习洞察">
+          <section class="dark-panel">
+            <div class="dark-panel-head"><div><div class="dark-kicker">Skill map</div><h2 class="dark-title">能力掌握度</h2></div><button class="panel-action" style="color:var(--muted)" type="button" data-toast="能力图谱将在完成更多题目后展开">查看全部</button></div>
+            <div class="mastery-list">
+              <div class="mastery-row"><span class="mastery-label">Agent 基础</span><b class="mastery-value">78%</b><div class="bar"><i style="width:78%"></i></div></div>
+              <div class="mastery-row"><span class="mastery-label">Tool Calling</span><b class="mastery-value">64%</b><div class="bar"><i class="orange" style="width:64%"></i></div></div>
+              <div class="mastery-row"><span class="mastery-label">RAG & Memory</span><b class="mastery-value">52%</b><div class="bar"><i class="blue" style="width:52%"></i></div></div>
+              <div class="mastery-row"><span class="mastery-label">Evaluation</span><b class="mastery-value">41%</b><div class="bar"><i class="coral" style="width:41%"></i></div></div>
+            </div>
+            <div class="insight-foot"><span>最值得投入</span><b>Evaluation · 3 个待复习概念</b></div>
+          </section>
+
+          <section class="dark-panel week-panel">
+            <div class="week-head"><div><div class="dark-kicker">Last 7 days</div><h2 class="dark-title">训练趋势</h2></div><div class="week-score">+18%</div></div>
+            <svg class="sparkline" viewBox="0 0 300 70" preserveAspectRatio="none" aria-label="近七日训练趋势图">
+              <defs><linearGradient id="areaFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#b9f6cd" stop-opacity=".22"/><stop offset="1" stop-color="#b9f6cd" stop-opacity="0"/></linearGradient></defs>
+              <path class="grid-line" d="M0 15H300M0 38H300M0 61H300"/><path class="area" d="M0 55 L50 42 L100 46 L150 22 L200 33 L250 16 L300 9 L300 70 L0 70Z"/><path class="trend" d="M0 55 L50 42 L100 46 L150 22 L200 33 L250 16 L300 9"/><circle cx="300" cy="9" r="4"/>
+            </svg>
+            <div class="days"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+          </section>
+        </aside>
+      </section>
+
+      <section class="bottom-grid">
+        <section class="activity-panel">
+          <div class="dark-kicker">Practice volume</div><h2 class="light-title">每周练习量</h2>
+          <div class="activity-chart" aria-label="每周练习量柱状图">
+            <div class="day-column"><div class="bar-stack"><i class="chart-bar secondary" style="height:43%"></i><i class="chart-bar" style="height:32%"></i></div><span>日</span></div>
+            <div class="day-column"><div class="bar-stack"><i class="chart-bar secondary" style="height:66%"></i><i class="chart-bar active" style="height:51%"></i></div><span>一</span></div>
+            <div class="day-column"><div class="bar-stack"><i class="chart-bar secondary" style="height:52%"></i><i class="chart-bar active" style="height:72%"></i></div><span>二</span></div>
+            <div class="day-column"><div class="bar-stack"><i class="chart-bar secondary" style="height:80%"></i><i class="chart-bar active" style="height:61%"></i></div><span>三</span></div>
+            <div class="day-column"><div class="bar-stack"><i class="chart-bar secondary" style="height:47%"></i><i class="chart-bar active" style="height:88%"></i></div><span>四</span></div>
+            <div class="day-column"><div class="bar-stack"><i class="chart-bar secondary" style="height:70%"></i><i class="chart-bar active" style="height:56%"></i></div><span>五</span></div>
+            <div class="day-column"><div class="bar-stack"><i class="chart-bar secondary" style="height:42%"></i><i class="chart-bar active" style="height:36%"></i></div><span>六</span></div>
+          </div>
+        </section>
+        <section class="note-panel">
+          <div class="dark-kicker">Learning note</div><h2 class="light-title">不要追求刷得快。</h2>
+          <p class="note-copy">真正的进步来自在快要忘记的时候，再次把知识从脑中取出来。今天的复习队列已经为你留好了位置。</p>
+          <div class="note-row"><span class="note-bullet"></span><span>下一次复习预计在明天 09:00</span></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <div class="modal-backdrop" id="practiceModal" aria-hidden="true">
+    <section class="practice-modal" role="dialog" aria-modal="true" aria-labelledby="modalQuestion">
+      <div class="modal-top"><span class="modal-step" id="modalStep">Question 01 / 04</span><button class="modal-close" type="button" id="closeModal" aria-label="关闭">×</button></div>
+      <div class="modal-content">
+        <div class="modal-tag" id="modalTag">Agent 基础 · 入门</div>
+        <h2 class="modal-question" id="modalQuestion">为什么 Agent 需要 Harness，而不只是一个更强的模型？</h2>
+        <p class="modal-context" id="modalContext">提示：从状态、工具、策略和可追踪性四个角度思考。面试时先给出结论，再补充一个真实场景。</p>
+        <div class="answer-list" id="answerList"></div>
+        <div class="feedback" id="feedback"></div>
+        <div class="modal-bottom"><span class="modal-hint">选择你认为最完整的一项</span><button class="submit-btn" type="button" id="submitAnswer">提交答案</button></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const questions = [
+      { id: 'agent-harness', domain: 'Agent 基础', title: '为什么 Agent 需要 Harness，而不只是一个更强的模型？', meta: 'Agent 基础 · 8 min', tag: '基础', tagClass: 'mint', status: 'now', context: '提示：从状态、工具、策略和可追踪性四个角度思考。面试时先给出结论，再补充一个真实场景。', options: ['Harness 只负责把模型接到一个聊天窗口。', 'Harness 负责把模型与状态、工具、权限、持久化和执行循环组合起来。', 'Harness 的作用是替代模型完成所有推理。', 'Harness 只是一套更复杂的 Prompt 模板。'], correct: 1, feedback: '答对了。模型提供推理能力，Harness 负责把它放进真实环境中持续、可控、可回放地工作。' },
+      { id: 'tool-calling-boundary', domain: 'Tool Calling', title: 'Tool Calling 设计中，为什么要把工具执行和模型决策分开？', meta: 'Tool Calling · 10 min', tag: '进阶', tagClass: 'orange', status: 'next', context: '试着区分“模型提出动作”和“系统真正产生副作用”这两个时刻。', options: ['为了让工具调用的 JSON 更短。', '为了让模型可以直接绕过权限检查。', '为了在执行前加入权限、审批、超时、重试和审计。', '为了让每个工具都必须使用不同的模型。'], correct: 2, feedback: '核心是控制副作用。模型只提出意图，执行层再经过策略和沙箱检查，才真正调用工具。' },
+      { id: 'rag-fallback', domain: 'RAG & Memory', title: '一个好的 RAG Agent，应该如何处理“检索不到答案”的情况？', meta: 'RAG & Memory · 12 min', tag: '进阶', tagClass: 'orange', status: 'next', context: '注意区分“没有相关证据”和“模型不知道如何表达”这两类失败。', options: ['强行生成一个看起来合理的答案。', '明确暴露证据不足，并请求补充信息或改变检索策略。', '把所有知识库内容都塞进上下文。', '直接重新启动整个 Agent。'], correct: 1, feedback: '好的 Agent 会把“不确定性”作为状态处理，而不是把检索失败伪装成确定答案。' },
+      { id: 'agent-evaluation', domain: 'Evaluation', title: '为什么评测 Agent 不能只看最后的文本答案？', meta: 'Evaluation · 15 min', tag: '薄弱项', tagClass: 'orange', status: 'next', context: '思考工具调用、过程约束、成本和最终结果之间的关系。', options: ['因为最终答案通常不重要。', '因为完整评测还需要关注轨迹、工具副作用、约束遵守和资源消耗。', '因为评测必须完全由另一个 Agent 完成。', '因为文本答案无法被保存。'], correct: 1, feedback: '最终答案只是一个切片。轨迹和环境状态能说明 Agent 是如何得到结果的，也决定结果是否可复现。' }
+    ];
+    const reviewQuestions = [questions[1], questions[2], questions[3]];
+    const PROGRESS_STORAGE_KEY = 'agent-trials.progress.v1';
+    const getLocalDateKey = () => {
+      const date = new Date();
+      const offset = date.getTimezoneOffset() * 60000;
+      return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+    };
+    const TODAY_KEY = getLocalDateKey();
+    const defaultProgress = {
+      version: 1,
+      day: TODAY_KEY,
+      completedToday: 6,
+      dailyGoal: 10,
+      streakDays: 12,
+      mastery: { 'Agent 基础': 78, 'Tool Calling': 64, 'RAG & Memory': 52, 'Evaluation': 41 },
+      attempts: []
+    };
+
+    // MVP storage adapter: the UI depends on this small interface, not on localStorage itself.
+    // Later, replace this adapter with GET/POST calls to the FastAPI + SQLite service.
+    const ProgressStore = {
+      load() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(PROGRESS_STORAGE_KEY) || 'null');
+          if (!saved || saved.version !== 1) return structuredClone(defaultProgress);
+          if (saved.day !== TODAY_KEY) return { ...structuredClone(defaultProgress), attempts: saved.attempts || [] };
+          return {
+            ...structuredClone(defaultProgress),
+            ...saved,
+            mastery: { ...defaultProgress.mastery, ...(saved.mastery || {}) },
+            attempts: Array.isArray(saved.attempts) ? saved.attempts : []
+          };
+        } catch (error) {
+          return structuredClone(defaultProgress);
+        }
+      },
+      save(progress) {
+        localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(progress));
+      }
+    };
+
+    const progress = ProgressStore.load();
+    let activeTab = 'today';
+    let activeQuestionIndex = 0;
+    let selectedAnswer = null;
+    let hasSubmitted = false;
+    let completed = progress.completedToday;
+
+    const queueList = document.getElementById('queueList');
+    const toast = document.getElementById('toast');
+    const modal = document.getElementById('practiceModal');
+    const feedback = document.getElementById('feedback');
+    const answerList = document.getElementById('answerList');
+    let toastTimer;
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('is-visible');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 2600);
+    }
+
+    function stateIcon(status) {
+      if (status === 'done') return '<svg viewBox="0 0 24 24"><path d="m6 12 4 4 8-8"/></svg>';
+      if (status === 'now') return '<svg viewBox="0 0 24 24"><path d="M9 6v12l10-6z"/></svg>';
+      return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg>';
+    }
+
+    function getVisibleQuestions() { return activeTab === 'today' ? questions : reviewQuestions; }
+
+    function isAnsweredToday(questionId) {
+      return progress.attempts.some(attempt => attempt.day === TODAY_KEY && attempt.questionId === questionId);
+    }
+
+    function getTodayAccuracy() {
+      const attempts = progress.attempts.filter(attempt => attempt.day === TODAY_KEY);
+      if (!attempts.length) return 82;
+      return Math.round((attempts.filter(attempt => attempt.isCorrect).length / attempts.length) * 100);
+    }
+
+    function renderMastery() {
+      document.querySelectorAll('.mastery-row').forEach(row => {
+        const label = row.querySelector('.mastery-label').textContent;
+        const value = progress.mastery[label] ?? 0;
+        row.querySelector('.mastery-value').textContent = `${value}%`;
+        row.querySelector('.bar i').style.width = `${value}%`;
+      });
+    }
+
+    function renderQueue() {
+      const items = getVisibleQuestions();
+      queueList.innerHTML = items.map((q, index) => {
+        const status = isAnsweredToday(q.id) ? 'done' : (activeTab === 'today' && index === 0 ? 'now' : q.status);
+        return `<button class="queue-item" type="button" data-question="${questions.indexOf(q)}">
+          <span class="queue-state ${status === 'done' ? 'is-done' : ''} ${status === 'now' ? 'is-now' : ''}">${stateIcon(status)}</span>
+          <span><strong class="queue-title">${q.title}</strong><span class="queue-meta"><span>${q.meta}</span><i></i><span>${status === 'now' ? '现在开始' : status === 'done' ? '已完成' : '待开始'}</span></span></span>
+          <span class="queue-tag ${q.tagClass}">${q.tag}</span>
+        </button>`;
+      }).join('');
+      queueList.querySelectorAll('.queue-item').forEach(item => item.addEventListener('click', () => openPractice(Number(item.dataset.question))));
+    }
+
+    function updateProgress() {
+      const percentage = Math.round((completed / 10) * 100);
+      document.getElementById('orbit').style.setProperty('--progress', `${percentage}%`);
+      document.getElementById('orbitValue').textContent = `${percentage}%`;
+      document.querySelector('.progress-caption strong').textContent = `${completed} / 10 题`;
+      document.querySelector('.progress-caption span').textContent = completed >= 10 ? '今日计划已经完成，做得漂亮。' : `还剩 ${10 - completed} 题，预计需要 ${Math.max(0, (10 - completed) * 6)} 分钟。`;
+      document.getElementById('accuracyValue').innerHTML = `${getTodayAccuracy()}% <em>已持久化</em>`;
+      renderMastery();
+    }
+
+    function openPractice(index = 0) {
+      activeQuestionIndex = index;
+      const q = questions[index];
+      selectedAnswer = null;
+      hasSubmitted = false;
+      document.getElementById('modalStep').textContent = `Question ${String(index + 1).padStart(2, '0')} / 04`;
+      document.getElementById('modalTag').textContent = `${q.meta.split(' · ')[0]} · ${q.tag}`;
+      document.getElementById('modalQuestion').textContent = q.title;
+      document.getElementById('modalContext').textContent = q.context;
+      document.getElementById('submitAnswer').textContent = '提交答案';
+      feedback.classList.remove('is-visible');
+      feedback.textContent = '';
+      answerList.innerHTML = q.options.map((option, i) => `<button class="answer-option" type="button" data-answer="${i}"><span class="answer-letter">${String.fromCharCode(65 + i)}</span><span>${option}</span></button>`).join('');
+      answerList.querySelectorAll('.answer-option').forEach(option => option.addEventListener('click', () => {
+        if (hasSubmitted) return;
+        selectedAnswer = Number(option.dataset.answer);
+        answerList.querySelectorAll('.answer-option').forEach(o => o.classList.remove('is-selected'));
+        option.classList.add('is-selected');
+      }));
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closePractice() {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+
+    document.querySelectorAll('[data-toast]').forEach(button => button.addEventListener('click', () => showToast(button.dataset.toast)));
+    document.querySelectorAll('.nav-item').forEach(item => item.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('is-active'));
+      item.classList.add('is-active');
+      const view = item.dataset.view;
+      if (view === 'practice') openPractice(0);
+      else if (view === 'review') { activeTab = 'review'; document.querySelectorAll('.tab').forEach(t => t.classList.toggle('is-active', t.dataset.tab === 'review')); renderQueue(); showToast('已切换到复习队列'); }
+      else if (view === 'library') showToast('题库正在准备中，先用示例题体验训练流程');
+      else showToast('你正在查看训练总览');
+    }));
+    document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
+      activeTab = tab.dataset.tab;
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('is-active', t === tab));
+      renderQueue();
+    }));
+    document.getElementById('startPractice').addEventListener('click', () => openPractice(0));
+    document.getElementById('quickReview').addEventListener('click', () => {
+      activeTab = 'review';
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('is-active', t.dataset.tab === 'review'));
+      renderQueue();
+      document.querySelector('.practice-panel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    document.getElementById('shuffleBtn').addEventListener('click', () => {
+      const list = activeTab === 'today' ? questions : reviewQuestions;
+      const next = list[Math.floor(Math.random() * list.length)];
+      showToast(`已为你换到：${next.tag} · ${next.title.slice(0, 15)}…`);
+    });
+    document.getElementById('closeModal').addEventListener('click', closePractice);
+    modal.addEventListener('click', event => { if (event.target === modal) closePractice(); });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && modal.classList.contains('is-open')) closePractice(); });
+    document.getElementById('submitAnswer').addEventListener('click', () => {
+      if (hasSubmitted) { closePractice(); return; }
+      if (selectedAnswer === null) { showToast('先选择一个答案，再提交。'); return; }
+      const q = questions[activeQuestionIndex];
+      const options = answerList.querySelectorAll('.answer-option');
+      options[q.correct].classList.add('is-correct');
+      if (selectedAnswer !== q.correct) options[selectedAnswer].classList.add('is-wrong');
+      feedback.textContent = (selectedAnswer === q.correct ? '✓ ' : '△ ') + q.feedback;
+      feedback.classList.add('is-visible');
+      hasSubmitted = true;
+      document.getElementById('submitAnswer').textContent = '完成并返回';
+      const isCorrect = selectedAnswer === q.correct;
+      const alreadyAnsweredToday = isAnsweredToday(q.id);
+      progress.attempts.push({
+        questionId: q.id,
+        domain: q.domain,
+        day: TODAY_KEY,
+        isCorrect,
+        selectedAnswer,
+        createdAt: new Date().toISOString()
+      });
+      if (!alreadyAnsweredToday) completed = Math.min(progress.dailyGoal, completed + 1);
+      progress.completedToday = completed;
+      const previousMastery = progress.mastery[q.domain] ?? 0;
+      progress.mastery[q.domain] = Math.max(0, Math.min(100, previousMastery + (isCorrect ? 4 : -5)));
+      ProgressStore.save(progress);
+      updateProgress();
+      renderQueue();
+      showToast('本次练习已保存到当前浏览器');
+    });
+
+    renderQueue();
+    updateProgress();
+  </script>
+</body>
+</html>
