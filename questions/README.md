@@ -30,4 +30,6 @@ type -> RendererPlugin -> EvaluatorPlugin -> SchedulerPlugin
 - [`feishu-agent-rag`](./collected/feishu-agent-rag/)：148 道，保留 Agent、RAG、Tool Calling、网络基础、Python 等原始分类。
 - [`feishu-llm-foundations`](./collected/feishu-llm-foundations/)：101 道，保留“大模型基础篇”来源分类，并增加 `derived_topic` 便于筛选。
 
+题库目录和题目文件名使用中文，方便直接在 GitHub 中阅读；每个题库 README 提供模块总览，题目内部的稳定 `id` 仍使用 ASCII 标识。
+
 所有导入题目的 `review_status` 初始为 `pending`。`source.url` 和 `source.block_id` 用于追溯原始题目；导入过程不会保存访问密码。

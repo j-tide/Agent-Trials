@@ -9,6 +9,32 @@ AGENT_SOURCE_URL = "https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRn
 LLM_SOURCE_URL = "https://dqej47nflyz.feishu.cn/wiki/O8KGwvToki7vbwkqKBbckhI1ngd"
 IMPORTED_AT = "2026-09-20"
 
+MODULE_DESCRIPTIONS = {
+  "Agent 基础" => "智能体基本概念、核心组成与典型工作方式。",
+  "Workflow vs Agent" => "工作流与智能体的差异、边界和选型判断。",
+  "上下文管理与记忆" => "上下文窗口、长期记忆、短期记忆与上下文治理。",
+  "Tool Calling / Function Call / MCP" => "工具调用、函数调用协议与 MCP 接入方式。",
+  "6.5 Multi-Agent" => "多智能体协作、角色分工与任务编排。",
+  "6.6 ReAct / 反思 / 任务规划" => "ReAct、反思机制、任务拆解与规划执行。",
+  "6.7 异常处理 / 安全 / 熔断" => "异常恢复、安全控制、限流与熔断策略。",
+  "幻觉与评测" => "幻觉识别、质量评测、可观测性与效果验证。",
+  "Prompt 工程" => "提示词设计、结构化输出与提示词优化。",
+  "模型相关" => "模型能力、模型选择、微调与推理相关问题。",
+  "工程化与部署" => "服务化、部署、性能、稳定性与生产工程实践。",
+  "Agent 场景设计题" => "面向真实业务的智能体方案设计与落地思路。",
+  "网络基础八股文" => "网络协议、通信机制与服务端基础知识。",
+  "Python 相关基础八股文" => "Python 语言、运行时与工程开发基础。",
+  "AI大模型基础篇" => "大模型应用开发的来源分类，保留原始题库语义。",
+  "模型基础" => "模型原理、能力边界、训练微调、推理与多模态。",
+  "行业应用" => "AI 在云盘、客服等行业场景中的应用与落地。",
+  "RAG 与知识库" => "检索增强生成、向量检索、嵌入与知识库。",
+  "工程实践" => "项目架构、环境、类型安全、性能与工程质量。",
+  "Agent 与工具" => "智能体、工具使用、多轮交互与任务执行。",
+  "LangChain" => "LangChain 核心组件、生态与应用开发。",
+  "安全与合规" => "安全、隐私、风险控制与合规要求。",
+  "Prompt 与推理" => "提示词、推理过程、上下文与输出控制。"
+}.freeze
+
 def load_export(path)
   value = JSON.parse(File.read(path, encoding: "UTF-8"))
   value = JSON.parse(value) if value.is_a?(String)
@@ -210,39 +236,96 @@ def extract_llm_questions(blocks)
   questions
 end
 
-def slug_for_category(category)
+def directory_for_category(category)
   mapping = {
-    "Agent 基础" => "agent-basics",
-    "Workflow vs Agent" => "workflow-vs-agent",
-    "上下文管理与记忆" => "context-and-memory",
-    "Tool Calling / Function Call / MCP" => "tool-calling-function-call-mcp",
-    "6.5 Multi-Agent" => "multi-agent",
-    "6.6 ReAct / 反思 / 任务规划" => "react-reflection-planning",
-    "6.7 异常处理 / 安全 / 熔断" => "error-security-circuit-breaker",
-    "幻觉与评测" => "hallucination-and-evaluation",
-    "Prompt 工程" => "prompt-engineering",
-    "模型相关" => "model",
-    "工程化与部署" => "engineering-and-deployment",
-    "Agent 场景设计题" => "agent-scenarios",
-    "网络基础八股文" => "network-basics",
-    "Python 相关基础八股文" => "python-basics",
-    "AI大模型基础篇" => "ai-llm-basics"
+    "Agent 基础" => "智能体基础",
+    "Workflow vs Agent" => "工作流与智能体",
+    "上下文管理与记忆" => "上下文管理与记忆",
+    "Tool Calling / Function Call / MCP" => "工具调用-函数调用-MCP",
+    "6.5 Multi-Agent" => "多智能体",
+    "6.6 ReAct / 反思 / 任务规划" => "ReAct-反思-任务规划",
+    "6.7 异常处理 / 安全 / 熔断" => "异常处理-安全-熔断",
+    "幻觉与评测" => "幻觉与评测",
+    "Prompt 工程" => "提示词工程",
+    "模型相关" => "模型相关",
+    "工程化与部署" => "工程化与部署",
+    "Agent 场景设计题" => "智能体场景设计题",
+    "网络基础八股文" => "网络基础八股文",
+    "Python 相关基础八股文" => "Python 基础八股文",
+    "AI大模型基础篇" => "大模型基础篇"
   }
-  mapping.fetch(category) { "other" }
+  mapping.fetch(category) { "其他" }
+end
+
+def directory_for_module(module_name)
+  mapping = {
+    "模型基础" => "模型基础",
+    "行业应用" => "行业应用",
+    "RAG 与知识库" => "RAG 与知识库",
+    "工程实践" => "工程实践",
+    "Agent 与工具" => "智能体与工具",
+    "LangChain" => "LangChain",
+    "安全与合规" => "安全与合规",
+    "Prompt 与推理" => "提示词与推理"
+  }
+  mapping.fetch(module_name) { directory_for_category(module_name) }
+end
+
+def module_name_for(pack_id, question)
+  pack_id == "feishu-llm-foundations" ? question.fetch("derived_topic") : question.fetch("category")
+end
+
+def module_directory_for(pack_id, module_name)
+  pack_id == "feishu-llm-foundations" ? directory_for_module(module_name) : directory_for_category(module_name)
+end
+
+def module_label_for(pack_id, module_name)
+  module_directory_for(pack_id, module_name)
+end
+
+def filename_title(title)
+  normalized = title.to_s.strip.sub(/\A\d+\s*[-—、.．:：]\s*/, "")
+  normalized = normalized.gsub(/[？?]/, "")
+  normalized = normalized.gsub(/["“”]/, "")
+  normalized = normalized.gsub(%r{[\\/:*<>|]}, "-")
+  normalized = normalized.gsub(/\s+/, " ").strip
+  normalized = normalized.gsub(/[。！？?!．.]+\z/, "")
+  normalized = normalized.gsub(/\A[. ]+|[. ]+\z/, "")
+  normalized.empty? ? "未命名题目" : normalized
+end
+
+def question_filename(question, used_names)
+  ordinal = question.fetch("id").match(/-(\d+)-/)&.[](1).to_i
+  base = "#{format('%03d', ordinal)}-#{filename_title(question.fetch('title'))}"
+  filename = "#{base}.yaml"
+  unless used_names[filename].nil?
+    digest = question.fetch("source").fetch("block_id").to_s[-8, 8]
+    filename = "#{base}-#{digest}.yaml"
+  end
+  used_names[filename] = true
+  filename
+end
+
+def module_description(module_name)
+  MODULE_DESCRIPTIONS.fetch(module_name) { "按题库来源分类整理，后续可继续细分。" }
 end
 
 def write_pack(root, pack_id, title, source_url, questions)
   pack_root = File.join(root, pack_id)
   FileUtils.mkdir_p(pack_root)
+  used_names = {}
 
   questions.each do |question|
-    category_dir = File.join(pack_root, slug_for_category(question.fetch("category")))
-    FileUtils.mkdir_p(category_dir)
-    path = File.join(category_dir, "#{question.fetch('id')}.yaml")
+    module_name = module_name_for(pack_id, question)
+    module_dir = File.join(pack_root, module_directory_for(pack_id, module_name))
+    FileUtils.mkdir_p(module_dir)
+    path = File.join(module_dir, question_filename(question, used_names))
     File.write(path, question.to_yaml, mode: "w", encoding: "UTF-8")
   end
 
   category_counts = questions.group_by { |question| question.fetch("category") }
+    .transform_values(&:length)
+  module_counts = questions.group_by { |question| module_name_for(pack_id, question) }
     .transform_values(&:length)
   manifest = {
     "schema_version" => 1,
@@ -256,10 +339,21 @@ def write_pack(root, pack_id, title, source_url, questions)
       "imported_at" => IMPORTED_AT
     },
     "question_count" => questions.length,
-    "categories" => category_counts
+    "categories" => category_counts,
+    "modules" => module_counts
   }
   File.write(File.join(pack_root, "manifest.yaml"), manifest.to_yaml, mode: "w", encoding: "UTF-8")
 
+  module_rows = module_counts.map do |module_name, count|
+    directory = module_directory_for(pack_id, module_name)
+    label = module_label_for(pack_id, module_name)
+    "| #{label} | #{count} | [打开模块](<./#{directory}/>) | #{module_description(module_name)} |"
+  end.join("\n")
+  classification_note = if pack_id == "feishu-llm-foundations"
+    "保留来源分类 `AI大模型基础篇`，并根据题目标题生成 `derived_topic` 作为刷题模块。"
+  else
+    "按飞书原始分类整理，每个模块对应一个中文目录。"
+  end
   readme = <<~MARKDOWN
     # #{title}
 
@@ -268,7 +362,19 @@ def write_pack(root, pack_id, title, source_url, questions)
     - 题目数量：#{questions.length}
     - 状态：已导入，待校对
 
-    题目文件按来源分类保存。`source` 字段保留了原始飞书 block id，`answer.reference_answer` 保留原文解析。
+    ## 模块总览
+
+    #{classification_note}
+
+    | 模块 | 题量 | 目录 | 覆盖内容 |
+    | --- | ---: | --- | --- |
+    #{module_rows}
+
+    ## 数据说明
+
+    题目文件名使用“序号-中文题目.yaml”，方便在 GitHub 中直接浏览；文件内的 `id` 保持稳定，用于统计、答题记录和后续同步。
+
+    `source` 字段保留原始飞书 block id，`answer.reference_answer` 保留原文解析。
   MARKDOWN
   File.write(File.join(pack_root, "README.md"), readme, mode: "w", encoding: "UTF-8")
 end
