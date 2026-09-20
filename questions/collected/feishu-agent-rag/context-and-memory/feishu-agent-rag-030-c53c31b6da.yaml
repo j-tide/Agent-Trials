@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-agent-rag-030-c53c31b6da
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何构建工具实现 memory 记忆，让大模型在长期对话中学习用户习惯？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 上下文管理与记忆
+derived_topic: 
+tags:
+- 上下文管理与记忆
+content:
+  prompt: 如何构建工具实现 memory 记忆，让大模型在长期对话中学习用户习惯？
+answer:
+  mode: rubric
+  reference_answer: "这是一个工程实现题，需要给出完整的技术方案：\n\n架构设计：\n\n```text\n用户对话 → Memory Manager
+    → 习惯提取器（LLM） → 用户画像存储\n                ↓\n         向量数据库 ← 嵌入模型 ← 对话摘要\n                ↓\n
+    \        下次对话时检索相关记忆 → 注入上下文\n```\n\n核心组件实现：\n\n（1）习惯提取器\n\n```python\ndef extract_user_preferences(conversation):\n
+    \   prompt = \"\"\"分析以下对话，提取用户的偏好和习惯：\n    - 技术偏好（语言、框架、工具）\n    - 沟通风格（简洁/详细、技术/非技术）\n
+    \   - 工作模式（喜欢先规划还是直接动手）\n    - 其他个性化偏好\n    \n    输出JSON格式：\n    {\"preferences\":
+    [...], \"habits\": [...], \"style\": {...}}\n    \"\"\"\n    return llm.call(prompt
+    + conversation)\n```\n\n（2）用户画像存储\n\n```python\n# 使用向量 + KV 混合存储\nclass UserProfile:\n
+    \   def __init__(self, user_id):\n        self.kv_store = Redis()           #
+    结构化偏好\n        self.vector_db = Qdrant()          # 语义化记忆\n    \n    def update_preference(self,
+    key, value, confidence):\n        existing = self.kv_store.get(f\"pref:{key}\")\n
+    \       if existing and existing.confidence > confidence:\n            return
+    \ # 保留置信度更高的\n        self.kv_store.set(f\"pref:{key}\", {\n            \"value\":
+    value, \n            \"confidence\": confidence,\n            \"updated_at\":
+    now()\n        })\n    \n    def add_memory(self, text, metadata):\n        embedding
+    = embed_model.encode(text)\n        self.vector_db.upsert(embedding, text, metadata)\n```\n\n（3）习惯学习的渐进过程\n\n-
+    第 1 次交互：记录基础偏好（语言、风格）\n\n- 第 3-5 次交互：提炼交互模式（喜欢什么类型的回答）\n\n- 第 10+ 次交互：形成稳定的用户画像，可以预测用户需求\n\n（4）习惯应用\n\n```python\ndef
+    build_context(user_id, current_query):\n    profile = UserProfile(user_id)\n    preferences
+    = profile.get_all_preferences()\n    relevant_memories = profile.search_memories(current_query,
+    top_k=5)\n    \n    system_prompt += f\"\\n\\n用户偏好：{preferences}\"\n    system_prompt
+    += f\"\\n\\n相关历史：{relevant_memories}\"\n    return system_prompt\n```\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - 上下文管理与记忆
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: Vtb6dRli4oUN8SxoyGFcbZ7SnLe
+  original_title: 如何构建工具实现 memory 记忆，让大模型在长期对话中学习用户习惯？
+  imported_at: '2026-09-20'

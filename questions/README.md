@@ -24,3 +24,10 @@ type -> RendererPlugin -> EvaluatorPlugin -> SchedulerPlugin
 `id` 必须保持稳定；修改题目内容时递增 `version`。答题记录会保存题目版本和题库 commit，保证历史结果可复现。
 
 如果仓库公开，`answer` 也会被用户下载。个人学习版可以直接这样存放；需要防止提前查看答案时，应将答案和评分标准放到后端或私有题库仓库。
+
+## 已导入题库
+
+- [`feishu-agent-rag`](./collected/feishu-agent-rag/)：148 道，保留 Agent、RAG、Tool Calling、网络基础、Python 等原始分类。
+- [`feishu-llm-foundations`](./collected/feishu-llm-foundations/)：101 道，保留“大模型基础篇”来源分类，并增加 `derived_topic` 便于筛选。
+
+所有导入题目的 `review_status` 初始为 `pending`。`source.url` 和 `source.block_id` 用于追溯原始题目；导入过程不会保存访问密码。

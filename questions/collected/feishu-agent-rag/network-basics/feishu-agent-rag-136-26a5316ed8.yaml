@@ -1,0 +1,138 @@
+---
+schema_version: 1
+id: feishu-agent-rag-136-26a5316ed8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: MCP 通信方式（SSE / stdio 等）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 网络基础八股文
+derived_topic: 
+tags:
+- 网络基础八股文
+content:
+  prompt: MCP 通信方式（SSE / stdio 等）
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### 什么是 MCP
+
+    MCP（Model Context Protocol，模型上下文协议）是由 Anthropic 提出的开放标准协议，用于标准化 AI 模型（LLM）与外部工具、数据源、服务之间的通信方式。MCP 采用 JSON-RPC 2.0 作为消息编码格式，定义了客户端（通常是 AI 应用/Agent）与服务器（提供工具/数据能力）之间的标准化交互协议。
+
+    ### MCP 的三种传输方式
+
+    MCP 协议目前定义了三种标准传输机制：
+
+    ### ① stdio（标准输入输出）
+
+    原理：MCP 客户端将 MCP 服务器作为子进程启动，通过 stdin/stdout 进行 JSON-RPC 消息的双向通信。消息以换行符分隔，不能包含内嵌换行。
+
+    特点：
+
+    • 本地通信，零网络开销，延迟极低（微秒级）。
+
+    • 不需要网络配置，安全性高（进程级隔离）。
+
+    • 适合 CLI 工具、本地文件操作、代码分析等场景。
+
+    • 每个客户端启动独立的服务器进程，不支持多客户端共享。
+
+    • Claude Desktop、Cursor 等 IDE 工具中的本地 MCP 集成主要使用 stdio。
+
+    典型配置：
+
+    { 'mcpServers': { 'example': { 'command': 'node', 'args': ['server.js'] } } }
+
+    ### ② SSE（Server-Sent Events）—— 已被标记为 Legacy
+
+    原理：MCP 服务器提供两个 HTTP 端点——GET /sse 用于建立 SSE 长连接（服务器向客户端推送），POST /messages 用于客户端向服务器发送请求。
+
+    特点：
+
+    • 支持远程通信，可部署在不同机器上。
+
+    • 支持多客户端并发连接。
+
+    • 基于 HTTP 协议，可使用标准的 HTTP 认证和中间件。
+
+    • 需要维护两个端点，架构较复杂。
+
+    重要说明：在 2025 年 3 月发布的 MCP 规范更新中，SSE 传输方式已被标记为 Legacy（遗留方案），被 Streamable HTTP 取代。现有 SSE 实现仍被支持以保持向后兼容。
+
+    ### ③ Streamable HTTP（推荐的远程传输方式）
+
+    原理：使用单一的 HTTP 端点处理所有 MCP 通信。客户端通过 HTTP POST 发送 JSON-RPC 请求，服务器可以选择：a) 直接返回 JSON 响应（简单请求-响应模式）；b) 返回 SSE 流来传输多个消息或通知（流式模式）。客户端也可通过 HTTP GET 建立 SSE 连接以接收服务器主动推送。
+
+    特点：
+
+    • 单一端点，架构更简洁。
+
+    • 灵活性高——既支持简单的请求-响应，也支持流式通信。
+
+    • 支持 Session 管理（通过 Mcp-Session-Id 头）。
+
+    • 支持标准 HTTP 认证（OAuth 等）。
+
+    • 可水平扩展，适合云部署。
+
+    • 是 MCP 规范推荐的远程通信标准。
+
+    ### 如何选择
+
+    本地工具/CLI 集成 → stdio（简单高效）。
+
+    远程服务/云部署/多客户端 → Streamable HTTP（推荐）。
+
+    向后兼容已有 SSE 服务器 → SSE（Legacy，建议逐步迁移）。
+
+    面试加分：MCP 的传输层是可插拔的，开发者也可以实现自定义传输方式，只要遵循双向消息交换的 Transport 接口即可。例如 Cloudflare 还实现了基于 Durable Objects 的 RPC 传输方式，无需经过公网。
+
+    ### 二、Python 相关基础八股文
+
+    - Python 中的 GIL 锁？
+
+    - with 语句了解么？
+
+    - 深拷贝、浅拷贝？用什么方法实现？
+
+    - 装饰器知道吗？介绍一下 Python 中的装饰器及其应用场景
+
+    - 迭代器和生成器区别？
+
+    - 代码慢（瓶颈）分析？用什么工具？
+
+    - 什么是协程，它和线程有什么区别？
+
+    - Python 的 multiprocessing 和 threading 你会如何结合使用来提高整体吞吐量？
+
+    - asyncio.gather 和 asyncio.as_completed 在并发请求多个模型接口时有什么区别？如果其中一个接口超时，如何做降级？
+
+    - Python 中列表和元组的区别？
+
+    - Python 的 subprocess 库是什么？什么是进程？什么是协程？
+
+    - 在使用 FastAPI 开发大模型接口时，中间件和依赖注入分别适合处理什么样的业务逻辑？
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - 网络基础八股文
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: G9EMdgaipoKBVox6H21cjtfnnHc
+  original_title: MCP 通信方式（SSE / stdio 等）
+  imported_at: '2026-09-20'

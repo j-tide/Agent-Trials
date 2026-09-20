@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-agent-rag-098-b190c503c5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: vLLM 的 PagedAttention 原理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 模型相关
+derived_topic: 
+tags:
+- 模型相关
+content:
+  prompt: vLLM 的 PagedAttention 原理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    核心问题：传统 LLM 推理中，KV Cache 的内存管理极其浪费——系统为每个请求预分配固定大小的连续内存块，导致 60-80% 的内存被浪费（内部碎片、外部碎片、预留浪费）。
+
+    PagedAttention 的核心思想：借鉴操作系统的虚拟内存分页机制来管理 KV Cache。
+
+    类比理解：
+
+    ```text
+    操作系统                    vLLM
+    ──────────                ──────
+    进程 → 虚拟内存             请求 → 逻辑 KV Block
+    物理内存页框                物理 KV Block（GPU 显存）
+    页表                       Block Table
+    按需分配页                  按需分配 KV Block
+    ```
+
+    工作原理：
+
+    - 分块存储：将 KV Cache 切分为固定大小的 Block（如每 Block 存 16 个 Token 的 K/V 向量），Block 不需要连续存储
+
+    - 逻辑-物理映射：每个请求维护一个 Block Table，记录逻辑 Block 到物理 Block 的映射关系
+
+    - 按需分配：
+
+    ```text
+    Token 1-16 → 分配 Physical Block A
+    Token 17-32 → 分配 Physical Block B（可以在显存任意位置）
+    Token 33 生成 → Block B 还有空间，直接写入
+    Token 49 生成 → Block B 已满，从空闲池分配 Physical Block C
+    ```
+
+    - 注意力计算：PagedAttention Kernel 遍历 Block Table，按正确的逻辑顺序访问物理 Block 中的 K/V 向量计算注意力，数学上与标准注意力完全等价
+
+    - 内存回收：请求结束后，其 Block 立即归还空闲池，供其他请求复用
+
+    三大优势：
+
+    - 消除碎片：所有 Block 大小相同，无外部碎片；按需分配，极少内部碎片。内存浪费从 60-80% 降至 4% 以下
+
+    - 内存共享：多个请求共享相同前缀时（如共享 System Prompt），物理 Block 可以被多个请求的 Block Table 引用（Copy-on-Write），Beam Search 场景节省 55% 内存
+
+    - 灵活调度：Block 可以被换出到 CPU 内存或重新计算，实现灵活的内存压力管理
+
+    性能数据：vLLM 相比 HuggingFace Transformers 推理吞吐量提升 2-24 倍，GPU 利用率通常超过 90%。单 Kernel 延迟增加约 20-26%，但因可并发处理更多请求，端到端吞吐量大幅提升。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - 模型相关
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: CylVd9n3qoUFHLxgvARcehIynac
+  original_title: vLLM 的 PagedAttention 原理？
+  imported_at: '2026-09-20'

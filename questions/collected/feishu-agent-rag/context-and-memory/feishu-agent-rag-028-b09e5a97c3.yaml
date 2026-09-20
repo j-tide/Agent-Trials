@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-agent-rag-028-b09e5a97c3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Agent 是怎么实现上下文记忆的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 上下文管理与记忆
+derived_topic: 
+tags:
+- 上下文管理与记忆
+content:
+  prompt: Agent 是怎么实现上下文记忆的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    从系统实现角度，Agent 的上下文记忆通过以下技术栈实现：
+
+    短期记忆实现：
+
+    ```text
+    用户消息 → 追加到 messages 列表 → 作为 LLM 输入的一部分
+    LLM 响应 → 追加到 messages 列表
+    工具结果 → 追加到 messages 列表
+
+    每次调用 LLM 时：
+      input = system_prompt + messages[-N:] + current_query
+    ```
+
+    - 数据结构：有序的 Message 列表
+
+    - 存储：内存中的列表/数组，或 Redis 等缓存
+
+    - 管理：FIFO 队列 + 重要消息标记保护
+
+    长期记忆实现：
+
+    ```text
+    1. 写入阶段：
+       对话结束 → 提取关键信息 → 生成嵌入向量 → 写入向量数据库
+                                → 结构化提取 → 写入关系数据库
+
+    2. 读取阶段：
+       新会话开始 → 用户输入生成查询向量 → 向量数据库检索 Top-K
+                  → 拼接为上下文注入到 System Prompt 末尾
+
+    3. 更新阶段：
+       检测到新信息与已有记忆冲突 → 更新或覆盖旧记忆
+    ```
+
+    具体技术选型：
+
+    - 短期记忆：Redis（TTL 自动过期）、内存数据结构
+
+    - 长期记忆存储：Qdrant / Milvus / Pinecone（向量）+ PostgreSQL（结构化）
+
+    - 嵌入模型：OpenAI text-embedding-3-large / BGE / E5
+
+    - 检索策略：向量相似度 + 关键词混合检索（Hybrid Search）
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - 上下文管理与记忆
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: AKT9doqceoZ6PFx4OUccLxlbnab
+  original_title: Agent 是怎么实现上下文记忆的？
+  imported_at: '2026-09-20'

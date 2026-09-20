@@ -1,0 +1,94 @@
+---
+schema_version: 1
+id: feishu-agent-rag-035-cf76ce8419
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 记忆更新时能否精准替换指定片段，还是需要全量清空重建？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 上下文管理与记忆
+derived_topic: 
+tags:
+- 上下文管理与记忆
+content:
+  prompt: 记忆更新时能否精准替换指定片段，还是需要全量清空重建？
+answer:
+  mode: rubric
+  reference_answer: |-
+    结论：可以精准替换，且推荐精准替换而非全量重建。
+
+    精准替换的实现方式：
+
+    （1）基于 Key 的精准更新
+
+    ```python
+    # 向量数据库支持按 ID 更新
+    vector_db.upsert(
+        id="user_123:preference:language",  # 唯一 ID
+        vector=new_embedding,
+        payload=new_data
+    )
+    # 只更新这一条记忆，其他不变
+    ```
+
+    （2）基于语义匹配的定向更新
+
+    ```python
+    # 查找与新信息语义相似的旧记忆
+    similar_memories = vector_db.search(
+        query_vector=embed(new_info),
+        filter={"user_id": user_id},
+        score_threshold=0.9  # 高相似度才认为是同一主题
+    )
+
+    if similar_memories:
+        # 合并或替换
+        for mem in similar_memories:
+            merged = llm.merge(mem.text, new_info)
+            vector_db.upsert(id=mem.id, vector=embed(merged), payload=merged)
+    else:
+        # 作为新记忆插入
+        vector_db.insert(new_info)
+    ```
+
+    （3）版本化更新
+
+    - 不删除旧记忆，而是标记为"deprecated"并添加新版本
+
+    - 好处：可以追溯历史变化，支持回滚
+
+    - 查询时只检索最新版本
+
+    全量清空重建的场景：
+
+    - 用户主动要求"清除所有记忆"
+
+    - 系统检测到画像严重失真（如大量矛盾信息）
+
+    - 向量数据库 Schema 升级
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - 上下文管理与记忆
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: NLLSdFnFbo5nlsxHGZQcM6Qln0b
+  original_title: 记忆更新时能否精准替换指定片段，还是需要全量清空重建？
+  imported_at: '2026-09-20'

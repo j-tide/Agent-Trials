@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-agent-rag-070-f6b2299989
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对于 Agent 有没有什么熔断机制？基模卡死了，后端是否有什么保底机制？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 6.7 异常处理 / 安全 / 熔断
+derived_topic: 
+tags:
+- 6.7 异常处理 / 安全 / 熔断
+content:
+  prompt: 对于 Agent 有没有什么熔断机制？基模卡死了，后端是否有什么保底机制？
+answer:
+  mode: rubric
+  reference_answer: "熔断机制设计：\n\n```python\nclass CircuitBreaker:\n    CLOSED = \"closed\"
+    \     # 正常状态\n    OPEN = \"open\"          # 熔断状态（拒绝请求）\n    HALF_OPEN = \"half_open\"
+    # 试探状态\n    \n    def __init__(self, failure_threshold=5, recovery_timeout=60):\n
+    \       self.state = self.CLOSED\n        self.failure_count = 0\n        self.failure_threshold
+    = failure_threshold\n        self.recovery_timeout = recovery_timeout\n    \n
+    \   def call(self, func):\n        if self.state == self.OPEN:\n            if
+    time_since_open > self.recovery_timeout:\n                self.state = self.HALF_OPEN\n
+    \           else:\n                return self.fallback()  # 直接走降级方案\n        \n
+    \       try:\n            result = func()\n            if self.state == self.HALF_OPEN:\n
+    \               self.state = self.CLOSED\n                self.failure_count =
+    0\n            return result\n        except Exception:\n            self.failure_count
+    += 1\n            if self.failure_count >= self.failure_threshold:\n                self.state
+    = self.OPEN\n            raise\n```\n\n保底机制：\n\n- 模型降级：主模型（GPT-5）不可用 → 切换到备用模型（Claude/Gemini）\n\n-
+    缓存兜底：对常见问题缓存回答，模型不可用时返回缓存\n\n- 预设回复：完全不可用时返回礼貌的\"系统繁忙\"提示\n\n- 队列缓冲：请求量突增时使用消息队列削峰，避免打爆后端\n\n-
+    超时控制：每次 LLM 调用设置 30-60 秒超时，避免无限等待\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - 6.7 异常处理 / 安全 / 熔断
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: KiAOdvAMFo4CdyxaOc3cjuTknLc
+  original_title: 对于 Agent 有没有什么熔断机制？基模卡死了，后端是否有什么保底机制？
+  imported_at: '2026-09-20'

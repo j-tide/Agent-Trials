@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-agent-rag-097-d8ce4c5ae4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 模型预热机制
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 模型相关
+derived_topic: 
+tags:
+- 模型相关
+content:
+  prompt: 模型预热机制
+answer:
+  mode: rubric
+  reference_answer: "什么是模型预热（Model Warm-up）：\n\n模型预热是指在正式服务请求前，通过发送预设请求让模型完成初始化加载，避免首次请求的高延迟。\n\n为什么需要预热：\n\n-
+    模型加载延迟：大模型首次加载到 GPU 需要数十秒\n\n- KV Cache 初始化：首次推理需要初始化注意力缓存\n\n- CUDA 编译：部分算子首次执行时需要
+    JIT 编译\n\n- 连接池建立：API 调用需要建立 TCP 连接池\n\n预热实现：\n\n```python\nclass ModelWarmup:\n
+    \   def __init__(self, model):\n        self.model = model\n    \n    def warmup(self):\n
+    \       \"\"\"部署后立即执行预热\"\"\"\n        # 1. 发送短文本请求（触发模型加载）\n        self.model.generate(\"Hello\",
+    max_tokens=5)\n        \n        # 2. 发送长文本请求（触发KV Cache扩展）\n        long_text
+    = \"test \" * 1000\n        self.model.generate(long_text, max_tokens=5)\n        \n
+    \       # 3. 触发工具调用路径\n        self.model.generate(\"What's the weather?\", tools=[...],
+    max_tokens=50)\n        \n        print(\"Warmup complete, model ready to serve\")\n\n#
+    部署脚本中\napp = FastAPI()\n\n@app.on_event(\"startup\")\nasync def startup():\n    warmup
+    = ModelWarmup(model)\n    warmup.warmup()\n```\n\nAPI 调用场景的预热：\n\n- 建立 HTTP 连接池（Connection
+    Pooling）\n\n- 发送测试请求验证 API Key 和网络连通性\n\n- 缓存 System Prompt 的 Prompt Cache\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - 模型相关
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: Ezt0drG5aon4M8x8EG2c52sWnzg
+  original_title: 模型预热机制
+  imported_at: '2026-09-20'

@@ -1,0 +1,119 @@
+---
+schema_version: 1
+id: feishu-agent-rag-039-35cd8a72ce
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 介绍一下 Function Call 原理，模型生成的 JSON 如何通过逻辑触发表层代码执行并返回给模型？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Tool Calling / Function Call / MCP
+derived_topic: 
+tags:
+- Tool Calling / Function Call / MCP
+content:
+  prompt: 介绍一下 Function Call 原理，模型生成的 JSON 如何通过逻辑触发表层代码执行并返回给模型？
+answer:
+  mode: rubric
+  reference_answer: |-
+    模型是如何知道该调用哪个工具的？
+
+    这是一个非常关键的底层问题，需要从训练和推理两个阶段回答：
+
+    训练阶段：
+
+    - 模型在 SFT（有监督微调）和 RLHF 阶段被训练了大量的"工具调用"样本
+
+    - 训练数据包含：用户请求 + 工具描述 → 正确的 tool_call JSON 输出
+
+    - 模型学会了根据用户意图和工具描述之间的语义匹配来选择工具
+
+    - 本质上是指令跟随 + 语义匹配能力的结合
+
+    推理阶段的决策机制：
+
+    - 工具描述作为 System Prompt 的一部分被注入上下文
+
+    - 模型看到用户请求后，进行语义理解
+
+    - 将用户意图与每个工具的 description 和 parameters 做语义匹配
+
+    - 如果匹配度高，模型决定输出特殊的 tool_call 格式（而非普通文本）
+
+    - 参数提取：模型从用户输入中抽取与工具参数 Schema 对应的值
+
+    JSON 触发执行的完整链路：
+
+    ```python
+    # 1. 定义工具 Schema
+    tools = [{
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "获取指定城市的天气信息",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "city": {"type": "string", "description": "城市名称"},
+                    "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]}
+                },
+                "required": ["city"]
+            }
+        }
+    }]
+
+    # 2. 调用模型
+    response = llm.chat(messages=[{"role": "user", "content": "北京今天天气怎么样？"}], tools=tools)
+
+    # 3. 模型返回 tool_call（而非普通文本）
+    # response.choices[0].message.tool_calls = [
+    #   {"id": "call_abc", "function": {"name": "get_weather", "arguments": '{"city": "北京"}'}}
+    # ]
+
+    # 4. 应用层解析并执行
+    tool_call = response.choices[0].message.tool_calls[0]
+    func_name = tool_call.function.name      # "get_weather"
+    func_args = json.loads(tool_call.function.arguments)  # {"city": "北京"}
+
+    # 5. 通过函数注册表找到并执行真实函数
+    tool_registry = {"get_weather": real_get_weather_api}
+    result = tool_registry[func_name](**func_args)  # 调用真实 API
+
+    # 6. 将结果回传给模型
+    messages.append({"role": "tool", "tool_call_id": "call_abc", "content": str(result)})
+    final_response = llm.chat(messages=messages, tools=tools)
+    # 模型基于天气数据生成自然语言回答
+    ```
+
+    关键工程细节：
+
+    - 工具描述的质量直接影响调用准确率——描述越清晰、参数定义越准确，模型选择越精准
+
+    - 工具数量过多时，模型可能选择错误（因为上下文中的工具描述太多，混淆度增加）
+
+    - 并行调用：部分模型支持一次返回多个 tool_call，可并行执行提升效率
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - Tool Calling / Function Call / MCP
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: QyOOdRahdo4W3BxNI5icXalInAh
+  original_title: 介绍一下 Function Call 原理，模型生成的 JSON 如何通过逻辑触发表层代码执行并返回给模型？
+  imported_at: '2026-09-20'

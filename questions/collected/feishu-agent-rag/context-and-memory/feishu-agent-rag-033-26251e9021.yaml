@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-agent-rag-033-26251e9021
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何进行记忆管理，怎么处理长上下文，怎么进行持久化，后续怎么读取和关联？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 上下文管理与记忆
+derived_topic: 
+tags:
+- 上下文管理与记忆
+content:
+  prompt: 如何进行记忆管理，怎么处理长上下文，怎么进行持久化，后续怎么读取和关联？
+answer:
+  mode: rubric
+  reference_answer: "这是一道综合题，需要端到端地回答整个记忆生命周期：\n\n记忆管理全生命周期：\n\n阶段一：采集与存储\n\n```text\n对话消息
+    → 实时写入 Redis（短期，TTL=session_duration）\n                ↓\n会话结束 → 触发记忆提取 Pipeline：\n
+    \ 1. 关键信息提取（LLM）→ 结构化 JSON\n  2. 用户偏好更新 → PostgreSQL\n  3. 对话摘要生成 → 向量化 → Qdrant\n
+    \ 4. 实体关系提取 → 知识图谱（Neo4j / 或简单的 JSON）\n```\n\n阶段二：长上下文处理\n\n```text\nif total_tokens
+    < 0.7 * max_window:\n    # 无需处理，直接使用全量上下文\n    pass\nelif total_tokens < 0.9 *
+    max_window:\n    # 轻度压缩：对早期对话生成摘要\n    compressed = summarize(messages[:oldest_k])\n
+    \   messages = [compressed] + messages[oldest_k:]\nelse:\n    # 重度压缩：只保留摘要 + 最近几轮\n
+    \   summary = summarize(all_messages_except_recent_5)\n    messages = [summary]
+    + messages[-5:]\n```\n\n阶段三：持久化\n\n```text\n存储层设计：\n├── Redis（热存储）\n│   ├── session:{session_id}:messages
+    \   # 当前会话消息\n│   └── session:{session_id}:state       # Agent 状态\n├── PostgreSQL（温存储）\n│
+    \  ├── user_profiles                    # 用户画像\n│   └── conversation_summaries
+    \          # 对话摘要\n├── Milvus向量存储）\n│   └── memory_embeddings               #
+    语义化记忆\n└── S3/OSS（冷存储）\n    └── raw_conversations               # 原始对话归档\n```\n\n阶段四：读取与关联\n\n```python\ndef
+    retrieve_context(user_id, current_query):\n    # 1. 加载用户画像（PostgreSQL）\n    profile
+    = db.get_user_profile(user_id)\n    \n    # 2. 语义检索相关记忆（Qdrant）\n    query_vector
+    = embed(current_query)\n    memories = qdrant.search(\n        collection=\"memories\",\n
+    \       query_vector=query_vector,\n        filter={\"user_id\": user_id},\n        limit=5\n
+    \   )\n    \n    # 3. 加载最近会话摘要（PostgreSQL）\n    recent_summary = db.get_recent_summary(user_id,
+    limit=3)\n    \n    # 4. 组装上下文\n    context = assemble_context(\n        system_prompt=base_prompt,\n
+    \       user_profile=profile,\n        relevant_memories=memories,\n        recent_summary=recent_summary,\n
+    \       current_messages=get_session_messages(session_id)\n    )\n    return context\n```\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - 上下文管理与记忆
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: Zm5RdxTphovHmNxkPj6c2VLZnrw
+  original_title: 如何进行记忆管理，怎么处理长上下文，怎么进行持久化，后续怎么读取和关联？
+  imported_at: '2026-09-20'

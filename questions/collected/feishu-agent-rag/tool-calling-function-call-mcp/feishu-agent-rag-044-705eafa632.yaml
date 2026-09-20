@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-agent-rag-044-705eafa632
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Tool 层怎么定义的？Tool 层具体在 Agent 运行中是怎么被调用的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Tool Calling / Function Call / MCP
+derived_topic: 
+tags:
+- Tool Calling / Function Call / MCP
+content:
+  prompt: Tool 层怎么定义的？Tool 层具体在 Agent 运行中是怎么被调用的？
+answer:
+  mode: rubric
+  reference_answer: "Tool 层的定义规范：\n\n每个 Tool 需要定义三个核心要素：\n\n```python\n# 标准 Tool 定义\ntool_definition
+    = {\n    \"name\": \"search_database\",          # 工具唯一标识\n    \"description\":
+    \"搜索公司产品数据库，支持按名称、类别、价格范围查询。\" \n                   \"当用户询问产品信息、库存、价格时使用此工具。\",
+    \ # 关键！描述要清晰\n    \"parameters\": {                      # JSON Schema 格式的参数定义\n
+    \       \"type\": \"object\",\n        \"properties\": {\n            \"query\":
+    {\n                \"type\": \"string\",\n                \"description\": \"搜索关键词\"\n
+    \           },\n            \"category\": {\n                \"type\": \"string\",\n
+    \               \"enum\": [\"electronics\", \"clothing\", \"food\"],\n                \"description\":
+    \"产品类别筛选\"\n            },\n            \"max_results\": {\n                \"type\":
+    \"integer\",\n                \"default\": 10,\n                \"description\":
+    \"最多返回结果数\"\n            }\n        },\n        \"required\": [\"query\"]\n    }\n}\n```\n\nTool
+    在 Agent 运行中的调用流程：\n\n```text\nAgent Loop 迭代 N：\n  ├── 1. 上下文构建：system_prompt +
+    tool_definitions + messages\n  ├── 2. LLM 推理：输入上下文 → 输出决策\n  │     ├── 决策 A：直接回复用户（输出文本）→
+    结束循环\n  │     └── 决策 B：调用工具（输出 tool_call JSON）→ 继续\n  ├── 3. 工具调度器（Tool Dispatcher）：\n
+    \ │     ├── 解析 tool_call → 提取 name 和 arguments\n  │     ├── 通过 Tool Registry 查找对应的执行函数\n
+    \ │     ├── 参数校验（Schema Validation）\n  │     └── 执行函数 → 获取结果\n  ├── 4. 结果注入：将
+    tool_result 追加到 messages\n  └── 5. 回到步骤 1，进入迭代 N+1\n```\n\n工程关键点：\n\n- Tool Registry（工具注册表）：维护
+    name → function 的映射\n\n- 参数校验：执行前用 JSON Schema 校验参数合法性\n\n- 超时控制：每个工具调用设置超时限制\n\n-
+    结果格式化：工具返回的原始数据需要格式化为模型友好的文本\n\n- 错误包装：工具执行失败时，返回结构化的错误信息（而非抛异常），让模型可以理解并尝试其他方案\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - Tool Calling / Function Call / MCP
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: JYfsdIM7boHXAZx3T06cjaQVnjf
+  original_title: Tool 层怎么定义的？Tool 层具体在 Agent 运行中是怎么被调用的？
+  imported_at: '2026-09-20'

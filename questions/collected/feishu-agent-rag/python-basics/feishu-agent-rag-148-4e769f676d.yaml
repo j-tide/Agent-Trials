@@ -1,0 +1,294 @@
+---
+schema_version: 1
+id: feishu-agent-rag-148-4e769f676d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在使用 FastAPI 开发大模型接口时，中间件和依赖注入分别适合处理什么样的业务逻辑？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Python 相关基础八股文
+derived_topic: 
+tags:
+- Python 相关基础八股文
+content:
+  prompt: 在使用 FastAPI 开发大模型接口时，中间件和依赖注入分别适合处理什么样的业务逻辑？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### 一、中间件（Middleware）
+
+    中间件是请求/响应的全局拦截器，作用于每一个进入应用的 HTTP 请求，在路由处理函数之前和之后执行。它是 AOP（面向切面编程）的体现。
+
+    ```python
+    from fastapi import FastAPI, Request
+    from starlette.middleware.base import BaseHTTPMiddleware
+    import time
+
+    class TimingMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request: Request, call_next):
+            start = time.time()
+            response = await call_next(request)
+            duration = time.time() - start
+            response.headers["X-Process-Time"] = str(duration)
+            return response
+
+    app = FastAPI()
+    app.add_middleware(TimingMiddleware)
+    ```
+
+    适合中间件的业务逻辑：
+
+    - 全局日志与链路追踪：记录每个请求的 method、path、耗时、status_code，注入 trace_id 实现分布式追踪
+
+    - 全局异常处理：统一捕获未处理的异常，返回标准化错误响应格式
+
+    - CORS 处理：CORSMiddleware 处理跨域请求，这是最常见的中间件
+
+    - 请求限流（Rate Limiting）：基于 IP 或 API Key 的全局限流
+
+    - 请求/响应体压缩：GZipMiddleware 自动压缩大响应体
+
+    - 认证 Token 校验：在全局层面校验 JWT Token 的有效性
+
+    核心特征：无差别作用于所有请求、与具体路由逻辑无关、处理横切关注点。
+
+    ### 二、依赖注入（Dependency Injection）
+
+    依赖注入是 FastAPI 的核心特性，通过 Depends() 机制将共享逻辑注入到特定路由函数中。
+
+    ```python
+    from fastapi import Depends, HTTPException, Header
+
+    async def verify_api_key(x_api_key: str = Header(...)):
+        if x_api_key != "valid-key":
+            raise HTTPException(status_code=403, detail="Invalid API Key")
+        return x_api_key
+
+    async def get_db_session():
+        session = SessionLocal()
+        try:
+            yield session  # yield 之前 = 请求开始，yield 之后 = 请求结束
+        finally:
+            session.close()
+
+    async def get_current_user(
+        api_key: str = Depends(verify_api_key),
+        db: Session = Depends(get_db_session),
+    ):
+        user = db.query(User).filter_by(api_key=api_key).first()
+        if not user:
+            raise HTTPException(status_code=404)
+        return user
+
+    @app.post("/v1/chat/completions")
+    async def chat(
+        request: ChatRequest,
+        user: User = Depends(get_current_user),  # 注入当前用户
+        db: Session = Depends(get_db_session),    # 注入数据库会话
+    ):
+        # 这里直接使用 user 和 db，无需关心它们的创建和清理
+        ...
+    ```
+
+    适合依赖注入的业务逻辑：
+
+    - 数据库会话管理：每个请求获取独立的 DB Session，请求结束自动释放（yield 模式）
+
+    - 用户认证与鉴权：解析 Token → 查库 → 返回用户对象，不同路由可以注入不同级别的权限校验
+
+    - 模型/服务实例获取：注入 LLM Client、Embedding Model、向量数据库连接等服务实例
+
+    - 请求参数校验与预处理：复杂的参数校验逻辑（如校验文件类型、大小限制）
+
+    - 配额与计费：检查用户剩余 Token 配额，请求完成后扣减
+
+    - 请求级特性开关：根据用户标签决定是否启用某个实验性功能
+
+    核心特征：按路由粒度灵活组合、支持层级依赖（依赖可以依赖其他依赖）、支持 yield 模式做资源清理、天然支持测试 Mock。
+
+    ### 三、决策原则
+
+    ### 四、大模型服务的实战组合
+
+    ```text
+    请求进入
+      → CORSMiddleware（跨域处理）
+      → TimingMiddleware（全局耗时记录）
+      → RateLimitMiddleware（全局限流）
+      → 路由匹配
+        → Depends(verify_api_key)（API Key 校验）
+        → Depends(get_current_user)（用户解析）
+        → Depends(check_quota)（配额检查）
+        → 路由处理函数（调用 LLM、RAG 检索等）
+      → 响应返回
+    ```
+
+    这种「中间件处理全局横切关注点 + 依赖注入处理路由级业务逻辑」的分层架构，是 FastAPI 大模型服务的标准实践。
+
+    ---
+
+    - 模型判断任务完成（生成 Final Answer）
+
+    - 达到最大迭代次数（防止无限循环）
+
+    - 超时机制（总执行时间限制）
+
+    - 重复行动检测（连续相同工具调用说明陷入死循环）
+
+    - LangGraph：将工作流建模为有向图，节点是处理函数，边是状态转移条件
+
+    - 适合复杂逻辑和需要精细控制的场景
+
+    - Dify / Coze / n8n / Flowise：拖拽式画布搭建
+
+    - 适合快速原型和非技术团队
+
+    - YAML/JSON 定义工作流结构，代码实现节点逻辑
+
+    - 适合需要动态修改流程的场景
+
+    - 功能指标：任务完成率、输出质量（人工/自动评分）
+
+    - 性能指标：延迟 P50/P95/P99、吞吐量
+
+    - 成本指标：平均 Token 消耗 / 每次调用成本
+
+    - 稳定性指标：成功率、重试率、异常率
+
+    - 拆分原则：每个 Agent / 核心工作流节点作为独立微服务
+
+    - API Gateway → Agent Orchestrator → 各节点微服务（Classifier Service / Retriever Service / Generator Service）
+
+    - 消息队列（Kafka/RabbitMQ）处理异步任务
+
+    - Redis 做会话状态管理
+
+    - 向量数据库集群做知识检索
+
+    - Kubernetes 做容器编排和自动伸缩
+
+    简介： 内容收集自互联网的佬们分享的个人面经～内容持续更新汇总
+
+    内容已经分类，按照类别持续更新中。包括了Agent，RAG，网络基础，编程语言基础，中间件基础，后端基础面试题等..
+
+    - 滑动窗口：只保留最近 N 轮对话
+
+    - 摘要压缩：用 LLM 将旧对话压缩成摘要（如"前 20 轮讨论了 X 主题，关键结论是 Y"）
+
+    - 混合方案：最近 5 轮保留原文 + 更早的内容压缩为摘要
+
+    - 只保留工具返回的关键信息，去除冗余（如搜索结果只保留摘要，不保留全文）
+
+    - 结构化提取：将非结构化的工具输出转为结构化的关键值对
+
+    - 只保留最终结论，丢弃中间推理步骤
+
+    - 或保留关键决策点，压缩推导过程
+
+    - 存储在 .cursor/rules/ 目录下的 .mdc 文件
+
+    - 支持多种触发方式：always（始终生效）、auto（自动检测）、manual（手动触发）
+
+    - 本质上是持久化的 System Prompt 片段，用于保持项目级一致性
+
+    - Cursor 内置的短偏好存储功能
+
+    - 适合简单的规则记忆（如"不要用分号"、"使用 4 空格缩进"）
+
+    - 局限：只能存储简单规则，不支持复杂的语义记忆
+
+    - 在项目根目录创建 memory-bank/ 文件夹，包含结构化 Markdown 文件
+
+    - 核心文件：productContext.md（产品上下文）、techContext.md（技术上下文）、activeContext.md（当前活跃上下文）、progress.md（进度追踪）
+
+    - 工作原理：Agent 在每次会话开始时读取这些文件，获取项目上下文
+
+    - 更新机制：Agent 在任务完成后自动更新相关文件
+
+    - 通过 MCP 协议接入外部记忆服务
+
+    - 如 Basic Memory、HPKV 等提供的 MCP Server
+
+    - 支持语义搜索、跨会话持久化
+
+    - 原理：将对话内容向量化存储，后续通过语义搜索检索相关记忆
+
+    - 固定规则：保留最近 N 轮 + 截断/FIFO
+
+    - 优点：确定性强、无额外 LLM 调用成本
+
+    - 缺点：可能丢失重要的早期信息
+
+    - 用 LLM 评估每条记忆的重要性，智能决定保留/压缩/丢弃
+
+    - 基于当前任务动态检索最相关的历史记忆
+
+    - 优点：信息保留质量高
+
+    - 缺点：额外的 LLM 调用成本和延迟
+
+    简介： 内容收集自互联网的佬们分享的个人面经～内容持续更新汇总
+
+    内容已经分类，按照类别持续更新中。包括了Agent，RAG，网络基础，编程语言基础，中间件基础，后端基础面试题等..
+
+    - 构建标注数据集：{query, expected_route} × N 条
+
+    - 指标：准确率、Top-3 召回率、混淆矩阵
+
+    - 重点关注相似意图的区分度（如"退款"应路由到"billing"而非"support"）
+
+    - 用户纠正率：用户说"不对"后重新路由的比例
+
+    - 路由后的任务完成率：正确路由 → 任务完成率高
+
+    - 平均路由延迟
+
+    - 对比不同路由策略（语义路由 vs 规则路由 vs LLM 路由）
+
+    - 观察端到端任务完成率和用户满意度
+
+    简介： 内容收集自互联网的佬们分享的个人面经～内容持续更新汇总
+
+    内容已经分类，按照类别持续更新中。包括了Agent，RAG，网络基础，编程语言基础，中间件基础，后端基础面试题等..
+
+    - 打开相关文件让 Cursor 能"看到"依赖关系
+
+    - 在 Chat 中明确说明："这个错误是因为 X 依赖在 Y 版本中 API 变了"
+
+    - 粘贴完整的报错信息和相关代码
+
+    - 不要让 AI 一次性改大块代码
+
+    - 将问题拆解为更小的独立子问题
+
+    - "先只修复这个函数的类型错误"
+
+    - 从"修复代码"切换到"解释问题"：让 AI 先分析为什么报错
+
+    - 从自动修复切换到手动修改：根据 AI 的分析自己改
+
+    本文档从互联网大厂面试官视角出发，系统覆盖 Python 基础八股文核心知识点，每道题的深度确保经得住连环追问。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - Python 相关基础八股文
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: HxKvdJpE0oLFelxEvDIcAUmEn7c
+  original_title: 在使用 FastAPI 开发大模型接口时，中间件和依赖注入分别适合处理什么样的业务逻辑？
+  imported_at: '2026-09-20'

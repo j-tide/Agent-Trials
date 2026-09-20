@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-agent-rag-050-356e2a0f21
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 谈谈对 A2A 通信的理解。在 A2A 场景下，如何防止两个 Agent 陷入递归对话？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Tool Calling / Function Call / MCP
+derived_topic: 
+tags:
+- Tool Calling / Function Call / MCP
+content:
+  prompt: 谈谈对 A2A 通信的理解。在 A2A 场景下，如何防止两个 Agent 陷入递归对话？
+answer:
+  mode: rubric
+  reference_answer: "A2A 通信的核心理解：\n\nA2A 通信本质上是一种任务委托与协作协议。Agent A 发现自己无法独立完成某项任务时，通过
+    A2A 协议将子任务委托给更专业的 Agent B。整个过程是异步的，支持长时间运行的任务。\n\n通信流程：\n\n```text\nAgent A（Client）→
+    发送任务请求 → Agent B（Remote）\nAgent B → 处理任务（可能耗时很长）\nAgent B → 发送状态更新（SSE 流式）→ Agent
+    A\nAgent B → 需要更多信息时 → 状态变为 input-required → Agent A 补充\nAgent B → 完成任务 → 返回 Artifact
+    → Agent A\n```\n\n防止递归对话的机制：\n\n（1）最大交互轮次限制\n\n```python\nclass A2AConversation:\n
+    \   MAX_TURNS = 10  # 硬性上限\n    \n    def send_message(self, target_agent, message):\n
+    \       if self.turn_count >= self.MAX_TURNS:\n            return self.force_conclude()
+    \ # 强制结束\n        self.turn_count += 1\n```\n\n（2）任务状态机 + 超时机制\n\n- A2A 定义了明确的
+    Task 状态：submitted → working → completed/failed\n\n- 设置每个状态的超时时间\n\n- 如果 Task 在
+    working 状态停留超过阈值，自动转为 failed\n\n（3）递归检测\n\n```python\n# 维护调用链（Call Chain）\ncall_chain
+    = [\"AgentA -> AgentB\", \"AgentB -> AgentC\", \"AgentC -> AgentA\"]  # 检测到环！\n\ndef
+    detect_recursion(call_chain):\n    agents_in_chain = [call.split(\" -> \")[1]
+    for call in call_chain]\n    return len(agents_in_chain) != len(set(agents_in_chain))
+    \ # 有重复即为递归\n```\n\n（4）职责明确化\n\n- 通过 Agent Card 明确每个 Agent 的能力范围\n\n- Client Agent
+    在委托前检查目标 Agent 的 Agent Card\n\n- 避免两个能力重叠的 Agent 互相委托同类任务\n\n（5）单向委托原则\n\n- 设计
+    Agent 系统时，遵循层级委托（上级 → 下级），不允许反向委托\n\n- 或者维护一个全局的 Task DAG（有向无环图），确保任务委托不形成环\n\n（6）幂等性设计\n\n-
+    每个任务有唯一 ID\n\n- Agent 收到已处理过的任务 ID 时直接返回缓存结果，不重复执行\n\n[图片内容未导入]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - Tool Calling / Function Call / MCP
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: VAKidDJssoxQ6LxpLEScf1XOn1f
+  original_title: 谈谈对 A2A 通信的理解。在 A2A 场景下，如何防止两个 Agent 陷入递归对话？
+  imported_at: '2026-09-20'

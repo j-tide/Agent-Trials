@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-agent-rag-131-f87ae8fcca
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 请详细说明微信扫码登录的完整流程和背后发生的原理
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 网络基础八股文
+derived_topic: 
+tags:
+- 网络基础八股文
+content:
+  prompt: 请详细说明微信扫码登录的完整流程和背后发生的原理
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### 整体架构
+
+    微信扫码登录基于 OAuth 2.0 授权码模式，涉及四个参与方：用户浏览器（PC 端）、用户手机微信客户端、第三方应用服务器、微信开放平台服务器。
+
+    ### 完整流程详解
+
+    第一阶段——生成二维码：
+
+    ① 用户在 PC 端网站点击'微信登录'按钮。
+
+    ② 网站后端向微信开放平台请求一个唯一的登录凭证（UUID），同时生成一个包含该 UUID 和 OAuth 授权 URL 的二维码展示给用户。
+
+    ③ 二维码内容实质上是一个 URL：https://open.weixin.qq.com/connect/qrconnect?appid=xxx&redirect_uri=xxx&scope=snsapi_login&state=xxx。
+
+    ④ PC 端同时开始轮询（Long Polling 或 WebSocket）微信服务器，查询该 UUID 对应的扫码状态。
+
+    第二阶段——扫码确认：
+
+    ⑤ 用户打开手机微信扫描二维码。微信客户端解析出 URL，向微信服务器发送请求，携带用户的登录态（微信 App 本身已登录）。
+
+    ⑥ 微信服务器将二维码状态更新为'已扫描'。PC 端轮询感知到状态变化，页面显示'已扫描，请在手机上确认'以及用户的微信头像。
+
+    ⑦ 用户在手机微信上点击'确认登录'。微信服务器将二维码状态更新为'已确认'，同时生成一个临时授权码（Authorization Code）。
+
+    第三阶段——获取用户信息：
+
+    ⑧ PC 端轮询感知到'已确认'状态，获取到授权码 code。（或者微信重定向到 redirect_uri 并带上 code）。
+
+    ⑨ 网站后端用 code + AppID + AppSecret 向微信服务器换取 Access Token 和 Refresh Token。
+
+    ⑩ 网站后端用 Access Token 调用微信用户信息接口，获取用户的 OpenID、昵称、头像等信息。
+
+    ⑪ 网站后端根据 OpenID 查找或创建本地用户账号，生成自己的登录态（Session/JWT），返回给 PC 端浏览器，完成登录。
+
+    ### 安全机制
+
+    ① state 参数防 CSRF：网站在生成二维码时附带一个随机 state 值，回调时校验一致性，防止请求伪造。
+
+    ② 授权码一次性有效：code 只能使用一次且有效期很短（通常 5 分钟），降低泄露风险。
+
+    ③ 二维码有效期：UUID 通常 5 分钟过期，过期需重新生成。
+
+    ④ 手机端确认机制：扫码后必须在手机上二次确认，防止误扫和钓鱼。
+
+    ⑤ AppSecret 保密：code 换 Token 的操作在服务端完成，AppSecret 不暴露在前端。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - 网络基础八股文
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: QzLvdrxBLoZ0RKxI1dJcfpUBn79
+  original_title: 请详细说明微信扫码登录的完整流程和背后发生的原理
+  imported_at: '2026-09-20'

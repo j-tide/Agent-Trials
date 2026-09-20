@@ -1,0 +1,91 @@
+---
+schema_version: 1
+id: feishu-agent-rag-048-bdb067b561
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何让大模型格式化输出消息，以及 Pydantic 相比 Prompt Engineering 在工程上的优势？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Tool Calling / Function Call / MCP
+derived_topic: 
+tags:
+- Tool Calling / Function Call / MCP
+content:
+  prompt: 如何让大模型格式化输出消息，以及 Pydantic 相比 Prompt Engineering 在工程上的优势？
+answer:
+  mode: rubric
+  reference_answer: |-
+    格式化输出的三种方案：
+
+    方案一：Prompt Engineering（提示词工程）
+
+    ```text
+    请以 JSON 格式输出，包含以下字段：
+    - name: 用户姓名
+    - intent: 用户意图（inquiry/complaint/suggestion之一）
+    - summary: 简短摘要
+    ```
+
+    缺点：模型可能不遵守、格式可能不标准、需要手动解析和校验。
+
+    方案二：Structured Output / JSON Mode
+
+    - OpenAI 的 response_format: {type: "json_schema", json_schema: {...}}
+
+    - Anthropic 的 Tool Use 强制输出
+
+    - 模型层面保证输出符合 Schema 缺点：不是所有模型都支持。
+
+    方案三：Pydantic + 后处理（推荐工程方案）
+
+    ```python
+    from pydantic import BaseModel, Field
+    from enum import Enum
+
+    class Intent(str, Enum):
+        INQUIRY = "inquiry"
+        COMPLAINT = "complaint"
+        SUGGESTION = "suggestion"
+
+    class UserMessage(BaseModel):
+        name: str = Field(description="用户姓名")
+        intent: Intent = Field(description="用户意图分类")
+        summary: str = Field(max_length=200, description="简短摘要")
+
+    # 将 Pydantic Schema 自动转为 JSON Schema 注入 Prompt
+    # LLM 输出后自动校验
+    raw_output = llm.call(prompt)
+    try:
+        result = UserMessage.model_validate_json(raw_output)
+    except ValidationError as e:
+        # 自动重试或 fallback
+        result = retry_with_correction(raw_output, e)
+    ```
+
+    Pydantic 的工程优势：
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - Tool Calling / Function Call / MCP
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: Oc8ndLZuAoyFnYxwfd6cumTWnPg
+  original_title: 如何让大模型格式化输出消息，以及 Pydantic 相比 Prompt Engineering 在工程上的优势？
+  imported_at: '2026-09-20'

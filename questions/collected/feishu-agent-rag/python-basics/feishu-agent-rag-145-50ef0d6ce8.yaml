@@ -1,0 +1,110 @@
+---
+schema_version: 1
+id: feishu-agent-rag-145-50ef0d6ce8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: asyncio.gather 和 asyncio.as_completed 在并发请求多个模型接口时有什么区别？如果其中一个接口超时，如何做降级？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Python 相关基础八股文
+derived_topic: 
+tags:
+- Python 相关基础八股文
+content:
+  prompt: asyncio.gather 和 asyncio.as_completed 在并发请求多个模型接口时有什么区别？如果其中一个接口超时，如何做降级？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### 一、asyncio.gather vs asyncio.as_completed
+
+    ```python
+    # gather：等所有任务完成，按提交顺序返回结果
+    results = await asyncio.gather(
+        call_gpt4(prompt),
+        call_claude(prompt),
+        call_gemini(prompt),
+    )
+    # results = [gpt4_result, claude_result, gemini_result]  # 顺序固定
+
+    # as_completed：谁先完成谁先返回，按完成顺序处理
+    for coro in asyncio.as_completed([
+        call_gpt4(prompt),
+        call_claude(prompt),
+        call_gemini(prompt),
+    ]):
+        result = await coro  # 先完成的先拿到
+        print(f"Got result: {result}")
+    ```
+
+    ### 二、超时与降级策略
+
+    方式一：asyncio.wait_for 单任务超时
+
+    ```python
+    async def call_with_timeout(coro, timeout, fallback):
+        try:
+            return await asyncio.wait_for(coro, timeout=timeout)
+        except asyncio.TimeoutError:
+            return fallback  # 降级：返回缓存/默认值/备用模型结果
+
+    results = await asyncio.gather(
+        call_with_timeout(call_gpt4(prompt), timeout=10, fallback="GPT4 超时"),
+        call_with_timeout(call_claude(prompt), timeout=10, fallback="Claude 超时"),
+    )
+    ```
+
+    方式二：asyncio.gather + return_exceptions=True
+
+    ```python
+    results = await asyncio.gather(
+        asyncio.wait_for(call_gpt4(prompt), timeout=10),
+        asyncio.wait_for(call_claude(prompt), timeout=10),
+        return_exceptions=True,  # 异常不抛出，作为结果返回
+    )
+    for r in results:
+        if isinstance(r, Exception):
+            # 执行降级逻辑
+            r = get_cached_response(prompt)
+    ```
+
+    方式三：竞速模式（Racing）— 只要最快的
+
+    ```python
+    done, pending = await asyncio.wait(
+        [call_gpt4(prompt), call_claude(prompt), call_gemini(prompt)],
+        return_when=asyncio.FIRST_COMPLETED,
+    )
+    result = done.pop().result()
+    for task in pending:
+        task.cancel()  # 取消还没完成的
+    ```
+
+    ### 三、生产级降级策略
+
+    在大模型应用中，降级策略通常是分级的：第一级：重试（同模型重试 1~2 次）→ 第二级：切换模型（GPT-4 超时切 Claude）→ 第三级：返回缓存结果（Redis 缓存近似 Query 的历史回答）→ 第四级：返回兜底话术（「系统繁忙，请稍后再试」）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - Python 相关基础八股文
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: G7jYd0ZFioXFuaxifgtctrgkngd
+  original_title: asyncio.gather 和 asyncio.as_completed 在并发请求多个模型接口时有什么区别？如果其中一个接口超时，如何做降级？
+  imported_at: '2026-09-20'

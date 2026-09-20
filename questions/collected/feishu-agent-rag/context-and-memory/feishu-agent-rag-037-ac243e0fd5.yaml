@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-agent-rag-037-ac243e0fd5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多轮对话的实现方案
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 上下文管理与记忆
+derived_topic: 
+tags:
+- 上下文管理与记忆
+content:
+  prompt: 多轮对话的实现方案
+answer:
+  mode: rubric
+  reference_answer: "多轮对话是 Agent 系统的基础能力，实现方案如下：\n\n基础实现：\n\n```python\nclass ConversationManager:\n
+    \   def __init__(self, model, max_tokens=200000):\n        self.messages = []\n
+    \       self.model = model\n        self.max_tokens = max_tokens\n        self.system_prompt
+    = \"...\"\n    \n    def chat(self, user_input):\n        # 1. 追加用户消息\n        self.messages.append({\"role\":
+    \"user\", \"content\": user_input})\n        \n        # 2. 上下文管理（核心）\n        context
+    = self._build_context()\n        \n        # 3. 调用模型\n        response = self.model.call(\n
+    \           system=self.system_prompt,\n            messages=context\n        )\n
+    \       \n        # 4. 追加助手回复\n        self.messages.append({\"role\": \"assistant\",
+    \"content\": response})\n        \n        # 5. 检查是否需要压缩\n        if self._count_tokens()
+    > self.max_tokens * 0.8:\n            self._compress_history()\n        \n        return
+    response\n    \n    def _build_context(self):\n        \"\"\"构建有效上下文\"\"\"\n        context
+    = []\n        total_tokens = 0\n        \n        # 从最新消息往回遍历\n        for msg
+    in reversed(self.messages):\n            msg_tokens = count_tokens(msg)\n            if
+    total_tokens + msg_tokens > self.max_tokens * 0.6:\n                break\n            context.insert(0,
+    msg)\n            total_tokens += msg_tokens\n        \n        # 如果有被截断的历史，加入摘要\n
+    \       if len(context) < len(self.messages):\n            truncated = self.messages[:len(self.messages)
+    - len(context)]\n            summary = self._summarize(truncated)\n            context.insert(0,
+    {\"role\": \"system\", \"content\": f\"[对话历史摘要] {summary}\"})\n        \n        return
+    context\n    \n    def _compress_history(self):\n        \"\"\"压缩历史消息\"\"\"\n
+    \       # 保留最近 5 轮\n        recent = self.messages[-10:]  # 5 轮 = 10 条消息\n        old
+    = self.messages[:-10]\n        \n        if old:\n            summary = self.model.call(\n
+    \               \"将以下对话压缩为简洁的摘要，保留所有关键信息和决策：\",\n                old\n            )\n
+    \           self.messages = [\n                {\"role\": \"system\", \"content\":
+    f\"[历史摘要] {summary}\"}\n            ] + recent\n```\n\n生产级增强：\n\n- 持久化：消息列表存储到
+    Redis，支持服务重启后恢复\n\n- 并发安全：使用 Redis 事务或分布式锁防止消息乱序\n\n- 流式响应：支持 SSE/WebSocket 流式返回\n\n-
+    多模态：消息中支持图片、文件等多模态内容\n\n- 分支对话：支持用户\"回到之前某个点重新对话\"\n\n- 工具调用集成：消息列表中包含 tool_call
+    和 tool_result 消息类型\n\n关键工程细节：\n\n- 每条消息都带 timestamp 和 token_count 元数据\n\n- 系统消息不计入轮数，但计入
+    Token\n\n- 工具调用结果可能很长，需要单独做截断策略\n\n- 多轮对话中要注意\"主题漂移\"：当用户切换话题时，旧话题的上下文可以降低优先级"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - 上下文管理与记忆
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: KFhWdhDZ8oVe1yxDoPyc1KJRnCc
+  original_title: 多轮对话的实现方案
+  imported_at: '2026-09-20'

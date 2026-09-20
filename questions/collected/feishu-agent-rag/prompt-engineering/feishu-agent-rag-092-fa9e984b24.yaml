@@ -1,0 +1,118 @@
+---
+schema_version: 1
+id: feishu-agent-rag-092-fa9e984b24
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么样的提示词可以让代码审核更加准确？如果审核结果不稳定，你会如何优化提示词？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Prompt 工程
+derived_topic: 
+tags:
+- Prompt 工程
+content:
+  prompt: 什么样的提示词可以让代码审核更加准确？如果审核结果不稳定，你会如何优化提示词？
+answer:
+  mode: rubric
+  reference_answer: |-
+    高质量代码审核 Prompt 设计：
+
+    ```markdown
+    # 角色
+    你是一位拥有 15 年经验的资深代码审查专家，曾在 Google/Meta 等公司担任技术负责人。
+
+    # 审查维度（按优先级排序）
+    1. **安全漏洞**：SQL 注入、XSS、CSRF、硬编码密钥、未授权访问
+    2. **逻辑错误**：边界条件、空指针、并发问题、资源泄漏
+    3. **性能问题**：N+1 查询、不必要的循环、内存泄漏
+    4. **代码规范**：命名规范、函数长度、重复代码
+    5. **可维护性**：注释质量、模块化程度、测试覆盖
+
+    # 审查规则
+    - 每个发现必须指出具体的代码行号
+    - 必须说明问题的严重程度：Critical / Major / Minor / Info
+    - 必须给出修复建议和修复后的代码示例
+    - 如果代码没有问题，明确说"此部分审查通过，无问题"
+
+    # 输出格式
+    ```json
+    {
+      "summary": "整体评价",
+      "issues": [
+        {
+          "severity": "Critical|Major|Minor|Info",
+          "line": 42,
+          "category": "security|logic|performance|style",
+          "description": "问题描述",
+          "suggestion": "修复建议",
+          "fixed_code": "修复后的代码"
+        }
+      ],
+      "score": 85
+    }
+    ```
+
+    重要约束
+
+    - 不要报告格式偏好类的问题（如大括号换行风格）
+
+    - 聚焦于真正影响功能和安全的问题
+
+    - 对不确定的问题使用"可能存在的问题"而非断言
+
+    ```text
+    **审核结果不稳定时的优化方案**：
+
+    **（1）降低 Temperature**
+    - 将 temperature 从默认值降到 0.0-0.2
+    - 减少输出的随机性，提升一致性
+
+    **（2）强化结构化输出**
+    - 使用 JSON Schema 强制输出格式
+    - 或使用 Pydantic 做后置校验
+
+    **（3）增加 Few-shot 示例**
+    - 对于容易判断不一致的场景，添加具体的正例和反例
+    ```
+
+    示例 1：以下代码存在 SQL 注入风险 → severity: Critical 示例 2：以下代码命名不规范但无功能影响 → severity: Info
+
+    ```text
+    **（4）多次采样 + 投票**
+    ```python
+    results = [llm.review(code, temperature=0.3) for _ in range(3)]
+    # 取多数一致的结果，不一致的部分需要人工确认
+    final = majority_vote(results)
+    ```
+
+    （5）分步审查
+
+    - 不要一次性审查所有维度
+
+    - 分别进行安全审查、逻辑审查、性能审查，结果更稳定
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - Prompt 工程
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: EZWjdvqyboxA9vxOnwscxP20nIg
+  original_title: 什么样的提示词可以让代码审核更加准确？如果审核结果不稳定，你会如何优化提示词？
+  imported_at: '2026-09-20'

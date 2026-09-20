@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-agent-rag-133-340ee60e31
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 服务注册中心（如 Nacos、Consul）是如何工作的？服务实例如何注册和保活（如通过心跳机制）？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 网络基础八股文
+derived_topic: 
+tags:
+- 网络基础八股文
+content:
+  prompt: 服务注册中心（如 Nacos、Consul）是如何工作的？服务实例如何注册和保活（如通过心跳机制）？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### 注册中心的核心功能
+
+    ① 服务注册：服务启动时向注册中心上报自己的地址、端口、元数据等信息。
+
+    ② 服务发现：调用方从注册中心查询目标服务的可用实例列表。
+
+    ③ 健康检查：定期检测服务实例是否存活，自动剔除不健康的实例。
+
+    ④ 变更通知：服务实例变更时推送通知给订阅方（Push 或 Pull + 长轮询）。
+
+    ### Nacos 的工作机制
+
+    注册：服务启动后通过 Nacos Client SDK 发送 HTTP/gRPC 注册请求，携带 serviceName、IP、port、clusterName、weight 等信息。Nacos Server 将实例信息存储在内存（Distro 协议同步到其他节点）。
+
+    心跳保活：临时实例（Ephemeral Instance）由客户端主动发送心跳，默认每 5 秒一次。Nacos Server 如果超过 15 秒未收到心跳则标记为不健康，超过 30 秒则自动剔除。永久实例（Persistent Instance）由 Nacos Server 主动探测（TCP/HTTP 健康检查）。
+
+    服务发现：消费方通过 Nacos Client 订阅服务，Nacos 使用 UDP Push + 客户端定时 Pull 的组合机制保证实例列表的实时性和最终一致性。
+
+    ### Consul 的工作机制
+
+    Consul 基于 Raft 共识协议保证注册数据的强一致性。服务注册后，Consul Agent 通过以下方式进行健康检查：
+
+    • Script Check：定时执行自定义脚本。
+
+    • HTTP Check：定时 GET 指定 URL。
+
+    • TCP Check：定时建立 TCP 连接。
+
+    • gRPC Check：调用 gRPC Health 接口。
+
+    • TTL Check：服务端定期上报心跳，超时标记为不健康。
+
+    Consul 还支持 DNS 接口和 HTTP API 两种服务发现方式，以及多数据中心的 WAN Gossip 协议同步。
+
+    ### 对比总结
+
+    Nacos：AP 模式（默认临时实例）/ CP 模式（永久实例），兼容 Spring Cloud / Dubbo 生态，同时支持配置管理。
+
+    Consul：CP 模式（Raft），支持多数据中心、丰富的健康检查方式，Go 生态为主。
+
+    Eureka：AP 模式，简单易用但功能较少，Netflix 已停止维护。
+
+    ZooKeeper：CP 模式（ZAB 协议），早期 Dubbo 的默认注册中心，不是为服务发现设计的。
+
+    etcd：CP 模式（Raft），Kubernetes 的底层存储，适合作为基础设施级注册中心。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - 网络基础八股文
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: FiKrdibsZoB236xbesDcTOSjn2F
+  original_title: 服务注册中心（如 Nacos、Consul）是如何工作的？服务实例如何注册和保活（如通过心跳机制）？
+  imported_at: '2026-09-20'

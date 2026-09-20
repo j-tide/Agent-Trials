@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-agent-rag-144-6c80a776e8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Python 的 multiprocessing 和 threading 你会如何结合使用来提高整体吞吐量？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Python 相关基础八股文
+derived_topic: 
+tags:
+- Python 相关基础八股文
+content:
+  prompt: Python 的 multiprocessing 和 threading 你会如何结合使用来提高整体吞吐量？
+answer:
+  mode: rubric
+  reference_answer: "### 一、为什么要结合\n\n单独使用 threading 受 GIL 限制，CPU 密集型任务无法并行。单独使用 multiprocessing
+    在 IO 密集型任务中进程开销过大（进程创建/销毁/IPC 成本高）。结合使用的核心思路是：进程级并行解决 CPU 瓶颈，线程级并发解决 IO 瓶颈。\n\n###
+    二、经典架构模式\n\n```text\n主进程\n├── 工作进程 1（CPU 密集型）\n│   ├── IO 线程 1（网络请求）\n│   ├──
+    IO 线程 2（数据库查询）\n│   └── IO 线程 3（文件读写）\n├── 工作进程 2（CPU 密集型）\n│   ├── IO 线程 1\n│
+    \  └── IO 线程 2\n└── 工作进程 N ...\n```\n\n### 三、实战代码\n\n```python\nfrom concurrent.futures
+    import ProcessPoolExecutor, ThreadPoolExecutor\nimport multiprocessing as mp\n\ndef
+    io_bound_task(urls):\n    \"\"\"每个进程内部用线程池处理 IO\"\"\"\n    with ThreadPoolExecutor(max_workers=10)
+    as thread_pool:\n        results = list(thread_pool.map(fetch_url, urls))\n    return
+    results\n\ndef cpu_bound_process(chunk):\n    \"\"\"每个进程处理一个数据分片\"\"\"\n    #
+    CPU 密集：文档解析、Embedding 计算\n    parsed = parse_documents(chunk)\n    # IO 密集：批量写入向量库（进程内用线程并发）\n
+    \   io_bound_task(parsed)\n    return len(parsed)\n\ndef main():\n    documents
+    = load_all_documents()  # 万级文档\n    chunks = split_into_chunks(documents, n=mp.cpu_count())\n
+    \   \n    with ProcessPoolExecutor(max_workers=mp.cpu_count()) as proc_pool:\n
+    \       results = list(proc_pool.map(cpu_bound_process, chunks))\n```\n\n### 四、关键实践要点\n\n进程数设置：CPU
+    密集型任务设为 cpu_count() 或 cpu_count() - 1（留一个核给系统）。不要超过物理核心数，否则进程切换反而增加开销。\n\n线程数设置：IO
+    密集型任务根据 IO 等待时间设定，通常 5~20 个线程。经验公式：线程数 = CPU 核数 × (1 + IO等待时间/CPU计算时间)。\n\n进程间通信：尽量减少
+    IPC——让每个进程独立完成完整的子任务，最后汇总结果。如需通信，优先用 mp.Queue（基于管道）或 mp.Manager（基于代理），避免共享内存的复杂性。\n\n注意事项：进程池中的函数参数和返回值需要可序列化（pickle）。大对象传递走共享内存（mp.shared_memory）或内存映射文件。子进程中的异常不会自动传播到主进程，需要通过
+    future.result() 显式获取。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts:
+  - Python 相关基础八股文
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://dqej47nflyz.feishu.cn/wiki/ZSBJw2ZqjiNOgVkAAPMc6ShRnYb
+  block_id: RCCZdC8iPo3gSHx9sZ7cLqf9nwb
+  original_title: Python 的 multiprocessing 和 threading 你会如何结合使用来提高整体吞吐量？
+  imported_at: '2026-09-20'
