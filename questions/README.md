@@ -29,6 +29,7 @@ type -> RendererPlugin -> EvaluatorPlugin -> SchedulerPlugin
 
 - [`feishu-agent-rag`](./collected/feishu-agent-rag/)：148 道，保留 Agent、RAG、Tool Calling、网络基础、Python 等原始分类。
 - [`feishu-llm-foundations`](./collected/feishu-llm-foundations/)：101 道，保留“大模型基础篇”来源分类，并增加 `derived_topic` 便于筛选。
+- [`feishu-llm-complete`](./collected/feishu-llm-complete/)：9158 道，按“大模型全套面试题-持续更新~”的根模块和专题目录整理，其中 9114 道含正文、44 道为待补录 PDF/附件题。
 
 题库目录和题目文件名使用中文，方便直接在 GitHub 中阅读；每个题库 README 提供模块总览，题目内部的稳定 `id` 仍使用 ASCII 标识。
 

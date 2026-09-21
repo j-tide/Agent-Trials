@@ -6,8 +6,38 @@
 | --- | ---: | --- |
 | [`AI应用开发面试题 / Agent / RAG`](./feishu-agent-rag/) | 148 | 按飞书原始分类建中文目录 |
 | [`AI大模型面试题 / 基础篇`](./feishu-llm-foundations/) | 101 | 按 `derived_topic` 划分刷题模块 |
+| [`大模型全套面试题-持续更新~`](./feishu-llm-complete/) | 9158 | 按根模块 / 专题模块保留中文目录；正文 9114，PDF/附件待补录 44 |
 
-共 249 道题。导入题目统一使用 `short_answer` + `llm_judge`，因为原始题库主要是面试开放题；后续可以根据内容再细分为选择题、编程题或 Agent 实战题。
+共 9407 道题。导入题目统一使用 `short_answer` + `llm_judge`，因为原始题库主要是面试开放题；后续可以根据内容再细分为选择题、编程题或 Agent 实战题。
+
+### 大模型全套面试题：根模块总览
+
+| 根模块 | 题量 | 目录 |
+| --- | ---: | --- |
+| LLMs（大语言模型）持续更新~ | 2654 | [打开](./feishu-llm-complete/LLMs（大语言模型）持续更新~/) |
+| AI Agent精选八股文 | 1054 | [打开](./feishu-llm-complete/AI%20Agent精选八股文/) |
+| LangChain面（高频） | 611 | [打开](./feishu-llm-complete/LangChain面（高频）/) |
+| Transfomer精选面试 | 491 | [打开](./feishu-llm-complete/Transfomer精选面试/) |
+| 多模态面（精选） | 507 | [打开](./feishu-llm-complete/多模态面（精选）/) |
+| 深度学习面（精选） | 522 | [打开](./feishu-llm-complete/深度学习面（精选）/) |
+| RAG核心面（精选） | 118 | [打开](./feishu-llm-complete/RAG核心面（精选）/) |
+| RLHF面试高频考点 | 308 | [打开](./feishu-llm-complete/RLHF面试高频考点/) |
+| SFT面（精选） | 360 | [打开](./feishu-llm-complete/SFT面（精选）/) |
+| LoRA 高频面试题 | 45 | [打开](./feishu-llm-complete/LoRA%20高频面试题/) |
+| NLP专项高频面试（学习检测/面试都可用） | 22 | [打开](<./feishu-llm-complete/NLP专项高频面试（学习检测-面试都可用）/>) |
+| Python面 | 4 | [打开](./feishu-llm-complete/Python面/) |
+| PyTorch 面试八股 | 225 | [打开](./feishu-llm-complete/PyTorch面试八股/) |
+| 机器学习专项面试（学习检测/面试都可用） | 9 | [打开](<./feishu-llm-complete/机器学习专项面试（学习检测-面试都可用）/>) |
+| 大模型手撕-核心题 | 225 | [打开](./feishu-llm-complete/大模型手撕-核心题/) |
+| 大模型推理-核心题 | 92 | [打开](./feishu-llm-complete/大模型推理-核心题/) |
+| 大模型评测面试题 | 161 | [打开](./feishu-llm-complete/大模型评测面试题/) |
+| 大模型微调-核心题 | 541 | [打开](./feishu-llm-complete/大模型微调-核心题/) |
+| 大模型蒸馏面试-核心题 | 301 | [打开](./feishu-llm-complete/大模型蒸馏面试-核心题/) |
+| 大模型幻觉面 | 140 | [打开](./feishu-llm-complete/大模型幻觉面/) |
+| 显存问题-核心题 | 372 | [打开](./feishu-llm-complete/显存问题-核心题/) |
+| 分布式训练-核心题 | 396 | [打开](./feishu-llm-complete/分布式训练-核心题/) |
+
+完整的 93 个“根模块 / 专题模块”题量表见 [`feishu-llm-complete/README.md`](./feishu-llm-complete/README.md)。
 
 ## 模块总览
 
