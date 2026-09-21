@@ -18,10 +18,11 @@ const toastElement = document.getElementById("toast");
 const state = {
   catalog: null,
   catalogMap: new Map(),
+  moduleMap: new Map(),
   packPromises: new Map(),
   view: window.location.hash.slice(1) in VIEW_LABELS ? window.location.hash.slice(1) : "dashboard",
   dashboardTab: "today",
-  library: { query: "", category: "all", filter: "all", page: 1 },
+  library: { query: "", category: "all", source: "all", filter: "all", page: 1 },
   practice: null,
   progress: loadProgress(),
   toastTimer: null
@@ -238,7 +239,7 @@ function questionMastery(questionId) {
 }
 
 function categoryMastery(categoryId) {
-  const questions = state.catalog.questions.filter((question) => question.rootCategory === categoryId);
+  const questions = state.catalog.questions.filter((question) => question.primaryModuleParentId === categoryId);
   const reviewed = questions.filter((question) => getRecord(question.id));
   if (!reviewed.length) return { value: 0, reviewed: 0, total: questions.length };
   return {
@@ -295,7 +296,11 @@ function difficultyLabel(level) {
 }
 
 function questionMeta(question) {
-  return `${question.category || question.rootCategory} · ${question.estimatedMinutes || 8} 分钟`;
+  return `${question.primaryModuleLabel || question.category || question.rootCategory} · ${question.estimatedMinutes || 8} 分钟`;
+}
+
+function moduleLabel(moduleId) {
+  return state.moduleMap.get(moduleId)?.label || moduleId;
 }
 
 function showToast(message) {
@@ -310,7 +315,8 @@ function updateShell() {
   document.querySelector("[data-breadcrumb]").textContent = VIEW_LABELS[state.view] || VIEW_LABELS.dashboard;
   document.querySelector("[data-today-label]").textContent = formatDate(new Date(), { weekday: "short" });
   document.querySelector("[data-streak]").textContent = getStreak();
-  document.querySelector("[data-catalog-count]").textContent = state.catalog ? `${formatNumber(state.catalog.stats.questionCount)} 道题 · ${state.catalog.stats.categoryCount} 个模块` : "加载中…";
+  document.querySelector("[data-catalog-title]").textContent = state.catalog?.source?.title || "统一题库";
+  document.querySelector("[data-catalog-count]").textContent = state.catalog ? `${formatNumber(state.catalog.stats.questionCount)} 道题 · ${state.catalog.stats.categoryCount} 个知识域` : "加载中…";
   const practiceBadge = document.querySelector('[data-nav-count="practice"]');
   if (practiceBadge) practiceBadge.textContent = getDueCount() || (state.catalog ? "开始" : "—");
 }
@@ -325,7 +331,7 @@ function renderQueueRows(questions, emptyText = "今天没有需要处理的题�
     const status = getQuestionStatus(question.id);
     return `<button class="queue-row" type="button" data-action="open-question" data-id="${escapeHtml(question.id)}">
       <span class="queue-index ${statusClass(status)} ${status === "mastered" ? "done" : ""}">${status === "mastered" ? icon("check") : String(index + 1).padStart(2, "0")}</span>
-      <span><strong class="queue-row-title">${escapeHtml(question.title)}</strong><span class="queue-row-meta"><span>${escapeHtml(question.category || question.rootCategory)}</span><i></i><span>${question.estimatedMinutes || 8} min</span></span></span>
+      <span><strong class="queue-row-title">${escapeHtml(question.title)}</strong><span class="queue-row-meta"><span>${escapeHtml(question.primaryModuleLabel || question.category || question.rootCategory)}</span><i></i><span>${question.estimatedMinutes || 8} min</span></span></span>
       <span class="status-tag ${statusClass(status)}">${statusLabel(status)}</span>
     </button>`;
   }).join("");
@@ -347,7 +353,7 @@ function renderDashboard() {
   const goal = state.progress.dailyGoal || DAILY_GOAL;
   const accuracy = getAccuracy(getAttemptsForDay());
   const mastered = Object.values(state.progress.schedules).filter((record) => record.repetitions >= 3 && record.lastRating === "remember").length;
-  const categoryCount = state.catalog.stats.categoryCount;
+  const domainCount = state.catalog.stats.domainCount || state.catalog.stats.categoryCount;
   const progressPercent = Math.min(100, Math.round((todayCount / goal) * 100));
   const focus = getWeakQueue(3).length ? getWeakQueue(3) : dailyQueue.slice(0, 3);
 
@@ -371,7 +377,7 @@ function renderDashboard() {
         <div class="queue-footer"><span>当前题库 · ${formatNumber(state.catalog.stats.questionCount)} 道题</span><button type="button" data-action="shuffle-daily">换一组 ${icon("shuffle")}</button></div>
       </section>
       <aside class="insight-column" aria-label="学习洞察">
-        <section class="surface dark-surface insight-panel"><div class="section-kicker">Skill map</div><h2 class="section-title">模块掌握度</h2><p class="section-subtitle">根据每次自评和复习间隔更新。</p><div class="mastery-list">${renderMasteryRows()}</div><div class="insight-foot"><span>已覆盖模块</span><b>${categoryCount} 个 · ${formatNumber(state.catalog.stats.questionCount)} 题</b></div></section>
+        <section class="surface dark-surface insight-panel"><div class="section-kicker">Skill map</div><h2 class="section-title">知识域掌握度</h2><p class="section-subtitle">根据每次自评和复习间隔更新。</p><div class="mastery-list">${renderMasteryRows()}</div><div class="insight-foot"><span>已覆盖知识域</span><b>${domainCount} 个 · ${formatNumber(state.catalog.stats.questionCount)} 题</b></div></section>
         <section class="surface insight-panel"><div class="section-kicker">Focus next</div><h2 class="section-title">建议优先处理</h2><p class="section-subtitle">把注意力留给最容易遗忘的内容。</p><div class="focus-list">${focus.length ? focus.map((question) => `<button class="focus-row" type="button" data-action="open-question" data-id="${escapeHtml(question.id)}"><span>${escapeHtml(question.title)}</span><b>${statusLabel(getQuestionStatus(question.id))}</b></button>`).join("") : `<div class="report-empty">完成第一道题后，这里会出现你的薄弱项。</div>`}</div></section>
       </aside>
     </section>
@@ -401,7 +407,7 @@ function renderPracticeQuestion(question) {
     : `<div class="reference-body">${renderParagraphs(reference)}</div>${keyPoints.length ? `<ul class="key-points">${keyPoints.map((point) => `<li>${escapeHtml(point)}</li>`).join("")}</ul>` : ""}`;
 
   return `<article class="question-workspace">
-    <div class="question-meta"><span class="meta-pill">${escapeHtml(question.rootCategory)}</span><span>${escapeHtml(question.category)}</span><span>·</span><span>${question.estimatedMinutes || 8} 分钟</span><span>·</span><span>${difficultyLabel(question.difficulty)}</span></div>
+    <div class="question-meta"><span class="meta-pill">${escapeHtml(question.primaryModule?.label || question.primaryModuleLabel || question.category || question.rootCategory)}</span><span>${escapeHtml((question.secondaryModules || []).slice(0, 2).map((module) => module.label).join(" · ") || question.sourceCategory || "待复核")}</span><span>·</span><span>${question.estimatedMinutes || 8} 分钟</span><span>·</span><span>${difficultyLabel(question.difficulty)}</span></div>
     <div class="question-number">Question ${String(practice.index + 1).padStart(2, "0")}</div>
     <h1 class="question-title">${escapeHtml(question.title)}</h1>
     <p class="question-summary">${escapeHtml(question.summary || "先用自己的话回答，再对照参考答案检查覆盖面、工程细节和边界条件。")}</p>
@@ -434,14 +440,16 @@ function renderPracticeDone() {
 }
 
 function getFilteredLibraryQuestions() {
-  const { query, category, filter } = state.library;
+  const { query, category, source, filter } = state.library;
   const normalized = query.trim().toLowerCase();
   return state.catalog.questions.filter((question) => {
-    const matchesQuery = !normalized || [question.title, question.summary, question.category, question.rootCategory, ...(question.tags || [])].join(" ").toLowerCase().includes(normalized);
-    const matchesCategory = category === "all" || question.rootCategory === category;
+    const searchableModules = [question.primaryModuleLabel, question.primaryModuleParentLabel, ...(question.secondaryModuleIds || []).map(moduleLabel)];
+    const matchesQuery = !normalized || [question.title, question.summary, question.category, question.rootCategory, question.sourceCategory, question.sourceCollection, ...searchableModules, ...(question.tags || [])].join(" ").toLowerCase().includes(normalized);
+    const matchesCategory = category === "all" || question.primaryModuleParentId === category;
+    const matchesSource = source === "all" || question.sourceCollection === source;
     const status = getQuestionStatus(question.id);
     const matchesFilter = filter === "all" || (filter === "new" && status === "new") || (filter === "due" && status === "due") || (filter === "reviewed" && status !== "new");
-    return matchesQuery && matchesCategory && matchesFilter;
+    return matchesQuery && matchesCategory && matchesSource && matchesFilter;
   });
 }
 
@@ -451,13 +459,14 @@ function renderLibrary() {
   state.library.page = Math.min(state.library.page, pageCount);
   const start = (state.library.page - 1) * PAGE_SIZE;
   const visible = filtered.slice(start, start + PAGE_SIZE);
-  const categoryOptions = state.catalog.categories.map((category) => `<option value="${escapeHtml(category.label)}" ${state.library.category === category.label ? "selected" : ""}>${escapeHtml(category.label)} · ${category.count}</option>`).join("");
+  const categoryOptions = state.catalog.categories.map((category) => `<option value="${escapeHtml(category.id)}" ${state.library.category === category.id ? "selected" : ""}>${escapeHtml(category.label)} · ${category.count}</option>`).join("");
+  const sourceOptions = (state.catalog.source?.collections || []).map((source) => `<option value="${escapeHtml(source.id)}" ${state.library.source === source.id ? "selected" : ""}>${escapeHtml(source.label)} · ${source.questionCount}</option>`).join("");
   const pageButtons = Array.from({ length: Math.min(pageCount, 5) }, (_, index) => {
     const page = pageCount <= 5 ? index + 1 : Math.max(1, Math.min(pageCount - 4, state.library.page - 2)) + index;
     return `<button class="page-button ${page === state.library.page ? "is-current" : ""}" type="button" data-action="library-page" data-page="${page}">${page}</button>`;
   }).join("");
 
-  return `<div class="library-page"><section class="page-intro"><div><div class="eyebrow"><span class="eyebrow-dot"></span>Content library · ${formatNumber(state.catalog.stats.questionCount)} questions</div><h1 class="page-title">从题库里挑选训练。</h1><p class="page-copy">按模块、状态和关键词找到下一道题。点击题目即可进入一次完整的回答—对照—复习流程。</p></div><div class="page-actions"><button class="button primary" type="button" data-action="start-random">${icon("shuffle")}随机挑战</button></div></section><div class="library-toolbar"><div class="filter-group"><span class="filter-label">状态</span><button class="filter-button ${state.library.filter === "all" ? "is-active" : ""}" type="button" data-action="library-filter" data-filter="all">全部</button><button class="filter-button ${state.library.filter === "new" ? "is-active" : ""}" type="button" data-action="library-filter" data-filter="new">未开始</button><button class="filter-button ${state.library.filter === "due" ? "is-active" : ""}" type="button" data-action="library-filter" data-filter="due">待复习</button><button class="filter-button ${state.library.filter === "reviewed" ? "is-active" : ""}" type="button" data-action="library-filter" data-filter="reviewed">已练习</button></div><select class="select-control" id="libraryCategory" aria-label="筛选模块"><option value="all" ${state.library.category === "all" ? "selected" : ""}>全部模块 · ${formatNumber(state.catalog.stats.questionCount)}</option>${categoryOptions}</select><label class="library-search" for="librarySearch"><span class="icon icon-search"></span><input id="librarySearch" type="search" value="${escapeHtml(state.library.query)}" placeholder="搜索题目、模块或知识点" autocomplete="off" /></label></div><section class="library-table"><div class="library-table-head"><span>题目</span><span>模块</span><span>题型</span><span>状态</span></div>${visible.length ? visible.map((question) => { const status = getQuestionStatus(question.id); return `<button class="library-row" type="button" data-action="open-question" data-id="${escapeHtml(question.id)}"><span><strong class="library-row-title">${escapeHtml(question.title)}</strong><small class="library-row-sub">${escapeHtml(question.summary || "面试口述题 · 先回答再复习")}</small></span><span class="library-category">${escapeHtml(question.rootCategory)} / ${escapeHtml(question.category)}</span><span class="library-type">${question.type === "short_answer" ? "简答题" : escapeHtml(question.type)}</span><span class="status-tag library-status ${statusClass(status)}">${statusLabel(status)}</span></button>`; }).join("") : `<div class="library-empty">没有找到匹配题目。换一个关键词，或清除筛选条件。</div>`}<div class="library-bottom"><span>显示 ${filtered.length ? start + 1 : 0}–${Math.min(start + PAGE_SIZE, filtered.length)} / ${formatNumber(filtered.length)} 道</span><div class="pagination"><button class="page-button" type="button" data-action="library-page" data-page="${state.library.page - 1}" ${state.library.page <= 1 ? "disabled" : ""}>‹</button>${pageButtons}<button class="page-button" type="button" data-action="library-page" data-page="${state.library.page + 1}" ${state.library.page >= pageCount ? "disabled" : ""}>›</button></div></div></section></div>`;
+  return `<div class="library-page"><section class="page-intro"><div><div class="eyebrow"><span class="eyebrow-dot"></span>Knowledge library · ${formatNumber(state.catalog.stats.questionCount)} questions</div><h1 class="page-title">从知识模块里挑选训练。</h1><p class="page-copy">先按知识域筛选，再用来源、状态和关键词缩小范围。点击题目即可进入一次完整的回答—对照—复习流程。</p></div><div class="page-actions"><button class="button primary" type="button" data-action="start-random">${icon("shuffle")}随机挑战</button></div></section><div class="library-toolbar"><div class="filter-group"><span class="filter-label">状态</span><button class="filter-button ${state.library.filter === "all" ? "is-active" : ""}" type="button" data-action="library-filter" data-filter="all">全部</button><button class="filter-button ${state.library.filter === "new" ? "is-active" : ""}" type="button" data-action="library-filter" data-filter="new">未开始</button><button class="filter-button ${state.library.filter === "due" ? "is-active" : ""}" type="button" data-action="library-filter" data-filter="due">待复习</button><button class="filter-button ${state.library.filter === "reviewed" ? "is-active" : ""}" type="button" data-action="library-filter" data-filter="reviewed">已练习</button></div><select class="select-control" id="libraryCategory" aria-label="筛选知识域"><option value="all" ${state.library.category === "all" ? "selected" : ""}>全部知识域 · ${formatNumber(state.catalog.stats.questionCount)}</option>${categoryOptions}</select><select class="select-control" id="librarySource" aria-label="筛选来源"><option value="all" ${state.library.source === "all" ? "selected" : ""}>全部来源</option>${sourceOptions}</select><label class="library-search" for="librarySearch"><span class="icon icon-search"></span><input id="librarySearch" type="search" value="${escapeHtml(state.library.query)}" placeholder="搜索题目、知识模块或知识点" autocomplete="off" /></label></div><section class="library-table"><div class="library-table-head"><span>题目</span><span>知识模块</span><span>题型</span><span>状态</span></div>${visible.length ? visible.map((question) => { const status = getQuestionStatus(question.id); const reviewLabel = question.taxonomy?.status === "review" ? " · 待复核" : ""; return `<button class="library-row" type="button" data-action="open-question" data-id="${escapeHtml(question.id)}"><span><strong class="library-row-title">${escapeHtml(question.title)}</strong><small class="library-row-sub">${escapeHtml(question.summary || "面试口述题 · 先回答再复习")}</small></span><span class="library-category"><strong>${escapeHtml(question.primaryModuleLabel || "待复核")}</strong><small>${escapeHtml(`${question.sourceCategory || ""}${reviewLabel}`)}</small></span><span class="library-type">${question.type === "short_answer" ? "简答题" : escapeHtml(question.type)}</span><span class="status-tag library-status ${statusClass(status)}">${statusLabel(status)}</span></button>`; }).join("") : `<div class="library-empty">没有找到匹配题目。换一个关键词，或清除筛选条件。</div>`}<div class="library-bottom"><span>显示 ${filtered.length ? start + 1 : 0}–${Math.min(start + PAGE_SIZE, filtered.length)} / ${formatNumber(filtered.length)} 道</span><div class="pagination"><button class="page-button" type="button" data-action="library-page" data-page="${state.library.page - 1}" ${state.library.page <= 1 ? "disabled" : ""}>‹</button>${pageButtons}<button class="page-button" type="button" data-action="library-page" data-page="${state.library.page + 1}" ${state.library.page >= pageCount ? "disabled" : ""}>›</button></div></div></section></div>`;
 }
 
 function activityDays(count = 14) {
@@ -478,7 +487,7 @@ function renderReport() {
   const recent = [...attempts].sort((a, b) => new Date(b.reviewedAt) - new Date(a.reviewedAt)).slice(0, 6);
   const questionTitle = (id) => state.catalogMap.get(id)?.title || "已移除的题目";
   const ratingLabel = { remember: "记得", unsure: "模糊", unknown: "不会" };
-  return `<div class="report-page"><section class="page-intro"><div><div class="eyebrow"><span class="eyebrow-dot"></span>Learning report · local progress</div><h1 class="page-title">看见你的学习轨迹。</h1><p class="page-copy">这里记录真实的答题事件和复习节奏，不用虚构完成数。数据保存在当前浏览器中。</p></div><div class="page-actions"><button class="button secondary" type="button" data-action="start-daily">继续训练 ${icon("arrowRight")}</button></div></section><section class="report-grid"><section class="surface report-panel"><div class="report-header-line"><div><div class="section-kicker">Total reviews</div><h2 class="section-title">累计答题</h2></div><div class="report-number">${formatNumber(attempts.length)}<small>次</small></div></div><div class="chart-wrap"><div class="activity-chart">${days.map((day) => `<div class="activity-day" title="${day.day} · ${day.count} 次"><i class="activity-bar ${day.count ? "is-active" : ""}" style="height:${Math.max(3, Math.round(day.count / maxActivity * 100))}%"></i></div>`).join("")}</div><div class="activity-labels">${days.map((day) => `<span>${escapeHtml(day.label)}</span>`).join("")}</div><div class="legend"><span><i></i>有答题记录</span><span><i class="muted"></i>未记录</span></div></div></section><section class="surface report-panel"><div class="section-kicker">Retention</div><h2 class="section-title">记忆保留率</h2><p class="section-subtitle">按“记得”自评的答题比例计算。</p><div class="report-number" style="margin-top:22px">${accuracy === null ? "—" : `${accuracy}%`}<small>${attempts.length ? "全部答题" : "完成第一题后生成"}</small></div><div class="report-method"><span class="method-number">1</span><div><strong>先回忆，再查看</strong><p>把参考答案延后到主动回忆结束，减少“看懂了却说不出”的错觉。</p></div></div><div class="report-method"><span class="method-number">2</span><div><strong>按记忆程度评分</strong><p>不会、模糊、记得分别对应不同间隔，系统自动计算下一次复习时间。</p></div></div></section><section class="surface report-panel report-wide"><div class="report-header-line"><div><div class="section-kicker">Skill map</div><h2 class="section-title">模块掌握度</h2><p class="section-subtitle">按模块内已练习题目的平均掌握度排序。</p></div><span class="status-tag">${formatNumber(state.catalog.stats.categoryCount)} 个模块</span></div><div class="mastery-table">${categories.slice(0, 10).map((category) => `<div class="mastery-table-row"><span title="${escapeHtml(category.label)}">${escapeHtml(category.label)} <small style="color:var(--muted)">· ${category.mastery.reviewed}/${category.count}</small></span><b>${category.mastery.reviewed ? `${category.mastery.value}%` : "新"}</b><div class="mini-track"><i style="width:${category.mastery.value}%"></i></div></div>`).join("")}</div></section><section class="surface report-panel report-wide"><div class="section-kicker">Recent activity</div><h2 class="section-title">最近的答题记录</h2>${recent.length ? `<div class="recent-list">${recent.map((attempt) => `<div class="recent-row"><span class="recent-mark ${attempt.rating}">${attempt.rating === "remember" ? "✓" : attempt.rating === "unsure" ? "~" : "×"}</span><span><strong class="recent-title">${escapeHtml(questionTitle(attempt.questionId))}</strong><small class="recent-meta">${escapeHtml(ratingLabel[attempt.rating] || "已记录")} · ${escapeHtml(attempt.day)}</small></span><time class="recent-time">${new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(new Date(attempt.reviewedAt))}</time></div>`).join("")}</div>` : `<div class="report-empty">还没有答题记录。开始一轮训练，报告会从第一道题开始长出来。</div>`}</section></section></div>`;
+  return `<div class="report-page"><section class="page-intro"><div><div class="eyebrow"><span class="eyebrow-dot"></span>Learning report · local progress</div><h1 class="page-title">看见你的学习轨迹。</h1><p class="page-copy">这里记录真实的答题事件和复习节奏，不用虚构完成数。数据保存在当前浏览器中。</p></div><div class="page-actions"><button class="button secondary" type="button" data-action="start-daily">继续训练 ${icon("arrowRight")}</button></div></section><section class="report-grid"><section class="surface report-panel"><div class="report-header-line"><div><div class="section-kicker">Total reviews</div><h2 class="section-title">累计答题</h2></div><div class="report-number">${formatNumber(attempts.length)}<small>次</small></div></div><div class="chart-wrap"><div class="activity-chart">${days.map((day) => `<div class="activity-day" title="${day.day} · ${day.count} 次"><i class="activity-bar ${day.count ? "is-active" : ""}" style="height:${Math.max(3, Math.round(day.count / maxActivity * 100))}%"></i></div>`).join("")}</div><div class="activity-labels">${days.map((day) => `<span>${escapeHtml(day.label)}</span>`).join("")}</div><div class="legend"><span><i></i>有答题记录</span><span><i class="muted"></i>未记录</span></div></div></section><section class="surface report-panel"><div class="section-kicker">Retention</div><h2 class="section-title">记忆保留率</h2><p class="section-subtitle">按“记得”自评的答题比例计算。</p><div class="report-number" style="margin-top:22px">${accuracy === null ? "—" : `${accuracy}%`}<small>${attempts.length ? "全部答题" : "完成第一题后生成"}</small></div><div class="report-method"><span class="method-number">1</span><div><strong>先回忆，再查看</strong><p>把参考答案延后到主动回忆结束，减少“看懂了却说不出”的错觉。</p></div></div><div class="report-method"><span class="method-number">2</span><div><strong>按记忆程度评分</strong><p>不会、模糊、记得分别对应不同间隔，系统自动计算下一次复习时间。</p></div></div></section><section class="surface report-panel report-wide"><div class="report-header-line"><div><div class="section-kicker">Skill map</div><h2 class="section-title">知识域掌握度</h2><p class="section-subtitle">按知识域内已练习题目的平均掌握度排序。</p></div><span class="status-tag">${formatNumber(state.catalog.stats.domainCount || state.catalog.stats.categoryCount)} 个知识域</span></div><div class="mastery-table">${categories.slice(0, 10).map((category) => `<div class="mastery-table-row"><span title="${escapeHtml(category.label)}">${escapeHtml(category.label)} <small style="color:var(--muted)">· ${category.mastery.reviewed}/${category.count}</small></span><b>${category.mastery.reviewed ? `${category.mastery.value}%` : "新"}</b><div class="mini-track"><i style="width:${category.mastery.value}%"></i></div></div>`).join("")}</div></section><section class="surface report-panel report-wide"><div class="section-kicker">Recent activity</div><h2 class="section-title">最近的答题记录</h2>${recent.length ? `<div class="recent-list">${recent.map((attempt) => `<div class="recent-row"><span class="recent-mark ${attempt.rating}">${attempt.rating === "remember" ? "✓" : attempt.rating === "unsure" ? "~" : "×"}</span><span><strong class="recent-title">${escapeHtml(questionTitle(attempt.questionId))}</strong><small class="recent-meta">${escapeHtml(ratingLabel[attempt.rating] || "已记录")} · ${escapeHtml(attempt.day)}</small></span><time class="recent-time">${new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(new Date(attempt.reviewedAt))}</time></div>`).join("")}</div>` : `<div class="report-empty">还没有答题记录。开始一轮训练，报告会从第一道题开始长出来。</div>`}</section></section></div>`;
 }
 
 function renderView() {
@@ -635,6 +644,11 @@ function handleChange(event) {
     state.library.page = 1;
     renderView();
   }
+  if (event.target.id === "librarySource") {
+    state.library.source = event.target.value;
+    state.library.page = 1;
+    renderView();
+  }
 }
 
 function handleKeydown(event) {
@@ -668,6 +682,7 @@ async function boot() {
   try {
     state.catalog = await fetchJson("catalog.json");
     state.catalogMap = new Map(state.catalog.questions.map((question) => [question.id, question]));
+    state.moduleMap = new Map((state.catalog.knowledgeModules || []).map((module) => [module.id, module]));
     renderView();
   } catch (error) {
     console.error(error);

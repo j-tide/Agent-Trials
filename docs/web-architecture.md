@@ -14,13 +14,16 @@
 ## 运行时分层
 
 ```text
-GitHub Questions (YAML)
-        |
-        | tools/build_web_data.rb
+GitHub Questions (YAML)              questions/taxonomy
+        |                                      |
+        | tools/classify_questions.rb            | assignments.jsonl / review-rules.yml / overrides.jsonl
+        +----------------------+---------------+
+                               |
+                               | tools/build_web_data.rb
         v
 Static Content Layer
-  data/catalog.json       题目索引、模块、统计、pack 映射
-  data/packs/*.json       按模块懒加载的题目正文和参考答案
+  data/catalog.json       知识域、知识模块、来源、统计和分片索引
+  data/packs/*.json       按来源分片懒加载题目正文和参考答案
         |
         v
 Browser Application
@@ -36,7 +39,9 @@ Local Runtime State
     └── dailyGoal            每日训练目标
 ```
 
-首屏只加载 `catalog.json`。进入训练后才按当前题目的 `packId` 加载正文，因此题库规模增长不会把所有参考答案一次性塞进首屏。
+题目分类和来源是两个独立维度：`taxonomy.primary` 用于刷题、统计和学习路径，`source` 用于溯源和来源筛选。首屏只加载 `catalog.json`，进入训练后才按当前题目的 `packId` 加载正文，因此题库规模增长不会把所有参考答案一次性塞进首屏。
+
+当前统一索引包含 3 个来源集合、12 个一级知识域和 60 个叶子知识模块。分类结果写入 `questions/taxonomy/assignments.jsonl`；高置信度题目标记为 `auto`，稳定专题通过 `review-rules.yml` 批量确认，单题人工决定通过 `overrides.jsonl` 持久化，其余题目进入 `review-queue.jsonl`，不会覆盖原始 YAML。
 
 ## 一次刷题的状态流
 
@@ -73,7 +78,8 @@ Agent 不应直接修改学习状态。推荐由 Agent 产生 `evaluation` 事�
 ## 静态部署
 
 ```bash
-ruby tools/build_web_data.rb questions/collected/feishu-llm-complete data
+ruby tools/classify_questions.rb
+ruby tools/build_web_data.rb
 python3 -m http.server 8000
 ```
 
