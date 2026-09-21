@@ -1,0 +1,98 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f07e89b07b72
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 手写缩放点积注意力的反向传播，手动推导并实现 backward 中关于 Q、K、V 的梯度计算。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 手写缩放点积注意力的反向传播，手动推导并实现 backward 中关于 Q、K、V 的梯度计算。
+answer:
+  mode: rubric
+  reference_answer: |-
+    13.1 反向传播推导
+
+    设前向过程为：
+
+    - S = Q @ K^T / sqrt(d)
+
+    - P = softmax(S) （行方向）
+
+    - O = P @ V
+
+    损失函数关于 O 的梯度为 dO，我们需要求 dQ, dK, dV。
+
+    推导如下：
+
+    - dV = P^T @ dO
+
+    - dP = dO @ V^T
+
+    - 记 dS = P * (dP - rowsum(dP * P)) （softmax 反向传播的标准结果）
+
+    - dQ = (dS / sqrt(d)) @ K
+
+    - dK = (dS / sqrt(d))^T @ Q
+
+    13.2 手动实现
+
+    ```python
+    def scaled_dot_product_attention_backward(dO, Q, K, V, P, scale):
+        """
+        dO: (B, H, Lq, D) 损失对输出的梯度
+        Q, K, V: 前向时的张量
+        P: softmax 后的注意力权重
+        """
+        # dV
+        dV = torch.matmul(P.transpose(-2, -1), dO)  # (B, H, Lk, D)
+
+        # dP
+        dP = torch.matmul(dO, V.transpose(-2, -1))  # (B, H, Lq, Lk)
+
+        # softmax 反向
+        # dS = P * (dP - sum(dP * P, dim=-1, keepdim=True))
+        sum_term = torch.sum(dP * P, dim=-1, keepdim=True)
+        dS = P * (dP - sum_term)
+
+        # dQ, dK
+        dQ = torch.matmul(dS / scale, K)  # (B, H, Lq, D)
+        dK = torch.matmul(dS.transpose(-2, -1) / scale, Q)  # (B, H, Lk, D)
+
+        return dQ, dK, dV
+    ```
+
+    13.3 验证
+
+    可以使用 torch.autograd.gradcheck 对自定义的 Function 进行梯度检验，确保与自动微分的误差在容差范围内。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTpnwxWMsiVDwIkIoX0c1TU4ned
+  block_id: XjfzdPYADo9onvxbcFUcNKVKnYf
+  page_token: QTpnwxWMsiVDwIkIoX0c1TU4ned
+  original_title: 手写缩放点积注意力的反向传播，手动推导并实现 backward 中关于 Q、K、V 的梯度计算。
+  imported_at: '2026-09-21'

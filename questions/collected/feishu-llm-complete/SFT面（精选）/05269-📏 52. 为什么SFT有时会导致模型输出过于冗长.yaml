@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-078ca1cbd2cf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CF 52. 为什么SFT有时会导致模型输出过于冗长？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F4CF 52. 为什么SFT有时会导致模型输出过于冗长？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    SFT模型输出冗长是一个多因素叠加的结果，涉及数据构造、训练机制和解码策略的相互作用。这不是个别现象，而是SFT范式的内生倾向。
+
+    冗长的形成机制
+
+    [嵌入表格未展开]
+
+    数据源头：标注者行为偏差
+
+    在人类标注过程中，标注者普遍存在“多即是好”的心理。对于简单问题，他们往往不满足于给出核心答案，而是附加上背景解释、注意事项、相关建议等。这使得SFT数据中的长回答比例被人为推高。模型从数据中直接学到了这种“回答越长越标准”的统计规律。当面对用户提问时，它会倾向于生成与训练数据中长度分布匹配的回答——即偏长的回答。
+
+    Teacher Forcing的“多安全”效应
+
+    Teacher forcing机制使得模型在训练时每一步都看到正确的历史token。在长回答中，模型发现插入了“另外”、“值得注意的是”、“当然”这类过渡词之后，后续内容依然能得到正确的teacher上下文，因此这些冗余成分被赋予了不低的生成概率。模型学会了：多说这些“保险词”不会错，还能提高整体序列的似然概率。在推理时，这种倾向就会被放大。
+
+    交叉熵的“缺乏压缩激励”
+
+    交叉熵损失只关心每个位置预测的准确性，完全不考虑整个序列的简洁性。对模型来说，一个啰嗦但每个词都高概率的回答，在损失值上优于一个简洁但在某些词上概率稍低的回答。模型没有“长度意识”，无法自发学习到“简洁是一种美德”。
+
+    上下文堆积效应
+
+    在多轮对话中，模型可能会不断引用之前轮次提到的信息，导致每次回答都包含越来越多的历史回顾和交叉引用。这种上下文意识的过度泛化，使得回答像滚雪球一样越来越长。
+
+    缓解冗长的实用方法
+
+    - 数据侧：在SFT数据中有意混入高质量短回答，确保数据集中长短回答的分布合理。甚至可以构造“请用不超过50字回答”的指令数据，直接训练模型遵循长度限制。
+
+    - 训练侧：在损失函数中加入长度惩罚项，或使用RLHF/DPO阶段对过长回答进行负向奖励。
+
+    - 推理侧：在系统提示中加入简洁性要求；设置更低的max_new_tokens；提高重复惩罚；在解码时对EOS token进行概率偏置，鼓励更早结束生成。
+
+    - 评估侧：在评估模型输出时，将“简洁性”作为明确指标，反馈到数据迭代中。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KPIxw03EPiQ1rrkxrvUcqRIznBf
+  block_id: XqiGduk9Co9tynxLb6jcHR4ynne
+  page_token: KPIxw03EPiQ1rrkxrvUcqRIznBf
+  original_title: "\U0001F4CF 52. 为什么SFT有时会导致模型输出过于冗长？"
+  imported_at: '2026-09-21'

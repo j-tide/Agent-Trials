@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-86560d67d1a7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写一个工具调用验证器：给定一个解析出的函数调用字典和预定义的工具 Schema（包含函数名、参数类型和是否必填），验证函数名是否存在、必填参数是否齐全、参数类型是否正确，返回验证结果及错误信息。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 编写一个工具调用验证器：给定一个解析出的函数调用字典和预定义的工具 Schema（包含函数名、参数类型和是否必填），验证函数名是否存在、必填参数是否齐全、参数类型是否正确，返回验证结果及错误信息。
+answer:
+  mode: rubric
+  reference_answer: "原理\n\n工具 Schema 格式通常为：\n\n```python\nschemas = {\n    \"search\":
+    {\n        \"description\": \"搜索互联网\",\n        \"parameters\": {\n            \"query\":
+    {\"type\": \"str\", \"required\": True},\n            \"num_results\": {\"type\":
+    \"int\", \"required\": False}\n        }\n    }\n}\n```\n\n验证器需要检查：\n\n- 函数名是否在
+    Schema 中注册。\n\n- 所有必填参数是否都已提供。\n\n- 提供的每个参数的类型是否与 Schema 匹配。\n\n- 不应出现未定义的参数（可选，可以忽略多余参数或报错）。\n\n实现\n\n```python\nfrom
+    typing import Dict, Any, List, Tuple\n\ndef validate_tool_call(\n    call: Dict[str,
+    Any],\n    schemas: Dict[str, Any]\n) -> Tuple[bool, List[str]]:\n    \"\"\"\n
+    \   验证函数调用是否符合 Schema。\n    Args:\n        call: 包含 \"name\" 和 \"arguments\" 字段的字典。\n
+    \       schemas: 工具 Schema 字典，键为函数名。\n    Returns:\n        (is_valid, errors):
+    是否通过验证以及错误信息列表。\n    \"\"\"\n    errors = []\n    func_name = call.get(\"name\")\n
+    \   if not func_name:\n        errors.append(\"函数调用缺少 'name' 字段\")\n        return
+    False, errors\n\n    schema = schemas.get(func_name)\n    if not schema:\n        errors.append(f\"函数
+    '{func_name}' 未在 Schema 中定义\")\n        return False, errors\n\n    params_schema
+    = schema.get(\"parameters\", {})\n    arguments = call.get(\"arguments\", {})\n\n
+    \   # 检查必填参数\n    for param_name, param_info in params_schema.items():\n        if
+    param_info.get(\"required\", False):\n            if param_name not in arguments:\n
+    \               errors.append(f\"缺少必填参数 '{param_name}'\")\n    \n    # 检查参数类型\n
+    \   type_map = {\n        \"str\": str,\n        \"int\": int,\n        \"float\":
+    float,\n        \"bool\": bool,\n        \"list\": list,\n        \"dict\": dict\n
+    \   }\n    for param_name, value in arguments.items():\n        if param_name
+    not in params_schema:\n            # 可选：忽略未知参数 或 报错\n            # errors.append(f\"提供了未定义的参数
+    '{param_name}'\")\n            continue\n        expected_type = params_schema[param_name].get(\"type\")\n
+    \       if expected_type and expected_type in type_map:\n            if not isinstance(value,
+    type_map[expected_type]):\n                errors.append(\n                    f\"参数
+    '{param_name}' 类型错误：期望 {expected_type}，实际 {type(value).__name__}\"\n                )\n
+    \   \n    return len(errors) == 0, errors\n\n# 示例\nschemas = {\n    \"search\":
+    {\n        \"parameters\": {\n            \"query\": {\"type\": \"str\", \"required\":
+    True},\n            \"max_results\": {\"type\": \"int\", \"required\": False}\n
+    \       }\n    }\n}\n\ncall1 = {\"name\": \"search\", \"arguments\": {\"query\":
+    \"天气\"}}\ncall2 = {\"name\": \"search\", \"arguments\": {\"max_results\": 5}}\ncall3
+    = {\"name\": \"unknown\", \"arguments\": {}}\ncall4 = {\"name\": \"search\", \"arguments\":
+    {\"query\": 123}}\n\nprint(validate_tool_call(call1, schemas))  # (True, [])\nprint(validate_tool_call(call2,
+    schemas))  # (False, [...])\nprint(validate_tool_call(call3, schemas))  # (False,
+    [...])\nprint(validate_tool_call(call4, schemas))  # (False, [...])\n```\n\n扩展\n\n-
+    支持 enum 约束、参数范围检查等。\n\n- 可根据 description 字段生成更友好的错误提示。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  block_id: OqIPdx8rRokptpxLg54cU5bcnHd
+  page_token: Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  original_title: 编写一个工具调用验证器：给定一个解析出的函数调用字典和预定义的工具 Schema（包含函数名、参数类型和是否必填），验证函数名是否存在、必填参数是否齐全、参数类型是否正确，返回验证结果及错误信息。
+  imported_at: '2026-09-21'

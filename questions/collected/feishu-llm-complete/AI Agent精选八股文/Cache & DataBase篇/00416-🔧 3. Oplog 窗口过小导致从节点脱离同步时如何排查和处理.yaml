@@ -1,0 +1,132 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4e5792f193f4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F527 3. Oplog 窗口过小导致从节点脱离同步时如何排查和处理？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F527 3. Oplog 窗口过小导致从节点脱离同步时如何排查和处理？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    故障现象：
+    从库状态显示 RECOVERING，日志中频繁出现 "could not find member in sync source's oplog" 或 "we are too stale to catch up" 等错误。在主库上执行 rs.printReplicationInfo() 发现 Oplog 窗口只有几分钟，而复制延迟经常超过这个值。
+
+    排查流程：
+
+    第一步：确认 Oplog 窗口与写入压力
+
+    ```javascript
+    // 在主库上查看 Oplog 窗口时长
+    rs.printReplicationInfo()
+    // 关注 log length start to end，如果只有几分钟甚至几秒，说明窗口过小。
+    ```
+
+    同时用 mongostat 监控主库的写入速率（insert/update/delete per second），估算所需的 Oplog 大小。
+
+    第二步：检查从库的复制延迟
+
+    ```javascript
+    // 在从库上执行
+    rs.printSecondaryReplicationInfo()
+    ```
+
+    如果 replLag 经常超过 Oplog 窗口，说明从库要么性能跟不上，要么网络不稳定。
+
+    第三步：分析从库的瓶颈
+
+    - 从库的磁盘 IO 是否打满？（iostat）
+
+    - 从库的 CPU 或内存是否不足？
+
+    - 从库是否承载了过多的读请求？（如果是，考虑将读流量迁走或增加从库）
+
+    解决方案（按优先级排序）：
+
+    方案一：动态调整 Oplog 大小（最直接、无需停服）
+
+    MongoDB 3.6+ 支持在线调整 Oplog 大小，无需重启。只需确保调整后的值大于当前值。
+
+    ```javascript
+    // 将 Oplog 调整为 20GB (20480MB)
+    db.adminCommand({ replSetResizeOplog: 1, size: 20480 })
+    ```
+
+    调整后，Oplog 窗口会立即扩大，给从库更多时间追数据。但要注意，调整 Oplog 会占用磁盘空间，需提前确认磁盘余量。
+
+    方案二：增加 Oplog 大小并重启（早期版本或需要同步改配置）
+    在 mongod.conf 中增加 replication.oplogSizeMB 配置项，并重启实例。这需要滚动重启副本集成员，过程中要保证主库可用。
+
+    方案三：优化写入模型
+    如果写入速率过高是因为无效的逐条写入，改用 insertMany、bulkWrite 或聚合管道来减少 Oplog 记录数。同时，检查是否有什么计划外的全量更新或 TTL 索引导致频繁删除。
+
+    方案四：扩容从库硬件
+
+    如果从库的 IO 或内存成为重放 Oplog 的瓶颈，升级从库的磁盘到 SSD，或增加 WiredTiger 缓存，以提升重放速度。
+
+    方案五：重新同步（当从库已完全脱离时）
+
+    如果从库已经无法通过 Oplog 追上来，唯一的选择是重新做一次全量同步。
+
+    ```javascript
+    // 在从库上执行，强制重新同步
+    db.adminCommand({ resync: 1 })
+    // 或者更推荐的方式：停止从库，清空数据目录，重新加入副本集，让它自动 Initial Sync
+    ```
+
+    重新同步期间，从库无法提供读服务，且会给主库带来较大的 IO 和网络压力，应在低峰期执行。
+
+    监控预警脚本示例（Python）：
+
+    ```javascript
+    import pymongo
+
+    client = pymongo.MongoClient("mongodb://primary:27017")
+    admin_db = client.admin
+
+    # 获取 Oplog 信息
+    oplog_status = admin_db.command("replSetGetStatus")
+    for member in oplog_status['members']:
+        if member['stateStr'] == 'PRIMARY':
+            primary_optime = member['optime']
+        if member['stateStr'] == 'SECONDARY':
+            lag = primary_optime['ts'].time - member['optime']['ts'].time
+            if lag > 600:  # 超过 10 分钟告警
+                print(f"CRITICAL: {member['name']} 复制延迟 {lag} 秒")
+    ```
+
+    从根本上预防：
+    在副本集初始化时，就根据业务规模和增长预期，为 Oplog 分配足够的大小。一个常见的实践是，对于中大型生产集群，Oplog 至少设置为 10GB ~ 50GB，而不是默认的 5% 磁盘空间。你可以用 mongod --oplogSize 20480 在启动时指定，或使用配置文件。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BXVdwSFoCiy4apkiMglchiTGnmh
+  block_id: doxcnELPXpr0ZjhWs3XiDWrTwCb
+  page_token: BXVdwSFoCiy4apkiMglchiTGnmh
+  original_title: "\U0001F527 3. Oplog 窗口过小导致从节点脱离同步时如何排查和处理？"
+  imported_at: '2026-09-21'

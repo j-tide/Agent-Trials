@@ -1,0 +1,97 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cc4bd72c895d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 2.3 Kafka消费者组与Rebalance
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 2.3 Kafka消费者组与Rebalance
+answer:
+  mode: rubric
+  reference_answer: "### 消费者组机制\n\n### \U0001F504 1. 什么是 Kafka 的 Rebalance？\n\nRebalance
+    本质上是 消费者组内重新分配分区所有权的过程。当消费者组的成员发生变化（例如，有消费者加入或退出）或者订阅的 Topic 分区数增加时，Kafka 就会触发一次
+    Rebalance，将 Topic 的所有分区重新分配给组内还活着的消费者。\n\nRebalance 触发条件\n├── 消费者加入：新的消费者实例启动并加入组\n├──
+    消费者离开：消费者主动关闭或 crash（心跳超时）\n├── 消费者被认为死亡：session.timeout 或 max.poll.interval 超时\n├──
+    Topic 分区数变化：管理员增加了分区数\n└── 消费者取消订阅某个 Topic\n\n在 Rebalance 期间，整个消费者组会短暂停止消费（STW，Stop-The-World），所有消费者都必须放弃当前拥有的分区，等待新的分配方案完成。这个过程对吞吐量有影响，频繁的
+    Rebalance 会导致消费积压、服务不稳定。\n\n---\n\n### ⚙️ 2. Kafka 的 Rebalance 机制是怎样的？如何避免频繁 Rebalance？\n\nRebalance
+    的完整机制可以拆分为四个阶段：\n\n- 寻找组协调器：消费者启动时，会向任意 Broker 发送 FindCoordinator 请求，找到负责管理该消费者组的
+    Group Coordinator（通常位于 __consumer_offsets 主题的某个分区 Leader 所在的 Broker）。后续所有协调工作都由该
+    Coordinator 完成。\n\n- 加入组：消费者向 Coordinator 发送 JoinGroup 请求，报告自己订阅的主题和支持的分区分配策略（如
+    Range、RoundRobin、Sticky）。第一个发送请求的消费者会被选为 Group Leader，Coordinator 会把整个组的订阅信息和成员列表返回给
+    Leader。\n\n- 制定分配方案：Group Leader 收到成员列表和各自的订阅后，按照选定的分配策略计算出分区分配方案（例如，Consumer1
+    负责 Partition 0,2，Consumer2 负责 Partition 1,3），然后把方案通过 SyncGroup 请求发回给 Coordinator。\n\n-
+    同步分配方案：Coordinator 把最终的分区分配方案广播给所有消费者。消费者收到后，根据自己被分配到的分区重新开始拉取消息。此时 Rebalance
+    结束，组进入稳定消费状态（STABLE）。\n\n消费者                   Group Coordinator                  Group
+    Leader\n  │                            │                                │\n  │
+    \ 1. FindCoordinator        │                                │\n  ├───────────────────────────→│
+    \                               │\n  │                            │                                │\n
+    \ │  2. JoinGroup              │                                │\n  ├───────────────────────────→│
+    \                               │\n  │                            │ 选出 Leader，返回成员列表
+    \      │\n  │←───────────────────────────┤                                │\n
+    \ │                            │                                │\n  │                            │
+    \ 3. Leader 制定分配方案          │\n  │                            │  (SyncGroup)                    │\n
+    \ │                            │←───────────────────────────────┤\n  │                            │
+    \                               │\n  │  4. 广播分配方案           │                                │\n
+    \ │←───────────────────────────┤                                │\n  │                            │
+    \                               │\n  └─ 组进入 STABLE ────────────┘                                │\n\nRebalance
+    的危害：在 Rebalance 过程中，整个消费者组停止消费。如果 Rebalance 频繁发生，会导致消息处理中断、积压严重，增加端到端延迟。\n\n如何避免频繁
+    Rebalance？主要是调整四个超时参数和优化消费逻辑。\n\n[嵌入表格未展开]\n\n优雅退出：在消费者关闭时（如 Spring 容器销毁或 K8s
+    PreStop 钩子），主动调用 consumer.close() 或 consumer.wakeup() 来触发安全退出，让消费者主动离开组并立即触发 Rebalance，而不是等超时。这会减少
+    Coordinator 的等待时间，也避免了不必要的超时驱逐。\n\n// 优雅关闭示例\nRuntime.getRuntime().addShutdownHook(new
+    Thread(() -> {\n    consumer.wakeup();   // 触发 wakeup，让 poll 退出阻塞\n    consumer.close();
+    \   // 主动离开组，触发立即 Rebalance\n}));\n\n选用 Sticky 分配策略：partition.assignment.strategy
+    设为 org.apache.kafka.clients.consumer.StickyAssignor。它在 Rebalance 时会尽量保留原有的分区分配，只移动最少的必要分区，从而减少大规模的状态迁移和缓存重建，让再平衡更轻量。\n\n---\n\n###
+    \U0001F527 3. 你的 Kafka 消费者频繁 Rebalance，如何排查和解决？\n\n排查步骤：\n\n第一步：查看消费者组状态\n\n#
+    查看组的整体状态\nkafka-consumer-groups.sh --bootstrap-server localhost:9092 --group your-group
+    --describe\n\n# 输出会显示每个分区的消费进度、LAG、以及消费者 ID。\n# 关注 STATE 列，如果经常出现 \"PREPARING_REBALANCE\"
+    或 \"COMPLETING_REBALANCE\"，说明 Rebalance 频繁。\n\n第二步：分析消费者日志\n在每个消费者应用日志中搜索 (Re)joining
+    group、Removed member、Heartbeat expired 等关键字，找出触发原因。\n\n常见日志示例：\n\n- Member consumer-1-xxx
+    has failed, removing it from the group — 说明消费者心跳超时或处理超时，被 Coordinator 踢出。\n\n-
+    Revoking currently assigned partitions — 消费者正在放弃分区，这是 Rebalance 的一部分。\n\n- Successfully
+    joined group with generation 5 — 说明 Rebalance 完成，generation 递增越频繁，Rebalance 越多。\n\n第三步：检查
+    GC 和网络\n\n- GC 停顿：如果消费者应用发生了 Full GC，会导致 poll 线程长时间停顿，心跳无法发出，session.timeout 超时导致被踢。检查
+    JVM GC 日志，确认是否有长时间的 GC 暂停。\n\n- 网络不稳定：消费者与 Broker 之间的网络丢包或高延迟可能使心跳超时。可以 ping 或使用网络监控工具排查。\n\n常见原因及解决方案：\n\n-
+    消费处理时间过长，超过 max.poll.interval.ms\n\n- 心跳超时，session.timeout.ms 过短\n\n- 消费者代码中存在死循环或长时间阻塞操作\n\n-
+    Kafka 集群自身问题\n\n优化代码示例（Java）：\n\nProperties props = new Properties();\nprops.put(\"bootstrap.servers\",
+    \"localhost:9092\");\nprops.put(\"group.id\", \"order-processors\");\nprops.put(\"session.timeout.ms\",
+    \"30000\");          // 30秒\nprops.put(\"heartbeat.interval.ms\", \"10000\");
+    \      // 10秒\nprops.put(\"max.poll.interval.ms\", \"600000\");       // 10分钟\nprops.put(\"max.poll.records\",
+    \"50\");               // 每次只拉50条\nprops.put(\"partition.assignment.strategy\",
+    \n    \"org.apache.kafka.clients.consumer.StickyAssignor\");\n\nKafkaConsumer<String,
+    String> consumer = new KafkaConsumer<>(props);\nconsumer.subscribe(Arrays.asList(\"order-events\"));\n\ntry
+    {\n    while (true) {\n        ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(1000));\n
+    \       // 将消息提交到内部线程池异步处理，确保 poll 循环不阻塞\n        if (!records.isEmpty()) {\n
+    \           executorService.submit(() -> processAsync(records));\n        }\n
+    \   }\n} finally {\n    consumer.close();\n}\n\n收束：排查 Rebalance 的思路，本质上是顺着“为什么消费者没能在规定时间内报告自己还活着”这个线索往下追。超时和心跳是表面的刻度，根本原因可能是处理逻辑太重、GC
+    太凶、网络太抖、或代码写得太死。把这四个根因一个个排除，Rebalance 自然会平复下来。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/OKxBw38EbiXvoAksf2jc1fn6nMh
+  block_id: doxcnuMLHR0rEwRXQdjjbHRJCha
+  page_token: OKxBw38EbiXvoAksf2jc1fn6nMh
+  original_title: 2.3 Kafka消费者组与Rebalance
+  imported_at: '2026-09-21'

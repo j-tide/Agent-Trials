@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d56f003f833f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写单元测试，验证手写多头注意力与 torch.nn.MultiheadAttention 在相同输入下的输出误差。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 编写单元测试，验证手写多头注意力与 torch.nn.MultiheadAttention 在相同输入下的输出误差。
+answer:
+  mode: rubric
+  reference_answer: |-
+    23.1 测试思路
+
+    构造相同输入，分别通过手写 Attention 和 PyTorch 官方 nn.MultiheadAttention，检查输出是否在容差内一致。需注意官方接口的 Q、K、V 输入形状和掩码格式略有不同（官方 expects (L, B, D) 形状，mask 格式也有差异）。
+
+    23.2 测试代码
+
+    ```python
+    import unittest
+
+    class TestMultiHeadAttention(unittest.TestCase):
+        def setUp(self):
+            self.B, self.L, self.D = 2, 16, 64
+            self.H = 4
+            self.x = torch.randn(self.B, self.L, self.D)
+            self.attn_custom = MultiHeadSelfAttention(self.D, self.H, dropout=0.0)
+            self.attn_official = nn.MultiheadAttention(self.D, self.H, dropout=0.0, batch_first=True)
+
+            # 复制相同权重以公平对比
+            # 自定义的 qkv_proj 权重需要按顺序复制给官方的 in_proj_weight
+            with torch.no_grad():
+                # 自定义的 qkv_proj.weight 形状: (3*D, D)
+                # 官方的 in_proj_weight 形状: (3*D, D)，可直接复制
+                self.attn_official.in_proj_weight.copy_(self.attn_custom.qkv_proj.weight)
+                self.attn_official.out_proj.weight.copy_(self.attn_custom.out_proj.weight)
+
+        def test_output_equivalence(self):
+            # 无掩码
+            out_custom = self.attn_custom(self.x)
+            out_official, _ = self.attn_official(self.x, self.x, self.x)
+            self.assertTrue(torch.allclose(out_custom, out_official, atol=1e-5))
+    ```
+
+    23.3 注意事项
+
+    - 官方 nn.MultiheadAttention 在 batch_first=True 时输入形状为 (B, L, D)。
+
+    - 如果有偏置，也需要复制。还需注意官方对 key_padding_mask 的解释（True 表示忽略），与自己实现一致。
+
+    - dropout 设为 0 确保确定性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTpnwxWMsiVDwIkIoX0c1TU4ned
+  block_id: AwGxd7AbhocY2bxZYUJcg7lbndn
+  page_token: QTpnwxWMsiVDwIkIoX0c1TU4ned
+  original_title: 编写单元测试，验证手写多头注意力与 torch.nn.MultiheadAttention 在相同输入下的输出误差。
+  imported_at: '2026-09-21'

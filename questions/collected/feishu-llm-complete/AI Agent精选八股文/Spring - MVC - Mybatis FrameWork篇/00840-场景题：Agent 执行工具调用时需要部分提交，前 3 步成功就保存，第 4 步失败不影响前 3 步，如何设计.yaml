@@ -1,0 +1,95 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8691a244df60
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 5、场景题：Agent 执行工具调用时需要"部分提交"，前 3 步成功就保存，第 4 步失败不影响前 3 步，如何设计？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 5、场景题：Agent 执行工具调用时需要"部分提交"，前 3 步成功就保存，第 4 步失败不影响前 3 步，如何设计？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐⭐⭐（REQUIRES\_NEW、编程式事务、Savepoint、事务模板）
+
+    1️⃣ Common Answer
+
+    可以把每一步都用 REQUIRES\_NEW 传播级别，这样每步都是独立事务，失败了不影响前面的。或者用 try-catch 把每步包起来，失败了记录日志继续执行。
+
+    2️⃣ Impressive Answer
+
+    这个问题有三种方案，适用不同场景：
+
+    方案一：REQUIRES\_NEW 独立事务
+
+    @Service
+    public class ToolExecutionService {
+      @Transactional(propagation = Propagation.REQUIRES_NEW)
+      public StepResult executeStep(ToolStep step) {
+          // 每步独立事务，成功即提交
+          return toolInvoker.invoke(step);
+      }
+    }
+
+    优点：简单直接；缺点：每步一个连接，连接池压力大。
+
+    方案二：编程式事务 + Savepoint
+
+    public void executeWorkflow(List<ToolStep> steps) {
+      TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+      for (int i = 0; i < steps.size(); i++) {
+          Object savepoint = status.createSavepoint();
+          try {
+              toolInvoker.invoke(steps.get(i));
+              // 成功则释放 savepoint，继续
+              status.releaseSavepoint(savepoint);
+          } catch (Exception e) {
+              // 失败则回滚到 savepoint，前面的步骤不受影响
+              status.rollbackToSavepoint(savepoint);
+              recordFailure(steps.get(i), e);
+          }
+      }
+      transactionManager.commit(status);  // 统一提交成功的步骤
+    }
+
+    优点：单连接，性能好；缺点：需要数据库支持 Savepoint（MySQL InnoDB 支持）。
+
+    方案三：TransactionTemplate 分段提交 每 N 步用 TransactionTemplate.execute() 包一次，兼顾性能和隔离性。
+
+    选型建议：步骤间无依赖用方案一（简单）；步骤间有依赖且需要部分回滚用方案二（精细）；批量处理用方案三（折中）。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ### 2.4 Spring 循环依赖
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcnYWos6aD17btp2DYyECkVff
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 5、场景题：Agent 执行工具调用时需要"部分提交"，前 3 步成功就保存，第 4 步失败不影响前 3 步，如何设计？
+  imported_at: '2026-09-21'

@@ -1,0 +1,90 @@
+---
+schema_version: 1
+id: feishu-llm-complete-02bfe31a7544
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 混合精度训练在 PyTorch 中如何使用 torch.cuda.amp？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块六：深度学习基础训练与推理部署
+tags: &1
+- 深度学习面（精选）
+- 模块六：深度学习基础训练与推理部署
+content:
+  prompt: 混合精度训练在 PyTorch 中如何使用 torch.cuda.amp？
+answer:
+  mode: rubric
+  reference_answer: |-
+    混合精度训练自动结合 FP32 和 FP16，利用 torch.cuda.amp 模块实现，几乎无需修改训练逻辑。
+
+    核心组件
+
+    - autocast 上下文管理器：自动将适用的运算（如卷积、矩阵乘法）转换为 FP16 以加速，而将不稳定的操作（如 loss、softmax、normalization）保持在 FP32。
+
+    - GradScaler：动态缩放损失，防止 FP16 梯度下溢。
+
+    使用步骤
+
+    - 实例化 GradScaler。
+
+    - 在训练循环中，用 autocast 包裹前向传播和损失计算。
+
+    - 调用 scaler.scale(loss).backward() 以进行缩放后的反向传播。
+
+    - 使用 scaler.step(optimizer) 更新参数，它会自动进行梯度反缩放出并更新，必要时跳过溢出更新。
+
+    - scaler.update() 调整缩放因子。
+
+    示例代码
+
+    from torch.cuda.amp import autocast, GradScaler
+
+    model = Model().cuda()
+    optimizer = torch.optim.Adam(model.parameters())
+    scaler = GradScaler()
+
+    for input, target in data_loader:
+        optimizer.zero_grad()
+        with autocast():
+            output = model(input)
+            loss = loss_fn(output, target)
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+
+    要点
+
+    - 需在模型和输入均为 GPU Tensor 时使用；CPU 不支持 amp。
+
+    - 可搭配 DataParallel 和 DistributedDataParallel。
+
+    - GradScaler 会自动检测 inf/NaN 梯度并跳过该 step，同时减小缩放因子。
+
+    - 通常能提高训练速度 1.5~3 倍，降低显存。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/G5aLwkRfZiCljDklteBcxFZhnfe
+  block_id: KpuydHPNroCbSyxrTQocape6n7d
+  page_token: G5aLwkRfZiCljDklteBcxFZhnfe
+  original_title: 混合精度训练在 PyTorch 中如何使用 torch.cuda.amp？
+  imported_at: '2026-09-21'

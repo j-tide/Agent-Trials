@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0c88dfff64ab
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚙️ 推理服务启动时，如何预分配显存？什么是 block preallocation？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "⚙️ 推理服务启动时，如何预分配显存？什么是 block preallocation？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    推理服务启动时的显存预分配是为了避免运行时动态分配带来的碎片和延迟。主流框架（如 vLLM、TensorRT-LLM）的做法是：
+
+    - 先加载模型权重，占据一部分显存。
+
+    - 剩下的可用显存几乎全部划为一个KVCache 块池，按固定大小的 block 预先分配好。
+
+    - 后续请求的 KV Cache 直接从池中取用空闲 block，用完归还。
+
+    什么是 block preallocation？
+
+    Block preallocation 就是上述的“块预分配”：把显存切分成许多同等大小的物理块（如每块 16 个 token 的 K/V），形成一个空闲块池。每个请求的逻辑 KV Cache 由若干逻辑块组成，通过页表映射到物理块。
+
+    - 优势：消除外部碎片、分配/回收 O(1)、支持共享前缀。
+
+    - 配置：可通过 --gpu-memory-utilization 控制池大小（例如 vLLM 中设为 0.9 表示用剩余显存的 90% 建池），剩下的保留给激活和临时缓冲区。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tr76wMZZwibI1ikxqpEcjhJtnZc
+  block_id: XvCSdEqXWofe0JxHiVPcRkBEnld
+  page_token: Tr76wMZZwibI1ikxqpEcjhJtnZc
+  original_title: "⚙️ 推理服务启动时，如何预分配显存？什么是 block preallocation？"
+  imported_at: '2026-09-21'

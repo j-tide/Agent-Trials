@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c2979c4f3b7c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F504 如何在训练过程中动态分配和释放显存？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 五：前沿与趋势
+tags: &1
+- 显存问题-核心题
+- 五：前沿与趋势
+content:
+  prompt: "\U0001F504 如何在训练过程中动态分配和释放显存？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    训练过程中动态分配与释放显存，核心是实现弹性内存管理，使显存使用紧贴当前计算的实际需求，削峰填谷，避免一次性占满整个训练生命期。
+
+    关键技术手段：
+
+    - 动态批量大小（Dynamic Batching）：根据当前序列长度或 batch 复杂度，自适应调整每个 micro-batch 的大小。长序列时自动减小 batch，释放出空间给激活；短序列时扩大 batch，提升吞吐。这需要数据加载器支持按 token 数而不是固定样本数组批。
+
+    - 即时释放与重计算（Just-in-time Deallocation & Recomputation）：前向传播产生的中间激活，一旦确认不会被后续反向传播使用，立即通过 del 或显存池回收释放。对于必须保留的激活，使用梯度检查点机制，仅保留少量检查点，其余部分在反向时重计算。现代框架如 PyTorch 的 autograd 图会尝试自动释放无用张量，但手动标记生命周期可以更精细。
+
+    - 动态卸载与换入（Dynamic Offloading & Swapping）：训练期间，将优化器状态、不活跃的模型分片或历史激活暂时交换到 CPU 内存甚至 NVMe。DeepSpeed 的 ZeRO-Infinity 和 Zero-Offload 均是在训练循环中异步传输数据，使 GPU 显存只保留当前计算所需的最热数据。
+
+    - 内存池与复用（Memory Pooling）：预分配一大块显存，自己实现分配器，用于频繁分配/释放的临时张量。通过内存池可以避免碎片化，并实现快速回收。Megatron-LM 等框架内部就使用此类技术管理激活和通信缓冲区。
+
+    - 计算图编译优化：使用 torch.compile 或 XLA 等图编译器，自动分析张量生命周期，插入释放和复用操作，最大化利用显存。
+
+    ✅ 因此，动态显存分配的本质是“以时间换空间”的精细调度，它让训练过程像呼吸一样，显存使用随着计算节奏起伏，而非一成不变的高水位。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y9zxwr9AKiTzOrkGXcocvWJuncg
+  block_id: YIu1d7MZHoR4Jixu2AHci05wntg
+  page_token: Y9zxwr9AKiTzOrkGXcocvWJuncg
+  original_title: "\U0001F504 如何在训练过程中动态分配和释放显存？"
+  imported_at: '2026-09-21'

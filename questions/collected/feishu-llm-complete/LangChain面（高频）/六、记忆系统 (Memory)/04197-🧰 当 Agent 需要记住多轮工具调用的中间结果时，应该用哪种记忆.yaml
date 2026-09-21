@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e36c4653b382
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9F0 当 Agent 需要记住多轮工具调用的中间结果时，应该用哪种记忆？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F9F0 当 Agent 需要记住多轮工具调用的中间结果时，应该用哪种记忆？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    当 Agent 在一个复杂任务中需要多次调用工具，并且这些工具的中间结果需要在后续的工具调用或最终答案中被引用时，需要一种能够完整保留这些工具调用历史的记忆。
+
+    推荐方案：
+
+    - ConversationBufferMemory 或 ConversationSummaryBufferMemory 与 Agent 结合使用。
+
+    - 因为 Agent 的工具调用历史（包含工具名称、输入参数、输出结果）会被自动记录在 Agent 的 chat_history 中（以 FunctionMessage 等形式），而 Memory 正是负责存储这个 chat_history 的。只要你使用了 Memory，这些中间结果就会被自动保留。
+
+    如果任务极长，工具调用链非常复杂，且你担心 token 超限，可以使用 ConversationSummaryBufferMemory。它会在早期工具调用历史过长时，将它们压缩为摘要，但保留关键信息（如“第一次调用天气API返回了上海25度”），并保留最近的几次完整工具调用。这样既保持了上下文，又控制了长度。
+
+    特别注意：ConversationBufferWindowMemory 用窗口裁剪历史时，如果窗口太小，可能裁剪掉早期的工具调用结果，导致后续推理断裂。因此对于需要记住多轮工具调用的 Agent，建议不设置过小的窗口，或直接使用 SummaryBuffer。
+
+    代码示例：
+
+    ```python
+    memory = ConversationSummaryBufferMemory(
+        llm=ChatOpenAI(temperature=0),
+        max_token_limit=2000,
+        memory_key="chat_history",
+        return_messages=True
+    )
+    agent_executor = AgentExecutor(agent=agent, tools=tools, memory=memory)
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H3N3wvSCiibLlPk5ZpjcveFHnNb
+  block_id: CWdldWRviokGx5xDMTKcjvrOneb
+  page_token: H3N3wvSCiibLlPk5ZpjcveFHnNb
+  original_title: "\U0001F9F0 当 Agent 需要记住多轮工具调用的中间结果时，应该用哪种记忆？"
+  imported_at: '2026-09-21'

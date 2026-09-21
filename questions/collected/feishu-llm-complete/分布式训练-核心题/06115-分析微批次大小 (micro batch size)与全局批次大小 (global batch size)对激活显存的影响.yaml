@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-68945014a822
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分析“微批次大小 (micro batch size)”与“全局批次大小 (global batch size)”对激活显存的影响。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 分析“微批次大小 (micro batch size)”与“全局批次大小 (global batch size)”对激活显存的影响。
+answer:
+  mode: rubric
+  reference_answer: |-
+    微批次大小（mbs）和全局批次大小（gbs）是两个不同层面的概念，对激活显存的影响也完全不同。
+
+    微批次大小直接决定激活显存峰值。在一次前向传播中，模型需要为mbs个样本生成所有的中间激活张量（Q、K、V、注意力矩阵、FFN隐层输出等），这些张量在反向传播时被消费。激活显存与mbs基本成正比：mbs翻倍，激活显存也大致翻倍。因此，当显存紧张时，最直接的办法就是减小mbs，哪怕把mbs降到1也在所不惜。这也是梯度累积技术存在的价值——它允许我们用极小的mbs来训练，同时通过累积多步来维持大的gbs。
+
+    全局批次大小不直接影响激活显存。gbs决定了模型在多步累积后，进行一次参数更新的总样本数。由于激活值在每个micro batch处理完后被释放，gbs的增大并不会让激活峰值增加。但gbs会影响梯度的统计特性：gbs越大，累积的梯度噪声越小，训练越稳定，可能允许使用更大的学习率，从而加速收敛。
+
+    一个常见的误解是“全局批次大则显存占用大”。实际工程中，我们经常见到这样的配置：单卡mbs=1，累积16步，用64张卡，gbs=1024。此时单卡的激活显存仅相当于处理1个样本的量，远小于模型状态显存。因此，通过调整mbs和累积步数，我们可以在不改变gbs的情况下灵活控制激活显存。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: AEmhdOy1qofhzhxhLU7c9e4on9b
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 分析“微批次大小 (micro batch size)”与“全局批次大小 (global batch size)”对激活显存的影响。
+  imported_at: '2026-09-21'

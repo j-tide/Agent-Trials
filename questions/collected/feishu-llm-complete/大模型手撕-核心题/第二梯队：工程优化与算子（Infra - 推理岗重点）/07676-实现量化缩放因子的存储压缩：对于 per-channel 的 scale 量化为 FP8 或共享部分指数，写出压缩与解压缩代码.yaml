@@ -1,0 +1,97 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3e0b7624b860
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现量化缩放因子的存储压缩：对于 per-channel 的 scale 量化为 FP8 或共享部分指数，写出压缩与解压缩代码。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现量化缩放因子的存储压缩：对于 per-channel 的 scale 量化为 FP8 或共享部分指数，写出压缩与解压缩代码。
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    在 per-channel 量化中，scale 数量等于输出通道数，对于大模型（如 70B），scale 存储也占据一定空间。可以对这些 scale 进一步压缩，例如将 FP32 scale 量化为 FP8（8位浮点），或者利用 scale 之间数值相近的特性，共享部分指数位。这里演示将 FP32 scale 量化为 FP8（E4M3 或 E5M2）的过程，以及简单的共享指数压缩方案。
+
+    方案一：FP32 → FP8 量化
+
+    我们模拟 FP8 E4M3 格式（4位指数，3位尾数）。PyTorch 目前没有原生 FP8 张量，但可以用整数模拟存储，并实现反量化。
+
+    ```python
+    import numpy as np
+
+    def fp32_to_fp8(scale_fp32):
+        """
+        将 FP32 张量转换为 FP8 E4M3 格式的整数表示。
+        这里简单使用截断方法，不实现完整舍入逻辑。
+        """
+        # 提取符号、指数、尾数
+        # 为简化，使用 numpy 的 float16 作为中间，再转为自定义 FP8。
+        # 实际硬件中，FP8 有专门的转换指令。
+        # 我们仅模拟：将 FP32 钳制到 FP8 表示范围，并返回整数编码。
+        pass
+    ```
+
+    方案二：共享指数压缩
+
+    如果多个 scale 数值量级相近，可以让它们共享同一个指数，仅存储各自的尾数。例如，对于一组 scale，找出一个公共的 exponent_base，然后将每个 scale 表示为 mantissa * 2^exponent_base，存储 int8 的尾数即可。
+
+    ```python
+    def compress_scales_shared_exp(scales, base_exp=None):
+        """
+        scales: [N] FP32
+        返回: mantissas (int8), base_exp (int)
+        """
+        max_val = torch.max(scales).item()
+        # 选择一个公共指数，使得缩放后的尾数落在 int8 范围内
+        # 例如 base_exp = floor(log2(max_val/127))
+        base_exp = int(math.floor(math.log2(max_val / 127.0)))
+        # 对每个 scale，计算 mantissa = round(scale / 2^base_exp)
+        mantissas = torch.round(scales / (2.0 ** base_exp))
+        mantissas = mantissas.clamp(-128, 127).to(torch.int8)
+        return mantissas, base_exp
+
+    def decompress_scales_shared_exp(mantissas, base_exp):
+        return mantissas.float() * (2.0 ** base_exp)
+
+    # 测试
+    scales = torch.rand(128) * 0.01
+    m, exp = compress_scales_shared_exp(scales)
+    scales_rec = decompress_scales_shared_exp(m, exp)
+    print("压缩误差:", (scales - scales_rec).abs().mean().item())
+    ```
+
+    应用：这类压缩常用于进一步减小模型文件尺寸，如 GGUF 格式中的 scale 压缩。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: Iv83dfsMxoINKixu0DScD2yFnZe
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 实现量化缩放因子的存储压缩：对于 per-channel 的 scale 量化为 FP8 或共享部分指数，写出压缩与解压缩代码。
+  imported_at: '2026-09-21'

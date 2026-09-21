@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ee1be5ca281a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 四个模型在单次 PPO 更新中，分别进行多少次前向和反向传播？分析计算量分布。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: 四个模型在单次 PPO 更新中，分别进行多少次前向和反向传播？分析计算量分布。
+answer:
+  mode: rubric
+  reference_answer: |-
+    我们以标准的一次 PPO 迭代（采样一个 batch，然后进行 K 个 epoch 的 mini-batch 更新）为例来分析。
+
+    - 采样阶段
+
+    - Actor 模型：进行一次前向传播（自回归生成），无反向传播。它需要生成序列中的每个 token，计算量巨大，且受序列长度影响。
+
+    - Reference 模型：在奖励计算时，对生成序列执行一次前向传播，计算每个 token 的对数概率。这是为了计算 KL 惩罚，无反向传播。
+
+    - Reward Model：在奖励计算时，对完整序列执行一次前向传播，输出一个标量奖励。无反向传播。
+
+    - Critic 模型：此阶段无计算。
+
+    计算量分布（采样阶段）：计算量主要集中在 Actor 的自回归生成上，占大头。Reference 和 RM 的推理是一次性编码整个序列，计算量相对小得多，但仍然是不可忽略的固定开销。
+
+    - PPO 训练阶段
+
+    - 我们将采样得到的经验数据（prompt, response, logπ_old, reward 等）重复用于 K 个 epoch 的训练。
+
+    - 在每个 epoch 的每个 mini-batch 中：
+
+    计算量分布（训练阶段）：Actor 和 Critic 的前向和反向计算量大致相当（取决于网络相对大小），都是计算瓶颈。由于要进行 K 次重复，这个阶段的总计算量通常远大于采样阶段。
+
+    总计：在单次完整的 PPO 迭代中，Actor 进行了 1 (gen) + K * 1 (fw) + K * 1 (bw) 次计算；Critic 进行了 K * 1 (fw) + K * 1 (bw) 次；Reference 和 RM 各进行了 1 次 fw。计算成本从高到低大约是：Actor（训练+采样）> Critic >> Reference ≈ RM。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UCjewCVubi1tThkQzKzczCP2nyc
+  block_id: W5tuduiMgoTLo2xLcngcsHXznPf
+  page_token: UCjewCVubi1tThkQzKzczCP2nyc
+  original_title: 四个模型在单次 PPO 更新中，分别进行多少次前向和反向传播？分析计算量分布。
+  imported_at: '2026-09-21'

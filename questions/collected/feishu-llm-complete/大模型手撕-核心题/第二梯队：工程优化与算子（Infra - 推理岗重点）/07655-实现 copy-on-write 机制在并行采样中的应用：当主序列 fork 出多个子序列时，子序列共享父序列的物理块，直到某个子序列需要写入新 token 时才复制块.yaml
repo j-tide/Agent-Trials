@@ -1,0 +1,97 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f754120149da
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 copy-on-write 机制在并行采样中的应用：当主序列 fork 出多个子序列时，子序列共享父序列的物理块，直到某个子序列需要写入新 token
+  时才复制块。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现 copy-on-write 机制在并行采样中的应用：当主序列 fork 出多个子序列时，子序列共享父序列的物理块，直到某个子序列需要写入新
+    token 时才复制块。
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    多个子序列共享相同的 prompt 前缀，它们的块表最初指向相同的物理块。使用引用计数跟踪每个物理块被多少序列共享。当某个序列需要修改一个共享块（即写入新 token 到该块的空闲位置或后续需要修改）时，触发 COW：复制该物理块，更新该序列的块表指向新块，并减少原块的引用计数。
+
+    实现
+
+    ```python
+    class COWBlockManager:
+        def __init__(self, total_blocks, block_size):
+            self.allocator = BlockAllocator(total_blocks)
+            self.ref_counts = [0] * total_blocks   # 每个物理块的引用计数
+            self.block_size = block_size
+            # 物理存储等省略
+
+        def fork_sequence(self, parent_seq):
+            """基于父序列创建子序列，共享所有块"""
+            child = SequenceKVCache(self.allocator, self.block_size, ...)
+            child.block_table = parent_seq.block_table.copy()
+            child.seq_len = parent_seq.seq_len
+            # 增加所有共享块的引用计数
+            for blk in child.block_table:
+                self.ref_counts[blk] += 1
+            return child
+
+        def write_token(self, seq, k, v):
+            """写入一个 token，自动处理 COW"""
+            if seq.seq_len % self.block_size == 0:
+                # 需要新块
+                blk = self.allocator.allocate()
+                self.ref_counts[blk] = 1
+                seq.block_table.append(blk)
+            else:
+                logic_idx = seq.seq_len // self.block_size
+                phy_idx = seq.block_table[logic_idx]
+                if self.ref_counts[phy_idx] > 1:
+                    # 需要 COW：复制该块
+                    new_blk = self.allocator.allocate()
+                    self.ref_counts[new_blk] = 1
+                    # 复制数据
+                    copy_block(phy_idx, new_blk)   # 实现略
+                    # 更新引用
+                    self.ref_counts[phy_idx] -= 1
+                    seq.block_table[logic_idx] = new_blk
+                    phy_idx = new_blk
+            # 写入 token 到 phy_idx 的适当偏移
+            # ...
+            seq.seq_len += 1
+    ```
+
+    注意：通常 prompt 部分的块是只读的，不会触发 COW；只有子序列在生成新 token 时，如果最后一个逻辑块与父序列共享且该块仍有空位，写入该块会触发 COW。这样可以最大化共享前缀的收益。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IhgfwCPtoif3TWkyezuc4sW9nbg
+  block_id: JFHHdI4lSomSNpxyDB0cJdpInfg
+  page_token: IhgfwCPtoif3TWkyezuc4sW9nbg
+  original_title: 实现 copy-on-write 机制在并行采样中的应用：当主序列 fork 出多个子序列时，子序列共享父序列的物理块，直到某个子序列需要写入新
+    token 时才复制块。
+  imported_at: '2026-09-21'

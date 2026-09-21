@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7b610c929f36
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: PPO 阶段，Reward Model 和 Reference Model 需要参与梯度更新吗？为什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 1-基础认知与流程全景
+tags: &1
+- RLHF面试高频考点
+- 1-基础认知与流程全景
+content:
+  prompt: PPO 阶段，Reward Model 和 Reference Model 需要参与梯度更新吗？为什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    均不参与梯度更新，必须冻结。
+
+    Reward Model 冻结的原因：
+
+    - 自我奖励的作弊循环
+    如果 RM 参数可更新，当 Actor 生成一个新回答并获得奖励后，RM 会根据这个新样本调整自己的参数。这形成了一个危险的闭环：Actor 为了获得高分，可能会去学习生成那些恰好让 RM “感到高兴”的样本，而 RM 由于不断被喂食新样本，会逐渐适应并抬高对这些样本的评分，最终 Actor 和 RM 陷入互相迎合的泡沫，完全脱离真实人类偏好。
+
+    - RM 的分布外脆弱性
+    RM 主要是在 SFT 分布附近的样本上训练的。随着 RL 推进，Actor 的生成分布会偏离初始分布。如果 RM 在分布外更新，它极容易过拟合到当前 Actor 的“怪癖”上，迅速丧失对真实质量的判断力。冻结 RM 虽然也可能导致其在分布外准确性下降，但至少维持了一个静态的优化目标，避免了动态漂移。
+
+    - 训练稳定性
+    如果 RM 也在更新，那么 PPO 的优化目标本身就在不断移动，这相当于“追逐一个移动的靶子”。RL 训练会变得极度不稳定，优势估计完全失效。
+
+    Reference Model 冻结的原因：
+
+    - KL 惩罚需要固定锚点
+    KL 惩罚的意义在于，每一步的更新都不要离“安全的初始策略”太远。如果 Ref 也在变，那么这个“安全区域”本身就在漂移。Actor 可能会在 Ref 变动的同时，也跟着一起漂移，KL 惩罚失去约束意义。冻结 Ref 确保了一个不变的、高质量的语言行为基准。
+
+    - 防止灾难性遗忘的扩散
+    如果 Ref 也更新，它可能“忘记” SFT 阶段学到的良好语言模式。Actor 被鼓励靠近一个逐渐退化的 Ref，最终双双崩溃。
+
+    - 计算效率
+    冻结这两个大型模型（RM 和 Ref）可以释放大量显存和计算资源，用于 Actor 和 Critic 的训练以及更大的 batch size。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TopFwyc4Si1SxFkkfQlc4kXxnJd
+  block_id: OmiYdrLYHoiN8OxtoaOcSTtXnPd
+  page_token: TopFwyc4Si1SxFkkfQlc4kXxnJd
+  original_title: PPO 阶段，Reward Model 和 Reference Model 需要参与梯度更新吗？为什么？
+  imported_at: '2026-09-21'

@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-28d097555cb0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F916 Agent 陷入循环是常见问题，你有哪些实战经验可以分享？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 十、生态对比与最佳实践
+tags: &1
+- LangChain面（高频）
+- 十、生态对比与最佳实践
+content:
+  prompt: "\U0001F916 Agent 陷入循环是常见问题，你有哪些实战经验可以分享？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Agent 陷入循环是最让人头疼的问题之一，因为它的表现不是“报错”，而是“不停地调用同一个工具，或者反复输出相同的 Thought，直到 max_iterations 耗尽”。我遇到过三种典型情况：
+
+    情况一：工具返回的信息不足，Agent 无法判断下一步。
+    比如一个 SQL 查询工具，Agent 查询后没有得到结果，它不知道是查询语句错了还是数据库里没有数据，于是它反复修改查询参数尝试。我现在的做法是强制工具返回结构化、信息丰富的错误信息。比如，SQL 工具如果没查到数据，返回的不应该是空字符串，而应该是 {"status": "no_results", "suggestion": "请检查日期范围或产品名称是否正确"}。这样 Agent 就不会盲目重试。
+
+    情况二：工具描述模糊，Agent 过度调用。
+
+    一个搜索工具的 description 只写了“搜索信息”。Agent 在遇到任何不确定的问题时，都会反复调用它。后来我把描述改成“搜索公开的实时信息。当需要查找最新新闻、股价、天气等事实性数据时使用。对于常识或已知知识不要调用。” 并加入了调用频率限制的提示。效果立竿见影。
+
+    情况三：Agent 的“自我反思”能力太弱。
+
+    LangChain 默认的 ReAct Agent 没有内建的反思机制，它只是机械地执行 Thought-Action-Observation 循环。如果 Observation 反复给出相同的结果，它不会停下来反思是不是自己的策略错了。我在 Prompt 中手动加入了一段指令：“如果你连续两次得到相同的结果，请停下来，思考你的方法是否正确，并尝试完全不同的策略。” 这个简单的 Prompt 改动帮我减少了至少一半的死循环。
+
+    工程层面的防御：
+
+    - 工具级别的死循环检测：在 CallbackHandler 中维护一个最近 N 次工具调用的记录。如果同一个工具被连续调用超过 3 次且参数不变，直接抛出一个自定义异常，终止 Agent 并返回给用户“任务似乎卡住了，请尝试换一种方式提问”。
+
+    - 超时熔断：Agent 执行总时长超过 30 秒（或 60 秒），强制终止。我见过一个 Agent 在一次任务中调用了 20 多次搜索工具，执行了 5 分钟，Token 消耗惊人。虽然设置了 max_iterations=10，但有些 Agent 的 Thought 很长，每次迭代都消耗大量 Token。所以除了步数限制，时间限制也必不可少。
+
+    - 动态调整温度：在检测到循环时，通过回调临时提高 LLM 的温度（如从 0 调到 0.5），增加输出随机性，帮助 Agent 跳出局部循环。
+
+    反思：Agent 的循环本质上是“决策能力不足”。单靠 LangChain 的 AgentExecutor 不能解决所有问题，必须结合 Prompt 优化、工具设计、以及外部的监控和控制机制，才能构建一个稳健的 Agent 系统。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JnXtweizdiLAPukHzMGcNKZHn5M
+  block_id: AJVLdcNRqo6ZRbxMiEgcqtyPnph
+  page_token: JnXtweizdiLAPukHzMGcNKZHn5M
+  original_title: "\U0001F916 Agent 陷入循环是常见问题，你有哪些实战经验可以分享？"
+  imported_at: '2026-09-21'

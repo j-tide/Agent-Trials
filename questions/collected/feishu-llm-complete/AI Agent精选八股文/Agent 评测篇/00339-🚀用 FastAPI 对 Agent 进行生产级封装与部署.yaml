@@ -1,0 +1,145 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2150632ebb83
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F680用 FastAPI 对 Agent 进行生产级封装与部署"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 评测篇
+tags: &1
+- AI Agent精选八股文
+- Agent 评测篇
+content:
+  prompt: "\U0001F680用 FastAPI 对 Agent 进行生产级封装与部署"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Agent 的部署不是“调个 API”那么简单，它需要处理长连接流式响应、异步工具调用、并发限流、优雅降级、状态恢复等生产问题。FastAPI 凭借其原生异步、WebSocket 支持和自动 OpenAPI 文档，是目前封装 Agent 的最佳轻量级选择之一。
+
+    关键设计点与架构
+
+    [图片内容未导入]
+
+    生产级封装核心点
+
+    - Agent 实例管理
+    避免每次请求都初始化 Agent，通过依赖注入单例或池化管理，并可结合 Depends 注入会话上下文。
+
+    - 流式输出
+    对于聊天场景，用 StreamingResponse 逐 token 推送，降低首字延迟，并支持中途取消。
+
+    - 异步执行与超时控制
+    Agent 可能执行数十秒，必须异步处理，设置整体任务超时，并在超时时优雅终止。
+
+    - 并发与限流
+    使用 slowapi 限制每个用户的请求频率，防止滥用和成本爆炸。
+
+    - 优雅关闭与状态持久化
+    服务关闭时，等待正在执行的任务完成或保存状态，以便重启后恢复。
+
+    完整代码示例：一个支持流式和后台任务的 Agent 服务
+
+    import asyncio
+    from fastapi import FastAPI, Depends, HTTPException
+    from fastapi.responses import StreamingResponse
+    from pydantic import BaseModel
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.util import get_remote_address
+    from slowapi.errors import RateLimitExceeded
+    import uuid, json
+
+    limiter = Limiter(key_func=get_remote_address)
+    app = FastAPI()
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    # 模拟的 Agent 类
+    class MyAgent:
+        async def run_stream(self, prompt: str, session_id: str):
+            # 这里会是真正的 LLM 调用和工具执行
+            for word in f"Agent 回答: {prompt}".split():
+                yield word + " "
+                await asyncio.sleep(0.1)
+        async def run(self, prompt: str, session_id: str) -> str:
+            return f"最终回答: {prompt}"
+
+    def get_agent():
+        return MyAgent()
+
+    class ChatRequest(BaseModel):
+        prompt: str
+        session_id: str = None
+
+    # 1. 流式端点
+    @app.post("/chat/stream")
+    @limiter.limit("10/minute")
+    async def chat_stream(req: ChatRequest, agent: MyAgent = Depends(get_agent)):
+        session_id = req.session_id or str(uuid.uuid4())
+        async def event_stream():
+            try:
+                async for token in agent.run_stream(req.prompt, session_id):
+                    yield f"data: {token}\n\n"
+                    await asyncio.sleep(0)  # 释放控制权
+            except asyncio.CancelledError:
+                yield "data: [CANCELLED]\n\n"
+            yield f"data: [DONE]\n\n"
+        return StreamingResponse(event_stream(), media_type="text/event-stream",
+                                 headers={"X-Session-Id": session_id})
+
+    # 2. 普通异步端点
+    @app.post("/chat")
+    @limiter.limit("10/minute")
+    async def chat(req: ChatRequest, agent: MyAgent = Depends(get_agent)):
+        session_id = req.session_id or str(uuid.uuid4())
+        try:
+            result = await asyncio.wait_for(agent.run(req.prompt, session_id), timeout=60.0)
+            return {"session_id": session_id, "answer": result}
+        except asyncio.TimeoutError:
+            raise HTTPException(status_code=504, detail="Agent 处理超时")
+
+    # 3. 健康检查
+    @app.get("/health")
+    async def health():
+        return {"status": "ok"}
+
+    其他生产必备设计点
+
+    - 配置管理：所有模型名、API 密钥、超时时间等通过环境变量或配置中心注入，不在代码中硬编码。
+
+    - 请求日志与链路追踪：记录 trace_id 和 span_id，接入 ELK 或 Prometheus，监控请求量和延迟。
+
+    - 中间件安全：CORS 限制、请求体大小限制、API 密钥验证、PII 脱敏日志。
+
+    - 降级与熔断：当 LLM 不可用或超时时，自动降级到缓存答案或返回友好提示，并触发告警。
+
+    - 容器化：使用 Docker 封装，通过 docker-compose 或 K8s 部署，配置存活探针和就绪探针，支持零停机滚动更新。
+
+    收束：
+
+    用 FastAPI 部署 Agent，是把 AI 能力从一个“脚本”变成一项“服务”的成人礼。流式输出、异步任务、限流降级——这些不只在保护你的系统，也在保护用户的耐心和老板的钱包。每一个边界条件的处理，都是工程能力的无声表达。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EBEUwm9Tbio9C5kSaXBcx6DHn2b
+  block_id: doxcnZ2Urj1iDMXykpo91uR6h1b
+  page_token: EBEUwm9Tbio9C5kSaXBcx6DHn2b
+  original_title: "\U0001F680用 FastAPI 对 Agent 进行生产级封装与部署"
+  imported_at: '2026-09-21'

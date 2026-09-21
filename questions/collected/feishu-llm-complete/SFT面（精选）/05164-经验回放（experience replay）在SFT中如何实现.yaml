@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-abd761b73fb9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 经验回放（experience replay）在SFT中如何实现？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 经验回放（experience replay）在SFT中如何实现？
+answer:
+  mode: rubric
+  reference_answer: |-
+    经验回放源自深度强化学习，基本思想是把过去的经验存储起来，在学习新知识时随机抽取一些旧经验一同训练，以巩固旧知识、防止遗忘。在SFT中，经验回放被巧妙地用来防止灾难性遗忘，其核心就是把预训练阶段的知识作为一种“旧经验”进行回放。
+
+    具体实现方式：
+
+    - 维护一个回放缓冲区：缓冲区中存放的不是SFT数据，而是从预训练数据中随机抽取的高质量文本。这些文本可以是维基百科段落、书籍章节、代码片段等。缓冲区的大小可以是SFT数据集大小的5%-20%。
+
+    - 混合采样训练：在每个训练batch中，除了从SFT数据集中采样外，还从回放缓冲区中随机采样一小部分（比如一个batch中10%的样本来自缓冲区，90%来自SFT数据）。这些预训练文本被当作普通的自回归语言建模任务来训练（无指令格式），只计算文本部分的next-token prediction损失。
+
+    - 动态更新缓冲区：缓冲区可以是固定的（训练前一次性采样好），也可以是动态的（每个epoch重新随机采样）。动态更新有助于模型接触到更多样化的预训练数据。
+
+    - 实现上的注意事项：预训练文本需要经过与SFT数据相同的分词和模板处理，但不需要添加指令标记。通常将其直接作为纯文本序列输入，计算标准的语言模型损失。注意做好loss masking，确保只对文本内容计算损失，而不对那些可能添加的特殊分隔符计算。
+
+    通过经验回放，模型在逐步学会“根据指令回答”的同时，仍然反复见到它曾经学过的海量语言知识，从而有效缓解灾难性遗忘。这比单纯降低学习率更直接，因为它显式地保留了旧任务的数据分布。在我自己的项目中，经验回放使得SFT后的模型在MMLU上的分数损失从原本的-3.5%缩小到了-0.8%，效果非常显著。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZYXSwaWATimyqQkmZm5cAPJHnoc
+  block_id: WbhmdLueno9l1ixxNiPcyko8nzh
+  page_token: ZYXSwaWATimyqQkmZm5cAPJHnoc
+  original_title: 经验回放（experience replay）在SFT中如何实现？
+  imported_at: '2026-09-21'

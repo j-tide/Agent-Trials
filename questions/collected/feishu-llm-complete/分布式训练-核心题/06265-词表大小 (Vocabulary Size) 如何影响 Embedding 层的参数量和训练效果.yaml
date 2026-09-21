@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2d30e0859d17
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 词表大小 (Vocabulary Size) 如何影响 Embedding 层的参数量和训练效果？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 词表大小 (Vocabulary Size) 如何影响 Embedding 层的参数量和训练效果？
+answer:
+  mode: rubric
+  reference_answer: |-
+    词表大小是语言模型最基础的超参数之一，它直接决定了输入嵌入层（Input Embedding）和输出投影层（Output Projection / LM Head）的规模。这两个矩阵的参数量均为 vocab_size × hidden_dim，因此词表大小对总参数量的贡献是线性的。
+
+    ### 参数量计算示例
+
+    以 hidden_dim=4096 为例：
+
+    虽然对于百亿甚至千亿参数的大模型，嵌入层参数占比看似不高，但在训练和推理时仍然会带来不可忽视的影响：
+
+    - 显存占用：嵌入矩阵通常以FP32或FP16存储，大词表会占用更多显存，尤其在分布式训练中，嵌入层可能需要特殊的并行策略（如词表并行）。
+
+    - 计算开销：输出层需要计算全词表的softmax，其复杂度为 O(batch_size × seq_len × vocab_size)。当词表很大时，softmax会成为计算瓶颈，通常需要采用Sampled Softmax或Hierarchical Softmax等近似方法。
+
+    ### 对训练效果的影响
+
+    - 小词表（如8k-16k）：每个token携带的信息量少，序列会被切分得更长，这增加了自注意力的计算量（复杂度与序列长度平方成正比）。同时，大量单词被拆分为子词甚至字符，语义被碎片化，模型可能难以学习到有意义的表示。
+
+    - 大词表（如64k-256k）：能覆盖更多完整单词，序列长度缩短，计算效率更高；低频词也能获得独立的嵌入向量，有助于提升模型对罕见词汇的理解。但过大的词表会导致：
+
+    ### 最优词表大小的选择
+
+    实践中，32k～64k 是当前大模型（如LLaMA, GPT-3, PaLM）的常见选择。这一区间能在编码效率（序列长度）和计算成本之间取得良好平衡。对于多语言模型，往往需要更大的词表（如128k）以覆盖不同文字系统。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Yto8wfa8ti5TgZktU1YczVp7nme
+  block_id: UynVdrubooJEKVxfIDUcAx1Tneh
+  page_token: Yto8wfa8ti5TgZktU1YczVp7nme
+  original_title: 词表大小 (Vocabulary Size) 如何影响 Embedding 层的参数量和训练效果？
+  imported_at: '2026-09-21'

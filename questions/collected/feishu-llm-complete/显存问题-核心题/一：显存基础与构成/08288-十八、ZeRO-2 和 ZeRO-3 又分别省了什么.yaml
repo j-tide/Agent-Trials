@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dc89a7c4321c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 十八、ZeRO-2 和 ZeRO-3 又分别省了什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 一：显存基础与构成
+tags: &1
+- 显存问题-核心题
+- 一：显存基础与构成
+content:
+  prompt: 十八、ZeRO-2 和 ZeRO-3 又分别省了什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO 的三个阶段逐步递进，切分越来越彻底。
+
+    ZeRO Stage 2（优化器状态 + 梯度分片）
+
+    - 额外分片：梯度。
+
+    - 在 ZeRO-1 的基础上，每一张卡也不再保存完整的梯度。反向传播过程中，每层的梯度计算出后，立即对这部分梯度执行 Reduce-Scatter，使得每张卡只保留与自己参数分片对应的梯度分片，而非等全部梯度算完再一次性通信。
+
+    - 这样，梯度所需的显存也从每卡 2Φ（FP16）降至 2Φ/N。
+
+    - 省了哪部分？：在省掉冗余优化器状态的基础上，又省掉了冗余的梯度。
+
+    - 显存节省效果：每卡只需存储自己负责更新的那部分参数的梯度，大大缓解大型模型在较多 GPU 上的梯度瓶颈。
+
+    ZeRO Stage 3（优化器状态 + 梯度 + 参数分片）
+
+    - 进一步分片：模型参数本身。
+
+    - 在 ZeRO-2 的基础上，连模型权重也不在每张卡上保留完整副本。每张卡只持久化保存与自己的参数分片对应的那一部分 FP16 权重和 FP32 主权重副本。
+
+    - 前向传播时，需要哪层参数，就通过 All-Gather 从其他 GPU 收集该层的完整参数，计算完即丢弃（或保留少量缓存）。
+
+    - 反向传播同样：重算参数或收集参数来计算梯度。
+
+    - 省了哪部分？：参数存储从每卡 2Φ（FP16）+ 4Φ（FP32 主副本）降为 (2+4)Φ/N。
+
+    - 这是最彻底的显存优化：优化器状态、梯度、参数全部分布式存储，单卡总显存大约降至原始的 1/N，从而实现千亿参数模型在几十张卡上的训练。
+
+    通信开销比较
+
+    - ZeRO-3 在每层前向和反向都需要频繁 All-Gather 参数分片，通信量比 ZeRO-2 显著增大（约 1.5–2 倍）。因此需要极高的节点内带宽（NVLink、InfiniBand）来保持计算不被通信阻塞。
+
+    - 但它带来的显存收益允许 batch size 更大或模型更大，整体吞吐量可能更高。
+
+    总结对比如下：
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GR6GwGe1Hij4c3keg1Qckq5unRb
+  block_id: A1FDdAnEkoRLNexWDdocDUXunve
+  page_token: GR6GwGe1Hij4c3keg1Qckq5unRb
+  original_title: 十八、ZeRO-2 和 ZeRO-3 又分别省了什么？
+  imported_at: '2026-09-21'

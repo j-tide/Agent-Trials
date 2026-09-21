@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6286d7047f7c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写一个简单的Self-Instruct指令生成循环，调用OpenAI API
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 编写一个简单的Self-Instruct指令生成循环，调用OpenAI API
+answer:
+  mode: rubric
+  reference_answer: |-
+    该循环用种子指令和 few-shot 示例，调用 GPT API 生成新的指令及其回答，并进行简单的多样性过滤。
+
+    ```python
+    import openai
+    import random
+    import json
+
+    openai.api_key = "your-api-key"
+
+    def generate_new_instructions(seed_tasks: list, num_generate: int = 100, model="gpt-4"):
+        generated = []
+        for _ in range(num_generate):
+            # 随机选取 6 个种子任务作为 few-shot 示例
+            few_shot = random.sample(seed_tasks, min(6, len(seed_tasks)))
+            # 构造 prompt
+            prompt = "你是一个智能助手，请生成一个全新的、不同于以下示例的指令，并为该指令提供一个高质量的回答。\n\n"
+            for task in few_shot:
+                prompt += f"指令: {task['instruction']}\n回答: {task['output']}\n\n"
+            prompt += "现在，请生成一个全新的指令和回答。\n指令:"
+
+            response = openai.ChatCompletion.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.8,
+                max_tokens=256
+            )
+            content = response.choices[0].message.content.strip()
+            # 简单解析：假设格式为 "指令: ...\n回答: ..."
+            parts = content.split('\n回答:', 1)  # 可能包含多种格式，简化
+            if len(parts) == 2:
+                instruction = parts[0].replace('指令:', '').strip()
+                output = parts[1].strip()
+                # 多样性过滤：与已有指令计算相似度（略），这里仅去重
+                if not any(instruction == t['instruction'] for t in generated):
+                    generated.append({'instruction': instruction, 'output': output})
+        return generated
+    ```
+
+    说明：
+
+    - 实际 Self-Instruct 流程会包含更复杂的解析和过滤（如 ROUGE-L 相似度检查），此处仅给出基本框架。
+
+    - 需要安装 openai 库并配置 API 密钥。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JFt9wvuo1ijVfLktrcDcfTR8nTd
+  block_id: JZSUdlpxUoWwUQxyFu3ck3lQnuc
+  page_token: JFt9wvuo1ijVfLktrcDcfTR8nTd
+  original_title: 编写一个简单的Self-Instruct指令生成循环，调用OpenAI API
+  imported_at: '2026-09-21'

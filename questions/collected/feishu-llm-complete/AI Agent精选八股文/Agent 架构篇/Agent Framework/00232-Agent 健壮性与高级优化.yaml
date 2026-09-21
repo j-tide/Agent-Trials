@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f26932da85cf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Agent 健壮性与高级优化
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: Agent 健壮性与高级优化
+answer:
+  mode: rubric
+  reference_answer: "### DSPy 的自动化 Prompt 优化原理\n\n---\n\n1、DSPy 解决了什么问题？\n\n难度级别：⭐（考察要点：手动
+    Prompt 工程的痛点、自动化优化的核心思路）\n\n传统 Prompt 工程本质上是\"手动梯度下降\"，每次模型版本更新或任务变化都要人工重新调整 Prompt，既费时又不可复现。DSPy
+    把 LLM 程序变成可编译、可优化的模块化系统，用优化器自动搜索最优的 Prompt 配置，将 Prompt 工程从手工艺变成可量化、可迭代的工程实践。\n\n---\n\n2、：DSPy
+    的 Signature、Module、Optimizer 三个核心概念是什么，BootstrapFewShot 和 MIPRO 的工作原理有何不同？\n\n难度级别：⭐⭐⭐（考察要点：Signature
+    声明 IO 契约、Module 组合多个 Predict/CoT、BootstrapFewShot 自举 few-shot、MIPRO 贝叶斯搜索 instruction）\n\n1️⃣
+    Common Answer\n\nSignature 定义输入输出类型，Module 是把多个 LLM 调用组合在一起的模块，Optimizer 负责自动找最好的
+    Prompt。BootstrapFewShot 会从训练数据里自动生成 few-shot 示例，MIPRO 用更复杂的算法优化 Prompt。\n\n2️⃣
+    Impressive Answer\n\n我会从 3 个角度来回答：\n\n- 首先说 Signature 的核心设计理念。Signature 是声明式的
+    IO 契约，你只描述\"做什么\"（输入是什么、输出是什么），不写具体 Prompt 措辞。实际的 Prompt 构造由 DSPy 在编译时自动完成，并且可以被优化器修改。这个设计的价值是把\"程序逻辑\"和\"Prompt
+    表达\"解耦，类比编程里分离接口和实现。\n\n- 其次说 Module 的组合能力。Module 是 DSPy 中类比神经网络层的概念，内置 dspy.Predict（基础调用）、dspy.ChainOfThought（自动加入
+    reasoning 字段激活 CoT）、dspy.ReAct（内置 ReAct 循环）。可以把多个 Module 组合成复杂程序，比如 RAG Pipeline
+    里组合 Retrieve 和 ChainOfThought，整个 pipeline 作为一个整体被优化器优化。\n\n- 最后说两种 Optimizer 的原理差异。BootstrapFewShot
+    是自举优化：让 Module 对训练集跑推理，把通过评估指标的样本收集起来作为 few-shot 示例注入 Prompt，本质是\"让模型先试，把成功案例加回
+    Prompt\"的迭代。实现简单、成本低，适合快速迭代。MIPRO（Multi-prompt Instruction PRoposal Optimizer）更进一步，不只优化
+    few-shot 示例，还会优化 Signature 的 instruction 部分（告诉 LLM 怎么做任务的措辞），用贝叶斯优化在 Prompt 空间搜索，比暴力搜索高效，适合对性能要求更高、可接受更多计算成本的场景。\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n---\n\n3、团队的 RAG 问答系统 Prompt 很难手动调优，考虑引入 DSPy，需要满足什么前提条件？\n\n难度级别：⭐⭐⭐（考察要点：评估指标可量化、训练数据规模、优化计算成本、适用场景判断）\n\n1️⃣
+    Common Answer\n\n引入 DSPy 需要有训练数据，还要定义评估指标，然后让优化器自动跑就行。\n\n2️⃣ Impressive Answer\n\n引入
+    DSPy 有几个关键前提要先评估，不满足的话引入反而是浪费。\n\n第一，必须有可量化的评估指标。DSPy 优化器靠指标函数判断哪个 Prompt 更好，如果你的任务是创意写作、开放对话这种难以量化的场景，DSPy
+    发挥不了作用。RAG 问答场景通常可以用 Answer Correctness、Faithfulness 等指标，配合 LLM-as-Judge 实现，这个条件满足。\n\n第二，需要一定规模的训练数据。至少几十个有标注的问答对，用于
+    BootstrapFewShot 的自举和优化效果评估。如果数据太少，优化器的搜索空间不足，结果不可信。\n\n第三，要接受更高的优化计算成本。优化过程需要多次调用
+    LLM（尤其是 MIPRO），成本比手动调 Prompt 高很多。如果任务是高频、对延迟敏感的实时接口，这个成本可能不可接受，换成离线批量优化后部署固定 Prompt
+    会更合适。满足这三个条件，引入 DSPy 的收益才能超过成本。\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---\n\n---\n\n###
+    从零构建轻量级 Agent 的核心组件设计\n\n---\n\n1、ReAct Agent 的核心循环逻辑是什么？\n\n难度级别：⭐（考察要点：Thought-Action-Observation
+    循环、终止条件、工具注册）\n\nReAct Agent 的核心是一个循环：让 LLM 输出 Thought（思考过程）和 Action（调用哪个工具、传什么参数）；执行工具得到
+    Observation（结果）；把 Observation 加入对话历史，再次调用 LLM；重复直到 LLM 输出 Final Answer。工具用字典注册（key
+    是工具名，value 是函数），循环靠 max_steps 上限防止死循环。\n\n---\n\n2、如何不依赖任何框架从零实现一个 ReAct Agent，工具注册与动态调用如何设计，何时应该引入框架？\n\n难度级别：⭐⭐⭐（考察要点：装饰器+字典的工具注册模式、Prompt
+    格式设计、输出解析、框架引入复杂度阈值）\n\n1️⃣ Common Answer\n\n从零实现 Agent 就是写一个循环，让 LLM 决定调哪个工具，执行完把结果给
+    LLM，一直到任务完成。工具用字典存起来，key 是工具名，value 是函数。复杂了再引入框架。\n\n2️⃣ Impressive Answer\n\n我会从
+    3 个角度来回答：\n\n- 首先说工具注册系统的设计。用装饰器 + 字典的模式：定义一个全局 _TOOL_REGISTRY 字典，写一个 @tool 装饰器，被装饰的函数自动注册进去，存函数引用、description
+    和参数 schema。调用工具时从字典里取函数动态执行：_TOOL_REGISTRY[tool_name][\"function\"](**tool_input)。这个模式的优点是注册和调用完全解耦，新增工具只需加装饰器，主循环代码不需要改。\n\n-
+    其次说 ReAct 循环的关键工程细节。Prompt 设计要引导 LLM 输出结构化的 Thought / Action / Action Input 格式；输出解析用正则匹配提取工具名和参数；stop=[\"Observation:\"]
+    让 LLM 在该停的地方停，等我们填充工具结果再继续。边界情况要处理：JSON 解析失败、工具不存在、达到 max_steps 上限。这些边界情况不处理，Agent
+    在真实环境里必然频繁崩溃。\n\n- 最后说引入框架的判断标准。当需求超出以下阈值时，自建的维护成本就超过了引入框架的学习成本：需要流式输出 Token、需要对话状态持久化、需要多
+    Agent 并发编排、需要 Trace 可观测性、需要复用工具生态。超过 2-3 个需求就该引入 LangChain/LangGraph。但如果是单一、高频、对延迟敏感的场景（内容审核、简单分类），保持自建轻量实现往往更好。\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n---\n\n3、自建 Agent 在生产环境中遇到 LLM 输出格式不稳定导致解析失败，如何处理？\n\n难度级别：⭐⭐⭐（考察要点：输出解析容错、structured
+    output / function calling 的替代方案、降级策略）\n\n1️⃣ Common Answer\n\n可以在解析失败时让 LLM 重新输出，在
+    Prompt 里提示它按正确格式来，或者多试几次。\n\n2️⃣ Impressive Answer\n\n输出格式不稳定是自建 Agent 最常见的生产问题，有两个层次的解法。\n\n第一，从根本上用
+    Structured Output 代替 Prompt 约束格式。OpenAI 的 response_format={\"type\": \"json_schema\",
+    ...} 或者 Function Calling 机制，能在模型层保证输出格式，从根本上消除正则解析失败的问题。这是最推荐的方案，把工具调用的参数解析交给模型层保证，不依赖脆弱的正则匹配。\n\n第二，如果必须用文本解析，加好兜底逻辑。解析失败时给
+    LLM 发一条修正消息\"请按规定格式输出\"，最多重试 2 次；连续失败后返回降级回复，而不是让调用方看到异常。同时把解析失败的原始输出记录下来，用于后续优化
+    Prompt 或 stop sequence 配置。\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---\n\n\U0001F9E0
+    面试官最想听的总结\n“我用 LangSmith 把 Agent 的问题定位、Prompt 迭代和成本管理串成了一个闭环：出问题→看 Trace 定位→优化
+    Prompt 并版本化→评估实验→上线并监控成本。这样效率比盲改高出几个数量级，还能用数据说服团队。”\n\n\U0001F9E0 这套系统化排查思路，面试说出来就是架构级的回答\n“偶发异常不可怕，可怕的是没有一套从检索、诊断、复现到回归的闭环。LangSmith
+    帮我构建了这样的能力：通过 metadata 快速筛选异常样本，利用 Trace 深度解剖根因，修复后同步创建数据集防止回归，最后加上在线评估器主动预警。这样团队就从‘被动救火’转向了‘主动防御’。”"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DvQ6wSwdqibPdgkOaG3c8vI7nVb
+  block_id: doxcnYzrXcazz7be0GHAZvkuK3b
+  page_token: DvQ6wSwdqibPdgkOaG3c8vI7nVb
+  original_title: Agent 健壮性与高级优化
+  imported_at: '2026-09-21'

@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3bfd8bbbf2ba
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何处理多模态预训练数据中的噪声？有哪些清洗和过滤策略？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 训练方法与策略
+tags: &1
+- 多模态面（精选）
+- 训练方法与策略
+content:
+  prompt: 如何处理多模态预训练数据中的噪声？有哪些清洗和过滤策略？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多模态预训练数据中的噪声主要有三类：图文不匹配（alt-text 错误）、文本质量低（语法错误、无意义）、图像质量低（模糊、水印）。处理策略是多层次级联过滤，从粗到细。
+
+    第一层：粗粒度规则过滤
+
+    - 文本：长度 < 5 词过滤；非目标语言过滤；特殊字符/乱码占比过高过滤；含黑名单词（色情、暴力）过滤。
+
+    - 图像：分辨率过低（如 < 100px）过滤；长宽比极端（>5 或 <0.2）过滤；纯色/单色图像过滤。
+
+    第二层：统计与模型打分过滤
+
+    - CLIP Score：计算图文余弦相似度，丢弃低于阈值（如 0.25）的对。它是核心过滤手段。
+
+    - Aesthetics Score：用 LAION 的美学评分模型给图像打分，丢弃低分图像，提升整体视觉质量。
+
+    - 文本困惑度：用小语言模型计算文本的 perplexity，极高者可能是乱码。
+
+    - NSFW/水印检测：移除色情、暴力内容和带图库水印的图像。
+
+    第三层：细粒度一致性过滤
+
+    - 实体级匹配：用物体检测模型（如 YOLO）识别图中的主要物体，检查文本中是否至少提到其中几个。若全未提到，则为不匹配。
+
+    - OCR 校验：若图像中包含文字，OCR 提取的文字是否在文本描述中出现？若关键文字完全不符，可能为噪声。
+
+    第四层：基于模型的迭代过滤
+
+    - 用已训练的初始模型来评估数据质量。例如，用模型的 ITM 头对图文对打分，或用字幕模型生成描述，计算生成描述与原文本的 ROUGE/BLEU，低者可能为噪声。这可以进入数据-模型迭代提纯的飞轮。
+
+    - 注意：过分依赖模型过滤会引入模型自身的偏见，可能系统性地排除某些长尾概念。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BTogw3417ihokikqMFvcnoCvnOb
+  block_id: JStGdiRmRoCW9WxcL8TcgWiVnCf
+  page_token: BTogw3417ihokikqMFvcnoCvnOb
+  original_title: 如何处理多模态预训练数据中的噪声？有哪些清洗和过滤策略？
+  imported_at: '2026-09-21'

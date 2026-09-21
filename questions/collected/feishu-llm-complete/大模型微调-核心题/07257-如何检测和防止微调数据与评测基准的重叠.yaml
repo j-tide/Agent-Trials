@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d2fec3316b8e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何检测和防止微调数据与评测基准的重叠？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如何检测和防止微调数据与评测基准的重叠？
+answer:
+  mode: rubric
+  reference_answer: |-
+    检测方法（构建多级过滤管道）：
+
+    - n-gram重叠分析（粗筛）：将SFT样本与评测基准的每条题目进行n-gram（通常n=13）重叠率计算。如果某SFT样本与评测题目的13-gram重叠率超过预设阈值（如60%），则标记为疑似污染。此方法快速但粗糙，无法发现语义改写。
+
+    - 语义嵌入相似度（精筛）：使用句子嵌入模型（如all-MiniLM-L6-v2）将SFT数据和评测题目转化为向量，计算余弦相似度。对相似度过高（如>0.85）的样本对，标记为可疑并进行人工复审。此方法能有效发现间接污染。
+
+    - 强模型辅助判断（终审）：对于前两步筛选出的可疑样本对，使用GPT-4等强模型进行语义等价判断。典型的提示词为：“请判断以下两个问题是否在测试相同的核心知识和能力。如果是，回答‘重叠’；如果不是，回答‘不重叠’。” 如果强模型判断为“重叠”，则从SFT数据集中移除该样本。
+
+    - “金丝雀”测试（主动防御）：在SFT数据集中故意植入一组极其罕见、独一无二的字符串序列。如果在推理时，你能引导模型复述出这些金丝雀字符串，则反向证明评测集可能已被泄漏到训练数据中。这是一种检测数据泄漏的灵敏手段。
+
+    防止措施：
+
+    - 源头隔离：在数据采集阶段，严格排除所有已知评测基准的官方网站、GitHub仓库等来源。
+
+    - 隔离评估集：构建一个完全封闭、与训练数据来源严格隔离的内部独立评测集，用它作为最终能力的检验。即使公开基准被污染，也能通过该集合发现异常。
+
+    - 定期审查与更新：数据去污染不是一次性的，随着新评测基准的发布，需要定期重新运行检测管道。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DPSewakAfi4q7rkB8nQcmT0onob
+  block_id: IZ9ZdZMCcoJEklxieN2ccs0NnRb
+  page_token: DPSewakAfi4q7rkB8nQcmT0onob
+  original_title: 如何检测和防止微调数据与评测基准的重叠？
+  imported_at: '2026-09-21'

@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-00f9738877c9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ZeRO 和模型并行 (TP/PP) 相比，哪个更适合扩展到数千卡？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: ZeRO 和模型并行 (TP/PP) 相比，哪个更适合扩展到数千卡？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这取决于“扩展”的维度。ZeRO本质上是横向扩展（scale out），TP/PP则是纵向扩展（scale up），两者互补而非替代。
+
+    ZeRO/DP的扩展特性：
+
+    - 增加GPU数量，直接在DP组中增加数据副本，线性提升整体吞吐。
+
+    - 通信模式（AllReduce、ReduceScatter）可以很好地适应大规模集群的拓扑，通过梯度分桶、通信与计算重叠等技术，将通信开销隐藏在计算之后。
+
+    - 即使扩展到数千卡，只要网络拓扑合理（如InfiniBand全互联），ZeRO仍能保持较高的扩展效率。尤其在ZeRO++等优化后，跨节点通信量大幅压缩，扩展瓶颈进一步缓解。
+
+    TP/PP的扩展特性：
+
+    - TP：将单层参数切分，每层都需要高频AllReduce（每层前向+反向各至少1次），通信量与激活值大小成正比。跨节点网络带宽远低于节点内NVLink，因此TP一旦跨机，通信立刻成为瓶颈，扩展性极差。TP通常限制在节点内（如8卡）。
+
+    - PP：将模型按层切分，通信是层间点对点的，频率低，可跨节点。但受限于模型层数，PP并行度通常不超过几十，不能单独扩展到数千卡。
+
+    因此，要扩展到数千卡，必须以ZeRO/DP为主。TP/PP用于解决单卡无法容纳单层参数或激活值的问题，是“为了让DP能跑起来”的辅助手段。实际大模型训练中，常采用混合策略：节点内TP=8（利用NVLink），跨节点PP=8~16（降低单卡层数），剩余的卡全部用于ZeRO/DP，形成“DP（最大维度）+ PP + TP”的3D并行。ZeRO提供了扩展到万卡级的关键能力，而TP/PP则解决了单卡的存储与计算极限。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: FdU0dq4y7o76kKxizpgcnSjWnjh
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: ZeRO 和模型并行 (TP/PP) 相比，哪个更适合扩展到数千卡？
+  imported_at: '2026-09-21'

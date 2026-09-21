@@ -1,0 +1,49 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c787e1c456e7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F914 为什么 ZeRO-1 只分片优化器状态？它没有通信代价增加吗？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F914 为什么 ZeRO-1 只分片优化器状态？它没有通信代价增加吗？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 ZeRO-1 的定位是“用最小的通信代价换取最大的显存节省”，优化器状态占显存大头（~4×权重），且通信开销仅增加一次
+    Reduce-Scatter，非常划算。\n\n\U0001F50D 原因：\n\n- 优化器状态体量最大：以 Adam 为例，每个参数需要 FP32 的动量和方差，共
+    8 字节，而 FP16 权重仅 2 字节。优化器状态是权重的 4 倍。因此，首先分片优化器能获得最明显的显存缩减，立竿见影。\n\n- 通信代价小：ZeRO-1
+    在反向传播后，每张卡仍拥有完整的梯度，需要将梯度做一次 All-Reduce（DP 本身就有）。ZeRO-1 增加的操作是：在 All-Reduce 后，优化器状态分片仅存在于各卡上，更新参数时，每张卡只更新自己那部分优化器状态和参数，然后需要一次
+    Reduce-Scatter（或 All-Gather）让各卡得到更新后的完整参数？实际过程：各卡有完整梯度，执行 optimizer.step() 时，每张卡只负责更新自己的参数分片。由于更新后参数不完整，需要在下一轮前向之前通过
+    All-Gather 收集完整参数。因此新增的通信是一次 All-Gather 参数（或等价操作）。这个通信量等于参数大小，与梯度 All-Reduce 相当，仅增加
+    50% 的通信量（具体见后文），完全可以接受。\n\n\U0001F4CA 通信成本增加：标准 DP 仅有梯度 All-Reduce（通信量 2×Φ，Φ 为参数量）。ZeRO-1
+    增加了一次参数 All-Gather（Φ），总通信量变为 3×Φ，增加 1.5 倍。相较于节省的 4 倍显存，收益极高。\n\n✅ 因此，ZeRO-1 的策略是：先吃掉占显存最大的优化器，用少量通信换取巨量空间。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PfKUwsEL0iLM0ckIJbecd8xenxf
+  block_id: TKF9dH8vFohH4xxyfoScmg3KnBf
+  page_token: PfKUwsEL0iLM0ckIJbecd8xenxf
+  original_title: "\U0001F914 为什么 ZeRO-1 只分片优化器状态？它没有通信代价增加吗？"
+  imported_at: '2026-09-21'

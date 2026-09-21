@@ -1,0 +1,93 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c35a74c16744
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4D0 2. 文档分块策略有哪些？如何根据场景选型？经验值怎么定？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "\U0001F4D0 2. 文档分块策略有哪些？如何根据场景选型？经验值怎么定？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    常见分块策略，从简单到智能：
+
+    ```text
+    固定长度切分               递归字符切分              语义切分                 结构切分
+    (Fixed-size)             (Recursive)              (Sentence/Semantic)      (Markdown/HTML)
+    ──────────────────      ──────────────────       ────────────────────     ───────────────────
+    按字符数硬切              按优先级分隔符递归切       尽量按句子边界切          基于文档原生结构切
+    简单粗暴，可能切断句子     语言感知，最常用          语义完整，但成本高        适合富文档（PDF/MD）
+    ```
+
+    ① 固定长度切分
+
+    设置一个 chunk_size（如 500 字符），直接切。容易在句子中间拦腰截断，检索到的片段读起来莫名其妙。仅适合对质量要求极低的原型验证。
+
+    ② 递归字符切分（Recursive Character Splitter）
+
+    这是生产环境最通用的方案。它按 ["\n\n", "\n", "。", ".", " "] 的优先级，尝试在更“自然”的分隔处断开——先按段落切，段落还太长就按句子，最后才按字符。绝大部分中英文混合文档都能用。
+
+    ```python
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500,         # 每个 chunk 的目标最大长度 (字符/Token)
+        chunk_overlap=50,       # 相邻 chunk 的重叠长度，防止语义断裂
+        separators=["\n\n", "\n", "。", ".", " ", ""],
+        length_function=len,
+    )
+    chunks = splitter.create_documents([full_text])
+    ```
+
+    ③ 语义/句子切分
+
+    先用 NLP 模型（如 spaCy）分句，再把句子组合成 chunk，确保每个 chunk 结尾都是完整的句子。对法律、合同等对语义完整性要求极高的场景非常有用，但性能开销大，对中英文混合场景需要语言模型支持。
+
+    ④ 结构感知切分
+
+    针对 Markdown、HTML、JSON 等有原生结构的文档，按标题、表格、代码块等逻辑单元切分。例如 MarkdownHeaderTextSplitter 可以按 #、## 层级切，每个 chunk 自动带上章节标题作为元数据，极大提升检索定位能力。
+
+    场景选型速查：
+
+    [嵌入表格未展开]
+
+    Chunk Size 和 Overlap 经验值：
+
+    这两个参数没有银弹，但可以根据你的 Embedding 模型和业务反复实验，以下给出经过大量项目验证的起步值。
+
+    [嵌入表格未展开]
+
+    调优方向：如果检索到的片段“话只说一半”，增大 overlap 或改用语义切分；如果检索到的片段“啥都沾点但不精”，适当减小 chunk_size。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcnDIDh07yLUy54dlan0V05x3
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "\U0001F4D0 2. 文档分块策略有哪些？如何根据场景选型？经验值怎么定？"
+  imported_at: '2026-09-21'

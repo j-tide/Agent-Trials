@@ -1,0 +1,114 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ba945c91a76e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F530  Few-shot、CoT、ToT 分别解决什么问题？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F530  Few-shot、CoT、ToT 分别解决什么问题？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这三者构成了从“教范例”到“教思路”再到“教探索”的递进图谱。
+
+    [图片内容未导入]
+
+    Few-shot Prompting
+
+    解决的是零样本指令的模糊性和格式不稳定。大模型虽然能听懂指令，但对具体任务的输出格式、风格、逻辑模式没有参照时，容易跑偏。Few-shot 通过在 prompt 中给出若干（输入→理想输出）的范例，让模型用“类比”方式快速对齐行为。
+
+    # 典型的 Few-shot 结构
+    few_shot_prompt = """
+    将句子翻译成 JSON 结构的情感分析。
+
+    示例1:
+    输入: 这个手机续航真垃圾
+    输出: {"aspect": "续航", "sentiment": "negative", "intensity": "强"}
+
+    示例2:
+    输入: 屏幕颜色挺准的，但系统太卡
+    输出: {"aspect": "屏幕", "sentiment": "positive", "intensity": "中"}
+            {"aspect": "系统", "sentiment": "negative", "intensity": "强"}
+
+    现在处理：
+    输入: 拍照效果惊艳，就是电池不经用
+    输出:"""
+
+    它解决的本质问题是：模型知道要做什么，但需要你示范“做成什么样”。
+
+    Chain-of-Thought (CoT)
+
+    解决的是多步推理的逻辑断裂。直接问模型最终答案，它常会跳过中间推导而犯错。CoT 在范例中显式展示“一步步怎么想”，迫使模型把隐式推理外化，大幅提升算术、常识推理、符号操作等任务的准确率。
+
+    cot_prompt = """
+    Q: 体育馆有 5 排座位，每排 8 个，已经坐了 23 人，还能坐多少人？
+    A: 总共座位 = 5 * 8 = 40 个。已经坐了 23，所以还能坐 40 - 23 = 17 人。最终答案是 17。
+
+    Q: 小明有 120 元，买了 3 本书，每本 18 元，又买了一支 25 元的笔，还剩多少钱？
+    A:"""
+
+    核心诀窍是 “思维链条”——模型会模仿范例的推理步骤，而不是直接蹦答案。为了更稳定，还可以用 Zero-shot CoT 的咒语 “Let's think step by step”，但 Few-shot CoT 对复杂任务控制力更强。
+
+    Tree-of-Thought (ToT)
+
+    解决的是需要探索、评估多条路径的复杂规划问题。CoT 是直线思维，一旦中间某步出错，整条链崩溃。ToT 在每一步生成多个候选思考节点，用模型自己打分（或规则）进行广度/深度搜索，保留最优分支继续探索，类似于启发式搜索（BFS/DFS）。
+
+    # 简化的 ToT 搜索框架伪代码
+    class ToTNode:
+        def __init__(self, state, value):
+            self.state = state  # 当前已生成的思维文本
+            self.value = value  # 模型对当前状态的评分
+            self.children = []
+
+    def tree_search(initial_prompt, model, depth=3, width=3):
+        root = ToTNode(state=initial_prompt, value=0.0)
+        for _ in range(depth):
+            candidates = []
+            # 对每个叶子节点生成 width 个下一步候选
+            for leaf in get_leaves(root):
+                thoughts = model.generate(leaf.state + "\n可能的下一步思考:", n=width)
+                for t in thoughts:
+                    val = model.score(leaf.state + "\n" + t)
+                    leaf.children.append(ToTNode(state=leaf.state+"\n"+t, value=val))
+                    candidates.append(leaf.children[-1])
+            # 保留 top-k 节点继续扩展，其余剪枝
+            candidates.sort(key=lambda n: n.value, reverse=True)
+            keep = candidates[:width]
+        return best_path(keep)
+
+    ToT 适合创意写作提纲、数学证明、编程解题路径规划等，在需要回溯和比较的场景中，效果显著优于 CoT，但调用成本也高（多次生成+评估）。
+
+    三者关系小结：
+
+    Few-shot 给了模型行为的“样板间”；CoT 把解题过程铺平成马路，让模型沿路走；ToT 则是在路口放路标，让模型自己搜索最优路径。实际中，复杂任务往往嵌合使用：用 ToT 的结构，每个节点内部使用 CoT 展开，并用 Few-shot 示例规范输出格式。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcnjqoOR025Z2G7iType8FmDf
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "\U0001F530  Few-shot、CoT、ToT 分别解决什么问题？"
+  imported_at: '2026-09-21'

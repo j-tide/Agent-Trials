@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-db32bc90fd96
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写代码实现RoPE位置编码的apply_rotary_emb函数
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 编写代码实现RoPE位置编码的apply_rotary_emb函数
+answer:
+  mode: rubric
+  reference_answer: "RoPE（旋转位置编码）通过对查询和键向量施加旋转变换注入位置信息。下面实现一个通用的应用函数。\n\n```python\nimport
+    torch\n\ndef apply_rotary_emb(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor)
+    -> torch.Tensor:\n    \"\"\"\n    对输入张量 x 应用旋转位置编码。\n    参数:\n        x: 形状为 (...,
+    seq_len, dim)，其中 dim 是偶数。\n        cos: 形状为 (seq_len, dim//2) 或 (..., seq_len,
+    dim//2)\n        sin: 形状同上\n    返回:\n        旋转后的张量，形状与 x 相同。\n    \"\"\"\n    #
+    将 x 按最后一维拆分为两半，分别旋转\n    dim = x.shape[-1]\n    x_rot = x[..., :dim//2]      #
+    前半部分\n    x_pass = x[..., dim//2:]     # 后半部分（如果存在不对称处理，通常 RoPE 是整维度）\n    \n
+    \   # 实际 RoPE 将整个向量分成对，每对 (x0, x1) 旋转角度 θ，\n    # 但更高效的方式是将向量视为复数，利用复旋转。\n    #
+    这里实现常用的复数旋转形式。\n    x_reshaped = x.view(*x.shape[:-1], -1, 2)\n    x_cos = x_reshaped
+    * cos.unsqueeze(-2)  # 伸缩 cos 部分\n    # 构建旋转后的另一半：交换两维并取负\n    x_sin = torch.stack([-x_reshaped[...,
+    1], x_reshaped[..., 0]], dim=-1)\n    x_sin = x_sin * sin.unsqueeze(-2)\n    rotated
+    = (x_cos + x_sin).view_as(x)\n    return rotated\n\ndef precompute_rotary_embeddings(seq_len:
+    int, dim: int, theta: float = 10000.0):\n    \"\"\"预计算旋转位置编码的 cos 和 sin 表\"\"\"\n
+    \   # 频率\n    freqs = 1.0 / (theta ** (torch.arange(0, dim, 2).float() / dim))
+    \ # (dim/2)\n    t = torch.arange(seq_len).float()\n    freqs = torch.outer(t,
+    freqs)  # (seq_len, dim/2)\n    cos = torch.cos(freqs)\n    sin = torch.sin(freqs)\n
+    \   return cos, sin\n```\n\n说明：\n\n- 上述实现采用了复数旋转的观点：将向量视为成对的 (a, b)，旋转角度 θ 后变为
+    (a cosθ - b sinθ, a sinθ + b cosθ)。\n\n- 实际使用时，apply_rotary_emb 分别对 query 和 key
+    张量应用 cos/sin，且通常只对头部维度的一半或特定维度施加 RoPE。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JFt9wvuo1ijVfLktrcDcfTR8nTd
+  block_id: NPybdXtvhop9ZCxFL4scghponbe
+  page_token: JFt9wvuo1ijVfLktrcDcfTR8nTd
+  original_title: 编写代码实现RoPE位置编码的apply_rotary_emb函数
+  imported_at: '2026-09-21'

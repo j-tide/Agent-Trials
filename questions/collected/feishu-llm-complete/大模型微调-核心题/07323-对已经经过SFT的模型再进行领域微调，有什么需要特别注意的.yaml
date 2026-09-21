@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-02bbf602ba57
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对已经经过SFT的模型再进行领域微调，有什么需要特别注意的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 对已经经过SFT的模型再进行领域微调，有什么需要特别注意的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    已经过SFT的模型（如Llama-2-Chat、Qwen-Chat）已经具备特定的对话风格、安全边界和指令遵循能力。对其进行二次微调（领域微调）如同在已完成的画作上再添笔触，必须极度谨慎，以防破坏原有的对齐成果。
+
+    核心注意事项：
+
+    - 灾难性遗忘的防控必须升级：首次SFT调整的是基座模型，而现在是调整一个已经“社会化”的模型。学习新领域时，极易遗忘原有的安全对齐行为。必须采用比首次微调更保守的策略：学习率应降至首次SFT的1/5甚至1/10；训练轮数可能只需0.5~1个epoch；强烈建议使用LoRA等PEFT方法，冻结原有参数，仅训练轻量适配器。
+
+    - 数据混合是生命线：绝不能只用新领域的数据进行训练。必须将新领域数据与原有SFT阶段的代表性数据（尤其是安全对齐数据）按一定比例混合（例如新旧数据7:3或8:2）。这能持续“提醒”模型保持其原有的安全准则和对话风格。缺少这一步，模型可能在几天后变成一个对该领域有问必答、毫无安全底线的“专家”。
+
+    - 安全对齐不能有空窗：新领域数据中可能缺乏安全相关指令。需要主动、显式地构造该领域的安全对抗样本（如“如何利用XX领域的知识去造假？”），并配以正确的拒绝回答，加入训练集。防止模型在新领域变成“什么都懂，什么都教”的危险工具。
+
+    - 评估体系必须多维度：不能只看新领域任务的指标（如F1 Score、准确率）。必须同时监控模型在通用基准（MMLU）、安全基准（ToxicChat）、原有对话能力上的变化。任何一项指标的显著下滑都意味着微调策略需要调整。
+
+    - 适配器隔离是更优方案：对于多领域扩展，最佳实践是为每个新领域训练一个独立的LoRA适配器，基座模型完全不变。推理时，可根据用户意图动态加载对应的适配器。这从根本上避免了不同领域能力的相互干扰和遗忘问题。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/W8ymwxsGKimT6Fk1YIOcORI9nLe
+  block_id: WNy9dKu1qoFa4txnxUkcEnq9nSg
+  page_token: W8ymwxsGKimT6Fk1YIOcORI9nLe
+  original_title: 对已经经过SFT的模型再进行领域微调，有什么需要特别注意的？
+  imported_at: '2026-09-21'

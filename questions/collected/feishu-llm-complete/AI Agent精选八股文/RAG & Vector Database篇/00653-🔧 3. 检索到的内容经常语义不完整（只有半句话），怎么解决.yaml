@@ -1,0 +1,123 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f22449b28f0b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F527 3. 检索到的内容经常语义不完整（只有半句话），怎么解决？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "\U0001F527 3. 检索到的内容经常语义不完整（只有半句话），怎么解决？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    “只有半句话”的本质是：答案所需的信息跨越了两个或多个 chunk，但检索时只抽出了其中一片。
+
+    原因诊断与分步修复：
+
+    [嵌入表格未展开]
+
+    三种工程解决方案，由易到难：
+
+    方案一：句子窗口检索（Sentence Window Retrieval）
+
+    检索时用小 chunk（保证精准度），但喂给 LLM 时，自动“展开窗口”，把命中小 chunk 的前后若干句子也一并送入上下文。
+
+    ```python
+    # 原理示意：检索返回 id=57 的 chunk
+    def expand_window(chunk_id, all_chunks, window=1):
+        start = max(0, chunk_id - window)
+        end = min(len(all_chunks), chunk_id + window + 1)
+        return "".join(all_chunks[start:end])
+    ```
+
+    很多框架直接支持。例如在 LlamaIndex 中，可以使用 SentenceWindowNodeParser，它会自动构建句子级别的节点，并在检索后展开窗口。
+
+    ```python
+    from llama_index.core.node_parser import SentenceWindowNodeParser
+    parser = SentenceWindowNodeParser(
+        sentence_window_size=3,  # 向前后各取3句
+        window_metadata_key="window",
+    )
+    nodes = parser.get_nodes_from_documents(docs)
+    ```
+
+    方案二：父子文档索引（Parent-Child Indexing）
+
+    推荐用于生产环境。核心思想是：用小的子 chunk 做索引（检索精准），用大的父 chunk 做上下文（回答完整）。
+
+    ```text
+    父文档 (Parent) - 完整的一段内容
+              ├── 子 chunk 1
+              ├── 子 chunk 2
+              └── 子 chunk 3
+    检索命中子 chunk 2 → 返回整个父文档作为上下文
+    ```
+
+    在 LangChain 中可以用 ParentDocumentRetriever 实现：
+
+    ```python
+    from langchain.retrievers import ParentDocumentRetriever
+    from langchain.storage import InMemoryStore
+
+    # 创建父子文档检索器
+    retriever = ParentDocumentRetriever(
+        vectorstore=vectorstore,
+        docstore=InMemoryStore(),
+        child_splitter=RecursiveCharacterTextSplitter(chunk_size=200),  # 子片段，用于检索
+        parent_splitter=RecursiveCharacterTextSplitter(chunk_size=1000), # 父文档，用于喂给LLM
+    )
+    retriever.add_documents(docs)
+    ```
+
+    方案三：自动合并检索 + Rerank
+
+    先正常检索多个候选 chunk，然后用一个 Rerank 模型（如 Cohere Rerank、BGE-Reranker）对这些候选重新排序。Rerank 模型通常计算 Query 与整个文档片段的相关性时更精确，能把那个真正包含完整信息的 chunk 排到最前面。配合邻段扩展，进一步补齐缺失的上下文。
+
+    排查脚本：验证修复效果
+
+    ```python
+    def check_completeness(question, retriever, llm):
+        docs = retriever(question)
+        for i, doc in enumerate(docs):
+            first_char = doc.page_content.strip()[0] if doc.page_content else ""
+            last_char = doc.page_content.strip()[-1] if doc.page_content else ""
+            # 简单判断：结尾不是句号/问号/感叹号，可能被切断
+            if last_char not in "。！？.!?":
+                print(f"⚠️  Chunk {i+1} 结尾不完整: ...{doc.page_content[-50:]}")
+            if first_char not in "“‘「（(【" and not first_char.isalpha():
+                print(f"⚠️  Chunk {i+1} 开头不完整: {doc.page_content[:50]}...")
+    ```
+
+    收束： 语义不完整的问题，不能只靠调 overlap 来解决。最稳健的方案是采用父子文档索引——用精准的小片段检索，用完整的大上下文回答。这相当于把“寻找答案”和“理解答案”两件事分开优化，各自做到极致。
+
+    ### 4.2 检索质量优化
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcnmnkBUGqZ5CLgCiF5mnu0Fc
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "\U0001F527 3. 检索到的内容经常语义不完整（只有半句话），怎么解决？"
+  imported_at: '2026-09-21'

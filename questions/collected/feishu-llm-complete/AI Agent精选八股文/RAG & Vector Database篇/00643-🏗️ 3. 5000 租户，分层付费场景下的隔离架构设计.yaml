@@ -1,0 +1,96 @@
+---
+schema_version: 1
+id: feishu-llm-complete-20c8f4ad7e4a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3D7️ 3. 5000 租户，分层付费场景下的隔离架构设计"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "\U0001F3D7️ 3. 5000 租户，分层付费场景下的隔离架构设计"
+answer:
+  mode: rubric
+  reference_answer: "场景重述：\n\n- 4950 个免费用户，每人 200 条文档，总共约 100 万条向量。\n\n- 50 个付费企业，每人
+    5 万条文档，总共 250 万条向量。\n\n- 免费用户要求低成本、基本可用；付费用户要求高性能、强隔离。\n\n设计目标：在满足隔离需求的前提下，最小化资源消耗和运维负担，并为未来扩展留好口子。\n\n推荐架构：分级隔离
+    + 动态路由\n\n[图片内容未导入]\n\n免费用户：使用独立 Collection + Namespace 或 Metadata Filter？\n这里有一个资源权衡。4950
+    个免费用户如果每人一个 Namespace，管理上很清晰，底层仍是共享索引，成本可控。但 4950 个 Namespace 的管理本身也有开销（元数据、连接数）。更极致的省钱方案：所有免费用户扔进一个
+    free_tenants Collection，使用 tenant_id 做元数据过滤，查询时强制加 filter。虽然安全性稍弱，但对于免费用户的数据敏感度，这个风险是可接受的。并且可以通过代码层严格封装
+    filter，避免遗漏。\n\n付费企业：独立 Collection\n为每个企业客户创建一个独立的 Collection，名字如 ent_tenant_123。这样做的好处：\n\n-
+    性能隔离：大客户的频繁查询不会挤占免费用户的资源，也不会被其他大客户干扰。\n\n- 独立调优：可以为不同企业配置不同的索引参数（如 HNSW 的 M、efConstruction）。\n\n-
+    精细运维：备份、恢复、迁移都可以针对单个 Collection 进行，不影响其他客户。\n\n- 安全合规：合同里承诺的“数据物理隔离”可以轻松满足。\n\n路由层实现（伪代码）：\n\n```python\nfrom
+    enum import Enum\n\nclass TenantTier(Enum):\n    FREE = \"free\"\n    ENTERPRISE
+    = \"enterprise\"\n\n# 根据租户 ID 解析其等级和对应的 Collection/Namespace\ndef get_tenant_context(tenant_id:
+    str) -> dict:\n    info = tenant_service.get_info(tenant_id)  # 从缓存或数据库查\n    if
+    info.tier == TenantTier.FREE:\n        return {\n            \"collection_name\":
+    \"free_tenants\",\n            \"filter\": {\"tenant_id\": tenant_id}  # 元数据过滤\n
+    \       }\n    else:\n        return {\n            \"collection_name\": f\"ent_tenant_{tenant_id}\",\n
+    \           \"filter\": None  # 独立 Collection，无需额外过滤\n        }\n\n# 检索接口\ndef
+    search_for_tenant(tenant_id: str, query: str):\n    ctx = get_tenant_context(tenant_id)\n
+    \   collection = get_collection(ctx[\"collection_name\"])\n    \n    if ctx[\"filter\"]:\n
+    \       # 免费用户：走 metadata filter\n        results = collection.query(\n            query_texts=[query],\n
+    \           n_results=5,\n            where=ctx[\"filter\"]\n        )\n    else:\n
+    \       # 付费用户：直接查专属 Collection\n        results = collection.query(\n            query_texts=[query],\n
+    \           n_results=5\n        )\n    return results\n```\n\n使用 Milvus 的 Partition
+    Key 优化免费用户隔离\n如果向量库是 Milvus，可以用 Partition Key 替代 metadata filter。Partition Key
+    在写入时根据 tenant_id 哈希分区，查询时指定分区键，能实现与 Namespace 类似的逻辑隔离，且查询效率远高于通用的 scalar filter。\n\n```python\nfrom
+    pymilvus import Collection, connections\n\n# 免费用户共享 Collection，用 tenant_id 作为
+    partition key\nconnections.connect()\nschema = ... # 定义向量字段 + tenant_id (VARCHAR,
+    partition_key=True)\ncollection = Collection(\"free_tenants\", schema)\ncollection.create_index(\"vector\",
+    ...)\n\n# 查询时指定分区键\nresults = collection.search(\n    data=[query_vec],\n    anns_field=\"vector\",\n
+    \   expr=f'tenant_id == \"{tenant_id}\"',  # Milvus 会根据 partition key 优化\n    limit=5\n)\n```\n\n未来扩展性预留：\n\n-
+    如果某个免费用户成长为付费企业，只需将其数据从 free_tenants Collection 中迁移到独立的 ent_tenant_xxx Collection。迁移可以通过向量库的
+    export/import 或自研脚本完成，该过程对用户几乎无感知。\n\n- 定期对 free_tenants 做数据清理，删除僵尸用户，回收存储空间。\n\n-
+    在应用层加一个容量监控，当免费用户的数据量接近上限时，提示升级。\n\n成本估算：\n\n- 免费用户：共享 Collection，索引内存占用 ≈ 向量维度
+    × 向量总数。100 万条 1536 维向量，约需 6GB 内存（加上索引开销，10GB 以内）。\n\n- 付费企业：50 个独立 Collection，每个
+    5 万条向量，各自索引。总内存占用会比共享模式略高（每个 Collection 的索引有固定开销），但换来的是绝对的性能隔离和灵活的 SLA 管理。\n\n-
+    运维：免费用户只需维护一个 Collection，备份简单；付费企业可用自动化脚本批量管理。\n\n一句话总结：5000 租户的架构，不是在每一个细枝末节上追求“最高安全”，而是用分层隔离的策略，把好钢用在刀刃上——免费用户用逻辑隔离降本，付费客户用物理隔离提质，路由层屏蔽所有复杂度，让租户永远看不到底层的隔离逻辑。
+    这是 SaaS 架构最经典的“分级服务”思维在 RAG 时代的延伸。\n\n---\n\n### 数据更新权衡\n\n1、基础题：为什么 RAG 系统的知识库更新不能简单地删掉旧数据再全量重新导入？\n\n难度级别：⭐（增量更新必要性）\n\n全量重建会对所有文档重新做
+    Embedding，成本随文档数量线性增长，对于大型知识库（几万到几十万文档）成本和时间都难以接受。全量重建期间知识库可能处于不可用状态，影响服务连续性。增量更新只处理有变化的文档，大幅降低成本，同时可以做到对用户无感知的滚动更新。\n\n---\n\n2、进阶题：当知识库的源文档发生变更时，如何设计
+    RAG 系统的增量更新机制？如何避免全量重建带来的性能问题？\n\n难度级别：⭐⭐（文档变更检测、增量 Embedding、Upsert 幂等设计、删除同步）\n\n1️⃣
+    Common Answer\n\nRAG 系统的知识库需要随着源文档更新而更新。全量重建太慢成本也高。增量更新的思路是只处理有变化的文档，可以用 MD5 或者
+    SHA256 给每个文档算一个哈希值存起来，下次处理时先算新文档的哈希，和存储的哈希比对，只有哈希不一样的才需要重新处理。向量数据库支持 Upsert 操作，可以根据文档
+    ID 更新已有的向量，不需要先删再插。如果源文档被删除了，也需要同步把对应的向量从数据库里删掉。\n\n2️⃣ Impressive Answer\n\n我会把增量更新拆成四个核心步骤来设计，每个步骤都有容易踩的坑。\n\n-
+    变更检测用内容哈希，不用文件时间戳。时间戳可能因为 touch 操作、系统迁移等原因不可靠，内容哈希（SHA256）才能准确反映文件是否真的变了。同时要维护一个文档注册表，记录每个文档的哈希值和对应的
+    chunk_id 列表，检测时做三路对比：新增（在源目录但不在注册表）、删除（在注册表但不在源目录）、更新（哈希值变化）。\n\n- 更新文档要先删旧 chunk
+    再插新 chunk，不能直接 Upsert。因为文档内容变化可能导致分块数量和边界都发生变化，如果直接 Upsert 旧的 chunk_id，会出现旧 chunk
+    残留的问题——比如原来 10 个 chunk，更新后变成 7 个，直接 Upsert 只会更新前 7 个，后 3 个旧 chunk 会永久残留在向量库里污染检索结果。\n\n-
+    chunk_id 用确定性设计保证 Upsert 幂等性。推荐用文件路径 + chunk 序号做 MD5 生成 chunk_id，同一文件同一位置的 chunk
+    ID 永远一样，这样即使因为网络中断重试处理，也不会产生重复数据。\n\n- 删除同步是最容易被忽视的环节。源文档删除时必须同步清理向量库里的所有相关 chunk，否则检索时会召回已删除文档的内容，造成信息污染。工程上还要注意：批量处理时合并
+    Embedding API 请求降低成本；大批量更新要支持断点续传，单个文档失败不影响整体；把更新任务安排在低峰期执行，防止 Embedding API 请求过于集中。\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n---\n\n3、场景题：知识库有 10 万份文档，每天有约 1000 份文档更新，更新期间服务不能中断，如何设计更新流程？\n\n难度级别：⭐⭐⭐（滚动更新、服务连续性、流量切换）\n\n1️⃣
+    Common Answer\n\n可以用异步更新，把更新任务放到队列里，后台慢慢处理，不影响前台服务。每天 1000 份文档，如果处理速度够快就不会有问题。可以在低峰期（比如凌晨）做批量更新。\n\n2️⃣
+    Impressive Answer\n\n这道题的关键约束是\"服务不能中断\"，意味着更新过程中检索必须始终可用，不能有 dirty read（读到更新了一半的数据）。\n\n核心设计是写时隔离，切换生效。新文档的
+    chunk 写入时先打上 status=pending 标记，检索查询强制过滤 status=active 的 chunk，这样更新中的文档不会污染线上检索结果。一批文档的所有
+    chunk 全部写入完成后，原子地把状态从 pending 改为 active，同时把旧版本 chunk 标记为 deprecated，异步清理。\n\n流量控制也很重要：1000
+    份文档同时 Embedding 会把 API 配额打满，要做速率限制（比如每分钟处理 50 份），均匀分散在低峰时段（凌晨 1-5 点）处理。同时维护一个更新队列，记录每份文档的处理状态（pending/processing/done/failed），支持失败重试和断点续传。\n\n监控上要关注两个指标：更新队列积压量（防止更新速度跟不上）和
+    pending chunk 的年龄（超过 1 小时未切换 active 要告警，说明更新流程卡住了）。\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---\n\n4、容易一起考的题\n\n[嵌入表格未展开]\n\n###
+    Milvus / Qdrant 与检索策略"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Vf3WwfQfWib73PkQHd2coGQXnmf
+  block_id: doxcn6cXgTicryAkQSsDaXggA6e
+  page_token: Vf3WwfQfWib73PkQHd2coGQXnmf
+  original_title: "\U0001F3D7️ 3. 5000 租户，分层付费场景下的隔离架构设计"
+  imported_at: '2026-09-21'

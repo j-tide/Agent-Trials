@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-da5597f6cba2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 描述一次你主导的微调技术选型，如何在LoRA和全参微调之间决策。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 描述一次你主导的微调技术选型，如何在LoRA和全参微调之间决策。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在主导一次为电商客服机器人进行微调的项目中，我面临在LoRA和全参微调之间做出技术选型。项目背景如下：
+
+    - 基座模型：Qwen2-7B-Instruct，已具备良好通用对话能力。
+
+    - 任务目标：让模型遵循公司严格的客服话术规范，理解商品信息、退换货政策，并能以品牌调性（亲切、专业）回答。
+
+    - 数据规模：公司积累了约3000条经过人工审核的高质量客服对话，但数量有限。
+
+    - 硬件资源：只有2张A100-80G GPU，训练预算紧张。
+
+    决策过程：
+
+    我首先对两种方案进行了多维度的量化对比。全参数微调理论上能深度重塑模型行为，但需要为所有70亿参数存储梯度、优化器状态和中间激活。粗略估算，即使使用BF16混精和ZeRO-2，单卡80G也只能勉强跑起batch size 1，且极易因数据量少而过拟合。而LoRA（r=16）仅训练约400万参数，显存占用极低，且因其低秩约束天然具有强正则化效果，特别适合小数据场景。
+
+    为了验证假设，我设计了一个微型Ablation Study：
+
+    - 从数据集中随机抽取500条样本，分别用LoRA和全参微调训练1个epoch，并在剩余的500条样本上评估。
+
+    - 同时，在MMLU子集和客服专用测试集上评估通用知识保留度。
+
+    结果如下：
+
+    - 任务性能：LoRA在客服任务上的准确率（93.2%）与全参微调（94.1%）差距不到1个百分点，而全参微调在训练结束时已出现过拟合迹象（验证损失上升）。
+
+    - 通用能力保留：全参微调后的MMLU得分下降了4.3%，显示出明显的灾难性遗忘；LoRA模型仅下降0.5%。
+
+    - 训练成本：LoRA训练耗时仅35分钟，全参微调耗时3小时10分钟，且显存峰值高达72GB，几乎逼近上限。
+
+    最终，数据驱动的结论非常清晰：LoRA以不到全参微调1/5的训练成本，达到了近乎等同的任务效果，且完美保留了模型的通用能力，是当前场景下的最优解。我们甚至将节省下来的预算，用于提升LoRA的秩到32，进一步榨取了性能。
+
+    决策核心：当数据量有限、任务与基座分布差异不大、且资源受限时，LoRA是极具性价比的选择；而当需要注入大量全新知识、数据量极为充足且追求极致性能时，全参微调才值得考虑。我将这一决策框架文档化，成为团队后续选型的标准。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ty64w3f7OipOfgkdPWVcn8ganTf
+  block_id: YgxYdHRMUoVealxZYWgcS7sjnGA
+  page_token: Ty64w3f7OipOfgkdPWVcn8ganTf
+  original_title: 描述一次你主导的微调技术选型，如何在LoRA和全参微调之间决策。
+  imported_at: '2026-09-21'

@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e7467d436baa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 流水线并行（Pipeline Parallelism）如何工作？什么是micro‑batch？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 流水线并行（Pipeline Parallelism）如何工作？什么是micro‑batch？
+answer:
+  mode: rubric
+  reference_answer: |-
+    流水线并行将模型按层切分，解决了单卡放不下所有层的问题，但它引入了设备空闲问题。
+
+    工作流程：
+
+    假设一个模型有4层，用4张卡做PP，每张卡负责1层。一个batch输入后：
+
+    - 朴素流水线：GPU0先算第1层，算完发给GPU1；此时GPU0空闲，GPU1开始算第2层... 最后GPU3算完第4层。这个过程串行，任何时刻只有1张GPU在工作，利用率只有25%。
+
+    Micro‑batch 就是解决这个问题的关键。
+
+    - 定义：将一个大的batch划分成多个更小的、等大的子批次。例如，batch_size=128，micro‑batch size=8，那么就有16个micro‑batch。
+
+    - 流水线填充：不是等第一个micro‑batch走完全程再发第二个。而是GPU0处理完第一个micro‑batch后，立即开始处理第二个micro‑batch，并将第一个micro‑batch的激活发给GPU1。
+
+    - 理想状态：经过一个短暂的“预热”（warm‑up）阶段后，所有GPU都会忙碌起来，同时处理不同micro‑batch的不同阶段（前向或反向）。最后再经过一个“冷却”（cool‑down）阶段完成所有micro‑batch。
+
+    Micro‑batch的作用：
+
+    - 减少气泡：通过让多个micro‑batch在流水线上重叠执行，极大地减少了GPU的空闲时间，提高了利用率。
+
+    - 控制显存：前向计算的激活显存与micro‑batch size成正比。使用更小的micro‑batch意味着单次前向的激活峰值更低，可以在同样的显存下塞进更长的序列或更大的全局batch。
+
+    GPipe和1F1B（一前向一反向）是两种经典的调度策略，它们通过不同的micro‑batch调度顺序来平衡显存和气泡，其中1F1B在控制激活显存方面更优。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: EGLIdtBjioFjOqxiFXCcbWzenfg
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 流水线并行（Pipeline Parallelism）如何工作？什么是micro‑batch？
+  imported_at: '2026-09-21'

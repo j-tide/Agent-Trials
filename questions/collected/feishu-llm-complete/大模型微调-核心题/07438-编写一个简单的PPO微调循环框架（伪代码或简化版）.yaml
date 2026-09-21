@@ -1,0 +1,87 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c938d9409764
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写一个简单的PPO微调循环框架（伪代码或简化版）。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 编写一个简单的PPO微调循环框架（伪代码或简化版）。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    # 假设已有一个SFT模型 actor_model，参考模型 ref_model，奖励模型 reward_model，价值模型 critic_model
+    # 使用一个简单的PPO训练循环（省略优势计算细节）
+    import torch
+    from torch.optim import AdamW
+
+    actor_optimizer = AdamW(actor_model.parameters(), lr=1e-5)
+    critic_optimizer = AdamW(critic_model.parameters(), lr=5e-6)
+
+    for epoch in range(ppo_epochs):
+        for batch in dataloader:
+            prompts = batch['prompt']
+            # 生成回答
+            responses = actor_model.generate(prompts)
+            # 计算奖励
+            rewards = reward_model.score(prompts, responses)
+            # 计算价值估计
+            values = critic_model(prompts, responses)
+            # 计算优势（简化：实际应用GAE）
+            advantages = rewards - values.detach()
+            # PPO损失
+            old_log_probs = actor_model.log_prob(prompts, responses).detach()
+            for _ in range(update_epochs):
+                new_log_probs = actor_model.log_prob(prompts, responses)
+                ratio = torch.exp(new_log_probs - old_log_probs)
+                surr1 = ratio * advantages
+                surr2 = torch.clamp(ratio, 1-epsilon, 1+epsilon) * advantages
+                actor_loss = -torch.min(surr1, surr2).mean()
+                # 添加KL惩罚
+                kl = torch.distributions.kl_divergence(
+                    actor_model.distribution(prompts), ref_model.distribution(prompts)
+                ).mean()
+                loss = actor_loss + beta * kl
+                actor_optimizer.zero_grad()
+                loss.backward()
+                actor_optimizer.step()
+            # 更新价值模型
+            critic_loss = torch.nn.functional.mse_loss(values, rewards)
+            critic_optimizer.zero_grad()
+            critic_loss.backward()
+            critic_optimizer.step()
+    ```
+
+    实际完整PPO实现非常复杂，建议直接使用库如 trl 或 DeepSpeed-Chat。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: UyOfdQkr9oS7PCxcID2ctBcjnBk
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: 编写一个简单的PPO微调循环框架（伪代码或简化版）。
+  imported_at: '2026-09-21'

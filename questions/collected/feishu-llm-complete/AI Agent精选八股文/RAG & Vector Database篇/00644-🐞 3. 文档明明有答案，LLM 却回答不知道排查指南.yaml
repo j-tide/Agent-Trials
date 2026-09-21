@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ea5c983aed4a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F41E 3. “文档明明有答案，LLM 却回答不知道”排查指南"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "\U0001F41E 3. “文档明明有答案，LLM 却回答不知道”排查指南"
+answer:
+  mode: rubric
+  reference_answer: "这是一个经典的“RAG 失灵”场景，原因通常出在 检索阶段没召回，或 召回后 LLM 没能正确理解 这两个环节上。排查思路是沿着数据流分段定位。\n\n排查路线图：\n\n[图片内容未导入]\n\n第一步：检索侧排查\n\n动手检查：把用户问题放进检索函数，直接看返回的
+    docs 内容，确认答案是否在 top-K 文档中，以及在第几位（排名越靠后，越容易被 LLM 忽略）。\n\n常见原因与修复：\n\n[嵌入表格未展开]\n\n检索诊断代码示例：\n\n```python\n#
+    快速检查检索质量\ndocs = vectorstore.similarity_search(\"怎么退钱\", k=5)\nfor i, doc in enumerate(docs):\n
+    \   print(f\"--- 排名 {i+1} ---\")\n    print(doc.page_content[:200])\n# 肉眼确认答案是否出现、排第几\n```\n\n第二步：生成侧排查\n\n如果确认答案已经在检索到的文档中，但
+    LLM 仍然说“不知道”，问题就出在 Prompt 组装 或 LLM 自身。\n\n常见原因与修复：\n\n[嵌入表格未展开]\n\n生成侧验证方法：把检索到的文档和拼好的完整
+    Prompt 打印出来，自己当一次 LLM——如果连人都能从上下文里轻易找到答案，模型却不行，那大概率是模型本身的能力问题或 Prompt 有误导。如果人也找不到，那就是检索的问题。\n\n一个端到端排查脚本的骨架：\n\n```python\ndef
+    diagnose_rag_failure(question, retriever, llm):\n    # 1. 检查检索结果\n    docs = retriever(question)\n
+    \   answer_in_docs = any(\"退款\" in d.page_content or \"退钱\" in d.page_content
+    for d in docs)\n    if not answer_in_docs:\n        return \"根因：检索未召回。建议：加 Query
+    Rewriting 或混合检索。\"\n    \n    # 2. 检查 Prompt 和生成\n    context = \"\\n\".join([d.page_content
+    for d in docs])\n    prompt = f\"基于以下资料回答：\\n{context}\\n\\n问题：{question}\"\n
+    \   response = llm(prompt)\n    \n    if \"未找到\" in response or \"不知道\" in response:\n
+    \       return \"根因：LLM 生成侧问题。建议：优化 Prompt 指令，或升级模型。\"\n    \n    return \"暂时工作正常，可能是偶发。\"\n```\n\n收束：
+    RAG 系统出问题，不要瞎猜，一定是先查检索，再查生成。80% 的“回答不知道”都是检索没召回，剩下 20% 是 Prompt 没写好或模型太弱。顺着数据流分段排查，十几分钟就能定位到根因。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcn9UjEUCCCWd60n9t3MJp5Zf
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "\U0001F41E 3. “文档明明有答案，LLM 却回答不知道”排查指南"
+  imported_at: '2026-09-21'

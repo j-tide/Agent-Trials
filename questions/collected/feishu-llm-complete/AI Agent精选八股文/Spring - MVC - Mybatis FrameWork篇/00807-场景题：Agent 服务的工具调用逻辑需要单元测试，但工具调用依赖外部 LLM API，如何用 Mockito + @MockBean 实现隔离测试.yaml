@@ -1,0 +1,93 @@
+---
+schema_version: 1
+id: feishu-llm-complete-780c19a0b782
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 服务的工具调用逻辑需要单元测试，但工具调用依赖外部 LLM API，如何用 Mockito + @MockBean 实现隔离测试？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 服务的工具调用逻辑需要单元测试，但工具调用依赖外部 LLM API，如何用 Mockito + @MockBean 实现隔离测试？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（隔离测试、Mock 链式调用、参数匹配、异常测试）\n\n1️⃣ Common Answer\n\n可以用
+    @MockBean 把 LLM Provider Mock 掉，然后用 when().thenReturn() 模拟返回值。测试时调用工具执行方法，验证返回结果是否符合预期。\n\n2️⃣
+    Impressive Answer\n\n- 工具调用服务设计：\n\n```text\n@Service\npublic class ToolExecutor
+    {\n    private final LLMProvider llmProvider;\n        \n    public ToolExecutor(LLLMProvider
+    llmProvider) {\n        this.llmProvider = llmProvider;\n    }\n        \n    public
+    ToolResult execute(ToolCall call) {\n        try {\n            String prompt
+    = buildPrompt(call);\n            String response = llmProvider.chat(prompt, call.getModel());\n
+    \           return parseResponse(response);\n        } catch (LLMException e)
+    {\n            return ToolResult.error(e.getMessage());\n        }\n    }\n}\n```\n\n-
+    隔离测试实现：\n\n```text\n@ExtendWith(MockitoExtension.class)\npublic class ToolExecutorTest
+    {\n        \n    @Mock\n    private LLMProvider llmProvider;\n        \n    @InjectMocks\n
+    \   private ToolExecutor toolExecutor;\n        \n    @Test\n    public void testExecuteSuccess()
+    {\n        // 准备测试数据\n        ToolCall call = ToolCall.builder()\n            .tool(\"weather\")\n
+    \           .params(Map.of(\"city\", \"杭州\"))\n            .build();\n            \n
+    \       // Mock 外部依赖\n        when(llmProvider.chat(\n            startsWith(\"查询杭州的天气\"),
+    \n            eq(\"gpt-4\")\n        )).thenReturn(\"{\\\"temperature\\\": 25,
+    \\\"weather\\\": \\\"晴\\\"}\");\n            \n        // 执行测试\n        ToolResult
+    result = toolExecutor.execute(call);\n            \n        // 验证结果\n        assertThat(result.isSuccess()).isTrue();\n
+    \       assertThat(result.getData()).containsEntry(\"temperature\", 25);\n            \n
+    \       // 验证 Mock 被调用\n        verify(llmProvider, times(1))\n            .chat(anyString(),
+    eq(\"gpt-4\"));\n    }\n        \n    @Test\n    public void testExecuteFailure()
+    {\n        ToolCall call = ToolCall.builder()\n            .tool(\"weather\")\n
+    \           .params(Map.of(\"city\", \"杭州\"))\n            .build();\n            \n
+    \       // Mock 异常情况\n        when(llmProvider.chat(anyString(), anyString()))\n
+    \           .thenThrow(new LLMException(\"API rate limit exceeded\"));\n            \n
+    \       ToolResult result = toolExecutor.execute(call);\n            \n        assertThat(result.isError()).isTrue();\n
+    \       assertThat(result.getError()).contains(\"rate limit\");\n    }\n        \n
+    \   @Test\n    public void testExecuteWithMultipleCalls() {\n        // Mock 多次调用返回不同结果\n
+    \       when(llmProvider.chat(anyString(), anyString()))\n            .thenReturn(\"{\\\"result\\\":
+    \\\"first\\\"}\")\n            .thenReturn(\"{\\\"result\\\": \\\"second\\\"}\");\n
+    \           \n        ToolResult result1 = toolExecutor.execute(call1);\n        ToolResult
+    result2 = toolExecutor.execute(call2);\n            \n        assertThat(result1.getData()).containsEntry(\"result\",
+    \"first\");\n        assertThat(result2.getData()).containsEntry(\"result\", \"second\");\n
+    \   }\n}\n```\n\n- 参数匹配器：\n\n```text\n// 精确匹配\nwhen(llmProvider.chat(\"exact prompt\",
+    \"gpt-4\")).thenReturn(...);\n    \n// 任意参数\nwhen(llmProvider.chat(anyString(),
+    anyString())).thenReturn(...);\n    \n// 部分匹配\nwhen(llmProvider.chat(\n    startsWith(\"查询\"),
+    \n    endsWith(\"-4\")\n)).thenReturn(...);\n    \n// 自定义匹配器\nwhen(llmProvider.chat(argThat(prompt
+    -> prompt.length() > 10), anyString()))\n    .thenReturn(...);\n```\n\n- 验证调用次数和顺序：\n\n```text\n//
+    验证调用次数\nverify(llmProvider, times(2)).chat(anyString(), anyString());\nverify(llmProvider,
+    never()).chat(eq(\"forbidden\"), anyString());\nverify(llmProvider, atLeastOnce()).chat(anyString(),
+    anyString());\n    \n// 验证调用顺序\nInOrder inOrder = inOrder(llmProvider);\ninOrder.verify(llmProvider).chat(eq(\"first\"),
+    anyString());\ninOrder.verify(llmProvider).chat(eq(\"second\"), anyString());\n```\n\n-
+    集成测试（@SpringBootTest）：\n\n```text\n@SpringBootTest\n@AutoConfigureMockMvc\npublic
+    class ToolExecutionIntegrationTest {\n    @Autowired\n    private MockMvc mockMvc;\n
+    \       \n    @MockBean\n    private LLMProvider llmProvider;\n        \n    @Test\n
+    \   public void testToolExecutionApi() throws Exception {\n        when(llmProvider.chat(anyString(),
+    anyString()))\n            .thenReturn(\"{\\\"result\\\": \\\"test\\\"}\");\n
+    \           \n        mockMvc.perform(post(\"/api/tools/execute\")\n                .contentType(MediaType.APPLICATION_JSON)\n
+    \               .content(\"{\\\"tool\\\":\\\"weather\\\",\\\"params\\\":{\\\"city\\\":\\\"杭州\\\"}}\"))\n
+    \           .andExpect(status().isOk())\n            .andExpect(jsonPath(\"$.data.result\").value(\"test\"));\n
+    \   }\n}\n```\n\n3️⃣ Key Differences\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NHwYwCwRDiPz1OkM3b9cXNBinUd
+  block_id: doxcnpGxwQDFvBcHYYwUaQ67nRb
+  page_token: NHwYwCwRDiPz1OkM3b9cXNBinUd
+  original_title: 3、场景题：Agent 服务的工具调用逻辑需要单元测试，但工具调用依赖外部 LLM API，如何用 Mockito + @MockBean
+    实现隔离测试？
+  imported_at: '2026-09-21'

@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cf931c8e432d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F7E2 LoRA 和 QLoRA 微调的原理是什么？为什么能用很少的参数达到接近全量微调的效果？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F7E2 LoRA 和 QLoRA 微调的原理是什么？为什么能用很少的参数达到接近全量微调的效果？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    先说 LoRA，它的思路非常简洁。
+
+    ▪ LoRA 原理
+    当我们做下游任务微调时，模型权重从原始的 W0W0 变成 W0+ΔWW0+ΔW。LoRA 假设这个更新量 ΔWΔW 是低秩的，可以分解为两个小矩阵的乘积：
+    ΔW=BAΔW=BA，
+    其中如果 W0W0 的维度是 d×kd×k，那么 BB 是 d×rd×r，AA 是 r×kr×k，而秩 rr 远小于 dd 和 kk。
+
+    训练时，我们冻结 W0W0，只优化 AA 和 BB。前向计算就是：
+    h=W0x+BAxh=W0x+BAx
+    由于 rr 很小，可训练参数量从原本的 d×kd×k 骤降到 r(d+k)r(d+k)，经常只有原模型的千分之一左右。推理时还可以把 BABA 加到 W0W0 里，不增加任何延迟。
+
+    ▪ QLoRA 原理
+
+    QLoRA 是在 LoRA 的基础上再加上了4 比特量化，目标就一个：大幅压低显存，保持效果。
+
+    它先把预训练模型用 4-bit NormalFloat 格式量化并冻结，只在这些量化权重之上添加 LoRA 适配器。同时用了双重量化（对量化常数再量化）和分页优化器等技术，进一步压缩显存。训练时，每次需要权重时，是反量化回高精度，再与 LoRA 的前向结果相加。
+
+    ▪ 为什么极少量参数就能接近全量微调？
+    核心原因在于：大模型在适配下游任务时，权重更新的“有效自由度”远小于参数总量。
+    研究发现，很多任务只需要在一个很低的内在维度上做调整，就能覆盖绝大多数的性能提升。LoRA 的 rr 恰好抓住了这个低秩结构。换句话说，模型本身已经具备了足够的语言和推理基础，我们只要在关键方向上轻轻“扭动”一下就够了。
+    QLoRA 则证明了，即使量化到 4-bit，这个低秩更新仍然足以恢复绝大部分任务表现，因为量化引入的误差可以通过 Adapter 的微小调整被补偿回来。
+
+    这也解释了为什么现在社区微调几乎都首选 LoRA/QLoRA，因为它把“算力自由”真正下放给了个人开发者。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcnAC2Qa7nWULTfjcze85GfOf
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "\U0001F7E2 LoRA 和 QLoRA 微调的原理是什么？为什么能用很少的参数达到接近全量微调的效果？"
+  imported_at: '2026-09-21'

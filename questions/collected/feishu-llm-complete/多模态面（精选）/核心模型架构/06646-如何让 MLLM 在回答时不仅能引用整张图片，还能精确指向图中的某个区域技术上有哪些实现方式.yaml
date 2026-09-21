@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-131e24054b0b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何让 MLLM 在回答时不仅能引用整张图片，还能精确指向图中的某个区域？技术上有哪些实现方式？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 核心模型架构
+tags: &1
+- 多模态面（精选）
+- 核心模型架构
+content:
+  prompt: 如何让 MLLM 在回答时不仅能引用整张图片，还能精确指向图中的某个区域？技术上有哪些实现方式？
+answer:
+  mode: rubric
+  reference_answer: |-
+    让 MLLM 实现视觉定位和区域引用需要模型不仅能理解图像整体，还能建立语言与精确空间坐标之间的映射。
+
+    技术实现方式：
+
+    - 输出坐标 token：最直接的方法是让模型学会生成坐标。将图像坐标（如归一化到 0-100 的 x, y, w, h）转化为离散 token（如 <x0><y5><x30><y60> 表示边界框），加入词表。训练时使用包含定位标注的数据（如 RefCOCO、Visual Genome）教模型生成这些坐标 token。例如：回答“图中红色的汽车在哪个位置？”模型输出“红色汽车在 <x20><y10><x45><y35>”。这是 Kosmos-2、Shikra 等模型的方案。
+
+    - 位置编码辅助的视觉 token 生成：在视觉编码器中嵌入显式的 2D 位置信息（如通过 sin/cos 位置编码增强），使得每个视觉 token 自带其空间坐标信息。当 LLM 在生成文本时想指向某个区域，它可以学会生成与那个区域相关的视觉 token 的“引用”或者直接复制其坐标。
+
+    - 分割/掩码解码器：MLLM 输出文本的同时，生成一个专门用于定位的“区域 token”，然后将这个 token 送入一个轻量级的框或掩码解码器（如 SAM、Mask2Former 的头部），解码出具体的区域。这需要额外训练一个解码器，但可以实现更精确的像素级定位（分割掩码）。如 LISA、PixelLLM。
+
+    - 基于区域的特征注入：在模型理解阶段，可以预先提取图像中若干候选区域（如通过目标检测器或滑动窗口），并为每个区域赋予一个 ID。模型回答时，只需输出这个区域的 ID，前端再映射回框。这样模型不直接预测坐标，而是做选择题。这降低了生成自由坐标的难度，但依赖于候选区域的质量。
+
+    - 标记点/关键点：对于更灵活的形状，可以使用关键点序列或多边形坐标，模型生成对应的坐标 token 序列。
+
+    - 视觉提示嵌入：一些方法（如 LLaVA-Med）通过训练让模型将文本概念映射到视觉特征空间中的向量，该向量可以用于查询图像中对应区域，但这种主要用于推理而非显式输出坐标。
+
+    这些方法中，直接输出坐标 token 因其端到端和与 LLM 高度集成的特点，已成为当前主流。但难点在于精确坐标的生成容易产生偏差，需要大量定位数据微调，并且坐标可能随图像分辨率变化而需要归一化处理。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YRX9wk77WiOH3KkAnedcnJEanwc
+  block_id: DQEWdumUfo7R7AxyDF2cGVo2n3b
+  page_token: YRX9wk77WiOH3KkAnedcnJEanwc
+  original_title: 如何让 MLLM 在回答时不仅能引用整张图片，还能精确指向图中的某个区域？技术上有哪些实现方式？
+  imported_at: '2026-09-21'

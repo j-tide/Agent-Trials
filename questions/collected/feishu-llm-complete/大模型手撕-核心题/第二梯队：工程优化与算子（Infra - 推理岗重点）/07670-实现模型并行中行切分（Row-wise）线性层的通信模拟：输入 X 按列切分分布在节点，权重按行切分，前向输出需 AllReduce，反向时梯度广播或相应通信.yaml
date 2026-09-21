@@ -1,0 +1,94 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f0d4dd18b6de
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现模型并行中行切分（Row-wise）线性层的通信模拟：输入 X 按列切分分布在节点，权重按行切分，前向输出需 AllReduce，反向时梯度广播或相应通信。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现模型并行中行切分（Row-wise）线性层的通信模拟：输入 X 按列切分分布在节点，权重按行切分，前向输出需 AllReduce，反向时梯度广播或相应通信。
+answer:
+  mode: rubric
+  reference_answer: |-
+    9.1 行切分原理
+
+    [图片内容未导入]
+
+    9.2 前向模拟
+
+    ```python
+    def row_wise_forward(X_parts, W_parts):
+        """
+        X_parts: 各设备上的输入切片列表，每个 [batch, d_in_part]
+        W_parts: 各设备上的权重切片列表，每个 [d_in_part, d_out]
+        返回: Y 完整输出 [batch, d_out]
+        """
+        N = len(W_parts)
+        Y_parts = []
+        for i in range(N):
+            Yi = X_parts[i] @ W_parts[i]   # [batch, d_out]
+            Y_parts.append(Yi)
+        # AllReduce SUM
+        Y = sum(Y_parts)   # 模拟 AllReduce
+        return Y
+    ```
+
+    9.3 反向模拟
+
+    ```python
+    def row_wise_backward(X_parts, W_parts, dY):
+        """
+        dY: 完整输出梯度 [batch, d_out]
+        返回: dX_parts (各设备输入梯度), dW_parts
+        """
+        N = len(W_parts)
+        dX_parts = []
+        dW_parts = []
+        for i in range(N):
+            dW_i = X_parts[i].T @ dY  # [d_in_part, d_out]
+            dX_i = dY @ W_parts[i].T  # [batch, d_in_part]
+            dW_parts.append(dW_i)
+            dX_parts.append(dX_i)
+        # 注意：dY 本身就是完整的，每个设备拿到相同的 dY，所以不需要额外通信。
+        return dX_parts, dW_parts
+    ```
+
+    9.4 通信总结
+
+    - 前向：在各设备上计算局部输出，然后通过 AllReduce（求和）得到完整结果。
+
+    - 反向：上游梯度 dY 已被广播到所有设备（因为前向输出是 AllReduce 得到的，反向时 dY 是完整的，各设备都持有完整 dY），因此各设备独立计算 dX_i 和 dW_i，无需通信。但这要求前向时 AllReduce 后的输出在各个设备上都可用（即 AllReduce 的结果在每个设备上相同），这自然满足。
+
+    行切分的前向 AllReduce 是必需的，反向则没有通信，这是它与列切分的主要区别。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: WOAsdiLkOo1ImexoO5tcyIhmnRb
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 实现模型并行中行切分（Row-wise）线性层的通信模拟：输入 X 按列切分分布在节点，权重按行切分，前向输出需 AllReduce，反向时梯度广播或相应通信。
+  imported_at: '2026-09-21'

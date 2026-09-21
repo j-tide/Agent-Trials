@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f03f6917898f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚙️ 单卡 48GB，能否用 QLoRA 微调 33B 模型？微调时最大序列长度？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "⚙️ 单卡 48GB，能否用 QLoRA 微调 33B 模型？微调时最大序列长度？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 结论：可以，但需要精心配置，最大序列长度可能在 256–512 左右，取决于 rank 和 batch
+    size。\n\n\U0001F9EE 估算过程：\n\n- QLoRA 特点：基础模型权重以 NF4 (4-bit) 存储，冻结；LoRA 适配器权重以
+    BF16 可训练；优化器状态只针对 LoRA 参数，极小。\n\n- 33B 模型：假设模型结构类似 Llama-1-33B：60 层，hidden=6656，头数
+    52，头维度 128，无 GQA 则 KV 头数 52。NF4 权重占 33B × 0.5 字节 ≈ 16.5 GB。加上量化常数等，约 17 GB。\n\n-
+    LoRA 参数：假设应用到所有线性层，rank=16，总参数量约 33B × 0.1% = 33M，BF16 权重 + 梯度 + 优化器状态（如 Adam
+    的动量、方差），每个参数约 2+2+4+4=12 字节，33M × 12 ≈ 0.4 GB。\n\n- KV Cache：微调时 batch size 通常很小（1
+    或 2），且可以开启梯度检查点。假设 batch=1，序列长度 L，KV Cache = 2 × 60 × 52 × 128 × 2 × L = 1,597,440
+    × L 字节 ≈ 1.52 MB/L。若 L=512，则 KV Cache ≈ 778 MB。\n\n- 激活与临时缓冲区：全量微调时激活显存很大，但 QLoRA
+    可以使用梯度检查点并减少不必要的中间存储。一般可通过 --gradient_checkpointing 使激活减小。估计激活峰值在 2–4 GB。\n\n-
+    总显存：权重 17 GB + KV Cache (0.8 GB) + 激活 (3 GB) + LoRA 优化器 (0.4 GB) = 21.2 GB，余量充足，甚至可以支持更长的序列。\n\n-
+    若序列长度 L=1024，KV Cache = 1.56 GB，总占用约 17+1.56+3+0.4=22 GB，仍有余。L=2048 则 KV Cache
+    3.1 GB，总约 23.5 GB，也还行。理论上可到 2048。但实际激活可能更高，且需要留一些余量。通常 QLoRA 微调 33B 在 48GB 卡上可支持到
+    512–1024 序列，通过调整 micro batch 和梯度累积可进一步优化。\n\n\U0001F3AF 因此，单卡 48GB 完全可以 QLoRA
+    微调 33B 模型，且最大序列长度可达 512–1024 token，甚至更高。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CkFiwxOtOi6QRJkPIPKcLENfndb
+  block_id: PLpOdvOv6oiLdXxEf6XcFGVAnQh
+  page_token: CkFiwxOtOi6QRJkPIPKcLENfndb
+  original_title: "⚙️ 单卡 48GB，能否用 QLoRA 微调 33B 模型？微调时最大序列长度？"
+  imported_at: '2026-09-21'

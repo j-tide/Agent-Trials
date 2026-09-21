@@ -1,0 +1,142 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9f95f6d75914
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 'Q16: Agent 的模型服务部署与推理引擎选型（vLLM / TGI / Triton），你会怎么选？'
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: AI 最前线 (Harness|沙箱部署|K8s)篇
+tags: &1
+- AI Agent精选八股文
+- AI 最前线 (Harness|沙箱部署|K8s)篇
+content:
+  prompt: 'Q16: Agent 的模型服务部署与推理引擎选型（vLLM / TGI / Triton），你会怎么选？'
+answer:
+  mode: rubric
+  reference_answer: |-
+    ⭐⭐⭐（原理分析类：推理框架对比、Continuous Batching、PagedAttention、模型量化部署、模型并行）
+
+    1️⃣ Common Answer
+
+    我们会用 vLLM 来部署模型服务，因为它的吞吐量最高。vLLM 支持 PagedAttention 和 Continuous Batching，可以高效处理并发请求。我们也会考虑模型量化，比如用 GPTQ 或 AWQ 来减少显存占用。部署在 Kubernetes 上，用 GPU 节点调度。如果模型太大，可以用 Tensor Parallel 进行模型并行。
+
+    2️⃣ Impressive Answer
+
+    推理引擎选型需要从核心技术、适用场景、性能优化、部署复杂度四个维度对比分析。
+
+    - 三大推理框架对比
+
+    [嵌入表格未展开]
+
+    - 核心优化技术
+
+    - Continuous Batching：动态合并不同请求的 batch，避免 padding 浪费，提升 GPU 利用率
+
+    - PagedAttention：将 KV cache 分页管理，像虚拟内存一样动态分配，避免内存碎片，显存利用率提升 2-4 倍
+
+    - Speculative Decoding：用小模型预测，大模型验证，加速生成 2-3 倍
+
+    - 模型量化
+
+    - GPTQ：4-bit 量化，精度损失小，但推理速度提升有限
+
+    - AWQ：Activation-aware Weight Quantization，4-bit 量化，速度快精度好
+
+    - GGUF：llama.cpp 格式，适合 CPU/边缘部署，精度损失较大
+
+    权衡：生产环境推荐 AWQ 4-bit，精度损失 <1%，显存节省 75%，推理速度提升 2-3 倍。
+
+    - 模型并行
+
+    - Tensor Parallel：模型层内切分，每个 GPU 存一部分权重，适合大模型（70B+）
+
+    - Pipeline Parallel：模型层间切分，不同层在不同 GPU，适合超长序列
+
+    - 选型决策树
+
+    - 纯 LLM 推理，追求吞吐 → vLLM
+
+    - 快速原型开发，HF 生态 → TGI
+
+    - 企业级多模型服务，多模态 → Triton
+
+    - 边缘/低资源部署 → GGUF + llama.cpp
+
+    vLLM K8s Deployment YAML 示例：
+
+    ```text
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: vllm-agent
+    spec:
+      replicas: 3
+      selector:
+        matchLabels:
+          app: vllm-agent
+      template:
+        metadata:
+          labels:
+            app: vllm-agent
+        spec:
+          containers:
+          - name: vllm
+            image: vllm/vllm-openai:latest
+            args:
+            - --model=meta-llama/Llama-2-7b-chat-hf
+            - --quantization=awq
+            - --tensor-parallel-size=1
+            - --max-model-len=4096
+            - --gpu-memory-utilization=0.9
+            resources:
+              limits:
+                nvidia.com/gpu: 1
+                memory: 24Gi
+              requests:
+                nvidia.com/gpu: 1
+                memory: 16Gi
+            ports:
+            - containerPort: 8000
+            readinessProbe:
+              httpGet:
+                path: /health
+                port: 8000
+              initialDelaySeconds: 60
+              periodSeconds: 10
+          nodeSelector:
+            accelerator: nvidia-tesla-a100
+    ```
+
+    我的实践：Agent 服务用 vLLM 部署 Llama-2-7B，AWQ 4-bit 量化，单卡 A100 可支持 200+ 并发，P99 延迟 <500ms。对于多模态 Agent（图像+文本），用 Triton 部署，一个服务同时支持 LLM 和 CLIP 模型。整体架构上，vLLM 处理纯文本推理，Triton 处理多模态任务，通过 API Gateway 统一路由。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M0n4w1EKwiQwxKkHxMvc4LZUn7p
+  block_id: doxcnvSxnI80DQUQOi8hWGpcNdd
+  page_token: M0n4w1EKwiQwxKkHxMvc4LZUn7p
+  original_title: 'Q16: Agent 的模型服务部署与推理引擎选型（vLLM / TGI / Triton），你会怎么选？'
+  imported_at: '2026-09-21'

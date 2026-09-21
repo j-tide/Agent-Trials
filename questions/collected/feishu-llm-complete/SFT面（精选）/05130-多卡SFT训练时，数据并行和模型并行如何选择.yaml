@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-86b11b3a8a56
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多卡SFT训练时，数据并行和模型并行如何选择？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 多卡SFT训练时，数据并行和模型并行如何选择？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在多卡SFT训练中，选择数据并行（DP）还是模型并行（MP，包括张量并行TP、流水线并行PP），取决于模型能否装进单卡显存，以及对训练速度和通信开销的权衡。
+
+    一、能否装入单卡决定基本路线
+
+    - 如果模型可以装入单卡（例如7B模型FP16全量微调需要14GB权重+优化器+激活，约30-60GB，80GB卡足够）：优先选择数据并行。数据并行让每张卡都拥有完整模型，并行处理不同的数据分片，梯度通过All-Reduce同步。扩展性好，通信量相对小，且不需要对模型进行切分。结合梯度累积，可以灵活调整全局batch size。
+
+    - 如果模型无法装入单卡（例如13B全量微调需40-70GB，可能超出80GB；或70B模型）：必须使用模型并行或其变体（如ZeRO-3、TP、PP）。模型并行将模型参数、优化器状态等切分到多卡，降低单卡显存。
+
+    二、数据并行（含ZeRO）的适用边界
+
+    - 标准DP要求每卡显存放得下完整模型（权重+梯度+优化器）。若放不下，ZeRO-1/2可以通过分片优化器和梯度使模型装入，通常能支撑13B全量微调在80GB卡上。ZeRO-3进一步分片参数，能支撑70B模型，但通信开销增大。
+
+    - 因此，对于7B-13B模型，ZeRO-2或ZeRO-3通常是合适的选择，其实质是数据并行+状态分片，通信开销可接受。对于70B，ZeRO-3成为必备。
+
+    三、模型并行（TP/PP）的选择
+
+    - 张量并行（TP）：将层内权重矩阵切分到多卡，每卡计算部分结果，通过All-Reduce通信。通信量极大，要求卡间超高带宽（如NVLink），通常只用在单机多卡内。如果单卡装不下，且希望限制通信，可以用TP，但扩展性有限。
+
+    - 流水线并行（PP）：将模型层按深度切分，每卡持有部分层。通信量小（只传输中间激活），适合跨机扩展。但存在流水线气泡，需要微批次调度。适合超大模型。
+
+    - 在SFT场景下，如果模型大到连ZeRO-3都无法装入单卡（极少见），则需要TP+PP混合。但对于绝大多数开源模型的SFT，ZeRO-3已经足够。
+
+    四、SFT的典型选择
+
+    - 单卡全量/QLoRA：直接单卡训练。
+
+    - 多卡全量微调7B-13B：优先使用ZeRO-2（显存够）或ZeRO-3（显存紧张时）。通信开销可接受，且保持了数据并行的灵活性。
+
+    - 多卡全量微调70B：必须使用ZeRO-3，并结合混合精度、梯度检查点等。通常需要8卡A100 80GB。
+
+    - 如果使用LoRA：无论模型多大，可训练参数极少，每卡显存占用主要是冻结的基座权重+激活。此时可使用标准DP，因为每卡仍需加载完整基座权重（若量化为4bit可以放下）。如果权重也放不下，则需要将基座权重也分片，即使用ZeRO-3（即使在LoRA下）来分片冻结参数，但这增加了通信。通常对于70B+LoRA，单卡80GB无法装入全量权重（需要约35-70GB），仍需多卡分片权重，常用ZeRO-3。
+
+    ✅ 总结：选择策略是“能DP就DP（含ZeRO-2），不能就ZeRO-3，再大就混合并行”。对于SFT，多数情况ZeRO-2/3已满足需求，LoRA则极大降低了并行门槛。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZYXSwaWATimyqQkmZm5cAPJHnoc
+  block_id: Gznrd0XE1oSmlPx9dexcyGmrnPc
+  page_token: ZYXSwaWATimyqQkmZm5cAPJHnoc
+  original_title: 多卡SFT训练时，数据并行和模型并行如何选择？
+  imported_at: '2026-09-21'

@@ -1,0 +1,98 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d96825f14e90
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50D 3. MongoDB 的索引类型有哪些？如何设计高效索引？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F50D 3. MongoDB 的索引类型有哪些？如何设计高效索引？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    索引是任何数据库性能的核心。MongoDB 的索引体系非常丰富，远超关系型数据库的 B-Tree 单一模式。
+
+    常见索引类型：
+
+    设计高效索引的 ESR 法则：
+
+    ESR 是 MongoDB 索引设计的黄金法则：Equality（等值查询） → Sort（排序） → Range（范围查询）。索引字段应按这个顺序排列。
+
+    ```javascript
+    // 查询：找出 userId=123 且 date 在最近 7 天的订单，按 date 降序
+    // ❌ 差索引：范围查询在排序前
+    db.orders.createIndex({ date: -1, userId: 1 });
+
+    // ✅ 好索引：等值优先，排序其次，范围最后
+    db.orders.createIndex({ userId: 1, date: -1 });
+    ```
+
+    索引设计步骤：
+
+    - 分析查询模式：找出最频繁、最慢的查询。
+
+    - 使用 explain() 检查索引使用情况：
+
+    ```javascript
+    db.orders.find({ userId: 123, date: { $gte: startDate } })
+            .sort({ date: -1 })
+            .explain("executionStats");
+    // 查看 winningPlan 中的 stage：
+    //   IXSCAN 表示使用了索引扫描
+    //   COLLSCAN 表示全表扫描，需要加索引
+    // 查看 totalDocsExamined vs nReturned，比值越大索引效果越差
+    ```
+
+    - 优先创建覆盖索引：如果查询需要的所有字段都在索引中，MongoDB 可以直接从索引返回结果，无需访问实际文档，称为“覆盖查询”。
+
+    ```javascript
+    // 查询只返回 userId, date, amount
+    db.orders.createIndex({ userId: 1, date: -1, amount: 1 });
+    db.orders.find(
+        { userId: 123 },
+        { _id: 0, userId: 1, date: 1, amount: 1 }
+    ).explain("executionStats");
+    // 如果 winningPlan.stage === "PROJECTION_COVERED"，则是覆盖查询
+    ```
+
+    - 监控索引大小和性能：定期用 db.collection.stats() 查看索引大小，用 db.collection.aggregate([{$indexStats:{}}]) 查看哪些索引实际被使用。
+
+    在 Agent 场景中的索引实践：
+
+    - 对话历史查询：{ session_id: 1, created_at: -1 } 支持快速拉取某个会话的最近消息。
+
+    - 任务队列消费：{ status: 1, priority: -1, created_at: 1 } 让 Worker 能高效取到待处理任务。
+
+    - 知识库检索元数据过滤：{ tenant_id: 1, doc_type: 1, embedding_score: -1 } 配合向量搜索的结果进行权限过滤和排序。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BXVdwSFoCiy4apkiMglchiTGnmh
+  block_id: doxcnGefC99vWmw3zLjaaBeNTwb
+  page_token: BXVdwSFoCiy4apkiMglchiTGnmh
+  original_title: "\U0001F50D 3. MongoDB 的索引类型有哪些？如何设计高效索引？"
+  imported_at: '2026-09-21'

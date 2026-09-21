@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-15958ab4695e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9CA LoRA 训练时，原始权重 W0 被冻结，那么 LayerNorm 或 RMSNorm 中的参数呢？它们应该被冻结还是训练？为什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LoRA 高频面试题
+derived_topic: 
+tags: &1
+- LoRA 高频面试题
+content:
+  prompt: "\U0001F9CA LoRA 训练时，原始权重 W0 被冻结，那么 LayerNorm 或 RMSNorm 中的参数呢？它们应该被冻结还是训练？为什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 LoRA 的标准实践中，LayerNorm / RMSNorm 的参数默认是可训练的，而非随原始权重一起冻结。这主要基于三个层面的考量：
+
+    ① 参数规模极小，冻结没有显存或速度优势
+    以 LLaMA‑7B 为例，所有归一化层的参数（每个 Transformer 层通常有两个 LayerNorm，每个层归一化仅包含一个缩放向量 γ 和一个偏置向量 β，维度为隐藏层大小 4096）总数约为 32×2×4096×2≈0.5M，仅占模型总参数量（7B）的 0.007%。训练这些参数所需的梯度内存和优化器状态几乎可以忽略不计，因此没有为了省显存而冻结它们的必要。
+
+    ② 任务分布偏移需要归一化层自适应调整
+
+    预训练数据的分布（如书籍、网页）与下游微调数据（如医疗文献、法律合同）的统计特性可能存在显著差异。LayerNorm 的作用是稳定每一层的输入分布，当输入数据的分布发生系统性变化时，固定的归一化参数无法正确地进行标准化，会导致训练初期损失剧烈震荡，甚至难以收敛。允许 LayerNorm 参数随着新任务进行微调，可以帮助模型快速适应新的数据分布，显著提升收敛速度和最终性能。
+
+    ③ Hugging Face PEFT 库的默认行为及其合理性
+    在 Hugging Face 的 peft 库中，当你使用 LoraConfig 包装模型时，默认会将所有 nn.Linear 层（即权重矩阵）替换为 LoRA 层并冻结原始权重，而 LayerNorm、Embedding 和偏置项则保持可训练状态。这一设计并非偶然——实践证明，保持归一化层的可训练性能够在不增加显存负担的前提下，为模型提供足够的“分布适配自由度”，使得 LoRA 的低秩残差可以专注于学习任务特定的高秩模式，而将底层分布的调整交给廉价的归一化层参数。
+
+    实际经验：我曾尝试过将 LayerNorm 也冻结，结果模型收敛速度明显变慢，在同样的训练步数下，验证集上的困惑度比可训练 LayerNorm 的设置高出约 1.5 个点。因此，除非你处于极度受限的显存环境（例如在 8GB 显卡上勉强跑 7B 模型），否则完全没有必要冻结归一化层。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MUH8wwD1nigAKikWjdJc1MHjn8f
+  block_id: P2lIda7J1ojAvAxzPDmczuG4n5e
+  page_token: MUH8wwD1nigAKikWjdJc1MHjn8f
+  original_title: "\U0001F9CA LoRA 训练时，原始权重 W0 被冻结，那么 LayerNorm 或 RMSNorm 中的参数呢？它们应该被冻结还是训练？为什么？"
+  imported_at: '2026-09-21'

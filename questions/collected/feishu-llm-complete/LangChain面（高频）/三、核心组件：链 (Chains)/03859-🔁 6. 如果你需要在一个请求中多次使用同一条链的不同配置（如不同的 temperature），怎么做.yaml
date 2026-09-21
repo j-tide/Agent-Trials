@@ -1,0 +1,97 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1c9939b4154b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F501 6. 如果你需要在一个请求中多次使用同一条链的不同配置（如不同的 temperature），怎么做？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "\U0001F501 6. 如果你需要在一个请求中多次使用同一条链的不同配置（如不同的 temperature），怎么做？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    同一个链实例但不同运行时参数，这个问题用 configurable 字段优雅解决，或者用 .bind() 创建变体。
+
+    方案一：利用 configurable 字段（推荐）
+    LangChain 的很多组件（如 ChatOpenAI）和自定义 Runnable 可以声明 configurable_fields，或者你可以在 prompt 模板里使用 RunnableConfig 来动态读取值。一个常见的需求是：同一段对话中，先用高 temperature 生成创意点子，再用低 temperature 生成严谨总结。
+
+    你可以这样实现：
+
+    ```python
+    from langchain_core.runnables import RunnableLambda, RunnableParallel
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_openai import ChatOpenAI
+
+    # 基础模型
+    model = ChatOpenAI(model="gpt-4o", temperature=0.7)  # 默认温度
+
+    # 包装一个可以动态改 temperature 的 runnable
+    def dynamic_temp_chain(input: dict, config):
+        # 从 configurable 中拿 temperature，没有就用默认
+        temp = config.get("configurable", {}).get("temperature", 0.7)
+        # 这里需要创建新的模型实例，或者用 .bind() 覆盖参数
+        # 注意：频繁创建实例可能影响性能，对于轻量请求没问题
+        model_with_temp = ChatOpenAI(model="gpt-4o", temperature=temp)
+        prompt = ChatPromptTemplate.from_template("...")
+        chain = prompt | model_with_temp
+        return chain.invoke(input, config)
+
+    flex_chain = RunnableLambda(dynamic_temp_chain)
+
+    # 调用时传入不同的 temperature
+    result_creative = flex_chain.invoke(
+        {"topic": "AI future"},
+        config={"configurable": {"temperature": 1.0}}
+    )
+    result_precise = flex_chain.invoke(
+        {"topic": "AI future"},
+        config={"configurable": {"temperature": 0.1}}
+    )
+    ```
+
+    方案二：使用 .bind() 预先创建多个变体
+    如果你只是少量几种固定配置，直接预先 bind 更简洁：
+
+    ```python
+    base_prompt = ChatPromptTemplate.from_template("...")
+    base_model = ChatOpenAI(model="gpt-4o")
+
+    creative_chain = base_prompt | base_model.bind(temperature=1.0)
+    precise_chain  = base_prompt | base_model.bind(temperature=0.1)
+    ```
+
+    然后用哪个就调哪个。这种方式的好处是不在运行时动态改变对象，更符合函数式哲学，也方便测试。
+
+    实际生产中的坑：如果你在配置中动态改变 temperature，要确保这个变化能传播到所有子调用。如果你的链由多个模型组成，而你只想改其中一个，可以在那个模型上使用 .with_config(configurable=...) 或在 prompt 中接受 temperature 作为变量，但后者会让 prompt 变复杂。我更倾向于将“可变部分”封装成一个可配置的组件，通过 configurable 显式暴露，比如定义一个 model_factory 的 callable，根据 config 选择模型参数。这样既保留了灵活性，又不会让外部察觉内部的复杂度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GVyNwmUlOitEZBkWqxUchfRtnfh
+  block_id: V738dxb2Aoz8lLxoRdocADfln9f
+  page_token: GVyNwmUlOitEZBkWqxUchfRtnfh
+  original_title: "\U0001F501 6. 如果你需要在一个请求中多次使用同一条链的不同配置（如不同的 temperature），怎么做？"
+  imported_at: '2026-09-21'

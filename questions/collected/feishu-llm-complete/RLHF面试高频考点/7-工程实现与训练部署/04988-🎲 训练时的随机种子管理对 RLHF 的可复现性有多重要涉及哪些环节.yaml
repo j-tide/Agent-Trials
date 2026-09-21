@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-721edecc5b32
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3B2 训练时的随机种子管理对 RLHF 的可复现性有多重要？涉及哪些环节？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "\U0001F3B2 训练时的随机种子管理对 RLHF 的可复现性有多重要？涉及哪些环节？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    RLHF 涉及大量随机性，种子管理是其可复现性的基石。缺少严格的种子控制，任何实验结论都不可靠。
+
+    涉及环节及控制方法：
+
+    - Python / NumPy / PyTorch 种子：
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    - 数据加载与采样：DataLoader 的 worker 种子必须基于主种子和 worker ID 派生，确保多进程数据读取顺序可复现。
+
+    - 模型初始化：不同层的权重初始化需在固定种子后进行。
+
+    - Dropout 与随机深度：训练时必须使用相同的种子控制其掩码。推理时（如生成回答）通常需关闭 Dropout。
+
+    - 在线采样：Actor 生成回答时的采样温度虽然引入了随机性，但若想复现，需要为每个 prompt 指定固定的随机种子（或基于 prompt 哈希），使生成结果可被完全复现。
+
+    - 奖励计算与 Critic 初始化：这些环节的随机性虽小，但累积起来也会影响最终结果。
+
+    - 分布式训练：每个 rank 的种子应在基础种子上加上 rank ID，确保各 rank 行为可预测但不完全相同。
+
+    实践：
+
+    - 将全局种子记录在实验配置中，并附在模型检查点内。
+
+    - 在调试时，可关闭所有随机性（如 dropout=0，采样温度设为 0），先在确定性环境中验证 pipeline 正确性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SrIPwt6g4iOx8zkf5StcnDK8nCc
+  block_id: U2YVdb77XoWq8ix01t7cG0A4nJf
+  page_token: SrIPwt6g4iOx8zkf5StcnDK8nCc
+  original_title: "\U0001F3B2 训练时的随机种子管理对 RLHF 的可复现性有多重要？涉及哪些环节？"
+  imported_at: '2026-09-21'

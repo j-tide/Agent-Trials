@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ecd7cd3ba2ef
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个简单的“拒绝采样”数据筛选逻辑。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 实现一个简单的“拒绝采样”数据筛选逻辑。
+answer:
+  mode: rubric
+  reference_answer: |-
+    从生成的大量候选中，通过评判模型（或规则）选择最佳回答作为训练数据。
+
+    ```python
+    def rejection_sampling(
+        prompt: str,
+        candidates: List[str],
+        judge_model,  # 一个能打分的模型或函数
+        score_threshold: float = 0.8
+    ) -> str:
+        """
+        对多个候选回答打分，返回得分最高且超过阈值的回答。若没有，返回空字符串或进行重试。
+        """
+        best_score = -1.0
+        best_response = ""
+        for resp in candidates:
+            score = judge_model.evaluate(prompt, resp)  # 假设返回0-1之间的分数
+            if score > best_score:
+                best_score = score
+                best_response = resp
+        if best_score >= score_threshold:
+            return best_response
+        else:
+            return ""  # 所有候选均不合格，可触发重新生成
+    ```
+
+    具体应用时，judge_model 可以是GPT-4、一个专门的打分模型，甚至基于规则（如包含关键词等）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: KdW5dIGJsoYaPMxMi3IcSmhEnJg
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: 实现一个简单的“拒绝采样”数据筛选逻辑。
+  imported_at: '2026-09-21'

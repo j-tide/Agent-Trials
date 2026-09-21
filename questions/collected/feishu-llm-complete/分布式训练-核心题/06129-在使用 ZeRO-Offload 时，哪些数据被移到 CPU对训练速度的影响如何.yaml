@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5d64f313449f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在使用 ZeRO-Offload 时，哪些数据被移到 CPU？对训练速度的影响如何？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 在使用 ZeRO-Offload 时，哪些数据被移到 CPU？对训练速度的影响如何？
+answer:
+  mode: rubric
+  reference_answer: |-
+    被卸载到CPU的数据：
+
+    - 优化器状态 (Optimizer States)：Adam的动量（m）和方差（v），以FP32格式存储。这是显存占比最大的部分（2倍参数量）。
+
+    - FP32 主权重 (Master Weights)：用于参数更新的全精度权重副本，通常也移到CPU。
+
+    - 梯度 (Gradients)：可选，也可将梯度暂时保留在GPU，待需要更新时再传到CPU；或者直接将FP16梯度传至CPU，在CPU上累积为FP32并更新。
+
+    留在GPU上的数据：
+
+    - FP16 模型参数：用于前向和反向计算，始终驻留GPU。
+
+    - 激活值 (Activations)：前向传播产生的中间张量，仍占用GPU显存。
+
+    - 临时缓冲区。
+
+    训练流程：
+
+    - 前向和反向传播在GPU上完成，得到FP16梯度。
+
+    - 梯度被拷贝到CPU内存。
+
+    - CPU使用FP32主权重和优化器状态，执行Adam更新步骤，产生更新后的FP32权重。
+
+    - 更新后的权重从FP32转为FP16，再拷贝回GPU，更新模型参数。
+
+    - 此过程每个训练步重复。
+
+    对训练速度的影响：
+
+    - PCIe带宽瓶颈：GPU与CPU之间的数据传输受限于PCIe带宽（如PCIe Gen4 x16单向约32 GB/s）。30B模型FP16梯度约60GB，即使仅传输梯度和更新后的权重，每步传输量也达上百GB，导致通信时间显著增加。
+
+    - 速度下降幅度：通常ZeRO-Offload会使单步训练时间增加30%~70%，具体取决于模型大小、PCIe带宽和计算/通信重叠程度。为了隐藏延迟，可采用双缓冲、异步拷贝和计算流重叠等技术。
+
+    - 适用场景：当GPU显存严重不足且无法增加GPU数量时，ZeRO-Offload是一种“用速度换规模”的策略，使得在有限的GPU上训练原本无法容纳的大模型成为可能。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: H7RXdEII2orcbIxJPpbcDnt8n8c
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 在使用 ZeRO-Offload 时，哪些数据被移到 CPU？对训练速度的影响如何？
+  imported_at: '2026-09-21'

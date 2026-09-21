@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-298fdd076674
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F30A TGI (Text Generation Inference) 的“水印”机制是什么？如何做到公平调度？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: "\U0001F30A TGI (Text Generation Inference) 的“水印”机制是什么？如何做到公平调度？"
+answer:
+  mode: rubric
+  reference_answer: "TGI（Hugging Face 的推理框架）的“水印”机制是其调度系统中实现公平性与显存安全的核心设计。它主要用于在 Continuous
+    Batching 中，防止某些“贪婪”的请求（如超长序列）耗尽所有显存，导致其他请求无法被服务。\n\n\U0001F4CA “水印”机制原理\n\nTGI
+    在显存中设置了一个水位线（Watermark），具体是两个阈值：\n\n- 高水位线（High Watermark）：总显存占用的某个比例（如 90%）。当显存使用超过这个线时，调度器会进入“保守模式”，停止接收新的请求（拒绝或排队），只处理当前已在批次中的请求。这防止了
+    OOM 崩溃。\n\n- 低水位线（Low Watermark）：显存占用降到此线以下时，调度器恢复接收新请求。\n\n核心思想类似电阻的“滞回特性”，避免在临界状态下频繁抖动的进出新请求。\n\n⚖️
+    公平调度的实现\n\nTGI 结合了水印机制和一些调度策略来实现公平：\n\n- 基于请求长度的阻塞控制：当一个请求的 expected 最大序列长度（prompt
+    + max_new_tokens）可能导致显存超过高水位线时，调度器会暂时阻塞该请求，让它排队等待，直到有足够的显存空间（例如批次中其他短请求结束释放空间）。这防止了长请求“挤占”所有资源。\n\n-
+    批次内长度平衡：TGI 倾向于将长度相近的请求放入同一批次，减少因序列长度差异导致的显存浪费和计算气泡。\n\n- 抢占与轮转：如果一个请求已经生成了很多
+    token（导致其 KV Cache 很大），但显存紧张，调度器可能会临时将它换出（offload 到 CPU 或磁盘），或者暂停它，先服务其他等待时间较长的请求。这类似于操作系统的进程调度。\n\n\U0001F3AF
+    如何做到公平？\n\n- 防止饿死：即使长请求因为水印限制被暂时阻塞，TGI 也会记录其等待时间。当显存充足时，等待时间长的请求会被优先调度。\n\n- 加权公平队列：可以配置不同租户的权重，让高优先级租户的请求在显存紧张时更容易被接纳。\n\n-
+    资源预留：为每个请求预留一定比例的显存，防止单个请求的 KV Cache 膨胀不受控制。\n\n\U0001F4A1 简单概括：水印机制像是一个水位报警器，当水库（显存）快满了就关闭进水阀，等水位降下去再打开，保证了大坝（系统）不会崩溃，同时通过排队和轮转让每个请求都有机会被处理。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTNrwT2t1iCzbMkI7FZc3sj5nBb
+  block_id: FFq8dLTfCovUbRxMJERcbbxHnIe
+  page_token: QTNrwT2t1iCzbMkI7FZc3sj5nBb
+  original_title: "\U0001F30A TGI (Text Generation Inference) 的“水印”机制是什么？如何做到公平调度？"
+  imported_at: '2026-09-21'

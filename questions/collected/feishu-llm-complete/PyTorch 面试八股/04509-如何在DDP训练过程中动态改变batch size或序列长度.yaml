@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-df6a5aa2fc6e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在DDP训练过程中动态改变batch size或序列长度？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何在DDP训练过程中动态改变batch size或序列长度？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在DDP训练过程中动态改变batch size或序列长度通常是出于显存优化或课程学习的目的，但需要谨慎处理，因为所有进程的数据采样必须保持同步。
+
+    方法一：梯度累积（等效动态batch size）
+
+    最安全且常用的方式。保持每个GPU上的micro-batch size固定，通过动态调整梯度累积步数来改变等效全局batch size。梯度累积在每步反向之间不进行All-Reduce，只在累积步数达到设定值时才同步梯度并更新参数。累积步数可以在训练过程中根据条件（如loss变化、epoch）动态改变。这种方式完全不需要修改数据加载器或分布式采样器，所有进程依然保持同步。
+
+    方法二：动态调整DataLoader的batch_size
+    如果直接修改DataLoader的batch_size，需要重新创建DataLoader。在DDP中，由于DistributedSampler已经将数据划分给各进程，新创建的DataLoader必须保证各进程划分的一致性。通常的做法是：
+
+    - 在每个epoch开始前，根据策略决定新的batch_size。
+
+    - 重新创建DistributedSampler（设置相同的epoch和seed）和DataLoader。由于种子一致，各进程仍然会获得不重叠的数据子集。
+
+    - 此方法较繁琐，且会导致每个epoch的数据加载逻辑重置。
+
+    方法三：动态改变序列长度
+    序列长度可以在数据预处理阶段通过截断（truncation）或padding来控制。在训练过程中动态改变最大序列长度，需要在DataLoader的collate_fn中实现动态截断逻辑。同样，由于每个batch的长度会变化，梯度累积步数和显存占用也会波动。一般不推荐在DDP中单独改变某个进程的序列长度策略，因为可能导致进程间负载严重不均。应采用全局统一的长度调整策略（如基于当前epoch逐渐增大长度）。
+
+    注意事项：
+
+    - 任何改变都必须在所有进程上同步执行，避免进程间逻辑不一致。
+
+    - 如果在训练过程中调整学习率调度器或其他超参，也应确保这些操作在所有进程上同时发生（通常只在rank 0上执行，然后broadcast或通过文件同步）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KwdbwAt6ziL8zKkU7VMcVNEin8d
+  block_id: WrGQdm0qYo2f1GxU4nGcaRF4nFf
+  page_token: KwdbwAt6ziL8zKkU7VMcVNEin8d
+  original_title: 如何在DDP训练过程中动态改变batch size或序列长度？
+  imported_at: '2026-09-21'

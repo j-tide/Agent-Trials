@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-25fed290ea85
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现从 HuggingFace 格式的 tokenizer.json 或 vocab.json 中加载 BPE 模型，并完成 encode/decode
+  的基本功能（主要解析合并规则）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 实现从 HuggingFace 格式的 tokenizer.json 或 vocab.json 中加载 BPE 模型，并完成 encode/decode
+    的基本功能（主要解析合并规则）
+answer:
+  mode: rubric
+  reference_answer: "HuggingFace 的 tokenizers 库中，BPE 分词器的模型文件通常包含 vocab.json 和 merges.txt（或一并打包在
+    tokenizer.json 中）。vocab.json 记录了 token 到 ID 的映射，merges.txt 记录了合并规则，每行是一对 token（用空格分隔），按顺序排列（最早合并的在第一行）。我们需要解析这些文件并构建编码/解码逻辑。\n\n解析步骤：\n\n-
+    读取 merges.txt：文件头可能包含版本注释，真正的合并规则从某一行开始。标准格式是 #version: 0.2 然后换行之后每行 token_a token_b。我们将这些行解析为合并列表，每项为
+    (token_a, token_b)。合并顺序即为文件中的出现顺序。\n\n- 读取 vocab.json：得到 {token: id} 字典。同时，它也包含了所有基础字符和合并产生的子词。注意这个
+    vocab 的 ID 可能不连续或有特殊 token。我们需要反向映射 id_to_token 用于解码。\n\n- 构建 token 到 ID 映射：直接用
+    vocab.json 的字典。\n\n- 编码：与之前类似，输入单词，拆分为字符序列，加上 </w> 表示结束（HuggingFace 使用 </w> 作为词尾，也有用
+    Ġ 表示空格的变体，需根据实际情况调整）。然后按照 merges 顺序逐条合并。注意 HuggingFace 的 BPE 可能在字符前会有一个特殊空格字符，例如
+    \"hello\" 可能被表示为 \"h\" \"e\" \"l\" \"l\" \"o\"，而词首的空格用 Ġ (GPT-2) 表示。但 BPE 基础模型通常使用
+    </w> 作为词尾，并在文本开头不加空格。我们需要明确是哪一种实现。常见的是 RoBERTa / GPT-2 使用的 byte-level BPE 与原始
+    BPE 稍有不同，但 merges.txt 的解析逻辑相同。此处以标准原始 BPE（带 </w>）为例。\n\n实现代码：\n\n```python\nimport
+    json\n\ndef load_hf_bpe(vocab_path, merges_path):\n    # 加载词汇表\n    with open(vocab_path,
+    'r', encoding='utf-8') as f:\n        vocab = json.load(f)   # token -> id\n    id_to_token
+    = {v: k for k, v in vocab.items()}\n    \n    # 加载合并规则\n    merges = []\n    with
+    open(merges_path, 'r', encoding='utf-8') as f:\n        for line in f:\n            line
+    = line.strip()\n            if not line or line.startswith('#'):\n                continue\n
+    \           parts = line.split()\n            if len(parts) == 2:\n                merges.append(tuple(parts))\n
+    \   return vocab, id_to_token, merges\n\ndef encode_with_merges(word, merges,
+    end_suffix='</w>'):\n    symbols = list(word) + [end_suffix]\n    for a, b in
+    merges:\n        new_symbols = []\n        i = 0\n        while i < len(symbols):\n
+    \           if i < len(symbols)-1 and symbols[i] == a and symbols[i+1] == b:\n
+    \               new_symbols.append(a+b)\n                i += 2\n            else:\n
+    \               new_symbols.append(symbols[i])\n                i += 1\n        symbols
+    = new_symbols\n    return symbols\n\ndef encode_text(text, merges, vocab, end_suffix='</w>'):\n
+    \   # 分词，这里简单按空格分，实际需预处理与训练时一致\n    words = text.split()\n    token_ids = []\n
+    \   for word in words:\n        tokens = encode_with_merges(word, merges, end_suffix)\n
+    \       for tok in tokens:\n            token_ids.append(vocab[tok])\n    return
+    token_ids\n\ndef decode_ids(ids, id_to_token, end_suffix='</w>'):\n    tokens
+    = [id_to_token[i] for i in ids]\n    text = ''.join(tokens).replace(end_suffix,
+    ' ').strip()\n    return text\n```\n\n如果是对 tokenizer.json，该 JSON 文件结构较复杂，包含 model
+    字段里的 vocab 和 merges（可能是数组）。可以类似解析：\n\n```python\ndef load_from_tokenizer_json(path):\n
+    \   with open(path, 'r') as f:\n        data = json.load(f)\n    model = data['model']\n
+    \   vocab = model['vocab']  # token -> id\n    merges = model['merges']  # 列表，元素如
+    \"a b\"\n    # 处理 merges 字符串\n    merges_list = []\n    for m in merges:\n        parts
+    = m.split()\n        if len(parts) == 2:\n            merges_list.append(tuple(parts))\n
+    \   id_to_token = {v: k for k, v in vocab.items()}\n    return vocab, id_to_token,
+    merges_list\n```\n\n其余编码解码逻辑相同。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XDqKw0GPGi6JvkkfpwUcqpdAndd
+  block_id: TIotdwX01o4sHSxbVc9cuJZdnzf
+  page_token: XDqKw0GPGi6JvkkfpwUcqpdAndd
+  original_title: 实现从 HuggingFace 格式的 tokenizer.json 或 vocab.json 中加载 BPE 模型，并完成 encode/decode
+    的基本功能（主要解析合并规则）
+  imported_at: '2026-09-21'

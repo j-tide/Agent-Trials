@@ -1,0 +1,93 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fb781d904edb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 问题 24：消息队列的多租户隔离与流量治理怎么做？Topic 命名规范、限流、权限控制？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 问题 24：消息队列的多租户隔离与流量治理怎么做？Topic 命名规范、限流、权限控制？
+answer:
+  mode: rubric
+  reference_answer: "难度：⭐⭐⭐（命名空间隔离、ACL 权限控制、生产/消费限流、配额管理）\n\n1️⃣ Common Answer\n\n嗯...多租户隔离的话，主要就是靠命名空间和
+    Topic 命名规范来区分不同团队。权限控制的话，Kafka 有 ACL，RocketMQ 也有权限机制。限流的话，生产端可以控制发送速率，消费端可以控制拉取频率。还有就是配额管理，不能让某个团队占用太多资源。其实核心就是规范好命名，配好权限，再加点限流措施就行了。\n\n2️⃣
+    Impressive Answer\n\n我会从这几个角度思考：\n\n- Topic 命名规范\n\n```text\n格式：{环境}-{业务线}-{功能}-{版本}\n示例：\n-
+    prod-order-create-v1\n- prod-payment-callback-v2\n- test-user-login-v1\n- pre-inventory-sync-v1\n```\n\n规范要点：\n\n-
+    环境隔离：prod/test/pre/dev 明确区分\n\n- 业务线归属：order/payment/user/inventory 等\n\n- 功能语义：create/callback/login/sync
+    等\n\n- 版本管理：v1/v2 支持灰度升级\n\n- 命名空间隔离\n\nRocketMQ Namespace 方案：\n\n```text\n<!--
+    RocketMQ 5.x 支持 Namespace -->\n<property name=\"namespace\">team-order</property>\n<property
+    name=\"namesrvAddr\">127.0.0.1:9876</property>\n\n<!-- 不同团队使用不同 Namespace -->\nteam-order:
+    prod-order-create-v1\nteam-payment: prod-payment-callback-v1\n```\n\nKafka 多集群方案：\n\n```text\n#
+    不同业务线使用独立集群\nkafka-cluster-order: broker1:9092,broker2:9092\nkafka-cluster-payment:
+    broker3:9092,broker4:9092\n```\n\n- ACL 权限控制\n\nKafka SASL + ACL 配置：\n\n```text\n#
+    开启 SASL 认证\nauthorizer.class.name=kafka.security.authorizer.AclAuthorizer\nallow.everyone.if.no.acl.found=false\nsuper.users=User:admin\n\n#
+    创建用户\nkafka-configs.sh --zookeeper localhost:2181 --alter --add-config 'SCRAM-SHA-256=[password=secret123]'
+    --entity-type users --entity-name team-order\n\n# 配置 ACL（只允许写特定 Topic）\nkafka-acls.sh
+    --authorizer-properties zookeeper.connect=localhost:2181 \\\n  --add --allow-principal
+    User:team-order \\\n  --operation Write --topic prod-order-*\n\n# 配置 ACL（只允许读特定
+    Topic）\nkafka-acls.sh --authorizer-properties zookeeper.connect=localhost:2181
+    \\\n  --add --allow-principal User:team-order-consumer \\\n  --operation Read
+    --group team-order-group --topic prod-order-*\n```\n\nRocketMQ ACL 配置：\n\n```text\n#
+    broker.conf\naclEnable=true\n\n# plain_acl.yml\naccounts:\n  - accessKey: team-order\n
+    \   secretKey: secret123\n    whiteRemoteAddress: 192.168.1.*\n    admin: false\n
+    \   defaultTopicPerm: DENY\n    defaultGroupPerm: SUB\n    topicPerms:\n      -
+    topic=prod-order-*;perm=PUB|SUB\n  - accessKey: team-payment\n    secretKey: secret456\n
+    \   admin: false\n    topicPerms:\n      - topic=prod-payment-*;perm=PUB|SUB\n```\n\n-
+    生产/消费限流\n\nKafka Quota 配置：\n\n```text\n# 生产端配额（每秒 10MB）\nkafka-configs.sh --alter
+    --add-config 'producer_byte_rate=10485760' \\\n  --entity-type users --entity-name
+    team-order \\\n  --bootstrap-server broker1:9092\n\n# 消费端配额（每秒 20MB）\nkafka-configs.sh
+    --alter --add-config 'consumer_byte_rate=20971520' \\\n  --entity-type users --entity-name
+    team-order-consumer \\\n  --bootstrap-server broker1:9092\n\n# 客户端级别配额\nkafka-configs.sh
+    --alter --add-config 'request_percentage=25' \\\n  --entity-type clients --entity-name
+    client-1 \\\n  --bootstrap-server broker1:9092\n```\n\nRocketMQ 流控机制：\n\n```text\n//
+    生产端流控\nDefaultMQProducer producer = new DefaultMQProducer(\"producer_group\");\nproducer.setRetryTimesWhenSendFailed(3);\nproducer.setSendMsgTimeout(3000);\n//
+    通过 maxMessageSize 控制单条消息大小\nproducer.setMaxMessageSize(4 * 1024 * 1024);\n\n//
+    消费端流控\nDefaultMQPushConsumer consumer = new DefaultMQPushConsumer(\"consumer_group\");\nconsumer.setPullBatchSize(32);
+    // 每次拉取 32 条\nconsumer.setConsumeMessageBatchMaxSize(10); // 每次消费 10 条\nconsumer.setConsumeThreadMin(5);\nconsumer.setConsumeThreadMax(10);\n```\n\n-
+    灰度发布场景\n\n消息路由 + 消费者分组：\n\n```text\n// 生产端：根据版本路由\npublic class VersionPartitioner
+    implements Partitioner {\n    @Override\n    public int partition(String topic,
+    Object key, byte[] keyBytes, \n                        Object value, byte[] valueBytes,
+    Cluster cluster) {\n        String version = ((Message) value).getVersion();\n
+    \       // v1 发往分区 0-2，v2 发往分区 3-5\n        return version.equals(\"v2\") ? \n
+    \              (int)(Math.random() * 3) + 3 : \n               (int)(Math.random()
+    * 3);\n    }\n}\n\n// 消费端：指定消费分区\nconsumer.assign(Arrays.asList(\n    new TopicPartition(\"prod-order-create\",
+    3),\n    new TopicPartition(\"prod-order-create\", 4),\n    new TopicPartition(\"prod-order-create\",
+    5)\n));\n```\n\n- 实战：多团队共用集群的治理方案\n\n治理架构：\n\n```text\n┌─────────────────────────────────────────────┐\n│
+    \        共享 MQ 集群                        │\n├─────────────────────────────────────────────┤\n│
+    \ Team Order  │  Team Payment  │  Team User  │\n│  Namespace   │  Namespace     │
+    \ Namespace  │\n│  ┌─────────┐ │  ┌──────────┐  │  ┌────────┐ │\n│  │ ACL     │
+    │  │ ACL      │  │  │ ACL    │ │\n│  │ Quota   │ │  │ Quota    │  │  │ Quota  │
+    │\n│  │ Monitor │ │  │ Monitor  │  │  │ Monitor│ │\n│  └─────────┘ │  └──────────┘
+    \ │  └────────┘ │\n└─────────────────────────────────────────────┘\n```\n\n监控指标：\n\n-
+    各团队 Topic 数量、消息积压量\n\n- 各团队带宽使用率、配额命中率\n\n- 异常访问、越权操作告警\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---\n\n###
+    6.25 消息队列数据迁移与集群扩容"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcnUqHNIoo7mbWQvk9p4jEzzb
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: 问题 24：消息队列的多租户隔离与流量治理怎么做？Topic 命名规范、限流、权限控制？
+  imported_at: '2026-09-21'

@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bf13f17b75e6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: FlashAttention 的核心思想是什么？如何通过 IO 感知和分块计算减少显存读写？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 五：推理部署与高效化
+tags: &1
+- Transfomer精选面试
+- 五：推理部署与高效化
+content:
+  prompt: FlashAttention 的核心思想是什么？如何通过 IO 感知和分块计算减少显存读写？
+answer:
+  mode: rubric
+  reference_answer: |-
+    核心思想：标准注意力需要计算并存储一个大小为 N×N 的注意力得分矩阵（N 为序列长度），这导致对 GPU 高带宽内存（HBM）的读写复杂度为 O(N²)。FlashAttention 提出一种 IO 感知（IO-aware） 的算法，充分利用 GPU 内存层次（小容量高带宽的 SRAM 和大容量低带宽的 HBM），通过 分块（tiling） 计算注意力，把主要的中间结果留在 SRAM 中，并将 HBM 读写量从 O(N²) 降到 O(N²·d²/M) 级别（d 为头维度，M 为 SRAM 大小），实际效果接近线性。
+
+    IO 感知与分块计算的具体做法：
+
+    - 将 Q 分成若干块，K、V 也分成若干块。每一对 Q 块和 K 块的计算结果只暂存在 SRAM 中，不写回 HBM。
+
+    - 使用 online softmax 技术维护局部分母和最大值，通过递推公式逐步修正之前的 softmax 缩放。这样在遍历 K、V 块时可以一边计算局部注意力权重、一边更新输出，而无需保存完整的 N×N 注意力矩阵。
+
+    - 前向只输出最后的 attention output（形状 N×d），反向时通过重计算注意力矩阵节省存储，无需缓存大规模中间结果。
+
+    - 所有分块大小严格按照 SRAM 容量选取，确保每一步的内存访问最优。
+
+    这使得 FlashAttention 在长序列场景下内存占用和耗时都远低于标准实现。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XlvZwbMXgi5eebkXzxvcP7w4nnf
+  block_id: CE0CdoWbVoToLSxLgCycxdzqn4d
+  page_token: XlvZwbMXgi5eebkXzxvcP7w4nnf
+  original_title: FlashAttention 的核心思想是什么？如何通过 IO 感知和分块计算减少显存读写？
+  imported_at: '2026-09-21'

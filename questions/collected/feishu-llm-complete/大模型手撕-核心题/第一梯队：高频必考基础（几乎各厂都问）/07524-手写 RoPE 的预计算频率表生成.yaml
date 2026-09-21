@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b4d267ef2266
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 手写 RoPE 的预计算频率表生成
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 手写 RoPE 的预计算频率表生成
+answer:
+  mode: rubric
+  reference_answer: |-
+    题目：编写函数 precompute_freqs_cis(dim, max_seq_len, theta=10000.0)，输出复数形式的旋转因子 cis（即 cos + i*sin）。
+
+    6.1 实现代码
+
+    ```python
+    import torch
+
+    def precompute_freqs_cis(dim, max_seq_len, theta=10000.0):
+        # 计算频率
+        freqs = 1.0 / (theta ** (torch.arange(0, dim, 2).float() / dim))  # (dim/2,)
+        t = torch.arange(max_seq_len)  # (max_seq_len,)
+        freqs = torch.outer(t, freqs)  # (max_seq_len, dim/2)
+        # 转为复数 cis
+        freqs_cis = torch.polar(torch.ones_like(freqs), freqs)  # (max_seq_len, dim/2)
+        return freqs_cis
+    ```
+
+    6.2 说明
+
+    - freqs 的最后一维是 dim/2，对应每个二维子空间的频率。
+
+    - 使用 torch.polar 直接创建复数：abs=1, angle=freqs，即 e^{i * freqs}。
+
+    - 得到的 freqs_cis 可以后续与 query/key 的复数形式直接相乘实现旋转。复数方式比实数分拆更简洁且高效（依赖底层优化）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VuccwPjSli6dm2kOTxJclpKdnhb
+  block_id: ZS25dkj7po7boBx6b1ccBLz8ncp
+  page_token: VuccwPjSli6dm2kOTxJclpKdnhb
+  original_title: 手写 RoPE 的预计算频率表生成
+  imported_at: '2026-09-21'

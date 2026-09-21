@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-840b99a397d6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 工具调用完成后如何用事件机制解耦通知下游（日志、计费、审计）？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 工具调用完成后如何用事件机制解耦通知下游（日志、计费、审计）？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（事件驱动、解耦、异步处理）\n\n1️⃣ Common Answer\n\n工具调用完成后，发布一个 ToolCallCompletedEvent，然后有多个监听器分别处理日志、计费、审计。这样就不会在工具调用代码里写这些逻辑了。\n\n2️⃣
+    Impressive Answer\n\n- 定义事件：\n\npublic class ToolCallCompletedEvent extends ApplicationEvent
+    {\n    private final String toolId;\n    private final ToolRequest request;\n
+    \   private final ToolResponse response;\n    private final long duration;\n        \n
+    \   public ToolCallCompletedEvent(Object source, String toolId, \n                                  ToolRequest
+    request, ToolResponse response, long duration) {\n        super(source);\n        this.toolId
+    = toolId;\n        this.request = request;\n        this.response = response;\n
+    \       this.duration = duration;\n    }\n}\n\n- 发布事件：\n\n@Service\npublic class
+    ToolExecutor {\n    @Autowired\n    private ApplicationEventPublisher eventPublisher;\n
+    \       \n    public ToolResponse execute(String toolId, ToolRequest request)
+    {\n        long start = System.currentTimeMillis();\n        ToolResponse response
+    = doExecute(toolId, request);\n        long duration = System.currentTimeMillis()
+    - start;\n        eventPublisher.publishEvent(new ToolCallCompletedEvent(this,
+    toolId, request, response, duration));\n        return response;\n    }\n}\n\n-
+    监听器解耦：\n\n@Component\npublic class ToolCallListeners {\n        \n    // 日志监听器（同步，确保日志不丢失）\n
+    \   @EventListener\n    public void logToolCall(ToolCallCompletedEvent event)
+    {\n        log.info(\"Tool {} executed in {}ms\", event.getToolId(), event.getDuration());\n
+    \   }\n        \n    // 计费监听器（异步，不阻塞主流程）\n    @Async(\"billingExecutor\")\n    @EventListener(condition
+    = \"#event.response.success\")\n    public void chargeToolUsage(ToolCallCompletedEvent
+    event) {\n        billingService.charge(event.getToolId(), event.getDuration());\n
+    \   }\n        \n    // 审计监听器（事务提交后执行）\n    @TransactionalEventListener(phase
+    = TransactionPhase.AFTER_COMMIT)\n    public void auditToolCall(ToolCallCompletedEvent
+    event) {\n        auditService.record(event.getToolId(), event.getRequest(), event.getResponse());\n
+    \   }\n}\n\n- 优势：\n\n- Agent 场景实战：Agent 调用工具后，通过事件机制通知日志系统记录调用链、计费系统计算费用、审计系统记录操作，工具执行代码保持简洁，易于维护。\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcnnpP0UgJFoQ4Qpr2bJzW4We
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 3、场景题：Agent 工具调用完成后如何用事件机制解耦通知下游（日志、计费、审计）？
+  imported_at: '2026-09-21'

@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-14c1be46bc1a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F680 如果训练开始时能运行，几个 step 后 OOM，检查哪些动态增长的部分？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F680 如果训练开始时能运行，几个 step 后 OOM，检查哪些动态增长的部分？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 训练开始正常、几 step 后 OOM，说明有某种资源的消耗在随着训练步骤单调递增，很可能未及时释放或不断累积。主要排查这些“动态增长”的部分：\n\n-
+    \U0001F4C8 数据输入侧的动态形状\n如果使用了动态 padding，早期 batch 可能序列较短，越后面遇到长样本，激活显存峰值冲高致 OOM。检查每个
+    step 的 max_seq_len 是否逐步增大。\n\n- \U0001F9E0 计算图/autograd 泄漏\n每步若不小心保留了对输出或 loss
+    的引用（例如存入列表），反向传播后计算图无法释放，梯度累积不清理，导致中间激活和梯度占用持续膨胀。查看是否有类似 losses.append(loss) 且
+    loss 保留图的情况。\n\n- \U0001F4BE 缓存或日志累积\n训练中记录大量指标、存储预测结果或中间嵌入向量，如果这些张量长时间存留（如放在
+    list 中），显存占用会线性增长。尤其是在验证阶段保留所有 logits 用于后续计算。\n\n- \U0001FAA3 优化器状态泄漏\n某些自适应优化器（如带
+    momentum 的 SGD）在每个 step 后不会额外增长，但若代码 bug 导致每步新建 optimizer 实例，旧优化器未释放，可能累积。\n\n-
+    \U0001F9E9 碎片累积效应\n即使没有显式泄漏，频繁分配释放不同大小的张量导致 PyTorch 缓存池碎片化严重，某些分配请求因无连续块而失败。尽管总
+    allocated 未大幅增长，但 reserved 维持高位且碎片逐步恶化，可能在某个分配较大张量时触发 OOM。\n\n- \U0001F501 通信缓冲区叠加\n分布式训练中，若
+    overlap_comm 开启，梯度通信缓冲区可能未及时清理或因流水线调度导致多步缓冲叠加。\n\n✅ 排查顺序：\n\n- 打印每步的 torch.cuda.memory_allocated()
+    观察是否单调递增。\n\n- 若递增，检查代码中是否有 list.append(tensor) 或保留 loss 等图引用。\n\n- 若无明显泄漏，检查数据集中最长样本是否出现在后期，并关注碎片。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BbCrwkO3wiWmAikFy0zc2OK6nPg
+  block_id: FTzfdiceCoLiIKxOYPEcZy2InAJ
+  page_token: BbCrwkO3wiWmAikFy0zc2OK6nPg
+  original_title: "\U0001F680 如果训练开始时能运行，几个 step 后 OOM，检查哪些动态增长的部分？"
+  imported_at: '2026-09-21'

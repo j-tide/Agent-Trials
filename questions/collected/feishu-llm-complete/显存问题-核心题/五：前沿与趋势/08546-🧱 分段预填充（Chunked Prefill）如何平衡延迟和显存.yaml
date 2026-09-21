@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-28423526327b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9F1 分段预填充（Chunked Prefill）如何平衡延迟和显存？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 五：前沿与趋势
+tags: &1
+- 显存问题-核心题
+- 五：前沿与趋势
+content:
+  prompt: "\U0001F9F1 分段预填充（Chunked Prefill）如何平衡延迟和显存？"
+answer:
+  mode: rubric
+  reference_answer: "Chunked Prefill 的核心思想是将一个长 prompt 拆分成多个小块（chunks），与解码阶段的 token
+    交替或批量处理。它通过牺牲一定的 Prefill 总耗时（因为增加了调度和可能的 idle 间隙），换取 Prefill 阶段显存峰值的大幅下降，从而在不
+    OOM 的前提下支持更长的上下文。\n\n⚖️ 平衡机制：\n\n- 显存侧：每个 chunk 只包含较小数量的 token（例如 512 或 1024），因此
+    Prefill 时所需的临时激活仅与 chunk 大小成正比，峰值被严格控制在 chunk 大小对应的水平上，与总序列长度解耦。\n\n- 延迟侧：整个 prompt
+    被拆成多个 chunk，需要多次前向计算，总 Prefill 时间会增加（比如原本一次计算现在要 10 次）。但通过在解码请求之间插入 chunk，或者将
+    chunk 与解码 batch 合并，可以隐藏部分延迟。此外，TTFT（Time To First Token）会变为处理第一个 chunk 的时间，而不是整个
+    prompt 的时间，因此用户感知的首次响应延迟反而可能降低。\n\n- 调度灵活性：调度器可以动态决定何时预填充下一个 chunk，例如当 GPU 空闲时穿插进行，提高整体利用率，避免因大
+    Prefill 阻塞其他请求。\n\n\U0001F4CA vLLM 的实现：通过 --enable-chunked-prefill 开启。它将 Prefill
+    请求限制在一定的 token 数量内（由 max_num_batched_tokens 控制），与解码请求共同调度，从而在显存和延迟之间取得平衡。实际测试表明，该特性可将
+    Prefill 峰值显存降低 3-5 倍，同时对延迟的影响可接受。\n\n✅ 因此，分段预填充是在不变动硬件条件下，突破长上下文 Prefill 显存墙的关键技术，通过将高峰值“削峰填谷”，使超长
+    prompt 能在有限显存中顺利运行。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MJGdw1gNQi7XukkJrfvczohinLU
+  block_id: KcCYd6THwor8o4xuyD8cehBVnec
+  page_token: MJGdw1gNQi7XukkJrfvczohinLU
+  original_title: "\U0001F9F1 分段预填充（Chunked Prefill）如何平衡延迟和显存？"
+  imported_at: '2026-09-21'

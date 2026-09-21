@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-226c4b2ba7b2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "☸️ 在 Kubernetes 集群中，如何设置 GPU 显存限制？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "☸️ 在 Kubernetes 集群中，如何设置 GPU 显存限制？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 Kubernetes 原生仅支持以整数卡数（nvidia.com/gpu）为粒度的 GPU 分配，不提供细粒度的显存限制。要限制单容器的
+    GPU 显存，必须借助第三方 GPU 共享方案、MIG（多实例 GPU）或硬件虚拟化技术，将物理 GPU 切分为更小的显存单元。\n\n\U0001F4CA
+    常见方案对比\n\n[嵌入表格未展开]\n\n\U0001F527 具体实施方式\n\n- 使用 MIG（最硬隔离，推荐生产）\n\n- 基于 Nvidia
+    GPU Operator 的时分复用\n\n- GPU 共享调度器（软件限制）\n\n- 云厂商的 GPU 共享方案\n\n\U0001F4DD 示例 YAML（使用
+    Hami）\n\napiVersion: v1\nkind: Pod\nmetadata:\n  name: gpu-test\nspec:\n  containers:\n
+    \ - name: app\n    image: my-llm:latest\n    resources:\n      limits:\n        nvidia.com/gpu:
+    1         # 请求1卡\n        nvidia.com/gpumem: 8192   # 限制显存 8GiB\n\n⚠️ 注意事项\n\n-
+    软件显存限制通常依赖 LD_PRELOAD 劫持 CUDA 库，要求容器内 CUDA 版本与宿主兼容。\n\n- 显存超售（总和超过物理容量）可能导致 OOM
+    杀 Pod，需设置合适的调度策略。\n\n- 监控和日志对排查显存瓶颈至关重要，可配合 Prometheus GPU Exporter。\n\n✅ 总结：在
+    K8s 中实现 GPU 显存限制需借助 MIG（最优）或第三方软件方案（灵活）。选择方案需权衡隔离性、灵活性和硬件兼容性。\n\n- 配置节点 MIG 模式，将一张
+    A100-80GB 划分为多个 GPU 实例（如 7 个 10GB 的 1g.10gb 实例）。\n\n- K8s 中通过 nvidia.com/mig-1g.10gb
+    这样的资源声明请求 MIG 实例。Pod 会绑定到特定的 MIG 实例，显存上限由该实例大小决定，绝对隔离。\n\n- 优点：性能稳定，无相互干扰；缺点：仅部分
+    GPU 支持，切分不够灵活。\n\n- 配置 time-slicing 可让多个 Pod 共享同一 GPU，但不会限制显存。每个容器仍可尝试使用全部显存，可能引发
+    OOM。\n\n- 需要结合应用层的显存限制（如设置 PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb 或框架内置的 gpu-memory-utilization），但非强隔离。\n\n-
+    部署如 Hami（原 kube-batch）、Volcano 等，它们提供自定义设备插件，暴露 nvidia.com/gpumem 资源。\n\n- 在 Pod
+    中设置 resources.limits.nvidia.com/gpumem: 8Gi，调度器会确保节点上所有 Pod 的显存声明之和不超过物理总量，并为容器注入环境变量或内核拦截来限制实际显存使用。\n\n-
+    例如 Hami 通过修改 CUDA 库的显存分配函数，限制进程内可见显存大小，实现软件层面的显存限制。\n\n- 优点：灵活，支持超售；缺点：软件限制可能被绕过，且存在性能干扰。\n\n-
+    阿里云 ACK 支持 aliyun.com/gpu-mem，腾讯云 TKE 支持 tencent.com/vcuda-core 和 tencent.com/vcuda-memory，它们都是通过虚拟化驱动实现显存和算力的隔离。直接在
+    Pod 中设置此类扩展资源即可。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CiqBwrPCSiM7tNk8mpocAB3gn3b
+  block_id: Hk8sd7dghouBrzxie0DctQ6rnFe
+  page_token: CiqBwrPCSiM7tNk8mpocAB3gn3b
+  original_title: "☸️ 在 Kubernetes 集群中，如何设置 GPU 显存限制？"
+  imported_at: '2026-09-21'

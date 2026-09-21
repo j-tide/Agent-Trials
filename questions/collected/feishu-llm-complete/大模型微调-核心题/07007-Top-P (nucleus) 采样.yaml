@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6098b9306810
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Top-P (nucleus) 采样
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: Top-P (nucleus) 采样
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    def top_p_sampling(logits: torch.Tensor, p: float = 0.9, temperature: float = 1.0) -> int:
+        """从 logits 中根据 Top-P 采样返回一个 token id"""
+        if temperature > 0:
+            logits = logits / temperature
+        probs = torch.softmax(logits, dim=-1)
+        # 按概率降序排列
+        sorted_probs, sorted_indices = torch.sort(probs, descending=True)
+        cumsum_probs = torch.cumsum(sorted_probs, dim=-1)
+        # 去除累积概率超过 p 的尾部，但至少保留第一个 token
+        mask = (cumsum_probs - sorted_probs) < p  # 等效于 cumsum_probs - sorted_probs < p 确保第一个保留？
+        # 更直接的方法：保留累积概率 <= p 的部分，然后至少保留一个
+        mask = cumsum_probs <= p
+        mask[0] = True
+        # 重新归一化
+        filtered_probs = sorted_probs * mask.float()
+        filtered_probs = filtered_probs / filtered_probs.sum()
+        # 采样
+        sampled_idx = torch.multinomial(filtered_probs, 1).item()
+        return sorted_indices[sampled_idx].item()
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: TLdgdoCBAoG65VxP5SNcCe8Jn6w
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: Top-P (nucleus) 采样
+  imported_at: '2026-09-21'

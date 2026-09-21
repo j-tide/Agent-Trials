@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-92cdeffb9d91
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 推理服务中，如何根据请求的紧急程度和预估长度，动态调度 batch 内序列？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 五：推理部署与高效化
+tags: &1
+- Transfomer精选面试
+- 五：推理部署与高效化
+content:
+  prompt: 推理服务中，如何根据请求的紧急程度和预估长度，动态调度 batch 内序列？
+answer:
+  mode: rubric
+  reference_answer: |-
+    动态调度器在每次迭代前选取进入 batch 的序列集合，其目标是在满足差异化 SLA 的前提下最大化吞吐。核心策略：
+
+    - 多优先级抢占队列：为每个请求赋予紧急度等级（如实时交互 > 批量分析）。高优先级请求到来时，若 GPU 显存不足，可通过 PagedAttention 的 swap 机制将低优先级请求的部分 KV 块换出，立即腾出空间进行调度。
+
+    - 基于预估长度的预期剩余时间建模：利用小型预测模型或启发式规则（如输入 prompt 越长，输出大概率也越长）估算每个请求的总生成 token 数。结合当前已有长度，算出剩余长度和预期迭代次数。紧急且短小的请求会被赋予更高权重，优先服务以快速完成。
+
+    - 混合 score 的选取策略：调度器为每个活跃请求计算一个得分，综合：
+
+    - 总 token 预算控制（Token Budget）：考虑到单次迭代延迟与“批次内总 token 数（所有请求序列长度之和）”强相关，调度器会预设一个最大 token 数（如 8192）。将 prefill 和 decode 阶段的请求分离或联合预算：如果某高优先级请求需要 prefill，可减少同时服务的 decode 请求数，保证迭代延迟不超标。通过限制 token budget，使得无论请求组合如何，单步延迟始终可控。
+
+    - 分片 Prefill（Chunked Prefill）：当一个紧急请求具有极长 prompt 时，如果把整个 prompt 一次性 prefill，会导致该步延迟尖刺。此时可将其 prefill 切分成多个 chunk，在多个迭代中与 decode 请求混合处理，既能保证该请求的首 token 延迟不爆炸，又不阻塞其他请求的正常解码。
+
+    通过这种感知紧急度与预估长度的动态调度，系统在高并发下依然可以稳定满足 95%、99% 分位的延迟要求。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XlvZwbMXgi5eebkXzxvcP7w4nnf
+  block_id: Uhkyd1w5DooT7LxXK9kclt7AnEe
+  page_token: XlvZwbMXgi5eebkXzxvcP7w4nnf
+  original_title: 推理服务中，如何根据请求的紧急程度和预估长度，动态调度 batch 内序列？
+  imported_at: '2026-09-21'

@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-00f27bd41a07
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用“prefetch”和多进程数据加载提升吞吐？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如何使用“prefetch”和多进程数据加载提升吞吐？
+answer:
+  mode: rubric
+  reference_answer: |-
+    预取（prefetch）和多进程加载是提升数据供给吞吐量的核心手段。
+
+    多进程加载：
+
+    - 在DataLoader中设置num_workers=N（N为子进程数）。每个子进程独立从磁盘读取数据、执行解码、tokenization、数据增强等CPU密集型操作，并与主进程通过共享内存传递处理好的batch。
+
+    - 一般建议N设为CPU核心数的1/4到1/2，过多会导致上下文切换开销，甚至因Python GIL而效率下降。可通过逐步增加N来测试吞吐量，找到饱和点。
+
+    预取（prefetch）：
+
+    - prefetch_factor（PyTorch）或prefetch（某些框架）控制每个worker提前准备的batch数量。例如设为2，每个worker会在GPU处理当前batch时，预先准备2个batch放入队列。这能有效隐藏数据加载延迟。
+
+    - 注意预取会占用额外的CPU内存，但相对于训练进程通常可以忽略。
+
+    结合流水线：
+
+    - 使用torch.utils.data.ChainDataset或自定义IterableDataset，将数据读取、预处理、打包等步骤串联成流水线，最大化CPU和GPU的并行度。
+
+    - 对于分布式训练，还需确保DistributedSampler在子进程中正确设置，避免不同worker使用相同的随机种子导致数据重复或增强不一致。
+
+    最佳实践：在训练脚本开始时，先测试纯数据加载吞吐（不执行模型计算），找到num_workers和prefetch_factor的最佳组合，确保数据供给速度远超模型训练消耗速度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: M4jLdAwu3ofrbWxe4DXcsaQDnHe
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 如何使用“prefetch”和多进程数据加载提升吞吐？
+  imported_at: '2026-09-21'

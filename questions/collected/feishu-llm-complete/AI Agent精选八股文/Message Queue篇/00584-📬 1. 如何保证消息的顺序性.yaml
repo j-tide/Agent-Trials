@@ -1,0 +1,112 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ac2ccbc4b2a9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4EC 1. 如何保证消息的顺序性？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: "\U0001F4EC 1. 如何保证消息的顺序性？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    顺序性的根源：分区与并行
+
+    首先要明白，消息队列的“顺序”是有作用域的。Kafka 中，单个分区内消息天然有序，因为消息是顺序追加到日志文件中的。但在多个分区之间，全局没有顺序保证。RocketMQ 也是类似的，一个队列（相当于分区）内有序。
+
+    ```text
+    Topic: "order-events"
+    ├── Partition 0: [msg1] → [msg2] → [msg3]   ← 这里严格有序
+    ├── Partition 1: [msg4] → [msg5] → [msg6]
+    └── Partition 2: [msg7] → [msg8] → [msg9]
+
+    如果顺序处理 msg1 和 msg5，全局无序。
+    ```
+
+    保证顺序的策略：
+
+    ① 局部有序（推荐）
+
+    将需要顺序的消息发送到同一个分区（或队列）。在 Kafka 中，通过指定相同的 Key 来实现，具有相同 Key 的消息会路由到同一分区。在 RocketMQ 中，可以发送到指定的 MessageQueue。
+
+    Kafka 示例：使用订单 ID 作为 Key
+
+    ```java
+    // 生产者：相同 orderId 的消息进入同一分区
+    ProducerRecord<String, String> record = new ProducerRecord<>("order-events", orderId, message);
+    kafkaProducer.send(record);
+    ```
+
+    ```java
+    // 消费者：正常消费即可，分区内有序
+    ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(1000));
+    for (ConsumerRecord<String, String> record : records) {
+        processInOrder(record);
+    }
+    ```
+
+    RocketMQ 示例：使用 MessageQueueSelector
+
+    ```java
+    // 生产者：选择同一个订单 ID 对应的队列
+    SendResult result = rocketMQProducer.send(msg, new MessageQueueSelector() {
+        @Override
+        public MessageQueue select(List<MessageQueue> mqs, Message msg, Object arg) {
+            String orderId = (String) arg;
+            int index = Math.abs(orderId.hashCode()) % mqs.size();
+            return mqs.get(index);
+        }
+    }, orderId);
+    ```
+
+    ```java
+    // 消费者：使用 MessageListenerOrderly 顺序消费
+    consumer.registerMessageListener((MessageListenerOrderly) (msgs, context) -> {
+        for (MessageExt msg : msgs) {
+            process(msg);
+        }
+        return ConsumeOrderlyStatus.SUCCESS;
+    });
+    ```
+
+    ② 全局有序（代价高）
+
+    如果你必须让所有消息全局有序，那只能让 Topic 只有一个分区（或队列）。这样并行度就是 1，吞吐量极低。只有在对顺序要求极其严苛且数据量很小的情况下才考虑，比如数据库 Binlog 的同步。
+
+    ③ 业务层面补偿
+
+    有时可以不依赖 MQ 的顺序性，而是在消费端利用 版本号 或 状态机 来处理乱序消息。例如订单状态从“已创建”到“已支付”，如果你收到“已支付”但没找到“已创建”，可以把它暂存起来，等“已创建”到达后再处理，或者查询数据库校验状态。这种方式提高了系统的柔韧性。
+
+    收束： 顺序性的保证，本质上是把需要顺序的事情通过分区键收敛到一条线上。不要追求全局有序，那是性能和扩展性的天敌。用业务 ID 做 Key，让同一个实体的消息在单个分区内排队，是分布式系统中性价比最高的顺序方案。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcn672JNlxCcosmac2XRW450E
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: "\U0001F4EC 1. 如何保证消息的顺序性？"
+  imported_at: '2026-09-21'

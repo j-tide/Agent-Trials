@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-55d82e5b0892
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚖️ 你如何在 LangServe 中配置并发限制和请求队列？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "⚖️ 你如何在 LangServe 中配置并发限制和请求队列？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangServe 自身不提供内置的并发控制和请求队列，但可以借助 FastAPI 的异步特性和一些外部工具来实现。
+
+    方法一：使用 asyncio.Semaphore 在链内部限制并发
+    这是最直接的方式，可以在创建链时传入一个全局信号量，在 ainvoke 或 astream 的路径上包裹。
+
+    ```python
+    import asyncio
+    semaphore = asyncio.Semaphore(10)  # 最多10个并发LLM调用
+
+    async def limited_chain(input):
+        async with semaphore:
+            return await chain.ainvoke(input)
+    ```
+
+    然后将 limited_chain 包装成 RunnableLambda 再通过 add_routes 暴露。这种方式只限制核心 LLM 调用，不会阻塞其他非 LLM 操作。
+
+    方法二：利用 FastAPI 的后台任务或中间件实现排队
+    你可以实现一个“令牌桶”或“漏桶”中间件。例如，使用 asyncio.Queue 构建一个任务队列，每个请求先入队，然后由后台 Worker 逐个处理。但这对流式响应不友好，因为流式需要长时间连接。
+
+    更实用的做法是用 arq 或 celery 等任务队列，将耗时请求转为后台任务，通过回调或轮询获取结果。但这改变了交互模式，不再是同步的 REST 响应。
+
+    方法三：在网关层实现
+    生产环境通常会在 LangServe 前面放置 Nginx 或 Envoy，由它们进行连接数限制和排队。例如，Nginx 的 limit_conn_zone 和 limit_req_zone 可以限制单 IP 的并发连接和请求速率。超出限制的请求会收到 429 Too Many Requests，由客户端决定重试。这是最不侵入业务代码的方式。
+
+    方法四：利用 ASGI 服务器的参数
+    例如使用 uvicorn 启动时，可以指定 --limit-concurrency 来限制最大并发连接数。超过的连接会被拒绝，但这是一种粗略的控制，不够精细。
+
+    实践经验：我在一次客服机器人的部署中，遇到了突发流量导致 LLM API 配额耗尽的问题。后来我采用了“网关限流 + 应用层信号量”的双层保护。在 Nginx 限制了单 IP 50 QPS，同时在链内部对 LLM 调用加了 Semaphore(20)，保证了系统在高压下依然稳定。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K973wYln7iD4oCkYW2acmsT4nke
+  block_id: BzNfdeosWoVre5xc90kc706bnXg
+  page_token: K973wYln7iD4oCkYW2acmsT4nke
+  original_title: "⚖️ 你如何在 LangServe 中配置并发限制和请求队列？"
+  imported_at: '2026-09-21'

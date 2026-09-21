@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-21648d6e0088
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果硬件为 4 卡 A100 80GB，如何估算最大可训练模型规模？给出公式和推导。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 如果硬件为 4 卡 A100 80GB，如何估算最大可训练模型规模？给出公式和推导。
+answer:
+  mode: rubric
+  reference_answer: |-
+    假设使用混合精度训练、AdamW优化器，采用ZeRO-3（最优显存节省）和梯度检查点。
+
+    显存预算：每卡80GB，4卡总显存320GB，但ZeRO-3下每卡只承担1/4的模型状态，且不能简单用总显存除以单卡开销，因为激活值等每卡独立。
+
+    单卡显存构成：
+
+    - 模型状态 (参数+梯度+优化器状态)：ZeRO-3将它们分片，单卡存储量 = (P * (2 bytes FP16) + P * (2 bytes FP16) + P * (12 bytes FP32)) / 4 = (2P + 2P + 12P) / 4 = 16P / 4 = 4P 字节。其中P为参数量。
+
+    - 激活值 + 临时缓冲 + 框架开销：设为 A GB，与模型大小、序列长度、batch size等有关，通常在几GB到十几GB。这里暂且记为 act_mem。
+
+    单卡显存约束：
+
+    4P + act_mem ≤ 80 GB （1）
+
+    最大参数量 P 的估算：
+
+    act_mem 的保守估计可取 10~15 GB（使用梯度检查点后）。代入(1)式：
+
+    若 act_mem = 15 GB，则 4P ≤ 65 GB → P ≤ 65 / 4 = 16.25 B。
+
+    若 act_mem = 10 GB，则 4P ≤ 70 GB → P ≤ 17.5 B。
+
+    更精确的估计：还需考虑通信缓冲区（通常与参数分片大小相当，可忽略或包含在ZeRO开销中）和CUDA context等杂项（约1~2GB）。所以，在4卡80GB A100下，采用ZeRO-3 + 梯度检查点，最大可训练模型规模约 15~20B 参数。若要训练20B以上，可能需要开启ZeRO-Offload或增加GPU数量。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: ZZH1dXXHaoC8F3xKrj1cjRjNnTc
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 如果硬件为 4 卡 A100 80GB，如何估算最大可训练模型规模？给出公式和推导。
+  imported_at: '2026-09-21'

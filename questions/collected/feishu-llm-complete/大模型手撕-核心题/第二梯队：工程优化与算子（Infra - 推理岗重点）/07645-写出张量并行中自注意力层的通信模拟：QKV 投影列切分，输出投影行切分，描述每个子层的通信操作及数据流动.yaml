@@ -1,0 +1,95 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0db2be80154e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出张量并行中自注意力层的通信模拟：QKV 投影列切分，输出投影行切分，描述每个子层的通信操作及数据流动。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 写出张量并行中自注意力层的通信模拟：QKV 投影列切分，输出投影行切分，描述每个子层的通信操作及数据流动。
+answer:
+  mode: rubric
+  reference_answer: |-
+    11.1 自注意力层的张量并行
+
+    [图片内容未导入]
+
+    11.2 前向通信模拟
+
+    ```python
+    def attention_forward(x, QKV_weights_parts, O_weights_parts):
+        # x 所有设备相同
+        # 每个设备计算自己的 Q,K,V (列切)
+        Q_i = x @ Q_weights_parts[rank]  # [B, L, (H/N)*d_head]
+        K_i = x @ K_weights_parts[rank]
+        V_i = x @ V_weights_parts[rank]
+        # 重塑为多头并计算注意力（各设备独立，无通信）
+        attn_out_i = scaled_dot_product_attention(Q_i, K_i, V_i)  # [B, L, (H/N)*d_head]
+        # 输出投影行切分
+        y_local = attn_out_i @ O_weights_parts[rank]  # [B, L, d]
+        # AllReduce 求和
+        y = allreduce(y_local, op=SUM)  # 每个设备得到相同的完整输出
+        return y
+    ```
+
+    11.3 反向通信模拟
+
+    上游梯度 dydy 所有设备相同（因为前向 AllReduce 后每个设备都有 y）。反向时：
+
+    - 对 O 权重的梯度：dW_O_i = attn_out_i^T @ dy，本地计算。
+
+    - 对 attn_out_i 的梯度：d_attn_i = dy @ W_O_i^T，形状 [B, L, (H/N)*d_head]。这个梯度是每个设备对自己负责头的注意力输出的梯度，可以继续本地反向传播通过注意力计算得到 dQ_i, dK_i, dV_i（均本地）。
+
+    - 接着计算 dx 的局部贡献：dx_local = dQ_i @ W_Q_i^T + dK_i @ W_K_i^T + dV_i @ W_V_i^T。每个设备的 dx_local 是完整 dx 的部分和，需要 AllReduce 求和 得到完整 dx。
+
+    ```python
+    def attention_backward(x, dy, QKV_weights, O_weights, attn_outs):
+        # dy 所有设备相同
+        d_attn_i = dy @ O_weights[rank].T
+        # 反向传播注意力 (本地)
+        dQ_i, dK_i, dV_i = attention_backward_local(Q_i, K_i, V_i, d_attn_i)
+        # 本地权重梯度
+        dW_O_i = attn_outs[rank].T @ dy
+        dW_Q_i = x.T @ dQ_i
+        dW_K_i = x.T @ dK_i
+        dW_V_i = x.T @ dV_i
+        # dx 局部贡献
+        dx_local = dQ_i @ Q_weights[rank].T + dK_i @ K_weights[rank].T + dV_i @ V_weights[rank].T
+        # AllReduce 求和
+        dx = allreduce(dx_local, op=SUM)
+        return dx, dW_O_i, dW_Q_i, dW_K_i, dW_V_i
+    ```
+
+    总结：自注意力在张量并行下前向仅需一次 AllReduce（y），反向一次 AllReduce（dx）。这种设计使得注意力层的通信量非常小（每个 AllReduce 的数据量是 batch*seq_len*d），且利用了注意力的头独立特性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: UHvMdpVqFoXOddx24a2cP6MKnrb
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 写出张量并行中自注意力层的通信模拟：QKV 投影列切分，输出投影行切分，描述每个子层的通信操作及数据流动。
+  imported_at: '2026-09-21'

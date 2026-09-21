@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8e8d14a7c43d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是 Loss Spike？在训练 Transformer 时，可能由哪些原因引起？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 四：训练优化与稳定性
+tags: &1
+- Transfomer精选面试
+- 四：训练优化与稳定性
+content:
+  prompt: 什么是 Loss Spike？在训练 Transformer 时，可能由哪些原因引起？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Loss Spike（损失尖峰）指的是训练过程中损失值在某个时刻突然剧烈上升，可以达到正常值的数倍甚至数十倍，形成一个尖锐的波峰。这种现象在 Transformer 的大规模训练中相当常见，轻则拖慢收敛，重则导致梯度爆炸和 NaN，使训练中断。
+
+    Loss Spike 的根源是某些批次的梯度异常巨大，导致参数更新量远超正常范围，破坏了已经学到的表示。具体诱因可以分为以下几个层面：
+
+    数据层面：训练数据中混入了极端样本或噪声。例如一段全是乱码的文本、一张全白或全黑的图像、或者文本与图像完全不匹配的图文对。这些样本的损失值天然就大，产生的梯度也异常大。特别是当多个这样的“坏样本”恰好出现在同一个批次中时，尖峰就出现了。数据集的局部偏差也会导致尖峰。比如某个特定领域（医学、法律）的文本在预训练语料中占比极小，模型对它的分布非常陌生，一旦采样到这一小簇数据，梯度就会剧烈波动。
+
+    优化器层面：Adam 类优化器的自适应学习率在某些情况下会放大问题。当某个参数的梯度连续几个步骤都很小时，其二阶矩估计（v）也变得很小，这会导致该参数的有效学习率（除以根号 v）变得极大。如果此时恰好来一个稍大的梯度，就会被这个放大的学习率推到一个极端的参数值，产生连锁反应。这就是为何 Adam 的训练有时会突然崩溃。
+
+    模型架构层面：Transformer 的深层残差结构在梯度反向传播时，各层的梯度尺度可能差异巨大。如果某些层的参数初始值不佳（比如 FFN 的第二层权重初始化得太大），早期训练中这些层就会产生过大的激活值，经过残差累积，在深层形成数值爆炸。此外，注意力机制的 softmax 操作在输入值过大时会趋于饱和，梯度趋近于零，但这往往伴随着前向数值的溢出。
+
+    数值精度层面：使用 FP16 混合精度时，梯度的表示范围极窄。正常范围的梯度在经过多次链式求导后，绝对值可能变得极小或极大。过小的梯度下溢为零，过大的梯度上溢为 Inf，直接引发尖峰。甚至在 FP32 下，如果初始化不当，深层 Transformer 的注意力 logits 也可能溢出。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqirwcUjyijJgRkTP9QcslHJnde
+  block_id: OSKfdjVnzoakq1xJErgcdj7fnAh
+  page_token: EqirwcUjyijJgRkTP9QcslHJnde
+  original_title: 什么是 Loss Spike？在训练 Transformer 时，可能由哪些原因引起？
+  imported_at: '2026-09-21'

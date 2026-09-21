@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-02d5c3998790
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E0️ 我实际用的防范组合"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 语言基础篇 / Python
+tags: &1
+- AI Agent精选八股文
+- 语言基础篇
+- Python
+content:
+  prompt: "\U0001F6E0️ 我实际用的防范组合"
+answer:
+  mode: rubric
+  reference_answer: |-
+    ① 截断 + 显式清理，别等 GC
+    对话历史一定设窗口，比如只保留最近 20 轮。超过的直接 messages = messages[-20:] 并把旧切片 del 掉。对于 Tool，用完显式调 cleanup() 或借助 async with 上下文管理器自动释放资源。
+
+    ② 打破可能的循环引用，用弱引用
+    如果 Tool 需要反向引用 Agent（比如 callback），一定用 weakref.ref 或 weakref.WeakMethod，不让循环形成。对象间大片的 @property 动态计算，避免互相强持有。
+
+    ③ 监控 + 主动触发 GC，不是扔着不管
+    长运行服务我会在每轮对话结束后，看 len(gc.get_objects()) 的增长趋势，并且做一次 gc.collect(1)（只回收年轻代，开销极小）。另外用 tracemalloc 拍快照对比，抓到一轮对话后没降下来的大块内存，再用 objgraph.show_backrefs() 看是谁在强引用着这个大对象。
+
+    ④ 对象生命周期显式化，取代隐式全局
+    不用模块级字典存 Tool 实例。用 ToolManager 类按需创建、缓存、定期淘汰 LRU。Tool 内部所有 I/O 资源全部用 contextlib.ExitStack 管理，确保退出时连带清理。
+
+    ⑤ 流式处理大工具输出
+    如果 Tool 返回结果很大（比如完整的 HTML 或图片），绝不整体放进内存，而是用生成器流式消费，或写入临时文件后立刻 flush 和关闭句柄。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JRoiwqYDnit4BLkYhUEcMWb9n0g
+  block_id: doxcntVdbLamSbkASttf99hTU8h
+  page_token: JRoiwqYDnit4BLkYhUEcMWb9n0g
+  original_title: "\U0001F6E0️ 我实际用的防范组合"
+  imported_at: '2026-09-21'

@@ -1,0 +1,87 @@
+---
+schema_version: 1
+id: feishu-llm-complete-eb6cf39d0c2c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9F9 8. 在数据加载阶段，如何过滤掉页眉、页脚等噪声内容？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F9F9 8. 在数据加载阶段，如何过滤掉页眉、页脚等噪声内容？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    页眉页脚、版权声明、页码等是检索系统的毒药，它们会污染 embedding，导致相似性搜索匹配到无关片段。在加载阶段过滤通常有下面几种方法：
+
+    - 使用 Unstructured 系列加载器的后处理功能
+    Unstructured 的 partition_pdf 在底层会尝试识别页眉页脚，并将其标记为 Header 或 Footer 元素。我们可以利用 UnstructuredPDFLoader 加载后，根据 metadata["category"] 过滤掉这些元素：
+
+    ```python
+    loader = UnstructuredPDFLoader("file.pdf", mode="elements", strategy="hi_res")
+    all_docs = loader.load()
+    filtered_docs = [d for d in all_docs if d.metadata.get("category") not in ("Header", "Footer")]
+    ```
+
+    不过，unstructured 对页眉页脚的识别并非百分百准确，尤其是奇偶页不同的页眉。
+
+    - 正则表达式清洗
+    如果页眉页脚的格式固定（如始终包含日期、公司名称），可以在加载后对 page_content 应用正则替换。例如：
+
+    ```python
+    import re
+    for doc in docs:
+        # 移除类似 "机密文件 - 第 1 页" 的行
+        doc.page_content = re.sub(r'机密文件 - 第 \d+ 页\n?', '', doc.page_content)
+    ```
+
+    这种方法可控性高，但需要为每种文档模板写规则，维护成本不低。
+
+    - 只提取特定区域（布局解析）
+    如果 PDF 排版规整，可以用 pdfplumber 直接提取特定区域内的文本，排除掉 top/bottom 区域。例如：
+
+    ```python
+    import pdfplumber
+    with pdfplumber.open("file.pdf") as pdf:
+        page = pdf.pages[0]
+        # 裁剪掉上下 20mm 的区域
+        crop = page.within_bbox((0, 20, page.width, page.height-20))
+        text = crop.extract_text()
+    ```
+
+    - 再手动构建 Document 对象。这对于固定版式的报告非常有效。
+
+    - 使用更高级的商业加载器
+    AzureAIDocumentIntelligenceLoader 或 AmazonTextractPDFLoader 在解析时会输出结构化的区块类型，其中就包含“页脚”等标记，能直接过滤。虽然需付费，但准确度和泛化能力极佳。
+
+    我的建议：初期项目可以先使用 Unstructured 的 category 过滤 + 简单正则清洗，快速上线。随着文档种类增多，逐步迁移到布局解析或云服务方案，并把这些清洗逻辑统一封装成一个 DocumentTransformer，方便复用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EY1lwce7uiXgPpklg8tcoBj6nNg
+  block_id: TyimdD9OHowNWXxH87nc2kPAngd
+  page_token: EY1lwce7uiXgPpklg8tcoBj6nNg
+  original_title: "\U0001F9F9 8. 在数据加载阶段，如何过滤掉页眉、页脚等噪声内容？"
+  imported_at: '2026-09-21'

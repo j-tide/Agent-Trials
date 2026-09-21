@@ -1,0 +1,126 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e6e55416dce2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F537 Structured Output 的实现方式有哪些？JSON Mode vs Function Calling vs Constrained
+  Decoding"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F537 Structured Output 的实现方式有哪些？JSON Mode vs Function Calling vs
+    Constrained Decoding"
+answer:
+  mode: rubric
+  reference_answer: |-
+    让大模型的输出从“自然语言文本”变成“可被下游系统解析的结构化数据”，常见有三种路线。我用一张图先把它们的“确定性”排个序：
+
+    [图片内容未导入]
+
+    ① JSON Mode
+
+    最简单，调用 API 时开启 response_format={"type": "json_object"}，同时在 prompt 里描述 JSON 格式。模型保证输出是合法的 JSON，但不保证字段齐全、类型正确、键名拼写无误。这本质上是在 prompt 层面强加一个格式约束。
+
+    # OpenAI JSON Mode 示例
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "你是数据分析助手"},
+            {"role": "user", "content": "提取文本中的公司名和股票代码，以JSON输出。文本：苹果公司（AAPL）今日股价上涨。"}
+        ],
+        response_format={"type": "json_object"}
+    )
+    # 返回可能是 {"company": "苹果", "ticker": "AAPL"}，也可能键名偏差
+
+    适合那些格式要求不极端严格，可以配合重试逻辑和校验的早期原型场景。
+
+    ② Function Calling
+
+    模型在训练阶段接受了函数调用的对齐，输出不再是自由文本，而是一个“调用函数”的意图，参数被严格填入预先定义的 JSON Schema 中。
+
+    functions = [{
+        "name": "extract_stock_info",
+        "description": "提取公司名和股票代码",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "company": {"type": "string"},
+                "ticker": {"type": "string"}
+            },
+            "required": ["company", "ticker"]
+        }
+    }]
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "苹果公司（AAPL）今日股价上涨。"}],
+        functions=functions,
+        function_call={"name": "extract_stock_info"}
+    )
+    # 返回 function_call.arguments = '{"company":"苹果","ticker":"AAPL"}'
+
+    它的确定性比 JSON Mode 明显高，因为 Schema 起到了强引导作用，但依然可能出现参数值不符合业务规则的情况（例如 ticker 写成了 "AAPL?"）。
+
+    ③ Constrained Decoding
+
+    这是最硬核的手段，在推理时直接修改 token 的概率分布，把不符合 JSON Schema 或正则规则的 token 概率置零，从数学上保证输出符合模板。它不依赖 prompt 的描述，也不用担心模型“任性”。
+
+    常见实现有：
+
+    - llama.cpp 的 GBNF 语法：用语法文件定义输出格式，推理时做 logits mask。
+
+    - Guidance / Outlines 库：将正则或 Pydantic model 编译成有限状态机，引导解码。
+
+    # 使用 Outlines 做 constrained decoding
+    from outlines import models, generate
+    import pydantic
+
+    class StockInfo(pydantic.BaseModel):
+        company: str
+        ticker: str
+
+    model = models.transformers("mistralai/Mistral-7B-Instruct-v0.2")
+    generator = generate.json(model, StockInfo)
+    result = generator("提取: 苹果公司（AAPL）今日股价上涨。")
+    # result 一定是 StockInfo 实例，字段完整
+
+    三者选型速记：
+
+    - 做 prototype、结构不复杂 → JSON Mode
+
+    - 需要稳定对接 API、且调用的是闭源大模型 → Function Calling / Tools
+
+    - 需要极强格式保证、本地推理或对成本敏感 → Constrained Decoding
+
+    我的一个经验判断是：当输出需要作为下一个工具的输入且不能容忍一次失败时，直接上 Constrained Decoding；如果只是展示给人看的半结构化摘要，JSON Mode 加一点正则清洗就足够。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcnK6Q6ZQfr1UAGWfV360dtIg
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "\U0001F537 Structured Output 的实现方式有哪些？JSON Mode vs Function Calling
+    vs Constrained Decoding"
+  imported_at: '2026-09-21'

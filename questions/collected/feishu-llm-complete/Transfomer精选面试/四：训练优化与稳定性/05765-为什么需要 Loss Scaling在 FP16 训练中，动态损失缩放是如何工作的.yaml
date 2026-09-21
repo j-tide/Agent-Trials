@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bd74193c2982
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么需要 Loss Scaling？在 FP16 训练中，动态损失缩放是如何工作的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 四：训练优化与稳定性
+tags: &1
+- Transfomer精选面试
+- 四：训练优化与稳定性
+content:
+  prompt: 为什么需要 Loss Scaling？在 FP16 训练中，动态损失缩放是如何工作的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Loss Scaling 是 FP16 混合精度训练中必不可少的技术，旨在解决梯度下溢问题。FP16 的最小正规数约为 6×10⁻⁸，许多梯度值（尤其是训练初期或网络中较远的层）可能远小于这一阈值，导致它们在 FP16 下被截断为零。如果大量梯度变为零，训练将停滞。
+
+    Loss Scaling 的核心做法是：在反向传播前，将损失值乘以一个较大的缩放因子（scale factor），然后进行反向计算。根据链式法则，损失被放大后，所有梯度也会同比例放大，从而使那些原本在 FP16 下会下溢的小梯度值被推入 FP16 的可表示范围。在更新参数前，再将梯度除以相同的缩放因子，恢复到正确的数值范围。
+
+    动态损失缩放则进一步自动化了这一过程。其算法如下：
+
+    - 初始化一个缩放因子（例如 2¹⁶）。
+
+    - 每个训练迭代，将损失乘以缩放因子，进行反向传播，得到缩放后的 FP16 梯度。
+
+    - 检查缩放后的梯度是否包含 Inf 或 NaN（表示溢出）。如果没有溢出，则将这些梯度除以缩放因子还原，并更新 FP32 的主副本参数。同时，算法可以尝试逐步增大缩放因子（如乘以 1.05），以利用更多的 FP16 动态范围。
+
+    - 如果检测到溢出（Inf/NaN），则跳过本次参数更新，将缩放因子减小（如乘以 0.5），并重试该次迭代。
+
+    动态损失缩放自动平衡了溢出的风险和梯度的精度，使得 FP16 训练在大多数情况下可以平稳进行。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/E82jwDMh9ihtDhkHbRYcE2JCnNe
+  block_id: CviId2psKoxALYxkKYncqYIVnjd
+  page_token: E82jwDMh9ihtDhkHbRYcE2JCnNe
+  original_title: 为什么需要 Loss Scaling？在 FP16 训练中，动态损失缩放是如何工作的？
+  imported_at: '2026-09-21'

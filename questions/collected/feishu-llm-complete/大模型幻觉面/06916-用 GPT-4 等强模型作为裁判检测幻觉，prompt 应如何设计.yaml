@@ -1,0 +1,112 @@
+---
+schema_version: 1
+id: feishu-llm-complete-97d279f3d5c6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 用 GPT-4 等强模型作为裁判检测幻觉，prompt 应如何设计？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型幻觉面
+derived_topic: 
+tags: &1
+- 大模型幻觉面
+content:
+  prompt: 用 GPT-4 等强模型作为裁判检测幻觉，prompt 应如何设计？
+answer:
+  mode: rubric
+  reference_answer: |-
+    使用强大的大模型（如GPT-4）作为评判器来检测幻觉，关键在于设计能够引导模型进行细粒度、有依据、结构化判断的提示词（prompt）。设计原则和模板如下：
+
+    （1）明确角色与任务定义
+
+    - 开篇设定模型为“事实一致性校验专家”，并给出清晰的定义，防止混淆。
+
+    - 示例：“你是一位严格的事实核查专家。你的任务是逐句检查【模型回答】是否与【参考源文】（或【已知事实】）一致，并指出任何不一致或编造的内容。”
+
+    （2）提供详细判断准则
+
+    - 定义何为幻觉（“包含源文中没有的细节、与源文矛盾、或无法从源文推断出的内容”）。
+
+    - 要求区分“忠实性幻觉”（与源文不符）和“事实性幻觉”（与常识或外部知识不符），按需选择。
+
+    - 示例：“请注意，回答中的任何额外信息，即使合理，若未在源文中明确提及或可直接推断，均应视为幻觉。对于无法确定的情况，请标注为‘可疑’并说明理由。”
+
+    （3）结构化输出要求
+
+    - 要求模型输出JSON或Markdown表格，便于自动解析。字段应包括：句子编号、原始文本、判断（忠实/不忠实/可疑）、证据来源（引用源文对应句子）、解释。
+
+    - 示例：“请按以下JSON格式输出：[{‘sentence’: ‘...’, ‘label’: ‘faithful’/‘hallucination’/‘uncertain’, ‘evidence’: ‘...’, ‘reason’: ‘...’}]”
+
+    （4）要求逐句分解与证据对齐
+
+    - 提示模型先将回答拆成独立声明，再逐条与源文比对。
+
+    - 示例：“首先，将【模型回答】拆分成单一声明（每句一个），然后对于每个声明，在【源文】中找到精确匹配或直接支持的句子。如果没有找到，则标记为幻觉。”
+
+    （5）引入思维链（Chain-of-Thought）
+
+    - 让裁判模型在做出最终判断前，先写出推理过程，这能提高准确度。
+
+    - 示例：“请一步一步思考：1) 分析该句子的核心事实；2) 在源文中搜索相关部分；3) 比较两者是否一致；4) 得出结论。”
+
+    （6）处理多源冲突与不确定性
+
+    - 若同时提供多篇参考文档，要求模型综合判断，并指出文档间的矛盾。
+
+    - 示例：“如果不同文档提供的信息相互矛盾，请指出矛盾点，并在判断时优先考虑权威性更高的来源。”
+
+    （7）校验引用与来源
+
+    - 对于RAG应用，尤其强调检查回答中的引用是否真实源于所提供的文档，以及引用内容是否与文档一致。
+
+    - 示例：“如果回答中包含引用标记（如[1]），请检查该引用对应的文档内容是否确实支持该声明。若不支持或引用不存在，请标记为‘来源幻觉’。”
+
+    （8）示例（Few-shot）
+
+    - 在prompt中给出1-2个标注范例，展示期望的输出格式和严格的判断标准，能显著稳定模型表现。
+
+    （9）安全性后处理
+
+    - 要求模型对严重虚假或有害幻觉进行额外的高亮警告。
+
+    完整Prompt模板示例（简化版）：
+
+    你是一个严格的事实核查员。你的任务是严格检查【回答】是否忠实于【上下文】。
+
+    规则：
+    1. 将回答拆分成独立的声明（按句子或分句）。
+    2. 对每个声明，在上下文中寻找确凿证据。如果上下文无法直接证明或与上下文矛盾，即视为幻觉。
+    3. 如果声明是常识且上下文未涉及，标记为“可疑”而非幻觉。
+    4. 输出JSON列表，每个元素包含 "statement", "label" (faithful/hallucination/uncertain), "evidence" (引用上下文原句，若无则填无), "reason"。
+
+    【上下文】: {context}
+    【回答】: {response}
+    JSON输出:
+
+    通过上述设计，可以最大限度地发挥强模型作为幻觉裁判的潜力，获得高质量、可解释的评估结果。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NovwwCvuyiHnmDka5CpcaQzunnc
+  block_id: KsardYIgioqenvxuAdhcFLMinLh
+  page_token: NovwwCvuyiHnmDka5CpcaQzunnc
+  original_title: 用 GPT-4 等强模型作为裁判检测幻觉，prompt 应如何设计？
+  imported_at: '2026-09-21'

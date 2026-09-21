@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bf09e696dbac
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 数据并行（DP vs DDP）的原理是什么？DDP 的 Ring AllReduce 是如何工作的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 四：训练优化与稳定性
+tags: &1
+- Transfomer精选面试
+- 四：训练优化与稳定性
+content:
+  prompt: 数据并行（DP vs DDP）的原理是什么？DDP 的 Ring AllReduce 是如何工作的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    数据并行（Data Parallelism） 是最基础的分布式训练策略。其核心思想是：每张 GPU 上保存一份完整的模型副本，训练数据被均匀划分到各 GPU。每个 GPU 使用自己的数据子集独立进行前向和反向传播计算，得到各自的梯度。然后所有 GPU 需要将这些梯度进行全局汇总（通常求平均），以保证模型副本之间保持一致。根据梯度同步方式的不同，分为 DP（Data Parallel）和 DDP（Distributed Data Parallel）。
+
+    DP（通常基于参数服务器）：一台 GPU 作为参数服务器，其他为工作节点。工作节点各自计算梯度，发送给参数服务器；服务器聚合梯度、更新参数，再将新参数广播给所有工作节点。这种方案存在通信瓶颈和单点故障，且扩展性差。
+
+    DDP（分布式数据并行，Ring AllReduce）：目前主流方案。它摒弃了中心服务器，所有节点形成一个逻辑环。梯度同步采用 Ring AllReduce 算法，整个过程不需要中心节点，通信负载均衡。
+
+    Ring AllReduce 工作流程：
+
+    - 假设共有 NN 个 GPU，每个 GPU 上的梯度张量被划分为 NN 个连续的数据块。
+
+    - Scatter-Reduce 阶段：执行 N−1N−1 步。在第 ii 步，每个 GPU 将本地一个数据块发送给下一个 GPU，同时从前一个 GPU 接收一个数据块。接收后，将该块与自己对应的块进行累加（reduce）。这样经过 N−1N−1 步，每个 GPU 都拥有一个完整归约好的数据块（即该块在所有 GPU 上的和）。
+
+    - AllGather 阶段：同样 N−1N−1 步。每个 GPU 将已归约好的数据块依次传递给下一个 GPU，其他 GPU 存储该块但不累加。经过 N−1N−1 步，所有 GPU 都收集到了所有归约好的数据块，即获得了全局梯度求和结果。
+
+    最后，各 GPU 使用相同的全局梯度来更新自己的模型参数。DDP 的通信量是 2(N−1)2(N−1) 次数据块传输，总数据量为 2×梯度总大小×(N−1)/N，接近最优。Ring AllReduce 充分利用了每个节点的双向带宽，避免了中心服务器的瓶颈。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JQ7Ewcu5vi3kzPkkXV2cvczhnyh
+  block_id: ZppNdeOqMoSyHhxQMPacd1pin3g
+  page_token: JQ7Ewcu5vi3kzPkkXV2cvczhnyh
+  original_title: 数据并行（DP vs DDP）的原理是什么？DDP 的 Ring AllReduce 是如何工作的？
+  imported_at: '2026-09-21'

@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-24ccfe4c468d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何计算序列级别的 KL 散度？它是所有 token KL 的平均还是求和？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: 如何计算序列级别的 KL 散度？它是所有 token KL 的平均还是求和？
+answer:
+  mode: rubric
+  reference_answer: |-
+    3.1 序列级别 KL 散度的定义
+
+    [图片内容未导入]
+
+    根据定义，序列级别的 KL 散度是两个序列分布之间的 KL 散度：
+
+    [图片内容未导入]
+
+    这个期望在实际计算中无法穷举所有序列，因此必须通过蒙特卡洛采样来近似。
+
+    3.2 基于采样的近似：求和还是平均？
+
+    给定我们采样得到的一条具体序列 y，我们可以计算该序列的对数似然比：
+
+    [图片内容未导入]
+
+    这个和就是对序列级别 KL 散度的一个无偏但高方差的单样本估计。在 PPO 实现中，为了惩罚这个偏离，我们通常会使用这个和，但在聚合多个序列的损失时，会进行平均处理。
+
+    具体来说，实际代码中计算的 KL 惩罚损失项是：
+
+    [图片内容未导入]
+
+    [图片内容未导入]
+
+    3.3 为什么实践中倾向于取平均？
+
+    - 超参数鲁棒性：如果直接使用求和作为惩罚项，长序列的惩罚会远大于短序列，这迫使 β 超参数必须随着序列长度的变化而调整，极难调优。取平均后，每个 token 的贡献被归一化，β 就可以设定为“每个 token 允许的偏离成本”，不受序列长度影响。
+
+    - 与损失函数的一致性：PPO 的 Actor 损失通常也是取所有有效 token 损失的平均值。KL 惩罚作为损失项的一部分，取平均可以保持整体梯度量级的一致性。
+
+    - 更加公平的序列间比较：在不同长度的序列间，平均 KL 提供了一个公平的比较基准。一个 10 步的序列和 100 步的序列，如果每步偏离程度相同，其平均 KL 应该相等，这反映了真实的偏离密度。
+
+    因此，尽管序列级别 KL 散度的数学形式是求和，但在 RLHF 的 PPO 实践里，我们几乎总是使用 token 级别的平均对数比率来作为 KL 惩罚的有效近似和优化目标。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BAN9wgGBJiVSTWkpMHXcKrxFn7f
+  block_id: ZUEmdw7vDoDPb7xi69Mcfqaonxc
+  page_token: BAN9wgGBJiVSTWkpMHXcKrxFn7f
+  original_title: 如何计算序列级别的 KL 散度？它是所有 token KL 的平均还是求和？
+  imported_at: '2026-09-21'

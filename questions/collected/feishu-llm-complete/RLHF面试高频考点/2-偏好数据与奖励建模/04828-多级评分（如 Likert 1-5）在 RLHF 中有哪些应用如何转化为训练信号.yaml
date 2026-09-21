@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0ad1f6156900
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多级评分（如 Likert 1-5）在 RLHF 中有哪些应用？如何转化为训练信号？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 2-偏好数据与奖励建模
+tags: &1
+- RLHF面试高频考点
+- 2-偏好数据与奖励建模
+content:
+  prompt: 多级评分（如 Likert 1-5）在 RLHF 中有哪些应用？如何转化为训练信号？
+answer:
+  mode: rubric
+  reference_answer: |-
+    尽管成对比较是主流，多级评分在 RLHF 中仍有其不可替代的应用场景，主要涉及对单个回答的绝对质量评估和多维属性评定。
+
+    应用场景：
+
+    - 安全与合规性评定：让标注员对回答的有害性进行1-5级评分（1=完全无害，5=极度有害），这种明确的危害等级标签可以直接用于训练一个专门的“安全奖励模型”，或者作为主 RM 的一个辅助头。对于风险敏感场景，这种绝对评估比“A比B更安全”的 pairwise 信号更直接。
+
+    - 多维度细粒度评估：针对一个回答，分别就其“事实准确性”、“逻辑性”、“语言流畅度”、“安全性”等维度进行1-5打分。这可以训练出一个多维度奖励模型，将最终奖励分解为多个可解释的子分数。在 RL 优化时，可以动态调整这些子分数的权重，实现更精细的行为控制。
+
+    - 标注质量监控与一致性校验：在标注任务中插入少量“金标准”样本（已知其理想评分），通过比较标注员的评分与金标准的偏差来实时监控标注质量，及时发现疲劳或理解偏差。
+
+    - SFT 数据筛选：对大量候选指令-回答对进行综合质量评分，将得分高于阈值的样本纳入 SFT 训练集，这是一种基于绝对质量的数据清洗策略。
+
+    转化为训练信号：
+
+    - 直接回归训练 RM：将 Likert 评分作为真实值，使用均方误差（MSE）训练奖励模型进行回归。但因不同标注员评分分布差异大，需先进行 z-score 归一化或学习标注员特定的偏置项。
+
+    - 转化为成对比较：将评分差转换为偏好概率。例如，若 A 被评为 4 分，B 为 2 分，可构造一个高置信度的偏好对 A≻B，并设置较高的样本权重。若两者均为 3 分，可视为平局，丢弃或作为低权重软化信号。
+
+    - 多任务学习：在 RM 的主 pairwise 损失基础上，添加一个辅助的回归损失，让 RM 同时预测绝对评分。这有助于稳定 RM 的分数范围，防止分数在 RL 阶段无限制增长。
+
+    - 作为 RL 中的约束条件：不是直接优化评分，而是将安全评分低于某个阈值的回答给予极大的负奖励，形成硬约束。
+
+    不足：多级评分转化为训练信号的效率远低于 pairwise。一个评分只能提供一个监督信号，而 pairwise 的一个比较对能直接产生一对梯度。而且评分中的标度偏差需要通过复杂的统计建模来消除。因此，目前主流的 RLHF 管线仍然以 pairwise 为骨架，评分作为辅助。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AujZwyYTLivSSOk0ZOdccL5Mnyg
+  block_id: Unn4dwM0vosrr4xm8pGcIqZdn9d
+  page_token: AujZwyYTLivSSOk0ZOdccL5Mnyg
+  original_title: 多级评分（如 Likert 1-5）在 RLHF 中有哪些应用？如何转化为训练信号？
+  imported_at: '2026-09-21'

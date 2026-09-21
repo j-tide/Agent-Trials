@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9a7bccf31ed2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F914 为什么推理框架（如 vLLM）报告的可用显存比 nvidia-smi 少？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "\U0001F914 为什么推理框架（如 vLLM）报告的可用显存比 nvidia-smi 少？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 结论：推理框架的“可用显存”通常指可安全分配给 KV Cache 和模型权重的连续物理内存，而 nvidia-smi
+    显示的是进程已占用的总虚拟显存，两者口径不同。\n\n具体原因：\n\n\U0001F539 1. 预留的 CUDA Context 与框架开销\n\nPyTorch/TensorRT
+    初始化时会分配一定量的显存作为 CUDA context，包括内核加载、cuBLAS/cuDNN 工作区等。这部分可能占用几百 MB 到 1–2 GB。这些虽然被框架占用，但并不计入“可分配模型”的内存池，所以框架会预先扣除。\n\n\U0001F539
+    2. 碎片与安全余量\n即便 nvidia-smi 显示有 20 GB 空闲，实际可以连续分配的大块可能更少。vLLM 等框架会故意保留一部分显存（例如默认
+    gpu_memory_utilization=0.9），防止 OOM。所以它只把 90% 的显存视为“可用”，这 90% 中还要再扣除权重和其他固定开销，剩下的才用于
+    KV Cache 池。因此你看到的“可用显存”远小于 nvidia-smi 的“空闲”。\n\n\U0001F539 3. 虚拟显存 vs 物理显存\n\nnvidia-smi
+    显示的是进程的虚拟显存占用，它包括了 PyTorch 缓存分配器保留但尚未实际使用的内存块。框架报告的“可用”是基于物理剩余和分配器内部碎片计算后，真正可用的连续容量。\n\n\U0001F539
+    4. 预留的中间激活缓冲区\n\n推理时 Prefill 阶段需要临时显存，框架为了延迟稳定，可能预先分配一块 workspace，这部分显存未计入模型或
+    KV Cache，也会减少“可用”报告值。\n\n\U0001F539 5. 多进程或共享\n\n如果多个进程使用同一 GPU（例如数据并行 worker），nvidia-smi
+    显示的是所有进程总和，单个框架只知道自己能用的那部分。\n\n\U0001F4CC 总结：nvidia-smi 给的是“整块蛋糕”的大小，但框架只敢吃其中的
+    90%，并且还要切掉模型权重、内核开销等，剩余才是真正能给 KV Cache 的“可用显存”。所以框架的报告更保守实用。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CkFiwxOtOi6QRJkPIPKcLENfndb
+  block_id: WFyMdyPUqo2bNAxfc65cXY1WnKb
+  page_token: CkFiwxOtOi6QRJkPIPKcLENfndb
+  original_title: "\U0001F914 为什么推理框架（如 vLLM）报告的可用显存比 nvidia-smi 少？"
+  imported_at: '2026-09-21'

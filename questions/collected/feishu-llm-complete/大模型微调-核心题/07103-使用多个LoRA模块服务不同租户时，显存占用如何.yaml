@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c0a59f634265
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用多个LoRA模块服务不同租户时，显存占用如何？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 使用多个LoRA模块服务不同租户时，显存占用如何？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在多租户推理服务中，显存占用主要由三部分构成：基础模型权重、KV Cache池和LoRA适配器权重池。LoRA的设计使得显存开销与租户数量并非线性增长，而是通过共享和动态加载技术，将开销控制在常数级别。
+
+    - 基础模型权重：所有租户共享同一份基础模型，显存中仅保留一份完整权重。这是显存的大头（例如7B FP16约14 GB）。
+
+    - KV Cache：随着并发请求数（即同时处理的序列数）线性增长，但与LoRA数量无关。PagedAttention等机制通过块分配高效管理，这部分显存占用通常占总显存的相当比例。
+
+    - LoRA适配器权重：这是多租户场景下最受关注的部分。如果不加优化，为每个租户在GPU上保留完整的LoRA权重，显存将随租户数量线性增长，显然不可行。因此，工业界采用以下策略：
+
+    - 动态分页加载（S-LoRA, Punica等）：在GPU显存中开辟一个固定大小的LoRA权重缓存池（例如128 MB）。每个LoRA适配器矩阵被切分成固定大小的块。当某个请求需要特定租户的LoRA时，调度器会将该租户所需的LoRA块从CPU内存（或SSD）加载到GPU缓存池中。如果缓存池已满，则根据LRU等策略淘汰暂时不用的块。这样，GPU上LoRA的显存占用只取决于缓存池的大小和当前活跃请求所需的块数，与租户总数无关。
+
+    - 请求合并与批处理：对于同一批处理中调用同一LoRA的请求，可以共享块，进一步减少加载开销。对于不同LoRA的请求，框架通过批处理化的LoRA算子（如bgmv）对不同序列分别应用各自的适配器，实现零干扰。
+
+    举例：假设我们有1000个租户，每个租户的LoRA适配器大小约为50 MB。如果全部加载到GPU，需要50 GB显存，显然不现实。但通过设置一个200 MB的LoRA缓存池，GPU上仅占用200 MB用于缓存当前最热的几个适配器块，其余都存放在CPU内存中。在实际服务中，这200 MB的缓存足以覆盖绝大多数活跃请求，且切换开销极低（微秒级）。
+
+    因此，多LoRA服务时的显存占用公式大致为：
+
+    [图片内容未导入]
+
+    与租户总数无关。这得益于LoRA适配器的极小体量和现代推理框架的精细内存管理。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UEbgw2D3ci93jLkR3c6cdyoInve
+  block_id: DMlJdAIFIonMIZxX8z5curLGnth
+  page_token: UEbgw2D3ci93jLkR3c6cdyoInve
+  original_title: 使用多个LoRA模块服务不同租户时，显存占用如何？
+  imported_at: '2026-09-21'

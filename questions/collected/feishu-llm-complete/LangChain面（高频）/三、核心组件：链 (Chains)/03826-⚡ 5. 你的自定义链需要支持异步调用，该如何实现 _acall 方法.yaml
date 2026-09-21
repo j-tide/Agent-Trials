@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ee6ba414b68a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚡ 5. 你的自定义链需要支持异步调用，该如何实现 _acall 方法？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "⚡ 5. 你的自定义链需要支持异步调用，该如何实现 _acall 方法？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    首先声明：如果不写 _acall，LangChain 会用默认实现把你的同步 _call 丢进线程池模拟异步，这在 IO 密集型且并发不高时勉强可用，但一旦你要在异步 Web 框架（如 FastAPI）里用，会阻塞事件循环，性能完全不行。所以生产环境必须自己实现 _acall。
+
+    实现的关键在于：你要保证所有内部调用都走异步路径。如果你用的是 LLMChain 或直接调 llm.apredict()，那没问题；但如果你内部调了一个旧版的只支持同步的链，那你需要在 _acall 里用 asyncio.to_thread 把那部分包出去，否则会阻塞。
+
+    一个典型的 _acall 实现长这样：
+
+    ```python
+    async def _acall(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        text = inputs["text"]
+        # 获取运行时配置
+        config = {
+            "callbacks": self.callback_manager,
+            "tags": self.tags,
+            "metadata": self.metadata,
+        }
+
+        # 异步翻译
+        translate_input = self.translate_prompt.format(text=text)
+        translation = (await self.llm.ainvoke(translate_input, config=config)).strip()
+
+        # 异步情感分析
+        sentiment_input = self.sentiment_prompt.format(english_text=translation)
+        sentiment = (await self.llm.ainvoke(sentiment_input, config=config)).strip().lower()
+
+        return {
+            "english_translation": translation,
+            "sentiment": sentiment
+        }
+    ```
+
+    如果内部两个调用没有依赖关系，你可以用 asyncio.gather 并行加速，但这里情感分析依赖翻译结果，只能串行。我之前做过一个链需要同时调用三个外部 API 做交叉验证，在 _acall 里用 asyncio.gather 并发请求，响应时间直接降到三分之一，非常爽。
+
+    还有一个小技巧：如果你的 llm 本身就是 AsyncLLM 的子类，ainvoke 会走真正的异步 IO；但如果是同步 LLM 被包装了，那实际上还是在跑线程。所以如果你的链运行在高并发异步环境，请确保底层模型对象支持原生异步，比如 ChatOpenAI 的 async_client。
+
+    另外，写 _acall 时千万别忘了把 callback_manager 也切换成异步模式（其实 self.callback_manager 在异步上下文里已经是 AsyncCallbackManager 了，只要你在 _acall 里用 await 而不是同步方法，回调就能正确记录异步事件）。简单来说，照着同步逻辑写，把所有 .invoke 换成 await .ainvoke，显式传递 config，十有八九不会翻车。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QpN4wGGTGiz4zzkOhzqc7iipn1e
+  block_id: BxwJdzLLQoRaqxx9LMQco8qzn6f
+  page_token: QpN4wGGTGiz4zzkOhzqc7iipn1e
+  original_title: "⚡ 5. 你的自定义链需要支持异步调用，该如何实现 _acall 方法？"
+  imported_at: '2026-09-21'

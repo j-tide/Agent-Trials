@@ -1,0 +1,115 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5a2d5cafe1c0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 1.1 CAP 理论与 BASE 理论
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: 1.1 CAP 理论与 BASE 理论
+answer:
+  mode: rubric
+  reference_answer: "### CAP 理论（一致性、可用性、分区容错性）\n\n### \U0001F9E9 1. 什么是 CAP 理论？CP
+    和 AP 系统分别适用于什么场景？\n\nCAP 理论 是分布式系统的核心约束：一个分布式系统最多只能同时满足 一致性 (Consistency)、可用性
+    (Availability)、分区容错性 (Partition Tolerance) 中的两个。\n\n[图片内容未导入]\n\n- 一致性：客户端向节点
+    A 写入数据，之后从节点 B 读取，必须读到最新写入的值。\n\n- 可用性：每个请求都能在合理的时间内返回结果，即使某些节点挂了，系统也能继续服务。\n\n-
+    分区容错性：系统在任意网络消息丢失或延迟的情况下，仍然能继续工作。\n\n由于网络分区是客观存在的（交换机故障、光缆切断、网络拥塞），P 是分布式系统的必选项。所以真正的选择在于：当网络分区发生时，你是优先保证一致性，还是优先保证可用性？\n\n---\n\nCP
+    系统：优先一致性\n\n当发生网络分区时，系统为了确保数据一致，会牺牲部分可用性。例如，分区一侧的节点会拒绝写入或停止服务，直到网络恢复。\n\n特点：\n\n-
+    所有节点数据强一致，任何时刻读到的都是最新数据。\n\n- 分区期间可能不可用（写入被阻塞或拒绝）。\n\n典型系统：\n\n- ZooKeeper：Leader
+    选举与元数据管理。一旦 Leader 与多数 Follower 分区，少数派无法提供服务，避免了“脑裂”。\n\n- etcd：CoreOS 的键值存储，使用
+    Raft 协议，强一致。\n\n- HBase：数据强一致，Region Server 失效时，对应分区不可用直到恢复。\n\n适用场景：\n\n- 金融交易系统：用户账户余额必须一致，不能出现“账户透支”的幻读。\n\n-
+    配置中心：配置数据不容许半点不一致，否则不同节点可能加载错误配置。\n\n- 分布式锁：必须保证锁的互斥性，不能因为分区导致两个客户端同时持有锁。\n\n---\n\nAP
+    系统：优先可用性\n\n当发生网络分区时，系统优先保证服务可用，允许不同分区的节点继续处理请求，即使数据可能短暂不一致。网络恢复后，通过各种冲突解决机制（向量时钟、最后写入胜出等）达到最终一致。\n\n特点：\n\n-
+    整个系统始终可用，即使部分节点故障。\n\n- 数据可能存在短暂不一致窗口（最终一致）。\n\n典型系统：\n\n- Cassandra：去中心化设计，多副本异步同步，允许同一数据在不同节点暂时不同。\n\n-
+    DynamoDB：亚马逊的云原生数据库，提供最终一致性读取。\n\n- CouchDB：基于 MVCC，支持离线后同步。\n\n适用场景：\n\n- 社交媒体动态流：用户发帖后，另一用户稍后看到没有影响，短暂不一致可接受。\n\n-
+    电商商品详情页：商品库存显示误差（99 vs 100）不会造成严重后果。\n\n- DNS 解析：变更后可能需要几分钟到几小时全球生效，完全可用。\n\n代码示例：模拟
+    CP 与 AP 的决策\n\n# CP 模式：数据不一致时拒绝服务\ndef read_cp(node):\n    if not node.is_consistent():\n
+    \       raise Exception(\"数据不一致，服务暂停\")\n    return node.data\n\n# AP 模式：容忍不一致，返回可能过时的数据\ndef
+    read_ap(node):\n    return node.data  # 直接返回，不管是否最新\n\n收束： CP 与 AP 的抉择并不是非黑即白的全局开关，而是每个具体功能模块的独立决策——金融核心用
+    CP，社交 Feed 用 AP，而同一个系统内可以并存两种模式。\n\n---\n\n### ⚖️ 2. BASE 理论是什么？它与 CAP 理论是什么关系？在实际业务中如何平衡一致性和可用性？\n\nBASE
+    理论 是 Basically Available, Soft state, Eventually consistent 的缩写，它是在 CAP 理论约束下，对
+    AP 系统的具体实践指导。\n\n[图片内容未导入]\n\nBASE 三个要素：\n\n- Basically Available (基本可用)：系统出现故障时，允许损失部分可用性，但核心功能必须可用。例如请求排队、降级页面。\n\n-
+    Soft state (软状态)：系统中的数据允许存在中间状态，且该中间状态不会影响系统整体可用性。\n\n- Eventually consistent
+    (最终一致性)：不要求数据更新后立刻一致，但保证在没有新的更新的情况下，最终所有副本都将达成一致。\n\n与 CAP 的关系：\n\nCAP 告诉我们“鱼与熊掌不可兼得”，BASE
+    则是告诉我们“如果你选择了 AP，应该如何优雅地活下去”。CAP 是理论模型，BASE 是工程实践。\n\n在实际业务中如何平衡？\n\n并不是整个系统一刀切地选择
+    C 或 A，而是根据不同业务场景的容忍度，分层设计。\n\n分层平衡策略：\n\n- 核心数据用 CP：账户余额、订单状态、支付流水必须强一致。\n\n-
+    外围数据用 AP + BASE：商品库存显示、评价列表、浏览记录等允许短暂不一致。\n\n- 本地事务 + 消息队列实现最终一致性：核心流程内的强一致；跨系统的异步通知采用可靠消息最终一致。\n\n示例：下订单扣库存的平衡设计\n\n//
+    1. 核心：订单生成与库存扣减在同一个本地事务中，CP 保证\n@Transactional\npublic void createOrder(Order
+    order) {\n    orderDao.insert(order);\n    for (OrderItem item : order.getItems())
+    {\n        int affected = inventoryDao.deduct(item.getSkuId(), item.getQuantity());\n
+    \       if (affected == 0) {\n            throw new InsufficientStockException();\n
+    \       }\n    }\n    // 2. 外围：发送消息通知积分、物流等系统，AP + BASE\n    sendMessageAsync(\"order_created\",
+    order); // 异步，允许短暂延迟\n}\n\n这里，订单表和库存表在同一个数据库内，通过本地 ACID 事务保证强一致。积分、物流等下游系统通过消息队列异步通知，采用
+    BASE 的最终一致性——万一消息延迟，也会通过重试或对账最终补齐。\n\n补偿与兜底：\n\n- 离线对账：定时扫描订单表与积分流水、物流单的差异，补发遗漏。\n\n-
+    业务补偿：对已发货但未扣积分的订单，事后补扣或补发积分。\n\n- 人工干预：关键异常生成工单，人工核实处理。\n\n一句话收束： BASE 的本质是承认分布式世界的混沌性，用软状态和最终一致来换取系统的可用性和扩展性，并在其上叠加对账、补偿等机制，让不一致最终无处遁形。\n\n---\n\n###
+    \U0001F310 3. 设计一个跨区域的分布式订单系统，保证高可用性与数据一致性\n\n这是一个典型的多活架构 + 分布式事务的综合性问题。假设系统部署在北京、上海、广州三个区域，每个区域有独立的数据库实例。用户下单后需要同步更新库存、积分、物流等系统。\n\n核心挑战：\n\n-
+    跨区域网络延迟大，无法做实时强一致。\n\n- 任何单一区域可能整体故障，需自动切换。\n\n- 库存是全局共享资源，需要防止超卖。\n\n设计蓝图\n\n┌──────────────┐\n
+    \                    │  全局流量调度  │ (智能 DNS / GSLB)\n                     └──────┬───────┘\n
+    \           ┌───────────────┼───────────────┐\n            ▼               ▼               ▼\n
+    \     ┌──────────┐    ┌──────────┐    ┌──────────┐\n      │ 北京区域  │    │ 上海区域
+    \ │    │ 广州区域  │\n      │ (主/从)  │    │ (主/从)  │    │ (主/从)  │\n      └─────┬────┘
+    \   └─────┬────┘    └─────┬────┘\n            │               │               │\n
+    \   ┌───────┼───────┐       │               │\n    ▼       ▼       ▼       ▼               ▼\n
+    \ ┌────┐ ┌────┐ ┌────┐  ┌────────┐    ┌────────┐\n  │订单│ │库存│ │积分│  │ 物流... │
+    \   │ 缓存... │\n  │DB  │ │DB  │ │DB  │  │         │    │         │\n  └────┘ └────┘
+    └────┘  └────────┘    └────────┘\n       (每个区域都有独立的数据库实例)\n\n核心设计原则：\n\n- 单元化架构
+    (Unitized Architecture)\n每个区域自包含全部服务（订单、库存、积分、物流等），用户按 ID 哈希或地理位置路由到固定区域，同一用户的所有数据写入只在主区域进行，避免跨区域实时同步。\n\n-
+    全局库存：区域预分配 + 中心协调\n全国库存不能直接拆分成独立实例，否则会出现超卖。\n\n- 跨区域异步通信 + 本地事务\n用户下单后，订单、库存扣减、积分发放等都在用户主区域的数据库中通过本地事务完成，保证强一致。\n物流等下游系统通过消息队列异步通知，采用本地消息表保证消息不丢失。\n\n-
+    高可用保障\n\n下单核心流程代码设计（以北京区域为例）：\n\n@Service\npublic class OrderService {\n    @Autowired
+    private OrderDao orderDao;\n    @Autowired private LocalInventoryDao localInventoryDao;\n
+    \   @Autowired private OutboxDao outboxDao;\n    @Autowired private MQProducer
+    mqProducer;\n\n    @Transactional\n    public void placeOrder(Order order) {\n
+    \       // 1. 生成订单并插入订单表\n        orderDao.insert(order);\n        // 2. 扣减本地库存配额（已预先从中心库存池申请）\n
+    \       for (OrderItem item : order.getItems()) {\n            int affected =
+    localInventoryDao.deductQuota(item.getSkuId(), item.getQty());\n            if
+    (affected == 0) {\n                // 若配额不足，触发异步申请配额，事务回滚，客户端可稍后重试\n                throw
+    new InsufficientQuotaException();\n            }\n        }\n        // 3. 本地消息表记录需异步通知的事件\n
+    \       outboxDao.insert(new Outbox(\"order_placed\", order.getId(), orderJson));\n
+    \       // 事务提交后，后台定时任务将 outbox 消息可靠地发送到 MQ\n    }\n}\n\n// 定时任务：发送 outbox 中待处理的消息\n@Scheduled(fixedDelay
+    = 2000)\npublic void sendOutboxMessages() {\n    List<Outbox> pending = outboxDao.findPending(100);\n
+    \   for (Outbox msg : pending) {\n        boolean sent = mqProducer.send(msg.getTopic(),
+    msg.getPayload());\n        if (sent) {\n            outboxDao.markSent(msg.getId());\n
+    \       }\n    }\n}\n\n下游系统消费（积分、物流等）\n\n// 积分服务消费者（可能部署在北京之外的区域，但无所谓）\n@RocketMQMessageListener(topic
+    = \"order_placed\", consumerGroup = \"points_group\")\npublic class PointsConsumer
+    implements RocketMQListener<String> {\n    public void onMessage(String msg) {\n
+    \       OrderEvent event = parse(msg);\n        // 幂等：根据 orderId 判断是否已发放积分\n        if
+    (pointsService.exists(event.getOrderId())) return;\n        // 发放积分（与积分发放流水记录在同一本地事务）\n
+    \       pointsService.award(event);\n    }\n}\n\n中心库存配额管理服务\n\npublic class GlobalInventoryService
+    {\n    // 区域请求配额\n    @Transactional\n    public synchronized InventoryQuota requestQuota(String
+    region, String skuId, int qty) {\n        GlobalInventory global = globalInventoryDao.findBySku(skuId);\n
+    \       if (global.getAvailable() < qty) {\n            throw new InsufficientGlobalStockException();\n
+    \       }\n        global.setAvailable(global.getAvailable() - qty);\n        globalInventoryDao.update(global);\n
+    \       RegionQuota quota = new RegionQuota(region, skuId, qty);\n        regionQuotaDao.insert(quota);\n
+    \       return quota;\n    }\n}\n\n跨区域故障转移\n\n当北京区域整体不可用时，GSLB 将用户流量导向上海。此时上海区域数据库中没有该用户的数据。解决方案：\n\n-
+    对于未登录用户或新会话，直接在上海区域创建新数据，无影响。\n\n- 对于已登录用户，由于我们采用单元化设计，用户数据本应在主区域。故障期间，可以降级提供只读缓存数据（如从异地灾备的只读副本读取），或提示用户稍后重试。通常数据中心间有专线，可以进行数据库的准实时备份和日志同步（如
+    MySQL 异步复制），切换后短暂缺失的数据由对账任务补齐。\n\n收束：\n\n跨区域订单系统的设计，本质上是用单元化来压缩分布式事务的范围，用库存配额来化解全局热点，用本地消息表来保证异步通知的可靠，用最终一致性来弥补同步强一致的不可能。在这样的架构下，系统既能扛住亿级流量的冲击，也能在任一数据中心倒塌时从容转身。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AGnfw5HNEiq7yikBWUvcMoK7nSb
+  block_id: doxcnhM6xqppqyglK0ZOC46nm0f
+  page_token: AGnfw5HNEiq7yikBWUvcMoK7nSb
+  original_title: 1.1 CAP 理论与 BASE 理论
+  imported_at: '2026-09-21'

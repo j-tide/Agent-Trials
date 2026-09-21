@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-589fd45641cf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么大模型训练需要使用数据并行和模型并行，有时还会遇到通信死锁？如何避免？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 四：训练优化与稳定性
+tags: &1
+- Transfomer精选面试
+- 四：训练优化与稳定性
+content:
+  prompt: 为什么大模型训练需要使用数据并行和模型并行，有时还会遇到通信死锁？如何避免？
+answer:
+  mode: rubric
+  reference_answer: |-
+    大模型的参数量巨大，远超单卡显存，因此必须使用分布式训练将模型切分到多卡。
+
+    数据并行：每张卡持有一份完整的模型副本，数据被均分到各卡。每张卡独立前向、反向得到梯度，然后通过 AllReduce 操作将所有卡的梯度求和（或平均），最后每张卡用聚合后的梯度更新自己的副本。当模型本身单卡可以容纳时，这是最直接高效的并行方式。
+
+    模型并行：模型本身被切分到不同卡上。分为张量并行（将单个矩阵乘法切分到多卡）和流水线并行（将不同层放在不同卡）。这些方式会在卡之间引入通信，比如张量并行在每次前向和反向时需要做 AllReduce 或 AllGather。
+
+    通信死锁的成因：分布式训练中，不同卡上的操作需要协调一致。如果通信原语不匹配（例如一张卡在发送数据，另一张卡却在等待接收不同大小的数据），或者由于代码 bug 导致一张卡跳过了某个通信步骤，就会发生死锁——所有卡互相等待，训练卡死。常见触发条件包括：
+
+    - 条件分支导致不同卡执行了不同的通信操作（比如 if-else 中某张卡进入了另一分支）。
+
+    - 数据加载不均衡导致某张卡提前结束了数据迭代，而其他卡还在等待聚合梯度。
+
+    - 使用 NCCL 等通信库时，配置不当（如环境变量设置错误）。
+
+    避免方法：保持所有卡上的代码逻辑严格一致，避免任何可能产生分支的操作（包括 Python 的 if 语句、assert 等）；使用框架提供的分布式训练 API（如 PyTorch DDP、DeepSpeed），它们已经处理了这些细节；在遇到死锁时，通过检查 NCCL 日志、设置超时和添加调试信息来定位。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqirwcUjyijJgRkTP9QcslHJnde
+  block_id: QX8zdapRwofLI5xBaIYcuHatnRe
+  page_token: EqirwcUjyijJgRkTP9QcslHJnde
+  original_title: 为什么大模型训练需要使用数据并行和模型并行，有时还会遇到通信死锁？如何避免？
+  imported_at: '2026-09-21'

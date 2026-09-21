@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f8fc62007673
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练时发现 GPU 温度过高降频，如何影响训练稳定性？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 训练时发现 GPU 温度过高降频，如何影响训练稳定性？
+answer:
+  mode: rubric
+  reference_answer: |-
+    GPU温度过高导致降频（throttling），核心时钟频率下降，计算性能降低。这直接破坏训练的同步性。
+
+    影响：
+
+    - 慢节点效应：在数据并行中，所有GPU必须等待同步（AllReduce）。如果某张GPU因为降频而计算变慢，整个训练集群都会被拖慢，GPU利用率骤降。这虽然不直接导致数值错误，但严重影响训练吞吐。
+
+    - 时间依赖的操作：某些通信集合操作有内部超时设置。如果降频卡迟迟未完成计算，可能导致通信超时，触发NCCL超时错误，训练崩溃。
+
+    - 显存温度过高：显存（HBM）也有工作温度范围。过热可能导致数据传输错误（ECC错误），产生静默数据损坏（见下题），这是最致命的稳定性威胁。
+
+    - 硬件保护关机：极端情况下，GPU会为了保护自己而触发硬件断电，导致训练硬中断。
+
+    缓解和监测：
+
+    - 使用nvidia-smi或DCGM持续监控GPU温度（核心温度<85°C，显存温度<95°C为宜）。
+
+    - 确保服务器散热良好，机架风扇全速，数据中心环境温度在规定范围内。
+
+    - 在训练脚本中检测到降频时，输出警告；如果持续降频，可主动暂停训练，等待温度恢复或迁移任务。
+
+    - 对大功率GPU（如A100/H100），采用液冷方案是最彻底的解决办法。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: BKtZdAvVTo78cLxJ9njcBzXTneg
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: 训练时发现 GPU 温度过高降频，如何影响训练稳定性？
+  imported_at: '2026-09-21'

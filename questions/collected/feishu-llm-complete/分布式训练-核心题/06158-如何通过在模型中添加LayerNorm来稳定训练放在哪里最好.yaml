@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-065572fa2978
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何通过在模型中添加“LayerNorm”来稳定训练？放在哪里最好？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 如何通过在模型中添加“LayerNorm”来稳定训练？放在哪里最好？
+answer:
+  mode: rubric
+  reference_answer: |-
+    LayerNorm的作用是对每个token的表示向量进行归一化（减均值除方差），使得每层输入保持稳定的分布（均值0方差1）。这能防止深层网络的激活值逐层放大或缩小，从而抑制梯度消失和爆炸，加速收敛。
+
+    LayerNorm的放置有两种经典方式：
+
+    Post-Norm（原始Transformer论文）：
+    结构为 LayerNorm(x + Sublayer(x))。即先计算残差连接，再做归一化。在这种设计下，残差分支的梯度必须经过LayerNorm才能回传。LayerNorm的梯度包含对输入方差的缩放因子，当层数很深时，多层缩放因子连乘可能指数级放大或缩小梯度，导致梯度爆炸或消失。因此Post-Norm对学习率和初始化极其敏感，训练深层网络非常困难。早期很多工作使用Post-Norm，需要精细的warmup和学习率调优才能稳定。
+
+    Pre-Norm（现代主流）：
+    结构为 x + Sublayer(LayerNorm(x))。即先对输入归一化，再送入子层，最后与原始输入相加。这种设计下，残差路径完全绕过了LayerNorm，梯度可以沿着残差连接直接回传，不受任何归一化缩放的影响。LayerNorm只负责调控进入子层的输入分布，使其稳定。因此Pre-Norm训练极其稳定，可以堆叠数百甚至上千层，对学习率和初始化也不敏感。几乎所有现代大模型（GPT系列、LLaMA、BERT等）都使用Pre-Norm。
+
+    经验总结：如果你要训练超过24层的Transformer，务必使用Pre-Norm。Post-Norm虽然在同等配置下有时能获得略好的最终性能（因为其LayerNorm起到了更强的正则化效果），但调参成本太高。Pre-Norm开箱即用，是大规模训练的标配。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: PjtQdc8gpoJwmXxQm4QcgFJInde
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: 如何通过在模型中添加“LayerNorm”来稳定训练？放在哪里最好？
+  imported_at: '2026-09-21'

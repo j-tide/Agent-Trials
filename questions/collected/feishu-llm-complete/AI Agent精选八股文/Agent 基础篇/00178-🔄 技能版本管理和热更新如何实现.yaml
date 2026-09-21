@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-accb931b8caa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F504 技能版本管理和热更新如何实现？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F504 技能版本管理和热更新如何实现？"
+answer:
+  mode: rubric
+  reference_answer: "技能版本管理要解决的问题：Worker Agent 的技能升级了（输入参数变了、行为逻辑改了），不能一次性中断所有正在运行的任务。要做到平滑过渡、新旧兼容。\n\n设计蓝图：\n\n[图片内容未导入]\n\n四步实现：\n\n①
+    注册中心存储多版本 Agent Card\n\nWorker 启动时向注册中心注册自己支持的多个版本。每个版本对应一组完整的技能定义。\n\n```json\n{\n
+    \ \"agentId\": \"financial-analyst\",\n  \"versions\": [\n    {\n      \"version\":
+    \"1.0.0\",\n      \"url\": \"https://worker:9090/v1/a2a\",\n      \"skills\":
+    [...]\n    },\n    {\n      \"version\": \"1.1.0\",\n      \"url\": \"https://worker:9090/v2/a2a\",\n
+    \     \"skills\": [...]  // 可能技能名相同但 inputSchema 不同\n    }\n  ],\n  \"defaultVersion\":
+    \"1.1.0\"\n}\n```\n\n② 技能请求携带版本约束\n\nOrchestrator 在分配任务时，可以指定所需技能的最低版本、精确版本或版本范围。\n\n```python\n#
+    任务定义时带版本要求\ntask = Task(\n    description=\"分析财报\",\n    required_skills=[\"financial_statement_analysis\"],\n
+    \   version_constraint=\">=1.0.0\"  # 最低版本\n)\n```\n\n③ 路由时选择合适版本\n\nOrchestrator
+    从注册中心拉取该 Agent 的所有版本，根据约束和当前灰度策略选择最合适的。\n\n```python\ndef select_agent_version(agent_card,
+    constraint, rollout_policy):\n    valid_versions = [v for v in agent_card.versions
+    \n                      if version_satisfies(v.version, constraint)]\n    if rollout_policy.get(\"canary\"):\n
+    \       # 灰度：10% 流量走新版本\n        if random.random() < 0.1:\n            return
+    find_version(valid_versions, rollout_policy[\"canary_version\"])\n    # 否则选最新的稳定版\n
+    \   return valid_versions[-1]\n```\n\n④ 热更新与旧任务排空\n\n- 不中断正在运行的任务：更新版本时，旧的 Worker
+    实例继续保持服务，直到其上的所有长任务完成。\n\n- 新任务引流：新启动的 Worker 实例注册新版本，Orchestrator 的流量逐渐切过去。\n\n-
+    优雅关闭：旧 Worker 收到 SIGTERM 后，不再接受新任务，等待现有任务完成（或超时强制结束），然后退出。\n\n- 客户端无感：Orchestrator
+    连接的是注册中心，它根据版本策略动态选择 URL，Worker 的启停对它透明。\n\n代码骨架：Worker 侧热更新\n\n```python\nclass
+    Worker:\n    def __init__(self, version):\n        self.version = version\n        self.active_tasks
+    = set()\n\n    async def start(self):\n        await self.register_to_registry(self.version)
+    \ # 上报新版本\n        # 启动旧版本排空等待...\n    \n    async def shutdown(self):\n        #
+    1. 取消注册，新任务不再路由过来\n        await self.deregister()\n        # 2. 等待所有进行中任务完成，最多等
+    60 秒\n        await asyncio.wait_for(\n            asyncio.gather(*self.active_tasks,
+    return_exceptions=True),\n            timeout=60\n        )\n        # 3. 强制终止剩下未完成的任务并告警\n
+    \       for task in self.active_tasks:\n            task.cancel()\n```\n\n灰度发布策略：\n\n-
+    Canary：先让 5% 的新任务路由到新版本，观察 30 分钟无报错，逐步扩大到 50%、100%。\n\n- 按租户/场景灰度：更精细的做法，指定特定测试租户使用新版本，生产租户继续用旧版本。\n\n总结：
+    技能版本化让 Agent 的迭代从“心惊胆战的停机更新”变成了“从容不迫的平滑演进”。注册中心是多版本的目录，Orchestrator 是灵活的路由器，Worker
+    的优雅关闭则是保证任务零丢失的最后一道门。这一套机制，正是多 Agent 系统可持续进化的根基。\n\n- 子任务 A：从数据仓库拉取销售数据 → 用 MCP
+    调用 query_database 工具。\n\n- 子任务 B：根据数据生成文本分析 → 用 A2A 派发给“数据分析师 Agent”。\n\n- 子任务
+    C：根据分析结果和区域名单发送邮件 → 用 A2A 派发给“邮件助手 Agent”。\n\n- streaming：是否支持流式返回中间结果。\n\n- pushNotifications：是否支持主动推送状态更新（如
+    Webhook）。\n\n- maxTaskDuration：该 Agent 处理任务的最长耗时（秒）。Orchestrator 可以据此设置超时。\n\n-
+    认证方式（OAuth2, API Key, mTLS）。\n\n- 授权范围（这个 Agent 能处理哪些数据等级、能调用哪些下游服务）。这决定了它是否适合处理包含敏感信息的任务。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Bc6JwKFZHiApXjkusvBcTTrYnne
+  block_id: doxcnjt9TBM1c3uutUPhzF4hmWg
+  page_token: Bc6JwKFZHiApXjkusvBcTTrYnne
+  original_title: "\U0001F504 技能版本管理和热更新如何实现？"
+  imported_at: '2026-09-21'

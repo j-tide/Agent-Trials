@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e096ebeb88eb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在多模态模型的热更新中，如何保证与已索引的视觉缓存兼容？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 在多模态模型的热更新中，如何保证与已索引的视觉缓存兼容？
+answer:
+  mode: rubric
+  reference_answer: |-
+    视觉缓存（如向量数据库中存储的图像特征）依赖于视觉编码器生成的嵌入。如果更新编码器，嵌入空间可能漂移，导致旧缓存失效。
+
+    保证兼容性的策略：
+
+    - 固定嵌入维度和归一化：新视觉编码器必须输出与旧模型相同维度的向量，并做相同的L2归一化。可通过在编码器后加一个可训练的线性投影层对齐维度。
+
+    - 新老编码器联合训练：在微调新编码器时，加入对比损失，不仅拉近新视觉嵌入与文本嵌入，还强制新视觉嵌入与旧视觉嵌入一致（蒸馏损失）。可采样部分旧缓存中的特征作为正样本。
+
+    - 双编码器过渡：部署期间同时运行新旧编码器，新请求使用新编码器，但检索时同时查询旧索引和新索引（如果旧索引仍在）。通过重排序融合两个结果。待新索引构建完成且验证一致性后，再下线旧编码器。
+
+    - 索引重建策略：如果嵌入空间变化不可避免，则采用基于事件的增量重建。新编码器上线后，后台异步任务重新编码所有图像并更新向量数据库条目。由于向量数据库支持主键更新，可在不中断服务的情况下逐步替换。在此期间，查询将路由到旧索引，直到重建完成。
+
+    - 版本化缓存：为每条缓存记录添加encoder_version字段。查询时，根据当前编码器版本筛选对应缓存。这需要向量数据库支持元数据过滤。同时维护多个版本索引，新版本逐步接管流量。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VsAbwji0Oi6LZTkieUjcQWqSnAc
+  block_id: OkqAduinIoCPAVxvaV5cGLhgnth
+  page_token: VsAbwji0Oi6LZTkieUjcQWqSnAc
+  original_title: 在多模态模型的热更新中，如何保证与已索引的视觉缓存兼容？
+  imported_at: '2026-09-21'

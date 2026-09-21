@@ -1,0 +1,278 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2281bfa370b9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3.2 pt-online-schema-change
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 3.2 pt-online-schema-change
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### pt-online-schema-change 工作原理
+
+    1、基础题：pt-online-schema-change 是什么？它的工作原理是什么？
+
+    ⭐（工具介绍、工作原理）
+
+    pt-online-schema-change 是 Percona Toolkit 提供的在线表结构变更工具，可以在不锁表的情况下修改大表结构。
+
+    工作原理：
+
+    - 创建影子表（原表的空副本）
+
+    - 在影子表上执行 DDL 操作
+
+    - 在原表上创建触发器（AFTER INSERT/UPDATE/DELETE）
+
+    - 分批复制原表数据到影子表
+
+    - 数据同步完成后，原子性重命名表（RENAME TABLE）
+
+    - 删除原表和触发器
+
+    2、进阶题：pt-online-schema-change 有哪些限制？如何避免触发器性能问题？
+
+    ⭐⭐（使用限制、性能优化）
+
+    1️⃣ Common Answer pt-online-schema-change 的限制主要是表上不能有触发器，因为工具本身要创建触发器。还有就是外键约束可能会有问题。性能方面，如果写入量很大，触发器会成为瓶颈。可以通过调整 chunk-size 来优化，每次处理少一点数据。还有就是可以在业务低峰期执行，减少影响。
+
+    2️⃣ Impressive Answer pt-online-schema-change 的使用限制：
+
+    - 触发器冲突
+
+    - 外键约束
+
+    - 唯一键冲突
+
+    - AUTO_INCREMENT 列
+
+    触发器性能优化策略：
+
+    - 调整 chunk-size
+
+    # 小 chunk-size，减少锁竞争
+    pt-online-schema-change \
+      --chunk-size=1000 \
+      --chunk-time=0.5 \
+      D=your_db,t=orders \
+      --alter "ADD INDEX idx_user_id (user_id)" \
+      --execute
+
+    - 设置负载阈值
+
+    # 超过负载阈值暂停执行
+    pt-online-schema-change \
+      --max-load="Threads_running=100,Questions=1000" \
+      --critical-load="Threads_running=200" \
+      --chunk-size=5000 \
+      D=your_db,t=orders \
+      --alter "ADD INDEX idx_user_id (user_id)" \
+      --execute
+
+    - 优化触发器逻辑
+
+    -- 工具创建的触发器示例（简化版）
+    CREATE TRIGGER pt_osc_orders_del AFTER DELETE ON orders
+    FOR EACH ROW
+    BEGIN
+        DELETE FROM _orders_new WHERE id = OLD.id;
+    END;
+
+    -- 优化：使用批量删除
+    CREATE TRIGGER pt_osc_orders_del AFTER DELETE ON orders
+    FOR EACH ROW
+    BEGIN
+        INSERT INTO _orders_new_delete_queue (id) VALUES (OLD.id);
+    END;
+
+    -- 定期批量清理
+    DELETE FROM _orders_new WHERE id IN (SELECT id FROM _orders_new_delete_queue LIMIT 1000);
+
+    - 监控触发器性能
+
+    -- 查看触发器执行次数
+    SELECT * FROM performance_schema.events_statements_summary_by_digest
+    WHERE SCHEMA_NAME = 'your_db' AND DIGEST_TEXT LIKE '%pt_osc%';
+
+    -- 查看触发器执行时间
+    SELECT * FROM performance_schema.events_statements_history_long
+    WHERE EVENT_NAME LIKE '%trigger%';
+
+    最佳实践：
+
+    - 写入量 > 1000 QPS 的表，避免使用 pt-osc
+
+    - 使用 --dry-run 先验证执行计划
+
+    - 监控触发器性能，必要时调整 chunk-size
+
+    - 主从架构先在从库执行，验证后再在主库执行
+
+    替代方案：
+
+    - 写入量大的表：使用 gh-ost（GitHub 在线 Schema 变更工具）
+
+    - MySQL 8.0+：优先使用 ALGORITHM=INSTANT
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    3、场景题：一个 5000 万行的用户表需要修改字段类型，如何安全执行？
+
+    ⭐⭐⭐（在线变更、风险控制）
+
+    1️⃣ Common Answer 修改字段类型这种操作不支持 Online DDL，只能用 pt-online-schema-change。先在测试环境试一下，看看有没有问题。然后在生产环境执行，用 --dry-run 先检查一下。执行的时候要监控负载，如果太高就暂停。还有就是要在业务低峰期执行，比如凌晨。执行之前要备份。
+
+    2️⃣ Impressive Answer 针对 5000 万行用户表修改字段类型的任务，我建议采用分级执行策略：
+
+    第一步：评估风险
+
+    # 检查表结构
+    mysql -e "SHOW CREATE TABLE users\G"
+
+    # 检查是否有触发器
+    mysql -e "SHOW TRIGGERS LIKE 'users'"
+
+    # 检查是否有外键
+    mysql -e "SELECT * FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_NAME = 'users'"
+
+    # 估算执行时间
+    # 5000 万行修改字段类型约需 4-8 小时
+
+    第二步：测试环境验证
+
+    # 在测试环境执行
+    pt-online-schema-change \
+      --alter "MODIFY COLUMN age TINYINT UNSIGNED" \
+      --dry-run \
+      D=test_db,t=users \
+      --execute
+
+    # 验证数据一致性
+    SELECT COUNT(*) FROM users;
+    SELECT COUNT(*) FROM _users_new;
+
+    第三步：生产环境执行
+
+    # 完整执行命令
+    pt-online-schema-change \
+      --alter "MODIFY COLUMN age TINYINT UNSIGNED" \
+      --chunk-size=1000 \
+      --chunk-time=0.5 \
+      --max-load="Threads_running=100,Questions=1000" \
+      --critical-load="Threads_running=200" \
+      --progress=time,30 \
+      --statistics \
+      --recursion-method=processlist \
+      D=your_db,t=users \
+      --execute
+
+    # 参数说明：
+    # --chunk-size=1000：每次处理 1000 行
+    # --chunk-time=0.5：每个 chunk 执行时间不超过 0.5 秒
+    # --max-load：负载超过阈值降低执行速度
+    # --critical-load：负载超过阈值暂停执行
+    # --progress：每 30 秒输出进度
+    # --statistics：输出统计信息
+
+    第四步：执行监控
+
+    # 监控执行进度
+    # 工具会实时输出：
+    # # Copying `your_db`.`users`:  45% 02:15 remain
+
+    # 监控数据库负载
+    watch -n 1 "mysqladmin -uroot -p processlist | grep pt-online-schema-change"
+
+    # 监控触发器性能
+    mysql -e "SELECT * FROM performance_schema.events_statements_summary_by_digest WHERE SCHEMA_NAME = 'your_db' AND DIGEST_TEXT LIKE '%pt_osc%'"
+
+    # 监控主从延迟（主从架构）
+    watch -n 1 "mysql -e 'SHOW SLAVE STATUS\G' | grep Seconds_Behind_Master"
+
+    第五步：验证结果
+
+    -- 检查表结构
+    SHOW CREATE TABLE users;
+
+    -- 检查数据一致性
+    SELECT COUNT(*) FROM users;
+
+    -- 检查触发器是否清理
+    SHOW TRIGGERS LIKE 'users';
+
+    -- 检查影子表是否删除
+    SHOW TABLES LIKE '_users%';
+
+    应急预案：
+
+    # 如果执行失败，工具会自动回滚
+    # 手动清理残留
+    DROP TABLE IF EXISTS _users_new;
+    DROP TRIGGER IF EXISTS pt_osc_users_ins;
+    DROP TRIGGER IF EXISTS pt_osc_users_upd;
+    DROP TRIGGER IF EXISTS pt_osc_users_del;
+
+    风险控制措施：
+
+    - 在业务低峰期执行（凌晨 2-6 点）
+
+    - 设置合理的负载阈值，避免影响业务
+
+    - 监控主从延迟，必要时暂停执行
+
+    - 执行前完整备份表结构和数据
+
+    - 准备回滚方案，确保可快速恢复
+
+    执行效果：
+
+    - 5000 万行修改字段类型：约 4-8 小时
+
+    - 业务影响：负载增加 < 30%，可随时暂停
+
+    - 风险：可自动回滚，数据零丢失
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IKZ3wmrGRip21hkBhZHc4rARnKe
+  block_id: doxcnV769pB8GuHUX4wd1qhdNgf
+  page_token: IKZ3wmrGRip21hkBhZHc4rARnKe
+  original_title: 3.2 pt-online-schema-change
+  imported_at: '2026-09-21'

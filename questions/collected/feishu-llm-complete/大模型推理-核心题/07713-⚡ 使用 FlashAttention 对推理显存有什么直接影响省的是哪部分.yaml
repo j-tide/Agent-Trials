@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-46d2ffc78797
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚡ 使用 FlashAttention 对推理显存有什么直接影响？省的是哪部分？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: "⚡ 使用 FlashAttention 对推理显存有什么直接影响？省的是哪部分？"
+answer:
+  mode: rubric
+  reference_answer: "FlashAttention 最大的显存节省在于消除了对完整注意力得分矩阵的存储。\n\n标准注意力计算：\n\n[图片内容未导入]\n\n其中
+    S 和 P 都是形状为 [batch, heads, seq_len, seq_len] 的矩阵。在长序列下，这两个矩阵会占用巨大的显存。例如，32k 序列、32
+    个头的单 batch，FP16 下仅 SS 矩阵就需要 8 GB 显存，这在推理中是无法接受的。\n\nFlashAttention 通过分块（Tiling）
+    技术，将 Q、K、V 分割成小块，在高速 SRAM 中逐块计算注意力，并将中间结果立即进行 softmax 归一化后乘到 V 上，全程不将完整的 S 和 P
+    矩阵写回 HBM（全局显存）。它利用在线 softmax 算法，动态更新统计量，保证了计算的数值精度。\n\n[图片内容未导入]\n\n- Prefill
+    阶段可以处理更长的 prompt，不会因 S 矩阵而 OOM。\n\n- 对于 Decode 阶段，虽然只处理一个 token，似乎没有 S 矩阵的困扰，但
+    FlashAttention 的分块策略也能优化 KV Cache 的读取模式，减少临时缓冲。\n\n- 整体上，推理时的显存峰值大幅降低，KV Cache
+    成为主要的显存消耗者，而不再是临时的激活值。\n\n\U0001F4CC 简单说，FlashAttention 让“显存里不再出现那个巨大的正方形矩阵”，这是一次内存管理的革命。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C0pNwQLAmiNN2tkVnWGccLYLns0
+  block_id: JCLbdSmHVoNfKdxW4nncIqsKnAg
+  page_token: C0pNwQLAmiNN2tkVnWGccLYLns0
+  original_title: "⚡ 使用 FlashAttention 对推理显存有什么直接影响？省的是哪部分？"
+  imported_at: '2026-09-21'

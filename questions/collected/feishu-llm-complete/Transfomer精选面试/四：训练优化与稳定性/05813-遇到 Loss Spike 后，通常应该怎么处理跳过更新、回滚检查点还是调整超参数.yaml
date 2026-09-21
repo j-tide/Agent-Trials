@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b891e3e351e9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 遇到 Loss Spike 后，通常应该怎么处理？跳过更新、回滚检查点还是调整超参数？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 四：训练优化与稳定性
+tags: &1
+- Transfomer精选面试
+- 四：训练优化与稳定性
+content:
+  prompt: 遇到 Loss Spike 后，通常应该怎么处理？跳过更新、回滚检查点还是调整超参数？
+answer:
+  mode: rubric
+  reference_answer: |-
+    面对 Loss Spike，处理策略需要根据尖峰的严重程度和发生频率分层次决策。
+
+    第一层：自动跳过异常更新。 这是最轻量、最自动化的处理方式。在训练循环中监控损失值或梯度的范数。如果当前 batch 的损失超过历史移动平均的若干倍（比如 5-10 倍），或者梯度的 L2 范数超过预设阈值，则自动跳过本次参数更新，不将这批梯度应用到优化器。这在混合精度训练中尤为常见——当动态损失缩放检测到梯度溢出，会自动减小缩放因子并重试。这种方式能过滤掉偶然的数据噪声，但无法解决系统性的训练不稳定。
+
+    第二层：从检查点回滚并调整学习率。 如果尖峰导致模型参数严重破坏，损失持续高位震荡甚至 NaN，需要立即回滚到尖峰前的检查点。恢复后，将当前学习率减半（或更大幅度），并从这批数据重新开始训练。通常还需要将 Warmup 重新开启一小段，让模型平稳过渡。这是最稳妥的恢复方式，代价是丢弃了尖峰后的一段训练。
+
+    第三层：根本性的超参数调整。 如果 Loss Spike 频繁发生，说明训练配置存在系统性问题。需要审视：
+
+    - 学习率是否过高：降低峰值学习率，或延长 Warmup 步数。
+
+    - 梯度裁剪阈值是否合适：将裁剪阈值设为历史梯度范数的 90 分位数或一个保守常数（如 1.0）。
+
+    - 初始化方案：检查是否所有层使用了正确的初始化和缩放。
+
+    - 数据质量：检查引发尖峰的批次数据，剔除明显的噪声样本。
+
+    - 优化器参数：适当增大 Adam 的 β2β2（如从 0.999 到 0.9999），让二阶矩更平滑，避免有效学习率骤然放大。
+
+    - 混合精度设置：如果使用 FP16，确保开启了动态损失缩放且初始缩放因子不过大；如果条件允许，切换到 BF16。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqirwcUjyijJgRkTP9QcslHJnde
+  block_id: JC9VdThgaoi0kRx56e5c7rF4n4e
+  page_token: EqirwcUjyijJgRkTP9QcslHJnde
+  original_title: 遇到 Loss Spike 后，通常应该怎么处理？跳过更新、回滚检查点还是调整超参数？
+  imported_at: '2026-09-21'

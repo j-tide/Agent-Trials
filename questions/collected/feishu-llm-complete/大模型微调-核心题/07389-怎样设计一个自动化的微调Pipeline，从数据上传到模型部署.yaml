@@ -1,0 +1,88 @@
+---
+schema_version: 1
+id: feishu-llm-complete-32c8d32649eb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 怎样设计一个自动化的微调Pipeline，从数据上传到模型部署？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 怎样设计一个自动化的微调Pipeline，从数据上传到模型部署？
+answer:
+  mode: rubric
+  reference_answer: |-
+    一个完整的自动化Pipeline能够将开发者从繁琐的手动操作中解放出来，实现“数据进、模型出”。设计如下：
+
+    阶段1：数据接入与校验
+
+    - 租户上传数据文件或提供数据源连接。
+
+    - 触发数据校验组件：检查数据格式（如JSONL有效性）、字段完整性、基本质量（空值、乱码）、隐私脱敏（自动检测PII）。
+
+    - 校验通过后，生成一个不可变的数据版本，并存储到数据仓库中，同时触发后续阶段。
+
+    阶段2：数据预处理与增强
+
+    - 自动执行标准的数据预处理流水线：应用对话模板、Tokenization、Loss Masking、序列打包等。
+
+    - 根据预设配置，可选地执行数据增强策略：Self-Instruct指令生成、回译、Evol-Instruct等，扩充数据集。
+
+    - 输出训练就绪的数据集（如HuggingFace Datasets格式），并缓存到高速存储中。
+
+    阶段3：训练任务编排
+
+    - 用户或系统根据数据量和模型大小，推荐微调策略（LoRA秩、学习率等）。
+
+    - 生成训练配置文件（如DeepSpeed配置、训练超参）。启动训练Job，调度到GPU集群。
+
+    - 在训练过程中，实时监控Loss、GPU利用率等指标，并推送到前端。
+
+    阶段4：自动化评估与注册
+
+    - 训练结束，触发评估Job。使用内置的评测基准（MMLU, IFEval等）和租户自定义的评测集进行打分。
+
+    - 进行安全性评估（安全红队测试）。
+
+    - 将评估结果与预定义的“投产门禁”对比。如果达标，自动将模型注册到模型仓库，状态标记为 staging。
+
+    阶段5：部署与流量切换
+
+    - 模型注册成功后，自动触发灰度部署流水线。创建一个新的推理服务实例（或更新已有服务），挂载 staging 版本的模型。
+
+    - 执行冒烟测试（Smoke Test），确保API可用性和基本功能正常。
+
+    - 冒烟测试通过后，进行A/B测试或直接进行滚动更新，将生产流量平滑切换到新模型。
+
+    - 旧模型自动归档，新模型状态更新为 production。
+
+    整个Pipeline可以通过事件驱动架构（如Kafka/MQ）或工作流引擎（如Argo Workflows, Airflow）串联起来。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ty64w3f7OipOfgkdPWVcn8ganTf
+  block_id: T6aHditBko91CExNsXLc8qYfnLe
+  page_token: Ty64w3f7OipOfgkdPWVcn8ganTf
+  original_title: 怎样设计一个自动化的微调Pipeline，从数据上传到模型部署？
+  imported_at: '2026-09-21'

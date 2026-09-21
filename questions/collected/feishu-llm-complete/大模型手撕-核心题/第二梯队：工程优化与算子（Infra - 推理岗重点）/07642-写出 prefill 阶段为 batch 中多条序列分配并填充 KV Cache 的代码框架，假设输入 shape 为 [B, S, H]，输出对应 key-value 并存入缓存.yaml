@@ -1,0 +1,113 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9d4988fe682a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出 prefill 阶段为 batch 中多条序列分配并填充 KV Cache 的代码框架，假设输入 shape 为 [B, S, H]，输出对应
+  key/value 并存入缓存。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 写出 prefill 阶段为 batch 中多条序列分配并填充 KV Cache 的代码框架，假设输入 shape 为 [B, S, H]，输出对应
+    key/value 并存入缓存。
+answer:
+  mode: rubric
+  reference_answer: |-
+    3.1 Prefill 与 Decode 的区别
+
+    - Prefill：一次性处理整个 prompt 序列，产生完整的 K 和 V。此时 self-attention 是双向的（或因果），需要一次性计算所有 token 的注意力。
+
+    - Decode：每次只处理一个新 token，利用已缓存的 K、V 进行增量计算。
+
+    3.2 通用代码框架（基于 PreallocKVCache）
+
+    ```python
+    def prefill_with_cache(model, input_ids, seq_ids, cache: PreallocKVCache):
+        """
+        input_ids: [B, S] token IDs
+        seq_ids: list of seq_id for each batch element
+        假设 model 提供 get_kv_after_forward 返回每层的 K/V
+        """
+        B, S = input_ids.shape
+        # 为每个序列注册 batch slot
+        for sid in seq_ids:
+            if sid not in cache.seq_to_slot:
+                cache.register_seq(sid)
+
+        # 模型前向传播（这里用伪代码表示）
+        # hidden_states, kv_per_layer = model.forward(input_ids, return_kv=True)
+        # kv_per_layer: list of (k, v)，每个形状 [B, num_heads, S, head_dim]
+
+        for layer_idx, (k, v) in enumerate(kv_per_layer):
+            for i, sid in enumerate(seq_ids):
+                # 取出该序列在该层的 K、V
+                k_seq = k[i:i+1]  # [1, num_heads, S, head_dim]
+                v_seq = v[i:i+1]
+                # 存储到缓存
+                cache.store_prefill(layer_idx, sid, k_seq, v_seq)
+        # 返回最终的 hidden states（用于生成第一个 token 或直接输出）
+        return hidden_states
+    ```
+
+    3.3 与 FlashAttention 结合的优化
+
+    在 prefill 阶段，长序列的计算瓶颈在于注意力矩阵的 O(N²) 显存。使用 FlashAttention 时，我们无需存储完整的注意力矩阵，但仍需要将 K、V 写出到缓存以供后续 decode 使用。因此，只需在 FlashAttention kernel 内部将计算好的 K、V 张量按块写回预先分配好的缓存区域即可。
+
+    ```python
+    # 伪代码：FlashAttention prefill 并写回缓存
+    for i in range(0, seq_len, block_size):
+        Qi = Q[:, :, i:i+block_size]
+        # 计算当前块与所有 K/V 的注意力（online softmax）
+        # ... 计算得到输出 Oi
+        # 同时，对于每个块 j，如果这是第一次计算，则将 Kj, Vj 写入缓存
+        if store_cache:
+            cache.k[layer, batch_idx, :, j_start:j_end] = Kj
+            cache.v[layer, batch_idx, :, j_start:j_end] = Vj
+    ```
+
+    3.4 变长序列的处理
+
+    当 batch 内序列长度不同时，通常将输入左填充（或右填充）到相同长度，同时使用 key_padding_mask 屏蔽填充部分。在存储 KV 时，可以只存储有效长度部分，以减少缓存浪费。
+
+    ```python
+    def prefill_variable_length(model, input_ids, seq_ids, cache, padding_mask):
+        B, S = input_ids.shape
+        outputs, kv_list = model(input_ids)
+        for layer_idx, (k, v) in enumerate(kv_list):
+            for i, sid in enumerate(seq_ids):
+                valid_len = padding_mask[i].sum().item()
+                k_valid = k[i, :, :valid_len]  # 截取有效部分
+                v_valid = v[i, :, :valid_len]
+                cache.store_prefill(layer_idx, sid, k_valid.unsqueeze(0), v_valid.unsqueeze(0))
+        return outputs
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IhgfwCPtoif3TWkyezuc4sW9nbg
+  block_id: KbNIdkyp2o3L94xzks7cb0krn2g
+  page_token: IhgfwCPtoif3TWkyezuc4sW9nbg
+  original_title: 写出 prefill 阶段为 batch 中多条序列分配并填充 KV Cache 的代码框架，假设输入 shape 为 [B,
+    S, H]，输出对应 key/value 并存入缓存。
+  imported_at: '2026-09-21'

@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1d6b858c3971
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4E1 5. 如何用 Canal 监听 MySQL Binlog 实现缓存主动失效？架构链路是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F4E1 5. 如何用 Canal 监听 MySQL Binlog 实现缓存主动失效？架构链路是什么？"
+answer:
+  mode: rubric
+  reference_answer: "Canal 是阿里开源的一款 MySQL Binlog 增量订阅和消费组件。它伪装成 MySQL 的 Slave，向主库请求
+    Binlog，然后解析为结构化的事件流，推送给下游消费者。\n\n完整架构链路\n\n┌─────────┐   写操作   ┌─────────┐  Binlog
+    \  ┌─────────┐\n│ 应用服务 │ ────────→ │  MySQL  │ ───────→ │  Canal  │\n└─────────┘
+    \          └─────────┘          └────┬────┘\n                                                │
+    解析后的 JSON 事件\n                                                ▼\n                                         ┌──────────┐\n
+    \                                        │  Kafka /  │\n                                         │
+    \ RocketMQ │\n                                         └─────┬────┘\n                                               │
+    消费\n                                               ▼\n                                    ┌──────────────────┐\n
+    \                                   │ 缓存更新服务       │\n                                    │
+    (消费Binlog事件)   │\n                                    └────┬─────────────┘\n                                         │
+    删除/更新 key\n                                         ▼\n                                      ┌───────┐\n
+    \                                     │ Redis │\n                                      └───────┘\n\n各组件职责：\n\n-
+    MySQL：开启 Binlog，格式设为 ROW（Canal 只能解析 ROW 格式）。\n\n- Canal Server：模拟 Slave，连接 MySQL
+    主库，拉取 Binlog 并解析为 CanalEntry 事件。可配置为将事件投递到 MQ（如 Kafka）。\n\n- 消息队列（Kafka）：解耦 Canal
+    和消费者，提供消息持久化和回溯能力。\n\n- 缓存更新服务：订阅 Kafka Topic，根据事件的表名、操作类型（INSERT/UPDATE/DELETE）和变更的数据，构造对应的缓存
+    key，执行删除或更新操作。\n\n示例代码：缓存更新服务消费 Binlog 事件\n\n假设我们监听 products 表的变更，缓存 key 为 product:{id}。\n\n//
+    Kafka 消费者监听 Canal 发送的 JSON 消息\n@KafkaListener(topics = \"canal_topic\")\npublic
+    void consume(String message) {\n    CanalMessage canalMsg = JSON.parseObject(message,
+    CanalMessage.class);\n    for (CanalEntry entry : canalMsg.getEntries()) {\n        String
+    table = entry.getHeader().getTableName();\n        if (!\"products\".equals(table))
+    continue;\n        \n        String eventType = entry.getHeader().getEventType();\n
+    \       for (CanalEntry.RowData rowData : entry.getRowDataList()) {\n            String
+    productId;\n            // 根据操作类型获取 ID\n            if (\"DELETE\".equals(eventType))
+    {\n                productId = getColumnValue(rowData.getBeforeColumnsList(),
+    \"id\");\n            } else {\n                productId = getColumnValue(rowData.getAfterColumnsList(),
+    \"id\");\n            }\n            // 删除缓存\n            redis.del(\"product:\"
+    + productId);\n        }\n    }\n}\n\n为什么选择 ROW 格式的 Binlog？\n\nROW 格式记录了每一行数据变更前后的完整内容，而不是
+    SQL 语句。这样我们就能精确知道哪个字段变了，从而精准失效对应缓存，甚至实现缓存的部分更新。\n\n收束：Canal 主动失效机制把缓存的“手动档”升级为“自动档”——应用无需再关心何时删缓存，只需要专注写数据库。这一架构是构建稳定、可扩展缓存系统的核心基础。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QbEawmJTRiAdEik5pKCciSZqnTf
+  block_id: doxcnmiSMyVED2zZdXIwcqZ7o4b
+  page_token: QbEawmJTRiAdEik5pKCciSZqnTf
+  original_title: "\U0001F4E1 5. 如何用 Canal 监听 MySQL Binlog 实现缓存主动失效？架构链路是什么？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ee8444cae8ed
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 DDP 中，如何获取 rank 和 world_size？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 在 DDP 中，如何获取 rank 和 world_size？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在训练脚本中，需要获取当前进程的全局排名（rank）、本机内的本地排名（local_rank）以及总进程数（world_size），用于模型放置、数据分发和日志控制。
+
+    ### 通过环境变量获取（torchrun 启动后自动设置）
+
+    ```python
+    import os
+
+    local_rank = int(os.environ['LOCAL_RANK'])   # 节点内 GPU 编号，用于 cuda 设备设置
+    rank = int(os.environ['RANK'])               # 全局唯一进程编号
+    world_size = int(os.environ['WORLD_SIZE'])   # 总进程数
+    ```
+
+    ### 通过 torch.distributed API 获取
+
+    ```python
+    import torch.distributed as dist
+
+    # 需要在 init_process_group 之后才能使用
+    rank = dist.get_rank()
+    world_size = dist.get_world_size()
+    local_rank = rank % torch.cuda.device_count()  # 单机多卡场景下等价于 LOCAL_RANK
+    ```
+
+    这两种方式可以互相印证，os.environ 方式更早可用（初始化进程组之前），常用于在启动时绑定 GPU。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GSO0wLgvGi8yaCktRbBc92Dbnhh
+  block_id: Knumd3SWxoXot3x4Fhfc8Byfnsc
+  page_token: GSO0wLgvGi8yaCktRbBc92Dbnhh
+  original_title: 在 DDP 中，如何获取 rank 和 world_size？
+  imported_at: '2026-09-21'

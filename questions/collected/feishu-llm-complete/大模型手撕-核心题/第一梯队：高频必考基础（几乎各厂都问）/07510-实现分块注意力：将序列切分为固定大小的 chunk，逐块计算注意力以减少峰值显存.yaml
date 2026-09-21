@@ -1,0 +1,97 @@
+---
+schema_version: 1
+id: feishu-llm-complete-09691ad677c1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现分块注意力：将序列切分为固定大小的 chunk，逐块计算注意力以减少峰值显存。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 实现分块注意力：将序列切分为固定大小的 chunk，逐块计算注意力以减少峰值显存。
+answer:
+  mode: rubric
+  reference_answer: |-
+    15.1 原理
+
+    将 Q 和 K、V 按序列长度切分成块，外层循环遍历 Q 块，内层循环遍历 K、V 块。每对块计算局部注意力，并用 online softmax 增量更新输出，避免一次性分配完整的 L x L 矩阵。
+
+    15.2 代码实现
+
+    ```python
+    def chunked_attention(Q, K, V, chunk_size=256, scale=None):
+        """
+        Q, K, V: (B, H, L, D)
+        """
+        B, H, L, D = Q.shape
+        if scale is None:
+            scale = math.sqrt(D)
+        O = torch.zeros_like(Q)
+        L = torch.zeros(B, H, L, 1, device=Q.device)  # 归一化累加器
+        M = torch.full((B, H, L, 1), -float('inf'), device=Q.device)  # 最大值
+
+        for i in range(0, L, chunk_size):
+            Q_chunk = Q[:, :, i:i+chunk_size]  # (B, H, Qc, D)
+            Qc = Q_chunk.shape[2]
+            for j in range(0, L, chunk_size):
+                K_chunk = K[:, :, j:j+chunk_size]  # (B, H, Kc, D)
+                V_chunk = V[:, :, j:j+chunk_size]
+                Kc = K_chunk.shape[2]
+
+                scores = torch.matmul(Q_chunk, K_chunk.transpose(-2, -1)) / scale  # (B, H, Qc, Kc)
+
+                # Online softmax
+                M_prev = M[:, :, i:i+Qc]
+                L_prev = L[:, :, i:i+Qc]
+                M_cur = torch.max(scores, dim=-1, keepdim=True)[0]
+                M_new = torch.maximum(M_prev, M_cur)
+
+                # 修正旧累加值
+                L_prev_corrected = L_prev * torch.exp(M_prev - M_new)
+                L_cur = torch.exp(scores - M_new).sum(dim=-1, keepdim=True)
+                L_new = L_prev_corrected + L_cur
+
+                # 更新输出
+                O[:, :, i:i+Qc] = O[:, :, i:i+Qc] * torch.exp(M_prev - M_new) + \
+                                   torch.matmul(torch.exp(scores - M_new), V_chunk)
+
+                M[:, :, i:i+Qc] = M_new
+                L[:, :, i:i+Qc] = L_new
+
+        O = O / L  # 最终归一化
+        return O
+    ```
+
+    15.3 效果
+
+    峰值显存从 O(L^2) 降至 O(chunk_size^2)，使长序列成为可能。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTpnwxWMsiVDwIkIoX0c1TU4ned
+  block_id: UccOdwoaSoPIB8xIEP8c0sQInkd
+  page_token: QTpnwxWMsiVDwIkIoX0c1TU4ned
+  original_title: 实现分块注意力：将序列切分为固定大小的 chunk，逐块计算注意力以减少峰值显存。
+  imported_at: '2026-09-21'

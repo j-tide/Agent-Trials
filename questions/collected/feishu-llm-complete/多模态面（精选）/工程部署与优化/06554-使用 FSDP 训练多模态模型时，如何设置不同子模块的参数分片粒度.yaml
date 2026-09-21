@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3a591b3aaad8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 FSDP 训练多模态模型时，如何设置不同子模块的参数分片粒度？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 使用 FSDP 训练多模态模型时，如何设置不同子模块的参数分片粒度？
+answer:
+  mode: rubric
+  reference_answer: |-
+    FSDP（Fully Sharded Data Parallel）将模型参数分片到所有数据并行GPU上。多模态模型的模块参数差异大，一刀切的分片粒度会效率低下。
+
+    分片粒度设置原则：
+
+    - 参数小的模块不分片：视觉编码器、投影层等参数不足1亿的模块，单卡完全可容纳，分片只会引入额外通信。设置fsdp_auto_wrap_policy时，将该模块的min_num_params设得很大，使其不被分片。
+
+    - LLM按层分片：对LLM的每个Transformer层独立分片，即每层为一个FSDP单元。这需要在定义模型时，将LLM的各层用nn.ModuleList或类似的单独封装。
+
+    - 投影层独立分片或与视觉编码器绑定：投影层参数量小，通常跟随视觉编码器不分片。若投影层之后还有多层处理，可将其与LLM的第一层合并。
+
+    PyTorch FSDP配置示例：
+
+    from torch.distributed.fsdp import ShardingStrategy, BackwardPrefetch
+    # 对LLM的各层启用FSDP
+    auto_wrap_policy = partial(
+        transformer_auto_wrap_policy,
+        transformer_layer_cls={LLaMADecoderLayer}
+    )
+    # 视觉编码器参数少，不分片，通过ignored_modules排除
+    fsdp_config = dict(
+        auto_wrap_policy=auto_wrap_policy,
+        sharding_strategy=ShardingStrategy.FULL_SHARD,
+        backward_prefetch=BackwardPrefetch.BACKWARD_PRE,
+        ignored_modules=[vision_encoder, projection_layer]
+    )
+
+    效果：LLM每层分片可达到良好的显存均衡；视觉编码器不分片避免了不必要的小参数通信。这种混合粒度分片是FSDP训练多模态模型的最佳实践。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  block_id: H7R8dLRbroUS4Lxr5zmc5guwnDB
+  page_token: KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  original_title: 使用 FSDP 训练多模态模型时，如何设置不同子模块的参数分片粒度？
+  imported_at: '2026-09-21'

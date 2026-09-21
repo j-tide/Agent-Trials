@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0d93172c939a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 2、进阶题：WebAsyncManager 的工作原理？异步请求的超时和错误处理机制？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 2、进阶题：WebAsyncManager 的工作原理？异步请求的超时和错误处理机制？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（WebAsyncManager、超时处理、错误处理）\n\n1️⃣ Common Answer\n\nWebAsyncManager
+    是管理异步请求的，超时了就返回错误。错误处理可以用 @ExceptionHandler。\n\n2️⃣ Impressive Answer\n\n我从 4
+    个维度解析：\n\n- WebAsyncManager 工作原理： WebAsyncManager 是 Spring MVC 异步处理的核心组件：\n\n-
+    初始化：在 HandlerAdapter 中检测到 Callable/DeferredResult 时创建\n\n- 启动异步：调用 startAsyncProcessing()，将请求标记为异步\n\n-
+    超时管理：注册超时回调，超时后调用 onTimeout()\n\n- 结果设置：通过 setResult() 或 setErrorResult() 设置结果\n\n-
+    请求分发：异步完成后，重新分发请求到 DispatcherServlet\n\n- 异步请求处理流程：\n\n```text\n请求 → DispatcherServlet\n
+    \ → HandlerAdapter\n  → 检测到 Callable/DeferredResult\n  → WebAsyncManager.startAsyncProcessing()\n
+    \ → 释放 Tomcat 线程\n  → 任务线程执行\n  → WebAsyncManager.setResult()\n  → 重新分发请求\n  →
+    DispatcherServlet\n  → 返回响应\n```\n\n- 超时和错误处理：\n\n```text\n@RestController\n@RequestMapping(\"/api/agent/async\")\npublic
+    class AgentAsyncController {\n    \n    // 超时处理\n    @GetMapping(\"/timeout\")\n
+    \   public DeferredResult<String> asyncWithTimeout() {\n        DeferredResult<String>
+    result = new DeferredResult<>(3000L); // 3秒超时\n        \n        // 超时回调\n        result.onTimeout(()
+    -> {\n            result.setErrorResult(\"Request timeout\");\n        });\n        \n
+    \       // 错误回调\n        result.onError((Throwable t) -> {\n            result.setErrorResult(\"Error:
+    \" + t.getMessage());\n        });\n        \n        // 完成回调\n        result.onCompletion(()
+    -> {\n            log.info(\"Async request completed\");\n        });\n        \n
+    \       // 异步执行\n        CompletableFuture.supplyAsync(() -> {\n            try
+    {\n                Thread.sleep(5000); // 超过超时时间\n                return \"Success\";\n
+    \           } catch (InterruptedException e) {\n                throw new RuntimeException(e);\n
+    \           }\n        }).whenComplete((res, ex) -> {\n            if (ex != null)
+    {\n                result.setErrorResult(ex);\n            } else {\n                result.setResult(res);\n
+    \           }\n        });\n        \n        return result;\n    }\n    \n    //
+    全局异常处理\n    @ExceptionHandler\n    @ResponseStatus(HttpStatus.REQUEST_TIMEOUT)\n
+    \   public String handleTimeout(AsyncRequestTimeoutException ex) {\n        return
+    \"Async request timeout: \" + ex.getMessage();\n    }\n}\n```\n\n- Agent 场景：长时间运行任务\n\n```text\n@Service\npublic
+    class AgentTaskService {\n    \n    @Async(\"agentTaskExecutor\")\n    public
+    CompletableFuture<String> executeLongRunningTask(String taskId) {\n        //
+    Agent 深度搜索、多步推理等长时间任务\n        try {\n            // 模拟长时间任务\n            Thread.sleep(10000);\n
+    \           return CompletableFuture.completedFuture(\"Task \" + taskId + \" completed\");\n
+    \       } catch (InterruptedException e) {\n            return CompletableFuture.failedFuture(e);\n
+    \       }\n    }\n}\n\n@RestController\n@RequestMapping(\"/api/agent/task\")\npublic
+    class AgentTaskController {\n    \n    @PostMapping(\"/{taskId}\")\n    public
+    DeferredResult<TaskResult> executeTask(@PathVariable String taskId) {\n        DeferredResult<TaskResult>
+    result = new DeferredResult<>(30000L); // 30秒超时\n        \n        result.onTimeout(()
+    -> {\n            result.setErrorResult(TaskResult.error(\"Task timeout\"));\n
+    \       });\n        \n        agentTaskService.executeLongRunningTask(taskId)\n
+    \           .thenAccept(res -> {\n                result.setResult(TaskResult.success(res));\n
+    \           })\n            .exceptionally(ex -> {\n                result.setErrorResult(TaskResult.error(ex.getMessage()));\n
+    \               return null;\n            });\n        \n        return result;\n
+    \   }\n}\n```\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EvyJwQ60XiC313kQqbUcyFhEnAh
+  block_id: doxcnOSXN53HmZXPEPVU49T0mlg
+  page_token: EvyJwQ60XiC313kQqbUcyFhEnAh
+  original_title: 2、进阶题：WebAsyncManager 的工作原理？异步请求的超时和错误处理机制？
+  imported_at: '2026-09-21'

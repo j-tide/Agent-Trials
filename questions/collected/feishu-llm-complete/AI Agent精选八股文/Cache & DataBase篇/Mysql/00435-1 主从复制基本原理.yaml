@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-33ef3152a42a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 1.1 主从复制基本原理
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 1.1 主从复制基本原理
+answer:
+  mode: rubric
+  reference_answer: "### MySQL 主从复制的核心流程\n\n1、基础题：MySQL 主从复制的基本原理是什么？\n\n⭐（考察主从复制流程、线程角色、binlog
+    作用）\n\nMySQL 主从复制通过三个线程实现数据同步：\n\n- 主库线程：执行 SQL 语句，将数据变更记录到 binlog\n\n- 从库 IO
+    线程：连接主库，请求 binlog，写入 relay log\n\n- 从库 SQL 线程：读取 relay log，重放 SQL 语句\n\n核心流程：主库写入
+    binlog → 从库 IO 线程拉取 binlog → 从库 SQL 线程重放执行\n\n2、进阶题：详细描述主从复制的完整流程，包括各个线程的作用和 relay
+    log 的机制\n\n⭐⭐（考察线程协作机制、relay log 作用、复制延迟原因）\n\n1️⃣ Common Answer 主从复制就是主库写数据的时候，会把
+    SQL 记录到 binlog 里，然后从库有个 IO 线程去拉取 binlog，拉回来之后放到 relay log 里，然后 SQL 线程再从 relay
+    log 里读出来执行，这样从库就和主库一样了。反正就是通过三个线程配合，主库负责写 binlog，从库负责拉取和执行，最终实现数据同步。relay log
+    就是中间的一个日志，用来存储从库拉过来的 binlog 内容。\n\n2️⃣ Impressive Answer MySQL 主从复制的核心是通过三个线程的协作实现数据同步，我来详细说明整个流程：\n\n首先，主库侧的工作机制：
+    当主库执行写操作（INSERT、UPDATE、DELETE）时，事务提交后会将数据变更记录到 binlog（二进制日志）中。binlog 是逻辑日志，记录的是
+    SQL 语句或行数据的变化。\n\n其次，从库侧的拉取机制： 从库启动后会创建一个 IO 线程，该线程会连接到主库，并请求从指定位置开始读取 binlog。IO
+    线程会将读取到的 binlog 事件写入从库本地的 relay log（中继日志）中，同时记录读取位置到 master.info 文件中，确保断线重连后能从正确位置继续。\n\n最后，从库侧的重放机制：
+    从库的 SQL 线程会持续读取 relay log 中的事件，并在从库上重新执行这些 SQL 语句，从而实现数据同步。SQL 线程会将执行位置记录到 relay-log.info
+    文件中，确保异常恢复后能从正确位置继续。\n\n关键点说明：\n\n- IO 线程和 SQL 线程是异步工作的，互不阻塞\n\n- relay log 是从库本地的日志文件，作用是缓冲和持久化\n\n-
+    复制延迟主要发生在 SQL 线程执行阶段，尤其是大事务或复杂查询时\n\n```text\nsequenceDiagram\n    participant
+    Client\n    participant Master\n    participant Slave_IO\n    participant Slave_SQL\n
+    \   \n    Client->>Master: 执行写操作\n    Master->>Master: 写入 binlog\n    Slave_IO->>Master:
+    请求 binlog\n    Master-->>Slave_IO: 返回 binlog 事件\n    Slave_IO->>Slave_IO: 写入 relay
+    log\n    Slave_SQL->>Slave_SQL: 读取 relay log\n    Slave_SQL->>Slave_SQL: 重放执行
+    SQL\n```\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n3、场景题：生产环境主从复制延迟严重，你如何排查和解决？\n\n⭐⭐⭐（考察复制延迟原因分析、优化方案、监控手段）\n\n1️⃣
+    Common Answer 复制延迟的话，可能是从库机器性能不好，或者主库写入太快了。可以检查一下从库的硬件配置，看看是不是 CPU 或者磁盘 IO 不行。还有就是看看主库是不是有大事务，大事务会导致从库执行很慢。优化的话，可以升级从库硬件，或者让主库不要写那么多数据，拆分一下大事务。监控的话就看
+    SecondsBehindMaster 这个指标。\n\n2️⃣ Impressive Answer 主从复制延迟是生产环境常见问题，我遇到过多次，系统性地从以下几个方面排查和解决：\n\n第一，延迟原因分析：
+    复制延迟主要发生在三个环节：\n\n- 网络延迟：主从之间网络带宽不足或延迟高，IO 线程拉取 binlog 慢\n\n- 从库性能瓶颈：从库硬件配置低，SQL
+    线程执行慢\n\n- 大事务问题：主库执行大事务（如大批量 UPDATE、长时间事务），从库需要同步执行相同的事务，导致延迟累积\n\n- 锁竞争：从库上存在长查询或锁等待，阻塞
+    SQL 线程执行\n\n第二，排查手段：\n\n- 查看延迟指标：SHOW SLAVE STATUS 中的 Seconds_Behind_Master 字段，但要注意这个指标在某些情况下不准确\n\n-
+    分析 relay log：对比主库 binlog 位置和从库 relay log 执行位置，定位延迟环节\n\n- 监控线程状态：检查 IO 线程和 SQL
+    线程的运行状态，确认是哪个线程阻塞\n\n- 查看慢查询：从库开启慢查询日志，识别阻塞 SQL 线程的慢查询\n\n第三，解决方案：\n\n- 硬件优化：升级从库硬件配置，尤其是磁盘
+    IO 和 CPU\n\n- 网络优化：优化主从网络，增加带宽，降低延迟\n\n- 事务拆分：将大事务拆分成小事务，避免单次复制时间过长\n\n- 并行复制：MySQL
+    5.6+ 支持多线程复制，配置 slave_parallel_workers 提高并行度\n\n- 读写分离优化：对于强一致性要求低的业务，允许短暂延迟，使用缓存兜底\n\n-
+    业务层面：避免在从库上执行长查询，减少锁竞争\n\n第四，预防措施：\n\n- 建立复制延迟监控告警，阈值设置为 5 秒\n\n- 定期检查主从同步状态，确保复制正常\n\n-
+    压测时关注复制延迟表现，提前发现瓶颈\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n4、容易一起考的题\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Lkf0w2Rj4iL8r4kgqkkcZt2WnIb
+  block_id: doxcnwFRjHXDzMYQljMrOLsZQec
+  page_token: Lkf0w2Rj4iL8r4kgqkkcZt2WnIb
+  original_title: 1.1 主从复制基本原理
+  imported_at: '2026-09-21'

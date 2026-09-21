@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e338eb92788e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 大模型服务化部署通常采用什么架构？如何实现负载均衡和弹性伸缩？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 五：推理部署与高效化
+tags: &1
+- Transfomer精选面试
+- 五：推理部署与高效化
+content:
+  prompt: 大模型服务化部署通常采用什么架构？如何实现负载均衡和弹性伸缩？
+answer:
+  mode: rubric
+  reference_answer: |-
+    大模型（LLM）服务化部署的典型架构分层如下：
+
+    - 接入层：提供统一 API 端点（通常兼容 OpenAI API 格式），处理鉴权、限流、请求路由。通常由 API 网关（如 Nginx、Kong、Envoy）承担，支持 HTTP/2、gRPC、WebSocket 流式输出。
+
+    - 调度层（Orchestrator / Dispatcher）：接收并解析请求，根据模型类型、请求优先级、长度预估、负载状态等，将请求分发至后端的推理实例。调度器可能是无状态的独立微服务，通过消息队列（Kafka、Redis Streams）或直接 RPC 与推理引擎通信。
+
+    - 推理引擎层（Inference Engine）：运行在 GPU 节点上的高性能推理运行时，如 vLLM、TensorRT-LLM、SGLang 等。每个引擎进程掌管一个模型副本，负责 Continuous Batching、KV cache 管理、模型计算。
+
+    - 模型存储与版本管理：模型权重存储在分布式文件系统（如 HDFS、S3、MinIO、NFS）或模型注册中心（MLflow、Harbor 等），推理实例启动时通过高速网络加载或 mmap。
+
+    - 基础设施与编排层：基于 Kubernetes（K8s）进行容器化编排，配合 Operator（如 KubeRay、Triton Inference Server 的 K8s 部署）管理推理 Pod 的生命周期。
+
+    负载均衡实现：
+
+    - 基于请求特性的路由：调度器根据请求类型（prefill 权重还是 decode 权重）分发到不同优化策略的实例组。对于长 prompt、短 prompt 或实时/批量请求，可采用独立实例池。
+
+    - 最少连接 / 最短队列：监控每个推理实例的队列深度（当前并发 batch 大小、等待请求数），新请求被导向负载最轻的实例。引擎常直接暴露/metrics端点，供调度器决策。
+
+    - 一致性哈希：如果某些请求需要前缀缓存（Prefix Caching）以提高性能，可通过一致性哈希将相同前缀的请求路由到同一实例，最大化缓存命中率。
+
+    - 引擎内负载均衡（多卡分布式）：当使用张量并行（TP）或流水线并行（PP）将一个模型分布在多卡/多节点时，推理框架内部使用 NCCL 通信，对外表现为一个逻辑实例，负载均衡单元只需与该实例通信。
+
+    弹性伸缩实现：
+
+    - 基于 GPU 利用率的水平伸缩（HPA）：监控 GPU 计算利用率（SM 占用）或 KV cache 使用率（显存压力），当超过阈值（如 80%）则增加推理 Pod 副本；低于阈值则缩减。需配合 K8s 的 HPA 或定制 Controller。
+
+    - 基于请求队列长度的伸缩：若等待请求数持续大于 0，则自动扩展实例。常通过 Prometheus 采集指标，由 KEDA（Kubernetes Event-driven Autoscaling）触发伸缩。
+
+    - 预热与模型加载优化：新实例启动需加载模型权重（几十 GB），为减少冷启动延迟，可利用节点本地 SSD 缓存、P2P 分发（如 Dragonfly）、或使用模型预热容器（init container）提前下载。也可配合内存快照（例如 vLLM 的模型状态保存/恢复）加速。
+
+    - 混合 GPU 资源池：结合不同 GPU 型号（A100, H100）的节点池，通过标签选择器将不同 SLA 的请求调度到不同硬件，精细化成本控制。
+
+    - Serverless 推理：极端场景下可将模型包装成无服务函数（如 KNative），请求驱动伸缩到零，适合间歇性调用，但冷启动是挑战。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/L2bpwgVV1iZoZnkrvgac88LjnCc
+  block_id: V8GUdDFvEoza0Qxj49DcWOVin4f
+  page_token: L2bpwgVV1iZoZnkrvgac88LjnCc
+  original_title: 大模型服务化部署通常采用什么架构？如何实现负载均衡和弹性伸缩？
+  imported_at: '2026-09-21'

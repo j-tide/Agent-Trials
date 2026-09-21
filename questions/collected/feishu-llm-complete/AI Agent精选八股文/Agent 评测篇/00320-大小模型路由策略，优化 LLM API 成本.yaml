@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-033f38cc7b15
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 大小模型路由策略，优化 LLM API 成本
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 评测篇
+tags: &1
+- AI Agent精选八股文
+- Agent 评测篇
+content:
+  prompt: 大小模型路由策略，优化 LLM API 成本
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4B8 Agent 上线后，月度账单飙升是家常便饭。很多问题其实不需要最强模型出马，比如“今天天气怎么样”用
+    GPT-4 回答就太奢侈了。我们的解法是建立“判断-执行-兜底”的大小模型路由层，把高频简单任务挡在成本墙外。\n\n### \U0001F9ED 路由架构设计\n\n我们设计了两级路由：\n\n-
+    复杂度判别器：一个轻量级分类器，基于用户意图、历史交互和 prompt 长度，快速输出 simple / medium / complex 级别。\n\n-
+    执行模型选择：\n\n### \U0001F4BB 路由核心代码示例\n\nclass CostAwareRouter:\n    def __init__(self,
+    classifier, small_model, medium_model, large_model):\n        self.classifier
+    = classifier      # 例如基于 DeBERTa 的意图分类器\n        self.small = small_model          #
+    本地 vLLM 服务\n        self.medium = medium_model\n        self.large = large_model\n
+    \       # 监控指标\n        self.route_counter = Counter('route_decision_total', 'Routing
+    decision', ['level'])\n        self.fallback_counter = Counter('route_fallback_total',
+    'Fallback counts', ['from_level'])\n\n    def route(self, query, history):\n        level
+    = self.classifier.classify(query, history)   # simple/medium/complex\n        self.route_counter.labels(level).inc()\n
+    \       if level == 'simple':\n            try:\n                ans = self.small.generate(query,
+    history)\n                if self._quality_ok(ans):\n                    return
+    ans\n            except:\n                pass\n            self.fallback_counter.labels('simple').inc()\n
+    \           level = 'medium'   # 升级\n\n        if level == 'medium':\n            try:\n
+    \               ans = self.medium.generate(query, history)\n                if
+    self._quality_ok(ans):\n                    return ans\n            except:\n
+    \               self.fallback_counter.labels('medium').inc()\n                level
+    = 'complex'\n\n        return self.large.generate(query, history)   # 最终兜底\n\n
+    \   def _quality_ok(self, response):\n        # 简单规则：长度>5，不含显式拒绝短语，无重复乱码\n        return
+    len(response) > 5 and \"as an AI\" not in response.lower()\n\n### \U0001F4C8 持续优化\n\n通过监控
+    route_decision_total 和 fallback_counter，我们能知道路由的准确率和浪费率。早期小模型 fallback 率 20%，我们通过微调小模型和调整分类器阈值，降低到了
+    5% 以内。另外，对高频问题做语义缓存，命中后连路由都不走，直接返回缓存结果，进一步节省成本。\n\n✅ 整套路由上线后，大模型 API 调用量下降 70%，月成本压低了
+    60%+，而任务完成率几乎没有变化，业务方也感知不到模型切换。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EBEUwm9Tbio9C5kSaXBcx6DHn2b
+  block_id: doxcnIZKPyadEsO5qyQQBsY3Ejh
+  page_token: EBEUwm9Tbio9C5kSaXBcx6DHn2b
+  original_title: 大小模型路由策略，优化 LLM API 成本
+  imported_at: '2026-09-21'

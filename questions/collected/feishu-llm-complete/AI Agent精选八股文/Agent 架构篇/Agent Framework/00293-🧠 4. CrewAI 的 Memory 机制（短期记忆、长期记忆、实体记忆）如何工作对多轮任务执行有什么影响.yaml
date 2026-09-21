@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-13bf095772f6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E0 4. CrewAI 的 Memory 机制（短期记忆、长期记忆、实体记忆）如何工作？对多轮任务执行有什么影响？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F9E0 4. CrewAI 的 Memory 机制（短期记忆、长期记忆、实体记忆）如何工作？对多轮任务执行有什么影响？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    CrewAI 的记忆系统模拟了人类的认知过程：短期记忆 让你记住当前对话，长期记忆 让你积累跨任务的经验，实体记忆 帮你结构化地记住关键事实。
+
+    [图片内容未导入]
+
+    短期记忆：Agent 在单次任务执行中，看到的上下文、工具调用结果和推理过程都保存在短期记忆里。它本质上就是 LLM 上下文窗口中的历史消息，受 max_rpm 和上下文窗口限制。当同一 Crew 的多个 Task 串行时，短期记忆通过 context 参数在 Task 之间传递。
+
+    长期记忆：CrewAI 会把执行完毕的任务总结、关键经验存入长期记忆存储（可以是内存、SQLite 或用户自定义的向量库）。当同一个 Crew 再次执行类似任务时，长期记忆会自动检索相关经验，注入到 System Prompt 中，让 Agent “回忆”起以前的成功做法。这通过 memory=True 开启，并可配置存储后端。
+
+    实体记忆：它像一个关系数据库，记录任务中提到的实体（如用户、公司、产品）及其属性。实体记忆通过 LLM 自动提取，并允许 Agent 后续查询“这个实体我们还知道什么”。这对多轮、跨会话的信息追踪特别有用。
+
+    工作流程示意：
+
+    from crewai import Crew, Agent, Task, Process
+
+    # 开启记忆的 Crew
+    crew = Crew(
+        agents=[...],
+        tasks=[...],
+        process=Process.sequential,
+        memory=True,                    # 开启长期记忆
+        memory_config={
+            "provider": "mem0",         # 可选 mem0, 本地文件等
+            "config": {"user_id": "my-app"},
+        },
+    )
+    crew.kickoff()
+    # 任务执行后，关键经验存入长期记忆。下次执行类似任务时自动检索。
+
+    对多轮任务执行的影响：
+
+    - 连贯性：短期记忆让 Agent 知道“刚才做了什么”，在顺序依赖的任务流（如先查数据、后写报告）中，无需手动复制粘贴所有中间结果，context 参数自动传递。
+
+    - 学习进化：长期记忆让 Agent 从过去的执行中学习。例如，安全审查 Agent 记住了上次发现的常见漏洞模式，下次审查时会更快定位。
+
+    - 事实一致性：实体记忆使 Agent 在多轮交互中保持对同一事物的认知一致。比如用户在第一轮提到“项目 Alpha”，三天后再问“Alpha 的进展”，Agent 能调出实体的属性。
+
+    - 注意事项：记忆不是越多越好，长期记忆需要清理或压缩，避免检索噪音；实体记忆过度提取可能引入幻觉。配置时需权衡深度和存储成本。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/URfRwgIyEi3zoQk8qc5cj7yPnfb
+  block_id: doxcnEeen5jvlTfqunpXzOz9Lkf
+  page_token: URfRwgIyEi3zoQk8qc5cj7yPnfb
+  original_title: "\U0001F9E0 4. CrewAI 的 Memory 机制（短期记忆、长期记忆、实体记忆）如何工作？对多轮任务执行有什么影响？"
+  imported_at: '2026-09-21'

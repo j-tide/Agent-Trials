@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-708ce9e49af3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何处理微调数据中的多模态内容（图片、音频链接）？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如何处理微调数据中的多模态内容（图片、音频链接）？
+answer:
+  mode: rubric
+  reference_answer: |-
+    处理多模态微调数据，核心是将非文本的模态（图片、音频）转化为大语言模型能够理解的、统一的token序列，并与文本指令对齐。
+
+    图片处理：
+
+    - 使用视觉编码器（如CLIP ViT）：将图片分割成patch，通过ViT转换为一系列特征向量。然后通过一个可训练的投影层，将这些视觉特征映射到LLM的词嵌入空间。最终，这些视觉token与文本token拼接，形成<image_tokens> <text_tokens>的序列输入LLM。
+
+    - 数据格式：在训练数据中，图片通常以文件路径或base64编码的形式存在。在Data Collator中，动态读取图片，调用视觉编码器进行在线转换。图片在对话模板中占据一个特殊位置，由特殊token（如<image>）标记。
+
+    - 多模态指令：指令中可以自然穿插对图片的引用，例如“描述这张图片<image>的内容”。模型在训练中学会将注意力分配到相应的视觉token上。
+
+    音频处理：
+
+    - 使用音频编码器（如Whisper Encoder）：将音频波形转换为连续的音频特征。同样通过投影层映射到LLM嵌入空间。
+
+    - 离散化：或者，使用神经编解码器（如EnCodec）将音频转化为离散的音频token序列，这些token可以直接像文本token一样被LLM处理。
+
+    - 数据格式：类似图片，音频文件路径或二进制数据。在数据中，通过<audio>等特殊token标记位置。
+
+    关键点：多模态SFT数据构造时，必须确保视觉/音频编码器与LLM的对齐投影层得到充分训练。通常采用两阶段训练：第一阶段用大量图片-标题对训练投影层（冻结视觉编码器和LLM），实现模态对齐；第二阶段用多模态指令数据微调投影层和LLM（冻结视觉编码器）。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DPSewakAfi4q7rkB8nQcmT0onob
+  block_id: IhrCdUUxToUSYexNWRvcvIKMnle
+  page_token: DPSewakAfi4q7rkB8nQcmT0onob
+  original_title: 如何处理微调数据中的多模态内容（图片、音频链接）？
+  imported_at: '2026-09-21'

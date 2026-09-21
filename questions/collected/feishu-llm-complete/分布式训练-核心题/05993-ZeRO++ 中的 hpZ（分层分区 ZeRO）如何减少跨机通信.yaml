@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-af137d11fc59
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ZeRO++ 中的 hpZ（分层分区 ZeRO）如何减少跨机通信？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: ZeRO++ 中的 hpZ（分层分区 ZeRO）如何减少跨机通信？
+answer:
+  mode: rubric
+  reference_answer: |-
+    hpZ（hierarchical partition ZeRO） 利用了节点内外带宽的异构性，将参数分片和通信分为两个层次。
+
+    核心设计：
+
+    - 节点内：由于 NVLink 带宽极高，可以在节点内维护完整参数副本，但节点内的 GPU 之间仍然通过 ZeRO-3 分片存储参数（以减少单卡显存）。这个副本被称为“二级分片”。
+
+    - 节点间：跨节点的通信不再以单张 GPU 为单位，而是以节点为单位。每个节点作为一个整体参与全局的参数分片和收集。节点内部通信使用全精度（FP16/BF16），而节点间通信可以使用压缩/量化数据。
+
+    具体流程（以 AllGather 参数为例）：
+
+    - 节点内每个 GPU 持有该层参数的一部分（1/N 节点内）。首先在节点内进行一次 AllGather（利用 NVLink 高带宽），使得节点内的一个指定 GPU（或节点内的一个代理）获得该层的完整参数。
+
+    - 该代理 GPU 将完整参数量化为低精度（如 INT8），然后通过跨机网络发送给其他节点的代理 GPU。
+
+    - 接收节点内的代理 GPU 收到量化参数后，反量化为完整精度，再通过节点内 AllGather（或 Broadcast）将完整参数分发给节点内其他 GPU。
+
+    这样，跨机通信的数据量从全模型参数降低为节点数 × 量化后的参数，且跨机通信次数大幅减少。由于节点内 NVLink 带宽比跨机带宽高数十倍，节点内多出的 AllGather 开销极低，而节省的跨机通信时间显著。
+
+    hpZ 的效果：在 32 节点（每节点 8 卡）的集群中，hpZ 可将 ZeRO-3 的跨机通信量降低约 50%~70%，具体取决于量化策略和模型大小。结合 qgZ，ZeRO++ 的总通信量接近甚至低于传统 ZeRO-2 的跨机通信量，同时保持 ZeRO-3 的显存优势。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: LegFdWuM6oVb6CxBrWnc3n9vnTf
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: ZeRO++ 中的 hpZ（分层分区 ZeRO）如何减少跨机通信？
+  imported_at: '2026-09-21'

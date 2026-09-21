@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f1163c1cf6f7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么通常将prompt部分的label设为-100？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 为什么通常将prompt部分的label设为-100？
+answer:
+  mode: rubric
+  reference_answer: |-
+    将prompt（指令/用户输入）部分的标签设置为-100，是SFT训练中实现条件生成和精确对齐的核心技巧。这背后的逻辑如下：
+
+    一、训练目标：只学习“回答”，不学习“提问”
+
+    SFT的目标是教会模型在给定指令和上下文的情况下生成恰当的回答，而不是教会模型如何生成指令或系统提示。如果我们对prompt部分也计算损失，模型将被迫学习如何生成“用户可能会输入的指令”，这会导致两个问题：
+
+    - 角色混乱：模型会混淆自己是用户还是助手，可能在推理时自己生成用户问题然后回答，或者在不该说话时说话。
+
+    - 学习信号稀释：prompt通常占序列的很大比例（有时超过50%），对这些部分计算损失会浪费大量计算资源和模型容量，使得模型没有充分专注于学习回答的质量。
+
+    因此，我们将prompt部分的标签设为-100（忽略），仅对response部分计算损失。这等价于最大化条件概率 P(response∣prompt)P(response∣prompt)，而非联合概率 P(prompt,response)P(prompt,response)。这正是指令微调的目标。
+
+    二、维护对话的交互结构
+
+    在多轮对话中，每一轮的user和assistant交替出现。通过mask掉所有user和system部分的标签，模型学会了“只对assistant部分生成”，严格遵循对话的发言次序。这通过大量训练数据固化了一种交互协议：看到user的内容时，模型应该理解并等待（不生成），然后在assistant标记后生成回复。
+
+    三、避免模型产生幻觉和自我对话
+
+    如果不对prompt计算loss，模型在学习时就不会试图“续写”一个用户的指令。这防止了模型陷入“自问自答”的崩溃模式，即它自己扮演用户提出新问题然后回答，导致对话不可控。
+
+    四、实现方式
+
+    在数据处理时，我们创建与input_ids等长的labels数组。遍历序列，将属于prompt部分的token位置（包括system、user以及特殊标记如<|im_start|>user等）对应的label值设为-100，将属于assistant回复部分（包括<|im_start|>assistant标记后的回答内容，以及最终的<|im_end|>）对应的label值设为真实的token ID。有些实现中，<|im_start|>assistant这个标记本身也被设为-100，因为它只是结构标记而非需要生成的内容，但也可以保留，影响不大。
+
+    五、例外情况
+
+    在某些非常规的SFT中，比如希望模型学习如何生成整个对话（例如对话数据增强），可能会对prompt部分也计算损失，但这不是主流做法。
+
+    ✅ 总结：将prompt label设为-100，是为了让模型专注于学习“基于上下文生成回复”的能力，维持正确的对话角色，并最大化训练信号的效率。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZYXSwaWATimyqQkmZm5cAPJHnoc
+  block_id: XJZnde69CoIDrVxiRvrcqzGnn1g
+  page_token: ZYXSwaWATimyqQkmZm5cAPJHnoc
+  original_title: 为什么通常将prompt部分的label设为-100？
+  imported_at: '2026-09-21'

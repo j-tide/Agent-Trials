@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7b914f40c8e3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 模型训练中遇到显存不足，如何优化？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 模型训练中遇到显存不足，如何优化？
+answer:
+  mode: rubric
+  reference_answer: |-
+    显存不足（OOM）是训练中最常见的问题。优化策略按性价比从高到低排序：
+
+    - 减小 micro_batch_size，使用梯度累积
+    这是最直接的方法。将 batch_size 降到显存允许的最小值，然后通过梯度累积模拟需要的全局 batch size。
+
+    - 开启混合精度训练
+    使用 torch.cuda.amp 自动混合精度（FP16/BF16），能将显存占用降低约 30%~50%，且几乎不影响精度。在支持 BF16 的硬件上优先使用 BF16。
+
+    - 开启梯度检查点
+    通过 torch.utils.checkpoint 或 model.gradient_checkpointing_enable() 以计算时间换取显存空间，能将激活值的显存占用降低 70% 以上。
+
+    - 使用 PEFT（如 LoRA）替代全参数微调
+
+    LoRA 只训练极少量的低秩适配器，冻结原始参数。显存节省可达 80% 以上，且几乎不影响下游任务性能。
+
+    - 量化模型权重
+    使用 bitsandbytes 的 4-bit 或 8-bit 量化加载基座模型（QLoRA），可将模型权重显存降至 1/4 以下。
+
+    - 使用更高效的注意力实现
+
+    开启 Flash Attention-2，能大幅降低长序列训练时的激活显存，同时加速训练。
+
+    - 调整数据加载策略
+    减少 num_workers、使用 pin_memory=False 或直接在 GPU 上创建数据集（如 device='cuda'）可以释放部分显存。
+
+    - 使用 CPU/NVMe Offload
+
+    DeepSpeed ZeRO-Offload 可以将优化器状态甚至参数卸载到 CPU 或 NVMe，以牺牲速度为代价，换取在极小显存上训练超大模型的能力。
+
+    实践诊断：先用 torch.cuda.memory_summary() 查看是哪些部分占用了大量显存，再有针对性地优化。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SlZHw2a2fiQQVBkkXXscts3znGd
+  block_id: TfyldlCjjojDz9xYRi4cQ3ornpQ
+  page_token: SlZHw2a2fiQQVBkkXXscts3znGd
+  original_title: 模型训练中遇到显存不足，如何优化？
+  imported_at: '2026-09-21'

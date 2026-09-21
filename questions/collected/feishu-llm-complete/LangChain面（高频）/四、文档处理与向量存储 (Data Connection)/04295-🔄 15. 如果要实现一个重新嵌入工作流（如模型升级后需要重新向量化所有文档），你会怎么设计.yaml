@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c5da8da03ae9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F504 15. 如果要实现一个“重新嵌入”工作流（如模型升级后需要重新向量化所有文档），你会怎么设计？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F504 15. 如果要实现一个“重新嵌入”工作流（如模型升级后需要重新向量化所有文档），你会怎么设计？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    模型升级、参数调整后，旧向量就过时了，需要全量重建。但直接在生产库上操作风险极大，必须设计一个平滑、安全、可回滚的迁移流程。
+
+    我的设计（蓝绿部署模式）：
+
+    - 创建新索引/新集合
+    不碰老向量库，在同类型向量库中新建一个集合或索引，名称带版本，如 docs_v2。
+
+    - 使用离线批处理管道重建
+    从原始文档存储（S3/数据库）读取所有文档，走完整的加载、分割、嵌入流水线，写入新索引。这一步可以并行加速，但必须使用新的 embedding 模型。
+
+    - 数据校验
+    对比新旧索引的文档数量、元数据分布、几个查询的 top-k 结果，确保无重大偏差。
+
+    - 切换应用配置
+    通过配置中心或环境变量，将应用的 vectorstore 指向新索引。因为 LangChain 的向量库只是实例，切换瞬间完成。
+
+    - 观察与回滚准备
+    监控检索质量指标和系统延迟，如果出现问题，立即切回旧索引（仍然存在，不会被删除）。
+
+    - 清理旧索引
+    在确认新索引稳定运行一段时间后（如一周），删除旧索引释放资源。
+
+    技术细节：
+
+    - 使用 Indexing API 配合 RecordManager 时，只需更改 namespace，即可实现上面的蓝绿流程，因为 RecordManager 记录了每个文档的源信息，重建时会自动重新嵌入所有文档。
+
+    - 如果向量库不支持索引别名（很多云库都支持），可以在切换时不改代码，只改别名指向。
+
+    关键点：
+
+    - 绝对不要在原索引上直接 delete 然后重新 add，中间会有一段时间库是空的或不完整，影响线上服务。
+
+    - 重建过程中保持新旧索引同时可用，对系统只是多了一份额外存储开销，但保障了业务连续性。
+
+    我曾经在升级 embedding 模型从 ada-002 到 text-embedding-3-large 时，用这个方法在一个周末完成了 500 万文档的重新嵌入和切换，周一业务高峰期没有任何感知，就是靠的这套蓝绿流程。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/I0Gnw9RQoiOa2yk59JjcwumPnrf
+  block_id: FtGydHfKlooBfTxVZkHcs89xnZd
+  page_token: I0Gnw9RQoiOa2yk59JjcwumPnrf
+  original_title: "\U0001F504 15. 如果要实现一个“重新嵌入”工作流（如模型升级后需要重新向量化所有文档），你会怎么设计？"
+  imported_at: '2026-09-21'

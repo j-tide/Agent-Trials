@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-737ac1413c9e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 Kubernetes 中部署 LLM 推理服务，如何配置 HPA 实现自动伸缩？指标用 GPU 利用率还是队列长度？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 五：推理部署与高效化
+tags: &1
+- Transfomer精选面试
+- 五：推理部署与高效化
+content:
+  prompt: 在 Kubernetes 中部署 LLM 推理服务，如何配置 HPA 实现自动伸缩？指标用 GPU 利用率还是队列长度？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 K8s 中为 LLM 推理服务配置水平自动伸缩（HPA），核心是选择能真实反映服务质量与资源饱和度的指标。推荐以队列长度或请求等待数作为主要伸缩信号，GPU 利用率作为辅助参考。
+
+    为什么队列长度优于 GPU 利用率？
+
+    - GPU 利用率（SM 活动比例）主要反映计算单元忙碌程度。但 LLM 解码阶段往往是内存带宽受限，Tensor Core 利用率可能并不高（甚至 30%~50%），而请求却大量积压。此时 GPU 利用率可能无法准确指示需要扩容。
+
+    - 推理引擎内部通常有 pending queue（等待被编入 Continuous Batching 的请求数）。该队列长度与用户感知的 TTFT 直接相关，能真实反映服务过载程度，且不受 GPU 架构差异影响。
+
+    具体配置步骤：
+
+    - 暴露自定义指标：在推理框架中，将实时队列长度上报到 Prometheus。vLLM 等可直接暴露 /metrics 接口，包含 vllm:num_requests_waiting 或类似的等待请求数指标。
+
+    - 安装 Prometheus Adapter：配置 CustomMetric API，将 Prometheus 中的 num_requests_waiting 映射为 K8s 自定义指标。
+
+    - 创建 HPA 对象，参考配置：
+
+    apiVersion: autoscaling/v2
+    kind: HorizontalPodAutoscaler
+    spec:
+      scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: llm-inference
+      minReplicas: 1
+      maxReplicas: 10
+      metrics:
+      - type: Pods
+        pods:
+          metric:
+            name: num_requests_waiting
+          target:
+            type: AverageValue
+            averageValue: "2"   # 期望每个 Pod 平均排队不超过 2 个请求
+
+    - 结合 GPU 利用率：可添加 GPU 利用率作为上限指标，防止单纯队列信号导致扩容过猛。例如当 GPU 利用率连续 5 分钟超过 80% 再配合队列长度触发。
+
+    高级策略：
+
+    - 使用 KEDA 基于事件伸缩：除了 Prometheus，KEDA 可对接 Redis、Kafka 等消息队列，更适合异步离线批处理推理的伸缩。
+
+    - 冷却策略：推理服务扩容后模型加载耗时较长（数十秒到数分钟），需设置较长的缩容冷却时间（如 300 秒）避免 Pod 反复启动。
+
+    - 预热机制：新 Pod 启动后需要预热模型、预热 CUDA context，可通过 init container 或框架的 warmup 请求，并在就绪探针确认可服务后再被加入负载均衡。
+
+    综上，队列长度为核心，GPU 利用率为辅助，能让伸缩更贴合服务质量目标。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/L2bpwgVV1iZoZnkrvgac88LjnCc
+  block_id: ObQKd1sFFoQtmkxnckXc1o3lngc
+  page_token: L2bpwgVV1iZoZnkrvgac88LjnCc
+  original_title: 在 Kubernetes 中部署 LLM 推理服务，如何配置 HPA 实现自动伸缩？指标用 GPU 利用率还是队列长度？
+  imported_at: '2026-09-21'

@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-05694f748040
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“Activation Offloading”？将激活值卸载到 CPU 的代价是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 什么是“Activation Offloading”？将激活值卸载到 CPU 的代价是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Activation Offloading 是一种极端的显存优化技术。当GPU显存连经过Gradient Checkpointing压缩后的激活值都放不下时，可以将激活值从GPU显存拷贝到CPU内存中暂存。在反向传播需要时，再从CPU拷贝回GPU。
+
+    这种方法的核心是用CPU内存的容量来换GPU显存。CPU内存通常远大于GPU显存（例如一台服务器可能有1TB内存，而GPU只有80GB），且成本低得多。因此，理论上可以训练无限长的序列。
+
+    代价：CPU和GPU之间的数据传输通过PCIe总线，其带宽（如PCIe 4.0 x16 约32 GB/s）远低于GPU内部带宽（HBM约2 TB/s），更无法与GPU计算速度匹配。每次前向产生的激活值需要异步拷贝到CPU，反向时再异步拷贝回来，这会产生巨大的延迟。具体来说：
+
+    - 训练速度严重下降：通常会使单步训练时间增加50%~200%，甚至更多，取决于激活值的大小和计算/通信重叠的程度。
+
+    - CPU内存压力：大量激活值堆积在CPU内存，可能导致CPU OOM。需要精心管理CPU内存，及时释放已消费的激活值。
+
+    - 实现复杂：需要细粒度的异步拷贝和流水线调度，才能部分隐藏传输延迟。
+
+    这种技术通常作为最后手段，在显存极端受限（如单卡训练大模型、超长序列）且无法增加GPU时使用。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: K2A0dhSTQo6JnTxh6oscjpaPnvd
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 什么是“Activation Offloading”？将激活值卸载到 CPU 的代价是什么？
+  imported_at: '2026-09-21'

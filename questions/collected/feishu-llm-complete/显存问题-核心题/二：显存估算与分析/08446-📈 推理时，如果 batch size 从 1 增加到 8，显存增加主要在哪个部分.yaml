@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-923f8abc4ae1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4C8 推理时，如果 batch size 从 1 增加到 8，显存增加主要在哪个部分？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "\U0001F4C8 推理时，如果 batch size 从 1 增加到 8，显存增加主要在哪个部分？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    显存增加主要在 KV Cache 和 中间激活。详细分解：
+
+    - 权重：与 batch size 无关，固定不变。
+
+    - KV Cache：存储每个请求的 K、V，直接与 batch size 成正比。batch=8 时，KV Cache 总量约为 batch=1 时的 8 倍（假设各序列长度相同）。
+
+    - 中间激活：Prefill 阶段，批量进行注意力计算时，注意力分数矩阵的形状是 [batch, 头数, 序列长度, 序列长度]，其大小与 batch size 成正比。此外，FFN 层的激活也是与 batch size 成线性关系。所以激活显存也会随 batch size 线性增长，但是在解码阶段激活通常较小。总体而言，批量推理的额外显存主要贡献来自 KV Cache，其次为 Prefill 时的激活。
+
+    举个例子：如果单序列 KV Cache 为 1 GB，batch=8 则需要 8 GB KV Cache，加上可能增大的激活峰值（假设单序列激活 0.2 GB，batch=8 时可能 1.6 GB）。所以增加主要集中在 KV Cache。
+
+    因此，推理服务规划显存时，重点考虑最大 batch size 和最长序列长度下的 KV Cache 总量。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/U2u9wFuzEiPu2okJIcFcYZkUnhc
+  block_id: ZUpsdtgTeoftntxZCEscvCiGn4e
+  page_token: U2u9wFuzEiPu2okJIcFcYZkUnhc
+  original_title: "\U0001F4C8 推理时，如果 batch size 从 1 增加到 8，显存增加主要在哪个部分？"
+  imported_at: '2026-09-21'

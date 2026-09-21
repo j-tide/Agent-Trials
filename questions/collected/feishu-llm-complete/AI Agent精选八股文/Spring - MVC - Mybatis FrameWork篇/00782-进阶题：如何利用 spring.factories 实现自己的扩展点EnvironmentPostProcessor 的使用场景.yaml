@@ -1,0 +1,107 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7ace53098b21
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 2、进阶题：如何利用 spring.factories 实现自己的扩展点？EnvironmentPostProcessor 的使用场景？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 2、进阶题：如何利用 spring.factories 实现自己的扩展点？EnvironmentPostProcessor 的使用场景？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐⭐（EnvironmentPostProcessor、自定义扩展点、配置加密）
+
+    1️⃣ Common Answer
+
+    在 spring.factories 里注册自己的类，实现对应的接口就可以了。EnvironmentPostProcessor 可以在 Environment 准备好之后修改配置。
+
+    2️⃣ Impressive Answer
+
+    - EnvironmentPostProcessor 典型场景——配置解密：
+
+    ```text
+    public class EncryptedPropertyDecryptor implements EnvironmentPostProcessor {
+
+        private static final String ENCRYPTED_PREFIX = "ENC(";
+
+        @Override
+        public void postProcessEnvironment(ConfigurableEnvironment environment,
+                                           SpringApplication application) {
+            MutablePropertySources sources = environment.getPropertySources();
+
+            // 遍历所有 PropertySource，解密 ENC(...) 格式的配置值
+            Map<String, Object> decryptedProperties = new HashMap<>();
+            for (PropertySource<?> source : sources) {
+                if (source instanceof MapPropertySource mapSource) {
+                    mapSource.getSource().forEach((key, value) -> {
+                        if (value instanceof String strValue
+                                && strValue.startsWith(ENCRYPTED_PREFIX)) {
+                            String encrypted = strValue.substring(4, strValue.length() - 1);
+                            decryptedProperties.put(key, decrypt(encrypted));
+                        }
+                    });
+                }
+            }
+
+            if (!decryptedProperties.isEmpty()) {
+                // 插入到最高优先级，覆盖原始加密值
+                sources.addFirst(new MapPropertySource("decrypted", decryptedProperties));
+            }
+        }
+
+        private String decrypt(String encrypted) {
+            // 调用 KMS 或本地密钥解密
+            return AESUtil.decrypt(encrypted, getSecretKey());
+        }
+    }
+    ```
+
+    - 注册方式：
+
+    ```text
+    # META-INF/spring.factories（Boot 2.x）
+    org.springframework.boot.env.EnvironmentPostProcessor=\
+      com.example.EncryptedPropertyDecryptor
+
+    # META-INF/spring/org.springframework.boot.env.EnvironmentPostProcessor.imports（Boot 3.x）
+    com.example.EncryptedPropertyDecryptor
+    ```
+
+    - 执行时机：EnvironmentPostProcessor 在 ApplicationEnvironmentPreparedEvent 发布后执行，此时 application.yml 已加载，但 Spring 容器还未创建，不能注入 Bean。
+
+    - Agent 场景：LLM API Key 在配置文件中加密存储（ENC(xxx)），通过 EnvironmentPostProcessor 在启动时解密，避免明文存储敏感信息。
+
+    3️⃣ Key Differences
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NHwYwCwRDiPz1OkM3b9cXNBinUd
+  block_id: doxcn1bSkNF0RvDeUpxkM9TwQvg
+  page_token: NHwYwCwRDiPz1OkM3b9cXNBinUd
+  original_title: 2、进阶题：如何利用 spring.factories 实现自己的扩展点？EnvironmentPostProcessor 的使用场景？
+  imported_at: '2026-09-21'

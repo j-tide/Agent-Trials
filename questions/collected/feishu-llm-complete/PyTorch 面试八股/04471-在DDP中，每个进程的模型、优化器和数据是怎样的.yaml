@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2be63d4ff33e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在DDP中，每个进程的模型、优化器和数据是怎样的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 在DDP中，每个进程的模型、优化器和数据是怎样的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在DDP中，每个进程拥有完全相同的模型初始副本、独立但同构的优化器、以及互不重叠的数据子集。
+
+    - 模型
+
+    - 所有进程在训练开始前，从相同的预训练权重（或随机初始化）加载模型。
+
+    - 训练过程中，由于所有进程的梯度通过All-Reduce求平均，因此它们在每一次更新后，参数保持完全一致。
+
+    - 在加载模型时，通常只在rank 0从磁盘读取权重，然后通过广播或直接让其他进程也从同一路径加载（文件系统共享）来初始化。
+
+    - 优化器
+
+    - 每个进程拥有自己的优化器实例，存储着该进程本地参数副本的优化器状态（如Adam的m和v）。
+
+    - 由于梯度全局同步，各进程的优化器状态在数学上也是同步的。
+
+    - 保存检查点时，通常每个进程都会保存自己的优化器状态，以便恢复时可以精确还原分布式状态。
+
+    - 数据
+
+    - 使用DistributedSampler，将整个训练集均匀划分到各个进程上，每个进程看到的数据子集互不重叠。
+
+    - 在每个epoch内，所有进程总共处理了整个数据集一次（假设没有drop_last和数据集长度可被进程数整除）。
+
+    - 不同的进程加载不同的数据，生成各自的本地梯度，通过All-Reduce获得全局梯度。
+
+    流程总结：
+
+    - 各进程独立从自己的数据子集中获取一个batch。
+
+    - 独立前向传播，计算损失。
+
+    - 独立反向传播，计算本地梯度。
+
+    - All-Reduce同步梯度（求平均）。
+
+    - 各进程用平均梯度更新本地模型参数。
+
+    - 由于初始模型相同、梯度相同，更新后的参数仍然一致。
+
+    这种设计使得DDP在保证模型一致性的前提下，最大化了数据处理的并行度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KwdbwAt6ziL8zKkU7VMcVNEin8d
+  block_id: B6iPdHSIhoUCiWx3nFAc1A2Onih
+  page_token: KwdbwAt6ziL8zKkU7VMcVNEin8d
+  original_title: 在DDP中，每个进程的模型、优化器和数据是怎样的？
+  imported_at: '2026-09-21'

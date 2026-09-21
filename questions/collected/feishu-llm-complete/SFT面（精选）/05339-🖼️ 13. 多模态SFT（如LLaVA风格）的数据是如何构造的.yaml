@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2b3b5739ee10
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F5BC️ 13. 多模态SFT（如LLaVA风格）的数据是如何构造的？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F5BC️ 13. 多模态SFT（如LLaVA风格）的数据是如何构造的？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LLaVA风格的多模态SFT，核心目标是在视觉指令遵循数据上，将预训练的视觉编码器和大语言模型进行对齐，并教会模型进行多模态对话。其数据构造有三个关键阶段：
+
+    一、阶段一：特征对齐预训练
+
+    - 目标：将图像特征从视觉编码器的“特征空间”，通过一个简单的投影层，映射到大语言模型能够理解的“词嵌入空间”。
+
+    - 数据：图像-标题配对数据。例如，CC3M数据集，每张图片带有一句或多句描述性标题。
+
+    - 构造方式：对于每张图片，用“图片描述：{标题文本}”作为指令，将标题文本作为回答。或者，更简单地，直接让语言模型生成图片的标题。
+
+    - SFT任务：在这个阶段，只训练一个简单的线性投影层（或多层感知机），视觉编码器和语言模型都被冻结。这本质上是一个“翻译”任务，教会模型将图片的视觉token翻译成语言模型能看懂的文本token序列。数据量通常较大（几十万），但训练很快。
+
+    二、阶段二：指令微调
+
+    - 目标：让模型学会遵循复杂的、多样化的视觉指令，并与用户进行关于图片内容的多轮对话。
+
+    - 数据：复杂的多模态指令-回答对。例如，“这张图片里有什么？”“描述这个人的穿着。”“根据这张图表，分析一下销售趋势。”
+
+    - 构造方式：这是最核心、最昂贵的数据。通常用GPT-4等强大的多模态模型来自动生成。具体流程是：
+
+    - SFT任务：在这个阶段，视觉编码器仍然冻结，而投影层和语言模型被同时微调。数据量通常为数千到数十万条高质量对话。这是将多模态理解能力“注入”模型的关键一步。
+
+    三、数据构造的关键细节
+
+    - 图像Token与文本Token的对齐：视觉编码器将图像转换为一系列特征向量（图像token）。这些token直接作为前缀或插入在文本token序列中，与指令的文本token拼接，一同输入给语言模型。语言模型看到的是一串“（图像token）（图像token）...（文本token）（文本token）”的序列。它通过自注意力机制，学会让文本token关注相关的图像token，从而完成多模态理解。
+
+    - 指令多样性：为了模型能够泛化，构造的指令必须多样化，覆盖识别、描述、推理、OCR、幽默、深度分析等多种任务。
+
+    - 幻觉控制：多模态SFT数据中，回答必须严格基于图片内容。如果数据中包含幻觉（如描述了图片中没有的东西），模型会学到严重的幻觉。因此，数据生成后的校验非常重要。
+
+    ✅ 总结：LLaVA风格的多模态SFT数据构造分为两步：用大量图像-文本对训练投影层，实现模态对齐；再用多样化的多模态指令-回答对微调投影层和语言模型，注入视觉指令遵循能力。数据生成高度依赖强模型的自动合成。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QxC9wMhjZi9E20kUA1TcTNQTnSh
+  block_id: Y7rKdJntUous1OxeT9Scf8q0ngb
+  page_token: QxC9wMhjZi9E20kUA1TcTNQTnSh
+  original_title: "\U0001F5BC️ 13. 多模态SFT（如LLaVA风格）的数据是如何构造的？"
+  imported_at: '2026-09-21'

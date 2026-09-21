@@ -1,0 +1,91 @@
+---
+schema_version: 1
+id: feishu-llm-complete-20d13560f2df
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: RAG 的完整链路，以及它和“直接 Prompt 塞文档”的根本区别
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: RAG 的完整链路，以及它和“直接 Prompt 塞文档”的根本区别
+answer:
+  mode: rubric
+  reference_answer: |-
+    完整的 RAG 链路，本质上是一条“离线索引 → 在线检索 → 生成答案”的工业流水线。
+
+    很多初学者会认为，把文档扔进 Prompt 就算 RAG 了。但这两者之间的差距，就像“把整本书丢给一个人让他找答案”和“建好索引的图书馆”。
+
+    [图片内容未导入]
+
+    离线索引阶段：把文档变成可检索的“卡片”。
+
+    - 清洗：去掉页眉页脚、特殊字符，保证文本干净。
+
+    - 分块：将长文档切成语义相对完整的小段落（chunk），这是 RAG 效果的核心基础。
+
+    - 向量化：用 Embedding 模型把每个 chunk 转成固定维度的向量。
+
+    - 存储：写入向量数据库，同时保留元数据（来源、页码、时间等）。
+
+    在线检索生成阶段：
+
+    - 用户问题同样向量化。
+
+    - 在向量库中做相似度搜索，取出最相似的 K 个 chunk。
+
+    - 可选地，用 Reranker（交叉编码器）对这些 chunk 重新精排，提升精度。
+
+    - 将最相关的 chunk 与用户问题一起，按照精心设计的 Prompt 模板喂给大模型。
+
+    - 模型生成答案，并（最好）附上引用来源。
+
+    它与“直接 Prompt 塞文档”的本质区别在哪里？
+
+    [嵌入表格未展开]
+
+    一个简单的代码对比，比任何文字都直观：
+
+    ```python
+    # ❌ 直接塞文档：粗暴、低效、不可控
+    prompt = f"请根据以下整本手册回答问题：\n{whole_book}\n\n问题：{question}"
+    answer = llm(prompt)
+
+    # ✅ RAG 方式：精准、高效、可追溯
+    docs = vectorstore.similarity_search(question, k=5)
+    context = "\n".join([d.page_content for d in docs])
+    prompt = f"参考资料：\n{context}\n\n问题：{question}"
+    answer = llm(prompt)
+    ```
+
+    RAG 的完整链路，本质上是在用工程手段，把“大海捞针”变成“按图索骥”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Vf3WwfQfWib73PkQHd2coGQXnmf
+  block_id: doxcnWVnPzlnaxyNPDUR3Ec6Zfb
+  page_token: Vf3WwfQfWib73PkQHd2coGQXnmf
+  original_title: RAG 的完整链路，以及它和“直接 Prompt 塞文档”的根本区别
+  imported_at: '2026-09-21'

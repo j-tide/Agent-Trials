@@ -1,0 +1,103 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b016784abe10
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多 Agent 软件开发系统设计（需求/设计/编码/测试）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+content:
+  prompt: 多 Agent 软件开发系统设计（需求/设计/编码/测试）
+answer:
+  mode: rubric
+  reference_answer: |-
+    1、基础题：MetaGPT 模拟软件公司是什么思路？和普通的单 Agent 代码生成有什么本质区别？
+
+    难度级别：⭐（MetaGPT 概念、角色化 Agent 设计）
+
+    MetaGPT 的思路是把软件公司的角色（PM、架构师、程序员、QA）映射为不同的 Agent，每个 Agent 有明确的职责，输出结构化文档（PRD、架构设计、代码、测试报告），上游的输出是下游的输入，形成类流水线的工作流。和单 Agent 代码生成的本质区别是：职责分离 + 结构化中间产物，每个环节有专门的 Agent 把关，减少单点失败的影响。
+
+    ---
+
+    2、进阶题：如果用多 Agent 系统来模拟软件开发流程，如何设计各个角色 Agent 的职责划分？人工审查节点应该在哪些关键环节介入？
+
+    难度级别：⭐⭐⭐（各角色 Agent 职责划分、MetaGPT/AutoGen 实现参考、人工审查节点介入时机）
+
+    1️⃣ Common Answer
+
+    可以设计产品经理 Agent 理解需求、架构师 Agent 做设计、程序员 Agent 写代码、测试 Agent 写测试用例，按顺序依次执行，前一个的输出是后一个的输入。MetaGPT 就是这个思路。人工可以在需求确认和代码审查环节介入。
+
+    2️⃣ Impressive Answer
+
+    我会从角色职责划分、工作流设计、人工介入节点三个角度来回答：
+
+    - 角色职责划分。六个角色各有明确的输入输出：PM Agent（用户需求 → 结构化 PRD）、Architect Agent（PRD → 架构设计文档 + API Schema）、Developer Agent（架构文档 + 模块分配 → 代码，可按模块并行）、Code Reviewer Agent（代码 → Review 意见，检查规范和安全）、QA Agent（代码 + PRD → 测试报告，基于验收标准生成用例）、DevOps Agent（代码 + 架构文档 → 部署配置）。
+
+    - 人工审查节点。有四个必须介入的关键节点——需求确认（PRD 完成后，AI 对需求的理解可能有偏差，是整个开发的起点，理解错了后面全错，成本最高）；架构评审（架构决策影响深远，技术债往往源于此）；代码合并前（不用每行都看，但对安全和核心业务逻辑做抽样审查）；上线审批（最后的门控）。人工介入太多失去自动化价值，太少风险不可控，四个关键节点是经验上的合理平衡点。
+
+    - LangGraph 实现 Human-in-the-Loop。用 interrupt_before 在指定节点前自动暂停，配合 MemorySaver 做状态持久化，人工审查期间任务挂起。审查完成后调用 update_state 写入反馈，再用 invoke(None, thread_id) 从断点继续，整个流程对任务透明。关于框架选型，MetaGPT 更像"刚性流水线"，输出格式有严格约束，适合流程标准化场景；AutoGen 更像"动态协商"，灵活但难预测。生产中我倾向于 MetaGPT 的思路——强制结构化输出，减少因格式混乱导致的链路中断。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：多 Agent 软件开发系统上线后，代码质量仍然不稳定，如何改进？
+
+    难度级别：⭐⭐⭐（质量保证机制、反馈循环、Agent 能力边界）
+
+    1️⃣ Common Answer
+
+    可以让测试 Agent 多写几个测试用例，或者再加一个 Agent 专门做代码审查。如果代码质量不行就让程序员 Agent 重新生成。
+
+    2️⃣ Impressive Answer
+
+    代码质量不稳定通常有三个根因，对应三个改进方向：
+
+    结构化输出约束：如果 Developer Agent 的输出格式不一致（如有时输出 Markdown 有时是纯文本），下游 Code Reviewer 解析失败就会跳过审查。解决方案是强制 Developer Agent 输出符合预定义 Schema 的结构化格式，任何不合规的输出在进入下游前就被拦截并要求重生成。
+
+    反馈循环设计：Code Reviewer → Developer 的修复循环需要设置退出条件，否则会无限循环。建议设置最大修复轮次（如 3 轮），超出后人工介入判断是 Agent 能力边界还是需求本身有歧义。
+
+    质量基准测试：定期用标准化的测试用例集评估各 Agent 的输出质量，监控 QA Agent 的测试通过率趋势。一旦通过率下滑，及时排查是上游 Architect Agent 的设计文档质量下降还是 LLM 版本更新导致输出风格变化。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JcycwopI3iq7iOk1kBJcuICVnOg
+  block_id: doxcnxfZCQi76Tg1Z7cUr830EWf
+  page_token: JcycwopI3iq7iOk1kBJcuICVnOg
+  original_title: 多 Agent 软件开发系统设计（需求/设计/编码/测试）
+  imported_at: '2026-09-21'

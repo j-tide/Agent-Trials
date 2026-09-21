@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cfd961da54ad
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 能否将标准多头注意力改造成“深度可分离注意力”来减少参数量？类似 MobileNet 的思想。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 基础理论与核心组件
+tags: &1
+- Transfomer精选面试
+- 基础理论与核心组件
+content:
+  prompt: 能否将标准多头注意力改造成“深度可分离注意力”来减少参数量？类似 MobileNet 的思想。
+answer:
+  mode: rubric
+  reference_answer: |-
+    可以，深度可分离卷积的思想可以迁移到注意力中，形成“深度可分离注意力”（Depthwise Separable Attention）。其核心是将标准注意力的混合操作分解为两步：
+
+    - 深度注意力（Depthwise Attention）：每个头（或每个通道）独立计算自己的注意力，但 Value 的聚合不混合不同通道的信息。类似于对每个特征维度单独进行加权聚合。
+
+    - 逐点投影（Pointwise Projection）：在深度注意力之后，通过一个 1×1 的线性变换（逐点卷积等效）将各通道信息混合。
+
+    实现方式：
+
+    假设输入 X 形状 (L, d)，标准多头注意力中，每个头将 d 维投影到 d_k 维，计算注意力后输出 d_v 维，然后拼接并投影回 d。要减少参数量，可以：
+
+    - 对每个位置（token）单独做注意力？不，更类似的是 通道维度的分组：让每个头只负责 d_model/h 个通道的注意力，Value 也只来自那个通道组，相当于每个头在低维通道组内独立完成自注意力。这本身已经是标准多头的做法。
+
+    - 为了进一步减少参数，可以减少投影矩阵的尺寸，例如不将整个 d_model 投影到 h·d_k，而是先用一个便宜的线性层降维，再分头；或者共享 Q、K、V 投影中的大部分参数（如 MQA 共享 K、V）。
+
+    - 真正的“深度可分离”注意力可以设计为：保留 Q 和 K 的多样性（多头），但 Value 投影使用深度可分离卷积的思想——Value 的聚合在通道组内独立进行，且 Value 投影矩阵采用分组卷积或逐通道卷积，大幅减少参数量。
+
+    效果与权衡：
+
+    - 参数量和计算量显著下降，特别是减少 Value 投影和输出投影的矩阵尺寸。
+
+    - 可能限制信息混合能力，因为通道间的信息交互被延迟到了逐点投影步骤，表达能力可能弱于标准方法。
+
+    - 实际应用中，MQA 和 GQA 已经部分实现了这种思想：减少 Key/Value 头的数量，保留 Query 的多头性，实质是一种不对称的参数共享，大幅降低了 KV 缓存，同时性能下降可控。
+
+    因此，“深度可分离注意力”是一种有效的轻量化方向，尤其适合对内存和带宽敏感的边缘设备。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaALw5OrYiyYN8kFNvGcq0bxnSc
+  block_id: C3qxdEzq7oA0y8xV5yQc8qC7nwf
+  page_token: NaALw5OrYiyYN8kFNvGcq0bxnSc
+  original_title: 能否将标准多头注意力改造成“深度可分离注意力”来减少参数量？类似 MobileNet 的思想。
+  imported_at: '2026-09-21'

@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dd0ff7ae1229
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3AF 如何只对链中的某个特定 LLM 调用附加回调，而其他部分不受影响？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F3AF 如何只对链中的某个特定 LLM 调用附加回调，而其他部分不受影响？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangChain 的链支持层级化回调。你可以利用局部回调的作用域特性，为某个特定的 LLM 实例或子链单独设置回调，而不影响外层链。
+
+    方法 1：在 LLM 实例化时绑定回调
+
+    special_llm = ChatOpenAI(model="gpt-4", callbacks=[MySpecialHandler()])
+    normal_llm = ChatOpenAI(model="gpt-3.5-turbo")
+    chain = MyChain(llm=special_llm, other_llm=normal_llm)
+
+    这里 special_llm 的每次调用都会触发 MySpecialHandler，而 normal_llm 不会。
+
+    方法 2：使用 with_config 动态绑定（LCEL）
+
+    chain_with_callback = my_chain.with_config(callbacks=[MyHandler()])
+    result = chain_with_callback.invoke({"input": "..."})
+
+    这种方法不会修改原链，只会在这次调用中注入回调。
+
+    方法 3：通过 Runnable 的 config 传递
+    在 LCEL 中，可以在运行配置里传 callbacks：
+
+    chain.invoke({"input": "..."}, config={"callbacks": [MyHandler()]})
+
+    只有这次调用的所有子步骤会继承该配置。
+
+    注意：回调有“继承”特性。当你在父链上设置了回调，子链和 LLM 会自动继承这些回调（除非子组件显式屏蔽）。但反过来，如果你在子组件上设置了回调，父链不会受影响。所以，要实现“只对特定 LLM 生效”，直接在目标 LLM 上设置回调即可。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  block_id: WLbidFF5qoqjxSxT1ICcUSsRnwd
+  page_token: LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  original_title: "\U0001F3AF 如何只对链中的某个特定 LLM 调用附加回调，而其他部分不受影响？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,97 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6b9b9fbd98a1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 用 Python 实现一个简单的 LRU 缓存驱逐策略，当块池耗尽时选择最久未使用的序列释放其所有物理块，并供新序列使用。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 用 Python 实现一个简单的 LRU 缓存驱逐策略，当块池耗尽时选择最久未使用的序列释放其所有物理块，并供新序列使用。
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    当空闲块耗尽而新请求需要块时，选择一个最近最少使用的序列（非活跃），将其所有物理块回收。维护每个序列的 last_access_time，使用有序字典或最小堆实现。
+
+    实现
+
+    ```python
+    import time
+    import threading
+
+    class LRUBlockManager:
+        def __init__(self, total_blocks, block_size):
+            self.allocator = BlockAllocator(total_blocks)
+            self.block_size = block_size
+            self.seq_blocks = {}         # seq_id -> list[block_idx]
+            self.last_access = {}        # seq_id -> timestamp
+            self.lock = threading.Lock()
+
+        def allocate_for_seq(self, seq_id, num_blocks):
+            with self.lock:
+                needed = num_blocks
+                # 先尝试直接分配
+                while needed > 0:
+                    if self.allocator.available() > 0:
+                        blk = self.allocator.allocate()
+                        self.seq_blocks.setdefault(seq_id, []).append(blk)
+                        needed -= 1
+                    else:
+                        # 驱逐最久未使用的序列
+                        if not self.last_access:
+                            raise MemoryError("No sequences to evict")
+                        victim = min(self.last_access, key=self.last_access.get)
+                        if victim == seq_id:
+                            raise MemoryError("Cannot evict self")
+                        # 释放 victim 的所有块
+                        for blk in self.seq_blocks.pop(victim, []):
+                            self.allocator.free(blk)
+                        del self.last_access[victim]
+                self.last_access[seq_id] = time.time()
+            return self.seq_blocks[seq_id]
+
+        def touch(self, seq_id):
+            with self.lock:
+                self.last_access[seq_id] = time.time()
+
+        def free_seq(self, seq_id):
+            with self.lock:
+                for blk in self.seq_blocks.pop(seq_id, []):
+                    self.allocator.free(blk)
+                self.last_access.pop(seq_id, None)
+    ```
+
+    应用：vLLM 等系统在显存不足时，会将非活跃序列的 KV 块换出到 CPU 内存，LRU 是选择换出序列的常用策略。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IhgfwCPtoif3TWkyezuc4sW9nbg
+  block_id: Rpoad4MtpoKYZkxqhEtcTYuDnhg
+  page_token: IhgfwCPtoif3TWkyezuc4sW9nbg
+  original_title: 用 Python 实现一个简单的 LRU 缓存驱逐策略，当块池耗尽时选择最久未使用的序列释放其所有物理块，并供新序列使用。
+  imported_at: '2026-09-21'

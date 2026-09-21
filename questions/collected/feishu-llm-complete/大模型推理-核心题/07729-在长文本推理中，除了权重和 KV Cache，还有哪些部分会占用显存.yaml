@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7a827713476a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在长文本推理中，除了权重和 KV Cache，还有哪些部分会占用显存？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: 在长文本推理中，除了权重和 KV Cache，还有哪些部分会占用显存？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在超长文本（如 32k 或更高）场景下，一些日常忽略的“配角”会突然变成“吞金兽”。
+
+    - 注意力得分矩阵：在 Prefill 阶段，计算 Q × K^T 会产生一个形状为 [batch, heads, S, S] 的巨大矩阵。对于 S=32k、32 个头的 MHA 模型，这个矩阵在 FP16 下可达 1 × 32 × 32768 × 32768 × 2 ≈ 68 GB！直接存储会导致瞬间 OOM。FlashAttention 等算法的核心就是通过分块计算避免完整存储这个矩阵，将其显存开销降至与序列长度线性相关。
+
+    - Prefill 阶段的中间激活：一次性处理整个长 Prompt 时，Transformer 每一层的残差连接、LayerNorm 输出等需要临时保留，它们的显存占用与序列长度成正比，在长序列下不可小觑。
+
+    - 显存碎片与框架缓存：PyTorch 的显存分配器在频繁申请、释放大小不一的内存块时，会产生大量碎片。这就像一个大房间，虽然总剩余空间足够，但因为全是不连续的小块，无法放进一个大件家具，从而触发 OOM。推理引擎（如 vLLM）通过预分配大块内存和精细化管理（PagedAttention）来规避碎片。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C0pNwQLAmiNN2tkVnWGccLYLns0
+  block_id: KzB6dqYOLoAeDBxBHTPcNEW0nhM
+  page_token: C0pNwQLAmiNN2tkVnWGccLYLns0
+  original_title: 在长文本推理中，除了权重和 KV Cache，还有哪些部分会占用显存？
+  imported_at: '2026-09-21'

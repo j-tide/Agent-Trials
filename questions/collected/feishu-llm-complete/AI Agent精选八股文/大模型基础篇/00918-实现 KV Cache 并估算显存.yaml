@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6ff9299a5b48
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 KV Cache 并估算显存
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: 实现 KV Cache 并估算显存
+answer:
+  mode: rubric
+  reference_answer: |-
+    KV Cache 原理：自回归生成时，将历史 K、V 保存在 past_key_values 元组中。
+    显存计算：
+
+    - 单层 KV Cache 大小 = 2 × batch_size × num_heads × seq_length × d_head × dtype_bytes
+
+    - 总大小 = 层数 × 单层大小
+    例如 LLaMA-7B：32层，heads=32，d_head=128，fp16（2字节），batch=1，seq_len=2048 → 单层 2×1×32×2048×128×2 = 33,554,432 字节 ≈ 32 MB，总约 1 GB。
+    代码片段（展示 KV Cache 使用）：
+
+    ```python
+    past_key_values = None
+    for _ in range(max_len):
+        outputs = model(input_ids, past_key_values=past_key_values, use_cache=True)
+        logits = outputs.logits[:, -1, :]
+        past_key_values = outputs.past_key_values
+        # 采样...
+    ```
+
+    关键点：use_cache=True 启用缓存，在每一轮将新的 K、V 拼接到缓存中。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AxkEwVG8kibSjokIPVEc6aggnjo
+  block_id: doxcn9laHVY8G5WfLnt6bUn4MJc
+  page_token: AxkEwVG8kibSjokIPVEc6aggnjo
+  original_title: 实现 KV Cache 并估算显存
+  imported_at: '2026-09-21'

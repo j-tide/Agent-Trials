@@ -1,0 +1,124 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d371ac26e48f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F91DA2A 中 Orchestrator Agent 和 Worker Agent 如何协作？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F91DA2A 中 Orchestrator Agent 和 Worker Agent 如何协作？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    A2A 定义了两种典型的 Agent 角色，它们的协作模式非常像“项目经理”和“领域专家”的关系。
+
+    [图片内容未导入]
+
+    协作流程四步走：
+
+    ① 发现（Discovery）
+    Orchestrator 启动时或定期从一个注册中心（或本地配置）拉取所有可用 Worker 的 Agent Card。卡片里写明了 Worker 的 ID、支持的技能（如 financial_analysis、contract_review）、输入输出规范、端点地址等。这是动态路由的基础。
+
+    ② 分配（Assignment）
+
+    用户说“帮我研究一下投资 AI 芯片的可行性，并拟一份合作框架”。Orchestrator 用自己的大脑分析：
+
+    - 子任务 1：市场研究与技术分析 → 路由给擅长 market_research 的 Worker A。
+
+    - 子任务 2：法律框架起草 → 路由给擅长 legal_draft 的 Worker B。
+    每个子任务被封装为一个 A2A Task，通过 tasks/send 发送给对应 Worker。
+
+    ③ 协调与监控（Orchestration）
+
+    Orchestrator 不会发完任务就撒手不管。它维护一个任务依赖图：Task 2 可能依赖 Task 1 的数据（市场分析是拟定合同的依据）。它会：
+
+    - 等待 Task 1 完成，提取关键结论。
+
+    - 将结论作为 Task 2 的输入参数，再下发给 Worker B。
+
+    - 如果 Worker A 失败，它可以重新分配给另一个同技能 Worker，或者要求 Worker A 重试。
+
+    ④ 聚合（Aggregation）
+
+    所有子任务终态后，Orchestrator 把各 Worker 返回的 Artifacts 组合成一份完整答案，推送给用户。比如：市场分析报告 PDF + 合同草稿 DOCX + 风险提示摘要。
+
+    示例代码：Orchestrator 如何动态分配任务
+
+    ```python
+    class OrchestratorAgent:
+        def __init__(self, registry):
+            self.registry = registry  # 可用 Worker 列表及其 Agent Card
+
+        async def handle_request(self, user_query):
+            # 1. 用自己的 LLM 做任务分解
+            subtasks = await self.decompose(user_query)
+            # 分解结果如：[("market_research", "AI芯片市场前景"), ("legal_draft", "拟定合作框架")]
+
+            results = []
+            for skill, description in subtasks:
+                # 2. 从注册中心找最适合的 Worker
+                worker = self.registry.find_best(skill)
+                if not worker:
+                    results.append(f"未找到支持 {skill} 的 Worker")
+                    continue
+
+                # 3. 创建并发送任务
+                task = Task(
+                    description=description,
+                    context={"previous_results": results}  # 携带前置结果
+                )
+                task_id = await worker.send_task(task)
+
+                # 4. 异步等待完成（或轮询）
+                final_task = await self.wait_for_completion(worker, task_id)
+                if final_task.status == "completed":
+                    results.append(final_task.artifacts)
+                else:
+                    # 5. 失败处理：换 Worker 或重试
+                    results.append(await self.handle_failure(skill, description, worker))
+
+            # 6. 聚合所有结果
+            return self.aggregate(results, user_query)
+    ```
+
+    协作中三个关键工程点：
+
+    - 输入/输出对齐：Orchestrator 需要确保前一个 Task 的输出是下一个 Task 的合法输入。这通常依靠对 Artifacts 的内容校验和 schema 匹配。
+
+    - 容错与重试：如果 Worker 返回 Failed，Orchestrator 可以决定是用同样参数重试、换一个 Worker，还是降级处理（例如人工介入）。
+
+    - 安全与信任边界：A2A 强烈建议使用 TLS + 服务账号认证。Orchestrator 应该验证 Worker 的身份，Worker 也应该验证 Orchestrator 是否有权提交这种任务。这种双向信任是生产化的前提。
+
+    总结一句：
+
+    Orchestrator 是“用什么、怎么做、找谁做”的决策者，Worker 是“做得好、做得快、做得专”的执行者。A2A 把这两者之间的接口固定下来，让所有 Agent 都能在一个规则下自由组队，就像乐高的卡扣一样，任意拼接，牢固协作。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Bc6JwKFZHiApXjkusvBcTTrYnne
+  block_id: doxcnxmW5nqMC5kjurtSZPkAuCl
+  page_token: Bc6JwKFZHiApXjkusvBcTTrYnne
+  original_title: "\U0001F91DA2A 中 Orchestrator Agent 和 Worker Agent 如何协作？"
+  imported_at: '2026-09-21'

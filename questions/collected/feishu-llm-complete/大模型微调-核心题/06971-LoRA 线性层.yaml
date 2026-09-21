@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ae3096ee9a04
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: LoRA 线性层
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: LoRA 线性层
+answer:
+  mode: rubric
+  reference_answer: "```python\nimport torch\nimport torch.nn as nn\nimport math\n\nclass
+    LoRALinear(nn.Module):\n    def __init__(self, in_features: int, out_features:
+    int, r: int = 8, \n                 lora_alpha: int = 16, bias: bool = True, dropout:
+    float = 0.0):\n        super().__init__()\n        self.r = r\n        self.lora_alpha
+    = lora_alpha\n        self.scaling = lora_alpha / r\n\n        # 原始线性层，权重冻结\n
+    \       self.linear = nn.Linear(in_features, out_features, bias=bias)\n        self.linear.weight.requires_grad
+    = False\n        if bias:\n            self.linear.bias.requires_grad = False\n\n
+    \       # LoRA 低秩矩阵 A (r, in_features) 和 B (out_features, r)\n        self.lora_A
+    = nn.Parameter(torch.zeros(r, in_features))\n        self.lora_B = nn.Parameter(torch.zeros(out_features,
+    r))\n        self.lora_dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()\n\n
+    \       self.reset_lora_parameters()\n\n    def reset_lora_parameters(self):\n
+    \       # A 使用 Kaiming 初始化，B 初始化为零，使初始时 ΔW = 0\n        nn.init.kaiming_uniform_(self.lora_A,
+    a=math.sqrt(5))\n        nn.init.zeros_(self.lora_B)\n\n    def forward(self,
+    x: torch.Tensor) -> torch.Tensor:\n        # 原始输出 (冻结)\n        result = self.linear(x)\n
+    \       # LoRA 旁路：x -> A^T -> B^T，然后乘以缩放因子\n        lora_out = self.lora_dropout(x)
+    @ self.lora_A.T  # (..., r)\n        lora_out = lora_out @ self.lora_B.T               #
+    (..., out_features)\n        result = result + self.scaling * lora_out\n        return
+    result\n```"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: RhMJd8MUOoOL0XxBPBycDGHsnta
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: LoRA 线性层
+  imported_at: '2026-09-21'

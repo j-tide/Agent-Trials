@@ -1,0 +1,97 @@
+---
+schema_version: 1
+id: feishu-llm-complete-229b7f912a42
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚙️ 如何为 LLM 调用添加缓存？写出示例代码。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "⚙️ 如何为 LLM 调用添加缓存？写出示例代码。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    添加缓存非常简单，只需在创建 LLM 实例时传入 cache 参数，或者在全局设置缓存。
+
+    方式一：为特定 LLM 实例设置缓存
+
+    ```python
+    from langchain.globals import set_llm_cache
+    from langchain.cache import InMemoryCache
+    from langchain_openai import ChatOpenAI
+
+    # 创建缓存实例
+    cache = InMemoryCache()
+    # 全局设置（对所有后续LLM生效）
+    set_llm_cache(cache)
+
+    llm = ChatOpenAI(model="gpt-3.5-turbo")
+    # 第一次调用，未命中，会请求API
+    response1 = llm.invoke("什么是量子计算？")
+    # 第二次相同调用，命中缓存，不再请求API
+    response2 = llm.invoke("什么是量子计算？")
+    ```
+
+    方式二：仅对特定 LLM 实例生效（不全局）
+
+    ```python
+    llm = ChatOpenAI(model="gpt-3.5-turbo", cache=InMemoryCache())
+    ```
+
+    使用 RedisCache 示例：
+
+    ```python
+    from langchain.cache import RedisCache
+    import redis
+
+    r = redis.Redis(host="localhost", port=6379, db=0)
+    cache = RedisCache(redis_=r)
+    set_llm_cache(cache)
+    ```
+
+    对于 Redis 语义缓存 RedisSemanticCache，需要提供 Embeddings 模型，它会根据相似度返回缓存结果，即使 Prompt 不完全相同。
+
+    ```python
+    from langchain.cache import RedisSemanticCache
+    from langchain_openai import OpenAIEmbeddings
+
+    cache = RedisSemanticCache(
+        redis_url="redis://localhost:6379",
+        embeddings=OpenAIEmbeddings(),
+        score_threshold=0.9  # 相似度阈值
+    )
+    set_llm_cache(cache)
+    ```
+
+    设置缓存后，LangChain 内部在每次 LLM 调用前会检查缓存，命中则直接返回 Generation 对象，跳过 API 调用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VWvFwnt5pi19m7ky7Udc0PatnRe
+  block_id: CBG0dp3T5oKUnUxF0rWc0z6knrf
+  page_token: VWvFwnt5pi19m7ky7Udc0PatnRe
+  original_title: "⚙️ 如何为 LLM 调用添加缓存？写出示例代码。"
+  imported_at: '2026-09-21'

@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e4bf34483a97
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E1️ SFT中loss masking的作用是什么？如果不做会怎样？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F6E1️ SFT中loss masking的作用是什么？如果不做会怎样？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Loss masking 是SFT训练中的一个关键技巧，其核心思想是：在计算损失函数时，有选择地将特定token位置上的损失乘以0，从而让模型只在目标文本（即回答部分）上进行优化，而忽略输入部分（即指令部分）的预测损失。
+
+    它的作用与不做时的后果如下：
+
+    作用一：明确优化目标，防止行为漂移
+    SFT的训练数据格式通常是 [指令部分] [回答部分]。如果不做loss masking，模型会试图同时学习预测指令和回答。这意味着模型会花费大量算力去学习“如何生成指令”，这显然不是我们想要的。我们想让模型成为一个“回答者”，而不是一个“提问者”。Loss masking将模型的优化目标精确地限定在“在给定指令的前提下，生成回答”这一任务上，确保了行为的一致性。
+
+    作用二：保持指令的“条件”地位，而非“预测目标”
+
+    指令应当作为条件信息输入模型，模型需要基于这个条件来生成回答。如果不mask指令损失，指令就从“背景信息”变成了“需要被预测的文本序列”。这会在训练时引入混乱：模型会在指令的末端尝试预测指令的开头，这会破坏指令作为条件变量的纯粹性。Masking确保了指令是“因”，回答是“果”，因果关系清晰。
+
+    作用三：节省计算资源，加速收敛
+
+    指令部分通常占据整个序列长度的30%到70%。如果不mask这部分，大量计算资源会被浪费在学习一个我们不关心的目标上。这会导致训练需要更多步数才能收敛，且实际用于学习指令遵循的有效信号被稀释。Masking让每一轮梯度更新都只针对回答部分，使训练更加高效。
+
+    如果完全不做loss masking，会发生以下几件事：
+
+    - 模型行为混乱：模型将变得不确定自己应该“提问”还是“回答”。在与用户交互时，它可能会先复述或创造一段指令，然后再给出回答；或者干脆只生成类似指令的文本，无法进入“回答模式”。
+
+    - 指令遵循能力弱化：因为模型将指令也视为生成目标，它会试图去“记忆”训练数据中的具体指令-回答对，而不是学习指令到回答的映射关系。这会导致泛化能力大幅下降，面对未见过的指令时表现极差。
+
+    - 多轮对话能力崩溃：在多轮对话场景下，每一轮的回答会附加到历史中作为下一轮的上下文。如果模型学会了生成指令，它可能会在多轮对话中自行生成新的用户指令，导致整个对话逻辑崩溃。
+
+    - 训练极不稳定：指令和回答的语言模式不同，强制模型同时拟合两者，会让损失函数的优化曲面变得更加崎岖，增加训练的不稳定性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KPIxw03EPiQ1rrkxrvUcqRIznBf
+  block_id: JhNPdXgsVo5TU2xkPFScdc6qnNc
+  page_token: KPIxw03EPiQ1rrkxrvUcqRIznBf
+  original_title: "\U0001F6E1️ SFT中loss masking的作用是什么？如果不做会怎样？"
+  imported_at: '2026-09-21'

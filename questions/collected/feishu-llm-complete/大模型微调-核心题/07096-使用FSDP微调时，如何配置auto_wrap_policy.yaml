@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5a64f2af7279
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用FSDP微调时，如何配置“auto_wrap_policy”？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 使用FSDP微调时，如何配置“auto_wrap_policy”？
+answer:
+  mode: rubric
+  reference_answer: |-
+    FSDP的auto_wrap_policy用于定义哪些子模块应被单独包装成一个FSDP实例，从而控制分片的粒度。合理的策略能显著降低显存峰值，通常选择逐Transformer层包裹。
+
+    配置方式：在FullyShardedDataParallel的初始化参数中传入一个可调用对象，或使用functools.partial结合预置策略。
+
+    常用策略：
+
+    - transformer_auto_wrap_policy（推荐）：专为Transformer设计，按指定的Block类（如LlamaDecoderLayer、GPT2Block）逐层包裹。这是目前显存效率最高的方式。
+
+    - size_based_auto_wrap_policy：当模块的参数总数超过阈值（如100M）时才包裹，适用于非标准架构。
+
+    - default_auto_wrap_policy：结合上述两者，可自定义。
+
+    实例（LLaMA模型）：
+
+    import functools
+    from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
+    from transformers.models.llama.modeling_llama import LlamaDecoderLayer
+
+    auto_wrap_policy = functools.partial(
+        transformer_auto_wrap_policy,
+        transformer_layer_cls={LlamaDecoderLayer},
+    )
+
+    # 然后传递给FSDP包装器或accelerate配置
+    # model = FullyShardedDataParallel(model, auto_wrap_policy=auto_wrap_policy)
+
+    如果使用HuggingFace accelerate启动训练，只需在config.yaml中设置：
+
+    fsdp_config:
+      fsdp_auto_wrap_policy: TRANSFORMER_BASED_WRAP
+      fsdp_transformer_layer_cls_to_wrap: LlamaDecoderLayer
+
+    效果：每个LlamaDecoderLayer被独立分片，前向时该层的参数通过All‑Gather临时收集，计算后立即释放，整个模型的显存占用不再随层数线性增长，而是仅需维持一层完整参数和全部分片，极大降低了峰值显存。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: Q4AMdvAthooY4WxVD9nc3EsInCb
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 使用FSDP微调时，如何配置“auto_wrap_policy”？
+  imported_at: '2026-09-21'

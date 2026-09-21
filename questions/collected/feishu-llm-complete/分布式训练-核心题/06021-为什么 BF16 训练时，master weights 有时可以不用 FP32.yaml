@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8d8b72c639e6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么 BF16 训练时，master weights 有时可以不用 FP32？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 为什么 BF16 训练时，master weights 有时可以不用 FP32？
+answer:
+  mode: rubric
+  reference_answer: |-
+    BF16（Brain Float 16）与FP16的根本区别在于它的指数位数。BF16有8位指数，与FP32相同，因此它的数值表示范围与FP32完全一致，最大可以表示约3.4×10³⁸，最小正规数约1.2×10⁻³⁸。这意味着在训练过程中，无论是激活值的前向传播，还是梯度的反向传播，BF16都不会因为数值超出范围而溢出。
+
+    FP16的痛点在于它只有5位指数，表示范围窄（最大约65504）。一旦某个中间值超出这个范围，就会变成Inf，导致训练崩溃。因此FP16必须保留一份FP32的master weights来兜底。
+
+    BF16的动态范围与FP32一致，溢出的风险被消除了。剩下的问题是精度：BF16的尾数只有7位，约2位有效数字，远低于FP32。理论上面临梯度被截断的风险。但大量实践表明，随机梯度下降本身的噪声远大于这个精度损失。LLaMA系列、OPT等大模型都在BF16下直接训练，不保留FP32主副本，收敛性和最终性能几乎没有差异。
+
+    因此，BF16训练可以省去FP32 master weights，每参数显存从6字节（FP16权重+FP32主副本）降至2字节（仅BF16权重），节省了约67%的权重相关显存。这是BF16相比FP16的又一个重大优势。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: IB59dKwOuobnyVxeUkScryznnVh
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 为什么 BF16 训练时，master weights 有时可以不用 FP32？
+  imported_at: '2026-09-21'

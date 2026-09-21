@@ -1,0 +1,111 @@
+---
+schema_version: 1
+id: feishu-llm-complete-45ae13045f26
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⏳A2A 协议的 Task 生命周期是什么？如何处理长时间运行的任务？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "⏳A2A 协议的 Task 生命周期是什么？如何处理长时间运行的任务？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    A2A 把一切工作都抽象为 Task。一个 Task 从诞生到结束，有严格定义的状态机，这对分布式协同至关重要。
+
+    Task 状态机图示：
+
+    [图片内容未导入]
+
+    状态详解：
+
+    - Submitted：任务已被 Orchestrator 创建并提交给 Worker，但 Worker 还没开始处理。可以在此阶段取消。
+
+    - Working：Worker 确认接收，正在执行。这是唯一可以持续输出中间状态的阶段（通过流式消息或 Artifact 更新）。
+
+    - Completed：任务成功，产出物就绪。这是个终态，不可再变。
+
+    - Failed：任务执行出错。终态，但可以附带错误信息。
+
+    - Cancelled：在 Submitted 或 Working 阶段被主动取消。终态。
+
+    如何处理长时间运行的任务？
+
+    长任务（比如超过 30 秒）不能靠一个简单的 HTTP 请求-响应同步等待。A2A 提供了两种互补机制：
+
+    方式一：异步轮询（Polling）
+    Worker 收到任务后立即返回 taskId 和状态 Working。Orchestrator 端维护一个后台循环，定期用 tasks/get 查询状态，直到变成终态。
+
+    ```python
+    # Orchestrator 侧异步等待任务完成
+    async def wait_for_completion(worker_client, task_id, poll_interval=2.0):
+        while True:
+            task = await worker_client.get_task(task_id)
+            if task.status in ("completed", "failed", "cancelled"):
+                return task
+            # 可以在这里处理中间 Artifact，例如打印进度
+            if task.artifacts:
+                print(f"进度更新: {task.artifacts[-1].description}")
+            await asyncio.sleep(poll_interval)
+    ```
+
+    方式二：流式推送（Streaming / SSE）
+    在支持流式传输的场景下，Worker 可以通过 tasks/send 或类似机制，主动向 Orchestrator 推送状态变更。这需要一个长连接（如 WebSocket、SSE 或 gRPC stream）。Orchestrator 不需要轮询，能实时看到进度条和中间产出。
+
+    方式三：Webhook 回调
+    如果 Worker 和 Orchestrator 彼此网络可达，可以在提交任务时附带一个 callbackUrl。Worker 在状态变为终态时，主动 POST 一次通知过去。这结合了异步的灵活性和较低的网络开销。
+
+    实战代码示例：模拟一个执行数据分析长任务的 Worker
+
+    ```python
+    # Worker 侧：处理长任务，逐步更新状态
+    class WorkerAgent:
+        async def process_task(self, task: Task):
+            # 1. 更新为 Working
+            await self.send_status(task.id, "working", "开始分析数据...")
+
+            # 2. 阶段一：数据清洗（耗时操作）
+            await asyncio.sleep(5)  # 模拟耗时
+            await self.send_artifact(task.id, "清洗完成，发现 12 条异常数据")
+
+            # 3. 阶段二：建模
+            await asyncio.sleep(10)
+            await self.send_artifact(task.id, "模型训练完成，准确率 94.2%")
+
+            # 4. 完成
+            result = {"report_url": "https://storage/report_123.pdf"}
+            await self.send_status(task.id, "completed", "分析完成", artifacts=result)
+    ```
+
+    对应的 Orchestrator 在接收到状态更新时，就能在 UI 上画出一个真实的进度条，而不是干等着。这种异步、分阶段执行能力，是 A2A 区别于传统 RPC 的一大特征。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Bc6JwKFZHiApXjkusvBcTTrYnne
+  block_id: doxcnufXNw4B28iaR5o0JVHUvMd
+  page_token: Bc6JwKFZHiApXjkusvBcTTrYnne
+  original_title: "⏳A2A 协议的 Task 生命周期是什么？如何处理长时间运行的任务？"
+  imported_at: '2026-09-21'

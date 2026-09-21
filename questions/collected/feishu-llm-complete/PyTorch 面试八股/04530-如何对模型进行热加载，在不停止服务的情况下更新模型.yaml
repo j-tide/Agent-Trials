@@ -1,0 +1,95 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a53c21ec71bf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何对模型进行“热加载”，在不停止服务的情况下更新模型？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何对模型进行“热加载”，在不停止服务的情况下更新模型？
+answer:
+  mode: rubric
+  reference_answer: |-
+    热加载指在不重启服务进程、不中断在线请求的情况下，动态替换正在运行的模型实例，实现无缝更新。
+
+    实现方案：
+
+    - 基于原子指针的模型切换（常见于 C++ 服务，Python 同样适用）：
+
+    - 推理服务中维护一个指向当前模型的共享指针（或 Python 引用）。
+
+    - 在模型更新时，在后台加载新模型到另一个内存区域，构建新的模型实例。
+
+    - 通过一个原子操作（在 Python 中可用 threading.Lock 或 asyncio.Lock）将服务使用的模型指针切换到新模型。
+
+    - 对于正在处理中的请求，仍然使用旧模型完成；新请求使用新模型。
+
+    - 旧模型在确定无引用后释放。
+
+    Python 示例：
+
+    ```python
+    import threading
+    class InferenceService:
+        def __init__(self, model_path):
+            self.model = self.load_model(model_path)
+            self.lock = threading.Lock()
+        def predict(self, inputs):
+            with self.lock:
+                return self.model(inputs)
+        def update_model(self, new_path):
+            new_model = self.load_model(new_path)
+            with self.lock:
+                self.model = new_model  # 原子切换
+    ```
+
+    - 多进程 + 进程间通信（IPC）：
+
+    - 主进程负责请求路由，子进程各自加载模型。更新时，启动新的子进程加载新模型，然后将流量逐渐切换到新子进程，旧子进程在排空请求后优雅退出。
+
+    - 使用 Kubernetes 的滚动更新机制可以天然实现这一点，但那是进程级重启，不是严格的热加载。
+
+    - 动态权重更新：
+
+    - 对于支持动态图或使用 PEFT（如 LoRA）的模型，可以只更新 LoRA 适配器，而不替换整个模型。适配器体积小，加载快，切换开销极低。
+
+    - 在推理框架（如 vLLM）中，已经支持动态加载/卸载 LoRA 适配器，实现毫秒级的热插拔。
+
+    注意事项：
+
+    - 线程安全：必须确保模型切换时推理操作不受干扰，可以使用读写锁（threading.RWLock）允许多个读者并发，写者互斥。
+
+    - 显存管理：加载新模型会暂时占用双倍显存。需确保服务器有足够冗余显存，或先卸载旧模型再加载新模型（会短暂中断服务）。
+
+    - 状态同步：如果模型包含运行时状态（如 KV Cache 池），需要确保切换时状态不丢失或重新初始化。
+
+    生产环境建议：在容器化环境中，通常采用滚动更新而非进程内热加载，因为更简单可靠。但如果模型加载时间很长（>分钟级），热加载能显著缩短更新周期。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WSlbwtUNQiNbKakCLPDcsZ9Hnsg
+  block_id: SdVMd1gNxoHPlpxyX0tcIqvxn0f
+  page_token: WSlbwtUNQiNbKakCLPDcsZ9Hnsg
+  original_title: 如何对模型进行“热加载”，在不停止服务的情况下更新模型？
+  imported_at: '2026-09-21'

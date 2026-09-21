@@ -1,0 +1,96 @@
+---
+schema_version: 1
+id: feishu-llm-complete-936af89536a5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4B0 怎样追踪每次请求的 token 使用量，并计算成本？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F4B0 怎样追踪每次请求的 token 使用量，并计算成本？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    精确追踪 token 使用和成本是 LLM 应用运营的基础。LangChain 提供了多种途径，但生产环境通常需要结合回调系统和外部定价表。
+
+    - 利用回调获取 token 信息
+    LangChain 的 BaseCallbackHandler 在 on_llm_end 事件中，可以从 response 中提取 token 使用量。注意，不同 LLM 实现返回的 token 信息位置可能不同，需要做兼容处理。
+
+    ```python
+    from langchain.callbacks import BaseCallbackHandler
+
+    class TokenCostTracker(BaseCallbackHandler):
+        def __init__(self):
+            self.total_prompt_tokens = 0
+            self.total_completion_tokens = 0
+            self.total_cost = 0
+            # 定价表（美元/1000 tokens）
+            self.pricing = {
+                "gpt-4": {"prompt": 0.03, "completion": 0.06},
+                "gpt-3.5-turbo": {"prompt": 0.0015, "completion": 0.002},
+            }
+
+        def on_llm_end(self, response, **kwargs):
+            # 尝试从 llm_output 获取 usage
+            usage = None
+            if response.llm_output and "token_usage" in response.llm_output:
+                usage = response.llm_output["token_usage"]
+            elif hasattr(response, "generations") and response.generations:
+                # 部分模型可能放在 generation_info 中
+                gen_info = response.generations[0][0].generation_info
+                if gen_info:
+                    usage = gen_info.get("token_usage")
+            if usage:
+                prompt_tokens = usage.get("prompt_tokens", 0)
+                completion_tokens = usage.get("completion_tokens", 0)
+                self.total_prompt_tokens += prompt_tokens
+                self.total_completion_tokens += completion_tokens
+                # 根据模型名计算成本
+                model = kwargs.get("invocation_params", {}).get("model_name", "unknown")
+                price = self.pricing.get(model, {})
+                cost = (prompt_tokens * price.get("prompt", 0) + completion_tokens * price.get("completion", 0)) / 1000
+                self.total_cost += cost
+    ```
+
+    使用时，只需将该回调添加到链或 LLM 中。
+
+    - 流式生成时的特殊处理
+    流式模式下，on_llm_end 中的 usage 可能为空（取决于 API）。对于 OpenAI 的流式接口，最终的 usage 信息会在最后一条 chunk 中返回，需要自己去解析流或在 on_llm_end 后另外获取。一种变通是：在流式结束后，调用 llm.get_token_ids(text) 手动估算 token 数，但这不如 API 返回的精确。
+
+    - 持久化与聚合
+    每次调用的成本信息应携带 run_id、user_id、session_id 等，写入时序数据库（如 InfluxDB）或日志系统，方便后续按用户、按天、按模型聚合。LangSmith 也提供了基础的 token 统计，但自定义方案更灵活。
+
+    - 成本优化
+
+    基于统计，你可以识别出消耗最高的用户、最昂贵的 Prompt，进而优化 Prompt 长度或换用更便宜的模型。我们曾通过统计发现一个内部机器人每天因一个冗长 System Prompt 浪费数百美元，精简后成本下降 60%。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WzEDwedwxiXAD4kdXdjcKjdQnCe
+  block_id: SznZdHpBaoVYTzxFZnFcYii6nMf
+  page_token: WzEDwedwxiXAD4kdXdjcKjdQnCe
+  original_title: "\U0001F4B0 怎样追踪每次请求的 token 使用量，并计算成本？"
+  imported_at: '2026-09-21'

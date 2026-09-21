@@ -1,0 +1,46 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5b07e37e78b5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3B2 4. 为什么在 RLHF 中固定所有随机种子（生成、采样、数据 shuffle）仍然可能出现运行间差异？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "\U0001F3B2 4. 为什么在 RLHF 中固定所有随机种子（生成、采样、数据 shuffle）仍然可能出现运行间差异？"
+answer:
+  mode: rubric
+  reference_answer: "即使在严格控制种子的条件下，仍然存在以下非确定性来源：\n\n- \U0001F527 cuDNN 非确定性：某些cuDNN卷积/注意力算法（如cudnn.benchmark=True）会选择不同实现，导致浮点运算顺序不同，微小差异累积后可产生蝴蝶效应。需设置torch.backends.cudnn.deterministic=True。\n\n-
+    \U0001F9F5 多线程数据加载：DataLoader的num_workers>0时，worker调度受操作系统线程调度影响，可能导致数据shuffle顺序的细微不同。\n\n-
+    \U0001F310 分布式通信：AllReduce等集合操作的浮点累加顺序随拓扑变化，FP16精度下差异更明显。ZeRO的分片收集也可能因通信时序不同而改变聚合结果。\n\n-
+    \U0001F4A5 原子操作：如注意力机制中使用的atomicAdd，累加顺序不确定，导致浮点结果有微小舍入误差。\n\n- \U0001F4C9 温度采样中的随机性：即使固定全局种子，GPU并行生成时，不同CUDA
+    core调度可能影响随机数的消耗顺序，导致采样token不同。\n\n应对：完全消除差异在性能上代价高昂且常无必要。工程上通常通过多次运行（≥3次）报告均值和方差来量化不确定性，并确保主要结论在这些方差下依然显著。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/FWgOwqBXpiqYx6kRTKFchc74nNd
+  block_id: F0KId7orUoj0Wpx9qCGcsQSMnBc
+  page_token: FWgOwqBXpiqYx6kRTKFchc74nNd
+  original_title: "\U0001F3B2 4. 为什么在 RLHF 中固定所有随机种子（生成、采样、数据 shuffle）仍然可能出现运行间差异？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,156 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c655e132856d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚙️ 2. 详细说明 RocketMQ 事务消息的两阶段提交流程，以及如何保证消息不丢失？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "⚙️ 2. 详细说明 RocketMQ 事务消息的两阶段提交流程，以及如何保证消息不丢失？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    RocketMQ 事务消息采用 两阶段提交 + 事务回查 的机制。整个流程包含：发送半消息 → 执行本地事务 → 提交/回滚消息，以及 Broker 的 回查机制。
+
+    流程图示：
+
+    ```text
+    生产者 (Producer)                   Broker (MQ服务器)              消费者 (Consumer)
+         │                                     │                              │
+         │ ① 发送半消息 (Half Message)          │                              │
+         ├────────────────────────────────────→│                              │
+         │     (此时消息对消费者不可见)          │ 保存半消息，标记为“暂不可投递”  │
+         │                                     │                              │
+         │ ② 半消息发送成功，返回半消息 offset    │                              │
+         │←────────────────────────────────────┤                              │
+         │                                     │                              │
+         │ ③ 执行本地事务 (例如：创建订单)        │                              │
+         │    ┌─ 本地事务成功 ──────────────┐    │                              │
+         │    │ 提交消息 (Commit)            │    │                              │
+         │    ├──────────────────────────→  │ 标记半消息为可投递 → 消费者可见   │
+         │    └───────────────────────────┘    │                              │
+         │    ┌─ 本地事务失败 ──────────────┐    │                              │
+         │    │ 回滚消息 (Rollback)          │    │                              │
+         │    ├──────────────────────────→  │ 删除半消息                     │
+         │    └───────────────────────────┘    │                              │
+         │                                     │                              │
+         │ ④ 如果 Producer 未返回 Commit/Rollback (断网/宕机)                   │
+         │    Broker 会定时回查 (Checkback)      │                              │
+         │←────────────────────────────────────┤                              │
+         │ ⑤ Producer 收到回查，检查本地事务状态   │                              │
+         │    → 提交/回滚消息                    │                              │
+         └─────────────────────────────────────┘                              │
+    ```
+
+    步骤详解：
+
+    - 半消息发送：生产者向 Broker 发送一条“半消息”。Broker 持久化该消息，但标记为 暂不可投递，消费者无法拉取。此步骤保证了消息不会因为网络闪断而丢失，因为 Broker 已经落盘。
+
+    - 执行本地事务：生产者收到半消息的成功响应后，执行本地数据库操作（如创建订单）。本地事务的结果会决定消息的最终命运。
+
+    - 如果本地事务成功，生产者向 Broker 发送 Commit 请求，Broker 将半消息标记为可投递。
+
+    - 如果本地事务失败，生产者发送 Rollback 请求，Broker 删除该半消息。
+
+    - Broker 回查：如果生产者因为网络超时、宕机等原因没有及时返回 Commit 或 Rollback，Broker 会定期扫描长时间未确认的半消息，主动发起事务回查。生产者需要在回查接口中根据本地事务的最终状态，回复 Commit 或 Rollback。这个机制是保证“不丢失”的最终防线。
+
+    如何保证消息不丢失？
+
+    RocketMQ 通过层层把关来保障消息的可靠性：
+
+    - 同步刷盘：Broker 将半消息写入磁盘后再返回成功，保证消息在 Broker 侧不丢失。
+
+    - 主从复制：半消息会被同步到从节点，主节点宕机后从节点可接管，消息依然存在。
+
+    - 事务回查：对于未确认的半消息，Broker 会以指数退避的策略反复回查，直到获得明确的提交或回滚结果。回查次数和间隔均可配置，保证即使在极端宕机场景下，消息状态最终也能确定。
+
+    - 消费端 ACK：消费者只有成功处理消息后才会返回确认，否则 RocketMQ 会重试投递，确保消息被成功消费。
+
+    示例代码：实现一个带事务消息的生产者
+
+    ```java
+    // 下单服务：事务消息发送
+    @Service
+    public class OrderService {
+
+        @Autowired
+        private RocketMQTemplate rocketMQTemplate;
+
+        @Transactional
+        public void createOrder(Order order) {
+            // 构造消息
+            String msg = JSON.toJSONString(order);
+            Message<String> message = MessageBuilder.withPayload(msg).build();
+
+            // 发送事务消息
+            TransactionSendResult result = rocketMQTemplate.sendMessageInTransaction(
+                "order_topic:inventory", message, order);
+
+            if (result.getLocalTransactionState() == LocalTransactionState.COMMIT_MESSAGE) {
+                log.info("订单创建成功，事务消息已提交");
+            } else {
+                throw new RuntimeException("订单创建失败，事务消息已回滚");
+            }
+        }
+    }
+
+    // 事务监听器：执行本地事务 + 回查
+    @RocketMQTransactionListener
+    public class OrderTransactionListener implements RocketMQLocalTransactionListener {
+
+        @Autowired
+        private OrderDao orderDao;
+
+        @Override
+        public RocketMQLocalTransactionState executeLocalTransaction(Message msg, Object arg) {
+            try {
+                Order order = (Order) arg;
+                orderDao.insert(order);          // 本地事务：插入订单
+                return RocketMQLocalTransactionState.COMMIT;
+            } catch (Exception e) {
+                return RocketMQLocalTransactionState.ROLLBACK;
+            }
+        }
+
+        @Override
+        public RocketMQLocalTransactionState checkLocalTransaction(Message msg) {
+            // Broker 回查时，根据订单是否存在来判断事务是否成功
+            Order order = JSON.parseObject(new String((byte[]) msg.getPayload()), Order.class);
+            if (orderDao.findById(order.getId()) != null) {
+                return RocketMQLocalTransactionState.COMMIT;
+            } else {
+                return RocketMQLocalTransactionState.ROLLBACK;
+            }
+        }
+    }
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PKVIw2nCRi0Na6kOoiocSSfonrb
+  block_id: doxcnV8A3OHCHF0oV8qln5MZBLd
+  page_token: PKVIw2nCRi0Na6kOoiocSSfonrb
+  original_title: "⚙️ 2. 详细说明 RocketMQ 事务消息的两阶段提交流程，以及如何保证消息不丢失？"
+  imported_at: '2026-09-21'

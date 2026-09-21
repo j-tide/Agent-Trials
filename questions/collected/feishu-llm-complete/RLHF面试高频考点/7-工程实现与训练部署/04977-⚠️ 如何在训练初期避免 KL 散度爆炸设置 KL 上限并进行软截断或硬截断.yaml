@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f09ccdd296df
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚠️ 如何在训练初期避免 KL 散度爆炸？设置 KL 上限并进行软截断或硬截断。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "⚠️ 如何在训练初期避免 KL 散度爆炸？设置 KL 上限并进行软截断或硬截断。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    训练初期，策略尚未适应奖励信号，可能因一次过度探索而生成与参考模型差异极大的 token，导致 KL 散度瞬间飙升。这往往是语言崩溃的起点。
+
+    应对方案：
+
+    - 设定 KL 预警阈值：例如设置一个硬上限（如单 token KL ≤ 0.5，序列平均 KL ≤ 0.1）。在 PPO 更新循环中实时监测。
+
+    - 硬截断（Hard Clip）：若某 token 的 KL 散度超过阈值，直接将该 token 的即时奖励替换为一个极大的负值（例如 -10），让 Critic 学习到这种偏离是灾难性的，从而在未来避免。
+
+    - 软截断（Soft Clip / KL Penalty Scaling）：不直接修改奖励，而是当 KL 超过阈值时，动态增大 KL 惩罚系数 β
+
+    [图片内容未导入]
+
+    - 学习率预热（LR Warmup）：训练最初几百步使用极小的学习率，让策略缓慢适应奖励地形，避免初始的剧烈探索。
+
+    - 限制生成长度：在早期限制最大生成 token 数，减少长序列累积 KL 的风险。
+
+    自动化实现：在训练循环中，每个 mini-batch 更新后检查平均 KL。若超过目标值的 1.5 倍，则触发软截断；若超过 3 倍，则触发硬截断并跳过本次更新，回滚到更新前的参数（通常自动保留旧参数副本）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SrIPwt6g4iOx8zkf5StcnDK8nCc
+  block_id: NkXOdFg0ho0uV8xPat0cjTzenEf
+  page_token: SrIPwt6g4iOx8zkf5StcnDK8nCc
+  original_title: "⚠️ 如何在训练初期避免 KL 散度爆炸？设置 KL 上限并进行软截断或硬截断。"
+  imported_at: '2026-09-21'

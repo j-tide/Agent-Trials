@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d89f4c129b56
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50D 17. 谈谈你对“向量库 + 传统搜索引擎”混合检索架构的理解，LangChain 如何支持？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F50D 17. 谈谈你对“向量库 + 传统搜索引擎”混合检索架构的理解，LangChain 如何支持？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    纯粹的向量搜索擅长语义模糊匹配，但面对精确关键词（如错误码、产品型号）或布尔逻辑时，表现不佳。传统的 BM25 全文搜索正好补上了这个短板。混合检索 就是结合两者，取长补短，通常能显著提升召回率和准确率。
+
+    架构实现：
+
+    - 双路召回：同一查询同时发送给向量库和 BM25 搜索引擎（如 Elasticsearch、OpenSearch、甚至 Redisearch），各自取 top k 个结果。
+
+    - 结果融合：将两路结果合并、去重，再通过一个得分融合算法（如 RRF, Reciprocal Rank Fusion）重新排序，选出最终传给 LLM 的上下文。
+
+    - （可选）重排序模型：在融合后，再用一个轻量级 cross-encoder 模型进行重排序，进一步提升精度。
+
+    LangChain 的支持：
+
+    - EnsembleRetriever：直接接受一个 retriever 列表，支持两种融合方式：Weighted scoring（按权重线性加权）和 RRF。你可以这样组合 BM25 和向量检索器：
+
+    ```python
+    from langchain.retrievers import EnsembleRetriever
+    from langchain_community.retrievers import BM25Retriever
+
+    bm25_retriever = BM25Retriever.from_documents(docs)
+    bm25_retriever.k = 10
+
+    vector_retriever = vectorstore.as_retriever(search_kwargs={"k": 10})
+
+    ensemble_retriever = EnsembleRetriever(
+        retrievers=[bm25_retriever, vector_retriever],
+        weights=[0.3, 0.7],  # 权重
+        method="rrf",        # 或 "weighted"
+    )
+    ```
+
+    - BM25Retriever：LangChain 内置了一个轻量级 BM25 实现，适合快速原型。生产环境可换成 ElasticSearchBM25Retriever。
+
+    - Weaviate、Pinecone 的混合搜索：有些向量库原生支持同时执行 BM25 和向量搜索，并内置融合。LangChain 通过它们的定制 Retriever 也能利用这些功能。
+
+    我的实践经验：
+    在技术文档问答中，用户经常搜索“Error 503”这种精确词，纯向量搜索可能返回一堆意思接近但不包含这个错误码的文本。加入 BM25 后，精确匹配的召回率从 60% 跃升到 95% 以上，效果立竿见影。我一般把 RRF 作为默认融合算法，因为它不需要调权重，鲁棒性好。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/I0Gnw9RQoiOa2yk59JjcwumPnrf
+  block_id: KTM8dRDeio4pfDxicGjcXs6gnAg
+  page_token: I0Gnw9RQoiOa2yk59JjcwumPnrf
+  original_title: "\U0001F50D 17. 谈谈你对“向量库 + 传统搜索引擎”混合检索架构的理解，LangChain 如何支持？"
+  imported_at: '2026-09-21'

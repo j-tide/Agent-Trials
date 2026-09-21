@@ -1,0 +1,45 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fde2ddfaa077
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Q30：向量数据库中如何实现增量更新（插入、删除、修改）且不影响查询性能？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RAG核心面（精选）
+derived_topic: 
+tags: &1
+- RAG核心面（精选）
+content:
+  prompt: Q30：向量数据库中如何实现增量更新（插入、删除、修改）且不影响查询性能？
+answer:
+  mode: rubric
+  reference_answer: "\U0001F504 向量数据库不像关系库可以直接 UPDATE，因为修改向量意味着重建索引。现代系统通过 “逻辑删除+追加写入+段合并”
+    实现高性能增量更新。\n\n实现机制：\n\n- 更新 = 删除 + 插入：修改一个文档块，先标记旧向量对应的 ID 为删除（存于一个位图或删除列表），然后将新向量插入到新的动态段中。\n\n-
+    查询时过滤：查询结果返回时，会在内存或返回前通过删除列表过滤掉已标记删除的条目，确保用户看不到旧数据。\n\n- 后台段合并（Compaction）：系统后台不断将多个小静态段合并为大段。在合并重写的过程中，会物理清除那些被标记为删除的向量，回收空间，并重新构建更优的索引。这就是读写分离的妙处：前台查询不受合并影响，合并完成后旧段被原子替换。\n\n-
+    利用 UPSERT 接口：很多数据库提供 upsert 方法，根据主键自动判断：如果主键已存在，就执行原子化的“删除旧版本并插入新版本”逻辑，对外隐藏复杂度。\n\n-
+    性能保护：增量更新会使得删除列表膨胀，查询需过滤的数据增多，极端情况下影响性能。数据库通过监控删除率，调整合并的激进度来维持查询性能平稳。\n\n因此，向量数据库的增量更新是不可变架构的一种妥协，用空间和时间（后台合并）换取了读的一致性。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/L8Kfwu0o3iAUJEkzXBscfYUyn2b
+  block_id: RIdJdIvzXoM2HQx7JOPctkdHniK
+  page_token: L8Kfwu0o3iAUJEkzXBscfYUyn2b
+  original_title: Q30：向量数据库中如何实现增量更新（插入、删除、修改）且不影响查询性能？
+  imported_at: '2026-09-21'

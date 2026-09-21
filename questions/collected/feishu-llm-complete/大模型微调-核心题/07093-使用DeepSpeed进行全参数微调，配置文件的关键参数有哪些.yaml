@@ -1,0 +1,181 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1d3b0227a06c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用DeepSpeed进行全参数微调，配置文件的关键参数有哪些？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 使用DeepSpeed进行全参数微调，配置文件的关键参数有哪些？
+answer:
+  mode: rubric
+  reference_answer: |-
+    DeepSpeed配置文件（JSON格式）是控制训练行为的总开关。全参数微调时，为了兼顾显存和速度，通常使用ZeRO‑2或ZeRO‑3配合BF16。以下是一个典型配置，并解释关键参数：
+
+    {
+      "train_batch_size": 128,          // 全局batch size
+      "gradient_accumulation_steps": 4, // 梯度累积步数
+      "optimizer": {
+        "type": "AdamW",
+        "params": {
+          "lr": 1e-5,
+          "betas": [0.9, 0.95],
+          "eps": 1e-8,
+          "weight_decay": 0.1
+        }
+      },
+      "scheduler": {
+        "type": "WarmupDecayLR",
+        "params": {
+          "warmup_min_lr": 0,
+          "warmup_max_lr": 1e-5,
+          "warmup_num_steps": 100,
+          "total_num_steps": 2000
+        }
+      },
+      "bf16": {"enabled": true},        // 使用BF16混合精度
+      "zero_optimization": {
+        "stage": 2,                     // ZeRO‑2
+        "offload_optimizer": {
+          "device": "cpu",              // 优化器状态卸载到CPU
+          "pin_memory": true
+        },
+        "allgather_partitions": true,
+        "allgather_bucket_size": 5e8,
+        "overlap_comm": true,           // 通信与计算重叠
+        "reduce_scatter": true,
+        "reduce_bucket_size": 5e8,
+        "contiguous_gradients": true
+      },
+      "gradient_clipping": 1.0,
+      "steps_per_print": 10,
+      "wall_clock_breakdown": false
+    }
+
+    关键参数解释：
+
+    - train_batch_size 与 gradient_accumulation_steps：两者共同决定每GPU的micro‑batch大小。DeepSpeed会根据总GPU数自动计算micro‑batch大小。必须保证单卡micro‑batch不超显存。
+
+    - optimizer：选择AdamW，设置学习率、betas、weight decay。微调时学习率通常为1e-5量级，betas沿用预训练（0.9, 0.95），weight decay 0.1是常用值。
+
+    - bf16 / fp16：强烈推荐bf16，免去loss scaling烦恼。若用fp16，需设置"fp16": {"enabled": true, "loss_scale": 0}启用动态loss scaling。
+
+    - zero_optimization：
+
+    - gradient_clipping：防止梯度爆炸，设为1.0。
+
+    - scheduler：设置Warmup和总步数。DeepSpeed会自动按线性warmup到峰值，然后按余弦或线性衰减到0。这里用WarmupDecayLR指定warmup和总步数。
+
+    选择ZeRO-2还是ZeRO-3？
+
+    - 7B-13B模型，多卡显存充足（如8×A100 80GB），stage 2通常足够，通信开销更小。
+
+    - 更大模型（如70B）或显存紧张时，必须用stage 3。
+
+    - stage 2+CPU offload可以在几乎不降速的情况下显著降低显存，是性价比很高的选项。
+
+    部署建议：将配置保存为ds_config.json，启动训练时指定--deepspeed ds_config.json。可先用deepspeed --num_gpus 8 train.py启动，DeepSpeed会自动处理分布式初始化。
+
+    - 每个micro‑batch前向、反向，得到梯度，不调用optimizer.step()。
+
+    - 将梯度累加到模型参数的.grad属性中（PyTorch会自动累加，除非手动清零）。
+
+    - 当处理了accumulation_steps个micro‑batch后，执行一次optimizer.step()，然后optimizer.zero_grad()清零梯度，完成一次真正的参数更新。
+
+    - 注意：loss通常要除以累积步数，以保持每次更新的有效学习率一致。
+
+    - 稳定性极高：自适应学习率机制对学习率选择不敏感，训练过程平滑。
+
+    - 广泛验证：几乎所有大模型（LLaMA、GPT等）的预训练和微调都使用AdamW，社区经验丰富，超参设置成熟。
+
+    - 性能可靠：在绝大多数任务上都能提供稳定且优秀的最终性能。
+
+    - 显存占用大：需要为每个参数存储一阶动量 m 和二阶动量 v（FP32），显存开销是权重的8倍（相对于FP16权重）。
+
+    - 计算开销稍高：每步更新需要计算两次矩估计。
+
+    - 显存节约：Lion只维护一阶动量（通过指数移动平均），并且符号更新机制使其所需的优化器状态可以更小（理论上可以做到AdamW的一半）。实践中，使用Lion通常可节省约30%~50%的优化器显存。
+
+    - 训练速度更快：由于更新计算更简单，且有时可以使用更大的学习率，训练吞吐量可提高。
+
+    - 在某些任务上泛化性更好：Lion论文和部分实践发现，它在一些语言模型微调任务上比AdamW有更低的验证损失和更好的泛化性。
+
+    - 超参敏感：Lion对学习率和Batch Size的选择非常敏感，调参难度大于AdamW。
+
+    - 经验较少：虽然在大模型预训练上取得成功，但在全参数微调（尤其是小数据量）的成熟经验不如AdamW丰富，默认配置可能不总是最优。
+
+    - 可能需要不同的Warmup和正则化策略。
+
+    - 目标领域的任务性能（如准确率、F1）。
+
+    - 通用能力基准（MMLU、HellaSwag 等）。
+
+    - 安全性和过度拒绝率。
+
+    - 使用 GPT-4 等强模型，在独立测试集上对回答进行多维度盲评（有用性、准确性、流畅度等），并计算胜率。
+    综合这些指标，绘制出每个 checkpoint 的“能力雷达图”，选择综合表现最优的那个。
+
+    - GPT-4 as Judge：将生成的回答发送给 GPT-4，让其按照预设的评分标准（如准确性、有用性、安全性等维度）打分，或与一个固定的基线模型（如基座模型）的回答进行对比评判（A vs B），输出胜率。此方法成本较高但效果最好。
+
+    - 轻量级自动指标：对于有标准答案的任务，直接计算 ROUGE、BLEU 或精确匹配率。对于格式遵循任务，可使用 IFEval 那样的规则检查器自动计算遵循率。
+
+    - 按层衰减：最经典的做法。将 Transformer 层从顶层（最靠近输出）到底层（最靠近输入）编号，每下降一层，学习率乘以一个衰减因子，例如 0.95 或 0.9。这样，第 0 层（最底层）的学习率可能是 lr * (decay_factor)^{num_layers}。
+
+    - 顶层：最后几层 Transformer + lm_head。学习率 = lr。
+
+    - 中层：中间的 Transformer 层。学习率 = lr * 0.5（或 0.1 等）。
+
+    - 底层：最初的几层 Transformer + Embedding 层。学习率 = lr * 0.1（或 0.01），甚至冻结（lr=0）。
+
+    - 分组衰减：更简单的做法是将模型分为 3 个组：
+
+    - 单独设定特殊模块：对 Embedding 层和 lm_head 可以设置极低的学习率（如 lr * 0.1），如上题所述。
+
+    - 固定缓冲区：训练前一次性构建，整个微调过程不变。
+
+    - 动态缓冲区：定期用新的预训练样本替换缓冲区中的旧样本，使模型接触到更广泛的旧知识，避免对缓冲区本身过拟合。
+
+    - torch.cuda.memory_allocated()：当前PyTorch实际分配的显存。
+
+    - torch.cuda.memory_reserved()：PyTorch缓存分配器持有的显存（包含未释放的缓存）。
+
+    - 在训练循环中定时打印这些值，绘制趋势图，可发现显存泄漏或碎片化问题。
+
+    - stage：2 或 3。2 分片优化器状态和梯度；3 额外分片参数。70B模型通常必须stage 3。
+
+    - offload_optimizer：将优化器状态移到CPU，极大节省GPU显存，代价是轻微降速。显存紧张时可开启。
+
+    - overlap_comm：默认开启，将通信与反向传播计算重叠，提升效率。
+
+    - allgather_bucket_size & reduce_bucket_size：控制通信桶大小。默认5e8（500MB）是较好的平衡点，可根据网络带宽微调。
+
+    - contiguous_gradients：将梯度在内存中连续排列，提高通信效率，但会增加少量显存开销。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: Dei9dhLpwoLyqTxzcchcwMbnngP
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 使用DeepSpeed进行全参数微调，配置文件的关键参数有哪些？
+  imported_at: '2026-09-21'

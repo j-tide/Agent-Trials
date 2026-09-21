@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e235a814c394
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F310 3D 并行中，如何平衡显存节省和通信开销？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F310 3D 并行中，如何平衡显存节省和通信开销？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 3D 并行（TP+PP+DP/ZeRO）的平衡本质是一个“多维背包问题”：在满足单卡显存约束下，寻找最小通信开销、最高吞吐的组合。通常优先最大化
+    DP 以扩展性，再用 TP 解决层内超大显存问题，最后用 PP 连接跨节点，以通信量最小为准则分配卡数。\n\n⚖️ 平衡原则：\n\n- 优先数据并行（DP）\n因为
+    DP 无额外通信（仅梯度 All-Reduce），扩展性最好。显存允许时，尽可能增加 DP 度来提升吞吐。当单卡显存不够时，引入 ZeRO-3（可视为 DP
+    的升级），用通信换显存。\n\n- 其次考虑张量并行（TP）\n当 ZeRO-3 或 DP 仍无法容纳模型，或者长序列导致激活过大，使用 TP 在节点内切分层内权重和激活。TP
+    通信量大，应限制在高速 NVLink 域内（单机）。通信开销与 TP 度正比，因此 TP 度不宜过大，够用即可。\n\n- 最后引入流水线并行（PP）\n跨节点使用
+    PP，因为其通信量小（仅传输层间激活）。PP 可能产生气泡，通过增加 micro-batch 数和 1F1B 调度降低。平衡点：PP 度越大，单卡显存压力越小，但气泡增多，吞吐可能下降。通常
+    PP 度与节点数相关。\n\n- 全局调优\n给定总卡数 N，拆分为 DP × TP × PP。显存约束：单卡必须能装下 1/TP 的权重和 1/(TP×PP)
+    的激活（简化）。通信开销：TP 产生 All-Reduce 费用；PP 产生 P2P 费用；DP 产生梯度 All-Reduce。用性能模型估算每种组合的吞吐（tokens/s），选择最优。\n\n-
+    动态调整\n实际训练中，如果显存充足，可降低 TP/PP，增加 DP 来提升速度。如果显存吃紧，增大 TP/PP 或启用 ZeRO-3。许多框架提供自动并行化工具（如
+    DeepSpeed Autotuning），自动搜索最佳配置。\n\n\U0001F4CC 经验法则：\n\n- 7B-13B 模型（长序列）：通常 TP=1~2
+    + PP=1 + ZeRO-3 即可。\n\n- 70B+：TP=4~8（单机）+ PP=2~4（跨机）+ ZeRO-3 或 DP。\n\n- 显存与通信的平衡最终要通过实测吞吐确定，不能单看理论。\n\n因此，3D
+    并行平衡精髓在于：用最小的 TP/PP 满足显存需求，将最多的卡留给 DP 以获得高可扩展性和高吞吐，同时利用节点内高速带宽承担 TP 的通信代价。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WSBEwNJCni9q3ok7cN6cISL3nwe
+  block_id: Onk3dSRXloHJZtxYzDUcSPh3nVc
+  page_token: WSBEwNJCni9q3ok7cN6cISL3nwe
+  original_title: "\U0001F310 3D 并行中，如何平衡显存节省和通信开销？"
+  imported_at: '2026-09-21'

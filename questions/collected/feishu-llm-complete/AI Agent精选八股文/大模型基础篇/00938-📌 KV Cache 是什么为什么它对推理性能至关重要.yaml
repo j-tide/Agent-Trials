@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-608b89bc46bc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CC  KV Cache 是什么？为什么它对推理性能至关重要？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F4CC  KV Cache 是什么？为什么它对推理性能至关重要？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    直观理解： 自回归生成时，每个新 token 都要和所有之前的 token 做注意力计算。如果没有缓存，每一步都要把整条序列重新算一遍，计算量平方级增长。KV Cache 就是把每一层算好的 Key、Value 向量存下来，下一个 token 只算新增部分。
+
+    数学形式：
+    给定当前序列长度 tt，注意力：
+
+    [图片内容未导入]
+
+    如果没有缓存，K1:t,V1:tK1:t,V1:t 要全部从 x1,...,xtx1,...,xt 重新投影。有了缓存，我们只需计算新 token 的 kt,vtkt,vt，然后拼接到已有的 cache_k 和 cache_v 上。
+
+    代码示意（极简版）：
+
+    class KVcache:
+        def __init__(self):
+            self.k = None
+            self.v = None
+
+        def update(self, new_k, new_v):
+            if self.k is None:
+                self.k = new_k
+                self.v = new_v
+            else:
+                self.k = torch.cat([self.k, new_k], dim=1)
+                self.v = torch.cat([self.v, new_v], dim=1)
+            return self.k, self.v
+
+    # 自回归循环里
+    cache = KVcache()
+    for step in range(max_len):
+        q = proj_q(x[:, -1:])          # 只取最新 token
+        k = proj_k(x[:, -1:])
+        v = proj_v(x[:, -1:])
+        k, v = cache.update(k, v)      # 拼入历史
+        attn_out = attention(q, k, v)
+        ...
+
+    为什么至关重要：
+
+    推理分两个阶段：
+
+    - Prefill（预填充）： 一次性输入 prompt，并行算出所有层的 KV 并缓存，算力密集。
+
+    - Decode（逐 token 生成）： 每一步只算新 token 的 QKV，然后与缓存合并做注意力。这步是内存密集的，瓶颈全在从显存搬运 KV Cache 的带宽上。
+
+    没有 KV Cache，每生成一个 token 都要重新编码整个序列，计算量 O(n2)O(n2)，显存和速度都不可接受。可以说，大模型推理的一切优化——FlashAttention、PagedAttention、多头共享 KV（MQA/GQA）——本质上都是在和 KV Cache 的显存与带宽做斗争。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcnUPEb21fyS0YMtDaGFphNIf
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "\U0001F4CC  KV Cache 是什么？为什么它对推理性能至关重要？"
+  imported_at: '2026-09-21'

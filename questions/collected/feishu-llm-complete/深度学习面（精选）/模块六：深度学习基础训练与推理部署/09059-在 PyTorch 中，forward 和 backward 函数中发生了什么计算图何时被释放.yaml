@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2ac563f960df
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 PyTorch 中，forward 和 backward 函数中发生了什么？计算图何时被释放？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块六：深度学习基础训练与推理部署
+tags: &1
+- 深度学习面（精选）
+- 模块六：深度学习基础训练与推理部署
+content:
+  prompt: 在 PyTorch 中，forward 和 backward 函数中发生了什么？计算图何时被释放？
+answer:
+  mode: rubric
+  reference_answer: |-
+    forward 函数
+    当调用模型（如 model(x)）时，会执行 nn.Module 的 call 方法，其内部会调用用户定义的 forward 函数。此时：
+
+    - 所有参与运算并设置 requires_grad=True 的张量，其操作会生成对应的 Function 节点，构建计算图。
+
+    - 中间张量的 grad_fn 属性指向创建它的 Function。叶子张量的 grad_fn 为 None。
+
+    - forward 输出结果（通常为损失值）会携带整个计算图所需的信息。
+
+    backward 函数
+    当调用 loss.backward() 时：
+
+    - autograd 引擎获取 loss 的 grad_fn，开始反向遍历计算图。
+
+    - 对每个 Function 节点，调用其 backward 方法，传入上游梯度（初始为全 1），该方法的实现利用前向传播时保存的上下文（如输入、权重等）来计算出对各个输入的梯度。
+
+    - 梯度会沿边传播，并累加到叶子张量的 .grad 属性中。非叶子张量默认不保留梯度以节省内存（除非指定 retain_grad()）。
+
+    - backward 执行完毕，默认立即释放计算图（所有中间 Function 节点和缓存的中间激活均被销毁）。这是因为多数训练只需一次反向传播，释放图能极大降低显存。若需要额外反向（如 GAN 多次，或高阶梯度），需设置 retain_graph=True，使图在本次 backward 后不被销毁，但会增加显存占用。
+
+    显存优化
+
+    这种“动态图一次性”特点使得 PyTorch 在训练时能最大化节省显存，代价是无法进行图级别的跨 step 优化。与之相对，静态图框架因图常驻，可进行跨迭代的内存规划和优化。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/G5aLwkRfZiCljDklteBcxFZhnfe
+  block_id: Ip7cdD990otuhjxX48BcmvyOnHb
+  page_token: G5aLwkRfZiCljDklteBcxFZhnfe
+  original_title: 在 PyTorch 中，forward 和 backward 函数中发生了什么？计算图何时被释放？
+  imported_at: '2026-09-21'

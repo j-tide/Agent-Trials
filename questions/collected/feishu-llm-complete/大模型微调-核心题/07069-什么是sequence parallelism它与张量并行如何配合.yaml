@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f21788487482
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“sequence parallelism”？它与张量并行如何配合？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 什么是“sequence parallelism”？它与张量并行如何配合？
+answer:
+  mode: rubric
+  reference_answer: |-
+    序列并行（Sequence Parallelism, SP） 是将输入序列的长度维度切分到多个GPU上，每个GPU只负责处理序列的一部分。与张量并行（TP）切分隐藏维度不同，SP专门解决那些无法被TP切分的、与序列长度成正比的激活和计算（如LayerNorm、Dropout、残差连接），以及注意力计算本身。
+
+    与张量并行的配合：
+
+    - TP切分权重和hidden维度，SP切分seq维度，二者正交。通常在一个TP组内（如8张GPU），同时应用TP和SP。例如，TP=8，则每张GPU上的hidden维度变为1/8，序列长度也变为1/8。
+
+    - 前向过程：对于LayerNorm等，输入张量[batch, seq, hidden]，在SP下，seq维度被切分，各GPU独立进行LayerNorm计算（因为LayerNorm是对hidden维度归一化，不受seq切分影响）。对于注意力机制，Q、K、V已经由TP切分了头数，SP则进一步切分序列。通信主要在需要拼接完整序列时进行，例如在计算完注意力后，通过All-Gather或Reduce-Scatter恢复完整序列或进行梯度聚合。
+
+    - 优势：将激活显存从O(L)降为O(L/N)，使得训练超长序列（如100K tokens）成为可能。SP与TP结合后，单卡显存压力极低，几乎等于一个mini-batch的激活被TP和SP双重削减。
+
+    Megatron-LM实现：在Transformer块中，对LayerNorm和Dropout区域插入scatter/gather操作，并在注意力中采用flash_attn结合序列并行。用户只需在配置中设置--sequence-parallel即可。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: XnSTd7SpOo9CPYxTtZKcdtRwnoe
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 什么是“sequence parallelism”？它与张量并行如何配合？
+  imported_at: '2026-09-21'

@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b0e72dac614d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F522 当基座模型被量化（如 GPTQ INT4）后，你要在上面对多个任务分别训练 LoRA。训练完成后，能否将这些 LoRA 都合并进
+  INT4 的基座模型中？如果不能或不建议，标准做法是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LoRA 高频面试题
+derived_topic: 
+tags: &1
+- LoRA 高频面试题
+content:
+  prompt: "\U0001F522 当基座模型被量化（如 GPTQ INT4）后，你要在上面对多个任务分别训练 LoRA。训练完成后，能否将这些 LoRA
+    都合并进 INT4 的基座模型中？如果不能或不建议，标准做法是什么？"
+answer:
+  mode: rubric
+  reference_answer: "简短回答：不能也不建议将 LoRA 直接合并进 INT4 量化的基座模型中。 标准的做法是保持基座模型以 INT4 量化形式存储，LoRA
+    矩阵以 FP16 形式存在，推理时分离式计算。\n\n\U0001F6AB 为什么不能合并？\n\n[图片内容未导入]\n\n- 破坏量化权重的原有结构：GPTQ
+    在量化时利用了 Hessian 信息对权重进行了补偿排列，使得量化误差最小化。LoRA 残差会破坏这种精心排列的结构，重新量化几乎肯定会导致模型性能下降。\n\n-
+    多 LoRA 场景下无法管理：如果有 100 套 LoRA，你不可能为每个任务都生产一份合并后的 INT4 模型（存储量爆炸），也不可能在运行时反复执行合并和量化。\n\n✅
+    标准做法：QLoRA 推理模式\n\n这正是 QLoRA（Quantized LoRA）所倡导的方案：\n\n- 训练阶段：基座模型保持 INT4 量化（通常是
+    NF4 或 GPTQ INT4），并完全冻结。LoRA 矩阵（以及归一化层参数）以 FP16 精度进行训练。前向传播时，基座权重被反量化为 FP16 参与计算，并与
+    LoRA 的输出相加。反向传播仅更新 LoRA 参数。\n\n- 推理阶段：基座模型仍然保持 INT4 格式存储（节省显存），LoRA 矩阵以 FP16 形式存在。推理时的计算路径为：\n\n[图片内容未导入]\n\n-
+    这里，Dequant 操作将 4‑bit 权重还原为 FP16，执行矩阵乘法；同时 LoRA 分支用 FP16 计算残差；两者相加得到最终结果。许多推理引擎（如
+    vLLM、HuggingFace TGI）已经原生支持这种混合精度推理模式。\n\n\U0001F4E6 多 LoRA 的部署：在这种模式下，你只需存储一份
+    INT4 基座模型，以及 N 套微小的 FP16 LoRA 权重。当请求到来时，根据所需的 LoRA 动态选择对应的矩阵参与计算即可。这与问题 5 中的分离式推理完全一致，并且天然兼容量化。\n\n总结：将
+    LoRA 与量化基座合并既无必要也不高效。QLoRA 的“量化基座 + FP16 LoRA”模式已经成为工业标准，能够在保持极低显存占用的同时，实现多任务的灵活部署。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MUH8wwD1nigAKikWjdJc1MHjn8f
+  block_id: UzlDdoCW4oW6WVx7ZYUcHvDgndg
+  page_token: MUH8wwD1nigAKikWjdJc1MHjn8f
+  original_title: "\U0001F522 当基座模型被量化（如 GPTQ INT4）后，你要在上面对多个任务分别训练 LoRA。训练完成后，能否将这些
+    LoRA 都合并进 INT4 的基座模型中？如果不能或不建议，标准做法是什么？"
+  imported_at: '2026-09-21'

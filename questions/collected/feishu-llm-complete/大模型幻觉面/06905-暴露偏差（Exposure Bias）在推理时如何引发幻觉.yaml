@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-73aafd9ff9ff
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 暴露偏差（Exposure Bias）在推理时如何引发幻觉？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型幻觉面
+derived_topic: 
+tags: &1
+- 大模型幻觉面
+content:
+  prompt: 暴露偏差（Exposure Bias）在推理时如何引发幻觉？
+answer:
+  mode: rubric
+  reference_answer: |-
+    暴露偏差指模型在训练时只接触过真实数据中的正确前缀（通过教师强制 Teacher Forcing），而在推理时却要依赖自身生成的前缀。这种训练与推理的不一致导致推理时错误迭代放大，从而引发幻觉。
+
+    引发幻觉的机制：
+
+    （1）对自生成错误的脆弱性
+
+    - 训练时，模型每一步都是在百分之百正确的上下文上预测下一个 token，因此它从未学习过如何在包含自身错误的上下文中恢复或修正。当推理时第一步就生成一个小错误，这个错误对于模型来说是一个分布外的输入（因为训练中从未见过这样的错误前缀），模型可能做出不可预测的反应，比如生成更加离谱的 token，从而诱发幻觉。
+
+    - 换言之，模型缺乏针对自身“口误”后的纠错能力。
+
+    （2）错误前缀导致语义漂移
+
+    - 一个微小的词条错误可能将整个前缀的语义空间拉偏。例如，模型在摘要中误将“产品销量下降”写成“产品销量上升”，后续基于“上升”的推理可能全部倒转，形成严重的忠实性幻觉。
+
+    - 这种漂移随着生成步数增加呈指数级恶化，因为每个新 token 都进一步巩固错误方向。
+
+    （3）连贯性压力下的编造
+
+    - 即使在错误前缀下，模型仍然努力维持输出连贯。因此，当发现自己处于一个逻辑不自治的语境中时，它会编造额外的细节来“圆谎”，使得幻觉链条延长。这种类似人类的“圆谎”行为是暴露偏差的直接后果。
+
+    （4）解码策略的叠加效应
+
+    - 如果使用贪心解码或低温度采样，模型缺乏机会探索更正 token，一旦陷入错误路径就会一条路走到黑。而训练时的教师强制却在每一步都提供“黄金路径”，两者差异使推理时的错误路径极为顽固。
+
+    缓解方法：
+
+    - 计划采样（Scheduled Sampling）：训练时逐步使用模型自身生成的前缀来替代真实前缀，让模型学会从错误中恢复。
+
+    - 序列级知识蒸馏：使用大模型生成完整序列，小模型直接学习整个序列，减少自回归累积误差。
+
+    - 生成后编辑：生成完整文本后，用校对模型修正错误片段。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QE2VwXQi9iNrtQkMDCMcYxdJn2g
+  block_id: OlHSdz2aQoprgnxm6I4cClo2nBb
+  page_token: QE2VwXQi9iNrtQkMDCMcYxdJn2g
+  original_title: 暴露偏差（Exposure Bias）在推理时如何引发幻觉？
+  imported_at: '2026-09-21'

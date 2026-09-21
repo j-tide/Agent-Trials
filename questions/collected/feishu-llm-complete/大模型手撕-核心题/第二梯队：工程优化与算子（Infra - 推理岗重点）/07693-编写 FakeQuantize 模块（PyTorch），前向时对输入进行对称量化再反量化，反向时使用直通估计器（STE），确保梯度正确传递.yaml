@@ -1,0 +1,103 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6dcd637df1e2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写 FakeQuantize 模块（PyTorch），前向时对输入进行对称量化再反量化，反向时使用直通估计器（STE），确保梯度正确传递
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 编写 FakeQuantize 模块（PyTorch），前向时对输入进行对称量化再反量化，反向时使用直通估计器（STE），确保梯度正确传递
+answer:
+  mode: rubric
+  reference_answer: |-
+    FakeQuantize 在训练时模拟量化误差，以帮助模型适应量化后的精度损失。前向过程：对输入进行量化（round）再反量化，相当于添加了近似量化噪声。反向传播时，由于 round 函数梯度为零（几乎处处为0），需要使用直通估计器（STE）：直接将梯度原样通过量化模块，即忽略 round 的影响。
+
+    PyTorch 实现：可以继承 torch.autograd.Function 自定义正向和反向，或使用 torch.nn.Module 结合 detach 技巧。标准做法是实现一个 FakeQuantize 函数，前向做量化-反量化，反向直接返回上游梯度（对输入求导为 1）。
+
+    示例代码：
+
+    ```python
+    import torch
+    import torch.nn as nn
+
+    class FakeQuantizeSTE(torch.autograd.Function):
+        @staticmethod
+        def forward(ctx, x, scale, qmin, qmax):
+            # 对称量化：round(x / scale) * scale
+            x_q = torch.round(x / scale)
+            x_q = torch.clamp(x_q, qmin, qmax)
+            x_deq = x_q * scale
+            # 保存用于反向（如果需要可以根据 x_deq 与 x 的关系传递梯度，但 STE 直接传）
+            ctx.save_for_backward(scale)
+            ctx.qmin = qmin
+            ctx.qmax = qmax
+            return x_deq
+
+        @staticmethod
+        def backward(ctx, grad_output):
+            # STE: 直接传递梯度，忽略量化的影响
+            return grad_output, None, None, None
+
+    # 封装为模块
+    class FakeQuantize(nn.Module):
+        def __init__(self, bits=8, symmetric=True):
+            super().__init__()
+            self.bits = bits
+            self.symmetric = symmetric
+            if symmetric:
+                self.qmax = 2 ** (bits - 1) - 1
+                self.qmin = -self.qmax - 1
+            else:
+                self.qmax = 2 ** bits - 1
+                self.qmin = 0
+            # scale 可以作为可学习参数或由外部统计给出，这里假设在 forward 时传入 scale
+            self.register_buffer('scale', torch.tensor(1.0))
+
+        def forward(self, x, scale=None):
+            if scale is None:
+                scale = self.scale
+            return FakeQuantizeSTE.apply(x, scale, self.qmin, self.qmax)
+
+    # 使用示例
+    x = torch.randn(5, requires_grad=True)
+    scale = torch.tensor(0.1)
+    fq = FakeQuantize(bits=8)
+    y = fq(x, scale)
+    loss = y.sum()
+    loss.backward()
+    print(x.grad)  # 全部为 1，因为 STE 梯度直通
+    ```
+
+    说明：FakeQuantize 在 QAT（量化感知训练）中常插入到权重和激活之前，scale 可由校准得到或在线更新。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: AKSOd1fLxo4wm7xpvwLcntWmn3g
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 编写 FakeQuantize 模块（PyTorch），前向时对输入进行对称量化再反量化，反向时使用直通估计器（STE），确保梯度正确传递
+  imported_at: '2026-09-21'

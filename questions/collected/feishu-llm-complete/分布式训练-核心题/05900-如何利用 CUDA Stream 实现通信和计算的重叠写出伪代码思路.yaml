@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f9431eaa8d9b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 16.如何利用 CUDA Stream 实现通信和计算的重叠？写出伪代码思路。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 16.如何利用 CUDA Stream 实现通信和计算的重叠？写出伪代码思路。
+answer:
+  mode: rubric
+  reference_answer: |-
+    CUDA Stream 是 GPU 上的一个操作序列，不同流中的操作可以并发执行，且可以相对于主机异步。利用多个流，可以将计算内核和通信内核分别放入不同的流中，从而实现重叠。
+
+    伪代码思路（以单层梯度同步为例）：
+
+    # 假设我们有两个 CUDA Stream: compute_stream 和 comm_stream
+    compute_stream = torch.cuda.Stream()
+    comm_stream = torch.cuda.Stream()
+
+    # 在 compute_stream 上执行前向和反向传播
+    with torch.cuda.stream(compute_stream):
+        output = model(input)
+        loss = criterion(output, target)
+        loss.backward()  # 计算梯度，此时梯度仍在 compute_stream 中
+
+    # 当反向传播进行到某一层时，获取该层的梯度张量，将其“移交”到 comm_stream 进行通信
+    # 这里需要确保依赖关系：通信必须在计算完成后才能开始
+    # 通常通过记录事件来实现
+    compute_stream.record_event(compute_event)  # 记录当前计算进度
+    comm_stream.wait_event(compute_event)       # 通信流等待计算完成
+
+    with torch.cuda.stream(comm_stream):
+        # 异步启动 AllReduce
+        dist.all_reduce(layer_grad, async_op=True)  # 返回一个 work 对象
+        # 通信在后台运行，不阻塞 compute_stream
+
+    # 同时，compute_stream 可以继续下一层的计算
+    # 两者并行
+
+    实际框架（如 PyTorch DDP）会自动管理这些细节，但原理正是通过流和事件，将通信与计算流水线化。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XxBHwhYPNiVrDYkSIHCccehWn72
+  block_id: HI1IdhUtwoavVhxQj8wc7L0Hnke
+  page_token: XxBHwhYPNiVrDYkSIHCccehWn72
+  original_title: 16.如何利用 CUDA Stream 实现通信和计算的重叠？写出伪代码思路。
+  imported_at: '2026-09-21'

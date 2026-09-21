@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-79eeeeb8e75f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何压缩训练数据以减少 I/O？(如使用 Arrow 格式)
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 如何压缩训练数据以减少 I/O？(如使用 Arrow 格式)
+answer:
+  mode: rubric
+  reference_answer: |-
+    训练数据的 I/O 瓶颈往往是整个训练流水线的最大短板。压缩数据可以减少磁盘读取量和网络传输时间，但压缩本身也会消耗 CPU，需要在解压开销和 I/O 收益之间权衡。
+
+    Arrow 格式：Apache Arrow 是一种列式存储格式，天然支持零拷贝读取和高效压缩。与传统的 row-based 格式（如 CSV、JSON）不同，Arrow 按列组织数据，这使得：
+
+    - 读取某一列时无需加载整行，适合需要部分字段的场景。
+
+    - 同列数据类型相同，可以高效压缩（如字典编码、游程编码、位图压缩等）。
+
+    - 可以直接在内存中进行操作，无需反序列化。PyTorch 可以直接从 Arrow 的 buffer 创建 Tensor，实现零拷贝。
+
+    对于文本大模型，我们可以把分词后的 token 序列存储为 Arrow 的 List<Int64> 列，配合 Snappy 或 LZ4 等轻量压缩算法。这些算法的特点是压缩率适中（通常2-4倍），但解压速度极快，不会成为 CPU 瓶颈。相比之下，Gzip 压缩率更高但解压太慢，不适合训练场景。
+
+    其他压缩策略：
+
+    - 二进制打包：将多个短样本拼接成固定长度的序列，用特殊分隔符隔开，然后以二进制格式存储。这避免了大量小文件，减少 IO 次数。
+
+    - 增量编码：对于有序的 token 序列，可以存储相邻 token 的差值（delta），然后用变长整数编码，大幅减少文件体积。
+
+    - WebDataset/tar 包：将海量小文件打包成 tar 文件，减少随机读取和元数据压力。读取时顺序解包，配合内存缓存，效率很高。
+
+    在实践中，我通常会把预处理好的 token 序列用 Arrow 的 Feather 格式（Arrow 的文件存储格式）保存，配合 LZ4 压缩。读取速度接近原生 numpy，但文件体积只有原来的 1/3 左右。这样在多机训练时，可以更快地将数据从存储拉取到各节点。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HfoZwdjz1iRNmPkiI3icQQafnve
+  block_id: FZuPdrAzwokUiDxwqRgc7Bljned
+  page_token: HfoZwdjz1iRNmPkiI3icQQafnve
+  original_title: 如何压缩训练数据以减少 I/O？(如使用 Arrow 格式)
+  imported_at: '2026-09-21'

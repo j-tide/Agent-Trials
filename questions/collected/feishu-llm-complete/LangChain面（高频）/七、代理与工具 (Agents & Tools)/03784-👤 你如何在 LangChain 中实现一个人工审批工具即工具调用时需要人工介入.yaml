@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c8cd6b6ed44f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F464 你如何在 LangChain 中实现一个“人工审批”工具？即工具调用时需要人工介入。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "\U0001F464 你如何在 LangChain 中实现一个“人工审批”工具？即工具调用时需要人工介入。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    人工审批工具的核心是在 Agent 自动执行流程中插入一个“暂停点”，等待人类确认后继续。实现方式通常利用工具的两段式调用和Agent 的自然交互能力。
+
+    实现方法：
+
+    - 设计双模式工具：工具函数接受一个额外的 confirmed 参数，默认为 False。首次调用时，不执行实际操作，而是返回一个 CONFIRM_REQUIRED 消息。Agent 会将该消息作为最终回答呈现给用户。用户确认后，再次调用同一工具并传入 confirmed=True，工具才会执行实际操作。
+
+    - 在工具描述中说明机制：确保 Agent 知道这个工具需要确认，避免它忽略返回的确认请求。
+
+    示例代码：
+
+    ```python
+    @tool
+    def delete_order(order_id: str, confirmed: bool = False) -> str:
+        """删除订单。调用此工具时，如果未确认，会要求用户确认；确认后再次调用即可执行删除。
+        Args:
+            order_id: 订单号
+            confirmed: 是否已经用户确认，默认为False
+        """
+        if not confirmed:
+            return f"CONFIRM_REQUIRED: 确定要删除订单 {order_id} 吗？请回复 Y/N 确认。"
+        # 执行删除
+        return f"订单 {order_id} 已成功删除"w
+    ```
+
+    执行流程：
+
+    - Agent 想要删除订单，调用 delete_order("12345") → 返回 CONFIRM_REQUIRED: ... → Agent 向用户展示此消息。
+
+    - 用户回复“Y”，新一轮对话开始，Agent 再次调用 delete_order("12345", confirmed=True) → 执行删除。
+
+    高级方案：如果希望直接在工具内部暂停并获取用户输入，可以使用 HumanInputRun 工具，但这会阻塞 Agent 事件循环，不适用于异步环境。
+
+    ✅ 实践要点：确认信息必须清晰、明确，工具名称和描述应体现审批特性。对于高风险操作，我还建议在服务端增加二次校验，不单单依赖 Agent 逻辑。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZZIjwAYoMiY0VEk7JiDcIuK3nPb
+  block_id: FhFtdWcRFoVjH3xW3IecvW1qn5f
+  page_token: ZZIjwAYoMiY0VEk7JiDcIuK3nPb
+  original_title: "\U0001F464 你如何在 LangChain 中实现一个“人工审批”工具？即工具调用时需要人工介入。"
+  imported_at: '2026-09-21'

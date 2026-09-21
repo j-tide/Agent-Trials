@@ -1,0 +1,160 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b107c27f6306
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EA 5. Agent 平台有多个版本的模型服务（GPT-4、Claude、本地模型），如何用微服务架构实现灰度路由和流量切换？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: "\U0001F9EA 5. Agent 平台有多个版本的模型服务（GPT-4、Claude、本地模型），如何用微服务架构实现灰度路由和流量切换？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是一个典型的“多版本服务治理”场景。灰度路由的终极目标是：在不中断线上服务的前提下，将特定流量导向新版本模型，实现可控的体验验证和迁移。
+
+    我习惯把整个灰度拆成三个层级：入口标识 → 标签传递 → 路由选择。
+
+    5.1 架构设计：基于元数据的服务分组
+
+    假设我们有三个模型服务：
+
+    - model-service-gpt4 （v1 稳定版）
+
+    - model-service-gpt4 （v2 新版本，需要灰度）
+
+    - model-service-claude
+
+    - model-service-local-llama
+
+    在 Nacos 注册中心，我们可以给每个实例打上丰富的 元数据标签：
+
+    ```yaml
+    spring:
+      cloud:
+        nacos:
+          discovery:
+            metadata:
+              model-type: gpt4
+              version: v1.0
+              ability: text,code
+              # 灰度标签
+              gray-release: stable
+    ```
+
+    灰度节点的标签可以设为 gray-release: canary。
+
+    5.2 入口标识：如何区分灰度流量
+
+    在 API Gateway 层，我们可以根据请求头（如 X-Gray-Tag: true、X-User-ID 白名单）或请求参数来判断该请求是否应该走灰度。
+
+    比如，内部测试人员带特殊 Header 的请求被识别为灰度流量：
+
+    ```java
+    // Gateway 全局过滤器
+    if (exchange.getRequest().getHeaders().containsKey("X-Gray-Enable")) {
+        // 设置灰度标记，向下游传递
+        exchange.getRequest().mutate().header("X-Gray-Release", "canary");
+    }
+    ```
+
+    5.3 标签传递：保证整条链路灰度一致
+
+    如果 Agent 调用链路是 Gateway → 编排服务 → 模型服务，必须确保灰度标记沿着调用链传递。我们可以用 Spring Cloud Sleuth 或者自定义 RequestInterceptor（Feign） / ClientHttpRequestInterceptor（RestTemplate）来透传灰度头。
+
+    ```java
+    @Bean
+    public FeignInterceptor feignInterceptor() {
+        return (requestTemplate) -> {
+            String grayTag = MDC.get("gray-release"); // 从上下文获取
+            if (grayTag != null) {
+                requestTemplate.header("X-Gray-Release", grayTag);
+            }
+        };
+    }
+    ```
+
+    5.4 路由选择：在负载均衡中实现按标签匹配
+
+    最关键的一步在于，服务消费者从 Nacos 拿到所有实例后，需要根据灰度标记选择对应的节点。我们可以自定义 ServiceInstanceListSupplier 来过滤实例。
+
+    Spring Cloud LoadBalancer 默认会返回所有健康实例，我们扩展它：
+
+    ```java
+    public class GrayLoadBalancer implements ReactorServiceInstanceLoadBalancer {
+        @Override
+        public Mono<Response<ServiceInstance>> choose(Request request) {
+            // 从上下文中获取灰度标记
+            String grayTag = GrayContextHolder.get();
+            List<ServiceInstance> instances = discoveryClient.getInstances("model-service");
+            // 如果灰度流量，优先筛选 canary 节点，若无则回退 stable
+            if ("canary".equals(grayTag)) {
+                List<ServiceInstance> canaryList = instances.stream()
+                    .filter(i -> "canary".equals(i.getMetadata().get("gray-release")))
+                    .collect(Collectors.toList());
+                if (!canaryList.isEmpty()) {
+                    return Mono.just(new DefaultResponse(canaryList.get(random.nextInt(canaryList.size()))));
+                }
+            }
+            // 普通流量仅选择 stable 节点
+            List<ServiceInstance> stableList = instances.stream()
+                .filter(i -> "stable".equals(i.getMetadata().get("gray-release")))
+                .collect(Collectors.toList());
+            return Mono.just(new DefaultResponse(stableList.get(random.nextInt(stableList.size()))));
+        }
+    }
+    ```
+
+    然后将这个 GrayLoadBalancer 注册为默认的负载均衡器。
+
+    5.5 更灵活的手段：利用 Nacos 配置中心动态控制灰度规则
+
+    把灰度的 白名单用户、流量比例 等规则放在 Nacos 配置中心，运行时动态刷新，无需重启。例如：
+
+    ```yaml
+    # 配置 dataId: model-gray-rule
+    gray:
+      percentage: 10
+      white-list: user123,user456
+      model-mapping:
+        canary: gpt4-v2
+    ```
+
+    在 Gateway 或负载均衡器中实时读取这些配置，决定是否将请求标记为灰度。甚至可以通过修改 Nacos 配置，在线将灰度比例从 10% 调到 50%，瞬间完成流量切换。
+
+    5.6 多模型流量切换的高级玩法
+
+    如果需要根据请求内容（比如用户问的是代码问题，还是翻译问题）路由到不同的模型（GPT-4 负责代码，Claude 负责翻译），可以利用 Gateway 的 Path 或 Header 断言 + Nacos 元数据过滤 来做 内容路由。服务名统一叫 model-service，不同模型用不同的集群或元数据区分，实现按能力分发。
+
+    ---
+
+    ### 2.6 Spring Bean 作用域与依赖注入
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CDpWwiHlFibwCokmhxDcZEhbnQb
+  block_id: doxcn0w3o6PALn3yQF3LGXyMwed
+  page_token: CDpWwiHlFibwCokmhxDcZEhbnQb
+  original_title: "\U0001F9EA 5. Agent 平台有多个版本的模型服务（GPT-4、Claude、本地模型），如何用微服务架构实现灰度路由和流量切换？"
+  imported_at: '2026-09-21'

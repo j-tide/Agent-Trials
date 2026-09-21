@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-96191f00403e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果输入序列中大部分 token 是 padding，如何在注意力计算中高效忽略它们？优化手段有哪些？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 基础理论与核心组件
+tags: &1
+- Transfomer精选面试
+- 基础理论与核心组件
+content:
+  prompt: 如果输入序列中大部分 token 是 padding，如何在注意力计算中高效忽略它们？优化手段有哪些？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Padding 用于统一批次中不同长度序列。在注意力计算中，需要让模型不关注 padding 位置，通常通过注意力掩码实现：将 padding 位置的注意力分数设为负无穷（或非常大的负数），这样经过 softmax 后权重趋近于 0。
+
+    优化手段：
+
+    - 提前生成掩码并向量化：直接创建一个二值掩码矩阵（batch×1×seq×seq 或类似形状），在 softmax 之前加到注意力分数上。这是最常用的方法，GPU 上操作高效。
+
+    - 避免对 padding 位置计算点积：可以使用稀疏操作或 gather 方式，只计算有效 token 之间的点积，但实现复杂且可能破坏 GPU 的并行性。通常不值得，因为现代 GPU 对稠密矩阵乘法优化极好，即使计算了 padding 位置的点积开销也很小。
+
+    - 在 softmax 后乘以掩码：也可以 softmax 后再将 padding 对应权重置零，但不如加 -inf 直接（softmax 内部保证了归一化）。
+
+    - 使用 packed sequence：将批次中的多个序列连接成一个长序列，用指针记录每个序列的起止位置，这样完全消除 padding，计算量最小。但需要更复杂的数据加载和注意力 mask 设计（通常采用块对角 mask）。在高效 Transformer 库（如 FlashAttention）中已支持这种格式。
+
+    - FlashAttention 等高效实现：利用分块计算，可以在块内根据变长序列有效跳过 padding，减少计算和显存。
+
+    实际中，大多数框架通过加 mask 并依赖 GPU 的稠密计算就足够高效，因为 padding 占比通常不会太大。当 batch 内长度差异极端时，packed sequence 是最优解。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/FXMtwVLj8iwlT6kaYxIctc95nWh
+  block_id: De1Wdyc1roAdLkxyJ3ecnGGonve
+  page_token: FXMtwVLj8iwlT6kaYxIctc95nWh
+  original_title: 如果输入序列中大部分 token 是 padding，如何在注意力计算中高效忽略它们？优化手段有哪些？
+  imported_at: '2026-09-21'

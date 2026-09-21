@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-891924223db1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 视频理解微调中，如何平衡帧数和计算成本？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 视频理解微调中，如何平衡帧数和计算成本？
+answer:
+  mode: rubric
+  reference_answer: |-
+    视频包含的时间维度导致输入 token 数量成倍增长，是计算成本与模型能力之间的核心矛盾。
+
+    平衡策略：
+
+    - 稀疏帧采样与自适应采样：不是均匀采样，而是根据视频内容的动态程度自适应采样。例如，通过计算相邻帧的光流或特征差异，在变化剧烈的时段密集采样，在静态场景稀疏采样，在信息量和计算量之间取得更优平衡。
+
+    - 层次化处理：首先对所有帧应用一个轻量级视觉编码器，提取低级特征；然后通过一个重采样模块（如 Perceiver Resampler）选择最关键的特征，再送入重型 LLM。这避免了将所有帧的高维特征全部输入 LLM。
+
+    - Video Token Merging (ToMe)：在视觉编码器内部或输出后，将相邻帧中相似度高的视觉 token 进行合并。例如，相邻两帧中代表相同背景的区域 token 可以被合并为一个，从而减少总 token 数。
+
+    - 离线预提取特征与在线微调解耦：在微调前，先用冻结的视觉编码器将所有视频帧的视觉特征提取并存储到磁盘。在线微调时直接加载这些特征，仅训练连接器和 LLM。这虽牺牲了视觉编码器的微调可能性，但极大降低了训练时的计算和存储瓶颈。
+
+    - 固定 Token 预算：使用 Q-Former 或 Perceiver Resampler 等结构，将变长的视频帧特征强制压缩为固定数量（如 64 或 256 个）的视频级 token，无论输入帧数多少，输入 LLM 的 token 数恒定。
+
+    - 课程学习：训练初期使用短片段（如 8 帧 5 秒视频），在模型建立基本能力后，再逐步引入长片段（如 128 帧 2 分钟视频）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KYvmwfyDpiVkXckdpoBcXEzAnJf
+  block_id: DEEddx9bko4y8mxainNcLC2lnlh
+  page_token: KYvmwfyDpiVkXckdpoBcXEzAnJf
+  original_title: 视频理解微调中，如何平衡帧数和计算成本？
+  imported_at: '2026-09-21'

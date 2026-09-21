@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8423b7e451e0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⏳ 使用 RedisChatMessageHistory 持久化记忆时，你是如何设置 TTL 的？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "⏳ 使用 RedisChatMessageHistory 持久化记忆时，你是如何设置 TTL 的？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    RedisChatMessageHistory 内部使用 Redis 的 List 数据结构存储消息。Redis 本身不支持为 List 中的单个元素设置 TTL，但你可以为整个键设置 TTL。这意味着当键过期时，该用户/会话的整个对话历史都会被自动清除，非常适合需要定期清理的聊天应用。
+
+    设置方法：
+    在初始化 RedisChatMessageHistory 时，直接传入 ttl 参数（单位：秒）。
+
+    ```python
+    history = RedisChatMessageHistory(
+        session_id="user_123",
+        url="redis://localhost:6379",
+        ttl=3600  # 对话历史在1小时后自动删除
+    )
+    ```
+
+    工作原理：
+    LangChain 在每次向 Redis 追加消息时，会检查 ttl 参数，并调用 Redis 的 EXPIRE 命令刷新该键的过期时间。这意味着每次有新的对话，过期时间会重置，类似于“空闲超时”。只要用户持续对话，历史就会一直保留；如果用户停止对话超过 TTL 时间，历史被清除。
+
+    注意事项：
+
+    - 如果你需要更细粒度的 TTL（例如每条消息独立的生命周期），原生 RedisChatMessageHistory 不支持，需要自定义 BaseChatMessageHistory 子类，使用 Redis 的 Sorted Set 或其他结构。
+
+    - TTL 功能在 langchain-community 包的特定版本中才得到良好支持，确保使用较新版本。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H3N3wvSCiibLlPk5ZpjcveFHnNb
+  block_id: HdlTdMbrWo2VW7xpgFzc9VI2nKc
+  page_token: H3N3wvSCiibLlPk5ZpjcveFHnNb
+  original_title: "⏳ 使用 RedisChatMessageHistory 持久化记忆时，你是如何设置 TTL 的？"
+  imported_at: '2026-09-21'

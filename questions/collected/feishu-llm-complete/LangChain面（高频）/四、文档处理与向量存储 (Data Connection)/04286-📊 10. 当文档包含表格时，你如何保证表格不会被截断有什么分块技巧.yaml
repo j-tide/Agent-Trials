@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9875fb7cbbfc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 10. 当文档包含表格时，你如何保证表格不会被截断？有什么分块技巧？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F4CA 10. 当文档包含表格时，你如何保证表格不会被截断？有什么分块技巧？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    表格一旦被拦腰斩断，就从结构化的数据变成了毫无意义的字符碎片，对检索和生成都是灾难。要保证表格完整，必须在分割环节赋予表格“原子性”——即要么整个表格一起保留，要么完全跳过。
+
+    技巧一：加载阶段“剥离表格”
+    使用 UnstructuredPDFLoader 或 UnstructuredExcelLoader，设置 mode="elements"，它能将表格识别为一个独立元素（category: "Table"）。然后将表格单独存储，文本部分正常分块。检索时，如果用户查询与表格相关，直接返回预先提取好的表格（Markdown 或 JSON 格式），而不是从文本块中拼凑。
+
+    ```python
+    loader = UnstructuredPDFLoader("report.pdf", mode="elements", strategy="hi_res")
+    elements = loader.load()
+    tables = [e for e in elements if e.metadata.get("category") == "Table"]
+    text_elements = [e for e in elements if e.metadata.get("category") != "Table"]
+    # 对 text_elements 进行分割，tables 直接入库
+    ```
+
+    技巧二：用特殊分隔符“包装”表格
+    如果表格已经在文本流中（如 Markdown 或 CSV），可以在表格前后插入独特的、不会被常规分割触发的标记，例如 <!-- TABLE_START --> 和 <!-- TABLE_END -->，然后自定义分割器，在遇到这些标记时不切分。
+
+    技巧三：表格感知的 Text Splitter
+    对于 HTML 表格，LangChain 有 HTMLTableTextSplitter，它能够识别 <table> 标签并保持表格完整。你也可以自己实现一个简单的状态机分割器：扫描文本，当检测到表格行（如连续的 | 或制表符）时，将表格行累积，直到表格结束才作为一个整体 chunk。
+
+    技巧四：文档布局分析 + 后处理
+    使用 pdfplumber 或 camelot 先提取表格所在页面的坐标区域，将表格区域替换为占位符（如 [TABLE_PLACEHOLDER_id]），然后对纯文本区域正常分割。在最终检索到的 chunk 中，如果发现占位符，就实时从表格库中拉取对应表格填充。
+
+    实践经验：
+    我最常用的组合是 Unstructured 做元素解析 + 表格独立入库。查询时，向量检索召回文本块，同时用关键词或 metadata 召回相关表格，两者一起喂给 LLM。这样表格永远不会被截断，且 LLM 能直接理解结构化数据。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/O97CwA74Ji4ZHWkDTIRcb7OanUg
+  block_id: OvCldWJd9o0zr9xOtWacYQKon7X
+  page_token: O97CwA74Ji4ZHWkDTIRcb7OanUg
+  original_title: "\U0001F4CA 10. 当文档包含表格时，你如何保证表格不会被截断？有什么分块技巧？"
+  imported_at: '2026-09-21'

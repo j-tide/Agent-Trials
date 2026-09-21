@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1b3676ba0495
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: LoRA的target_modules一般选哪些层？全连接层vs注意力投影层如何选择？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: LoRA的target_modules一般选哪些层？全连接层vs注意力投影层如何选择？
+answer:
+  mode: rubric
+  reference_answer: |-
+    LoRA的 target_modules 是指被注入低秩适配器的具体线性层。这个选择直接决定了可训练参数量和适配效果。
+
+    一、一般选哪些层？
+
+    最常见的做法是选择Transformer块中注意力机制的投影矩阵：Q（Query）、K（Key）、V（Value）、O（Output）。这是最核心、最有效的注入点，因为注意力的计算直接控制了模型如何聚合上下文信息，对指令遵循、风格控制和内容理解至关重要。
+
+    许多研究和实践（包括LoRA原论文）表明，仅对Q和V矩阵应用LoRA 就能在多数任务上取得与全量微调高度接近的效果，并且参数效率最高。如果追求更大的容量，可以依次扩展到K、O，甚至FFN层。
+
+    二、全连接层（FFN） vs 注意力投影层如何选择？
+
+    - 注意力投影层（Q、K、V、O）：控制信息交互和动态上下文权重。微调这些层可以高效地重塑模型的注意力模式，从而改变其行为（如对话风格、格式遵循）。它们是行为适配的首选，且由于维度通常较大，低秩分解的效果很好。
+
+    - FFN层（如gate_proj, up_proj, down_proj）：存储了大量的世界知识和词汇信息。对这些层应用LoRA可以直接注入新知识或修正特定事实，但同时也增加了干扰原有知识、引发灾难性遗忘的风险。FFN层的参数占比通常远大于注意力层，应用LoRA会显著增加可训练参数量。
+
+    选择依据：
+
+    - 追求参数效率和行为适配：首选 ["q_proj", "v_proj"]，这是最稳健的起点。如果需要更强能力，再加入 k_proj 和 o_proj。
+
+    - 需要进行知识注入或深度领域适应：在注意力层的基础上，可考虑加入部分FFN层（如gate_proj和up_proj）。但必须配合更谨慎的学习率和数据配比，以防遗忘。
+
+    - 模型规模与任务难度：小模型或复杂任务可能需要更多的可训练容量，可扩展至FFN；大模型或简单任务则注意力层足矣。
+
+    实践中的典型配置：对于通用指令微调（如把LLaMA变成聊天助手），通常仅对 ["q_proj", "v_proj"] 注入LoRA就能获得优异效果。对于需要深度改变的代码或数学任务，可能还会加上 ["k_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UEbgw2D3ci93jLkR3c6cdyoInve
+  block_id: WY8GdxUReoyfI9xUJX2cPT7wnOc
+  page_token: UEbgw2D3ci93jLkR3c6cdyoInve
+  original_title: LoRA的target_modules一般选哪些层？全连接层vs注意力投影层如何选择？
+  imported_at: '2026-09-21'

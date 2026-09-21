@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c9de3abae412
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是就地操作？举例说明其优缺点及在自动求导中的限制。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 什么是就地操作？举例说明其优缺点及在自动求导中的限制。
+answer:
+  mode: rubric
+  reference_answer: |-
+    就地操作（in-place operation） 是指直接修改张量本身的数据而不创建新张量的操作，通常以 _ 后缀命名，如 x.add_(1)、x.zero_()。
+
+    优点：
+
+    - 节省显存：不需要为结果分配新内存，对大模型训练尤其珍贵。
+
+    缺点与限制：
+
+    - 破坏计算图：在自动求导（autograd）中，如果对一个需要梯度的叶子张量或者计算图中的中间结果进行就地操作，会覆盖掉反向传播所需的历史值，导致梯度计算错误或报错 RuntimeError: one of the variables needed for gradient computation has been modified by an inplace operation。
+
+    - 易引发难以追踪的 bug：如果多个变量引用同一块内存，就地修改会意外改变其他变量的值。
+
+    ```python
+    # 错误示例：对需要梯度的叶子节点进行就地操作
+    x = torch.randn(3, requires_grad=True)
+    x.add_(1)  # 会覆盖 x 的历史数据，导致后续 backward 出错
+    ```
+
+    最佳实践：对需要梯度的张量避免使用就地操作。在推理阶段或对不需要梯度的张量（如模型参数更新时 param.add_(grad * lr)）可以谨慎使用，但要确保该张量不是其他张量的依赖。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Vf94wFO62ij7vwkGFVbcOxpdnRe
+  block_id: DXB2dI0r8oJB5vxc1qHc34VhnId
+  page_token: Vf94wFO62ij7vwkGFVbcOxpdnRe
+  original_title: 什么是就地操作？举例说明其优缺点及在自动求导中的限制。
+  imported_at: '2026-09-21'

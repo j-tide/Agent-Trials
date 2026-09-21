@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-966a73acd077
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3CA 推理框架中的显存池（memory pool）是如何设计的？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F3CA 推理框架中的显存池（memory pool）是如何设计的？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    设计思路：
+
+    - 预分配大块：启动时根据剩余显存一次性分配一个超大连续区域（或几大块）。
+
+    - 分块管理：将该区域划分为固定大小的 block（如 16 token 的 KV 块），通过位图、链表或空闲栈管理。
+
+    - 统一调度：不同用途的 block（KV Cache、LoRA 权重、激活）可能位于同一个池的不同分区，或分别建池。
+
+    典型实现（vLLM）：
+
+    - 使用 C++ 写的缓存管理器，维护 block 的分配和释放。
+
+    - 每个 block 有物理 ID，逻辑块通过页表映射。
+
+    - 分配时 O(1) 从空闲栈取出，回收时 push 回栈，无碎片。
+
+    - 支持 block 复制、swap in/out。
+
+    优势：避免 cudaMalloc 开销，提供可预测的延迟，支撑高并发。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tr76wMZZwibI1ikxqpEcjhJtnZc
+  block_id: PTLddJmhioImMZx0pNQcKhKUnJb
+  page_token: Tr76wMZZwibI1ikxqpEcjhJtnZc
+  original_title: "\U0001F3CA 推理框架中的显存池（memory pool）是如何设计的？"
+  imported_at: '2026-09-21'

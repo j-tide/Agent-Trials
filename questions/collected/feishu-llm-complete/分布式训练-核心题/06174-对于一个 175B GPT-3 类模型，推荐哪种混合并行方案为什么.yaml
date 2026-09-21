@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a82b66c3695f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对于一个 175B GPT-3 类模型，推荐哪种混合并行方案？为什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 对于一个 175B GPT-3 类模型，推荐哪种混合并行方案？为什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    GPT-3 175B的隐藏维度为12288，层数96，头数96。这个规模单卡完全无法容纳，必须使用混合并行。
+
+    推荐方案：TP=8, PP=16, DP=64（假设使用8卡节点，总计1024张卡）。或者 TP=8, PP=8, DP=128（总计1024卡）。
+
+    原因分析：
+
+    - TP=8：隐藏维度12288，TP切分后每卡负责的隐藏维度为1536，QKV投影矩阵大小合理。TP限制在单节点内，利用NVLink高带宽。若TP=4也可行（每卡隐藏维度3072），但8能进一步降低单卡显存。通常TP设为节点内卡数（8），最大化利用节点内高速通信。
+
+    - PP=16：96层模型，若按层均分，每个流水线阶段约6层。PP=16使得每个设备层数较少，减少单卡激活值存储（因为每张卡只需为它负责的层保存激活）。PP并行度不宜过大，否则气泡率增高。16是合理的折中。
+
+    - DP=64：总卡数 = TP×PP×DP = 8×16×DP。若集群为1024卡，则DP=8。若集群更大，DP可相应增加。数据并行是吞吐扩展的主要手段，DP维度最大。
+
+    - 为什么不是其他配置：
+
+    实际GPT-3训练（据公开信息）使用了类似Megatron的3D并行，具体配置未完全公开，但上述方案是工业界训练175B量级模型的典型配置。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: B4fRdrsT0oW7s3xHfEOcrCjFnqh
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: 对于一个 175B GPT-3 类模型，推荐哪种混合并行方案？为什么？
+  imported_at: '2026-09-21'

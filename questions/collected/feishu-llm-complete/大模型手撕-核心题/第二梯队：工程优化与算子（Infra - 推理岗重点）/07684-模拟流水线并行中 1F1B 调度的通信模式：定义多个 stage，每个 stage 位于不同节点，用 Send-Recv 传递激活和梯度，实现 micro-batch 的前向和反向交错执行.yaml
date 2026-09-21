@@ -1,0 +1,103 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a53513eb0bc6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 模拟流水线并行中 1F1B 调度的通信模式：定义多个 stage，每个 stage 位于不同节点，用 Send/Recv 传递激活和梯度，实现 micro-batch
+  的前向和反向交错执行。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 模拟流水线并行中 1F1B 调度的通信模式：定义多个 stage，每个 stage 位于不同节点，用 Send/Recv 传递激活和梯度，实现
+    micro-batch 的前向和反向交错执行。
+answer:
+  mode: rubric
+  reference_answer: |-
+    12.1 1F1B 调度原理
+
+    流水线并行将模型按层分为多个 stage，每个 stage 放在一个设备上。1F1B（one forward one backward）调度交替执行前向和反向，以减少流水线气泡。具体：首先预热阶段（warm-up），stage 0 接收输入，执行前向，将激活发送给 stage 1，stage 1 执行前向并发送给 stage 2，以此类推。每个 stage 处理完一个 micro-batch 的前向后，如果收到上游的梯度，就开始执行反向，并将梯度发回给前一个 stage。每个 stage 在稳定状态下保持 1 个前向和 1 个反向交替执行。
+
+    12.2 模拟设计
+
+    假设有 S 个 stage，M 个 micro-batch。每个 stage 是一个对象，拥有其模型部分，以及发送/接收队列（用列表模拟）。通信通过 Send/Recv 进行，相邻 stage 之间传递激活（前向）和梯度（反向）。我们模拟一个迭代的完整过程。
+
+    用 Python 模拟，定义 Stage 类，以及调度器控制每一步。这里给出伪代码和关键逻辑。
+
+    ```python
+    class PipelineStage:
+        def __init__(self, stage_id, num_stages):
+            self.id = stage_id
+            self.next = stage_id + 1 if stage_id < num_stages - 1 else None
+            self.prev = stage_id - 1 if stage_id > 0 else None
+            self.activations = {}   # microbatch_id -> activation tensor
+            self.grads = {}
+            # 模拟的模型层
+        def forward(self, x, mb_id):
+            # 计算，返回激活，保存用于反向
+            act = self.model(x)
+            self.activations[mb_id] = act
+            return act
+        def backward(self, grad, mb_id):
+            act = self.activations.pop(mb_id)
+            # 反向计算，返回对输入的梯度
+            dx = self.model.backward(act, grad)
+            return dx
+    ```
+
+    调度器：
+
+    ```python
+    def simulate_1f1b(num_microbatches, num_stages):
+        stages = [PipelineStage(i, num_stages) for i in range(num_stages)]
+        # 每个 stage 维护一个前向任务队列和反向任务队列
+        # 简化：使用一个全局步循环，每个步模拟一个时钟周期，在各 stage 上执行一个操作
+        # 这里更直观：我们按照1F1B算法描述伪代码
+        warmup_steps = num_stages - 1
+        # 预热阶段：前向传播逐级启动
+        for mb in range(num_microbatches):
+            # stage 0 总是前向第一个 micro-batch，但需要等待前一 micro-batch 的完成
+            # 使用循环逐步推进
+            pass
+    ```
+
+    更简单明确的模拟：我们使用一个数组记录每个 stage 当前处理的任务，按照1F1B规则推进。由于纯伪代码篇幅较长，这里概括核心通信：
+
+    - 前向：stage i 收到 stage i-1 的激活（对于第一个 micro-batch，stage 0 从输入读取），计算后发送给 stage i+1。
+
+    - 反向：stage i 收到 stage i+1 的梯度，计算后发送给 stage i-1。
+
+    - 每个 stage 在完成一个前向后，如果已有待处理的反向，则执行反向；否则等待新的前向或反向。
+
+    1F1B 的通信特征：每个 micro-batch 在每个 stage 边界上产生两次通信（前向激活、反向梯度），总通信量与 micro-batch 数和 stage 数成正比。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: JJHudyTXVosOJSx2GgUcLzzEntb
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 模拟流水线并行中 1F1B 调度的通信模式：定义多个 stage，每个 stage 位于不同节点，用 Send/Recv 传递激活和梯度，实现
+    micro-batch 的前向和反向交错执行。
+  imported_at: '2026-09-21'

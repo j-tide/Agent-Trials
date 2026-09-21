@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-42d90c3ae120
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练时是否可以使用 INT8 优化器？有哪些现成实现？对精度的影响。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 训练时是否可以使用 INT8 优化器？有哪些现成实现？对精度的影响。
+answer:
+  mode: rubric
+  reference_answer: |-
+    使用INT8优化器的动机很明确：Adam的优化器状态（一阶动量m和二阶动量v）以FP32存储，占模型参数量的8倍。对于7B模型，这就是56GB显存。如果能将m和v压缩到INT8，显存将骤降至14GB。
+
+    现成实现：
+
+    bitsandbytes库提供了AdamW8bit优化器，是目前应用最广泛的INT8优化器。它的核心机制是：将优化器状态的FP32张量分块，每个块独立计算自己的缩放因子，然后块内的值被量化为INT8存储。在更新时，反量化回FP32进行计算，然后再量化回INT8。
+
+    DeepSpeed提供了1-bit Adam，将动量压缩到极致的1-bit表示，主要用于降低通信开销，但也有显存节省效果。
+
+    对精度的影响：
+
+    优化器状态本质上是在平滑地累积历史梯度信息。每个训练步，动量的变化量远小于动量本身，因此量化引入的相对误差非常小。在大多数任务上，INT8优化器的精度损失微乎其微，困惑度上升通常在1%以内，下游任务性能几乎无差异。
+
+    但在某些特殊场景下需要注意：极小模型可能因为状态量太少而受量化噪声影响较大；训练初期动量尚未稳定时，量化误差可能有一定干扰；对精度要求极高的任务（如某些科学计算或金融预测），需要谨慎评估。
+
+    总体来说，INT8优化器是显存紧张时非常可靠的选择，与混合精度和LoRA等技术组合使用，可将优化器状态显存压缩到原来的十分之一以下。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: Qvq1dwHQnoVI7KxfY9Rc5vzlncc
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 训练时是否可以使用 INT8 优化器？有哪些现成实现？对精度的影响。
+  imported_at: '2026-09-21'

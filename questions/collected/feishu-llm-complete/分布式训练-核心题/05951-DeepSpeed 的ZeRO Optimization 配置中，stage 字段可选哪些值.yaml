@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3ec2d66f9e62
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: DeepSpeed 的“ZeRO Optimization” 配置中，“stage” 字段可选哪些值？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: DeepSpeed 的“ZeRO Optimization” 配置中，“stage” 字段可选哪些值？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 DeepSpeed 的配置 JSON 文件中，zero_optimization 下的 stage 字段接受三个关键值，分别对应不同的分片粒度：
+
+    - 0：禁用 ZeRO。此时不进行任何状态分片，等同于标准的数据并行 (DDP)。所有 GPU 拥有完整的模型参数、梯度和优化器状态副本。此模式适用于小型模型或单卡调试。
+
+    - 1：ZeRO Stage 1。仅对优化器状态（Adam 的 m 和 v 以及 FP32 主权重）进行分片。每个 GPU 只存储一部分参数的优化器状态，并负责更新这部分参数。梯度仍保持完整，前向和反向传播与标准数据并行无异。更新完成后通过 AllGather 收集完整参数。这能显著降低单卡显存，尤其当优化器状态是主要瓶颈时。
+
+    - 2：ZeRO Stage 2。在 Stage 1 的基础上，进一步对梯度进行分片。反向传播过程中，每层的梯度计算完成后，立即通过 ReduceScatter 将梯度分片到对应的 GPU，每个 GPU 只保留自己负责的那部分梯度。这进一步降低了显存占用，同时梯度的通信量并没有增加（ReduceScatter 的数据量与 AllReduce 相同）。
+
+    - 3：ZeRO Stage 3。在 Stage 2 的基础上，进一步对模型参数本身进行分片。每张 GPU 只永久持有 1/N 的模型参数。在前向和反向计算需要完整参数时，通过 AllGather 从其他 GPU 收集完整权重，计算完后立即释放非本地分片。这使得单卡显存可以训练远超其容量的模型，但通信量增加。
+
+    配置中还可以与 offload_optimizer、offload_param 结合，将优化器状态或参数卸载到 CPU 内存或 NVMe 硬盘，进一步降低 GPU 显存需求。选择哪个 Stage 取决于模型大小、可用显存和集群网络：通常大模型训练从 Stage 2 开始，若显存仍不足则升级到 Stage 3；若想保速，可配合 CPU Offload。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GSO0wLgvGi8yaCktRbBc92Dbnhh
+  block_id: EkbWdwmqHoJe80xgUbCcJCK9nxf
+  page_token: GSO0wLgvGi8yaCktRbBc92Dbnhh
+  original_title: DeepSpeed 的“ZeRO Optimization” 配置中，“stage” 字段可选哪些值？
+  imported_at: '2026-09-21'

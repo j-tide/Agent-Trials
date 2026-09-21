@@ -1,0 +1,116 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b282df9ef452
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E1️ 3. Agent 调用多个微服务，如何用 Gateway 统一做鉴权和限流？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: "\U0001F6E1️ 3. Agent 调用多个微服务，如何用 Gateway 统一做鉴权和限流？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这个问题很贴合业务实际。Agent 服务背后通常会调用模型推理、知识库、工具链等多个微服务，如果每个服务都单独鉴权限流，不仅重复开发，还会导致安全管控零散。Gateway 作为唯一入口，正是统一横切关注点的最佳位置。
+
+    3.1 统一鉴权：GlobalFilter 实现 JWT 校验
+
+    我们可以写一个全局过滤器，对所有 /api/** 的请求进行 JWT 校验：
+
+    ```java
+    @Component
+    public class AuthGlobalFilter implements GlobalFilter, Ordered {
+        @Override
+        public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+            // 1. 从请求头中提取 Authorization
+            String token = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+            // 2. 校验 token，并解析出用户信息
+            if (token == null || !TokenUtils.verify(token)) {
+                exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                return exchange.getResponse().setComplete();
+            }
+            // 3. 将用户信息写入请求头，传递给下游服务
+            ServerHttpRequest newRequest = exchange.getRequest().mutate()
+                    .header("X-User-Id", TokenUtils.getUserId(token))
+                    .build();
+            return chain.filter(exchange.mutate().request(newRequest).build());
+        }
+    }
+    ```
+
+    - 这样下游微服务直接从 X-User-Id 头中获取身份，无需重复解析 JWT。
+
+    - 也可以在这里集成 OAuth2、API Key 等其他认证方式。
+
+    3.2 统一限流：Redis + Lua 实现分布式限流
+
+    Gateway 内置了 RequestRateLimiter GatewayFilter，一般我们选用 Redis 实现生产级的分布式限流：
+
+    ```yaml
+    spring:
+      cloud:
+        gateway:
+          routes:
+            - id: agent-route
+              uri: lb://agent-core-service
+              predicates:
+                - Path=/api/v1/**
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 10   # 每秒允许的请求数
+                    redis-rate-limiter.burstCapacity: 20   # 突发最大容量
+                    key-resolver: "#{@userKeyResolver}"     # 基于用户维度的限流
+    ```
+
+    需要注册一个 KeyResolver Bean，例如基于用户 ID 或 IP：
+
+    ```java
+    @Bean
+    public KeyResolver userKeyResolver() {
+        return exchange -> Mono.justOrEmpty(
+            exchange.getRequest().getHeaders().getFirst("X-User-Id")
+        );
+    }
+    ```
+
+    这样每个用户每秒最多 10 个请求，超过时返回 429 Too Many Requests。
+
+    3.3 与 Agent 场景深度结合
+
+    - API Key 鉴权：每个 Agent 客户端分配一个 API Key，网关过滤器验证 Key 的有效性和权限范围，无需在每个微服务重复实现。
+
+    - 动态路由：根据请求路径 /agent/tool-* 动态路由到不同的工具微服务，由 Gateway 统一控制。
+
+    - 限流维度：除了用户维度，还可以针对 Agent 调用的 LLM 推理接口设置更严苛的限流（比如每分钟只允许 100 次），防止成本失控。
+
+    - 监控和日志：在过滤器中记录每次请求的 userId、serviceName、cost 到 Micrometer，方便在大盘看到哪个 Agent 在狂刷接口。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CDpWwiHlFibwCokmhxDcZEhbnQb
+  block_id: doxcn2ct4dONFY90RFyT6kCQsKh
+  page_token: CDpWwiHlFibwCokmhxDcZEhbnQb
+  original_title: "\U0001F6E1️ 3. Agent 调用多个微服务，如何用 Gateway 统一做鉴权和限流？"
+  imported_at: '2026-09-21'

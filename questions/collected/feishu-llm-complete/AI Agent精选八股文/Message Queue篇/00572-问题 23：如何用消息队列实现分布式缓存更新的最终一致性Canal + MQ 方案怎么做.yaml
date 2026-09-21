@@ -1,0 +1,135 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6a9669dd6539
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 问题 23：如何用消息队列实现分布式缓存更新的最终一致性？Canal + MQ 方案怎么做？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 问题 23：如何用消息队列实现分布式缓存更新的最终一致性？Canal + MQ 方案怎么做？
+answer:
+  mode: rubric
+  reference_answer: "难度：⭐⭐⭐（缓存一致性、Canal binlog 订阅、延迟双删的消息化替代）\n\n1️⃣ Common Answer
+    嗯...缓存一致性问题，先更新 DB 再删缓存，或者先删缓存再更新 DB，都有问题。可以用 Canal 监听 binlog，然后发消息到 MQ，消费者收到消息后删除缓存。延迟双删也可以用
+    MQ 实现，发一个延迟消息做二次删除。\n\n2️⃣ Impressive Answer 我会从这几个角度思考：\n\n- 缓存一致性的经典问题\n\n方案一：先更新
+    DB，再删缓存\n\n```text\n1. 更新数据库\n2. 删除缓存\n```\n\n问题：\n\n- 步骤 1 成功，步骤 2 失败 → 缓存是旧数据\n\n-
+    并发场景：线程 A 更新 DB（未删缓存），线程 B 读取缓存（旧数据）→ 不一致\n\n方案二：先删缓存，再更新 DB\n\n```text\n1. 删除缓存\n2.
+    更新数据库\n```\n\n问题：\n\n- 步骤 1 成功，步骤 2 失败 → 缓存为空，DB 未更新 → 下次读取缓存空，加载 DB 新数据（可接受）\n\n-
+    并发场景：线程 A 删缓存，线程 B 读缓存（空）→ 加载 DB 旧数据，线程 A 更新 DB → 缓存是旧数据\n\n方案三：Cache Aside（读时写缓存）\n\n```text\n读缓存：\n1.
+    读缓存，命中 → 返回\n2. 读缓存，未命中 → 读 DB → 写缓存 → 返回\n\n写缓存：\n1. 更新 DB\n2. 删除缓存\n```\n\n问题：\n\n-
+    仍然存在并发不一致问题\n\n- 删除缓存失败 → 缓存永久不一致\n\n- Cache Aside 模式的局限性\n\n问题 1：删除缓存失败\n\n-
+    解决方案：重试 + 本地消息表 + MQ\n\n问题 2：并发读写不一致\n\n- 解决方案：分布式锁（性能差）、延迟双删\n\n问题 3：主从延迟导致不一致\n\n-
+    场景：主库更新，从库未同步，缓存删除 → 读请求打到从库（旧数据）→ 写入缓存（旧数据）\n\n- 解决方案：Canal 订阅从库 binlog\n\n-
+    Canal + MQ 方案\n\n架构设计：\n\n```text\nMySQL 主库 → binlog → Canal Server → MQ（RocketMQ/Kafka）
+    → 消费者 → 删除/更新缓存\n```\n\n流程说明：\n\n- Canal Server 监听 MySQL binlog（增量日志）\n\n- 解析
+    binlog，提取数据变更（INSERT/UPDATE/DELETE）\n\n- 发送变更消息到 MQ\n\n- 消费者消费消息，删除或更新缓存\n\nCanal
+    配置示例：\n\n```text\n# canal.properties\ncanal.serverMode = rocketMQ\ncanal.mq.servers
+    = 127.0.0.1:9876\ncanal.mq.topic = canal-binlog-topic\n\n# instance.properties\ncanal.instance.master.address
+    = 127.0.0.1:3306\ncanal.instance.dbUsername = root\ncanal.instance.dbPassword
+    = password\ncanal.instance.connectionCharset = UTF-8\ncanal.instance.filterRegex
+    = .*\\\\..*  # 监听所有表\n```\n\n消费者代码示例：\n\n```text\n@RocketMQMessageListener(\n
+    \   topic = \"canal-binlog-topic\",\n    consumerGroup = \"cache-sync-consumer-group\"\n)\npublic
+    class CanalBinlogListener implements RocketMQListener<String> {\n    \n    @Autowired\n
+    \   private RedisTemplate<String, Object> redisTemplate;\n    \n    @Override\n
+    \   public void onMessage(String message) {\n        // 解析 Canal 消息\n        CanalEntry.Entry
+    entry = JSON.parseObject(message, CanalEntry.Entry.class);\n        \n        if
+    (entry.getEntryType() == CanalEntry.EntryType.ROWDATA) {\n            CanalEntry.RowChange
+    rowChange = CanalEntry.RowChange.parseFrom(entry.getStoreValue());\n            \n
+    \           for (CanalEntry.RowData rowData : rowChange.getRowDatasList()) {\n
+    \               String tableName = entry.getHeader().getTableName();\n                \n
+    \               // 根据表名和操作类型处理缓存\n                if (\"t_order\".equals(tableName))
+    {\n                    handleOrderCache(rowData);\n                } else if (\"t_product\".equals(tableName))
+    {\n                    handleProductCache(rowData);\n                }\n            }\n
+    \       }\n    }\n    \n    private void handleOrderCache(CanalEntry.RowData rowData)
+    {\n        // 提取订单 ID\n        String orderId = rowData.getAfterColumnsList().stream()\n
+    \           .filter(col -> \"id\".equals(col.getName()))\n            .findFirst()\n
+    \           .get()\n            .getValue();\n        \n        // 删除缓存\n        String
+    cacheKey = \"order:\" + orderId;\n        redisTemplate.delete(cacheKey);\n        \n
+    \       log.info(\"Delete cache: {}\", cacheKey);\n    }\n}\n```\n\n- 延迟双删的消息化替代\n\n传统延迟双删：\n\n```text\n1.
+    删除缓存\n2. 更新数据库\n3. 休眠 500ms\n4. 再次删除缓存\n```\n\n问题：\n\n- 步骤 3 休眠阻塞线程，性能差\n\n- 步骤
+    4 删除缓存可能失败\n\nMQ 延迟双删：\n\n```text\n1. 删除缓存\n2. 更新数据库\n3. 发送延迟消息到 MQ（延迟 500ms）\n4.
+    消费者消费延迟消息，再次删除缓存\n```\n\n代码示例：\n\n```text\n@Service\npublic class OrderService
+    {\n    \n    @Autowired\n    private OrderRepository orderRepository;\n    \n
+    \   @Autowired\n    private RedisTemplate<String, Object> redisTemplate;\n    \n
+    \   @Autowired\n    private RocketMQTemplate rocketMQTemplate;\n    \n    @Transactional\n
+    \   public void updateOrder(Order order) {\n        // 1. 删除缓存\n        String
+    cacheKey = \"order:\" + order.getId();\n        redisTemplate.delete(cacheKey);\n
+    \       \n        // 2. 更新数据库\n        orderRepository.save(order);\n        \n
+    \       // 3. 发送延迟消息（延迟 500ms）\n        rocketMQTemplate.syncSend(\n            \"cache-delay-topic\",
+    \n            new CacheDeleteMessage(cacheKey), \n            3000,  // 超时时间\n
+    \           16     // 延迟等级（RocketMQ 延迟等级：1-18，对应 1s-2h）\n            // 延迟等级 16
+    = 500ms（需配置）\n        );\n    }\n}\n\n@RocketMQMessageListener(\n    topic = \"cache-delay-topic\",\n
+    \   consumerGroup = \"cache-delay-consumer-group\"\n)\npublic class CacheDelayListener
+    implements RocketMQListener<CacheDeleteMessage> {\n    \n    @Autowired\n    private
+    RedisTemplate<String, Object> redisTemplate;\n    \n    @Override\n    public
+    void onMessage(CacheDeleteMessage message) {\n        // 再次删除缓存\n        redisTemplate.delete(message.getCacheKey());\n
+    \       log.info(\"Delay delete cache: {}\", message.getCacheKey());\n    }\n}\n```\n\nRocketMQ
+    延迟等级配置：\n\n```text\n# broker.conf\nmessageDelayLevel=1s 5s 10s 30s 1m 2m 3m 4m
+    5m 6m 7m 8m 9m 10m 20m 30m 1h 2h\n```\n\n- 方案对比\n\n[嵌入表格未展开]\n\n- 实战：电商商品缓存一致性的完整方案\n\n需求：\n\n-
+    商品信息缓存到 Redis\n\n- 商品更新后，缓存同步更新\n\n- 支持高并发（10 万 QPS）\n\n- 保证最终一致性\n\n方案选择：Canal
+    + MQ + 延迟双删\n\n架构设计：\n\n```text\n商品服务 → 更新 MySQL → Canal 监听 binlog → MQ → 消费者删除
+    Redis 缓存\n         ↓\n    发送延迟消息 → MQ → 消费者再次删除 Redis 缓存\n```\n\n代码实现：\n\n商品服务：\n\n```text\n@Service\npublic
+    class ProductService {\n    \n    @Autowired\n    private ProductRepository productRepository;\n
+    \   \n    @Autowired\n    private RedisTemplate<String, Object> redisTemplate;\n
+    \   \n    @Autowired\n    private RocketMQTemplate rocketMQTemplate;\n    \n    @Transactional\n
+    \   public void updateProduct(Product product) {\n        // 1. 更新数据库\n        productRepository.save(product);\n
+    \       \n        // 2. 发送延迟消息（延迟 500ms）\n        rocketMQTemplate.syncSend(\n
+    \           \"product-cache-delay-topic\", \n            new CacheDeleteMessage(\"product:\"
+    + product.getId()), \n            3000, \n            16     // 延迟等级 16 = 500ms\n
+    \       );\n    }\n}\n```\n\nCanal 消费者：\n\n```text\n@RocketMQMessageListener(\n
+    \   topic = \"canal-binlog-topic\",\n    consumerGroup = \"product-cache-consumer-group\"\n)\npublic
+    class ProductCanalListener implements RocketMQListener<String> {\n    \n    @Autowired\n
+    \   private RedisTemplate<String, Object> redisTemplate;\n    \n    @Override\n
+    \   public void onMessage(String message) {\n        CanalEntry.Entry entry =
+    JSON.parseObject(message, CanalEntry.Entry.class);\n        \n        if (entry.getEntryType()
+    == CanalEntry.EntryType.ROWDATA) {\n            String tableName = entry.getHeader().getTableName();\n
+    \           \n            if (\"t_product\".equals(tableName)) {\n                CanalEntry.RowChange
+    rowChange = CanalEntry.RowChange.parseFrom(entry.getStoreValue());\n                \n
+    \               for (CanalEntry.RowData rowData : rowChange.getRowDatasList())
+    {\n                    // 提取商品 ID\n                    String productId = rowData.getAfterColumnsList().stream()\n
+    \                       .filter(col -> \"id\".equals(col.getName()))\n                        .findFirst()\n
+    \                       .get()\n                        .getValue();\n                    \n
+    \                   // 删除缓存\n                    String cacheKey = \"product:\"
+    + productId;\n                    redisTemplate.delete(cacheKey);\n                    \n
+    \                   log.info(\"Delete product cache: {}\", cacheKey);\n                }\n
+    \           }\n        }\n    }\n}\n```\n\n延迟消息消费者：\n\n```text\n@RocketMQMessageListener(\n
+    \   topic = \"product-cache-delay-topic\",\n    consumerGroup = \"product-cache-delay-consumer-group\"\n)\npublic
+    class ProductCacheDelayListener implements RocketMQListener<CacheDeleteMessage>
+    {\n    \n    @Autowired\n    private RedisTemplate<String, Object> redisTemplate;\n
+    \   \n    @Override\n    public void onMessage(CacheDeleteMessage message) {\n
+    \       // 再次删除缓存\n        redisTemplate.delete(message.getCacheKey());\n        log.info(\"Delay
+    delete product cache: {}\", message.getCacheKey());\n    }\n}\n```\n\n优化点：\n\n-
+    批量删除：Canal 消费者批量删除缓存（减少 Redis IO）\n\n- 消息去重：使用 Redis Set 记录已删除的缓存 key，避免重复删除\n\n-
+    监控告警：监控 Canal 消费延迟、MQ 消费延迟、缓存命中率\n\n- 降级策略：Canal 或 MQ 故障时，降级为定时任务刷新缓存\n\n监控指标：\n\n-
+    Canal binlog 延迟（秒）\n\n- MQ 消费延迟（秒）\n\n- 缓存命中率（%）\n\n- 缓存更新成功率（%）\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n###
+    6.24 消息队列多租户隔离与流量治理"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcnKQ5FW4gsgTCiEqGjWCXH1f
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: 问题 23：如何用消息队列实现分布式缓存更新的最终一致性？Canal + MQ 方案怎么做？
+  imported_at: '2026-09-21'

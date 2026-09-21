@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-52f46918656a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用 torch.cuda.amp 进行混合精度训练？写出关键步骤。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何使用 torch.cuda.amp 进行混合精度训练？写出关键步骤。
+answer:
+  mode: rubric
+  reference_answer: |-
+    混合精度训练自动将前向、反向中的部分计算转为 FP16，以减少显存占用并利用 Tensor Core 加速，同时保持关键部分为 FP32。
+
+    关键步骤：
+
+    - 创建 GradScaler：scaler = torch.cuda.amp.GradScaler()
+
+    - 使用 autocast 上下文：在模型前向传播时包裹 with torch.cuda.amp.autocast():
+
+    - 缩放损失并反向传播：scaler.scale(loss).backward()
+
+    - 更新参数：scaler.step(optimizer)，然后 scaler.update()
+
+    完整示例：
+
+    ```python
+    model = MyModel().to(device)
+    optimizer = torch.optim.AdamW(model.parameters())
+    scaler = torch.cuda.amp.GradScaler()
+
+    for inputs, targets in train_loader:
+        inputs, targets = inputs.to(device), targets.to(device)
+        optimizer.zero_grad()
+
+        with torch.cuda.amp.autocast():
+            outputs = model(inputs)
+            loss = loss_fn(outputs, targets)
+
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+    ```
+
+    优点：显存降低30%~50%，训练速度提升（在Ampere及之后的GPU上），精度损失极小。推荐使用BF16时可直接用 torch.bfloat16 而无需 GradScaler。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SlZHw2a2fiQQVBkkXXscts3znGd
+  block_id: N6K3dPJlfoOLk8xEbarch4G7nzg
+  page_token: SlZHw2a2fiQQVBkkXXscts3znGd
+  original_title: 如何使用 torch.cuda.amp 进行混合精度训练？写出关键步骤。
+  imported_at: '2026-09-21'

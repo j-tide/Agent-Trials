@@ -1,0 +1,134 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a7aa1b18a385
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚖️ 2. 和 ReAct 的本质差异是什么？各自适合什么场景？在 LangGraph 里通常怎么实现？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "⚖️ 2. 和 ReAct 的本质差异是什么？各自适合什么场景？在 LangGraph 里通常怎么实现？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    2.1 本质差异对比
+
+    ReAct：
+      Thought → Action → Observation → Thought → Action → ...
+      动态、交错、应对不确定性强
+
+    Plan-and-Execute：
+      Plan → (Execute Step 1 → Step 2 → ...) → [Replan?]
+      全局视野、步骤清晰、适合长流程
+
+    [嵌入表格未展开]
+
+    2.2 场景选择指南
+
+    - 选 ReAct：
+
+    - 选 Plan-and-Execute：
+
+    2.3 在 LangGraph 中的实现骨架
+
+    LangGraph 的状态图天生适合这种架构。我们可以定义 AgentState 包含计划列表、当前步骤索引等，然后用节点串联。
+
+    from typing import TypedDict, List
+    from langgraph.graph import StateGraph, END
+
+    # 状态定义
+    class AgentState(TypedDict):
+        task: str
+        plan: List[dict]          # 计划步骤，如 [{"step":"获取数据", "tool":"fetch_data", "args":...}, ...]
+        current_step: int
+        results: dict             # 存储每一步的结果
+        final_answer: str
+
+    # 1. 规划器节点
+    def planner(state: AgentState):
+        # 调用 LLM 生成计划
+        plan_prompt = f"任务：{state['task']}。请列出完成此任务的详细步骤，每步需包含工具名和参数。"
+        plan = llm.generate_plan(plan_prompt)  # 返回结构化的步骤列表
+        return {"plan": plan, "current_step": 0, "results": {}}
+
+    # 2. 执行器节点 (单步执行)
+    def executor(state: AgentState):
+        step = state["plan"][state["current_step"]]
+        # 调用工具
+        tool_result = tools[step["tool"]](**step.get("args", {}))
+        # 保存结果
+        state["results"][state["current_step"]] = tool_result
+        # 移动到下一步
+        state["current_step"] += 1
+        return state
+
+    # 3. 重规划器节点（条件触发）
+    def replanner(state: AgentState):
+        # 如果某步结果异常，调整剩余计划
+        last_result = state["results"][state["current_step"]-1]
+        if "error" in str(last_result):
+            new_plan = llm.adjust_plan(state["plan"][state["current_step"]:], last_result)
+            state["plan"] = state["plan"][:state["current_step"]] + new_plan
+        return state
+
+    # 4. 路由判断：是否还有步骤未执行？
+    def should_continue(state: AgentState) -> str:
+        if state["current_step"] >= len(state["plan"]):
+            return "summarize"
+        # 可在此添加重规划条件
+        step = state["plan"][state["current_step"]]
+        if state["results"].get(state["current_step"]-1, "") == "failed":
+            return "replan"
+        return "execute"
+
+    # 构建图
+    graph = StateGraph(AgentState)
+    graph.add_node("planner", planner)
+    graph.add_node("executor", executor)
+    graph.add_node("replanner", replanner)
+    graph.add_node("summarize", summarize)  # 最后汇总
+
+    graph.set_entry_point("planner")
+    graph.add_edge("planner", "executor")
+    graph.add_conditional_edges("executor", should_continue, {
+        "execute": "executor",
+        "replan": "replanner",
+        "summarize": "summarize"
+    })
+    graph.add_edge("replanner", "executor")
+    graph.add_edge("summarize", END)
+
+    app = graph.compile()
+
+    这个骨架清晰展示了规划-执行-调整的闭环。实际项目中，Executor 内部还可以嵌套一个 ReAct 子图，处理步骤内的小范围探索。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcn89N2n5PRpOtgcDIyCKiTdb
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: "⚖️ 2. 和 ReAct 的本质差异是什么？各自适合什么场景？在 LangGraph 里通常怎么实现？"
+  imported_at: '2026-09-21'

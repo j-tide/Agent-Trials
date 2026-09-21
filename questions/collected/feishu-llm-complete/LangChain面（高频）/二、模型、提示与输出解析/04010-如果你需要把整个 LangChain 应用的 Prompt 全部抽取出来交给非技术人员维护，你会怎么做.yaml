@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-961de19a0bd5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果你需要把整个 LangChain 应用的 Prompt 全部抽取出来交给非技术人员维护，你会怎么做？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: 如果你需要把整个 LangChain 应用的 Prompt 全部抽取出来交给非技术人员维护，你会怎么做？
+answer:
+  mode: rubric
+  reference_answer: "\U0001F3E2 目标：让业务专家（非程序员）能够修改 Prompt，而无需接触代码，同时保证应用的稳定性。\n\n方案设计：\n\n-
+    外置 Prompt 文件\n将所有 Prompt 模板保存为独立的 YAML 或 JSON 文件，存放在项目的 prompts/ 目录下，或者上传到云存储/LangSmith
+    Hub。\n\n- 建立一个简单的 Prompt 管理后台（低代码方案）\n\n- 使用 LangSmith Prompt Hub\n\n- 版本控制与审批\n\n-
+    监控与回滚\n\n\U0001F527 关键点：模板即配置。将所有 Prompt 抽象为外部资源，提供友好的编辑界面和自动化保障，才能真正让非技术人员参与到
+    Prompt 工程中，实现“业务驱动”的 AI 应用迭代。\n\n- 将 Prompt 模板保存为独立的 YAML 或 JSON 文件，纳入 Git 仓库进行版本管理。\n\n-
+    每次修改 Prompt 时，提交带有清晰说明的 commit，方便回溯。\n\n- 在代码中使用 load_prompt 动态加载，避免硬编码。\n\n-
+    LangSmith 提供了一个中心化的 Prompt 注册表，可以将 Prompt 模板（包括 ChatPromptTemplate）存储到云端，并支持版本控制。\n\n-
+    你可以为同一个 Prompt 名称创建多个版本（如 production、staging、experiment-v2），在代码中通过名称和版本号拉取。\n\n-
+    结合 LangSmith 的实验功能，可以对比不同 Prompt 版本在测试集上的表现（如正确率、相关性、有害性），用数据驱动决策。\n\n- 采用 语义化版本：major.minor.patch。MAJOR
+    变更（如改变输出格式）需充分测试；MINOR 变更（如调整指令措辞）需要评估影响；PATCH 变更（如修正错别字）直接更新。\n\n- 或者采用 日期-描述
+    命名：2024-07-09_improved-safety。\n\n- 在 CI 流水线中，自动加载新 Prompt 版本，运行预先定义的测试集（如 100
+    个典型问题），对比新旧版本的准确率和响应时间。\n\n- 如果指标下降超过阈值，自动拦截合并请求，通知开发者调整。\n\n- 在应用启动时，根据配置（环境变量或配置中心）决定加载哪个
+    Prompt 版本，可以实现 A/B 测试和金丝雀发布。\n\n- 将系统指令放在 SystemMessage 中，用户输入放在 HumanMessage
+    中。现代聊天模型对这种结构天生敏感，不易被用户输入中的指令混淆。\n\n- 不要将用户输入直接拼接到一个长字符串中，这会给注入攻击留下空间。\n\n- 在将用户输入传入
+    Prompt 之前，对输入进行过滤，移除或转义可能用于注入的特殊标记（如 [system]、<|im_start|> 等，取决于所用模型的令牌格式）。\n\n-
+    LangChain 的 BaseMessage 会自动处理部分格式问题，但开发者仍需对文本内容进行敏感词检测。\n\n- 防止攻击者通过超长对话历史来稀释系统指令。\n\n-
+    对模型的输出进行二次检验，确保不包含意外的指令或有害内容。\n\n- LangChain 提供了 OutputFixingParser 等机制，可以在输出不符合预期时尝试修复或拒绝。\n\n-
+    在 on_llm_start 回调中，检查合并后的消息列表是否包含异常模式，如有则直接抛出异常，阻断请求。\n\n- 使用另一个轻量模型对用户输入进行意图分类，识别并拦截潜在的注入攻击。\n\n-
+    自动使用 LLM 将历史对话总结成一段摘要，存放在消息列表中。\n\n- 示例：ConversationSummaryMemory(llm=ChatOpenAI(),
+    max_token_limit=500)\n\n- 根据 Token 数量限制，自动裁剪消息列表，保留最近的消息并可选地对早期消息进行摘要。\n\n- 使用
+    LangChain 的 LLMChain 或 LCEL 编写压缩逻辑：\n\n- 在 RAG 流程中，先检索相关文档，再使用 LLM 对每个文档进行压缩（提取与问题相关的部分），减少无用信息干扰。\n\n-
+    现象：在长 Prompt 中，模型更容易记住和遵循最后面的指令，而忽略开头的约束。\n\n- 解决：将最重要的指令放在 Prompt 的末尾，或者使用 Chat
+    模型的消息结构（SystemMessage 在最前，但 HumanMessage 在最后）。\n\n- 现象：在 Prompt 中写“不要回答任何政治问题”，模型反而更容易被诱导回答。\n\n-
+    解决：尽量用正向指令（如“仅回答技术问题”），避免在 Prompt 中提及被禁止的内容。\n\n- 现象：添加了很多少样本示例，模型开始混淆，输出格式不再遵循指令。\n\n-
+    解决：控制示例数量（3-5 个），确保示例之间格式严格统一，并使用 ExampleSelector 动态选取最相关的。\n\n- 现象：由于字典键名拼写错误，Prompt
+    模板中的 {variable} 没有被替换，直接传给了模型。\n\n- 解决：使用 PromptTemplate 的 validate_template 方法检查，或利用
+    Pydantic 的 @validator 在应用层提前报错。\n\n- 现象：多轮对话后，历史消息超出模型上下文窗口，模型“遗忘”了最初的要求。\n\n-
+    解决：使用 trim_messages 或 ConversationSummaryMemory 压缩历史，定期重置。\n\n- 开发一个内部 Web 页面，列出所有
+    Prompt 文件。\n\n- 非技术人员可以直接编辑模板文本，并保存（后台更新文件或写入数据库）。\n\n- 保存时，自动运行预先定义的测试集，展示新版本的效果，防止破坏性改动。\n\n-
+    将所有 Prompt 托管到 LangSmith，设置不同的环境（dev、prod）。\n\n- 业务人员可以在 LangSmith UI 中修改并提交 Prompt，触发自动化评测。\n\n-
+    开发者通过 API 拉取最新的 production 版本，无需重新部署代码。\n\n- 所有修改必须经过审批（通过 Git PR 或自定义工作流）。\n\n-
+    将修改历史、测试报告和审批记录存档，便于回溯和合规。\n\n- 上线后，通过 LangSmith 或自定义监控观察关键指标（如用户满意度、任务完成率）。\n\n-
+    如果指标下降，一键回滚到上一个稳定版本。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Plx9wADndiq3tMkxjC6csYJOnXr
+  block_id: PyTKdTy0PorPQcxCnnFccgl0n9b
+  page_token: Plx9wADndiq3tMkxjC6csYJOnXr
+  original_title: 如果你需要把整个 LangChain 应用的 Prompt 全部抽取出来交给非技术人员维护，你会怎么做？
+  imported_at: '2026-09-21'

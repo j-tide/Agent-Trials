@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-376fc9c41f0f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: LoRA+对标准LoRA做了什么改进？学习率如何设置不同？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: LoRA+对标准LoRA做了什么改进？学习率如何设置不同？
+answer:
+  mode: rubric
+  reference_answer: |-
+    LoRA+ 的改进极为简洁：对LoRA的两个低秩矩阵 A 和 B 设置不同的学习率，且保持固定比率。标准LoRA对 A 和 B 使用相同的学习率，而LoRA+通过理论和实验证明，在大模型宽度下，这会导致特征学习效率低下。具体来说，当模型宽度（隐藏维度）较大时，矩阵 A 和 B 的梯度范数存在显著差异，使用相同学习率会使其中一个矩阵更新过快而另一个过慢，导致收敛变慢和性能下降。
+
+    学习率设置：
+
+    [图片内容未导入]
+
+    直觉解释：在训练初期，B 需要快速成长以产生有意义的输出，而 A 应该缓慢调整输入投影以维持稳定。将 B 的学习率大幅提高，能加速适配器的初始化阶段，使模型更快地进入有效的微调状态，最终在相同的训练步数内达到更低的损失。
+
+    代码实现（PyTorch）：
+
+    optimizer = AdamW([
+        {'params': [p for n, p in model.named_parameters() if 'lora_A' in n], 'lr': 1e-4},
+        {'params': [p for n, p in model.named_parameters() if 'lora_B' in n], 'lr': 1.6e-3}
+    ])
+
+    注意，HuggingFace PEFT的标准API目前可能不直接支持分组学习率，但可以通过自定义Trainer或手动构建优化器来实现。
+
+    LoRA+的改进非常低成本（只增加一个超参数比率，且建议直接使用16），却能显著提升收敛速度和最终性能，是一种“即插即用”的优化。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UEbgw2D3ci93jLkR3c6cdyoInve
+  block_id: YCAgdt1I7o9AF6xFzhRcnDO1nQg
+  page_token: UEbgw2D3ci93jLkR3c6cdyoInve
+  original_title: LoRA+对标准LoRA做了什么改进？学习率如何设置不同？
+  imported_at: '2026-09-21'

@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0fa273d75877
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4D6 LangServe 如何自动生成 OpenAPI 文档？客户端如何利用它？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F4D6 LangServe 如何自动生成 OpenAPI 文档？客户端如何利用它？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    自动生成 OpenAPI 文档的原理
+    LangServe 基于 FastAPI 构建，FastAPI 本身具备从 Python 类型注解（Pydantic 模型）自动生成 OpenAPI 文档的能力。当使用 add_routes(app, chain) 时，LangServe 内部会：
+
+    - 检查链的输入输出类型。如果链通过 with_types(input_type=..., output_type=...) 指定了 Pydantic 模型，LangServe 就直接使用它们；否则，它会使用默认的字典类型，但仍可推断基本结构。
+
+    - 创建 FastAPI 路由，并将这些类型信息传递给路由装饰器（如 @router.post），这样 FastAPI 的 OpenAPI 生成器就能自动构建 API 文档。
+
+    - 在启动应用后，访问 /docs 或 /redoc 即可看到完整的 API 文档，包括请求体示例、响应模型、流式端点说明等。
+
+    客户端如何利用 OpenAPI
+
+    客户端有两种主要方式利用 LangServe 的 OpenAPI 文档：
+
+    方式一：使用 RemoteRunnable（推荐）
+    LangChain 提供了一个 RemoteRunnable 类，它就像一个远程的链代理。你只需提供服务端的 URL（通常是 /invoke 或 /stream 的路径，也可以是根路径），RemoteRunnable 会自动从服务端获取 OpenAPI 规范，解析输入输出 schema，并在本地暴露相同的接口。这使得远程调用就像在本地执行一样。
+
+    ```python
+    from langserve import RemoteRunnable
+
+    remote_chain = RemoteRunnable("http://localhost:8000/explain/")
+    # 同步调用
+    result = remote_chain.invoke({"topic": "黑洞"})
+    # 流式调用
+    for chunk in remote_chain.stream({"topic": "黑洞"}):
+        print(chunk, end="")
+    ```
+
+    RemoteRunnable 内部使用 httpx 进行 HTTP 请求，并且支持同步/异步、重试、回调等。它极大简化了客户端的开发，不需要手动处理 HTTP 请求和响应解析。
+
+    方式二：直接使用 HTTP 客户端
+    对于非 Python 客户端，可以基于 OpenAPI 文档生成任意语言的 SDK（例如通过 OpenAPI Generator），或者直接使用 curl、fetch 等发送 POST 请求到 /invoke，请求体为 JSON，响应体也是 JSON。对于流式，则需要处理 SSE 协议。
+
+    额外说明：如果你在链中定义了自定义的 Pydantic 输入输出模型，这些模型会被完整地暴露在 OpenAPI 中，使得客户端能够获得精确的类型检查和自动补全（在 Python 中），这对于大型团队协作非常有价值。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K973wYln7iD4oCkYW2acmsT4nke
+  block_id: PVRWdhpj5oGGdGxsOIccPuUNnqg
+  page_token: K973wYln7iD4oCkYW2acmsT4nke
+  original_title: "\U0001F4D6 LangServe 如何自动生成 OpenAPI 文档？客户端如何利用它？"
+  imported_at: '2026-09-21'

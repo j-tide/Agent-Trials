@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bdffa13a74e7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ZeRO 可以与 TP/PP 结合吗？如果可以，结合方式是怎样的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: ZeRO 可以与 TP/PP 结合吗？如果可以，结合方式是怎样的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    可以，且这是训练千亿级模型的标准做法。 ZeRO 属于数据并行（DP）层面的优化，TP 和 PP 属于模型并行层面，三者正交互补。结合的总体原则是：先按 TP/PP 切分模型，再对每个模型副本应用 ZeRO-DP。
+
+    具体结合方式分为两步：
+
+    第一步：确定模型副本的“逻辑设备”
+
+    - 假设总 GPU 数为 1024，单机 8 卡。
+
+    - 首先设定 TP=8（占用 1 个节点内全部 8 卡），PP=8（需要 8 个 TP 组串联，占用 8 个节点，共 64 卡）。这 64 卡共同构成一个模型副本。
+
+    - 总 GPU 数 / 模型副本所需 GPU 数 = 1024 / 64 = 16，即可以容纳 16 个完整模型副本。
+
+    第二步：在模型副本之间应用 ZeRO-DP
+
+    - 这 16 个模型副本之间就是数据并行组（DP group）。ZeRO 的优化器状态、梯度、参数分片都在这个 DP 组内进行。
+
+    - ZeRO-1/2/3 的阶段选择只影响 DP 组内每张卡的显存占用和通信量。
+
+    通信层次：
+
+    - TP 通信：在单节点内，每层前向/反向的 AllReduce（激活值切分后的合并）。
+
+    - PP 通信：节点之间，层边界的点对点 Send/Recv（激活值和梯度）。
+
+    - ZeRO-DP 通信：跨所有节点，每步训练后的梯度 ReduceScatter 或 AllReduce，以及参数 AllGather（取决于 ZeRO 阶段）。
+
+    这种 “TP 节点内、PP 跨节点、ZeRO-DP 全局” 的三维拓扑是目前最有效的混合并行方案。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: MZbpd9uo5ovo1IxXgymc0NnlnVf
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: ZeRO 可以与 TP/PP 结合吗？如果可以，结合方式是怎样的？
+  imported_at: '2026-09-21'

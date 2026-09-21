@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1d20f288f452
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在词汇表中执行一次合并
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 在词汇表中执行一次合并
+answer:
+  mode: rubric
+  reference_answer: "目标：给定当前所有单词的符号序列 word_symbols 和选出的最高频 bigram best_pair = (a,
+    b)，将每个单词符号序列中所有相邻出现的 a, b 替换为新的合并符号 \"ab\"（通常新符号命名为 a+b 或直接拼接字符串）。更新符号序列，同时更新词汇表（即添加新符号，但实际词汇表可以从所有符号序列中收集）。\n\n注意：\n\n-
+    合并是“一次性”应用于所有单词的所有匹配位置，而不是只替换一次。\n\n- 替换后可能会产生新的相邻对，例如原本序列 ... X a b Y ... 替换后变为
+    ... X ab Y ...，相邻对 (X, ab) 和 (ab, Y) 被创建，原本的 (X, a), (a, b), (b, Y) 会消失（除非其他地方还有）。\n\n-
+    实现时通常直接修改 word_symbols 列表，对每个单词的符号序列进行扫描与合并。\n\n代码：\n\n```python\ndef merge_vocab(word_symbols:
+    list, best_pair: tuple) -> list:\n    \"\"\"\n    在单词符号序列中合并指定的 bigram，返回更新后的
+    word_symbols。\n    参数：\n        word_symbols: [(symbol_list, freq), ...]\n        best_pair:
+    (sym1, sym2) 待合并对\n    返回：\n        new_word_symbols: 更新后的列表（原地修改或新列表皆可，此处选择新建）\n
+    \   \"\"\"\n    a, b = best_pair\n    new_symbol = a + b   # 新符号为两个字符串的拼接\n    new_word_symbols
+    = []\n    \n    for symbols, freq in word_symbols:\n        new_syms = []\n        i
+    = 0\n        while i < len(symbols):\n            # 如果当前符号是 a 且下一个是 b，则替换为新符号\n
+    \           if i < len(symbols) - 1 and symbols[i] == a and symbols[i+1] == b:\n
+    \               new_syms.append(new_symbol)\n                i += 2\n            else:\n
+    \               new_syms.append(symbols[i])\n                i += 1\n        new_word_symbols.append((new_syms,
+    freq))\n    \n    return new_word_symbols\n```\n\n注意事项：\n\n- 合并时，新符号的名字建议可读，如
+    \"ab\"。在真实场景中，可能会将 Unicode 字符直接拼接，若 a,b 本身可能已是多字符子词，拼接名字会很长，但逻辑相同。\n\n- 更新后，需要重新计算
+    bigram 频率以进行下一次迭代；或者可以增量更新 bigram 频率表以提升效率。但在本框架中，步骤6会循环执行计算bigram->选最优->合并。\n\n-
+    合并后的 new_word_symbols 中，词汇表自动扩展，新增了 new_symbol，原有符号可能不再出现。\n\n示例：\n原序列：['l','o','w','</w>'],
+    best_pair=('l','o')\n合并后：['lo','w','</w>']。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XDqKw0GPGi6JvkkfpwUcqpdAndd
+  block_id: HPqqdFO3to0ewKxRv8dcEJMtnLd
+  page_token: XDqKw0GPGi6JvkkfpwUcqpdAndd
+  original_title: 在词汇表中执行一次合并
+  imported_at: '2026-09-21'

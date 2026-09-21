@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9a8aa02c2509
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练一个 10B 参数的模型，粗略估计需要多少显存？列出参数、梯度、优化器状态、激活值的组成。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 四：训练优化与稳定性
+tags: &1
+- Transfomer精选面试
+- 四：训练优化与稳定性
+content:
+  prompt: 训练一个 10B 参数的模型，粗略估计需要多少显存？列出参数、梯度、优化器状态、激活值的组成。
+answer:
+  mode: rubric
+  reference_answer: |-
+    假设使用混合精度训练（FP16 权重和梯度，FP32 主副本和优化器状态），模型参数量为 10B。
+
+    - 模型参数（权重）：FP16 存储，每个参数 2 字节，共 10B × 2B = 20 GB。
+
+    - 梯度：FP16 存储（实际在反向传播中计算，通常与参数同精度），20 GB。
+
+    - 优化器状态：若使用 Adam/AdamW，需要存储 FP32 的动量（m）和方差（v），每个参数 4 字节 × 2 = 8 字节。共 10B × 8B = 80 GB。
+
+    - 主副本参数（master weights）：FP32，用于累积更新，10B × 4B = 40 GB。
+
+    以上三项（模型、梯度、优化器状态）通常需要 20 + 20 + 80 + 40 = 160 GB（注意梯度在反向时存在，优化器状态在更新时存在，可部分复用但峰值需考虑）。此外，还有一项大开销：
+
+    - 激活值（activations）：前向传播中各层的中间输出，用于反向传播计算梯度。激活值的显存与模型结构、序列长度、批次大小有关。对于 Transformer，激活值主要来自注意力矩阵和 FFN 的中间表示。粗略估计，对于一个 10B 的 Decoder-only 模型，若序列长度 2048、批次大小 1，激活值可能占用约 20-40 GB（视具体实现和重计算策略而定）。
+
+    因此，总训练显存峰值可能在 160 GB + 20~40 GB ≈ 180-200 GB。这通常需要多卡分布式训练（如 4 张 A100 80GB）。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/E82jwDMh9ihtDhkHbRYcE2JCnNe
+  block_id: AWk9dC2b2oig4txJviYc09aHn4d
+  page_token: E82jwDMh9ihtDhkHbRYcE2JCnNe
+  original_title: 训练一个 10B 参数的模型，粗略估计需要多少显存？列出参数、梯度、优化器状态、激活值的组成。
+  imported_at: '2026-09-21'

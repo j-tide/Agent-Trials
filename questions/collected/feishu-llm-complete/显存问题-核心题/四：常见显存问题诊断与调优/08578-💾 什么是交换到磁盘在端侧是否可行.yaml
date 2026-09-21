@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ffd5148e3ff6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BE 什么是“交换到磁盘”？在端侧是否可行？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F4BE 什么是“交换到磁盘”？在端侧是否可行？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 “交换到磁盘”指当 RAM 不足时，操作系统或应用程序将内存中的部分数据（如模型权重、KV Cache）临时移出到闪存，腾出
+    RAM 给当前任务，需要时再换入。在端侧理论可行，但不实用，因为闪存速度远逊于 RAM，且会加剧功耗和磨损。\n\n\U0001F50D 端侧可行性分析：\n\n-
+    \U0001F40C 速度鸿沟巨大\nLPDDR5 RAM 带宽 ~50 GB/s，而端侧 UFS 闪存读取速度 ~2 GB/s，相差 25 倍。如果推理时频繁从闪存换入换出，生成速度可能降至
+    0.1 tok/s，完全不可用。\n\n- \U0001F525 功耗与发热\n闪存控制器连续高负载读取会消耗数瓦功率，加上 RAM 的功耗，总发热反而可能超过纯内存方案。违背了端侧低功耗的初衷。\n\n-
+    ⏳ 闪存寿命（写入磨损）\n推理通常只读，但若涉及 KV Cache 换出，需要将 Cache 写入闪存。持续的写入会快速消耗闪存寿命，尤其在移动设备上。\n\n-
+    \U0001F4F1 系统限制\niOS 不允许应用直接管理 swap；安卓虽然可配置 swap 空间，但主要针对很少使用的匿名页，对高频推理负载无效且极易被杀进程。\n\n\U0001F4A1
+    替代方案更优：\n\n- 内存映射 (mmap)：将模型文件映射到虚拟内存，操作系统按需分页，仅加载当前活跃页到 RAM。这实际上是“自动换入换出”，但粒度是
+    4KB 页，且由内核控制，比应用层 swap 高效。llama.cpp 已使用此方法。\n\n- 量化与压缩：从源头减少数据量，避免触及 swap。\n\n-
+    卸载到 CPU/NPU：利用手机已有的多层存储（GPU L2、LLC、NPU SRAM）而不是闪存。\n\n✅ 结论：端侧应极力避免主动 swap 到闪存，而应依赖
+    mmap 和压缩技术。频繁磁盘交换是大忌。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HjvUw864Ri1DrqkwVgbcfnR8n6d
+  block_id: Y478dh6HroILGcxL7CPcPrhlnLd
+  page_token: HjvUw864Ri1DrqkwVgbcfnR8n6d
+  original_title: "\U0001F4BE 什么是“交换到磁盘”？在端侧是否可行？"
+  imported_at: '2026-09-21'

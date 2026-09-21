@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dd354f6d3cec
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 张量并行的切分粒度可以到行或列，还可以更细吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 张量并行的切分粒度可以到行或列，还可以更细吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    张量并行的切分粒度可以更细，除了按行和按列切分矩阵外，常见的还有：
+
+    - 按注意力头切分：将不同的注意力头完全分配到不同的设备上。这是Megatron-LM中对自注意力层的默认切分方式。每个设备负责num_heads / TP个完整头的计算，包括Q、K、V投影和注意力计算。这种方式实现简单，通信量也较小（仅需在输出投影时AllReduce）。
+
+    - 按块切分 (Block-wise)：将矩阵划分为多个二维块，分布到不同的设备上。这种更细粒度的切分可以改善负载均衡，但通信模式会变复杂（可能需要多次AllGather和ReduceScatter）。通常在实际中不常用，因为按列/按行切分已经足够高效。
+
+    - 混合切分：同时结合列切分和行切分，例如对权重矩阵先分块，再在每个块内进行列/行切分。
+
+    更细粒度的代价：更细的切分会导致更多的通信启动次数和更小的通信块，降低带宽利用率。因此，当前主流的TP实现（Megatron）选择了按列切分+按行切分（对MLP）和按头切分（对注意力）的组合，这已经被证明在通信和计算效率之间取得了良好平衡。
+
+    限制因素：切分粒度也受限于矩阵维度的整除性。例如，隐藏维度必须能被TP整除；注意力头数也必须能被TP整除。如果TP度与模型维度不匹配，则需要填充或更复杂的切分策略。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: VvWodqR7MoZBEbxm5kmcZ0QWnOb
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: 张量并行的切分粒度可以到行或列，还可以更细吗？
+  imported_at: '2026-09-21'

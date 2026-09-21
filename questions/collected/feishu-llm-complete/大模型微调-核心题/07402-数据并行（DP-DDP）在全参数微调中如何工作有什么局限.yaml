@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d2cfa0d99068
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 数据并行（DP/DDP）在全参数微调中如何工作？有什么局限？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 数据并行（DP/DDP）在全参数微调中如何工作？有什么局限？
+answer:
+  mode: rubric
+  reference_answer: |-
+    数据并行（Data Parallelism, DP）是最基础的分布式策略。在 PyTorch 中，DataParallel（DP）和 DistributedDataParallel（DDP）是两种主要实现，DDP 因性能更优而成为主流。
+
+    工作流程 (DDP)：
+
+    - 模型复制：每个 GPU 拥有一个完整的模型副本。
+
+    - 数据划分：每个 worker 加载不同的 mini‑batch 数据。
+
+    - 前向传播：独立计算，各自得到 loss。
+
+    - 反向传播：各自计算本地梯度。
+
+    - 梯度同步：通过 All‑Reduce 操作，将所有 worker 的梯度求平均，每个 worker 得到相同的全局梯度。
+
+    - 参数更新：每个 worker 用全局梯度独立更新自己的模型参数，保证各副本一致。
+
+    局限：
+
+    - 单卡显存瓶颈：每张卡必须存放完整的模型、梯度和优化器状态。对于大模型（如 7B），即使使用 ZeRO‑2，单卡显存也往往不够，必须引入模型并行或 ZeRO‑3。
+
+    - 通信开销：All‑Reduce 通信量与参数量成正比。当卡数增多，通信时间可能成为瓶颈，需要高带宽网络（如 InfiniBand）和通信计算重叠技术。
+
+    - 负载均衡：要求每张卡上的计算量（由 batch size 和序列长度决定）相近，否则会出现短板效应。
+
+    - 无法处理超大模型：单纯增加数据并行度无法解决单卡放不下的问题，必须与张量并行、流水线并行或 ZeRO 联合使用。
+
+    因此，数据并行通常作为 扩展吞吐量 的手段，而非 降低单卡显存 的手段。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: I8IqdYfBxoXTdXx5uGRctuVfnDc
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 数据并行（DP/DDP）在全参数微调中如何工作？有什么局限？
+  imported_at: '2026-09-21'

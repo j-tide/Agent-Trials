@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d64e6a737771
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么在开启 Gradient Checkpointing 后，显存使用不再是简单的求和？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 为什么在开启 Gradient Checkpointing 后，显存使用不再是简单的求和？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Gradient Checkpointing打破了“激活值总量=各层激活之和”的简单累加关系。
+
+    在没有检查点时，前向传播的每一层激活值都被完整保存，显存占用等于所有层激活值的总和。开启检查点后，模型只保存少数“检查点”张量（通常每层保存其输入张量），层内的中间激活（Q、K、V、注意力矩阵、FFN中间输出等）全部丢弃。
+
+    反向传播到某一层时，需要该层的中间激活来计算梯度。这些激活值并不在显存中，而是从最近的检查点（即该层的输入）重新执行前向计算，临时生成所需的中间激活。计算完这一层的梯度后，这些临时激活又被释放。
+
+    因此，显存占用不再等于所有激活值的静态总和，而是等于检查点张量的存储加上当前重计算层临时产生的激活。显存峰值出现在重计算某一层时——该层产生的临时激活叠加上所有层的检查点。这个峰值远低于全量存储，但具体数值取决于检查点放置策略和层的计算特征，无法用简单的线性叠加来估算。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: Cidrd5SF7ofWn1x9uiqc1GuUnwg
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 为什么在开启 Gradient Checkpointing 后，显存使用不再是简单的求和？
+  imported_at: '2026-09-21'

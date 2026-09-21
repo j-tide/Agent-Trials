@@ -1,0 +1,97 @@
+---
+schema_version: 1
+id: feishu-llm-complete-68ef4c84fa19
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9F1 3. ES 的分片（Shard）和副本（Replica）机制是怎样的？如何规划集群容量？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F9F1 3. ES 的分片（Shard）和副本（Replica）机制是怎样的？如何规划集群容量？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Elasticsearch 的分布式能力源于分片和副本两大设计。
+
+    分片与副本图解
+
+    [图片内容未导入]
+
+    核心概念
+
+    - 分片：将一个索引的数据水平切分成多个分片，每个分片是一个完整的 Lucene 索引。分片分布在不同的节点上，实现数据的水平扩展和并行处理。
+
+    - 副本：每个主分片可以有一个或多个副本分片。副本提供高可用（主分片丢失时副本提升为主）和读负载均衡（搜索可以在副本上执行）。
+
+    容量规划五步法
+
+    假设你要存储 1TB 的 Agent 日志，每日新增 50GB，保留 30 天。单节点 4C16G 1TB SSD。
+
+    ① 确定主分片数量
+    分片数不能太少（大分片迁移慢）也不能太多（小分片管理开销大）。建议每个分片大小控制在 10GB ~ 50GB 之间。对于 1TB 总数据量，主分片数可以设置为 1TB / 30GB ≈ 34，向上取 2 的倍数便于平衡，设为 32 或 40 个主分片。
+
+    ② 计算副本数
+    一般设置 number_of_replicas = 1，即每个主分片有一个副本。这样可容忍一个节点故障而不丢数据。总存储空间需要 1TB * (1 + 1) = 2TB。
+
+    ③ 计算所需节点数
+    每个节点承担的存储 ≈ 总存储 / 节点数。假设我们规划 6 个数据节点：每个节点存储 2TB / 6 ≈ 333GB。1TB SSD 完全满足，且留有增长空间。节点数要能满足主分片分布：主分片数 32，节点数 6，每个节点约 5-6 个主分片，负载均衡。
+
+    ④ 内存估算
+
+    ES 建议 JVM 堆内存为节点内存的 50%，且不超过 32GB（压缩指针优化）。每个节点 16G 内存，堆内存设为 8GB。该堆内存用于缓存 Lucene 的倒排索引等。剩余 8GB 给 OS Page Cache 和 Lucene 的堆外内存，加速文件读写。
+
+    ⑤ QPS 与写入性能
+
+    如果日均新增 50GB，平均写入速率 ≈ 0.6MB/s，峰值考虑 3 倍为 1.8MB/s。每个节点承受约 0.3MB/s 写入，SSD 完全轻松。搜索 QPS 需要压测，通常 3 节点集群即可支撑数千 QPS。
+
+    配置示例
+
+    ```yaml
+    # PUT /agent_logs/_settings
+    {
+      "index": {
+        "number_of_shards": 32,
+        "number_of_replicas": 1
+      }
+    }
+    ```
+
+    扩容场景：如果数据增长到 3TB，可以增加数据节点到 10 台，或者增加分片数（需要 reindex）。副本数可以在线调整：PUT /agent_logs/_settings { "index": { "number_of_replicas": 2 } }。
+
+    监控与调整
+    使用 _cat/shards、_cat/nodes 监控分片分布。注意分片的平衡：ES 会自动平衡，但热点数据可能需要通过 _split 或 _shrink API 调整分片大小。
+
+    收束：分片是 ES 水平扩展的原子，副本是数据安全的守护。规划时始终牢记“一个分片 30GB 左右”的经验之谈，并预留 20% 的空间和性能余量，你的集群就能在 Agent 的海量日志中既稳且快地航行。
+
+    ---
+
+    ### 4.ES 写入和查询的性能如何优化？近实时搜索（NRT）的原理是什么？
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MjSawrHIci2PTTktAdVc2UF3nQb
+  block_id: doxcn28ukwXFxh11mokMrVWN1sb
+  page_token: MjSawrHIci2PTTktAdVc2UF3nQb
+  original_title: "\U0001F9F1 3. ES 的分片（Shard）和副本（Replica）机制是怎样的？如何规划集群容量？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0b4704ff382c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 数据并行（DP/DDP）的原理是什么？它在微调中有什么限制？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 数据并行（DP/DDP）的原理是什么？它在微调中有什么限制？
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    数据并行是最直观的分布式策略。以PyTorch的DistributedDataParallel（DDP）为例：
+
+    - 模型复制：每张GPU上都拥有一个完整的模型副本。
+
+    - 数据切分：训练数据被平均划分给所有GPU。每张卡拿到一个不同的mini-batch。
+
+    - 独立计算：每张GPU独立完成前向和反向传播，计算出各自本地数据的梯度。
+
+    - 梯度同步：所有GPU通过All-Reduce通信操作，将各自的本地梯度进行求和平均，使得每张卡最终都持有完全相同的全局梯度。
+
+    - 参数更新：每张GPU用这个全局梯度独立更新自己的模型副本，保证了所有卡上的模型参数在每一步训练后都是一致的。
+
+    在微调中的限制
+
+    数据并行的致命缺陷是：它要求每张GPU都能单独装下整个模型。它虽然分散了数据，但完全没有分散模型、梯度或优化器状态。对于7B模型，单卡84 GB的刚性需求（权重+梯度+优化器）是无法通过增加数据并行的卡数来解决的。数据并行只能扩展吞吐量，不能降低单卡显存压力。因此，对于大模型微调，单纯的数据并行是不可行的，必须结合模型并行或ZeRO优化。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: OSlRdAC8toq4alxl61hc8OKjnRd
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 数据并行（DP/DDP）的原理是什么？它在微调中有什么限制？
+  imported_at: '2026-09-21'

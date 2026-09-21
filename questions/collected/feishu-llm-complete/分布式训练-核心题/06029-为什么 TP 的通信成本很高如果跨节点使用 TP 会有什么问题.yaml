@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-96ec787bdf29
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么 TP 的通信成本很高？如果跨节点使用 TP 会有什么问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 为什么 TP 的通信成本很高？如果跨节点使用 TP 会有什么问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    TP 的通信成本高，主要体现在两个方面：
+
+    通信数据量大：TP 的通信传输的是激活值及其梯度，数据量等于 batch_size × seq_len × hidden_dim（以及相应的 FP16 字节数）。当模型隐藏维度很大（如 8192 或更高）时，每次 AllReduce 传输的数据量可达数百 MB。而且，TP 的通信发生在每个 Transformer 层的内部，层数越多，通信次数越多（每层前向和反向各至少一次 AllReduce）。总通信量与模型层数、隐藏维度、序列长度和批次大小成正比。
+
+    通信频率高：在一个深层 Transformer（如 96 层）的训练中，每个迭代步需要进行 96 次前向 AllReduce 和 96 次反向 AllReduce（共计约 200 次）。这种高频通信对带宽和延迟都极其敏感。
+
+    跨节点使用 TP 的问题：
+
+    - 带宽瓶颈：节点内 GPU 通过 NVLink 或 NVSwitch 互联，带宽极高（如 A100 可达 600 GB/s 每对 GPU，总带宽达 4.8 TB/s）。而跨节点通信依赖 InfiniBand（IB）或以太网，即使是最新的 IB HDR（200 Gb/s ≈ 25 GB/s），单链路带宽仍远低于 NVLink。TP 的巨量通信会迅速占满跨节点网络，导致通信时间远超计算时间，GPU 大量空闲。
+
+    - 延迟增加：跨节点通信需要经过网卡、交换机等多个环节，延迟远高于节点内的 GPU 直连。高频的 AllReduce 操作会累积显著的延迟开销。
+
+    - 扩展性差：随着 TP 并行度增加，通信量线性增长，跨节点网络的瓶颈效应更加突出。
+
+    因此，TP 通常仅用于单机内部（通常 TP 并行度 ≤ 节点内 GPU 数，如 8），利用 NVLink 提供的高带宽支撑其密集通信需求。跨节点时，更倾向于使用数据并行、流水线并行或 ZeRO-3 等通信量较低或频率较低的策略。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: WAwcd7sNEotUrQx7uIJcvO9cnjd
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: 为什么 TP 的通信成本很高？如果跨节点使用 TP 会有什么问题？
+  imported_at: '2026-09-21'

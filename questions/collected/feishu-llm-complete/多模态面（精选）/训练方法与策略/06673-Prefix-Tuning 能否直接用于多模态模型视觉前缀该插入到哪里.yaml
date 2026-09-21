@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d0fec2e701fe
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Prefix-Tuning 能否直接用于多模态模型？视觉前缀该插入到哪里？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 训练方法与策略
+tags: &1
+- 多模态面（精选）
+- 训练方法与策略
+content:
+  prompt: Prefix-Tuning 能否直接用于多模态模型？视觉前缀该插入到哪里？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Prefix-Tuning 原本是为语言模型设计的，它在自回归生成时，在 KV 缓存的最前面预置可学习的前缀向量，影响后续所有 token 的注意力。
+
+    多模态模型中的直接应用：
+
+    - 可以，而且已有工作（如 VL-PET、MMA）将 Prefix-Tuning 扩展到多模态模型。
+
+    - 插入位置：视觉前缀应插入到 LLM 的每一层自注意力中，作为 key 和 value 的前缀。具体来说，对于 LLM 的每个 Transformer 层，在自注意力的 key 和 value 矩阵前拼接可学习的视觉前缀向量 PK(i),PV(i)∈Rl×dPK(i),PV(i)∈Rl×d，使得文本 token 在生成时能够通过注意力关注到这些视觉前缀，从而利用图像信息。
+
+    - 为什么不是直接插入视觉 token：视觉 token 数量多且占空间，而视觉前缀是压缩的、可学习的表示，长度固定且远小于视觉 token 序列。它起到了将视觉信息压缩并传递给 LLM 的作用，与 Q-Former 等有异曲同工之妙。
+
+    实际操作：
+
+    - 在训练时，视觉前缀的初始值可以由视觉编码器输出的全局特征（如 [CLS] token）经过投影并重复得到。
+
+    - 推理时，只需在 KV 缓存前加上这些前缀，LLM 即可感知视觉信息。
+
+    - Prefix-Tuning 可以与 Adapter 或 LoRA 结合，视觉侧用 Prefix，语言侧用 LoRA，实现更全面的轻量适配。
+
+    这种方案在多模态理解和生成任务中，能以极少的参数（仅前缀向量）使 LLM 获得不错的视觉理解能力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MdAuwpV9FirKryksWTdcr4djnoV
+  block_id: TjBfd1GNOoxN8WxnBLrckukhnYe
+  page_token: MdAuwpV9FirKryksWTdcr4djnoV
+  original_title: Prefix-Tuning 能否直接用于多模态模型？视觉前缀该插入到哪里？
+  imported_at: '2026-09-21'

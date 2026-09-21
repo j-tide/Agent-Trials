@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5c005fe3c1f8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 你如何在不重新训练的情况下，将两个分别在不同任务上训练好的 LoRA 模块（比如一个是“写诗”任务，一个是“翻译”任务）的能力结合起来，让模型同时具备两种能力？这种做法有什么理论上的风险？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LoRA 高频面试题
+derived_topic: 
+tags: &1
+- LoRA 高频面试题
+content:
+  prompt: "\U0001F9E9 你如何在不重新训练的情况下，将两个分别在不同任务上训练好的 LoRA 模块（比如一个是“写诗”任务，一个是“翻译”任务）的能力结合起来，让模型同时具备两种能力？这种做法有什么理论上的风险？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在不重新训练的情况下融合两个 LoRA，确实是一个常见需求——我们希望模型同时会写诗和翻译，而不是只能做其中一个。由于 LoRA 的残差更新是线性可加的，最简单的做法是直接对两个任务的 LoRA 权重进行线性组合，公式为：
+
+    [图片内容未导入]
+
+    具体的融合方法：
+
+    - 等权相加：将写诗 LoRA 和翻译 LoRA 的 BA 矩阵分别乘以各自的 α/r，然后与基座权重相加。这背后假设两个任务的优化方向是正交或互补的，叠加后不会相互抵消。
+
+    - 加权融合：通过一组验证数据，搜索最优的混合权重 λ1,λ2（通常可以用简单的网格搜索或贝叶斯优化），使得融合模型在两个任务上的综合表现最佳。
+
+    - 按模块精细加权：不同的层可能对不同任务的敏感度不同，可以为每一层甚至每个 LoRA 矩阵设置独立的融合权重。这需要更多的搜索计算量，但可能获得更好的融合效果。
+
+    ⚖️ 理论上的风险：
+
+    - 任务干扰（Task Interference）：两个任务的优化方向可能存在冲突。当任务 A 的某个调整方向恰好与任务 B 的某个调整方向相反时，直接相加会导致这两个调整相互削弱甚至抵消。这会导致融合后的模型在两个任务上的表现都比单独使用对应 LoRA 时更差。LoRA 的低秩特性使这种干扰的风险更高，因为每个调整仅在一个狭窄的子空间内，方向冲突的可能性增加。
+
+    - 幅度失控（Magnitude Mismatch）：两个 LoRA 的更新幅度可能不在同一量级，如果直接等权相加，幅度大的那个任务会主导融合后的行为，另一个任务的能力几乎被淹没。
+
+    - 分布外泛化问题：在训练时，写诗 LoRA 从未见过翻译任务的数据，翻译 LoRA 也从未见过写诗任务的数据。直接相加缺乏对“两个任务共享表示”的显式建模，融合后的模型可能在需要跨任务能力的场景（如翻译一首诗）表现不佳。
+
+    - 非正交性假设：线性相加隐含假设两个任务的残差空间是正交或线性无关的。实际上，它们可能共享某些方向，这会导致过度放大某些特征，引发模型行为异常（如输出混乱或崩溃）。
+
+    实践心得：我在实际项目中尝试过直接相加多个 LoRA（如情感控制、风格转换），结果发现对于差异较大的任务，直接相加往往失败，模型输出会变得非常不稳定。更可靠的方法包括：使用 LoRAHub 等动态组合方法，通过少量样本学习最优组合权重；或者使用 LoRA 拼接（LoRA Splicing），在不同层激活不同的 LoRA。如果对效果要求很高，最稳妥的还是用多任务数据重新训练一个统一的 LoRA。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MUH8wwD1nigAKikWjdJc1MHjn8f
+  block_id: AoiwdjieSoeVD3xKHPDc0Iztnnp
+  page_token: MUH8wwD1nigAKikWjdJc1MHjn8f
+  original_title: "\U0001F9E9 你如何在不重新训练的情况下，将两个分别在不同任务上训练好的 LoRA 模块（比如一个是“写诗”任务，一个是“翻译”任务）的能力结合起来，让模型同时具备两种能力？这种做法有什么理论上的风险？"
+  imported_at: '2026-09-21'

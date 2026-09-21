@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b651d1b26907
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F914 为什么 MoE 模型在推理时显存利用率通常较低？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 五：前沿与趋势
+tags: &1
+- 显存问题-核心题
+- 五：前沿与趋势
+content:
+  prompt: "\U0001F914 为什么 MoE 模型在推理时显存利用率通常较低？"
+answer:
+  mode: rubric
+  reference_answer: "“显存利用率低”在这里指大量显存被权重占据，但计算单元（SM）却处于闲置或低负载状态。MoE 推理的典型特征是：模型总参数量极大，但每个
+    token 只激活一小部分专家，导致巨大的权重常驻显存，却只有一小部分参与实际运算。同时，生成过程通常受限于内存带宽（读取权重和 KV Cache），GPU
+    计算核心经常等待数据，无法满负荷工作。\n\n- 权重“虚胖”：例如 Mixtral 8×7B，总参数 46.7B，FP16 下约需 93 GB 显存，然而每次前向仅激活约
+    12.9B 参数的专家。其余约 34B 的专家权重虽然占据显存，却不参与当前 token 的计算，形成“静态占用、动态闲置”。\n\n- 并发请求的专家分散：多用户请求可能激活不同的专家子集，导致无法提前释放某些专家权重，必须全部驻留。但同一时刻每个请求只用到少数专家，全局权重利用率很低。\n\n-
+    计算-访存比低：生成每个 token 需要从显存中读取庞大的权重矩阵（虽只读取部分专家），以及完整的 KV Cache，而计算量相对较小，导致 GPU 多数时间在等待内存数据，SM
+    利用率低于稠密模型。\n\n- KV Cache 占比小：MoE 的注意力部分与稠密模型相同，KV Cache 大小类似。但权重占用远大于稠密模型，因此总显存中权重占比极高，而权重是“一次性加载、低复用率”的，进一步拉低整体利用率。\n\n\U0001F4CA
+    直观对比：一个 7B 稠密模型，权重 14 GB，KV Cache 2 GB，权重利用率 100%（每次都用全部权重）。而 MoE 8×7B，权重 93 GB，KV
+    Cache 2 GB，但每次只用 ~26 GB 的专家权重，权重利用率不足 30%，却占着 93 GB 的坑。\n\n因此，MoE 推理的显存利用率天然偏低，这是其“总参数大、激活稀疏”架构的必然结果。
+    提高利用率的方向包括：动态加载专家、专家共享、以及更彻底的 KV Cache 压缩来腾出空间放置更多权重。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MBoMwuZDWiPy4akL8hvcNTnnnig
+  block_id: OEa2dhHiPoAYfNxCSC2cdw2Lnsb
+  page_token: MBoMwuZDWiPy4akL8hvcNTnnnig
+  original_title: "\U0001F914 为什么 MoE 模型在推理时显存利用率通常较低？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,142 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f864d8e0b285
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 LangGraph 里如何实现"LLM 有工具调用就去执行工具，否则结束"这个 ReAct 循环？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: 在 LangGraph 里如何实现"LLM 有工具调用就去执行工具，否则结束"这个 ReAct 循环？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐（条件边路由函数、START/END 节点、ReAct 循环结构）
+
+    1️⃣ Common Answer
+
+    在节点里判断 LLM 输出有没有 tool_calls，有的话就调用工具节点，没有就结束。用条件边来配置这个逻辑。
+
+    2️⃣ Impressive Answer
+
+    标准 ReAct 循环的图结构是两个节点 + 一条条件边：llm 节点调用 LLM，tools 节点执行工具，Supervisor 逻辑放在条件边的路由函数里：
+
+    def should_continue(state: AgentState) -> str:
+        last_msg = state["messages"][-1]
+        if hasattr(last_msg, "tool_calls") and last_msg.tool_calls:
+            return "tools"
+        return END
+
+    graph.add_node("llm", call_llm)
+    graph.add_node("tools", execute_tools)
+    graph.add_edge(START, "llm")
+    graph.add_conditional_edges("llm", should_continue, {"tools": "tools", END: END})
+    graph.add_edge("tools", "llm")  # 工具执行完回到 LLM，形成循环
+
+    关键是 tools → llm 这条边形成了循环，让 Agent 能在"思考-行动"之间反复迭代，直到 LLM 不再发出 tool_calls 才走 END。这是 LangGraph 实现 ReAct 的最小完整结构。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    ### LangGraph Checkpointing 与持久化记忆
+
+    LangGraph 的 MemorySaver 和 PostgresSaver 有什么区别？
+
+    难度级别：⭐（三种 Checkpointer 的适用场景）
+
+    MemorySaver 把状态存在内存里，进程重启就丢失，只适合本地测试和单测。SqliteSaver 存在 SQLite 文件里，适合单机轻量部署，但 SQLite 的写锁限制了并发能力。PostgresSaver 存在 PostgreSQL 里，支持高并发、连接池和高可用，是生产多实例部署的唯一选择——否则不同实例看到的状态会不一致。
+
+    ---
+
+    LangGraph 的 Checkpointing 机制是如何工作的？thread_id 的作用是什么？生产环境如何选持久化方案？
+
+    难度级别：⭐⭐⭐（Checkpoint 存储结构、thread_id 多会话隔离、三种 Checkpointer 选型、Time Travel 调试）
+
+    1️⃣ Common Answer
+
+    Checkpointing 就是保存图执行过程中的状态，程序重启后可以恢复。有三种实现：MemorySaver 存内存、SqliteSaver 存文件、PostgresSaver 存数据库。thread_id 用来区分不同的会话，不同用户用不同的 thread_id 就不会互相干扰。
+
+    2️⃣ Impressive Answer
+
+    我会从三个层面来讲：
+
+    - 工作原理：不只是保存状态，而是完整的执行历史链。每个节点执行完后，框架自动调用 Checkpointer 的 put 方法，把当前 State、checkpoint_id、父节点 ID 一起写入存储，形成有序的历史链。下次用同一个 thread_id 调用时，框架先调用 get 拉取最新 Checkpoint 恢复 State，图从上次停止的地方继续，实现真正的跨请求记忆——不需要客户端手动传对话历史。
+
+    - thread_id 是多会话隔离的核心键。格式建议用 {user_id}_{session_id}，既能隔离不同用户，也支持同一用户的多个会话。通过 config = {"configurable": {"thread_id": "..."}} 传给每次 invoke，框架根据 thread_id 加载对应的 Checkpoint。
+
+    - 持久化选型标准：并发量 + 部署模式。单测和开发用 MemorySaver，零配置；单机轻量部署用 SqliteSaver；生产多实例必须用 PostgresSaver，否则节点间 State 不一致。另外 Checkpointing 还有一个低调但极有价值的能力——Time Travel：通过 get_state_history 拿到完整执行历史，可以从任意历史节点重放，Agent 任务失败后不用重跑整个流程，直接从失败点恢复，生产排查问题时非常实用。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    用户的多轮对话跨了多次 HTTP 请求，LangGraph 如何实现无需客户端传历史的记忆？
+
+    难度级别：⭐⭐⭐（Checkpointing 跨请求记忆、thread_id 设计、PostgresSaver 生产选型）
+
+    1️⃣ Common Answer
+
+    用 Checkpointing 保存状态，每次请求带上 thread_id，框架自动加载上次的历史，不用客户端自己传消息记录。
+
+    2️⃣ Impressive Answer
+
+    核心思路是让 thread_id 承担会话标识，Checkpointer 承担历史存储，客户端每次只需传当前这条消息：
+
+    # 服务端：每次请求只处理新消息
+    config = {"configurable": {"thread_id": f"{user_id}_{session_id}"}}
+
+    result = graph.invoke(
+        {"messages": [HumanMessage(current_user_message)]},  # 只传新消息
+        config
+    )
+
+    框架在执行前自动从 PostgresSaver 拉取该 thread_id 的最新 Checkpoint，State 里的 messages（带 add_messages reducer）会追加新消息而不是覆盖，所以 LLM 能看到完整的上下文。
+
+    生产注意点：thread_id 要绑定到用户的 session，session 过期时要有清理策略（否则 Checkpoint 表会无限增长）；多实例部署必须用 PostgresSaver，MemorySaver 在多进程环境下 thread_id 隔离会失效。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BGoPwvMLhic7wKkrioacP0oynIh
+  block_id: doxcn7bPJ9DCgfKgqpBz1wVZ7Th
+  page_token: BGoPwvMLhic7wKkrioacP0oynIh
+  original_title: 在 LangGraph 里如何实现"LLM 有工具调用就去执行工具，否则结束"这个 ReAct 循环？
+  imported_at: '2026-09-21'

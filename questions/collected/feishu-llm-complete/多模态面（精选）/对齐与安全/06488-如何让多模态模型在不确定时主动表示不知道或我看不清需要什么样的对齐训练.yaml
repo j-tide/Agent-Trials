@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dc7a04940dbf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何让多模态模型在不确定时主动表示“不知道”或“我看不清”？需要什么样的对齐训练？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 对齐与安全
+tags: &1
+- 多模态面（精选）
+- 对齐与安全
+content:
+  prompt: 如何让多模态模型在不确定时主动表示“不知道”或“我看不清”？需要什么样的对齐训练？
+answer:
+  mode: rubric
+  reference_answer: |-
+    让模型“认怂”，比让它“胡编”难得多，也需要更精细的调教。
+
+    核心策略：构造“边界场景”的偏好数据，并进行对齐训练。
+
+    具体来说，我们需要系统性地制造大量“应该认怂”的场景，并确保在这些场景下，“认怂”的回答是 rewarded，而“胡编”的回答是 penalized。
+
+    - 构造三类“应该认怂”的数据：
+
+    - 视觉信息缺失：给清晰图提问，但问题是关于一个被裁切掉、或被遮挡、或根本不在图中的物体。比如一张猫的上半身照片，问“这只猫的尾巴是什么颜色的？”。此时，期望的回答是“抱歉，由于图片只显示了猫的上半身，我无法看到它的尾巴。”而不是去瞎猜“可能是黑色的”。
+
+    - 视觉信息模糊/歧义：给模型一张分辨率极低、运动模糊或严重失焦的图像，然后提问。期望的回答是“图像太模糊，我无法分辨出具体的物体/文字。”。
+
+    - 超出能力范围/知识边界：提问一些无法仅从图像获知的信息，比如“图中这个人的电话号码是多少？”或者“这只鸟的迁徙路线是什么？”。期望的回答是“这个问题无法仅凭图像回答，需要更多外部信息。”。
+
+    - 对齐训练的设计：
+
+    - 在 SFT 阶段，混入大量上述数据，教模型在这些场景下的“标准回答模板”。
+
+    - 在 RLHF/DPO 阶段，这是关键。我们需要构造一个偏好对：
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/R2oOwlZ2GiMrQSkuLbBcNBtInEh
+  block_id: M4SUd7hJjoGdTrxBiMFcpfW9nrh
+  page_token: R2oOwlZ2GiMrQSkuLbBcNBtInEh
+  original_title: 如何让多模态模型在不确定时主动表示“不知道”或“我看不清”？需要什么样的对齐训练？
+  imported_at: '2026-09-21'

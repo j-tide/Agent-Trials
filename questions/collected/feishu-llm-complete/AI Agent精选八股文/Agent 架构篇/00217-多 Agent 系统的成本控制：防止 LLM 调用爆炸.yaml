@@ -1,0 +1,116 @@
+---
+schema_version: 1
+id: feishu-llm-complete-61e4b77ac1cf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多 Agent 系统的成本控制：防止 LLM 调用爆炸
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+content:
+  prompt: 多 Agent 系统的成本控制：防止 LLM 调用爆炸
+answer:
+  mode: rubric
+  reference_answer: |-
+    1、基础题：多 Agent 系统为什么比单 Agent 更容易出现成本失控？
+
+    难度级别：⭐（成本构成理解、Token 计费原理）
+
+    多 Agent 系统每个 Agent 调用都独立消耗 Token，成本是单 Agent 的 N 倍起步。如果 Agent 之间形成循环调用或无限重试，Token 消耗会指数级增长。没有预算上限的系统，一个复杂任务可能烧掉几十美元。
+
+    ---
+
+    2、进阶题：多 Agent 系统的 LLM 调用成本如何控制？有哪些防止调用次数爆炸的有效机制？
+
+    难度级别：⭐⭐⭐（Agent 调用轮次上限、上下文复用、早停机制、模型分级）
+
+    1️⃣ Common Answer
+
+    每个 Agent 都要消耗 Token，所以要控制成本。可以设置最大调用次数，防止死循环。对不变的内容做缓存。结果差不多了就提前停。另外可以用便宜的模型，不是每个 Agent 都要用最强的。
+
+    2️⃣ Impressive Answer
+
+    我会从调用次数、Token 量、模型选择、监控告警四个维度来回答这个问题：
+
+    - 调用轮次上限。LangGraph 通过 recursion_limit 设置硬上限，但仅靠这个不够——还需要在 Supervisor 的路由 Prompt 里加规则：同一个 Agent 连续调用超过 3 次仍无进展，就返回当前最优结果，防止无效循环。
+
+    - 早停机制。不等跑完所有轮次就提前结束。判断信号有三类：置信度达阈值（Supervisor 评判"已足够好"）、任务完成信号（Agent 返回 {"status": "complete"}）、结果收敛（连续两轮输出相似度 > 0.95）。
+
+    - 上下文复用。这是最容易被忽视但效果显著的点。子 Agent 不应每次独立做 RAG 检索，应该复用父 Agent 已检索的上下文。对不变的系统规则、API 文档，用 OpenAI Prompt Caching 或 Anthropic Cache Control 缓存 System Prompt，可以节省 50-90% 的 Token 成本。
+
+    - 模型分级。简单路由和格式转换用 GPT-4o-mini / Claude Haiku；核心推理和代码生成用 GPT-4o / Claude Sonnet；复杂分析和最终综合用 o1 / Claude Opus。在生产中还需设置每次任务的 Token 预算上限，超出时自动降级或停止执行。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：生产环境中一个多 Agent 任务突然 Token 消耗飙升，如何快速定位并止损？
+
+    难度级别：⭐⭐⭐（成本监控、告警机制、预算守卫）
+
+    1️⃣ Common Answer
+
+    可以去日志里看一下哪个 Agent 调用次数多，然后降低调用频率。或者换个便宜的模型。如果还是太贵就直接停掉任务。
+
+    2️⃣ Impressive Answer
+
+    定位和止损需要分两个层次应对：
+
+    实时止损：在每次 LLM 调用后更新累计消耗，设置预算守卫（CostGuard），一旦超出阈值立即抛出异常中断任务，防止继续烧钱。同时配置告警（接飞书或 PagerDuty）让人工第一时间感知。
+
+    事后定位：通过 LangSmith 或自建 Trace 系统，按 Trace ID 聚合每次任务的各 Agent Token 消耗明细，对比历史基线找出异常 Agent。常见原因是某个 Agent 陷入了重试循环，或上下文窗口被无关内容撑大，定位后针对性修复（加早停、清理上下文）。
+
+    class CostGuard:
+        def __init__(self, budget_usd: float):
+            self.budget = budget_usd
+            self.consumed = 0.0
+
+        def check(self, tokens: int, model: str):
+            cost = tokens / 1_000_000 * MODEL_PRICE[model]
+            self.consumed += cost
+            if self.consumed > self.budget:
+                raise BudgetExceededError(f"已消耗 ${self.consumed:.2f}，超出预算")
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+
+    ### 6.3 可观测性、应用与安全
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JcycwopI3iq7iOk1kBJcuICVnOg
+  block_id: doxcn5iB2VW1IxEZQfkZmtXztXb
+  page_token: JcycwopI3iq7iOk1kBJcuICVnOg
+  original_title: 多 Agent 系统的成本控制：防止 LLM 调用爆炸
+  imported_at: '2026-09-21'

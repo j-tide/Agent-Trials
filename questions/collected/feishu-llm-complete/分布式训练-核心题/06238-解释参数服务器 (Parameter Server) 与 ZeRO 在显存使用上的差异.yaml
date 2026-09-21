@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-27ba78885cb9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释“参数服务器” (Parameter Server) 与 ZeRO 在显存使用上的差异。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 解释“参数服务器” (Parameter Server) 与 ZeRO 在显存使用上的差异。
+answer:
+  mode: rubric
+  reference_answer: |-
+    参数服务器架构：经典的分布式训练架构，由多个工作节点（worker）和服务器节点（server）组成。服务器节点存储完整的模型参数和优化器状态，工作节点只负责计算梯度，并将梯度推送给服务器；服务器使用梯度更新参数。这种架构下，工作节点的显存占用很小（只需存储当前批次的激活值和梯度），但服务器节点需要巨大的显存来容纳完整模型状态（参数+优化器），因此服务器往往成为瓶颈，且扩展性受限。
+
+    ZeRO架构：将模型状态（参数、梯度、优化器状态）完全分布到所有参与训练的GPU上，没有中心服务器。每张GPU既是工作节点，也承担了一部分存储任务。通过分片和按需收集的方式，任何一张GPU都不需要持有完整的模型状态，从而实现显存的均衡利用。
+
+    显存使用差异：
+
+    - 参数服务器：显存使用极不均衡。服务器端显存需求与模型大小成正比（所有参数+优化器），而工作节点显存需求低。当模型巨大时，单台服务器无法承载，必须采用多服务器，增加了系统复杂度。
+
+    - ZeRO：显存使用均衡。每张GPU的显存消耗大约为（模型状态总量 / 数据并行度）。通过分片，整个集群的总显存被高效聚合，理论上可训练的模型大小上限为单卡显存乘以卡数（再考虑通信和激活值开销）。
+
+    因此，ZeRO彻底消除了传统参数服务器的中心存储瓶颈，是当前训练千亿乃至万亿参数模型的基础。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: LOzudnkaNoiy2QxXk1RcAMM7n8r
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 解释“参数服务器” (Parameter Server) 与 ZeRO 在显存使用上的差异。
+  imported_at: '2026-09-21'

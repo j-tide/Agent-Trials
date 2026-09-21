@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b0a9d9f8a135
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 混合精度训练FP16和BF16在分布式微调中如何设置？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 混合精度训练FP16和BF16在分布式微调中如何设置？
+answer:
+  mode: rubric
+  reference_answer: |-
+    混合精度训练将前向/反向的计算用低精度（FP16/BF16）执行，而权重更新、优化器状态保持FP32，以节省显存并加速训练。
+
+    DeepSpeed中的设置：
+    在ds_config.json中配置（二者选一）：
+
+    {
+      "fp16": {
+        "enabled": true,
+        "loss_scale": 0,            // 动态损失缩放
+        "initial_scale_power": 16,
+        "loss_scale_window": 1000,
+        "hysteresis": 2,
+        "min_loss_scale": 1
+      }
+    }
+
+    或使用BF16（无需loss scale）：
+
+    {
+      "bf16": {
+        "enabled": true
+      }
+    }
+
+    FSDP中的设置：
+    在PyTorch中通常使用torch.cuda.amp上下文管理器：
+
+    with torch.cuda.amp.autocast(dtype=torch.float16):  # 或 torch.bfloat16
+        outputs = model(inputs)
+
+    同时，可配置FSDP的mixed_precision参数来管理参数和梯度通信的精度：
+
+    from torch.distributed.fsdp import MixedPrecision
+    mp_policy = MixedPrecision(param_dtype=torch.float16, reduce_dtype=torch.float16)
+    model = FullyShardedDataParallel(model, mixed_precision=mp_policy)
+
+    关键区别：FP16动态范围窄，必须配合loss_scale防止梯度下溢；BF16指数位与FP32相同，几乎不溢出，因此训练更稳定且免去loss scale调参。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: M9lRddG8SoeubixCeHecdSArn4e
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 混合精度训练FP16和BF16在分布式微调中如何设置？
+  imported_at: '2026-09-21'

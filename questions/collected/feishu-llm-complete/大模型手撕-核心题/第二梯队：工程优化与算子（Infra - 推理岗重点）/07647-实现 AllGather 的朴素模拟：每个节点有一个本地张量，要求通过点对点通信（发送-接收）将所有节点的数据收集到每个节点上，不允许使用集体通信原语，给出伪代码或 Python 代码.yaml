@@ -1,0 +1,115 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ba49954a6609
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 AllGather 的朴素模拟：每个节点有一个本地张量，要求通过点对点通信（发送/接收）将所有节点的数据收集到每个节点上，不允许使用集体通信原语，给出伪代码或
+  Python 代码。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现 AllGather 的朴素模拟：每个节点有一个本地张量，要求通过点对点通信（发送/接收）将所有节点的数据收集到每个节点上，不允许使用集体通信原语，给出伪代码或
+    Python 代码。
+answer:
+  mode: rubric
+  reference_answer: |-
+    2.1 原理
+
+    AllGather 的目标是让每个节点都获得所有节点的数据。最简单的点对点实现方式是：所有节点先将数据发送给一个“根”节点，根节点拼接后再广播给所有节点。但题目要求不能使用集体通信，所以我们采用环形传递：经过 N−1 步，每个节点将接收到的数据向邻居转发，最终每个节点都能收集到所有数据。
+
+    2.2 模拟实现（环形 AllGather）
+
+    ```python
+    def ring_all_gather(rank, num_nodes, local_data):
+        """
+        模拟环形 AllGather。每个节点持有 local_data (numpy array)，
+        返回收集到的所有节点数据的列表。
+        """
+        import numpy as np
+        # 将本地数据复制到缓冲区，初始缓冲区只包含本地数据
+        gathered = [None] * num_nodes
+        gathered[rank] = local_data.copy()
+        # 向邻居逐步转发
+        current_data = local_data.copy()
+        for step in range(1, num_nodes):
+            downstream = (rank + 1) % num_nodes
+            upstream = (rank - 1) % num_nodes
+            # 发送当前持有的数据给下游，同时从上游接收数据
+            # 这里用 send/recv 模拟：我们通过预先定义的全局数组来模拟
+            # 简化实现：在一轮内所有节点同时交换
+            # 由于是模拟，我们采用同步步骤：每个节点先发送，再接收
+            send_to = downstream
+            recv_from = upstream
+            # 用临时变量保存发送数据，接收覆盖 current_data
+            # 实际伪代码：send(current_data, to=downstream); recv(current_data, from=upstream)
+            # 这里无法真正通信，使用上一轮的全局状态模拟：
+            # 在真实环境中，这一步后 current_data 变成上游节点上一步持有的数据。
+            # 我们简化：手工计算当前节点在这一步结束时应该拥有的数据。
+            # 实际上环状传递中，经过 step 步后，节点持有的是最初 rank - step 节点的数据。
+            source_rank = (rank - step) % num_nodes
+            current_data = local_data_of[source_rank]  # 模拟接收
+            gathered[source_rank] = current_data.copy()
+        return gathered
+    ```
+
+    更完整的模拟可以通过维护全局列表并模拟每一轮的发送与接收来实现：
+
+    ```python
+    def simulate_ring_all_gather(data_list):
+        """data_list: 各节点的 numpy 数组列表"""
+        n = len(data_list)
+        # 每个节点当前持有的数据（初始为自己）
+        hold = [d.copy() for d in data_list]
+        gathered = [ [None]*n for _ in range(n) ]
+        for r in range(n):
+            gathered[r][r] = data_list[r].copy()
+        # 环形传递 n-1 步
+        for step in range(1, n):
+            # 每一步，节点将自己的 hold 发送给下游，同时从上游接收
+            new_hold = [None]*n
+            for r in range(n):
+                downstream = (r + 1) % n
+                new_hold[downstream] = hold[r]  # 发送
+            hold = new_hold
+            # 接收后记录
+            for r in range(n):
+                source_rank = (r - step) % n
+                gathered[r][source_rank] = hold[r].copy()
+        return gathered
+    ```
+
+    2.3 通信复杂度
+
+    朴素环形 AllGather 需要 N−1 步，总通信量与数据量成正比，适用于小规模节点。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: NGSPd46e2oWwIpxGQ5QcYVr6nXb
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 实现 AllGather 的朴素模拟：每个节点有一个本地张量，要求通过点对点通信（发送/接收）将所有节点的数据收集到每个节点上，不允许使用集体通信原语，给出伪代码或
+    Python 代码。
+  imported_at: '2026-09-21'

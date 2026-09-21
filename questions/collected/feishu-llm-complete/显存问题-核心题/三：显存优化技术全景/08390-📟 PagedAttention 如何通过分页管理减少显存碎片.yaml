@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1f018d71fb42
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DF PagedAttention 如何通过分页管理减少显存碎片？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F4DF PagedAttention 如何通过分页管理减少显存碎片？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 PagedAttention 借鉴操作系统的虚拟内存分页思想，将 KV Cache 分割为固定大小的
+    block（页），允许这些 block 在物理显存中离散分布，通过页表（block table）维护逻辑序列到物理块的映射。这彻底消除了外部碎片，极大降低了内部碎片，使显存利用率从传统方案的
+    20-30% 跃升至接近 90%。\n\n\U0001F50D 背景：传统 KV Cache 的内存痛点\n\n- 在自回归生成中，每个请求都需要存储不断增长的
+    KV Cache。传统推理系统（如 FasterTransformer）会为每个请求预分配一块连续的最大长度显存（例如最大 2048 tokens）。\n\n-
+    外部碎片：如果请求实际生成长度远小于最大长度，预留空间大部分被浪费，而且频繁分配和释放不同大小的连续块会导致显存出现大量小空隙，这些空隙无法合并成大块供其他请求使用，形成外部碎片。\n\n-
+    内部碎片：即使按实际长度动态分配，不同请求的 KV Cache 大小不同，分配器也可能因对齐等产生内部碎片。更严重的是，无法精准共享相同前缀的 KV Cache，导致大量重复存储。\n\n\U0001F9F1
+    PagedAttention 的分页机制\n\n- 固定大小的 Block：将 KV Cache 切分为固定大小的物理块（例如每个 block 包含 16
+    个 token 的 K 和 V）。块大小是配置参数，需权衡碎片率和管理开销。\n\n- 逻辑块映射：每个请求的 KV Cache 由一系列逻辑块组成，逻辑块通过页表映射到物理块。物理块从全局内存池中按需分配，不要求连续。\n\n-
+    内存池管理：系统初始化时预分配一个巨大的物理块池，后续请求从池中获取空闲块，用完归还。这避免了频繁的 cudaMalloc/cudaFree，同时物理块的离散分配天然无外部碎片。\n\n✨
+    减少碎片的体现\n\n- 消除外部碎片：因为所有分配单位是大小相同的 block，所以不会出现“有足够总空闲但无连续大块”的问题。任何空闲 block 都可直接分配给任意请求。\n\n-
+    控制内部碎片：每个序列的最后一个 block 可能未被完全占满，平均内部碎片约为半个 block 大小。通过选择合适的 block size（例如 16 或
+    32），可以将此控制在可接受范围。\n\n- 前缀共享：多个请求共享相同的 system prompt 时，它们的逻辑页表可以指向相同的物理块（只读），从而避免为每个请求重复存储前缀
+    KV Cache，大幅节省显存。这也是分页带来的额外优势。\n\n\U0001F4CA 实际效果（vLLM 论文数据）\n\n- 在相同显存下，PagedAttention
+    使系统能够同时处理的请求数量提高 2-4 倍，显存利用率从不足 30% 提升到 80-90%。\n\n- 允许动态调整 batch size，减少了排队延迟，同时支持更长的生成。\n\n\U0001F527
+    工程细节\n\n- 块大小选择：小则碎片少，但页表更大，管理开销增加；大则管理简单，但内部碎片多。常用 16 或 32。\n\n- 回收与重映射：当请求完成，所有物理块被标记为空闲，归还池中。由于使用逻辑-物理映射，无需移动数据。\n\n-
+    Copy-on-Write 等扩展：某些框架支持对共享块进行写时复制，进一步优化多轮对话等场景。\n\n✅ 总结：PagedAttention 通过分页离散分配打破了显存连续性的桎梏，将碎片降至极低，是
+    LLM 推理服务的核心内存管理创新。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CiqBwrPCSiM7tNk8mpocAB3gn3b
+  block_id: EVQZdUAWEottO2xv0mXc32WGnCg
+  page_token: CiqBwrPCSiM7tNk8mpocAB3gn3b
+  original_title: "\U0001F4DF PagedAttention 如何通过分页管理减少显存碎片？"
+  imported_at: '2026-09-21'

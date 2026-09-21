@@ -1,0 +1,127 @@
+---
+schema_version: 1
+id: feishu-llm-complete-22578704204c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E0️ 11. LangChain 定义自定义 Tool 的三种方式及 Pydantic Schema 场景"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F6E0️ 11. LangChain 定义自定义 Tool 的三种方式及 Pydantic Schema 场景"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangChain 提供了三种定义 Tool 的方式，灵活度从低到高，适用场景也各不相同。
+
+    [图片内容未导入]
+
+    方式一：@tool 装饰器（最简便）
+
+    适用场景：函数逻辑简单、参数自动推导已足够、快速原型开发。
+
+    ```python
+    from langchain.tools import tool
+
+    @tool
+    def multiply(a: int, b: int) -> int:
+        """两个整数相乘"""
+        return a * b
+    ```
+
+    内部 LangChain 会用 infer_schema 从函数签名自动生成 JSON Schema。但如果你需要更复杂的嵌套结构或字段描述，这种方式就不够用了。
+
+    方式二：StructuredTool.from_function + Pydantic Schema（最推荐生产使用）
+
+    适用场景：需要精细控制参数描述、嵌套对象、自定义校验逻辑。
+
+    这是最推荐的生产级方式，因为它允许你手动定义一个 Pydantic 模型来精确描述参数，而不依赖自动推断。StructuredTool.from_function 接收这个 Pydantic 模型作为 args_schema。
+
+    ```python
+    from pydantic import BaseModel, Field
+    from langchain.tools import StructuredTool
+
+    # 1. 定义 Pydantic 模型（即工具的输入 schema）
+    class WeatherInput(BaseModel):
+        city: str = Field(description="城市名称，如 Beijing, Shanghai")
+        date: str = Field(description="日期，格式 YYYY-MM-DD，如 2026-07-02")
+
+    # 2. 定义执行函数（参数名和 Pydantic 字段一致）
+    def get_weather(city: str, date: str) -> str:
+        return f"{city} 在 {date} 的天气：晴，25°C"
+
+    # 3. 用 from_function 创建工具
+    weather_tool = StructuredTool.from_function(
+        func=get_weather,
+        name="get_weather",
+        description="获取指定城市在指定日期的天气",
+        args_schema=WeatherInput,
+        return_direct=True  # 结果直接返回用户
+    )
+    ```
+
+    为什么这样更好？
+    Field(description=...) 里的文本会原封不动地出现在 LLM 看到的 JSON Schema 中，成为 LLM 填写参数的指南。你可以自由添加任何 Pydantic 支持的校验器，如 gt（大于）、regex 等，这些都会反映在 Schema 的约束中，让 LLM 更不容易填错。
+
+    方式三：继承 BaseTool（最灵活）
+
+    适用场景：工具需要管理内部状态（如数据库连接池）、需要异步初始化、或需要在执行前后做钩子操作。
+
+    ```python
+    from langchain.tools import BaseTool
+    from pydantic import BaseModel, Field
+
+    class DatabaseInput(BaseModel):
+        query: str = Field(description="SQL 查询语句，只支持 SELECT")
+
+    class DatabaseTool(BaseTool):
+        name: str = "query_database"
+        description: str = "执行 SQL 查询，返回结果列表"
+        args_schema: type[BaseModel] = DatabaseInput
+
+        # 可以在这里初始化连接池
+        def _run(self, query: str) -> str:
+            # 同步执行逻辑
+            return execute_query(query)
+
+        # 如果需要异步
+        async def _arun(self, query: str) -> str:
+            return await async_execute_query(query)
+    ```
+
+    场景：你有一个需要保持长连接的数据库查询工具，或者你想在每次调用前后自动记录审计日志，继承 BaseTool 让你完全控制执行过程。
+
+    选型建议：
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SuxqwVBLli4q94kJFBAcOLkFnZc
+  block_id: doxcnxj8XYrXJHllKDdec6S7Prn
+  page_token: SuxqwVBLli4q94kJFBAcOLkFnZc
+  original_title: "\U0001F6E0️ 11. LangChain 定义自定义 Tool 的三种方式及 Pydantic Schema 场景"
+  imported_at: '2026-09-21'

@@ -1,0 +1,47 @@
+---
+schema_version: 1
+id: feishu-llm-complete-175fa75cab9b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在启用梯度检查点时，哪些中间结果必须保留，哪些可以丢弃再重计算？如何实现最小重计算策略？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 四：训练优化与稳定性
+tags: &1
+- Transfomer精选面试
+- 四：训练优化与稳定性
+content:
+  prompt: 在启用梯度检查点时，哪些中间结果必须保留，哪些可以丢弃再重计算？如何实现最小重计算策略？
+answer:
+  mode: rubric
+  reference_answer: |-
+    - 必须保留：每个检查点段的输入激活（即该 Transformer 层的输入张量）。这是重计算该段的起点。此外，如果使用 Pre-LN 架构，LayerNorm 的输入通常也是检查点，因为 LayerNorm 的输出是由输入计算出的，可以重算。
+
+    - 可以丢弃再重计算：段内所有的中间激活，包括注意力计算中的 Q, K, V 映射结果、注意力概率矩阵、softmax 前的 logits、FFN 的隐层输出等。
+
+    最小重计算策略：以每个 Transformer 层为一个检查点段。前向时只保存该层的输入张量（即上一层的输出 + 残差连接）。反向传播到该层时，从该输入张量开始，重新进行该层的前向计算（包括 LayerNorm、自注意力、FFN、残差相加），得到所有需要的中间激活，进而计算梯度。这种整层重计算方式内存节省最大，重计算量约等于额外一次前向。如果希望减少重计算开销，可以在层内更细粒度设置检查点，但实现复杂且内存节省不多，实践中较少采用。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/E82jwDMh9ihtDhkHbRYcE2JCnNe
+  block_id: JqXHdnO0aoOWrGx2vyCcBfALnTb
+  page_token: E82jwDMh9ihtDhkHbRYcE2JCnNe
+  original_title: 在启用梯度检查点时，哪些中间结果必须保留，哪些可以丢弃再重计算？如何实现最小重计算策略？
+  imported_at: '2026-09-21'

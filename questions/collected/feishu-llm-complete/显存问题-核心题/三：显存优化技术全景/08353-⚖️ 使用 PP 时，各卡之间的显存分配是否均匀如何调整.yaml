@@ -1,0 +1,49 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4e5670426002
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚖️ 使用 PP 时，各卡之间的显存分配是否均匀？如何调整？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "⚖️ 使用 PP 时，各卡之间的显存分配是否均匀？如何调整？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 默认按层数平均分配通常较为均匀，但由于各层参数量和激活大小可能不完全相同，以及嵌入/输出头的影响，首尾卡可能占用更多显存。需要手动调整切分边界来实现负载均衡。\n\n\U0001F4CA
+    不均匀原因：\n\n- 嵌入层（Embedding）和输出层（LM head）通常参数多、激活大，如果放在第一张和最后一张卡，这两卡显存占用明显高于中间卡。\n\n-
+    即便中间 Transformer 层，某些层（如带更大的 FFN 膨胀）可能参数略多，但差异不大。\n\n- 激活内存主要取决于层数和 micro-batch
+    调度，首尾卡由于流水线 bubble，可能积压稍多激活。\n\n\U0001F6E0️ 调整方法：\n\n- 不均匀层分配：不按等层数切，而是按总参数量切。给参数量少的卡多分配一些层，反之少分配。例如
+    Embedding 层所在的 GPU，少分配几层 Transformer 以平衡。\n\n- 移动嵌入层：可将 Embedding 层和输出头放在同一张卡（或同一个
+    TP 组），并通过共享嵌入权重减少冗余。\n\n- 利用 TP 配合：在 PP 基础上，对首尾大层使用 TP 切分，减小单卡压力。\n\n- 自动调优工具：Megatron-LM
+    等提供 --num-layers-per-virtual-pipeline-stage 等参数灵活配置，也可通过 profile 获取每层计算和内存开销，使用线性规划算法寻找最优分割点。\n\n✅
+    因此，PP 的显存均衡需要根据层特性微调分割点，避免首尾卡成为瓶颈，结合 TP 或手动层分配能有效实现。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WSBEwNJCni9q3ok7cN6cISL3nwe
+  block_id: RBTbd16nCoE2DUxTGLQc5rNxnKc
+  page_token: WSBEwNJCni9q3ok7cN6cISL3nwe
+  original_title: "⚖️ 使用 PP 时，各卡之间的显存分配是否均匀？如何调整？"
+  imported_at: '2026-09-21'

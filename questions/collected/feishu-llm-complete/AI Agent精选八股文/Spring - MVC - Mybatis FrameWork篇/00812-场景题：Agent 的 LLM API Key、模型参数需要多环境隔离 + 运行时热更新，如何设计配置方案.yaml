@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f9bc20315ba1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 的 LLM API Key、模型参数需要多环境隔离 + 运行时热更新，如何设计配置方案？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 的 LLM API Key、模型参数需要多环境隔离 + 运行时热更新，如何设计配置方案？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（多环境配置、动态刷新、安全隔离）\n\n1️⃣ Common Answer\n\n用不同的配置文件区分环境，比如
+    application-dev.yml、application-prod.yml。用 @RefreshScope 实现热更新，调用 /actuator/refresh
+    端点刷新配置。\n\n2️⃣ Impressive Answer\n\n- 多环境配置设计：\n\n# application-common.yml（公共配置）\nagent:\n
+    \ llm:\n    timeout: 30000\n    max-retries: 3\n   \n# application-dev.yml（开发环境）\nspring:\n
+    \ profiles: dev\nagent:\n  llm:\n    api-key: ${LLM_API_KEY:sk-dev-xxx}\n    model:
+    gpt-4\n    endpoint: https://api.openai.com/v1\n   \n# application-prod.yml（生产环境）\nspring:\n
+    \ profiles: prod\nagent:\n  llm:\n    api-key: ${LLM_API_KEY}  # 从环境变量读取，不在配置文件中硬编码\n
+    \   model: gpt-4-turbo\n    endpoint: https://api.openai.com/v1\n\n- 配置类设计：\n\n@RefreshScope\n@Component\n@ConfigurationProperties(prefix
+    = \"agent.llm\")\n@Validated\npublic class LlmConfig {\n       \n    @NotBlank(message
+    = \"API Key cannot be blank\")\n    private String apiKey;\n       \n    @NotBlank(message
+    = \"Model cannot be blank\")\n    private String model;\n       \n    @NotBlank(message
+    = \"Endpoint cannot be blank\")\n    private String endpoint;\n       \n    @Min(value
+    = 1000, message = \"Timeout must be at least 1000ms\")\n    private Integer timeout
+    = 30000;\n       \n    @Min(value = 0, message = \"Max retries must be non-negative\")\n
+    \   private Integer maxRetries = 3;\n       \n    // getters and setters\n}\n\n-
+    动态刷新实现：\n\n@RestController\n@RequestMapping(\"/api/admin/config\")\npublic class
+    ConfigController {\n       \n    @Autowired\n    private LlmConfig llmConfig;\n
+    \      \n    @Autowired\n    private ContextRefresher contextRefresher;\n       \n
+    \   @PostMapping(\"/refresh\")\n    public ApiResponse<Void> refreshConfig() {\n
+    \       // 刷新配置\n        Set<String> refreshedKeys = contextRefresher.refresh();\n
+    \       log.info(\"Refreshed config keys: {}\", refreshedKeys);\n        return
+    ApiResponse.success(null);\n    }\n       \n    @GetMapping(\"/llm\")\n    public
+    ApiResponse<LlmConfig> getLlmConfig() {\n        return ApiResponse.success(llmConfig);\n
+    \   }\n}\n\n- 配置热更新触发方式：\n\n- 安全隔离：\n\nagent:\n  llm:\n    api-key: ENC(encrypted-api-key)\n\n-
+    环境变量注入：生产环境的 API Key 通过环境变量注入，不在配置文件中暴露。\n\n- 权限控制：配置刷新接口需要管理员权限，防止未授权访问。\n\n-
+    配置验证：\n\n@Component\npublic class ConfigValidator implements ApplicationListener<EnvironmentChangeEvent>
+    {\n       \n    @Autowired\n    private LlmConfig llmConfig;\n       \n    @Override\n
+    \   public void onApplicationEvent(EnvironmentChangeEvent event) {\n        if
+    (event.getKeys().contains(\"agent.llm.api-key\")) {\n            // 验证 API Key
+    是否有效\n            if (!llmConfig.getApiKey().startsWith(\"sk-\")) {\n                log.error(\"Invalid
+    API Key format\");\n                throw new IllegalStateException(\"Invalid
+    API Key\");\n            }\n        }\n    }\n}\n\n- 实践优化：\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcn9QKUIWc7gEhvYnIwVY9mDe
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 3、场景题：Agent 的 LLM API Key、模型参数需要多环境隔离 + 运行时热更新，如何设计配置方案？
+  imported_at: '2026-09-21'

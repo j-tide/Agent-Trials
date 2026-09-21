@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a0266fd274af
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 梯度累积（Gradient Accumulation）是如何模拟大 batch size 训练的？它会影响 Batch Normalization 吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 四：训练优化与稳定性
+tags: &1
+- Transfomer精选面试
+- 四：训练优化与稳定性
+content:
+  prompt: 梯度累积（Gradient Accumulation）是如何模拟大 batch size 训练的？它会影响 Batch Normalization
+    吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    梯度累积是一种用时间换空间的技术。当单卡显存无法容纳所需的大批量数据时，可以将一个大批次拆分成多个微批次（micro-batches），依次计算每个微批次的损失和梯度，但不立即更新参数，而是将梯度累加。经过 K 次累加后，模型参数使用累积的总梯度更新，等效于使用 batch size = K × micro_batch_size 进行训练。
+
+    具体步骤：
+
+    - 初始化梯度累加器为零。
+
+    - 对每个微批次：前向计算损失 → 反向传播得到梯度（注意梯度会除以总批大小以保持尺度）→ 将梯度累加到累加器。
+
+    - 重复 K 次后，执行优化器步骤更新参数，然后清零累加器。
+
+    对 Batch Normalization 的影响：BN 在计算均值和方差时，依赖于批次内的统计量。如果只在每个微批次内计算 BN，这些统计量基于很小的样本数，噪声大，会损害训练。因此，通常有两种应对方式：
+
+    - 使用 SyncBN（同步批归一化）：在微批次间同步均值和方差，但实现复杂，不常见。
+
+    - 改用 Layer Normalization：Transformer 中已普遍使用 LayerNorm，它对每个样本独立归一化，不依赖批次统计，因此梯度累积不会影响它。这也是 Transformer 不受此问题困扰的原因。
+
+    - 在需要 BN 的场景（如某些视觉模型），实现正确的梯度累积需要确保 BN 的统计量在等效大批次上计算，通常需要框架支持或通过设置 momentum 累积。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/E82jwDMh9ihtDhkHbRYcE2JCnNe
+  block_id: RyDcdAy0MoMQlWxrxxTczwWSnQc
+  page_token: E82jwDMh9ihtDhkHbRYcE2JCnNe
+  original_title: 梯度累积（Gradient Accumulation）是如何模拟大 batch size 训练的？它会影响 Batch Normalization
+    吗？
+  imported_at: '2026-09-21'

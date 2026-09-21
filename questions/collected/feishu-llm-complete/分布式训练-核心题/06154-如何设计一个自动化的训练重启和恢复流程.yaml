@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-897db540add5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何设计一个自动化的训练重启和恢复流程？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 如何设计一个自动化的训练重启和恢复流程？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在云上使用可抢占实例（Spot/Preemptible）或面对不可靠硬件时，自动化恢复是降本增效的关键。
+
+    流程设计：
+
+    - 训练脚本自身支持断点续训：启动时检查指定路径是否存在最新checkpoint，如果有，加载模型参数、优化器状态、学习率调度器、数据迭代器状态（如torch.utils.data.DataLoader需要配合torch.utils.data.DistributedSampler记录epoch和seed）。这一步是最基础的。
+
+    - 外层监控和调度器：在训练任务外部，有一个守护进程或Kubernetes Operator（如Training Operator）监控训练进程状态。当进程退出（无论正常还是异常），分析退出码。如果是硬件故障或抢占，自动重新提交Job。
+
+    - 健康检查和优雅退出：训练进程中内嵌一个健康检查线程，定期检查GPU状态、通信状态、磁盘空间。如果检测到异常（如显存ECC不可纠正错误），主动保存checkpoint并优雅退出（sys.exit(0)），让外部调度器触发恢复。
+
+    - 动态节点替换：如果使用弹性训练（如PyTorch Elastic），当某个节点故障时，可以直接用备用节点替换，无需全量重启。DeepSpeed也支持弹性训练。
+
+    - 状态持久化与同步：checkpoint保存在共享存储（如NFS、HDFS、S3）上，且在所有rank上同步保存（分片checkpoint）。恢复时，需确保所有rank从同一个全局step开始。
+
+    一个典型例子：在Kubernetes上提交PyTorchJob，配置backoffLimit和restartPolicy。当Pod因Spot interruption被终止时，K8s会自动重建Pod，训练代码加载最新checkpoint继续。这一切无需人工干预。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: NojldRpRyooX2Nxg43pcgAnhnAe
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: 如何设计一个自动化的训练重启和恢复流程？
+  imported_at: '2026-09-21'

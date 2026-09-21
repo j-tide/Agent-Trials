@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e8c104390cca
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Mixtral 8x7B 模型是如何实现 MoE 的？它为什么能在推理时只激活部分参数？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 七：经典模型与前沿架构
+tags: &1
+- Transfomer精选面试
+- 七：经典模型与前沿架构
+content:
+  prompt: Mixtral 8x7B 模型是如何实现 MoE 的？它为什么能在推理时只激活部分参数？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Mixtral 8x7B 实现
+
+    Mixtral 是由 Mistral AI 开源的稀疏 MoE 模型。其名称“8x7B”表示总共 8 个专家，但每个 token 只激活 2 个专家（k=2）。每个专家的 FFN 大小相当于一个 7B 稠密模型的 FFN（实际中间维度 14336，非 7B 的精确映射，但总参数量等效）。结构上：
+
+    - 每一层的 FFN 被替换为 8 个并行的 SwiGLU 专家。
+
+    - 路由器是一个线性层，对输入 hidden state 输出 8 个 logits，Top-2 选择专家并计算加权和。
+
+    - 总参数量约 46.7B，但推理时每 token 只激活 12.9B 参数（路由器和注意力 + 2 个专家），与单个 12B 稠密模型的推理计算量相当。
+
+    为什么能只激活部分参数
+
+    MoE 的条件计算特性：每个 token 根据路由器动态选择 k 个专家，其余专家不被执行。因此，在自回归解码时，可以仅加载被激活的专家到计算单元，大量不活跃的专家驻留在内存或可换出，从而达到“稀疏激活”。这大幅降低了每 token 的 FLOPs，使得大容量模型推理速度与同计算量的小稠密模型相近。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/P3PjwO7D0i89kCkKyNwcMtnQn0f
+  block_id: B0U2dVBrGo94nIxkEF8c9GjPnEh
+  page_token: P3PjwO7D0i89kCkKyNwcMtnQn0f
+  original_title: Mixtral 8x7B 模型是如何实现 MoE 的？它为什么能在推理时只激活部分参数？
+  imported_at: '2026-09-21'

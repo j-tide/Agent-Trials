@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4ec8ffefece9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用对比学习思想来训练奖励模型，使其对偏好对产生更大的奖励差距？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 2-偏好数据与奖励建模
+tags: &1
+- RLHF面试高频考点
+- 2-偏好数据与奖励建模
+content:
+  prompt: 如何使用对比学习思想来训练奖励模型，使其对偏好对产生更大的奖励差距？
+answer:
+  mode: rubric
+  reference_answer: |-
+    BT 模型损失本身就是一种对比学习（让 chosen 和 rejected 的分数对比）。但我们可以通过更显式的对比学习策略来增大奖励差距。
+
+    - 使用信息噪声对比估计 (InfoNCE) 风格的损失
+
+    BT 损失只关心成对之间的差值，而 InfoNCE 会考虑更多的负样本。我们可以对一个 prompt 采样多个回答（如一个 chosen，多个 rejected），然后使用类似 InfoNCE 的损失，强制 chosen 的分数不仅高于某个 rejected，还要高于所有 rejected 的分数。
+
+    [图片内容未导入]
+
+    这样做的好处是引入了全局对比，让 RM 对好坏的回答形成更显著的分数分离，而不仅仅是两两比较的局部优序。温度系数 τ 可以控制分离的锐度。
+
+    - 三元组损失 (Triplet Loss)
+
+    [图片内容未导入]
+
+    如果 chosen 的分数没有比 rejected 高出 margin 以上，就会产生损失。这会迫使 RM 在奖励空间中推远好与坏的距离，不满足于微小的差距。
+
+    - 监督对比学习 (Supervised Contrastive Learning)
+
+    在 RM 的表示空间（池化层之前）施加对比损失。将同一 prompt 下的 chosen 回答的表示拉近，将 rejected 回答的表示推远。这会让 RM 的内部特征对“质量”更敏感，间接增大了最终奖励分数的差距。
+
+    - 动态负样本挖掘
+
+    在训练过程中，不随机选择 rejected 样本，而是优先选择那些当前 RM 评分与 chosen 最接近的 rejected 样本作为“困难负样本”。这种挖掘让对比学习始终聚焦在决策边界上，逼迫 RM 不断增开差距以区分这些难例。
+
+    注意事项：奖励差距并非越大越好。一个过于激进的对比损失可能导致 RM 对 quality 细微差异极其敏感，而对高质量回复内部的合理多样性进行过度惩罚。因此，需要配合 KL 散度正则或 LM 损失来平衡。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KFgpwxoYei4VBPkDUJfcFKLLnVf
+  block_id: NAQsd2ZK5otwC4xNHLncTqIfnvf
+  page_token: KFgpwxoYei4VBPkDUJfcFKLLnVf
+  original_title: 如何使用对比学习思想来训练奖励模型，使其对偏好对产生更大的奖励差距？
+  imported_at: '2026-09-21'

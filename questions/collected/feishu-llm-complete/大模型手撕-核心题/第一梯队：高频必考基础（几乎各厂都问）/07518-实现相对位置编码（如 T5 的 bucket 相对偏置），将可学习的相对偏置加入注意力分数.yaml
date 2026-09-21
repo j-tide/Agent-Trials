@@ -1,0 +1,101 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8d7bd81c32b4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现相对位置编码（如 T5 的 bucket 相对偏置），将可学习的相对偏置加入注意力分数。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 实现相对位置编码（如 T5 的 bucket 相对偏置），将可学习的相对偏置加入注意力分数。
+answer:
+  mode: rubric
+  reference_answer: |-
+    11.1 T5 相对位置偏置原理
+
+    T5 将相对位置离散化为有限个 bucket，每个 bucket 对应一个可学习的标量偏置。这些偏置被加到注意力分数上，从而模型可以学习不同距离 token 之间的交互模式。
+
+    11.2 实现
+
+    ```python
+    class T5RelativeBias(nn.Module):
+        def __init__(self, num_heads, num_buckets=32, max_distance=128):
+            super().__init__()
+            self.num_buckets = num_buckets
+            self.max_distance = max_distance
+            self.relative_bias = nn.Embedding(num_buckets, num_heads)
+
+        @staticmethod
+        def _relative_position_bucket(relative_position, num_buckets, max_distance):
+            """T5 bucket 函数"""
+            ret = 0
+            n = -relative_position
+            num_buckets //= 2
+            ret += (n > max_distance).long() * num_buckets
+            n = torch.where(n > max_distance, max_distance, n)
+            # 对前后位置采用不同偏移
+            return ret + (n * num_buckets // max_distance)
+
+        def forward(self, seq_len, device):
+            positions = torch.arange(seq_len, device=device)
+            rel_pos = positions.unsqueeze(0) - positions.unsqueeze(1)  # (L, L)
+            # 计算每个相对位置的 bucket 索引
+            rp_bucket = self._relative_position_bucket(
+                rel_pos, self.num_buckets, self.max_distance
+            )
+            # 取 embedding: (L, L, H) -> (H, L, L)
+            values = self.relative_bias(rp_bucket).permute(2, 0, 1).unsqueeze(0)
+            return values  # (1, H, L, L)
+
+    # 在注意力中使用
+    class T5Attention(MultiHeadSelfAttention):
+        def __init__(self, hidden_dim, num_heads, num_buckets=32, max_distance=128, dropout=0.1):
+            super().__init__(hidden_dim, num_heads, dropout)
+            self.rel_bias = T5RelativeBias(num_heads, num_buckets, max_distance)
+
+        def forward(self, x, key_padding_mask=None):
+            B, seq_len, _ = x.shape
+            # ... 得到 attn_scores: (B, H, L, L)
+            rel_bias = self.rel_bias(seq_len, x.device)  # (1, H, L, L)
+            attn_scores = attn_scores + rel_bias
+            # 后续 softmax 等...
+    ```
+
+    11.3 特点
+
+    - T5 的相对偏置是跨层共享的，也有变体每层独立。
+
+    - 离散化 bucket 减少了参数量，并支持超过训练长度的序列。
+
+    - 相比绝对位置编码，相对偏置更好地捕捉 token 间的相对距离。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTpnwxWMsiVDwIkIoX0c1TU4ned
+  block_id: HvfAdGPDuoOnPgxbRIbcjRTYntd
+  page_token: QTpnwxWMsiVDwIkIoX0c1TU4ned
+  original_title: 实现相对位置编码（如 T5 的 bucket 相对偏置），将可学习的相对偏置加入注意力分数。
+  imported_at: '2026-09-21'

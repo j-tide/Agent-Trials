@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-86c501d36a7e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题（⭐⭐⭐⭐）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Distributed systems and consistency篇
+tags: &1
+- AI Agent精选八股文
+- Distributed systems and consistency篇
+content:
+  prompt: 3、场景题（⭐⭐⭐⭐）
+answer:
+  mode: rubric
+  reference_answer: "题目：Agent 调用多个 LLM Provider（OpenAI/Claude/本地模型），如何设计多维度限流（按用户、按模型、按
+    Token 消耗）？\n\n1️⃣ Common Answer 可以在 Agent Gateway 层面做限流。为每个用户设置 QPS 限制，为每个模型设置并发限制。Token
+    消耗可以通过记录每次请求的 Token 数，累加计算。使用 Redis 存储计数器，Lua 脚本保证原子性。超过限制就拒绝请求或排队等待。\n\n2️⃣ Impressive
+    Answer Agent 系统的多维度限流需要综合考虑 QPS、并发、Token 消耗、成本等多个维度，设计分层限流架构：\n\n限流架构设计：\n\n```text\n用户请求
+    → Agent Gateway\n    ↓\n第一层：用户级别限流（QPS + Token 消耗）\n    ↓\n第二层：模型级别限流（并发 + QPS）\n
+    \   ↓\n第三层：Provider 级别限流（配额 + 成本）\n    ↓\nLLM Provider Services\n```\n\n多维度限流实现方案：\n\n-
+    按用户限流（User-Level Rate Limiting）：\n\nQPS 限流：\n\n```text\nuser_rate_limit:\n  default:\n
+    \   qps: 10\n    burst: 20\n  vip:\n    qps: 50\n    burst: 100\n  free:\n    qps:
+    5\n    burst: 10\n```\n\nToken 消耗限流：\n\n- 使用滑动窗口统计用户的 Token 消耗\n\n- Redis Key
+    设计：user_token_limit:{user_id}:{period}\n\n- 支持按小时、天、月多级限流\n\n- Lua 脚本实现：`lualocal
+    user_id = KEYS[1]local period = ARGV[1]  -- hour/day/monthlocal token_limit =
+    tonumber(ARGV[2])local tokens = tonumber(ARGV[3])  -- 本次请求的 Token 数 local key
+    = \"usertokenlimit:\" .. user_id .. \":\" .. periodlocal current = redis.call('GET',
+    key) or 0\n\nif tonumber(current) + tokens <= token_limit then\n\n```text\nredis.call('INCRBY',
+    key, tokens)\n  redis.call('EXPIRE', key, get_expire_seconds(period))\n  return
+    {1, tonumber(current) + tokens}\n```\n\nelse\n\n```text\nreturn {0, tonumber(current)}\n```\n\nend
+    `\n\n- 按模型限流（Model-Level Rate Limiting）：\n\n并发限流：\n\n- 使用 Redis 的 Set 存储正在进行的请求\n\n-
+    Redis Key 设计：model_concurrent:{model_name}\n\n- 请求开始时添加到 Set，结束时删除\n\n- Lua 脚本实现：`lualocal
+    model = KEYS[1]local max_concurrent = tonumber(ARGV[1])local request_id = ARGV[2]
+    local key = \"model_concurrent:\" .. modellocal count = redis.call('SCARD', key)\n\nif
+    count < max_concurrent then\n\n```text\nredis.call('SADD', key, request_id)\n
+    \ redis.call('EXPIRE', key, 300)  -- 5 分钟超时\n  return {1, count + 1}\n```\n\nelse\n\n```text\nreturn
+    {0, count}\n```\n\nend `\n\nQPS 限流：\n\n- 每个模型独立限流，避免热门模型占用所有资源\n\n- 支持动态调整：根据模型负载自动调整限流阈值\n\n-
+    示例配置：`yamlmodelratelimit:gpt-4:qps: 100concurrent: 50claude-3:qps: 200concurrent:
+    100local-model:qps: 500concurrent: 200`\n\n- 按 Provider 限流（Provider-Level Rate
+    Limiting）：\n\nAPI 配额管理：\n\n- 跟踪每个 Provider 的 API 调用配额\n\n- 支持按天、按月重置配额\n\n- 配额耗尽时自动切换到备用
+    Provider\n\n- Redis Key 设计：provider_quota:{provider_name}:{period}\n\n成本控制限流：\n\n-
+    根据模型定价计算请求成本\n\n- 设置用户/组织的成本预算\n\n- 超预算时降级到低成本模型\n\n- 示例：`yamlcost_control:default:budget:
+    100  # 美元/月current: 45.6org_abc:budget: 1000current: 234.5`\n\n- 综合限流决策引擎：\n\n限流检查流程：\n\n```text\npublic
+    class RateLimitChecker {\n    public RateLimitResult check(Request request) {\n
+    \       // 1. 用户 QPS 限流\n        RateLimitResult userQps = checkUserQps(request.getUserId());\n
+    \       if (!userQps.isAllowed()) {\n            return userQps;\n        }\n
+    \       \n        // 2. 用户 Token 限流\n        RateLimitResult userToken = checkUserToken(request.getUserId(),
+    \n            request.getEstimatedTokens());\n        if (!userToken.isAllowed())
+    {\n            return userToken;\n        }\n        \n        // 3. 模型并发限流\n
+    \       RateLimitResult modelConcurrent = checkModelConcurrent(\n            request.getModel(),
+    request.getRequestId());\n        if (!modelConcurrent.isAllowed()) {\n            return
+    modelConcurrent;\n        }\n        \n        // 4. 模型 QPS 限流\n        RateLimitResult
+    modelQps = checkModelQps(request.getModel());\n        if (!modelQps.isAllowed())
+    {\n            return modelQps;\n        }\n        \n        // 5. Provider 配额限流\n
+    \       RateLimitResult providerQuota = checkProviderQuota(\n            request.getProvider(),
+    request.getEstimatedCost());\n        if (!providerQuota.isAllowed()) {\n            return
+    providerQuota;\n        }\n        \n        return RateLimitResult.allowed();\n
+    \   }\n}\n```\n\n动态限流策略：\n\n- 根据实时负载自动调整限流阈值\n\n- 使用 Nacos 配置中心动态更新限流规则\n\n- 支持
+    A/B 测试：不同用户组使用不同限流策略\n\n工程实践：\n\n监控与告警：\n\n- 实时监控各维度的限流触发率\n\n- Prometheus 指标：rate_limit_triggered_total{dimension=\"user|model|provider\"}\n\n-
+    限流触发率超过阈值时发送告警\n\n优雅降级：\n\n- 限流触发时返回 429 状态码和 Retry-After\n\n- 提供排队机制：使用 Redis
+    List 实现请求队列\n\n- 自动重试：指数退避策略，避免雪崩\n\n配额管理界面：\n\n- 为用户提供配额使用情况可视化\n\n- 支持用户自助升级配额\n\n-
+    成本预估和预算提醒\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YhRxwgmAsiJbzZktG6wcNPNznyg
+  block_id: doxcn9G0uMkjH8SLwdQT2y0gDxd
+  page_token: YhRxwgmAsiJbzZktG6wcNPNznyg
+  original_title: 3、场景题（⭐⭐⭐⭐）
+  imported_at: '2026-09-21'

@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6b80998a7dba
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EA Few-shot Prompt 的示例选择策略有哪些？如何动态选择最相关的示例？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F9EA Few-shot Prompt 的示例选择策略有哪些？如何动态选择最相关的示例？"
+answer:
+  mode: rubric
+  reference_answer: "核心原则：不是随便塞几个例子，而是找那些能让模型“触类旁通”的黄金样例。\n\n\U0001F538 示例选择策略\n\n-
+    随机选择：从示例池中随机抽，简单但可能抽到无关样例，效果波动大。\n\n- 固定示例：人工挑选一批最能代表任务边界情况的例子，稳定但缺乏适应性。\n\n-
+    基于相似度检索（动态 Few-shot）：对输入 query 用 Embedding 模型编码，从示例库中检索语义最接近的 K 个示例。这是目前效果最好的方式。\n\n-
+    多样性抽样：在相似基础上，用 MMR（最大边际相关性）等算法保证示例之间不要重复覆盖同一类问题。\n\n- 元数据过滤：根据用户标签（语言、级别、业务线）先过滤再检索，提升针对性。\n\n\U0001F538
+    动态选择最相关示例的实现\n\n```python\nfrom sentence_transformers import SentenceTransformer\nimport
+    faiss\nimport numpy as np\n\nclass DynamicFewShotSelector:\n    def __init__(self,
+    examples, embed_model_name=\"all-MiniLM-L6-v2\"):\n        \"\"\"\n        examples:
+    list of dict, keys \"input\" and \"output\"\n        \"\"\"\n        self.examples
+    = examples\n        self.embedder = SentenceTransformer(embed_model_name)\n        #
+    离线阶段：将所有示例的 input 向量化\n        self.example_inputs = [ex[\"input\"] for ex in
+    examples]\n        self.example_embeddings = self.embedder.encode(self.example_inputs)\n
+    \       # 构建 FAISS 索引\n        self.index = faiss.IndexFlatIP(self.example_embeddings.shape[1])\n
+    \       self.index.add(self.example_embeddings)\n\n    def select(self, query,
+    k=3):\n        query_emb = self.embedder.encode([query])\n        scores, indices
+    = self.index.search(query_emb, k)\n        selected = [self.examples[idx] for
+    idx in indices[0]]\n        return selected\n\n# 示例使用\nexamples = [\n    {\"input\":
+    \"天气如何\", \"output\": \"多云转晴\"},\n    {\"input\": \"今天几号\", \"output\": \"2026-07-01\"},\n
+    \   {\"input\": \"你是谁\", \"output\": \"我是AI助手\"}\n]\nselector = DynamicFewShotSelector(examples)\nrelevant
+    = selector.select(\"今天天气怎么样\", k=2)\n\n# 构造 Prompt\ndef build_prompt(query, few_shot_examples):\n
+    \   example_text = \"\"\n    for ex in few_shot_examples:\n        example_text
+    += f\"Q: {ex['input']}\\nA: {ex['output']}\\n\"\n    prompt = f\"\"\"\n根据以下示例回答问题，要求格式一致。\n{example_text}\nQ:
+    {query}\nA:\"\"\"\n    return prompt\n\nprint(build_prompt(\"今天天气怎么样\", relevant))\n```\n\n进阶优化：
+    可在检索后再用大模型重排序，或使用长短混合示例（长文本示例负责教推理，短示例教格式），效果会再上一个台阶。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQBnwAsIgiUfXSkxEYfc0t12nRb
+  block_id: doxcnAGmzjpYdrD3AAcMY4f7Gtf
+  page_token: GQBnwAsIgiUfXSkxEYfc0t12nRb
+  original_title: "\U0001F9EA Few-shot Prompt 的示例选择策略有哪些？如何动态选择最相关的示例？"
+  imported_at: '2026-09-21'

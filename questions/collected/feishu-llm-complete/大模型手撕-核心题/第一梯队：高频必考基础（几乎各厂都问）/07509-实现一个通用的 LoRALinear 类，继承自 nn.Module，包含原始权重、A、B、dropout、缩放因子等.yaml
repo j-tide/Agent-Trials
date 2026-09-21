@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-aed638eb9513
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个通用的 LoRALinear 类，继承自 nn.Module，包含原始权重、A、B、dropout、缩放因子等。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 实现一个通用的 LoRALinear 类，继承自 nn.Module，包含原始权重、A、B、dropout、缩放因子等。
+answer:
+  mode: rubric
+  reference_answer: |-
+    6.1 设计
+
+    我们可以设计一个更通用的 LoRALinear，既能从现有的 nn.Linear 构建，也能独立创建。支持可选的 bias，以及是否在合并时保留 LoRA 参数等。
+
+    6.2 完整实现
+
+    ```python
+    class LoRALinear(nn.Module):
+        def __init__(self, in_features: int, out_features: int, r: int, alpha: float,
+                     bias: bool = True, dropout: float = 0.0, base_linear: nn.Linear = None):
+            super().__init__()
+            # 如果提供了base_linear，则使用它的权重；否则新建
+            if base_linear is not None:
+                self.linear = base_linear
+                in_features = base_linear.in_features
+                out_features = base_linear.out_features
+            else:
+                self.linear = nn.Linear(in_features, out_features, bias=bias)
+            self.r = r
+            self.alpha = alpha
+            self.scaling = alpha / r
+
+            self.lora_A = nn.Parameter(torch.randn(r, in_features) * 0.02)
+            self.lora_B = nn.Parameter(torch.zeros(out_features, r))
+            self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
+
+            # 冻结原始线性层参数
+            for param in self.linear.parameters():
+                param.requires_grad = False
+
+        def forward(self, x):
+            out = self.linear(x)
+            lora_out = self.lora_B(self.lora_A(self.dropout(x)))
+            return out + self.scaling * lora_out
+
+        def merge(self):
+            """将 LoRA 权重合并到原始线性层"""
+            delta = (self.alpha / self.r) * (self.lora_B.data @ self.lora_A.data)
+            self.linear.weight.data += delta.to(self.linear.weight.dtype)
+            # 清理 LoRA 参数，减少显存占用（可选）
+            self.lora_A = None
+            self.lora_B = None
+    ```
+
+    这个类既可以用于“改造”已有模型，也可以独立构建新的 LoRA 层。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LZxww5JuBif3JAkuCoIcuqRenuf
+  block_id: CKi1dWB8to4OjJxpHq1cTGXHnjb
+  page_token: LZxww5JuBif3JAkuCoIcuqRenuf
+  original_title: 实现一个通用的 LoRALinear 类，继承自 nn.Module，包含原始权重、A、B、dropout、缩放因子等。
+  imported_at: '2026-09-21'

@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-29fb07f9bbcc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 结合你的项目经验，讲述一次你解决 Transformer 训练或部署中最棘手问题的过程。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 八：手推与细节
+tags: &1
+- Transfomer精选面试
+- 八：手推与细节
+content:
+  prompt: 结合你的项目经验，讲述一次你解决 Transformer 训练或部署中最棘手问题的过程。
+answer:
+  mode: rubric
+  reference_answer: |-
+    （以下是一个典型经验描述，请根据实际情况替换）
+
+    在一项 LLM 部署到在线服务的项目中，我们遇到用户请求间歇性出现极高延迟（P99 从 200ms 飆升至 5s 以上），但 P50 保持稳定。通过以下步骤解决：
+
+    - 现象复现与 profiling：使用批量压测工具，模拟真实请求分布。利用 nvprof 和 Nsight Systems 抓取时间线，发现某些迭代中 AllReduce 耗时突然增加到几秒，对应 GPU 利用率骤降。
+
+    - 定位瓶颈：分析通信日志，发现某几张卡在 allreduce 时一直在等待另外一张卡，那张卡的计算完成时间远晚于其他卡。进一步检查模型分布，发现模型某些层被切分在不同的 NVLink 域上，导致通信跨 NUMA 节点。
+
+    - 根因：在多节点部署中，我们使用了 Tensor Parallelism (TP) 跨 4 个 GPU，但容器编排时将其中两个 GPU 分配到了不同 NUMA 节点，NVLink 带宽受限，造成通信时间变长。某些序列长度变长时，注意力计算负载不均衡，加剧了拖后腿效应。
+
+    - 解决方案：
+
+    - 结果：P99 延迟回落到 300ms 以内，系统吞吐提升 40%。整个过程强化了分布式推理中网络拓扑感知的重要性。
+
+    这件事教会我要将系统 profiling 与模型计算特征结合，排查硬件拓扑带来的性能问题。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EBHXwK722iy3IFk6JHScIo6cn2g
+  block_id: Md1xd8g8moP43UxnGLWc6PinnKe
+  page_token: EBHXwK722iy3IFk6JHScIo6cn2g
+  original_title: 结合你的项目经验，讲述一次你解决 Transformer 训练或部署中最棘手问题的过程。
+  imported_at: '2026-09-21'

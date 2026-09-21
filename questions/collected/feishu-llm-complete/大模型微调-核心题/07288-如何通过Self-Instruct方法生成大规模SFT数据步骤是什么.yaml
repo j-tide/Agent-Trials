@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9f3d87b59684
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何通过Self-Instruct方法生成大规模SFT数据？步骤是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如何通过Self-Instruct方法生成大规模SFT数据？步骤是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Self-Instruct 是一种让模型“自举”生成训练数据的半自动化方法，它解决了 SFT 数据人工标注成本高、规模难以扩大的痛点。其核心思想是利用少量人工编写的种子数据，引导模型自己生成新的指令-回答对，再通过过滤和迭代，逐步扩充数据集。
+
+    步骤概述：
+
+    - 准备种子任务池：人工编写约 100～200 条覆盖不同任务类型、不同难度的高质量指令-回答对。这些种子是数据生成的“基因”，其多样性和质量直接决定最终数据的上限。
+
+    - 指令生成：从种子池中随机抽取少量（如 6～8 条）指令作为 Few-shot 示例，拼接到一个专门设计的 prompt 中，要求模型生成一条全新的、与示例不同的指令。生成后，计算新指令与池中已有指令的相似度（例如使用 ROUGE-L），若相似度过高则丢弃，以保证多样性。
+
+    - 指令分类：用另一个 few-shot prompt 让模型判断生成的指令属于分类任务还是生成任务。这一步是为了在后续步骤中施加不同的回答格式约束。
+
+    - 回答生成：将新指令（可能连同分类标签）输入模型，让它生成相应的回答。对于分类任务，要求模型输出指定的标签；对于生成任务，则生成完整回答。生成回答时可以使用更大的模型或同一个模型，但通常建议用较强的模型以保证回答质量。
+
+    - 过滤与后处理：对生成的指令-回答对进行多级过滤：
+
+    - 迭代扩展：将新数据加入池中，再从池中采样，重复步骤 2-5。随着迭代进行，任务池不断增长，多样性也随之增加。通常迭代数轮即可达到所需规模。
+
+    关键技巧与常见问题：
+
+    - 多样性维护：除了相似度过滤，还可以在指令生成 prompt 中明确要求“生成一个与上述示例类别不同的任务”，或者人为添加一些罕见的任务描述来引导探索。
+
+    - 质量平衡：模型自己生成的回答可能包含错误。可以使用“拒绝采样”策略，即对同一指令生成多个回答，然后用强模型（如 GPT-4）或人工挑选最好的那个。
+
+    - 结合 Evol-Instruct：在 Self-Instruct 生成指令后，可以再调用 Evol-Instruct 对指令进行深度和广度的进化，提升数据集的难度和复杂度。
+
+    Self-Instruct 及其变体（如 Alpaca 使用的流程）已经证明了其有效性，仅用几百条人工种子就能生成数万条可用的 SFT 数据，极大降低了微调门槛。不过，生成数据的质量始终受限于基座模型自身的能力，因此种子质量和过滤机制至关重要。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PMU2wL6MLiKo4yk5L39cu6vqnIc
+  block_id: D9K9dg4RRoTYyjx1VzHci4kanLg
+  page_token: PMU2wL6MLiKo4yk5L39cu6vqnIc
+  original_title: 如何通过Self-Instruct方法生成大规模SFT数据？步骤是什么？
+  imported_at: '2026-09-21'

@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-778743b5f54f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 Weight-Only 量化推理：权重存储为 int8 和 scale，激活为 FP32，在不事先量化激活的情况下模拟矩阵乘法（即反量化权重后与
+  FP32 激活相乘）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现 Weight-Only 量化推理：权重存储为 int8 和 scale，激活为 FP32，在不事先量化激活的情况下模拟矩阵乘法（即反量化权重后与
+    FP32 激活相乘）
+answer:
+  mode: rubric
+  reference_answer: |-
+    Weight-Only 量化 是一种在推理时只量化权重，而激活保持浮点的方案，减少内存占用和加载带宽，但计算仍在浮点域进行。这种方式避免了激活量化的复杂校准和精度损失，适用于大模型推理（如 llama.cpp 的某些模式）。
+
+    实现：
+
+    - 权重 W 在推理前被量化为 int8，并保存 scale（可以是 per-channel）。
+
+    - 推理时，对于输入 x (FP32)，先将 W 反量化为 FP32，然后执行 FP32 矩阵乘法：y = x @ W_deq.T 或 y = F.linear(x, W_deq)。
+
+    - 为了模拟真实推理，也可以不在内存中完整恢复 W 的 FP32 矩阵，而是动态解量化和计算（如分块）。这里简单实现直接反量化整个权重矩阵，然后矩阵乘。
+
+    代码：
+
+    ```python
+    def weight_only_linear(x_fp: torch.Tensor, w_q: torch.Tensor, scale: torch.Tensor, bias=None):
+        """
+        权重仅量化推理
+        Args:
+            x_fp: 激活 FP32, shape [..., in_features]
+            w_q: int8 权重 [out_features, in_features]
+            scale: scale, 如果 per-channel 则为 [out_features]
+        Returns:
+            y_fp: FP32 输出
+        """
+        # 反量化权重到 FP32
+        if scale.dim() == 1:  # per-channel
+            w_deq = w_q.float() * scale.unsqueeze(1)
+        else:  # per-tensor
+            w_deq = w_q.float() * scale
+        # 线性计算
+        return torch.nn.functional.linear(x_fp, w_deq, bias)
+    ```
+
+    注意：实际部署时，为了节省内存，不会显式重建整个 FP32 权重，而是分块解量化并直接进行乘加运算，但逻辑等价。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: LFePdO0v8opeOrxVfnFcxnHQnZf
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 实现 Weight-Only 量化推理：权重存储为 int8 和 scale，激活为 FP32，在不事先量化激活的情况下模拟矩阵乘法（即反量化权重后与
+    FP32 激活相乘）
+  imported_at: '2026-09-21'

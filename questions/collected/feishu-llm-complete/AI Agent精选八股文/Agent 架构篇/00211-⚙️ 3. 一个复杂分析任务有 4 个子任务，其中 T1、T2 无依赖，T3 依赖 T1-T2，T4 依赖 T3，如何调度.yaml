@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fd55a8d6a798
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚙️ 3. 一个复杂分析任务有 4 个子任务，其中 T1、T2 无依赖，T3 依赖 T1/T2，T4 依赖 T3，如何调度？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+content:
+  prompt: "⚙️ 3. 一个复杂分析任务有 4 个子任务，其中 T1、T2 无依赖，T3 依赖 T1/T2，T4 依赖 T3，如何调度？"
+answer:
+  mode: rubric
+  reference_answer: "这是一个典型的 DAG 调度场景，任务依赖关系是：\n\nT1 ─┐\n     ├──→ T3 ──→ T4\nT2 ─┘\n\n最优策略是用静态预规划定义依赖，用动态执行器并行调度。\n\n为什么不用纯
+    Supervisor 动态路由？\n\n这种依赖关系明确、不会变化的任务，用 Supervisor 动态决策是一种浪费。每一轮让 LLM 判断“现在该跑 T3
+    了吗”既贵又不稳定。最好的方式是：代码层管理依赖图，LLM 只负责每个节点内部的“做事”。\n\n实现方案：基于 asyncio 的 DAG 执行器\n\nimport
+    asyncio\nfrom dataclasses import dataclass, field\nfrom typing import List, Dict,
+    Any, Callable\n\n@dataclass\nclass Task:\n    name: str\n    deps: List[str]\n
+    \   executor: Callable  # 实际执行该任务的函数，内部可以调用 LLM\n    args: Dict[str, Any] = field(default_factory=dict)\n\nclass
+    DAGExecutor:\n    def __init__(self, tasks: List[Task]):\n        self.tasks =
+    {t.name: t for t in tasks}\n        self.results = {}\n        self._validate_dag()\n\n
+    \   def _validate_dag(self):\n        # 检查所有依赖是否已定义\n        for t in self.tasks.values():\n
+    \           for dep in t.deps:\n                if dep not in self.tasks:\n                    raise
+    ValueError(f\"Task {t.name} 依赖的 {dep} 不存在\")\n\n    async def run(self):\n        pending
+    = set(self.tasks.keys())\n        while pending:\n            # 找出所有依赖已满足的任务\n
+    \           ready = [name for name in pending \n                     if all(dep
+    in self.results for dep in self.tasks[name].deps)]\n            if not ready:\n
+    \               # 理论上不会发生，除非有循环依赖或死锁\n                raise RuntimeError(\"调度死锁，无就绪任务\")\n
+    \           \n            # 并行执行所有就绪任务\n            tasks_coro = []\n            for
+    name in ready:\n                task = self.tasks[name]\n                # 将前置任务的结果注入参数\n
+    \               deps_results = {dep: self.results[dep] for dep in task.deps}\n
+    \               tasks_coro.append(task.executor(deps_results=deps_results, **task.args))\n
+    \           \n            ready_results = await asyncio.gather(*tasks_coro, return_exceptions=True)\n
+    \           \n            # 保存结果\n            for name, res in zip(ready, ready_results):\n
+    \               if isinstance(res, Exception):\n                    print(f\"Task
+    {name} 失败: {res}\")\n                    # 可以在此决定是重试、降级还是整体失败\n                    self.results[name]
+    = None  # 标记失败\n                else:\n                    self.results[name]
+    = res\n                pending.remove(name)\n        return self.results\n\n#
+    --- 具体任务函数示例 ---\nasync def execute_T1(deps_results, **kwargs):\n    # 实际调用 Analyst
+    Agent\n    return await analyst_agent.run(\"分析竞品A的市场份额\")\n\nasync def execute_T2(deps_results,
+    **kwargs):\n    return await analyst_agent.run(\"分析竞品B的市场份额\")\n\nasync def execute_T3(deps_results,
+    **kwargs):\n    t1_result = deps_results[\"T1\"]\n    t2_result = deps_results[\"T2\"]\n
+    \   # 将T1/T2结果汇总，交给 Writer Agent\n    return await writer_agent.run(f\"基于以下数据生成对比分析：\\nT1:
+    {t1_result}\\nT2: {t2_result}\")\n\nasync def execute_T4(deps_results, **kwargs):\n
+    \   t3_result = deps_results[\"T3\"]\n    return await reviewer_agent.run(f\"审核以下报告：\\n{t3_result}\")\n\n#
+    --- 构建并运行 ---\ndag = [\n    Task(name=\"T1\", deps=[], executor=execute_T1),\n
+    \   Task(name=\"T2\", deps=[], executor=execute_T2),\n    Task(name=\"T3\", deps=[\"T1\",
+    \"T2\"], executor=execute_T3),\n    Task(name=\"T4\", deps=[\"T3\"], executor=execute_T4),\n]\n\nexecutor
+    = DAGExecutor(dag)\nfinal_results = asyncio.run(executor.run())\n\n这段代码如何体现最优调度？\n\n-
+    最大化并行：T1 和 T2 在第一轮循环中同时被 asyncio.gather 并行执行。如果每个耗时 10 秒，总等待只有 10 秒，而不是 20 秒。\n\n-
+    自动依赖管理：T3 只有等到 T1 和 T2 都完成（它们的 key 都在 self.results 中）才会被加入 ready 队列。这完全由代码保证，不需要
+    LLM 参与。\n\n- 异常隔离：如果 T1 失败，self.results[\"T1\"] 被设为 None，T3 依然会被执行（因为它只检查依赖的 key
+    是否存在）。你可以在 execute_T3 内部检测输入是否为 None 来决定是降级输出还是跳过。\n\n如果其中一步需要动态决策怎么办？\n假设 T3
+    执行完后，发现数据冲突，需要额外增加一个 T3.5（重新核实）才能继续 T4。这时 DAG 是静态的，无法自动插入新节点。解决方案是：在 DAGExecutor
+    中增加一个动态回调钩子。当任务完成时，允许该任务的执行器返回一个“指令”，比如 INSERT_TASK，然后 DAG 执行器动态修改任务图后再继续调度。\n\n这种“核心静态
+    + 钩子动态”的混合策略，是生产环境中最实用的模式：在可预见的范围内享受确定性的高效，在不可预见的地方为灵活性开一个口子。\n\n---\n\n### 6.2
+    结果处理与质量优化"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JcycwopI3iq7iOk1kBJcuICVnOg
+  block_id: doxcnTu8GyXI0X6uZqocWF7r7Ge
+  page_token: JcycwopI3iq7iOk1kBJcuICVnOg
+  original_title: "⚙️ 3. 一个复杂分析任务有 4 个子任务，其中 T1、T2 无依赖，T3 依赖 T1/T2，T4 依赖 T3，如何调度？"
+  imported_at: '2026-09-21'

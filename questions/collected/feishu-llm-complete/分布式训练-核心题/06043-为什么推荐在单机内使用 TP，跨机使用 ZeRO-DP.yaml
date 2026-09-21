@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a8782e8e645f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么推荐在单机内使用 TP，跨机使用 ZeRO-DP？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 为什么推荐在单机内使用 TP，跨机使用 ZeRO-DP？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这完全是由通信带宽决定的。
+
+    TP 的通信模式：每层前向和反向都需要 AllReduce（或 AllGather/ReduceScatter），频率极高（96 层模型每步 192 次），数据量也大（与激活值成正比）。节点内的 NVLink 带宽可达 900 GB/s 每对 GPU，总带宽可达数 TB/s，能够轻松支撑这种高频大流量的通信。
+
+    跨机通信的瓶颈：跨节点网络（如 InfiniBand HDR 200 Gb/s ≈ 25 GB/s 每链路）的带宽远低于 NVLink，且延迟高。如果 TP 跨机，每层 AllReduce 都将成为瓶颈，GPU 大量时间空闲等待通信，训练效率极低。
+
+    ZeRO-DP 的通信模式：ZeRO-DP 的通信发生在整个反向传播结束或参数更新时，频率低（每步 1 次或 2 次），且可以通过分桶、异步等方式与计算重叠，对跨机带宽的敏感度远低于 TP。ZeRO-3 虽然也有每层 AllGather，但 DeepSpeed 通过预取、通信融合等优化，可以将通信开销部分隐藏。
+
+    因此，最佳实践是：让通信密集的 TP 留在单机内，让通信稀疏、可重叠的 ZeRO-DP 负责跨机扩展。流水线并行（PP）的通信是层间点对点，频率也低，同样适合跨机。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: QGiPdTINto3WvmxHQ38cL3YYnBg
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: 为什么推荐在单机内使用 TP，跨机使用 ZeRO-DP？
+  imported_at: '2026-09-21'

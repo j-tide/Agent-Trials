@@ -1,0 +1,96 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c4ef070c098d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 序列打包（packing）及注意力掩码生成
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 序列打包（packing）及注意力掩码生成
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    def pack_sequences(
+        input_ids_list: List[torch.Tensor],
+        labels_list: List[torch.Tensor],
+        eos_token_id: int = 2,
+        pad_token_id: int = 0
+    ) -> Dict[str, torch.Tensor]:
+        """
+        将多个样本拼接为一个长序列，生成分块对角因果注意力掩码 (4D)。
+        返回 input_ids (1, total_len), labels (1, total_len), attention_mask (1, 1, total_len, total_len)
+        """
+        # 存储每个片段的起止位置
+        segments = []
+        all_ids = []
+        all_labels = []
+        offset = 0
+        for inp, lab in zip(input_ids_list, labels_list):
+            L = inp.size(0)
+            all_ids.append(inp)
+            all_labels.append(lab)
+            segments.append((offset, offset + L - 1))
+            offset += L
+            # 插入 EOS 分隔符，其 label 设为 -100
+            all_ids.append(torch.tensor([eos_token_id], dtype=inp.dtype))
+            all_labels.append(torch.tensor([-100], dtype=lab.dtype))
+            offset += 1
+
+        # 移除末尾多余的分隔符
+        if all_ids:
+            all_ids.pop()
+            all_labels.pop()
+            offset -= 1
+
+        input_ids = torch.cat(all_ids, dim=0)
+        labels = torch.cat(all_labels, dim=0)
+        total_len = input_ids.size(0)
+
+        # 构建分块对角因果掩码
+        # 先构造下三角因果掩码
+        causal_mask = torch.tril(torch.ones(total_len, total_len, dtype=torch.bool))
+        # 构造块对角掩码：允许同一样本内互相看到
+        block_mask = torch.zeros(total_len, total_len, dtype=torch.bool)
+        for start, end in segments:
+            block_mask[start:end+1, start:end+1] = True
+        # 最终掩码 = 因果掩码 AND 块对角掩码
+        final_mask = causal_mask & block_mask  # (total_len, total_len)
+        # 扩展到4D: (1, 1, total_len, total_len)
+        final_mask = final_mask.unsqueeze(0).unsqueeze(0)
+
+        return {
+            'input_ids': input_ids.unsqueeze(0),  # (1, total_len)
+            'labels': labels.unsqueeze(0),
+            'attention_mask': final_mask
+        }
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: GqindQ8rDogZh4x89agci8kzn2c
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: 序列打包（packing）及注意力掩码生成
+  imported_at: '2026-09-21'

@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-668e88874e3b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: DPO 损失函数
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: DPO 损失函数
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    def dpo_loss(
+        policy_logits: torch.Tensor,       # (batch, seq_len, vocab_size) 当前策略的 logits
+        ref_logits: torch.Tensor,          # 参考模型的 logits
+        labels: torch.Tensor,              # (batch, seq_len) 用于构建回答的 token ids
+        chosen_mask: torch.Tensor,         # (batch,) bool 表示该样本是否为 chosen (True) 或 rejected (False)
+        beta: float = 0.1,
+        ignore_index: int = -100
+    ) -> torch.Tensor:
+        """
+        计算 DPO 损失。假设数据已组织为：前半 batch 是 chosen，后半是 rejected 与其配对。
+        chosen_mask 标记每个样本的归属。
+        """
+        # 计算每个 token 的对数似然，忽略 ignore_index 的位置
+        loss_fct = torch.nn.CrossEntropyLoss(reduction='none', ignore_index=ignore_index)
+        # 形状 (batch, seq_len)
+        log_probs_policy = -loss_fct(policy_logits.permute(0, 2, 1), labels)
+        log_probs_ref = -loss_fct(ref_logits.permute(0, 2, 1), labels)
+
+        # 对序列求和（或平均）得到整个回答的对数似然
+        # 注意：应只考虑回答部分，即 labels != ignore_index 的位置
+        mask = (labels != ignore_index).float()
+        sum_log_policy = (log_probs_policy * mask).sum(dim=-1)  # (batch,)
+        sum_log_ref = (log_probs_ref * mask).sum(dim=-1)
+
+        # 拆分 chosen 和 rejected
+        chosen_mask = chosen_mask.bool()
+        chosen_log_policy = sum_log_policy[chosen_mask]
+        rejected_log_policy = sum_log_policy[~chosen_mask]
+        chosen_log_ref = sum_log_ref[chosen_mask]
+        rejected_log_ref = sum_log_ref[~chosen_mask]
+
+        # 计算隐式奖励差
+        chosen_reward = beta * (chosen_log_policy - chosen_log_ref)
+        rejected_reward = beta * (rejected_log_policy - rejected_log_ref)
+
+        # DPO 损失 = -log σ(chosen_reward - rejected_reward)
+        loss = -torch.log(torch.sigmoid(chosen_reward - rejected_reward)).mean()
+        return loss
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: WAQldpcGdo1SlHxEltqc9Ah7ncb
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: DPO 损失函数
+  imported_at: '2026-09-21'

@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a5da016c8520
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9F1 ZeRO-3 分片参数后，前向和反向传播时如何获取参数？增加了什么通信？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F9F1 ZeRO-3 分片参数后，前向和反向传播时如何获取参数？增加了什么通信？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 ZeRO-3 将模型参数也分片到各卡，前向/反向需要某部分参数时，通过 All-Gather 临时收集完整参数层，用完后立即释放；反向时再重新收集，并伴随
+    Reduce-Scatter 梯度和分片优化器更新。\n\n\U0001F50D 通信模式（以某一层为例）：\n\n- 前向传播：当计算到某一层时，各卡原本只拥有该层参数的
+    1/N 分片。通过 All-Gather 将该层的完整参数收集到所有卡上，执行前向计算。计算完毕后，除自己分片外的其他参数片段立即释放，不占用显存。\n\n-
+    反向传播：同理，计算该层梯度时，需再次 All-Gather 完整参数（因为之前释放了）。然后计算局部梯度。随后进行 Reduce-Scatter 将梯度聚合到对应的分片所有者，各卡只保留自己负责部分的梯度，其余丢弃。\n\n-
+    优化器更新：每卡更新自己的参数分片，无需通信。\n\n- 上述过程对每一层重复。因此，通信总量大致是：前向每层一次 All-Gather，反向每层一次 All-Gather
+    + 一次 Reduce-Scatter。整体通信量约为标准 DP 的 3 倍（详细见下题）。\n\n\U0001F4CC 显存优势：参数分片后，前向计算时仅临时重建一层完整参数，显存占用从整个模型降为一层大小，极大缓解显存压力。\n\n✅
+    所以，ZeRO-3 用额外的 All-Gather/Reduce-Scatter 通信，换取参数完全分片，使得单卡仅需 1/N 的权重+梯度+优化器。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PfKUwsEL0iLM0ckIJbecd8xenxf
+  block_id: VnAfdM5RtoXVIzxz1lTcdyGfnVb
+  page_token: PfKUwsEL0iLM0ckIJbecd8xenxf
+  original_title: "\U0001F9F1 ZeRO-3 分片参数后，前向和反向传播时如何获取参数？增加了什么通信？"
+  imported_at: '2026-09-21'

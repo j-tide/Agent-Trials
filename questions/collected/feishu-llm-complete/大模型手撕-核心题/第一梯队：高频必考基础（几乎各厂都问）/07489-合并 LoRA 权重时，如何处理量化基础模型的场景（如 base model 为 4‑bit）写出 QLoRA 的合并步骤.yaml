@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c7b3873ecf54
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 合并 LoRA 权重时，如何处理量化基础模型的场景（如 base model 为 4‑bit）？写出 QLoRA 的合并步骤。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 合并 LoRA 权重时，如何处理量化基础模型的场景（如 base model 为 4‑bit）？写出 QLoRA 的合并步骤。
+answer:
+  mode: rubric
+  reference_answer: |-
+    9.1 QLoRA 背景
+
+    QLoRA 在 4‑bit 量化模型上应用 LoRA。量化后的权重存储为低比特整数，在计算时会被反量化为浮点。LoRA 适配器仍然以浮点形式训练。合并时，需要将浮点的 LoRA 增量加到反量化后的权重上，再重新量化保存，或者直接保存合并后的浮点权重。
+
+    9.2 合并步骤
+
+    - 获取原始模型权重的浮点表示：将 4‑bit 量化权重反量化为 FP16/FP32。
+
+    - 计算 LoRA 增量：delta = (α/r) * (B @ A)。
+
+    - 浮点合并：W_merged_fp = W_dequantized + delta。
+
+    - 将合并后的权重重新量化（如采用相同的量化参数或重新校准）。
+
+    - 保存量化后的模型，移除 LoRA 适配器。
+
+    伪代码：
+
+    ```python
+    import bitsandbytes as bnb
+
+    def merge_qlora(quantized_model, lora_weights):
+        for name, module in quantized_model.named_modules():
+            if hasattr(module, 'lora_A'):
+                # 获取 LoRA 增量
+                A = module.lora_A.data
+                B = module.lora_B.data
+                delta = (module.alpha / module.r) * (B @ A)
+                # 获取反量化后的权重（假设模块是 bnb.nn.Linear4bit）
+                # 使用 bnb 的内部方法获取浮点权重
+                weight_fp = bnb.functional.dequantize_4bit(module.weight, module.weight.quant_state)
+                merged_fp = weight_fp + delta.to(weight_fp.dtype)
+                # 重新量化
+                new_weight, new_quant_state = bnb.functional.quantize_4bit(merged_fp, ...)
+                module.weight = new_weight
+                module.weight.quant_state = new_quant_state
+                # 移除 LoRA
+                del module.lora_A, module.lora_B
+    ```
+
+    9.3 注意事项
+
+    - 合并后重新量化可能引入额外精度损失，理想情况下可直接在推理时使用合并后的浮点权重（若显存允许），或在微调结束后一次性合并并量化保存。
+
+    - QLoRA 的训练过程中量化参数是固定的，合并不影响训练流程，仅用于部署优化。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LZxww5JuBif3JAkuCoIcuqRenuf
+  block_id: FsO4dftgboKUwZxbybkci83snZf
+  page_token: LZxww5JuBif3JAkuCoIcuqRenuf
+  original_title: 合并 LoRA 权重时，如何处理量化基础模型的场景（如 base model 为 4‑bit）？写出 QLoRA 的合并步骤。
+  imported_at: '2026-09-21'

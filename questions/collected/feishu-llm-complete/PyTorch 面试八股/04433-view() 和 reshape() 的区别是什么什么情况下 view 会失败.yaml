@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e21650bd896d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: view() 和 reshape() 的区别是什么？什么情况下 view 会失败？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: view() 和 reshape() 的区别是什么？什么情况下 view 会失败？
+answer:
+  mode: rubric
+  reference_answer: |-
+    它们都用于改变张量形状，但底层机制不同：view 要求物理内存连续，而 reshape 总能成功，因为它会自动处理不连续的情况。
+
+    - view()：返回一个与原始张量共享内存的新视图。这要求原始张量的底层内存是连续的。如果内存不连续，必须先用 contiguous() 将其变为连续张量。
+
+    - reshape()：行为更鲁棒。如果内存连续，它直接返回一个视图（类似view）；如果内存不连续，它会先悄悄创建一个连续副本，再返回其视图。代价是可能有额外的内存拷贝。
+
+    view 失败的经典场景——转置：
+
+    ```python
+    x = torch.randn(2, 3)
+    y = x.t()  # 转置操作破坏了内存连续性
+    print(y.is_contiguous())  # 输出 False
+
+    try:
+        y_v = y.view(-1)  # 报错！view 不支持不连续的内存
+    except RuntimeError as e:
+        print("view failed:", e)
+
+    y_r = y.reshape(-1)   # 成功！reshape 会自动处理
+    ```
+
+    性能优化决策：如果你确认内存是连续的（或通过 contiguous() 确保了连续性），则优先使用 view() 以避免不必要的拷贝，对性能极致追求的场景（如训练循环内部）有细微帮助。在其他常规场景，reshape() 是更安全、不会被”坑“的选择。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Vf94wFO62ij7vwkGFVbcOxpdnRe
+  block_id: SwJtd9ZIuolQFoxpptEceFcdnpc
+  page_token: Vf94wFO62ij7vwkGFVbcOxpdnRe
+  original_title: view() 和 reshape() 的区别是什么？什么情况下 view 会失败？
+  imported_at: '2026-09-21'

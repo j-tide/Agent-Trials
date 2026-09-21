@@ -1,0 +1,94 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e8e7e1be2088
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写一个参数提取器：给定用户自然语言指令和工具的参数定义，利用正则表达式或简单规则从指令中抽取参数值（如“搜索'天气'” → query="天气"）。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 编写一个参数提取器：给定用户自然语言指令和工具的参数定义，利用正则表达式或简单规则从指令中抽取参数值（如“搜索'天气'” → query="天气"）。
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+    参数提取是工具调用的关键前置步骤。我们可以为每个参数预定义一组提取规则（如正则模式、关键词定位等）。例如，工具 search 有一个参数 query，可以设计规则：匹配引号内的内容，或者匹配“搜索xxx”中的 xxx。
+
+    实现
+
+    ```python
+    import re
+    from typing import Dict, Any
+
+    class ParamExtractor:
+        def __init__(self):
+            # 为每个工具定义参数提取规则：参数名 -> 正则模式
+            self.rules = {
+                "search": {
+                    "query": r'搜索["\u201c](.+?)["\u201d]|搜索(.+?)(?:$|\n)|查找["\u201c](.+?)["\u201d]',
+                    "max_results": r'(\d+)条|前(\d+)条'
+                },
+                "weather": {
+                    "city": r'(?:城市|地点|地方)[：:]\s*(.+?)(?:$|\n|，|。)',
+                    "date": r'(\d{4}-\d{2}-\d{2})'
+                }
+            }
+
+        def extract(self, tool_name: str, user_input: str) -> Dict[str, Any]:
+            """根据工具名和用户输入提取参数字典"""
+            if tool_name not in self.rules:
+                return {}
+            params = {}
+            for param, pattern in self.rules[tool_name].items():
+                match = re.search(pattern, user_input)
+                if match:
+                    # 取第一个非None的捕获组
+                    value = next((g for g in match.groups() if g is not None), None)
+                    if value:
+                        params[param] = value.strip()
+            return params
+
+    # 示例
+    extractor = ParamExtractor()
+    print(extractor.extract("search", "帮我搜索“人工智能最新进展”，显示前5条"))
+    # {'query': '人工智能最新进展', 'max_results': '5'}
+    print(extractor.extract("weather", "查询城市：上海 的天气，日期 2025-01-15"))
+    # {'city': '上海', 'date': '2025-01-15'}
+    ```
+
+    扩展
+
+    - 可以集成 NER 模型进行更精准的实体抽取。
+
+    - 参数类型转换：将提取的字符串转为 int、float 等。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  block_id: ZHBddVPbBorQxgxS1K3cvwxanYb
+  page_token: Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  original_title: 编写一个参数提取器：给定用户自然语言指令和工具的参数定义，利用正则表达式或简单规则从指令中抽取参数值（如“搜索'天气'” → query="天气"）。
+  imported_at: '2026-09-21'

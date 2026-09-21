@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-28d6f08650ae
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在多模态模型的 3D 并行中，如何将序列并行应用于视觉 Token 过多的场景？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 在多模态模型的 3D 并行中，如何将序列并行应用于视觉 Token 过多的场景？
+answer:
+  mode: rubric
+  reference_answer: |-
+    3D并行指数据并行、张量并行、流水线并行的组合。序列并行是张量并行的补充：当序列长度极大时，将序列维度切分到多个GPU，以降低单卡激活显存。
+
+    视觉Token过多的挑战：
+
+    高分辨率图像切块后，视觉token可达数千甚至上万。LLaVA-1.5-HD的一张高分图可产生约3000个视觉token。若将这些token全部拼接到LLM输入，序列长度暴增，单卡无法存下整个激活。
+
+    序列并行应用方法：
+
+    将视觉token和文本token视为统一的长序列，沿序列维度均匀切分到TP组的各个GPU上。每个GPU只持有N/TP_size个token的隐藏状态。在计算自注意力时，需要跨GPU通信以获取其他序列块的Key和Value。具体实现可使用Ring Self-Attention或Megatron的序列并行方案。
+
+    Megatron-LM的序列并行将LayerNorm和Dropout之后的张量沿序列维度切分，在自注意力前通过AllGather恢复完整序列，计算注意力后再通过ReduceScatter切分回去。该方案与张量并行正交组合。
+
+    视觉token特殊的优化：
+
+    - 视觉token之间通常具有强空间局部性，序列并行时，可将空间相邻的token分配在同一GPU上，减少跨GPU的远距离注意力需求。
+
+    - 若视觉token数量远超文本token，可仅对视觉token部分启用序列并行，文本token保持完整，通过构造非对称mask实现。
+
+    - 推理阶段可采用PagedAttention管理长序列KV缓存，训练阶段可用FlashAttention的序列并行实现。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  block_id: TMlidahIoo7ak9xnUOhcI3ySnMg
+  page_token: KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  original_title: 在多模态模型的 3D 并行中，如何将序列并行应用于视觉 Token 过多的场景？
+  imported_at: '2026-09-21'

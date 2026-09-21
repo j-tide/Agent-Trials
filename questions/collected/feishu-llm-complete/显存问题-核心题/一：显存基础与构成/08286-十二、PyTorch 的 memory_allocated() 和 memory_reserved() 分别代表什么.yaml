@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-229cbda6eab8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 十二、PyTorch 的 memory_allocated() 和 memory_reserved() 分别代表什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 一：显存基础与构成
+tags: &1
+- 显存问题-核心题
+- 一：显存基础与构成
+content:
+  prompt: 十二、PyTorch 的 memory_allocated() 和 memory_reserved() 分别代表什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    理解这两个函数是 PyTorch 显存调试的核心，它们精确刻画了“你用了多少”与“框架占了但没还”的区别。
+
+    1. torch.cuda.memory_allocated(device)
+
+    - 含义：当前在该设备上所有活跃的张量（以及某些内部存储）实际占用的显存字节数。这是用户可见的、确切被计算图、模型、数据使用的空间。
+
+    - 变动方式：
+
+    - 特点：严格反映“正在使用”的显存，等同于 nvidia-smi 中的“used”减去缓存的空闲块。
+
+    2. torch.cuda.memory_reserved(device)
+
+    - 含义：PyTorch 缓存分配器从 CUDA 驱动申请并保留的总显存字节数。它包括 allocated 空间，再加上已释放但尚未归还给操作系统的显存块（即缓存）。
+
+    - 关系：reserved >= allocated。差值代表“空闲但被分配器持有的显存”，可用于快速满足未来的张量分配，而无需昂贵的 CUDA API 调用。
+
+    - 变动方式：
+
+    - 目的：减少 cudaMalloc/cudaFree 的调用次数，提升性能。
+
+    实战解读
+
+    运行 torch.cuda.memory_summary() 会输出详细的统计表，包括：
+
+    - Allocated memory: 当前活跃字节
+
+    - Reserved memory: 缓存持有字节
+
+    - Active memory: 活跃字节（同 allocated）
+
+    - Inactive memory: 被释放但仍在缓存中的字节（即 reserved - allocated）
+
+    面试时的精辟总结：
+
+    - allocated 是你“正在吃”的饭；
+
+    - reserved 是“你碗里 + 锅里已经盛好但还没吃”的饭；
+
+    - 如果你看到 nvidia-smi 占用远高于 allocated，很可能是大量 inactive 缓存未释放，或框架其他部分（如 cuDNN workspace）直接向 CUDA 申请了显存而绕过了 PyTorch 分配器。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GR6GwGe1Hij4c3keg1Qckq5unRb
+  block_id: Q2dMdxgrFoWwQ6xueXbceAzcnQe
+  page_token: GR6GwGe1Hij4c3keg1Qckq5unRb
+  original_title: 十二、PyTorch 的 memory_allocated() 和 memory_reserved() 分别代表什么？
+  imported_at: '2026-09-21'

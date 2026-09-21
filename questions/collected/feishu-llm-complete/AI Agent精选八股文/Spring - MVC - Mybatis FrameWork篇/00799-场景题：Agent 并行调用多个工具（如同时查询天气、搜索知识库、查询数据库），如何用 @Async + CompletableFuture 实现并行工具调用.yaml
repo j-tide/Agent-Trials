@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-69210ef0b822
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 并行调用多个工具（如同时查询天气、搜索知识库、查询数据库），如何用 @Async + CompletableFuture 实现并行工具调用？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 并行调用多个工具（如同时查询天气、搜索知识库、查询数据库），如何用 @Async + CompletableFuture
+    实现并行工具调用？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（并行执行、超时控制、结果聚合、异常处理）\n\n1️⃣ Common Answer\n\n可以把每个工具调用方法加上
+    @Async 注解，然后返回 CompletableFuture。用 CompletableFuture.allOf 等待所有任务完成。设置一个超时时间。\n\n2️⃣
+    Impressive Answer\n\n- 异步工具调用设计：\n\n@Service\npublic class AgentToolService {\n
+    \       \n    @Async(\"toolExecutor\")\n    public CompletableFuture<ToolResult>
+    queryWeather(Map<String, Object> params) {\n        WeatherResult result = weatherService.query(params);\n
+    \       return CompletableFuture.completedFuture(result);\n    }\n        \n    @Async(\"toolExecutor\")\n
+    \   public CompletableFuture<ToolResult> searchKb(Map<String, Object> params)
+    {\n        SearchResult result = kbService.search(params);\n        return CompletableFuture.completedFuture(result);\n
+    \   }\n        \n    @Async(\"toolExecutor\")\n    public CompletableFuture<ToolResult>
+    queryDatabase(Map<String, Object> params) {\n        DbResult result = dbService.query(params);\n
+    \       return CompletableFuture.completedFuture(result);\n    }\n}\n\n- 并行调用与结果聚合：\n\n@Service\npublic
+    class AgentExecutor {\n        \n    public List<ToolResult> executeParallel(List<ToolCall>
+    calls) {\n        List<CompletableFuture<ToolResult>> futures = calls.stream()\n
+    \           .map(call -> switch (call.getType()) {\n                case \"weather\"
+    -> toolService.queryWeather(call.getParams())\n                    .exceptionally(ex
+    -> ToolResult.error(ex));\n                case \"kb\" -> toolService.searchKb(call.getParams())\n
+    \                   .exceptionally(ex -> ToolResult.error(ex));\n                case
+    \"db\" -> toolService.queryDatabase(call.getParams())\n                    .exceptionally(ex
+    -> ToolResult.error(ex));\n                default -> CompletableFuture.completedFuture(ToolResult.error(\"Unknown
+    type\"));\n            })\n            .toList();\n            \n        // 等待所有任务完成（带超时）\n
+    \       CompletableFuture<Void> allOf = CompletableFuture.allOf(\n            futures.toArray(new
+    CompletableFuture[0])\n        );\n            \n        try {\n            allOf.get(30,
+    TimeUnit.SECONDS);  // 30 秒超时\n        } catch (TimeoutException e) {\n            log.warn(\"Tool
+    execution timeout\");\n            futures.forEach(f -> f.cancel(true));\n        }\n
+    \           \n        // 收集结果\n        return futures.stream()\n            .map(CompletableFuture::join)\n
+    \           .toList();\n    }\n}\n\n- 线程池配置（工具调用场景）：\n\n@Bean(\"toolExecutor\")\npublic
+    ThreadPoolTaskExecutor toolExecutor() {\n    ThreadPoolTaskExecutor executor =
+    new ThreadPoolTaskExecutor();\n    executor.setCorePoolSize(20);      // 核心线程数（根据工具数量）\n
+    \   executor.setMaxPoolSize(100);      // 最大线程数（峰值并发）\n    executor.setQueueCapacity(500);
+    \   // 队列容量\n    executor.setKeepAliveSeconds(120); // 空闲线程存活时间\n    executor.setThreadNamePrefix(\"tool-async-\");\n
+    \   executor.setRejectedExecutionHandler(\n        new ThreadPoolExecutor.CallerRunsPolicy());\n
+    \   executor.initialize();\n    return executor;\n}\n\n- 超时与降级：使用 orTimeout 设置单个工具超时，使用
+    \ exceptionally 提供降级结果：\n\n@Async(\"toolExecutor\")\npublic CompletableFuture<ToolResult>
+    queryWeatherWithTimeout(Map<String, Object> params) {\n    return CompletableFuture.supplyAsync(()
+    -> {\n        return weatherService.query(params);\n    }, taskExecutor)\n    .orTimeout(10,
+    TimeUnit.SECONDS)  // 单个工具 10 秒超时\n    .exceptionally(ex -> ToolResult.fallback(\"Weather
+    service unavailable\"));\n}\n\n- 监控与告警：通过 Micrometer 暴露 async.task.duration、async.task.success、async.task.failure
+    指标；设置告警（失败率 > 5% 时检查工具可用性）。\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcntdfg8pLDM0htpLXsO0mYxc
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 3、场景题：Agent 并行调用多个工具（如同时查询天气、搜索知识库、查询数据库），如何用 @Async + CompletableFuture
+    实现并行工具调用？
+  imported_at: '2026-09-21'

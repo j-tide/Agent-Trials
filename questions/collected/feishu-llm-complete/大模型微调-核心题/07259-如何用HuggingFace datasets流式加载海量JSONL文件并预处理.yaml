@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-199b7e639cbf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何用HuggingFace datasets流式加载海量JSONL文件并预处理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如何用HuggingFace datasets流式加载海量JSONL文件并预处理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    from datasets import load_dataset
+    from transformers import AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained("gpt2")
+
+    def preprocess(example):
+        # 假设 example 包含 'instruction' 和 'output'
+        prompt = f"<|im_start|>user\n{example['instruction']}<|im_end|>\n<|im_start|>assistant\n"
+        answer = example['output']
+        full_text = prompt + answer + "<|im_end|>"
+        tokenized = tokenizer(full_text, truncation=True, max_length=2048)
+        # 构造labels（prompt部分设为-100）
+        prompt_len = len(tokenizer(prompt)['input_ids'])
+        labels = tokenized['input_ids'].copy()
+        labels[:prompt_len] = [-100] * prompt_len
+        tokenized['labels'] = labels
+        return tokenized
+
+    # 流式加载：不将全量数据加载到内存
+    dataset = load_dataset("json", data_files="sft_data.jsonl", split="train", streaming=True)
+    dataset = dataset.map(preprocess, remove_columns=dataset.column_names)
+    # 此时dataset是一个可迭代对象，可配合torch的DataLoader使用
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: RcyzdSM9voA4RexiglCcu6snnTc
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: 如何用HuggingFace datasets流式加载海量JSONL文件并预处理？
+  imported_at: '2026-09-21'

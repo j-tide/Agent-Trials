@@ -1,0 +1,88 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6562e773f648
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F5D1️ 19. 在 LangChain 中，如何对向量库中的文档进行删除和修改？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F5D1️ 19. 在 LangChain 中，如何对向量库中的文档进行删除和修改？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangChain 的 VectorStore 抽象提供了删除接口，而修改实质上是“删除旧 ID + 插入新文档”。
+
+    ① 删除
+    大多数向量库的 LangChain 集成实现了 delete 方法，支持按 ids 批量删除。
+
+    ```python
+    # 假设在 add_documents 时我们指定了 ids
+    ids = vectorstore.add_documents(chunks, ids=[...])
+    # 删除其中一部分
+    vectorstore.delete(ids=["id1", "id2"])
+    ```
+
+    一些库也支持按 metadata 过滤删除（如 Pinecone、Weaviate），LangChain 的通用接口可能未直接暴露，但可以通过底层客户端操作：
+
+    ```python
+    # Pinecone 示例
+    index = pc.Index("my-index")
+    index.delete(filter={"source": "old_document.pdf"})
+    ```
+
+    ② 修改
+    没有直接的 update 方法。标准做法是：
+
+    - 用旧文档的 ID 调用 delete。
+
+    - 用新文档的内容和相同的 ID 调用 add_documents。
+    这实际上就是upsert语义，大部分向量库都支持。
+
+    自动化管理：Indexing API
+    如第 11 题所述，Indexing API + RecordManager 是 LangChain 高级管理方式：
+
+    - 它会自动比对文档哈希，找出修改和删除的文档。
+
+    - 调用 vectorstore.add_documents 进行 upsert，调用 vectorstore.delete 进行清除。
+
+    - 你只需提供最新的文档源，它就能自动使向量库保持同步。
+
+    实践中的坑：
+
+    - 不要频繁单条删除/添加，批量操作更高效。
+
+    - 部分向量库删除后空间不会立即释放（如 FAISS 需重建索引才能回收），这是设计局限，需结合业务容忍度。
+
+    - 如果你没有在入库时自定义 ID，而是让库自动生成，那么删除只能依赖 metadata 过滤（如果库支持），否则基本无法定向删除，只能清库重建。所以强烈建议养成自定义 ID 的习惯，ID 可以设计成 {source_file}:{chunk_index} 等形式。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/I0Gnw9RQoiOa2yk59JjcwumPnrf
+  block_id: UArxdA8vSoQmVdxe3D9cz9dHnPg
+  page_token: I0Gnw9RQoiOa2yk59JjcwumPnrf
+  original_title: "\U0001F5D1️ 19. 在 LangChain 中，如何对向量库中的文档进行删除和修改？"
+  imported_at: '2026-09-21'

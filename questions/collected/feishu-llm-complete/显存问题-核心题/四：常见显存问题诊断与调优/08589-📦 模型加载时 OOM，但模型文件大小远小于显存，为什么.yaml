@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b8ba355f7f4c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4E6 模型加载时 OOM，但模型文件大小远小于显存，为什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F4E6 模型加载时 OOM，但模型文件大小远小于显存，为什么？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 模型文件通常是压缩或分片存储格式（如 .bin 或 .safetensors），其磁盘大小不等于显存占用。加载后权重会以更高精度展开，并伴随优化器状态、CUDA
+    context 和框架缓存，往往数倍于文件大小。\n\n\U0001F50D 具体原因：\n\n- 精度膨胀：磁盘保存可能是 FP16（2 字节/参数），但加载到
+    GPU 后可能转为 FP32（4 字节）或框架自动保留副本。即使模型文件 14GB（7B FP16），加载后占用 14GB，尚可。但有些 checkpoint
+    保存时用了压缩（如分片+序列化），磁盘小，内存大。\n\n- 多份副本：训练时通常会加载模型，并创建 optimizer、梯度等。但仅模型加载阶段，若使用
+    DeepSpeed ZeRO-3 或 FSDP，会存在参数收集缓冲区。即使推理，某些框架（如 PyTorch）可能保留参数的 FP16 和 FP32 master
+    copy。\n\n- CUDA 上下文与驱动开销：GPU 初始化会占用约 0.5-1 GB。\n\n- 框架预分配：如 vLLM 的块池、DeepSpeed
+    的通信缓冲，在模型加载后立即占据大量显存，可能显示高占用。\n\n- 文件损坏或格式不匹配：加载错误文件可能导致异常分配，比如误加载为 FP32 权重却当
+    FP16 处理，占用翻倍。\n\n\U0001F4CA 举例：一个 7B 模型文件 pytorch_model.bin 大小 13.5GB（FP16），加载到
+    GPU 后占用 14GB。但若同时加载 tokenizer 或其他组件，并开启 device_map=\"auto\"，可能会 CPU/GPU 分散，但仍可能触发额外拷贝。若显存
+    16GB，看似 13.5<16，但实际 14GB + 1GB context = 15GB，接近极限，可能分配失败。\n\n✅ 排查：检查加载时精度，确认
+    torch_dtype；用 device_map=\"cpu\" 先加载到 CPU 测大小，再逐步移 GPU。避免框架自动预留过多。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BbCrwkO3wiWmAikFy0zc2OK6nPg
+  block_id: XSAtdiOCSo4QPQxxNVMc66jFnKe
+  page_token: BbCrwkO3wiWmAikFy0zc2OK6nPg
+  original_title: "\U0001F4E6 模型加载时 OOM，但模型文件大小远小于显存，为什么？"
+  imported_at: '2026-09-21'

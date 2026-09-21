@@ -1,0 +1,124 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dbb024aa064a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Agent 需要调用一个耗时很长的外部 API（如数据分析），如何设计异步 Function Calling？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent Tool篇
+tags: &1
+- AI Agent精选八股文
+- Agent Tool篇
+content:
+  prompt: Agent 需要调用一个耗时很长的外部 API（如数据分析），如何设计异步 Function Calling？
+answer:
+  mode: rubric
+  reference_answer: |-
+    核心思路：把一次调用拆成两个工具
+
+    Agent 看到的 Function Calling 不再是“一个函数等到天荒地老”，而是两个工具：
+
+    - launch_analysis(params)：提交任务，立即返回 job_id 和状态 pending。
+
+    - get_job_status(job_id)：查询任务状态，返回 running/completed/failed，如果有结果就带上。
+
+    对 Agent 来说，这就是一个非阻塞的状态机模型，它只需要记住 job_id，在合适的时机去轮询结果。
+
+    [图片内容未导入]
+
+    这样流程清晰，没有长连接等待，Agent 自己的思考循环也不会卡在某个工具调用上。
+
+    ---
+
+    几个设计要点（都是实战里淌出来的）
+
+    - 任务状态要持久化
+    用 Redis + 数据库双写。Redis 做热状态查询，数据库防止重启丢任务。任务元信息（谁提交的、参数、创建时间）一定要落地，方便审计和重试。
+
+    - 轮询策略得控制
+    不让 Agent 无限高频轮询，我在工具描述里加提示：“结果未就绪时 status 为 running，建议至少间隔 30 秒再次查询”。
+    同时在 get_job_status 里返回 retry_after 字段（秒数），让 Agent 自己决定等多久，比硬编码聪明。
+
+    - 主动推送 vs 轮询
+    如果系统允许，我倾向“轮询为主，推送为辅”。
+    轮询用 get_job_status 就够了，简单万能。
+    如果外部 API 支持 Webhook，可以在任务完成时回调到我们服务，然后把结果塞进 Agent 的消息上下文（例如用一条 system: "任务 job_042 已完成，结果如下..." 的消息触发一次新的推理），这样用户不用问就能看到结果。不过这对框架有要求，LangChain/LangGraph 那种有状态图的好做，纯手撸就得小心上下文管理。
+
+    - 超时与幂等
+    任务可能等很久，get_job_status 要设置一个“终态过期时间”，比如 24 小时后状态自动置 expired，避免 Agent 追问一个已死的任务。
+    launch_analysis 要做幂等键，防止用户点好几次提交重复任务。
+
+    - 工具定义举例（OpenAI 格式）
+
+    ```json
+    {
+      "name": "launch_analysis",
+      "description": "提交一个异步数据分析任务，立刻返回任务ID。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dataset": {"type": "string"},
+          "method": {"type": "string"}
+        },
+        "required": ["dataset"]
+      }
+    }
+    ```
+
+    ```json
+    {
+      "name": "get_job_status",
+      "description": "查询异步任务的执行状态。如果完成，result字段会包含分析结果。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "job_id": {"type": "string"}
+        },
+        "required": ["job_id"]
+      }
+    }
+    ```
+
+    这种设计下 Agent 的“智能”在哪
+
+    Agent 不只是呆板轮询，它可以做决策：
+
+    - 如果 status: "running" 且 eta 很长，Agent 可能主动说“大概还要 8 分钟，要不我先帮你做点别的？”
+
+    - 如果 status: "failed"，Agent 可以根据错误码建议重试或调整参数。
+
+    - 它甚至可以在一次对话里管理多个并行 job_id，像个小调度器。
+
+    ---
+
+    这样下来，耗时 API 就不再是 Agent 的阻塞点了。你那边业务场景里，数据分析任务时长波动大吗？如果经常有过长的任务（>30 分钟），我一般会再加一个 cancel_job 工具，让用户能主动取消。想听这块的话我可以再展开聊聊。
+
+    ---
+
+    工具的原子性与单一职责设计原则
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/F5QpwqJp4i0pB3kmnPzcVpgGn19
+  block_id: doxcnzZU2mpuL3VliwqcUaIsaPh
+  page_token: F5QpwqJp4i0pB3kmnPzcVpgGn19
+  original_title: Agent 需要调用一个耗时很长的外部 API（如数据分析），如何设计异步 Function Calling？
+  imported_at: '2026-09-21'

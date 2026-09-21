@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f6e64798bfee
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用PyTorch的“DTensor”进行张量并行编程的思路。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 使用PyTorch的“DTensor”进行张量并行编程的思路。
+answer:
+  mode: rubric
+  reference_answer: |-
+    DTensor 是 PyTorch 分布式张量，用于描述张量在多设备上的分片（sharding）布局，是 张量并行（Tensor Parallelism） 的底层抽象。
+
+    编程思路：
+
+    - 定义设备网格：device_mesh = DeviceMesh("cuda", torch.arange(num_gpus))
+
+    - 定义分片布局：指定每个维度如何分布（如 Shard(0) 表示沿第0维分片）。
+
+    - 创建分布式张量：dtensor = distribute_tensor(tensor, device_mesh, [Shard(0)])
+
+    - 执行运算：PyTorch 操作会自动推导出输出 DTensor 的分片布局，并在必要时进行通信。
+
+    示例：在2卡上对线性层权重进行列切分。
+
+    ```python
+    from torch.distributed.tensor import distribute_tensor, Shard
+    device_mesh = DeviceMesh("cuda", [0, 1])
+    weight = torch.randn(1024, 512)
+    dt = distribute_tensor(weight, device_mesh, [Shard(1)])  # 每卡持有 (1024, 256)
+    # 前向计算时，输入复制到两卡，各自计算，然后 all-gather 输出。
+    ```
+
+    实际应用中，通常封装为高阶 API（如 PyTorch 的 dtensor.nn）或使用基于 DTensor 的模型并行库。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  block_id: QtODd9Wh5oq4BLx3RPFctCBFnHe
+  page_token: AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  original_title: 使用PyTorch的“DTensor”进行张量并行编程的思路。
+  imported_at: '2026-09-21'

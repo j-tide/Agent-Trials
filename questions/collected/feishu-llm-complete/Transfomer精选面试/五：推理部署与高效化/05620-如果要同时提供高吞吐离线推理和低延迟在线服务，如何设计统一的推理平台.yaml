@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-40dce0516159
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果要同时提供高吞吐离线推理和低延迟在线服务，如何设计统一的推理平台？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 五：推理部署与高效化
+tags: &1
+- Transfomer精选面试
+- 五：推理部署与高效化
+content:
+  prompt: 如果要同时提供高吞吐离线推理和低延迟在线服务，如何设计统一的推理平台？
+answer:
+  mode: rubric
+  reference_answer: |-
+    设计统一平台需在资源隔离、调度策略、请求路由上做出区分，保证两种负载互不干扰。
+
+    - 物理/逻辑资源池隔离
+
+    - 通过 K8s 节点池划分：给在线服务分配带有高优保障的 GPU 节点（如按需实例），设置污点与容忍度，确保在线 Pod 独占或优先使用；离线任务可使用廉价 Spot 节点、或在线节点的低优资源池。
+
+    - 在线实例常驻运行，始终保持预热；离线实例可弹性伸缩甚至缩零。
+
+    - 调度层优先级与抢占
+
+    - 在请求入口处打上优先级标签（如 latency-critical vs throughput）。调度器维护多个队列。
+
+    - 在线请求可抢占离线请求的资源：利用 PagedAttention 的 swap 机制，将离线请求的 KV cache 块换出到 CPU 内存，让出显存给在线请求，处理完后再换回。
+
+    - 若使用统一实例混合服务，引擎内部需支持优先级队列，保证在线请求优先被编入 batch，离线请求填充剩余算力。
+
+    - 分离 Prefill 与 Decode 的调度
+
+    - 离线批处理常涉及巨量 prompt 的 prefill，这会导致迭代时间尖刺。可将 Prefill 与 Decode 拆分到不同实例组，在线 decode 实例只处理 decode 和短 prefill，离线 prefill 由专用实例完成。调度器根据请求阶段智能路由。
+
+    - 或采用 chunked prefill，把长 prefill 切分，在 decode 批次中插空执行，降低对在线响应的干扰。
+
+    - 统一模型仓库与配置
+
+    - 平台维护同一份模型权重，通过 model registry 加载。在线和离线实例启动时，可从同一分布式存储（如 S3、PVC）加载模型。
+
+    - 使用相同的推理引擎和运行时版本，方便监控、运维和更新。
+
+    - 超额订阅与成本优化
+
+    - 在线服务保障严格 SLA，可超额部署少量离线实例。当在线负载低时，离线实例启动，充分利用空闲 GPU。通过 K8s HPA 和 KEDA 根据离线队列长度自动伸缩，将成本降至最低。
+
+    - 隔离与观测
+
+    - 对不同类型服务打上独立 label，分别监控 P50/P99 延迟、吞吐、排队时间。设定 SLO，对在线服务设置预警阈值，离线服务只需关注成功率和完成时间。
+
+    通过“隔离资源 + 优先级调度 + 混合池”的方案，单一平台可以同时承载高吞吐离线与低延迟在线推理，实现硬件利用率最大化。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/L2bpwgVV1iZoZnkrvgac88LjnCc
+  block_id: YrKPdMYAaobwwsxzbOdc3GQOnDc
+  page_token: L2bpwgVV1iZoZnkrvgac88LjnCc
+  original_title: 如果要同时提供高吞吐离线推理和低延迟在线服务，如何设计统一的推理平台？
+  imported_at: '2026-09-21'

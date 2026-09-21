@@ -1,0 +1,88 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b1ea8cee5133
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 用 DeepSpeed 训练一个模型，命令行如何启动？deepspeed 命令。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 用 DeepSpeed 训练一个模型，命令行如何启动？deepspeed 命令。
+answer:
+  mode: rubric
+  reference_answer: |-
+    使用 DeepSpeed 启动训练非常简单，它封装了 torchrun 的底层逻辑，并添加了配置文件的解析。基本用法：
+
+    ```bash
+    deepspeed --num_gpus=8 train.py --deepspeed ds_config.json
+    ```
+
+    对于多节点训练：
+
+    ```bash
+    # 节点 0 (master)
+    deepspeed --num_gpus=8 --num_nodes=2 --node_rank=0 --master_addr=10.0.0.1 train.py --deepspeed ds_config.json
+
+    # 节点 1
+    deepspeed --num_gpus=8 --num_nodes=2 --node_rank=1 --master_addr=10.0.0.1 train.py --deepspeed ds_config.json
+    ```
+
+    deepspeed 命令会自动启动 torchrun，并解析 ds_config.json 中的各项配置。训练脚本中不再需要使用 torchrun 启动，也不需要在脚本内手动初始化 DDP（DeepSpeed 内部会调用 deepspeed.initialize 完成这些工作）。
+
+    训练脚本的核心适配（与普通 PyTorch 脚本的区别）：
+
+    - 使用 deepspeed.initialize 替代手动构建 model、optimizer 和 dataloader（可选）。
+
+    - 返回的 model_engine 是封装后的模型，可以像普通模型一样调用 model_engine.backward(loss) 和 model_engine.step()。
+
+    - 不需要手动 optimizer.zero_grad()，DeepSpeed 会管理。
+
+    ```python
+    import deepspeed
+
+    # 初始化 DeepSpeed 引擎
+    model_engine, optimizer, _, _ = deepspeed.initialize(
+        args=args,
+        model=model,
+        model_parameters=model.parameters()
+    )
+
+    # 训练循环
+    for batch in dataloader:
+        outputs = model_engine(batch)
+        loss = criterion(outputs, targets)
+        model_engine.backward(loss)   # 自动梯度同步
+        model_engine.step()           # 自动参数更新
+    ```
+
+    如果使用 HuggingFace Trainer，甚至不需要写上述代码，直接在 TrainingArguments 中指定 --deepspeed ds_config.json 即可自动集成。
+
+    以上梳理了大模型训练的常见框架、DDP 的启动机制、核心 API 使用、DeepSpeed 的配置与启动命令。掌握这些工具的原理和细节，是在实际工程中驯服千亿参数模型的基础。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GSO0wLgvGi8yaCktRbBc92Dbnhh
+  block_id: ZYkfdAZ7soVFXGx6GrVc7XRTnIh
+  page_token: GSO0wLgvGi8yaCktRbBc92Dbnhh
+  original_title: 用 DeepSpeed 训练一个模型，命令行如何启动？deepspeed 命令。
+  imported_at: '2026-09-21'

@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d495f3e234b4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何微调模型使其能调用API并处理返回结果？多步工具调用微调。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如何微调模型使其能调用API并处理返回结果？多步工具调用微调。
+answer:
+  mode: rubric
+  reference_answer: |-
+    这属于构建 AI Agent 的核心微调任务。需要教会模型“何时调用”、“如何调用”以及“如何基于返回结果继续行动”。
+
+    微调数据格式（单步与多步工具调用）：
+
+    - 单步工具调用数据示例
+
+    <|im_start|>system
+    你可以使用以下工具：
+    {"name": "get_weather", "description": "查询指定城市的天气", "parameters": {"city": {"type": "string"}}}
+    <|im_end|>
+    <|im_start|>user
+    今天北京天气怎么样？
+    <|im_end|>
+    <|im_start|>assistant
+    <tool_call>{"name": "get_weather", "arguments": {"city": "北京"}}</tool_call>
+    <|im_end|>
+    <|im_start|>tool_response
+    {"temperature": 25, "condition": "晴"}
+    <|im_end|>
+    <|im_start|>assistant
+    北京今天晴天，气温25°C。
+    <|im_end|>
+
+    关键：使用特殊Token（如 <tool_call> 和 </tool_call>）标记工具调用的JSON，并为工具返回结果设立 tool_response 角色。训练时，对 system, user, tool_response 部分进行Loss Masking，只学习 assistant 生成的部分。
+
+    - 多步工具调用（串行依赖）：模型需要根据第一个API的结果，决定调用第二个API。
+
+    ... (上下文) ...
+    <|im_start|>assistant
+    <tool_call>{"name": "search", "arguments": {"query": "2024年诺贝尔物理学奖得主"}}</tool_call>
+    <|im_end|>
+    <|im_start|>tool_response
+    {"results": ["约翰·霍普菲尔德", "杰弗里·辛顿"]}
+    <|im_end|>
+    <|im_start|>assistant
+    <tool_call>{"name": "get_age", "arguments": {"name": "杰弗里·辛顿"}}</tool_call>
+    <|im_end|>
+    ...
+
+    数据构造要点：
+
+    - 覆盖多样的调用模式：并行调用（同时查询多个城市天气）、串行依赖调用、错误处理（API返回错误信息时模型如何修正或请求用户澄清）。
+
+    - 包含“无需调用”的样本：数据中也必须有大量不需要调用工具就能直接回答的指令，训练模型判断“何时不应调用工具”。
+
+    - 使用强模型生成数据：让GPT-4等模拟上述完整对话过程，可快速生成大量高质量、带有多步工具调用的训练数据。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RK7mw2OHeiOHyEkfsfXcDkH1nRh
+  block_id: MJsLdbN33ooTd9xm2nTcFjw3npf
+  page_token: RK7mw2OHeiOHyEkfsfXcDkH1nRh
+  original_title: 如何微调模型使其能调用API并处理返回结果？多步工具调用微调。
+  imported_at: '2026-09-21'

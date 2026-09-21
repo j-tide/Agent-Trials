@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-89024fe1413c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用 PyTorch 的 DistributedSampler 来切分数据？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块六：深度学习基础训练与推理部署
+tags: &1
+- 深度学习面（精选）
+- 模块六：深度学习基础训练与推理部署
+content:
+  prompt: 如何使用 PyTorch 的 DistributedSampler 来切分数据？
+answer:
+  mode: rubric
+  reference_answer: |-
+    torch.utils.data.distributed.DistributedSampler 是分布式训练中让每个进程（GPU）获得互不重叠的数据子集的工具。
+
+    使用方法
+
+    - 在分布式环境初始化后，创建 DistributedSampler 并传入 Dataset，它会自动根据当前进程的 rank 和 world_size 对样本索引进行分片。
+
+    - 将 sampler 传给 DataLoader，同时必须设置 shuffle=False（因为 sampler 本身提供 shuffle 逻辑）。
+
+    - 在每个 epoch 开始前调用 sampler.set_epoch(epoch)，以保证每个 epoch 的打乱顺序不同。
+
+    示例代码
+
+    from torch.utils.data import DataLoader, DistributedSampler
+    import torch.distributed as dist
+
+    dataset = MyDataset()
+    sampler = DistributedSampler(dataset, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=8)
+
+    for epoch in range(num_epochs):
+        sampler.set_epoch(epoch)
+        for batch in dataloader:
+            # training...
+
+    内部机制
+
+    - DistributedSampler 根据 total_size （数据集大小）和 world_size 计算出每个 rank 应分得的样本索引范围，并在此范围内生成随机排列的子集。
+
+    - 当 shuffle=True 时，它使用 epoch 作为随机种子的一部分，确保不同 rank 在相同 epoch 得到协调的不同子集，且不同 epoch 打乱模式不同。
+
+    - 如果数据集大小不能整除 world_size，它会通过重复部分样本补齐（drop_last=False 时）或直接截断。可使用 Padding 或调整 total_size 来使均匀。
+
+    与 DataLoader 的结合：因为 sampler 控制索引，DataLoader 不再需要 shuffle 参数，且自动处理分布式情况。每个进程的 DataLoader 只会迭代属于自己的那部分数据，从而配合 DDP 实现无重叠的数据并行训练。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/G5aLwkRfZiCljDklteBcxFZhnfe
+  block_id: JODQdxwHHogrj1xEnAQcQO2lnqf
+  page_token: G5aLwkRfZiCljDklteBcxFZhnfe
+  original_title: 如何使用 PyTorch 的 DistributedSampler 来切分数据？
+  imported_at: '2026-09-21'

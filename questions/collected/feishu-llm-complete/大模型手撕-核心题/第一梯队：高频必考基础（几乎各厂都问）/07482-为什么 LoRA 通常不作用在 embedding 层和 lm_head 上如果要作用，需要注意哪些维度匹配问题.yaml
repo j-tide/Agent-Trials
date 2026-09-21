@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b6d016cbf914
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么 LoRA 通常不作用在 embedding 层和 lm_head 上？如果要作用，需要注意哪些维度匹配问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 为什么 LoRA 通常不作用在 embedding 层和 lm_head 上？如果要作用，需要注意哪些维度匹配问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    11.1 原因分析
+
+    LoRA 通常仅应用于 Transformer 的线性投影层（如注意力中的 Q、K、V、O 矩阵以及 FFN 中的两个全连接层），而不建议或很少作用于词嵌入层（embedding）和输出投影层（lm_head）。主要理由如下：
+
+    对于 Embedding 层：
+
+    - 参数量与收益比：词嵌入矩阵的参数量为 vocab_size × d_model，对于大型词汇表（如 50k~200k），即使使用低秩分解，r × (vocab + d_model) 也可能非常庞大，远超过原始嵌入矩阵，得不偿失。
+
+    - 语义空间破坏：嵌入层在预训练阶段已经学习到一个紧致的语义空间，直接在其上施加低秩更新可能扭曲词向量，导致模型基础语言能力的退化。通常我们希望保持通用表征不变，仅调整高层交互。
+
+    - 梯度更新效率：嵌入层的输入是离散的 token ID，参与梯度更新的只有极少数被选中的行（每次 batch 中仅涉及少量词汇），稀疏的梯度与密集的低秩矩阵相乘效率低下。
+
+    对于 lm_head：
+
+    - 权重共享：许多模型（如 GPT-2、LLaMA 等）的 lm_head 权重与嵌入层是共享的（或至少共享相同维度）。如果在两者上都加 LoRA，会打破这种对称性，且可能导致不一致。
+
+    - 输出分布剧烈变化：lm_head 直接影响生成概率，微调它容易导致模型输出分布剧烈偏移，产生更多幻觉或退化文本。冻结它而只调整中间层，可以在保留语言模型大部分能力的同时适应新任务。
+
+    - 维度匹配：如果一定要对 lm_head 使用 LoRA，需注意其权重形状通常是 (vocab_size, d_model) 或 (d_model, vocab_size)，而 LoRA 的标准处理要求 in_features 和 out_features 匹配。只需要将 lm_head 视为一个线性层 nn.Linear(d_model, vocab_size)，在其上添加低秩适配器即可，但如前所述，通常不建议。
+
+    11.2 如果必须应用，维度匹配要点
+
+    假设 lm_head 是 nn.Linear(d_model, vocab_size)，其权重形状为 (vocab_size, d_model)。定义 LoRA 时：
+
+    - in_features = d_model, out_features = vocab_size
+
+    - 低秩矩阵 A: (r, d_model)，B: (vocab_size, r)。
+
+    - 此时参数量为 r × (d_model + vocab_size)。例如 LLaMA-7B 中 d_model=4096, vocab_size=32000, r=8 时，额外参数约为 8×(4096+32000)≈289k，而原始 lm_head 参数量约 131M，新增参数占比很小，但考虑到 lm_head 的敏感性和梯度的密集性，微调仍应谨慎。
+
+    11.3 实践建议
+
+    - 通常完全冻结 embedding 和 lm_head，仅对 Transformer 中间层应用 LoRA。
+
+    - 如果任务与词汇强相关（如领域适应需要引入大量新术语），可以考虑只微调嵌入层而不使用 LoRA，或使用稀疏更新策略。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LZxww5JuBif3JAkuCoIcuqRenuf
+  block_id: MhvVdyzoLoCQ8ux8LG5ctOpAnfc
+  page_token: LZxww5JuBif3JAkuCoIcuqRenuf
+  original_title: 为什么 LoRA 通常不作用在 embedding 层和 lm_head 上？如果要作用，需要注意哪些维度匹配问题？
+  imported_at: '2026-09-21'

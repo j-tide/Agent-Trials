@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-43907053d361
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写代码计算两个模型输出之间的KL散度。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 编写代码计算两个模型输出之间的KL散度。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    import torch
+    import torch.nn.functional as F
+
+    def compute_kl_divergence(model1, model2, tokenizer, prompt: str, max_len: int = 50):
+        inputs = tokenizer(prompt, return_tensors='pt').to(model1.device)
+        gen_out = model1.generate(**inputs, max_new_tokens=max_len, do_sample=False,
+                                  output_scores=True, return_dict_in_generate=True)
+        generated_ids = gen_out.sequences[0]
+        input_len = inputs.input_ids.shape[1]
+        logits1 = []
+        logits2 = []
+        with torch.no_grad():
+            past_kv1, past_kv2 = None, None
+            cur_input = inputs.input_ids
+            for step in range(generated_ids.shape[1] - input_len):
+                out1 = model1(cur_input, past_key_values=past_kv1, use_cache=True)
+                out2 = model2(cur_input, past_key_values=past_kv2, use_cache=True)
+                logits1.append(out1.logits[:, -1, :])
+                logits2.append(out2.logits[:, -1, :])
+                past_kv1 = out1.past_key_values
+                past_kv2 = out2.past_key_values
+                # 使用实际生成的token作为下一步输入
+                cur_input = generated_ids[:, input_len + step].unsqueeze(1)
+        logits1 = torch.cat(logits1, dim=0)
+        logits2 = torch.cat(logits2, dim=0)
+        p = F.softmax(logits1, dim=-1)
+        log_q = F.log_softmax(logits2, dim=-1)
+        kl = F.kl_div(log_q, p, reduction='batchmean')  # KL(p || q)
+        return kl.item()
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: KdDwd0TqLoENkDxck8ccfMUtnOf
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: 编写代码计算两个模型输出之间的KL散度。
+  imported_at: '2026-09-21'

@@ -1,0 +1,158 @@
+---
+schema_version: 1
+id: feishu-llm-complete-40fd09333180
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50D 15. LangChain 的 Retriever 有哪些类型？如何实现混合检索？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F50D 15. LangChain 的 Retriever 有哪些类型？如何实现混合检索？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Retriever 是 LangChain 中负责从外部知识库检索相关文档的组件，是 RAG 系统的核心引擎。
+
+    ```text
+    用户问题 → Retriever → 相关文档列表 → 拼入 Prompt → LLM 生成答案
+    ```
+
+    五种常见 Retriever 类型：
+
+    ① VectorStoreRetriever（向量检索）
+
+    原理：将问题和文档都用 Embedding 模型向量化，通过余弦相似度检索 top-K 最相关文档。
+
+    适用场景：语义匹配，擅长找“意思相近”的内容。
+
+    局限：对精确关键词匹配（如专有名词、编号）较弱。
+
+    ```python
+    from langchain_chroma import Chroma
+    retriever = Chroma(embedding_function=embeddings).as_retriever(search_kwargs={"k": 4})
+    ```
+
+    ② BM25Retriever（关键词检索）
+
+    原理：基于 TF-IDF 的稀疏向量检索，擅长精确关键词匹配。
+
+    适用场景：搜索特定术语、ID、人名等。
+
+    局限：不理解语义，同义词搜索不到。
+
+    ```python
+    from langchain_community.retrievers import BM25Retriever
+    retriever = BM25Retriever.from_documents(docs, k=4)
+    ```
+
+    ③ MultiQueryRetriever（多查询检索）
+
+    原理：用 LLM 把用户问题改写成多个不同角度的查询，分别检索后合并结果。
+
+    适用场景：用户问题太口语化或太宽泛，需要从多角度覆盖。
+
+    优势：提升召回率，减少漏检。
+
+    ```python
+    from langchain.retrievers import MultiQueryRetriever
+    retriever = MultiQueryRetriever.from_llm(retriever=base_retriever, llm=llm)
+    ```
+
+    ④ ContextualCompressionRetriever（上下文压缩检索）
+
+    原理：先粗检索一堆文档，再用 LLM 从中提取与问题最相关的片段，过滤掉无关内容。
+
+    适用场景：检索到的文档很长，但只有一小段有用。
+
+    优势：提高信息密度，减少 prompt 噪音。
+
+    ```python
+    from langchain.retrievers import ContextualCompressionRetriever
+    from langchain.retrievers.document_compressors import LLMChainExtractor
+    compressor = LLMChainExtractor.from_llm(llm)
+    retriever = ContextualCompressionRetriever(base_retriever=base, compressor=compressor)
+    ```
+
+    ⑤ EnsembleRetriever（集成检索）—— 实现混合检索的关键
+
+    原理：组合多个不同类型的 Retriever，用 Reciprocal Rank Fusion (RRF) 等算法融合它们的排序结果。
+
+    适用场景：你需要同时利用语义相似度和精确关键词匹配的混合检索。
+
+    实现混合检索（向量 + BM25）的完整代码：
+
+    ```python
+    from langchain_chroma import Chroma
+    from langchain_community.retrievers import BM25Retriever
+    from langchain.retrievers import EnsembleRetriever
+    from langchain_openai import OpenAIEmbeddings
+
+    # 1. 准备文档（示例）
+    docs = [
+        "报告编号 ABC-1234：2025年度销售总结",
+        "苹果公司发布了新款 iPhone，售价 799 美元",
+        "香蕉富含钾元素，有益健康",
+        "如何制作苹果派：食谱和步骤"
+    ]
+
+    # 2. 构建向量检索器（语义匹配）
+    embeddings = OpenAIEmbeddings()
+    vectorstore = Chroma.from_texts(docs, embeddings)
+    vector_retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+
+    # 3. 构建 BM25 检索器（关键词匹配）
+    bm25_retriever = BM25Retriever.from_texts(docs, k=3)
+
+    # 4. 集成检索器：权重向量检索 60%，BM25 40%
+    ensemble_retriever = EnsembleRetriever(
+        retrievers=[vector_retriever, bm25_retriever],
+        weights=[0.6, 0.4]  # 权重分配
+    )
+
+    # 5. 测试
+    results = ensemble_retriever.invoke("苹果产品的价格")
+    for doc in results:
+        print(doc.page_content)
+    ```
+
+    混合检索的权重调优：
+
+    - 如果你的用户查询偏自然语言描述，给向量检索更高权重（0.7～0.8）。
+
+    - 如果涉及大量精确匹配（如文档编号、错误码），给 BM25 更高权重。
+
+    - 可以用离线评估集（query + 人工标注的相关文档）来网格搜索最优权重。
+
+    收束：
+
+    Retriever 是 RAG 系统的“第一公里”，决定了 LLM 能看见什么信息。单一检索方式总有死角，向量检索管语义，BM25 管关键词，多查询管覆盖面，压缩器管密度，集成检索管融合。把这五种能力组合好，你的知识库问答系统才能真正做到“又全又准”。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SuxqwVBLli4q94kJFBAcOLkFnZc
+  block_id: doxcnJGy4yGgPqjVV0QQ2EKQ0qc
+  page_token: SuxqwVBLli4q94kJFBAcOLkFnZc
+  original_title: "\U0001F50D 15. LangChain 的 Retriever 有哪些类型？如何实现混合检索？"
+  imported_at: '2026-09-21'

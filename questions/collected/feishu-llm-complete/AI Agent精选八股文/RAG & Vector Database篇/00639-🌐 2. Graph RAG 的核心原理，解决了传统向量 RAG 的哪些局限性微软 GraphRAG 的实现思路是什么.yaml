@@ -1,0 +1,114 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ac33a358d1db
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F310 2. Graph RAG 的核心原理，解决了传统向量 RAG 的哪些局限性？微软 GraphRAG 的实现思路是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "\U0001F310 2. Graph RAG 的核心原理，解决了传统向量 RAG 的哪些局限性？微软 GraphRAG 的实现思路是什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    传统向量 RAG 的局限性：
+
+    传统 RAG 把文档切成片段，用向量相似度匹配问题与片段。这非常擅长“大海捞针”——从海量文档中找出和问题语义最相关的那个段落。但当问题需要理解整体结构、总结多个实体间的关系、或进行多跳推理时，它就捉襟见肘了。比如你问“张三在项目里做了哪些关键决策？”，向量检索可能只返回包含“张三”和“决策”的碎片，无法把分散在不同文档中的决策点串联成一个时间线或逻辑链。
+
+    Graph RAG 的核心原理：
+
+    Graph RAG 正是为了解决这类“全局性”问题而生。它不把文档看作独立的碎片，而是先利用 LLM 从文档中抽取实体和关系，构建一个知识图谱。然后在回答问题时，不是去匹配原始文本，而是在图谱上进行遍历、搜索或社区发现，找到与问题相关的子图，最后再把这些结构化信息喂给 LLM 生成答案。
+
+    ```text
+    传统向量 RAG： 问题 → 向量相似度 → 若干文档片段 → LLM 总结
+    Graph RAG：    问题 → 图搜索/遍历 → 相关知识子图 → 将子图序列化为文本 → LLM 生成答案
+    ```
+
+    它解决的三大局限：
+
+    - 多跳推理：向量检索无法回答“张三的直属上级的邮箱是什么”，因为它需要先找到张三，再通过“汇报给”关系找到上级，最后取属性。Graph RAG 可以通过关系遍历直接完成。
+
+    - 全局归纳：传统 RAG 难以回答“公司有哪些产品线？”因为相关信息分散在几十个文档里，没有一个片段能完整回答。Graph RAG 却可以通过寻找图中“产品”类型的所有实体，直接归纳出来。
+
+    - 逻辑一致性：对于需要梳理因果关系、时间线的问题，Graph RAG 可以在图上基于边（关系）构建路径，形成一条清晰的叙事链，而不是把一堆相关的句子堆砌给 LLM。
+
+    微软 GraphRAG 的实现思路：
+
+    微软开源的 GraphRAG 走的是“全局知识图谱 + 社区分层总结”的路线。它不针对单个问题进行实时图遍历，而是做了一件更彻底的预处理工作：
+
+    - 实体和关系抽取：对全部源文档，用 LLM 抽取三元组 (主体, 关系, 客体)，构建知识图谱。
+
+    - 社区发现：使用 Leiden 等社区发现算法，将大规模图切分成不同层级的社区（Communities），这些社区代表了某个主题或某群紧密关联的实体。
+
+    - 社区总结：对每一个社区，用 LLM 生成一个社区摘要。这个摘要描述了该社区内主要实体、它们的关系和关键信息。这相当于给图谱的每一部分都生成了“导读”。
+
+    - 回答问题：当用户提问时，GraphRAG 会定位到相关的社区摘要，然后将这些摘要作为上下文，连同原始问题一起送给 LLM 生成答案。这使得 LLM 能够轻易地获得一个主题的全局性概述，从而回答归纳总结类问题。
+
+    示例代码：从文档中抽取三元组并构建简单图
+
+    ```python
+    import openai
+    import networkx as nx
+
+    def extract_triples(text):
+        """用 LLM 从文本中抽取三元组"""
+        prompt = f"""从以下文本中抽取 (主体, 关系, 客体) 三元组。
+        文本: {text}
+        三元组:"""
+        response = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        # 假设返回格式为 "(张三, 担任, 产品经理)\n(张三, 开发, 产品 Alpha)"
+        triples = []
+        for line in response.choices[0].message.content.split("\n"):
+            line = line.strip("() ")
+            if "," in line:
+                s, r, o = line.split(",", 2)
+                triples.append((s.strip(), r.strip(), o.strip()))
+        return triples
+
+    # 构建 NetworkX 有向图
+    G = nx.DiGraph()
+    for text in documents:
+        for s, r, o in extract_triples(text):
+            G.add_edge(s, o, relation=r)
+
+    # 现在可以执行图遍历回答多跳问题
+    def get_decision_timeline(product):
+        """查询某产品的关键决策时间线"""
+        decisions = []
+        for node in G.predecessors(product):
+            if G[node][product].get("relation") == "决策":
+                decisions.append((node, G.nodes[node].get("date")))
+        return sorted(decisions, key=lambda x: x[1])
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcnuZkkTBnpAOym6cj2RUovm7
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "\U0001F310 2. Graph RAG 的核心原理，解决了传统向量 RAG 的哪些局限性？微软 GraphRAG 的实现思路是什么？"
+  imported_at: '2026-09-21'

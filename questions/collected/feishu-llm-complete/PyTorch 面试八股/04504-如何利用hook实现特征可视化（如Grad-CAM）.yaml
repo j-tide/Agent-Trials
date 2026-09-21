@@ -1,0 +1,102 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5d6826e9fee7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何利用hook实现特征可视化（如Grad-CAM）？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何利用hook实现特征可视化（如Grad-CAM）？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Grad-CAM 是一种经典的卷积网络可视化方法，通过结合特征图和梯度信息，生成热力图显示模型关注的区域。其实现需要 forward hook 捕获目标层的输出特征图，以及 backward hook 捕获该层输出特征图的梯度。
+
+    步骤：
+
+    - 选择目标卷积层（通常是最后一个卷积层），注册 forward hook 存储其输出特征图。
+
+    - 注册 backward hook 存储该层输出的梯度。
+
+    - 前向传播后，对目标类别执行反向传播，得到梯度。
+
+    - 计算每个通道的权重：对梯度在空间维度上做全局平均池化。
+
+    - 加权求和特征图，经过ReLU和上采样得到热力图。
+
+    代码示例：
+
+    ```python
+    import torch
+    import torch.nn.functional as F
+
+    class GradCAM:
+        def __init__(self, model, target_layer):
+            self.model = model
+            self.feature_maps = None
+            self.gradients = None
+            # 注册hook
+            target_layer.register_forward_hook(self._save_features)
+            target_layer.register_backward_hook(self._save_gradients)
+
+        def _save_features(self, module, input, output):
+            self.feature_maps = output.detach()
+
+        def _save_gradients(self, module, grad_input, grad_output):
+            self.gradients = grad_output[0].detach()
+
+        def __call__(self, input, target_class):
+            output = self.model(input)
+            self.model.zero_grad()
+            # 对目标类别反向传播
+            one_hot = torch.zeros_like(output)
+            one_hot[:, target_class] = 1
+            output.backward(gradient=one_hot, retain_graph=True)
+
+            # 计算权重：梯度的全局平均池化
+            weights = torch.mean(self.gradients, dim=(2, 3), keepdim=True)
+            cam = torch.sum(weights * self.feature_maps, dim=1, keepdim=True)
+            cam = F.relu(cam)
+            # 上采样到输入尺寸
+            cam = F.interpolate(cam, size=input.shape[2:], mode='bilinear', align_corners=False)
+            return cam
+    ```
+
+    关键点：
+
+    - detach() 用于切断与计算图的联系，避免影响后续训练。
+
+    - backward 时的 gradient 参数允许指定目标类别的梯度信号。
+
+    - 该实现简单有效，广泛用于模型解释性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  block_id: IwLAdzM1Oo4ecjxSnQ5chd03nrg
+  page_token: Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  original_title: 如何利用hook实现特征可视化（如Grad-CAM）？
+  imported_at: '2026-09-21'

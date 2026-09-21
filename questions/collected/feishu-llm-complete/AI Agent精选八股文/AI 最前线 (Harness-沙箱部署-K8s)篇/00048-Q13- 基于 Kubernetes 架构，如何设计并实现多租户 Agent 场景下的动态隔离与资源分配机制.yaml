@@ -1,0 +1,161 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8a1a6adc97e0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 'Q13: 基于 Kubernetes 架构，如何设计并实现多租户 Agent 场景下的动态隔离与资源分配机制？'
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: AI 最前线 (Harness|沙箱部署|K8s)篇
+tags: &1
+- AI Agent精选八股文
+- AI 最前线 (Harness|沙箱部署|K8s)篇
+content:
+  prompt: 'Q13: 基于 Kubernetes 架构，如何设计并实现多租户 Agent 场景下的动态隔离与资源分配机制？'
+answer:
+  mode: rubric
+  reference_answer: |-
+    ⭐⭐⭐（Pod 级别沙箱隔离、动态 Pod 创建、NetworkPolicy 网络隔离、沙箱生命周期管理）
+
+    1️⃣ Common Answer
+
+    使用 Docker 容器为每个 Agent 实例创建独立的运行环境，通过容器隔离技术确保不同 Agent 之间互不干扰。每个 Agent 启动时拉取对应的 Docker 镜像，运行在独立的容器中，容器销毁后自动清理资源。这种方式简单直接，能够满足基本的隔离需求。
+
+    2️⃣ Impressive Answer
+
+    在 Kubernetes 中为每个 Agent 实例动态分配独立沙箱环境，需要从架构设计、隔离策略、生命周期管理和性能优化四个维度系统化设计。
+
+    - 沙箱分配架构
+
+    我们采用 Agent Controller + Sandbox Pod 的架构。当收到 Agent 请求时，Controller 通过 Kubernetes API 动态创建一个短生命周期的 Sandbox Pod。每个 Agent 请求对应一个独立的 Pod，Pod 执行完任务后自动销毁。这种方式既保证了隔离性，又具备弹性伸缩能力。
+
+    - 四层隔离策略
+
+    - 计算隔离：独立 Pod + ResourceQuota 限制 CPU/内存，防止单个 Agent 耗尽集群资源
+
+    - 网络隔离：NetworkPolicy 限制 Pod 间通信，只允许 Agent Pod → Sandbox Pod 单向通信，禁止 Sandbox Pod 访问外部网络
+
+    - 存储隔离：emptyDir 临时卷，Pod 销毁时自动清理，避免数据残留
+
+    - 安全隔离：SecurityContext 多维度加固——runAsNonRoot、readOnlyRootFilesystem、drop ALL capabilities
+
+    NetworkPolicy 配置示例：
+
+    ```text
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: sandbox-network-policy
+      namespace: agent-system
+    spec:
+      podSelector:
+        matchLabels:
+          app: sandbox-agent
+      policyTypes:
+      - Ingress
+      - Egress
+      ingress:
+      - from:
+        - podSelector:
+            matchLabels:
+              app: agent-controller
+        ports:
+        - protocol: TCP
+          port: 8080
+
+      egress: [ ]  # 禁止所有出站流量
+    ```
+
+    - 生命周期管理
+
+    - TTL Controller：自动回收超时的 Sandbox Pod
+
+    - activeDeadlineSeconds：设置硬超时时间，防止任务无限期运行
+
+    - preStop hook：优雅终止，确保正在执行的任务能够完成清理工作
+
+    - 性能优化
+
+    - Pod 预热池：提前创建一批待命 Sandbox Pod，收到请求时直接复用，冷启动延迟从 15 秒降到 2 秒
+
+    - 镜像预拉取：DaemonSet + 预热 Job 在所有节点提前拉取常用镜像
+
+    Java K8s Client 创建 Sandbox Pod 的核心代码：
+
+    ```text
+    public String createSandboxPod(String agentId, String agentType) {
+        Pod pod = new PodBuilder()
+            .withNewMetadata()
+                .withName("sandbox-" + agentId)
+                .withNamespace("agent-system")
+                .addToLabels("app", "sandbox-agent")
+                .addToLabels("agent-type", agentType)
+            .endMetadata()
+            .withNewSpec()
+                .withContainers(new ContainerBuilder()
+                    .withName("sandbox")
+                    .withImage("sandbox-agent:" + agentType)
+                    .withResources(new ResourceRequirementsBuilder()
+                        .withRequests(Map.of(
+                            "cpu", new Quantity("500m"),
+                            "memory", new Quantity("512Mi")))
+                        .withLimits(Map.of(
+                            "cpu", new Quantity("1000m"),
+                            "memory", new Quantity("1Gi")))
+                        .build())
+                    .withSecurityContext(new SecurityContextBuilder()
+                        .withRunAsNonRoot(true)
+                        .withReadOnlyRootFilesystem(true)
+                        .withCapabilities(new CapabilitiesBuilder()
+                            .withDrop("ALL").build())
+                        .build())
+                    .withVolumeMounts(new VolumeMountBuilder()
+                        .withName("workspace")
+                        .withMountPath("/workspace").build())
+                    .build())
+                .withVolumes(new VolumeBuilder()
+                    .withName("workspace")
+                    .withNewEmptyDir().endEmptyDir().build())
+                .withActiveDeadlineSeconds(300L)
+                .withRestartPolicy("Never")
+            .endSpec()
+            .build();
+
+        Pod createdPod = kubernetesClient.pods()
+            .inNamespace("agent-system").create(pod);
+        return createdPod.getMetadata().getUid();
+    }
+    ```
+
+    我的实践：电商导购 Clawd Agent 桌面端项目中，我们实现了完整的沙箱隔离体系。通过 NetworkPolicy 限制网络访问，SecurityContext 提升安全性，Pod 预热池将冷启动时间从 15 秒降到 2 秒。同时实现了沙箱资源监控，当 Sandbox Pod 资源使用异常时自动触发告警并强制终止。这套方案支撑了每天 10 万+ 的 Agent 执行任务，资源利用率提升 40%，安全事件降低 90%。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M0n4w1EKwiQwxKkHxMvc4LZUn7p
+  block_id: doxcnvsNFS9EogontSvOmJPsT7g
+  page_token: M0n4w1EKwiQwxKkHxMvc4LZUn7p
+  original_title: 'Q13: 基于 Kubernetes 架构，如何设计并实现多租户 Agent 场景下的动态隔离与资源分配机制？'
+  imported_at: '2026-09-21'

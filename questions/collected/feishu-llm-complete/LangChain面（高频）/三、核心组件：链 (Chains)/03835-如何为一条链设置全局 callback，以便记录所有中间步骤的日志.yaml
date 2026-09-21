@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2e5e500a68c6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何为一条链设置全局 callback，以便记录所有中间步骤的日志？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: 如何为一条链设置全局 callback，以便记录所有中间步骤的日志？
+answer:
+  mode: rubric
+  reference_answer: |-
+    可以通过在链调用时通过config参数注入回调实例来实现全局监控。这个回调会作用于链内部的所有子组件（LLM、工具、其他链）。
+
+    ```python
+    from langchain_core.callbacks import BaseCallbackHandler
+
+    class GlobalLoggerCallback(BaseCallbackHandler):
+        def on_chain_start(self, serialized, inputs, *, run_id, parent_run_id=None, **kwargs):
+            chain_name = serialized.get("name", "unnamed")
+            print(f"[Chain Start] {chain_name} | Inputs: {inputs}")
+
+        def on_chain_end(self, outputs, *, run_id, parent_run_id=None, **kwargs):
+            print(f"[Chain End] run_id={run_id} | Outputs: {outputs}")
+
+        def on_llm_start(self, serialized, prompts, *, run_id, parent_run_id=None, **kwargs):
+            print(f"[LLM Start] prompts={prompts}")
+
+        def on_llm_end(self, response, *, run_id, parent_run_id=None, **kwargs):
+            print(f"[LLM End] response={response}")
+
+    logger = GlobalLoggerCallback()
+
+    # 调用时注入，影响整条链
+    chain.invoke(input_data, config={"callbacks": [logger]})
+    ```
+
+    技巧：
+
+    - 可以将多个回调打包成一个列表传入，例如一个用于日志，一个用于监控。
+
+    - 在全局设置默认回调也可以，但不推荐，容易造成回调泄漏。更好的做法是在应用层统一管理回调的注入。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ReT9wTqbnirxZnkOZZGcyGyynKc
+  block_id: CuB0dlrZfobYGMxcr9dcOKDhnkg
+  page_token: ReT9wTqbnirxZnkOZZGcyGyynKc
+  original_title: 如何为一条链设置全局 callback，以便记录所有中间步骤的日志？
+  imported_at: '2026-09-21'

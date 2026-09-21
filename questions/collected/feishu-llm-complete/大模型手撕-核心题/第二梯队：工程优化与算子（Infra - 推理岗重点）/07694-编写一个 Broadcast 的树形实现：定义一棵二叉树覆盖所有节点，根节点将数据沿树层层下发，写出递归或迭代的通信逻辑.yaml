@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0b89e21bb763
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写一个 Broadcast 的树形实现：定义一棵二叉树覆盖所有节点，根节点将数据沿树层层下发，写出递归或迭代的通信逻辑。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 编写一个 Broadcast 的树形实现：定义一棵二叉树覆盖所有节点，根节点将数据沿树层层下发，写出递归或迭代的通信逻辑。
+answer:
+  mode: rubric
+  reference_answer: |-
+    4.1 二叉树广播原理
+
+    将节点组织成一棵完全二叉树，根节点持有要广播的数据。根将数据发送给它的两个子节点；每个子节点收到后再发送给自己的子节点，如此递归。这样广播可以在 O(log⁡N) 步内完成，比线性广播高效。
+
+    4.2 迭代实现（基于父子关系）
+
+    假设节点编号为 0 到 N-1，在二叉树中，节点 i 的左子节点为 2i+1，右子节点为 2i+2，父节点为 (i-1)//2。广播由根节点0发起。
+
+    ```python
+    def tree_broadcast(data, num_nodes):
+        """
+        data: 要广播的数据（根节点持有）
+        num_nodes: 节点总数
+        模拟返回所有节点最终接收到的数据列表
+        """
+        received = [None] * num_nodes
+        received[0] = data  # 根已有数据
+        # 按照层级顺序，每个节点向子节点发送
+        for i in range(num_nodes):
+            left = 2 * i + 1
+            right = 2 * i + 2
+            if left < num_nodes:
+                received[left] = received[i]  # 模拟发送
+            if right < num_nodes:
+                received[right] = received[i]
+        return received
+    ```
+
+    若需要更真实的通信模拟，可以使用递归函数，每个节点在收到数据后调用 send 函数：
+
+    ```python
+    def broadcast(node, data, children):
+        node.receive(data)
+        for child in children:
+            send(data, child)
+            broadcast(child, data, children_of_child)
+    ```
+
+    4.3 通信复杂度
+
+    树形广播的通信步数为 ⌈log2N⌉，数据传输总量为 O(N)。优势在于延迟低，适合大规模集群。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: KC2Ld5GKkoh25tx1AxYc9jijned
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 编写一个 Broadcast 的树形实现：定义一棵二叉树覆盖所有节点，根节点将数据沿树层层下发，写出递归或迭代的通信逻辑。
+  imported_at: '2026-09-21'

@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-212129e01dbd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么 MLM 和 AR 预训练不能同时进行？有没有尝试结合的方法？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 二：模型架构与预训练范式
+tags: &1
+- Transfomer精选面试
+- 二：模型架构与预训练范式
+content:
+  prompt: 为什么 MLM 和 AR 预训练不能同时进行？有没有尝试结合的方法？
+answer:
+  mode: rubric
+  reference_answer: |-
+    MLM（自编码）和 AR（自回归）在目标函数本质上存在冲突：
+
+    - MLM 着眼于双向上下文，目的是重建被破坏的输入，学习全局依赖，适用于理解任务。
+
+    - AR 着眼于单向上下文，学习从左到右的生成概率，适用于生成任务。
+
+    如果简单地联合训练，双向上下文的存在会泄露未来信息，违背自回归的因果约束，导致生成任务无法正常优化（因为 AR 损失要求看不到未来 token）。因此二者不能直接同时进行。
+
+    结合的方法：
+
+    - XLNet 的排列语言模型（Permutation Language Model）
+    通过对输入进行随机排列，在自回归框架下实现某种“双向”学习：在预测某个 token 时，其上下文来自排列中前面的 token（可能是原始序列中该位置之后的部分）。这样既保持了自回归的因果性，又利用了双向信息。但本质上它仍是自回归的一种变体。
+
+    - UniLM（Unified Language Model）
+    使用不同的自注意力掩码矩阵在同一模型中同时实现 MLM（双向）和 AR（单向）训练。在预训练时，一部分 batch 使用双向掩码做 MLM，另一部分使用因果掩码做自回归生成。通过共享权重，模型同时获得双向理解和单向生成能力。UniLM 在自然语言理解和生成任务上都取得了良好效果。
+
+    - GLM（General Language Model）
+    改进自回归空白填充，将文本中挖掉的片段（span）自回归生成，未掩码部分保持双向上下文，实现了理解和生成的统一。这种方式巧妙地在空白填充任务中结合了双向编码和自回归解码。
+
+    - 多任务交替训练
+    简单地将 MLM 和 AR 作为两个预训练任务交替训练，或在一个 batch 内混合，也可使模型兼具两种能力，但需要仔细平衡损失和训练动态，避免能力竞争导致的下滑。
+
+    总之，MLM 和 AR 的结合可以产生更通用的预训练模型，但需要精心设计训练范式和掩码策略来解决双向因果冲突。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IvhswLbEUiXCsXkJOiNcgAn0n1x
+  block_id: XrQ8dPrR6oyEkbxNcAIctt2WnNg
+  page_token: IvhswLbEUiXCsXkJOiNcgAn0n1x
+  original_title: 为什么 MLM 和 AR 预训练不能同时进行？有没有尝试结合的方法？
+  imported_at: '2026-09-21'

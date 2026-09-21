@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d8afc5785909
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: UniLM 如何做到用一个模型既做理解又做生成？它的注意力掩码是如何设计的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 二：模型架构与预训练范式
+tags: &1
+- Transfomer精选面试
+- 二：模型架构与预训练范式
+content:
+  prompt: UniLM 如何做到用一个模型既做理解又做生成？它的注意力掩码是如何设计的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    UniLM（Unified Language Model）的核心思想是：通过灵活配置注意力掩码，在同一个 Transformer 架构中同时实现双向、单向和 Seq2Seq 的注意力模式，从而让一个预训练模型既能做自然语言理解，又能做自然语言生成。
+
+    UniLM 使用一个共享的 Transformer 网络（通常是多层 Transformer 块），在预训练期间，根据不同类型的任务，给自注意力层应用不同的掩码矩阵。主要有三种掩码：
+
+    - 双向掩码（Bidirectional LM）：
+
+    应用于文本理解任务。此时所有 token 都可以互相看到（全0掩码），与 BERT 的 Encoder 完全相同。模型学习双向上下文表示，适合 MLM 等理解任务。输入是一个文本段落，部分 token 被掩码，模型在双向上下文中预测它们。
+
+    - 单向掩码（Left-to-Right LM）：
+
+    应用于文本生成任务。使用标准的因果掩码（上三角为 -∞），每个 token 只能看见它左边的 token。输入一个文本序列，模型自回归地预测每个位置的 token。这类似于 GPT 的预训练方式。
+
+    - Seq2Seq 掩码：
+
+    应用于序列到序列任务。输入被分为两部分：源序列（S1）和目标序列（S2）。在注意力掩码中，S1 内部使用双向注意力（源序列 token 可以互相看到），S2 内部使用因果注意力（只能看到 S2 的前文），同时 S2 中的所有 token 都可以看到 S1 的全部 token（但不能反过来）。这完美模拟了 Encoder-Decoder 架构的注意力模式：源端双向编码，目标端自回归生成并关注源端。UniLM 用这种掩码实现翻译、摘要、问答等任务。
+
+    实现方式：
+
+    UniLM 的模型参数完全共享，只是对于不同 batch 或不同样本，在自注意力计算时动态选择对应的掩码矩阵。模型通过这种多任务混合训练，迫使同一组参数学会根据掩码切换行为模式。最终，一个 UniLM 既可以像 BERT 一样被用于理解任务（使用双向掩码微调），也可以像 GPT 一样被用于生成任务（使用单向掩码微调），还可以直接处理 Seq2Seq 问题。
+
+    优点：参数利用率极高，理解和生成能力共享同一个表示空间，可以互相促进。缺点：训练调度复杂，不同掩码模式的混合比例需要精心设计；在极大规模下，双向和单向模式的梯度差异可能对共享参数造成冲突。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C2UwwXTHii7yZ1kf0spcZbdlnbe
+  block_id: ZjG8dj5VHoVFMdx5kqoco9s5nGc
+  page_token: C2UwwXTHii7yZ1kf0spcZbdlnbe
+  original_title: UniLM 如何做到用一个模型既做理解又做生成？它的注意力掩码是如何设计的？
+  imported_at: '2026-09-21'

@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2fee559e2649
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 如何通过回调统计每次 LLM 调用的 token 消耗和延迟？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F4CA 如何通过回调统计每次 LLM 调用的 token 消耗和延迟？"
+answer:
+  mode: rubric
+  reference_answer: "上面 LLMFileLogger 已经实现了基础功能。如果你需要一个专门的内存统计器用于实时监控，可以这样写：\n\nfrom
+    collections import defaultdict\nimport time\nfrom langchain.callbacks import BaseCallbackHandler\n\nclass
+    TokenMetricsCollector(BaseCallbackHandler):\n    \"\"\"统计 LLM 调用的 Token 消耗和延迟，并提供查询接口\"\"\"\n
+    \   \n    def __init__(self):\n        self.metrics = defaultdict(list)\n        self._start_times
+    = {}\n\n    def on_llm_start(self, serialized, prompts, **kwargs):\n        run_id
+    = str(kwargs.get(\"run_id\"))\n        self._start_times[run_id] = time.time()\n\n
+    \   def on_llm_end(self, response, **kwargs):\n        run_id = str(kwargs.get(\"run_id\"))\n
+    \       start = self._start_times.pop(run_id, None)\n        if start:\n            self.metrics[\"latency\"].append(time.time()
+    - start)\n        \n        token_usage = response.llm_output.get(\"token_usage\",
+    {}) if response.llm_output else {}\n        self.metrics[\"prompt_tokens\"].append(token_usage.get(\"prompt_tokens\",
+    0))\n        self.metrics[\"completion_tokens\"].append(token_usage.get(\"completion_tokens\",
+    0))\n    \n    def get_summary(self):\n        \"\"\"返回汇总统计\"\"\"\n        latencies
+    = self.metrics[\"latency\"]\n        return {\n            \"total_calls\": len(latencies),\n
+    \           \"avg_latency\": sum(latencies)/len(latencies) if latencies else 0,\n
+    \           \"p99_latency\": sorted(latencies)[int(len(latencies)*0.99)] if len(latencies)
+    > 100 else None,\n            \"total_prompt_tokens\": sum(self.metrics[\"prompt_tokens\"]),\n
+    \           \"total_completion_tokens\": sum(self.metrics[\"completion_tokens\"]),\n
+    \           \"total_cost_estimate\": self._estimate_cost()\n        }\n    \n
+    \   def _estimate_cost(self):\n        # 按 OpenAI 定价估算，实际请根据模型调整\n        prompt_cost
+    = sum(self.metrics[\"prompt_tokens\"]) * 0.03 / 1000\n        completion_cost
+    = sum(self.metrics[\"completion_tokens\"]) * 0.06 / 1000\n        return prompt_cost
+    + completion_cost\n\n\U0001F4A1 注意事项：\n\n- 对于异步 LLM 调用，on_llm_start 和 on_llm_end
+    可能不在同一个线程，run_id 是关键。必须使用 kwargs.get(\"run_id\") 来关联。\n\n- 部分 LLM 实现（如 Anthropic）的
+    Token 统计可能不在 llm_output 中，而在 generations 的 generation_info 里，需要做兼容处理。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  block_id: YCyPdwoTSoIMnPxkvNoc9vmcnMg
+  page_token: LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  original_title: "\U0001F4CA 如何通过回调统计每次 LLM 调用的 token 消耗和延迟？"
+  imported_at: '2026-09-21'

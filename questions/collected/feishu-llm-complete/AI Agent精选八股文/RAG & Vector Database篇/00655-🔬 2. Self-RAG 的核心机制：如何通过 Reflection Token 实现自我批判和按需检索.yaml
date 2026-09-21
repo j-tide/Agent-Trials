@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-569eedfc8c95
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F52C 2. Self-RAG 的核心机制：如何通过 Reflection Token 实现自我批判和按需检索？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "\U0001F52C 2. Self-RAG 的核心机制：如何通过 Reflection Token 实现自我批判和按需检索？"
+answer:
+  mode: rubric
+  reference_answer: "Self-RAG 的核心创新在于在模型的词表中引入了一套特殊的“反思令牌”，并让模型在生成过程中使用这些令牌来规划、监控和评估自己的行为。这相当于给模型安装了一个“元认知系统”。\n\n常用的
+    Reflection Token 类型：\n\n[嵌入表格未展开]\n\n工作流程可以拆解为四个步骤：\n\n```text\n步骤一：按需检索 (Retrieve
+    on Demand)\n  模型首先生成 <RETRIEVE> 或 <NO_RETRIEVE>。\n  如果判定需要检索，模型会继续生成一个或多个检索查询。\n\n步骤二：并行检索并批判\n
+    \ 对检索返回的每个片段，模型输出 <ISREL>（相关）或 <IRREL>（不相关）。\n  对相关片段，进一步输出 <ISSUP>（支持答案）或 <NOTSUP>。\n\n步骤三：选择性生成\n
+    \ 模型基于被判定为相关且有用的片段，生成答案。\n  生成过程中，可以随时输出 <FULLY>（完全忠实）、<PARTIALLY>（部分忠实）或 <NO>（不忠实）来监控自己。\n\n步骤四：自我修正与最终输出\n
+    \ 如果模型在某一步发现自己不忠实或不正确，它可以回溯、重新检索或重新生成，直到输出 <FULLY> 满意为止。\n```\n\n代码示例：模拟 Self-RAG
+    的推理循环\n\n```python\ndef self_rag_inference(question, llm, retriever):\n    \"\"\"\n
+    \   模拟 Self-RAG 的推理过程。实际 Self-RAG 模型的生成是端到端的，\n    这里为了演示逻辑，拆解为步骤。\n    \"\"\"\n
+    \   # 步骤一：生成决策 token\n    decision_prompt = f\"问题: {question}\\n请判断是否需要检索外部信息。输出
+    <RETRIEVE> 或 <NO_RETRIEVE>\"\n    decision = llm(decision_prompt)\n\n    if \"<NO_RETRIEVE>\"
+    in decision:\n        answer_prompt = f\"直接回答以下问题: {question}\"\n        return
+    llm(answer_prompt)\n\n    # 步骤二：生成检索查询\n    query_prompt = f\"问题: {question}\\n请生成一个检索查询词：\"\n
+    \   search_query = llm(query_prompt)\n    docs = retriever(search_query, top_k=5)\n\n
+    \   # 步骤三：对每个文档片段进行批判\n    relevant_docs = []\n    for i, doc in enumerate(docs):\n
+    \       critique_prompt = f\"问题: {question}\\n文档片段: {doc}\\n判断该片段是否与问题相关，输出 <ISREL>
+    或 <IRREL>\"\n        judgement = llm(critique_prompt)\n        if \"<ISREL>\"
+    in judgement:\n            relevant_docs.append(doc)\n\n    if not relevant_docs:\n
+    \       return \"抱歉，我未找到相关信息。\"\n\n    # 步骤四：基于相关文档生成答案，并自我批判\n    context = \"\\n\".join(relevant_docs)\n
+    \   generate_prompt = f\"\"\"参考资料：\n{context}\n\n问题：{question}\n\n请基于参考资料回答问题。回答完后，用
+    <FULLY>、<PARTIALLY> 或 <NO> 评估你的答案是否忠实于参考资料。\"\"\"\n    final_output = llm(generate_prompt)\n\n
+    \   # 如果模型自评为不忠实，可以触发重试或降级\n    if \"<NO>\" in final_output:\n        # 简化处理：重新生成一次\n
+    \       final_output = llm(f\"请更仔细地基于以下资料回答：\\n{context}\\n问题：{question}\")\n
+    \   \n    # 移除 token 返回给用户\n    return final_output.replace(\"<FULLY>\", \"\").replace(\"<PARTIALLY>\",
+    \"\").replace(\"<NO>\", \"\")\n```\n\n核心价值：\n\n这套机制让模型从“无脑复读机”变成了“谨慎的研究员”——它会先问自己“我到底需不需要查资料？”，拿到资料后会逐一审视“这段有用吗？”，写完答案后还会自检“我说的这些，资料里都能找到吗？”。这正是从
+    RAG 到 Self-RAG 的质变。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcnjkisJvlNOUGHHjbyLVN1DC
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "\U0001F52C 2. Self-RAG 的核心机制：如何通过 Reflection Token 实现自我批判和按需检索？"
+  imported_at: '2026-09-21'

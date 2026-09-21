@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0063b0a322e7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 SwiGLU 的门控机制是如何实现的？与标准 FFN 相比，参数量有何变化？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 基础理论与核心组件
+tags: &1
+- Transfomer精选面试
+- 基础理论与核心组件
+content:
+  prompt: 使用 SwiGLU 的门控机制是如何实现的？与标准 FFN 相比，参数量有何变化？
+answer:
+  mode: rubric
+  reference_answer: |-
+    实现方式：
+    标准 FFN 有两组权重：W1（升维）和 W2（降维），中间加非线性。
+    SwiGLU 需要三个权重矩阵，因为门控需要额外的线性变换：
+
+    - W_gate：将输入映射到 d_ff 维，产生门控信号。
+
+    - W_value：将输入映射到 d_ff 维，产生待门控的值。
+
+    - W_out：将门控后的结果（维度仍为 d_ff）映射回 d_model。
+
+    公式可写为：
+
+    ```text
+    gate = SiLU(X W_gate)
+    values = X W_value
+    output = (gate ⊙ values) W_out
+    ```
+
+    实际中常把 W_gate 和 W_value 合并为一个更大的矩阵，然后分成两半，以一次矩阵乘法完成。
+
+    参数量变化：
+    标准 FFN 参数量：d_model × d_ff + d_ff × d_model = 2 · d_model · d_ff。
+    SwiGLU 有三个权重矩阵，但为了保持整体参数量不变，通常会将中间维度 d_ff 设为原来的 2/3 左右（详细计算：原 FFN 的参数总量约为 2·d_model·d_ff。SwiGLU 的参数量为 2·d_model·d_ff_swiglu + d_ff_swiglu·d_model（因为 gate 和 value 各需要 d_model × d_ff_swiglu，输出投影 d_ff_swiglu × d_model）。若要保持参数量一致，需 3·d_ff_swiglu = 2·d_ff_old，即 d_ff_swiglu ≈ (2/3) d_ff_old。这样在同等参数预算下，SwiGLU 通过门控增强了表达能力，实验表明这种参数重新分配优于直接增大标准 FFN 的宽度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XLeKwLdoyiv7xUk0ntpcn8BYnsg
+  block_id: KSK3dMtsaoOi81x1wuuck5iBnvf
+  page_token: XLeKwLdoyiv7xUk0ntpcn8BYnsg
+  original_title: 使用 SwiGLU 的门控机制是如何实现的？与标准 FFN 相比，参数量有何变化？
+  imported_at: '2026-09-21'

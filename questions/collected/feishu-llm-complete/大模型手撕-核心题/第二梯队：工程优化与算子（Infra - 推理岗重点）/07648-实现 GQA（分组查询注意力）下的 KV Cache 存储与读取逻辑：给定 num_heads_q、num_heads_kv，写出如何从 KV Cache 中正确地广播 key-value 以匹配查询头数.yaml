@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-34ba5cb1cf16
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 GQA（分组查询注意力）下的 KV Cache 存储与读取逻辑：给定 num_heads_q、num_heads_kv，写出如何从 KV Cache
+  中正确地广播 key/value 以匹配查询头数。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现 GQA（分组查询注意力）下的 KV Cache 存储与读取逻辑：给定 num_heads_q、num_heads_kv，写出如何从 KV
+    Cache 中正确地广播 key/value 以匹配查询头数。
+answer:
+  mode: rubric
+  reference_answer: |-
+    7.1 GQA 下的缓存存储
+
+    在 GQA 中，Key 和 Value 只计算 num_kv_heads 个头，而 Query 计算 num_q_heads 个头。缓存只需存储 num_kv_heads 个头的 K 和 V，形状为 [num_kv_heads, seq_len, head_dim]。
+
+    7.2 广播读取逻辑
+
+    ```python
+    当需要将缓存的 K/V 用于注意力计算时，由于 Q 头数量更多，我们需要将每个 KV 头重复 num_groups = num_q_heads // num_kv_heads 次，使其形状变为 [num_q_heads, seq_len, head_dim]。这可以通过 repeat_interleave 实现。
+    def broadcast_kv_for_gqa(k_cache, v_cache, num_q_heads, num_kv_heads):
+        """
+        k_cache: [num_kv_heads, L, head_dim]
+        v_cache: [num_kv_heads, L, head_dim]
+        返回: [num_q_heads, L, head_dim] 的 K 和 V
+        """
+        assert num_q_heads % num_kv_heads == 0
+        groups = num_q_heads // num_kv_heads
+        # 在头维度上重复
+        k_broadcast = k_cache.repeat_interleave(groups, dim=0)
+        v_broadcast = v_cache.repeat_interleave(groups, dim=0)
+        return k_broadcast, v_broadcast
+    ```
+
+    7.3 与缓存容器的集成
+
+    在 VariableLengthKVCache 中，我们按 num_kv_heads 存储。当执行注意力计算时，取出缓存后调用 broadcast_kv_for_gqa 即可。注意广播只是创建一个视图，不会复制数据，因此内存开销可以忽略。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IhgfwCPtoif3TWkyezuc4sW9nbg
+  block_id: A7EMdiTFPoScSxxnIVVcZul7nJr
+  page_token: IhgfwCPtoif3TWkyezuc4sW9nbg
+  original_title: 实现 GQA（分组查询注意力）下的 KV Cache 存储与读取逻辑：给定 num_heads_q、num_heads_kv，写出如何从
+    KV Cache 中正确地广播 key/value 以匹配查询头数。
+  imported_at: '2026-09-21'

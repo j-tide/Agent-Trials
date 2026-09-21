@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-02bad3a84a97
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001FA7A 2. 如何用 LangSmith 定位 Agent 问题，并做 Prompt 版本优化和成本分析？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001FA7A 2. 如何用 LangSmith 定位 Agent 问题，并做 Prompt 版本优化和成本分析？"
+answer:
+  mode: rubric
+  reference_answer: "这道题面试官在考察你是不是真的用过 LangSmith 做工程优化，而不是只会点开 UI 看错误。我们分三块来讲。\n\n###
+    ▎\U0001F4CD 问题定位：像法医一样解剖 Agent 的每一步\n\nAgent 常见的问题：调错工具、循环死锁、幻觉答案、输出格式异常。用 LangSmith
+    定位的常规路径如下：\n\n- 过滤出问题会话\n如果线上有用户反馈，直接根据 run_id 或自定义的 metadata.user_id 搜索 Trace。没有反馈也没关系，可以通过
+    LangSmith 的过滤器，找出所有包含 Error 状态或 feedback.score = 0 的 Run。\n\n- 展开 Trace 树，逐节点排查\n打开一个异常
+    Trace，从左边的树形结构开始：\n\n- 根节点看总延迟和总 token 是否异常。\n\n- 进入第一个 LLM Run，检查 输入 prompt 是否包含了正确的上下文。有时
+    RAG 检索回来的文档根本不相关，模型自然答非所问。\n\n- 查看 输出，如果模型的输出本该是函数调用，却给了自然语言，说明 prompt 约束不够或模型本身不稳定。\n\n-
+    再进入工具 Run，检查传入的参数是否符合预期，工具返回的错误信息是不是被模型误吞了。\n\n- 利用“对比模式”\nLangSmith 允许你选中两次 Run
+    进行左右对比，比如一次成功、一次失败。你可以直观看到，到底是哪个步骤的输入产生了偏差，比如检索结果的排序不同，导致模型没读到关键段落。\n\n实战技巧：我通常会在
+    Agent 的每个关键节点加一个 with langsmith.trace 上下文，手动注入一些调试信息，或者用 run.collect 把中间变量挂到 trace
+    上，这样排查效率更高。\n\n### ▎\U0001F4DD Prompt 版本优化：告别“凭感觉改词”\n\nPrompt 优化如果不做版本管理，基本等于玄学。LangSmith
+    的 Hub 功能就是解决这个的。\n\n工作流：\n\n- 把 prompt 推送到 Hub，每次修改都会自动生成 commit，像 Git 一样。\n\n```python\nfrom
+    langchain import hub\nhub.push(\"my-agent-prompt\", prompt_template)\n```\n\n-
+    跑一批测试用例，关联到不同 prompt 版本。可以使用 LangSmith 的数据集功能，把用户历史问题沉淀成评估集。\n\n- 用 langsmith.evaluation
+    里的评估器，或者自己写一个，对每个 prompt 版本的输出做自动打分（如正确性、相关性、格式规范）。\n\n- 在线下比较不同版本的平均分和个案表现，选出最优版本后再上线。你甚至可以做
+    A/B 测试：让 5% 的线上流量走新版 prompt，在 LangSmith 中对比两组反馈分数。\n\n代码示例：用评估器给 prompt 打分\n\n```python\nfrom
+    langsmith import Client\nfrom langsmith.evaluation import evaluate\n\nclient =
+    Client()\nresults = evaluate(\n    lambda inputs: agent_executor.invoke(inputs),\n
+    \   data=\"my-test-dataset\",   # 预先准备好的数据集\n    evaluators=[correctness_evaluator,
+    conciseness_evaluator],\n    experiment_prefix=\"prompt-v2\",\n)\n```\n\n跑完后，你可以在实验页面上看到新版
+    prompt 在“正确性”上提升了 8%，但“响应速度”下降了 5%，接着你就可以决定是否接受这个 trade-off。\n\n### ▎\U0001F4B0
+    成本分析：把每一分钱都算清楚\n\nLLM 调用是烧钱的，尤其是 Agent 动不动就一次请求调用十几次模型。LangSmith 让成本可视化：\n\n-
+    每个 Run 都记录了精确的 token 用量，你可以用 client.list_runs(project_name=\"prod\") 拉取一段时间内的所有
+    runs，按天聚合，输出报表。\n\n- 你还可以按 模型 分组，看到是 gpt-4o 花得多，还是 claude-3 花得多；按 工具 分组，看到哪个工具链最耗
+    token。\n\n- 如果想实时监控，LangSmith 的 Webhook 或 Python SDK 可以定期拉取数据，当单日花费超过阈值时告警。\n\n示例：拉取昨天所有成功
+    Run 的总花费\n\n```python\nfrom langsmith import Client\nimport datetime\n\nclient
+    = Client()\nruns = client.list_runs(\n    project_name=\"prod-agent\",\n    start_time=datetime.datetime.now()
+    - datetime.timedelta(days=1),\n    error=False,\n)\ntotal_cost = sum(run.total_cost
+    for run in runs if run.total_cost)\nprint(f\"昨日成本: ${total_cost:.2f}\")\n```\n\n这让你在月结账单出来之前就能知道钱花在了哪。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DvQ6wSwdqibPdgkOaG3c8vI7nVb
+  block_id: doxcnwNL4geh0NyBWp2njioThfn
+  page_token: DvQ6wSwdqibPdgkOaG3c8vI7nVb
+  original_title: "\U0001FA7A 2. 如何用 LangSmith 定位 Agent 问题，并做 Prompt 版本优化和成本分析？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5e84c3f752e5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 流式输出场景下，多模态模型如何在生成文字的同时，边解码边释放显存？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 流式输出场景下，多模态模型如何在生成文字的同时，边解码边释放显存？
+answer:
+  mode: rubric
+  reference_answer: |-
+    流式输出时显存峰值通常出现在生成阶段：所有的输入KV缓存（视觉token+文本前缀）加上正在生成的token的KV缓存占用大量显存。如果能及时释放不再需要的KV缓存，可以显著降低峰值，提高并发。
+
+    释放策略：
+
+    - 释放视觉Token的KV缓存
+
+    视觉token只在prefill阶段使用，后续生成时，每个新生成的文本token确实会关注视觉token（通过自注意力）。因此，视觉token的KV缓存在整个生成过程中都需要保留，不能提前释放。这是多模态相比纯文本LLM的一个显存开销增量。
+
+    - 释放中间层激活
+    在逐token生成时，前一层的前向激活只需用于下一层，不需要跨时间步保留。使用Gradient Checkpointing的反向思想，前向时只保留必要的激活用于当前token，每生成一个token后，释放该token在中间层的所有激活。PyTorch的del和torch.cuda.empty_cache()可以手动触发（虽然后者开销大）。
+
+    - 使用PagedAttention管理KV缓存
+
+    vLLM的PagedAttention将KV缓存划分为固定大小的块（page），存储在非连续的显存中。当一个序列结束时（或达到最大长度），其占用的KV缓存块可以被快速回收，分配给新请求。这种细粒度、动态的显存管理本身就减少了碎片和闲置浪费。
+
+    - 及时结束与截断
+
+    当模型输出终止符（EOS）时，立即停止生成并释放该序列的所有资源，不等batch内其他序列。
+
+    - 视觉Token的KV缓存压缩
+
+    如果确认某些视觉token在生成后期不再被关注（如通过分析注意力权重），可以动态地将它们从KV缓存中移除，仅保留被持续关注的token。这需要实时的注意力分析，实际部署中很少使用，更多是研究阶段。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RRQVwfGDQiejs6kBW04ch16ynHe
+  block_id: Wi85dXdBeofcynxllfCce2gQnWd
+  page_token: RRQVwfGDQiejs6kBW04ch16ynHe
+  original_title: 流式输出场景下，多模态模型如何在生成文字的同时，边解码边释放显存？
+  imported_at: '2026-09-21'

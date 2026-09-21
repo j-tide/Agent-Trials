@@ -1,0 +1,97 @@
+---
+schema_version: 1
+id: feishu-llm-complete-772d8fbfcbf4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 模拟多工具选择：给定用户查询字符串和多个工具的 Schema 描述，编写一个基于规则（关键词匹配）的工具选择器，返回最相关的工具名称。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 模拟多工具选择：给定用户查询字符串和多个工具的 Schema 描述，编写一个基于规则（关键词匹配）的工具选择器，返回最相关的工具名称。
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    简单的工具选择可以通过关键词匹配实现：预先为每个工具定义一组触发关键词，当用户查询中包含这些关键词时，选择对应的工具。还可以计算匹配关键词的数量或权重来决定最佳工具。
+
+    实现
+
+    ```python
+    from typing import List, Dict
+
+    class KeywordToolSelector:
+        def __init__(self, tool_keywords: Dict[str, List[str]]):
+            """
+            tool_keywords: 工具名 -> 关键词列表
+            示例: {"search": ["搜索", "查找", "百度"], "weather": ["天气", "气温", "下雨"]}
+            """
+            self.tool_keywords = tool_keywords
+
+        def select(self, query: str) -> str:
+            """
+            根据查询选择最相关的工具。
+            返回工具名，若无匹配则返回 None 或默认工具。
+            """
+            best_tool = None
+            best_score = 0
+            for tool, keywords in self.tool_keywords.items():
+                score = 0
+                for kw in keywords:
+                    if kw in query:
+                        # 可以根据关键词长度或重要性加权
+                        score += 1
+                if score > best_score:
+                    best_score = score
+                    best_tool = tool
+            return best_tool
+
+    # 示例
+    selector = KeywordToolSelector({
+        "search": ["搜索", "百度", "谷歌", "查找", "查询"],
+        "weather": ["天气", "气温", "下雨", "晴天", "温度"],
+        "translate": ["翻译", "英文", "中文", "转换语言"]
+    })
+
+    print(selector.select("帮我搜索一下最新的 AI 新闻"))    # search
+    print(selector.select("今天北京天气怎么样"))           # weather
+    print(selector.select("把这句话翻译成英文"))           # translate
+    print(selector.select("计算 1+1"))                    # None
+    ```
+
+    扩展
+
+    - 可以结合语义相似度（如使用词向量）提升匹配准确性。
+
+    - 多个工具都匹配时，可以返回排序列表供后续流程（如让 LLM 二次确认）使用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  block_id: GU90dP5GcoWF1fxYAyNcVzWQnNh
+  page_token: Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  original_title: 模拟多工具选择：给定用户查询字符串和多个工具的 Schema 描述，编写一个基于规则（关键词匹配）的工具选择器，返回最相关的工具名称。
+  imported_at: '2026-09-21'

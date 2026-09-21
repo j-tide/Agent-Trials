@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f26641441c6a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对自注意力头进行张量并行时，Q、K、V 投影如何切分？输出如何合并？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 对自注意力头进行张量并行时，Q、K、V 投影如何切分？输出如何合并？
+answer:
+  mode: rubric
+  reference_answer: |-
+    自注意力层的张量并行切分通常按注意力头维度进行，这比切分hidden_dim维度更自然，因为多头注意力本身就是按头独立计算然后拼接的。
+
+    切分方法：
+
+    - 将Q、K、V的投影权重矩阵沿列（输出维度）切分为TP份，每份包含num_heads/TP个注意力头。
+
+    - 每张卡独立计算自己负责的那些头的Q、K、V。
+
+    - 执行该部分头的自注意力计算（点积、softmax、加权），得到该部分头的输出。
+
+    - 输出投影矩阵W_O沿行切分，每张卡将本地头的输出投影，然后通过AllReduce求和，合并所有头的输出，得到完整的多头注意力输出。
+
+    优势：这种切分方式下，每张卡的计算和存储与头数成正比。注意力矩阵也被切分（每张卡只存自己那部分头的注意力矩阵），显存进一步降低。通信模式与MLP类似，前向和反向各需一次AllReduce。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: Q3AidI5dKo5XIJx3e7Bczg8ZnQE
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: 对自注意力头进行张量并行时，Q、K、V 投影如何切分？输出如何合并？
+  imported_at: '2026-09-21'

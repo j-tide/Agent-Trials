@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2f9e85889955
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当使用流式输出时，LangChain 是如何把 token 逐个回调给调用方的？底层用了什么机制？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: 当使用流式输出时，LangChain 是如何把 token 逐个回调给调用方的？底层用了什么机制？
+answer:
+  mode: rubric
+  reference_answer: "\U0001F30A 流式输出的核心机制是 Python 的生成器（Generator）和异步生成器（AsyncGenerator）。\n\n\U0001F527
+    底层实现原理：\n\n- 模型层的 _stream 方法：每个 ChatModel 可以实现 _stream（同步）或 _astream（异步）。这个方法返回一个
+    Iterator[ChatGenerationChunk]，每个 Chunk 包含一个 AIMessageChunk（内容为增量文本）。\n\n- LCEL
+    的自动流式传播：当你在 LCEL 链上调用 stream() 时，框架会检查链中每个组件是否支持流式。如果上游是流式的，下游组件（如 StrOutputParser）会逐个处理每个
+    Chunk，而不是等待完整响应。\n\n- 从 SDK 获取流式数据：以 OpenAI 为例，ChatOpenAI._astream 内部调用 client.chat.completions.create(stream=True)，这会返回一个事件流。框架遍历事件流，每次收到
+    choices[0].delta.content 不为空时，就 yield 一个新的 AIMessageChunk。\n\n- 回调（Callbacks）的参与：在流式过程中，回调系统会触发
+    on_llm_new_token 事件，开发者可以在这里实现实时日志、Token 计数、前端推送等。\n\n\U0001F4DC 使用示例：\n\nchain
+    = prompt | model | StrOutputParser()\n\n# 流式调用\nfor chunk in chain.stream({\"question\":
+    \"介绍量子计算\"}):\n    print(chunk, end=\"\", flush=True)  # 逐 token 打印\n\n⚙️ 底层伪代码（简化）：\n\nclass
+    ChatOpenAI(BaseChatModel):\n    async def _astream(self, messages, **kwargs):\n
+    \       response = await client.chat.completions.create(\n            model=self.model_name,
+    messages=messages, stream=True, **kwargs\n        )\n        async for chunk in
+    response:\n            if chunk.choices[0].delta.content:\n                yield
+    ChatGenerationChunk(\n                    message=AIMessageChunk(content=chunk.choices[0].delta.content)\n
+    \               )\n\n\U0001F4CA 回调机制：\n在 _astream 中，每次 yield 之前，LangChain 会触发
+    run_manager.on_llm_new_token(token, chunk=...)。如果你注册了自定义回调，就能拿到每个 token 及其上下文，用于构建打字机效果、审计日志等。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NWPhwBZQ9iuqdXkPhHNcLThjnig
+  block_id: XwqGd1MpUoKUzaxLr9zcUZHznWc
+  page_token: NWPhwBZQ9iuqdXkPhHNcLThjnig
+  original_title: 当使用流式输出时，LangChain 是如何把 token 逐个回调给调用方的？底层用了什么机制？
+  imported_at: '2026-09-21'

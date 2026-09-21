@@ -1,0 +1,94 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dd5267477640
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何将模型从PyTorch导出到CoreML或TFLite？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何将模型从PyTorch导出到CoreML或TFLite？
+answer:
+  mode: rubric
+  reference_answer: |-
+    PyTorch本身不直接支持导出到CoreML或TFLite，通常需要借助ONNX（开放神经网络交换格式）作为中间桥梁。
+
+    流程如下：
+
+    - PyTorch → ONNX
+    首先，将你的PyTorch模型导出为ONNX格式。这是最关键的一步，需要确保模型结构和算子兼容。
+
+    ```python
+    import torch
+    dummy_input = torch.randn(1, 3, 224, 224)
+    torch.onnx.export(model, dummy_input, "model.onnx", opset_version=11)
+    ```
+
+    - ONNX → CoreML
+    使用Apple的coremltools工具包将ONNX模型转换为Core ML模型。
+
+    ```python
+    import coremltools as ct
+
+    onnx_model = ct.converters.convert('model.onnx')
+    # 也可以直接从PyTorch转换，但依赖内部机制，ONNX更稳定
+    coreml_model = ct.convert(model, inputs=[ct.TensorType(shape=dummy_input.shape)])
+
+    coreml_model.save('model.mlmodel')
+    ```
+
+    - ONNX → TFLite
+    使用onnx-tensorflow将ONNX转换为TensorFlow的SavedModel，然后再用TFLite转换器转成.tflite。
+
+    ```bash
+    # 命令行
+    onnx-tf convert -i model.onnx -o ./tf_model
+    ```
+
+    ```python
+    import tensorflow as tf
+
+    # 加载TF模型
+    converter = tf.lite.TFLiteConverter.from_saved_model('./tf_model')
+    tflite_model = converter.convert()
+    with open('model.tflite', 'wb') as f:
+        f.write(tflite_model)
+    ```
+
+    关键注意事项：
+
+    - 算子兼容性：这是最大的挑战。PyTorch中一些高级操作可能无法被ONNX或下游工具支持。遇到不支持的算子时，需要重写模型，用等价的操作替代，或自定义ONNX符号函数。
+
+    - 动态轴处理：导出ONNX时，通过dynamic_axes参数指定可变的batch_size等维度，避免模型固化。
+
+    - 精度与验证：转换后，务必在移动端使用真实数据测试模型精度和性能，确保转换过程没有引入误差。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  block_id: GWF2dvzTDojD2MxPwlqcL4g1n6f
+  page_token: Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  original_title: 如何将模型从PyTorch导出到CoreML或TFLite？
+  imported_at: '2026-09-21'

@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c58fe5601110
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DA 7. Spring AI 的 EmbeddingClient 与 VectorStore 如何配合实现 RAG？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F4DA 7. Spring AI 的 EmbeddingClient 与 VectorStore 如何配合实现 RAG？"
+answer:
+  mode: rubric
+  reference_answer: "RAG（检索增强生成）的流程可以抽象为一条数据流水线：文档 → 切分 → 向量化 → 存入向量库 → 用户提问 → 向量化
+    → 检索相关文档 → 注入 Prompt → LLM 生成答案。\n\n[图片内容未导入]\n\nSpring AI 为每一步都提供了对应组件，让整个链路能在
+    Spring 容器内无缝串联。\n\n第一步：文档读取与切分\n\n```java\n// 读取 PDF、TXT 等文件\nDocumentReader reader
+    = new TextReader(\"classpath:knowledge.txt\");\nList<Document> rawDocs = reader.read();\n\n//
+    按语义或固定长度切分\nTextSplitter splitter = new TokenTextSplitter(800, 100, 5, 1000, true);\nList<Document>
+    chunks = splitter.apply(rawDocs);\n```\n\n第二步：向量化并存入向量库\n\n```java\n@Autowired\nprivate
+    EmbeddingModel embeddingModel;\n\n@Autowired\nprivate VectorStore vectorStore;\n\npublic
+    void ingest() {\n    // 批量向量化\n    List<String> texts = chunks.stream().map(Document::getContent).toList();\n
+    \   List<float[]> embeddings = embeddingModel.embed(texts);\n    \n    // 将向量赋给
+    Document\n    for (int i = 0; i < chunks.size(); i++) {\n        chunks.get(i).setEmbedding(embeddings.get(i));\n
+    \   }\n    \n    // 存入向量库\n    vectorStore.add(chunks);\n}\n```\n\n在实际应用中，Spring
+    AI 的 VectorStore.add() 内部会帮你调 EmbeddingModel，你可以直接存原始文本，框架负责向量化。所以上面的代码可以简化为：\n\n```java\nvectorStore.add(chunks);
+    \ // 框架会自动向量化\n```\n\n第三步：构建 RAG 问答链\n\n最直接的方式是用 Advisor 实现一个检索增强切面，注入到 ChatClient
+    中：\n\n```java\n@Component\npublic class RagAdvisor implements RequestResponseAdvisor
+    {\n\n    private final VectorStore vectorStore;\n\n    public RagAdvisor(VectorStore
+    vectorStore) {\n        this.vectorStore = vectorStore;\n    }\n\n    @Override\n
+    \   public AdvisedRequest adviseRequest(AdvisedRequest request, Map<String, Object>
+    context) {\n        // 1. 从用户输入中提取查询文本\n        String userQuery = request.userText();\n
+    \       \n        // 2. 检索相关文档\n        List<Document> docs = vectorStore.similaritySearch(\n
+    \               SearchRequest.query(userQuery).withTopK(4));\n        \n        //
+    3. 拼接为上下文字符串\n        String contextText = docs.stream()\n                .map(Document::getContent)\n
+    \               .collect(Collectors.joining(\"\\n\\n---\\n\\n\"));\n        \n
+    \       // 4. 增强 System Prompt\n        String augmentedSystem = String.format(\n
+    \               \"基于以下参考资料回答用户问题。如果资料中没有答案，请明确告知。\\n\\n参考资料：\\n%s\",\n                contextText\n
+    \       );\n        \n        // 5. 修改请求\n        return AdvisedRequest.from(request)\n
+    \               .withSystemText(augmentedSystem + \"\\n\\n\" + request.systemText())\n
+    \               .build();\n    }\n\n    @Override\n    public ChatResponse adviseResponse(ChatResponse
+    response, Map<String, Object> context) {\n        return response;\n    }\n\n
+    \   @Override\n    public int getOrder() { return 0; }\n}\n```\n\n配置 ChatClient
+    使用该 Advisor：\n\n```java\n@Bean\npublic ChatClient chatClient(ChatClient.Builder
+    builder, RagAdvisor ragAdvisor) {\n    return builder.defaultAdvisors(ragAdvisor).build();\n}\n```\n\n第四步：调用\n\n```java\n@Autowired\nprivate
+    ChatClient chatClient;\n\npublic String ask(String question) {\n    return chatClient.prompt().user(question).call().content();\n}\n```\n\n这样，所有通过
+    ChatClient 发出的请求都会自动携带检索到的知识，业务代码一行都不需要改。\n\n进阶优化手段：\n\n- 混合检索：除了向量相似度，还可以结合 BM25
+    关键词检索。SearchRequest 支持设置 filterExpression，可以在向量库层面实现元数据过滤。\n\n- 检索结果为空处理：在 RagAdvisor
+    中判断 docs 是否为空，如果为空，可以把 System Prompt 改为“知识库中暂无相关信息，请基于你的常识谨慎回答”。\n\n- 长文档压缩：检索到的文档如果太长，可以先过一个
+    DocumentCompressor（如 LLM 摘要），再注入 Prompt，避免撑爆上下文窗口。\n\n- 多路召回与重排序：用 MultiQueryRetriever
+    对用户 query 做多角度改写，分别检索后合并，再用一个重排序模型取最相关的 Top-K 片段。\n\n整体效果：\nSpring AI 通过 EmbeddingClient
+    和 VectorStore 这两个抽象，把 RAG 的核心——语义搜索和存储——变成了一种可自由切换的底层能力。而 Advisor 则让你在不侵入业务代码的前提下，将检索能力“织入”每一次
+    AI 调用。这种设计让 RAG 从“需要写一堆胶水代码”变成了“引入一个切面就生效”的即插即用模式。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AFyRwmNoZiYw94kQOOhc35Junpd
+  block_id: doxcn3ZSmz9tNiWh5yZ3PsaNtDf
+  page_token: AFyRwmNoZiYw94kQOOhc35Junpd
+  original_title: "\U0001F4DA 7. Spring AI 的 EmbeddingClient 与 VectorStore 如何配合实现
+    RAG？"
+  imported_at: '2026-09-21'

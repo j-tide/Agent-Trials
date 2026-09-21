@@ -1,0 +1,87 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a8cf8c4f0b1f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F5C4️ 自己设计一个 SQL Toolkit，让它能执行查询并解释结果。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "\U0001F5C4️ 自己设计一个 SQL Toolkit，让它能执行查询并解释结果。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    设计一个 SQL Toolkit，需要包含至少三个工具：sql_query（执行查询）、sql_describe_table（获取表结构）、sql_explain（解释查询结果）。它们共享一个数据库连接对象。
+
+    示例实现：
+
+    ```python
+    from langchain.tools import BaseToolkit, tool
+    from sqlalchemy import create_engine, text
+
+    class SQLToolkit(BaseToolkit):
+        def __init__(self, db_url: str):
+            self.engine = create_engine(db_url)
+
+        def get_tools(self):
+            @tool
+            def sql_query(query: str) -> str:
+                """执行 SQL 查询并返回结果。输入有效的 SQL SELECT 语句，返回结果表格。"""
+                with self.engine.connect() as conn:
+                    result = conn.execute(text(query))
+                    rows = result.fetchmany(20)  # 限制返回行数
+                    return str(rows)
+
+            @tool
+            def sql_describe_table(table_name: str) -> str:
+                """获取指定表的列信息。输入表名，返回列名和数据类型。"""
+                with self.engine.connect() as conn:
+                    result = conn.execute(text(f"DESCRIBE {table_name}"))
+                    return str(result.fetchall())
+
+            @tool
+            def sql_explain(query: str) -> str:
+                """解释 SQL 查询的执行计划。输入查询语句，返回执行计划说明。"""
+                with self.engine.connect() as conn:
+                    result = conn.execute(text(f"EXPLAIN {query}"))
+                    return str(result.fetchall())
+
+            return [sql_query, sql_describe_table, sql_explain]
+    ```
+
+    使用：创建 Toolkit 时传入数据库 URL，然后通过 get_tools() 获取工具列表，传给 Agent。
+
+    增强：还可以添加一个工具，利用 LLM 对查询结果进行自然语言解释，例如“查询结果显示了最近一周的销售趋势...”。
+
+    ✅ 注意：安全至关重要。必须限制工具只执行 SELECT 语句，并在工具内部进行 SQL 校验，防止注入和误操作。生产环境务必使用只读数据库账户。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZZIjwAYoMiY0VEk7JiDcIuK3nPb
+  block_id: WymodOKw2oiTWTxpJd4c0MOUnof
+  page_token: ZZIjwAYoMiY0VEk7JiDcIuK3nPb
+  original_title: "\U0001F5C4️ 自己设计一个 SQL Toolkit，让它能执行查询并解释结果。"
+  imported_at: '2026-09-21'

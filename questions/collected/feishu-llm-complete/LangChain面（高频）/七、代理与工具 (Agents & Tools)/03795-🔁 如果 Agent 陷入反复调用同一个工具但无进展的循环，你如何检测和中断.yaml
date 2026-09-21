@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6b0be856e431
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F501 如果 Agent 陷入“反复调用同一个工具但无进展”的循环，你如何检测和中断？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "\U0001F501 如果 Agent 陷入“反复调用同一个工具但无进展”的循环，你如何检测和中断？"
+answer:
+  mode: rubric
+  reference_answer: "Agent 陷入死循环是常见问题，通常表现为：连续多次调用同一个工具且参数几乎不变，或者 Thought 和 Observation
+    来回反复却始终不向最终答案迈进。要解决这个问题，需要检测和中断两步走。\n\n\U0001F6E0 检测方法\n\n- 比较连续步骤的工具调用\n在 Agent
+    执行循环中，维护一个最近 N 步的工具调用历史。如果发现连续 3 步（或自定义阈值）的 (tool_name, tool_input) 完全相同，就可以判定为重复。注意：不能只看工具名，因为
+    Agent 可能用不同参数调用同一工具（这是有意义的）；只有参数也雷同时才算死循环。\n\n- 检查 Observation 的信息增益\n\n如果工具每次都返回相同的结果（例如搜索同一个错误关键词总是返回空），Agent
+    却仍继续尝试，说明它已经卡住。可以通过计算连续 Observation 的相似度（如文本余弦相似度）来检测。\n\n- 自定义回调监控\n利用 LangChain
+    的 on_agent_action 回调，记录每一步的 Action。可以在回调中维护状态，一旦检测到重复或停滞，就触发中断。\n\nfrom langchain.callbacks
+    import BaseCallbackHandler\n\nclass DeadLoopHandler(BaseCallbackHandler):\n    def
+    __init__(self, max_repeat=3):\n        self.last_actions = []\n        self.max_repeat
+    = max_repeat\n\n    def on_agent_action(self, action, **kwargs):\n        self.last_actions.append((action.tool,
+    action.tool_input))\n        if len(self.last_actions) > self.max_repeat:\n            self.last_actions.pop(0)\n
+    \       if len(self.last_actions) == self.max_repeat and len(set(self.last_actions))
+    == 1:\n            raise ValueError(\"Agent陷入死循环！\")\n\n\U0001F6D1 中断方法\n\n- 抛出异常强制退出\n\n在检测到死循环时，抛出一个自定义异常，由外层的异常处理捕获，然后优雅地返回一个兜底回复。\n\n-
+    修改 Agent 的 Prompt\n\n在 Prompt 中加入指令：“如果你连续两次得到相同的结果，请不要重复调用，而是向用户说明你遇到困难”。这能从根源上减少死循环。\n\n-
+    提前终止与 early_stopping_method\n结合 max_iterations 和 early_stopping_method=\"generate\"，即使死循环没有提前被检测，也会在步数上限强制总结回答。\n\n-
+    动态调整温度\n\n在检测到循环时，暂时提高 LLM 的温度（例如从 0 调到 0.5），增加输出随机性，帮助 Agent 跳出局部循环。这可以通过回调动态修改
+    LLM 参数实现。\n\n✅ 实践经验：我通常会在回调里做一个简单的“连续相同 Action 计数器”，到了 3 次就直接抛异常，然后在外面捕获，返回一个友好的错误消息。这样做比依赖
+    max_iterations 更灵敏，因为有时 Agent 会在 5 步里重复 3 次，但还没达到步数上限，却已经浪费了大量时间和 token。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/L6pCw9CICiNRXDkqTmbcNMZ5nzh
+  block_id: FEOkdN3vhonPPNxqx3ccB6h8nzb
+  page_token: L6pCw9CICiNRXDkqTmbcNMZ5nzh
+  original_title: "\U0001F501 如果 Agent 陷入“反复调用同一个工具但无进展”的循环，你如何检测和中断？"
+  imported_at: '2026-09-21'

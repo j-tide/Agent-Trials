@@ -1,0 +1,93 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9d68b6d0c5d9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 12.2 代码示例：集成 ReAct 解析器
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: 12.2 代码示例：集成 ReAct 解析器
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    from langchain.agents import create_react_agent, AgentExecutor
+    from langchain.tools import Tool
+    from langchain_openai import ChatOpenAI
+    from langchain_core.prompts import PromptTemplate
+    from langchain.agents.react.output_parser import ReActSingleInputOutputParser
+
+    # 1. 定义工具
+    def get_weather(city: str) -> str:
+        return f"{city}的天气是晴天，25摄氏度。"
+
+    tools = [Tool(name="weather_api", func=get_weather, description="查询指定城市的天气")]
+
+    # 2. 定义 Prompt 模板（简化版）
+    template = """你是一个助手。你可以使用以下工具：
+
+    {tools}
+
+    使用以下格式回答：
+
+    Question: 用户的问题
+    Thought: 你应该思考要做什么
+    Action: 要采取的行动，应该是 [{tool_names}] 之一
+    Action Input: 行动的输入
+    Observation: 行动的结果
+    ... (这个 Thought/Action/Action Input/Observation 可以重复多次)
+    Thought: 我现在知道最终答案了
+    Final Answer: 原始问题的最终答案
+
+    开始！
+
+    Question: {input}
+    Thought:"""
+
+    prompt = PromptTemplate.from_template(template)
+
+    # 3. 创建模型
+    llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+    # 4. 创建 Agent，它会自动使用内置的 ReAct 解析器
+    agent = create_react_agent(llm=llm, tools=tools, prompt=prompt)
+
+    # 5. 创建 Agent 执行器
+    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+
+    # 6. 运行
+    result = agent_executor.invoke({"input": "北京今天天气怎么样？"})
+    print(result)
+    ```
+
+    在 create_react_agent 内部，它已经将 ReActSingleInputOutputParser 集成进去了。当 LLM 返回文本后，解析器会提取 Action 和 Action Input，AgentExecutor 据此调用工具，再将工具的返回结果（Observation）追加到对话中，继续调用 LLM，直到得到 Final Answer。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/FkhTw9yBsiro60k5CSIcZezcnj6
+  block_id: Vj5wd2o5Zop4swx3Xp3cqIlyn8d
+  page_token: FkhTw9yBsiro60k5CSIcZezcnj6
+  original_title: 12.2 代码示例：集成 ReAct 解析器
+  imported_at: '2026-09-21'

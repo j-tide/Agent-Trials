@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6dc7faa9db58
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⏰ 2. 雪花算法（Snowflake）的时钟回拨问题怎么解决？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Distributed systems and consistency篇
+tags: &1
+- AI Agent精选八股文
+- Distributed systems and consistency篇
+content:
+  prompt: "⏰ 2. 雪花算法（Snowflake）的时钟回拨问题怎么解决？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    雪花算法的命门在于时钟，一旦服务器时间回拨（NTP 调整、虚拟机迁移），就可能产生重复 ID。解决手段从简单粗暴到精巧设计，一共有四种主流打法。
+
+    2.1 直接抛异常（硬拒绝）
+
+    最直白的方案：发现时钟回拨时立刻停止服务，报错退出或拒绝生成 ID。
+
+    - 优点：逻辑干净，不可能产生重复 ID。
+
+    - 缺点：可用性大幅下降。生产环境一个 NTP 回调就可能让服务雪崩。
+
+    - 适用：对可用性要求不极致，但有外部监控能快速恢复的场景。
+
+    2.2 等待时钟追上（阻塞等待）
+
+    如果回拨时长较小（比如 1-2 秒），可以让线程 sleep 一段时间，等时钟追回到上次最大时间再继续生成。
+
+    - 优点：简单，对业务无侵入。
+
+    - 缺点：在等待期间 ID 生成暂停，接口变慢甚至超时。
+
+    - 适用：偶尔发生的小幅度回拨。
+
+    2.3 备用机器 ID（迂回法）
+
+    预先分配一个额外的 workerId，检测到时钟回拨时，切换到备用 workerId 继续生成。因为不同 workerId 生成的 ID 不会冲突（哪怕时间回退，机器位不同保证唯一）。
+
+    - 优点：避免了服务中断，高可用。
+
+    - 缺点：需要提前规划机器位数量，备用 ID 用尽后有风险。
+
+    - 适用：机器资源相对宽裕，回拨偶尔发生的场景。
+
+    2.4 使用历史最大时间（百度 UidGenerator 的“借用未来时间”）
+
+    维护一个本地变量 lastTimestamp，记录上一次生成 ID 时的最大时间戳。如果当前时间 now < lastTimestamp，说明发生了回拨。算法不抛异常，而是 继续使用 lastTimestamp 作为“逻辑时钟” 来生成序列号，直到真实时间追平再切换。
+
+    - 优点：服务零中断，无重复 ID。
+
+    - 缺点：生成的 ID 中时间戳会比实际时间偏大，可能会破环趋势递增的“因果顺序”，但 ID 依然是全局唯一且趋势递增的。
+
+    - 适用：对趋势递增要求不苛刻（允许略微超前），但对可用性要求极高的业务。
+
+    2.5 美团 Leaf 方案：混合模式
+
+    美团 Leaf 既提供了 Leaf-segment（号段模式），也提供了 Leaf-snowflake。Leaf-snowflake 通过 ZooKeeper 持久顺序节点 来注册 workerId，并在发现时钟回拨时 主动上报报警，同时拒绝生成，等待人工或自动策略介入。它结合了高可用架构与安全兜底。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YhRxwgmAsiJbzZktG6wcNPNznyg
+  block_id: doxcn3XgXJfFOD5Dw1gfdyOECiN
+  page_token: YhRxwgmAsiJbzZktG6wcNPNznyg
+  original_title: "⏰ 2. 雪花算法（Snowflake）的时钟回拨问题怎么解决？"
+  imported_at: '2026-09-21'

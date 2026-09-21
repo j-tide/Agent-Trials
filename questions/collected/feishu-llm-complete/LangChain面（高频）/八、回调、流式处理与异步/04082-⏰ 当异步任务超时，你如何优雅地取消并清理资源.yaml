@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-71291b3c5868
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⏰ 当异步任务超时，你如何优雅地取消并清理资源？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "⏰ 当异步任务超时，你如何优雅地取消并清理资源？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    使用 asyncio.wait_for 包裹任务，设置超时时间。超时后抛出 asyncio.TimeoutError，在 except 块中执行清理。
+
+    示例：
+
+    ```python
+    async def safe_invoke(chain, input, timeout=30):
+        try:
+            return await asyncio.wait_for(chain.ainvoke(input), timeout=timeout)
+        except asyncio.TimeoutError:
+            # 记日志，释放资源
+            print(f"任务超时，已取消")
+            # 如果 LLM 客户端支持取消，则取消底层请求
+            # 例如：await llm.client.aclose()
+            return None
+    ```
+
+    对于流式生成：超时可能发生在生成中间，需要捕获 asyncio.CancelledError，并在 finally 中关闭 SSE 连接、释放缓冲。
+
+    清理资源：
+
+    - 在 finally 块中关闭数据库连接、文件句柄。
+
+    - 对于长连接，使用 async with 上下文管理器自动管理生命周期。
+
+    - 对于 Agent，记录中间步骤，避免重复执行。
+
+    实用技巧：创建一个 TaskManager 类，维护所有正在运行的异步任务，在应用关闭时统一取消和清理。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XRv0wx736iBPPjk1VBdcvmwSnmb
+  block_id: OqpldqyaPoVzgSxsDK6c8f1anPd
+  page_token: XRv0wx736iBPPjk1VBdcvmwSnmb
+  original_title: "⏰ 当异步任务超时，你如何优雅地取消并清理资源？"
+  imported_at: '2026-09-21'

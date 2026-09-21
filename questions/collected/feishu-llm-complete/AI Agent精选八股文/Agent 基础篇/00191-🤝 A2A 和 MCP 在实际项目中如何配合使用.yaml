@@ -1,0 +1,99 @@
+---
+schema_version: 1
+id: feishu-llm-complete-401cf8fa95c7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F91D A2A 和 MCP 在实际项目中如何配合使用？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F91D A2A 和 MCP 在实际项目中如何配合使用？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    一句话：MCP 让 Agent 能“用工具”，A2A 让 Agent 能“找帮手”。两者在项目里是典型的互补关系，一个向下连接万物，一个横向连接彼此。
+
+    定位差异：
+
+    [图片内容未导入]
+
+    配合方式：Orchestrator 同时使用 MCP 和 A2A
+
+    在一个复杂的企业项目中，Orchestrator Agent 通常同时持有 MCP Client 和 A2A Client：
+
+    - 用户请求：帮我分析上季度的销售数据，并给每个区域经理发一份个性化总结邮件。
+
+    - Orchestrator 拆解任务：
+
+    - 执行过程：Orchestrator 先 MCP 拿数据，再通过 A2A 把数据和分析要求发给 Worker Agent，Worker Agent 内部可能再用自己的 MCP 工具（比如发送邮件调 SMTP Server）。
+
+    架构图：
+
+    [图片内容未导入]
+
+    关键点：
+
+    - MCP 负责“原子操作”：一次数据库查询、一次文件读取、一次 API 调用。这些是确定性的、无状态的工具。
+
+    - A2A 负责“复合任务”：把一个需要多步推理、有独立上下文的任务交给另一个 Agent。这个 Agent 可能自己也有 MCP 工具。
+
+    - 边界：如果一个操作是简单的、一次性的，用 MCP 就够了。如果一个操作需要另一个 Agent 的“大脑”参与（比如需要理解复杂文档并做出判断），用 A2A。
+
+    代码骨架：Orchestrator 同时用 MCP 和 A2A
+
+    ```python
+    class Orchestrator:
+        def __init__(self, mcp_client, a2a_registry):
+            self.mcp = mcp_client
+            self.a2a = a2a_registry
+
+        async def handle_request(self, user_query):
+            # 1. 用 MCP 取数据
+            sales_data = await self.mcp.call_tool("query_sales", {"quarter": "Q2"})
+
+            # 2. 拆解任务，发现可用 Agent
+            analyst = self.a2a.find_agent(skill="data_analysis")
+            mailer = self.a2a.find_agent(skill="email_campaign")
+
+            # 3. 用 A2A 派发子任务
+            analysis_task = Task(description="分析销售数据", context={"data": sales_data})
+            analysis_result = await self.a2a.send_and_wait(analyst, analysis_task)
+
+            # 4. 继续派发下一个 A2A 任务
+            email_task = Task(description="发送个性化邮件", context={"analysis": analysis_result})
+            final = await self.a2a.send_and_wait(mailer, email_task)
+            return final
+    ```
+
+    配合的本质：MCP 是 Agent 的“手和脚”，A2A 是 Agent 的“同事”。 没有手脚，大脑空转；没有同事，复杂项目一个人扛不住。两者结合，才构成完整的 Agent 企业级架构。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Bc6JwKFZHiApXjkusvBcTTrYnne
+  block_id: doxcn6XtUHLNIXhyJczZ04USiLf
+  page_token: Bc6JwKFZHiApXjkusvBcTTrYnne
+  original_title: "\U0001F91D A2A 和 MCP 在实际项目中如何配合使用？"
+  imported_at: '2026-09-21'

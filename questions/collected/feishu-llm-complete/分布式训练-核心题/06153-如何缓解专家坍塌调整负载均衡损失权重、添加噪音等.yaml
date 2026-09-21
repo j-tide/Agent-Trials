@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-66dd475ad872
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何缓解专家坍塌？调整负载均衡损失权重、添加噪音等。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 如何缓解专家坍塌？调整负载均衡损失权重、添加噪音等。
+answer:
+  mode: rubric
+  reference_answer: |-
+    缓解专家坍塌需要多管齐下，形成“约束+探索+兜底”的组合防线。单一手段往往效果有限，实际中通常同时启用以下策略。
+
+    硬约束：负载均衡损失 (Load Balance Loss)
+    这是最基础的防线，直接惩罚路由分配不均。公式为 L_aux = α * N * Σ(f_i * P_i)，其中 f_i 是实际分到专家 i 的 token 比例，P_i 是平均路由概率。权重的选择直接影响效果：在训练初期，门控不稳定，通常将 α 设得较大（如 0.1），强制所有专家获得相近的训练机会；待各专家初步建立能力后，可以逐步减小 α（如 0.01），给专家特化留出空间。如果监控发现某些专家仍然收不到 token，可以直接临时增大 α。
+
+    探索机制：路由噪声 (Gumbel Softmax / Noisy Top-k)
+
+    标准 Top-k 路由是确定性的——永远选分数最高的专家。这容易导致初期固化。通过在 softmax 前加入 Gumbel 噪声，路由变为随机采样：专家 i 被选中的概率正比于其分数，但有一定随机性。即使某专家当前分数略低，仍有机会被“探索”。噪声强度在训练初期较大，随着训练推进逐步衰减，让模型从探索过渡到利用。Switch Transformer 中使用了这种随机路由策略，有效防止了早期坍塌。
+
+    容量限制：防止热门专家过载
+
+    设置专家容量（capacity = avg_tokens * capacity_factor），当热门专家接收 token 超过容量时，多余的 token 被丢弃（或路由到其他专家）。这从物理上限制了单个专家的负载上限，避免形成绝对垄断。即使门控想给某个专家更多 token，容量限制也会强制部分 token 流向他处。
+
+    学习率隔离与重置
+
+    如果发现热门专家与冷门专家差距过大，可以对热门专家使用较小的学习率（减缓其更新），冷门专家使用较大的学习率（加速追赶）。在极端情况下，直接重新初始化冷门专家的权重或整个门控网络，让训练重新开始。
+
+    监控与自动化
+
+    建立自动化告警系统：当某个专家的移动平均 token 数连续 N 步低于阈值时，自动触发 α 增大、容量因子提升或门控噪声增强，实现“自动驾驶”式的训练调整。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQczwN8cliZ2XSkOI26ckCcPnuf
+  block_id: RZ73dPQLxoyQXNxogrWcnsNxnTh
+  page_token: GQczwN8cliZ2XSkOI26ckCcPnuf
+  original_title: 如何缓解专家坍塌？调整负载均衡损失权重、添加噪音等。
+  imported_at: '2026-09-21'

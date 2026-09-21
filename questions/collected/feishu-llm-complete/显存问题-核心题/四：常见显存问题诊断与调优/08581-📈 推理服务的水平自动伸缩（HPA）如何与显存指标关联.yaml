@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fe17e8596406
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4C8 推理服务的水平自动伸缩（HPA）如何与显存指标关联？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F4C8 推理服务的水平自动伸缩（HPA）如何与显存指标关联？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 通过 Prometheus Adapter 将 GPU 显存指标或框架的排队指标暴露为 K8s Custom
+    Metric，然后创建 HPA 基于这些指标进行弹性伸缩。\n\n\U0001F527 步骤：\n\n- 采集显存指标\n\n- 部署 Prometheus
+    Adapter\n配置 Rules 将指标映射为 HPA 可用的 metric。例如：\n\n```yaml\nrules:\n- seriesQuery:
+    'DCGM_FI_DEV_FB_USED{namespace=\"inference\"}'\n  resources:\n    overrides:\n
+    \     namespace: {resource: \"namespace\"}\n      pod: {resource: \"pod\"}\n  name:\n
+    \   matches: \"DCGM_FI_DEV_FB_USED\"\n    as: \"gpu_memory_used_bytes\"\n```\n\n-
+    创建 HPA\n\n```yaml\napiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nmetadata:\n
+    \ name: llm-hpa\nspec:\n  scaleTargetRef:\n    apiVersion: apps/v1\n    kind:
+    Deployment\n    name: vllm-deploy\n  metrics:\n  - type: Pods\n    pods:\n      metric:\n
+    \       name: gpu_memory_used_bytes\n      target:\n        type: AverageValue\n
+    \       averageValue: 70Gi   # 当平均显存使用超过70G时扩容\n```\n\n- 更合适的指标\n显存使用率高不一定需要扩容（可能都是长请求占用），更好的做法是基于
+    num_requests_waiting 或请求延迟进行伸缩，间接反映显存压力。\n\n✅ 注意：扩容时需确保新 Pod 有足够 GPU 资源，冷启动时间要短（模型预热）。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tr76wMZZwibI1ikxqpEcjhJtnZc
+  block_id: TPu8drpNioCBPjx08uZcirPRn7g
+  page_token: Tr76wMZZwibI1ikxqpEcjhJtnZc
+  original_title: "\U0001F4C8 推理服务的水平自动伸缩（HPA）如何与显存指标关联？"
+  imported_at: '2026-09-21'

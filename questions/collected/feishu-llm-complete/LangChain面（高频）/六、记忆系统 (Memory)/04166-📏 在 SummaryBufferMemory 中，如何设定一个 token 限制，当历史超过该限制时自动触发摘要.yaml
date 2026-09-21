@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ab5a03a414e8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CF 在 SummaryBufferMemory 中，如何设定一个 token 限制，当历史超过该限制时自动触发摘要？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F4CF 在 SummaryBufferMemory 中，如何设定一个 token 限制，当历史超过该限制时自动触发摘要？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 ConversationSummaryBufferMemory 中，这通过 max_token_limit 参数实现。
+
+    设定方法：
+
+    ```python
+    memory = ConversationSummaryBufferMemory(
+        llm=OpenAI(temperature=0),
+        max_token_limit=600,   # 核心参数：历史token数上限
+    )
+    ```
+
+    工作机制详解：
+
+    - 该参数并非绝对保证输入 Prompt 的 token 数恰好等于 600，它是一个触发摘要的阈值。
+
+    - 当 Memory 被加载并转换为 Prompt 字符串时，LangChain 会实时计算当前完整对话历史（包括摘要）的总 token 数。
+
+    - 如果总 token 数超过 max_token_limit，Memory 会采取行动：
+
+    - 因此，你设置的 max_token_limit 就像一个“水位线”，当记忆之水超过这条线，摘要的“水泵”就开始工作，将水（旧对话）抽走并压缩成摘要，维持水位。
+
+    选择限制值：
+
+    - 你需要根据模型的最大上下文长度和你期望的回复长度来决定。
+
+    - 例如，模型上下文窗口是 4096，你希望为生成回复预留 1000 token，其他 Prompt 固定内容占用 500 token，那么可以设定 max_token_limit = 4096 - 1000 - 500 = 2596。这样就能充分利用窗口，又不至于溢出。
+
+    重要提示：token 计数依赖于具体的 LLM tokenizer。LangChain 默认使用 gpt-2 的 tokenizer 进行近似计算，对于其他模型，你可以自定义 tokenizer 参数传入 Memory，以实现更精准的控制。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H3N3wvSCiibLlPk5ZpjcveFHnNb
+  block_id: QBtCdq5BwodLTCxngoMciMLinIb
+  page_token: H3N3wvSCiibLlPk5ZpjcveFHnNb
+  original_title: "\U0001F4CF 在 SummaryBufferMemory 中，如何设定一个 token 限制，当历史超过该限制时自动触发摘要？"
+  imported_at: '2026-09-21'

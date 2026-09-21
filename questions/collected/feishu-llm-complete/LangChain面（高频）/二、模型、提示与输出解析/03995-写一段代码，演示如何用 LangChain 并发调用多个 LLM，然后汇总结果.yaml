@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0159e809a2d5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写一段代码，演示如何用 LangChain 并发调用多个 LLM，然后汇总结果。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: 写一段代码，演示如何用 LangChain 并发调用多个 LLM，然后汇总结果。
+answer:
+  mode: rubric
+  reference_answer: "在 LCEL 中，并发调用多个 LLM 主要依赖 RunnableParallel。它接受一个字典，键是输出字段名，值是一个
+    Runnable，框架会并发执行所有分支，最后将结果合并为一个字典。\n\n\U0001F4DC 示例：同时让 GPT-4 和 Claude 回答同一个问题，然后用另一个模型汇总：\n\nfrom
+    langchain_core.prompts import ChatPromptTemplate\nfrom langchain_openai import
+    ChatOpenAI\nfrom langchain_anthropic import ChatAnthropic\nfrom langchain_core.runnables
+    import RunnableParallel\n\n# 定义用于回答的 Prompt\nanswer_prompt = ChatPromptTemplate.from_template(\"问题：{question}\\n请用中文简洁回答。\")\n\n#
+    模型1\ngpt4 = ChatOpenAI(model=\"gpt-4o\", temperature=0)\n# 模型2\nclaude = ChatAnthropic(model=\"claude-3-sonnet\",
+    temperature=0)\n\n# 并发调用链：两个模型独立回答\nparallel_answers = RunnableParallel(\n    gpt_answer=answer_prompt
+    | gpt4,\n    claude_answer=answer_prompt | claude\n)\n\n# 汇总 Prompt\nsummary_prompt
+    = ChatPromptTemplate.from_template(\"\"\"\n你是一个评审专家。请综合以下两个回答，给出一个更全面、准确的最终答案。\n\nGPT-4
+    的回答：{gpt_answer}\nClaude 的回答：{claude_answer}\n\n最终答案：\n\"\"\")\n\n# 汇总模型\nsummarizer
+    = ChatOpenAI(model=\"gpt-4o\", temperature=0)\n\n# 完整链：并发获取两个答案 → 汇总\nfull_chain
+    = parallel_answers | summary_prompt | summarizer\n\n# 调用\nresult = full_chain.invoke({\"question\":
+    \"什么是量子计算？\"})\nprint(result.content)\n\n⚡ 执行细节：\n\n- RunnableParallel 会异步执行 gpt_answer
+    和 claude_answer 分支，总耗时约等于最慢的单个模型调用时间。\n\n- 如果你需要流式输出最终结果，可以调用 full_chain.stream()，框架会自动处理并发分支的流式聚合。\n\n-
+    对于更复杂的并发场景（如并行调用多个工具），可以使用 RunnableMap 或 asyncio.gather 结合 ainvoke。\n\n\U0001F39B️
+    扩展：动态并发模型列表\n\n你可以根据运行时配置动态生成并行分支：\n\nmodels = {\"gpt4\": gpt4, \"claude\": claude,
+    \"llama\": local_model}\nbranches = {name: answer_prompt | model for name, model
+    in models.items()}\nparallel = RunnableParallel(**branches)\n\n这种模式在“多模型投票”、“集成学习”等场景中非常实用，可以显著提升答案的准确性和鲁棒性。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NWPhwBZQ9iuqdXkPhHNcLThjnig
+  block_id: LUPSdfenMoO1Mjxz2LjcLpmLncd
+  page_token: NWPhwBZQ9iuqdXkPhHNcLThjnig
+  original_title: 写一段代码，演示如何用 LangChain 并发调用多个 LLM，然后汇总结果。
+  imported_at: '2026-09-21'

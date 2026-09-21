@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f2648eda9fcc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3D7️ 6. 本地缓存（Caffeine）和分布式缓存（Redis）如何配合？多级缓存架构怎么设计？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F3D7️ 6. 本地缓存（Caffeine）和分布式缓存（Redis）如何配合？多级缓存架构怎么设计？"
+answer:
+  mode: rubric
+  reference_answer: "当系统的 QPS 达到一定量级时，单靠远程 Redis 也不够，因为网络往返本身就会引入毫秒级延迟。此时需要在应用实例内部引入本地缓存，形成“本地
+    + 分布式”的多级缓存架构。\n\n多级缓存架构蓝图\n\n请求 → 本地缓存(Caffeine) → Redis(分布式缓存) → 数据库\n        hit
+    直接返回         hit 直接返回，并回填本地         miss 查库并回填\n\n- Caffeine：位于 JVM 堆内，微秒级响应，但容量有限（受堆内存制约），且各实例独立。\n\n-
+    Redis：毫秒级响应，容量大，数据共享，但每次调用有网络开销。\n\n读取流程代码实现\n\npublic Product getProduct(String
+    productId) {\n    String localKey = \"product:\" + productId;\n    \n    // 1.
+    查本地缓存\n    Product product = caffeineCache.getIfPresent(localKey);\n    if (product
+    != null) {\n        return product;\n    }\n    \n    // 2. 查 Redis\n    product
+    = redis.get(localKey);\n    if (product != null) {\n        // 回填本地缓存，设置较短的过期时间（如
+    5s）\n        caffeineCache.put(localKey, product);\n        return product;\n
+    \   }\n    \n    // 3. 查数据库\n    product = db.getProduct(productId);\n    if (product
+    != null) {\n        // 回填 Redis 和本地缓存\n        redis.setex(localKey, 300, product);
+    \     // Redis 5分钟\n        caffeineCache.put(localKey, product);      // 本地 30秒\n
+    \   } else {\n        // 缓存空对象防穿透\n        redis.setex(localKey, 60, EMPTY_PRODUCT);\n
+    \   }\n    return product;\n}\n\n多级缓存的一致性问题\n\n多级缓存的难点在于 本地缓存的失效。Redis 数据可以通过
+    Canal 等手段主动失效，但散布在多台机器上的本地缓存如何感知变更？\n\n常见解决方案：\n\n- 设置短过期时间 + 被动失效\n本地缓存设置较短的
+    TTL（如 5-30 秒），依赖过期自动淘汰，容忍短暂的不一致。这是最简单、最常用的方式，适合一致性要求不高的场景。\n\n- 基于发布/订阅的主动失效\n当
+    Redis 数据更新时，通过 Redis Pub/Sub 或 MQ 广播一个缓存失效消息，所有应用实例收到后立即删除对应的本地缓存项。\n\n// 缓存更新服务在删除
+    Redis key 后，发布失效消息\nredis.publish(\"cache:invalidate\", \"product:123\");\n\n//
+    每个应用实例订阅该频道，收到消息后删除本地缓存\n@Subscribe\npublic void onInvalidate(String key) {\n
+    \   caffeineCache.invalidate(key);\n}\n\n- Canal + 本地 MQ\n直接让缓存更新服务在消费 Binlog
+    后，同时删除 Redis 并通过 MQ 通知所有应用实例删除本地缓存，形成统一管控。\n\nAgent 场景下的多级缓存设计\n\n在 AI Agent 系统中，多级缓存特别适合以下场景：\n\n-
+    LLM 调用结果缓存：同一个问题被频繁问到，本地缓存可以避免重复调用昂贵的 LLM。此时可用 Caffeine 本地缓存，TTL 设置 5-10 分钟。\n\n-
+    Embedding 向量缓存：相同文本的向量化结果可以缓存在 Redis 中，本地缓存不常命中但也可加一层。\n\n- 会话状态：不应使用本地缓存！因为会话状态绑定到特定用户，需要跨实例共享，只能放在
+    Redis 中。\n\n总结：\n\n多级缓存架构的本质是用空间换时间，用冗余换延迟。Caffeine 是急先锋，把最热的数据挡在最前面；Redis 是主力军，承载大规模共享数据；Binlog
+    监听则是信使，确保每一层数据在变更时都能及时得到通知。设计时牢记：本地缓存要短，分布式缓存要稳，变更通知要快。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QbEawmJTRiAdEik5pKCciSZqnTf
+  block_id: doxcnskYJ0jh3ZZZCPe8DTGKLZg
+  page_token: QbEawmJTRiAdEik5pKCciSZqnTf
+  original_title: "\U0001F3D7️ 6. 本地缓存（Caffeine）和分布式缓存（Redis）如何配合？多级缓存架构怎么设计？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-671b9c0a6c02
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何利用torch.fx符号化追踪模型并进行图变换？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何利用torch.fx符号化追踪模型并进行图变换？
+answer:
+  mode: rubric
+  reference_answer: |-
+    torch.fx是PyTorch提供的一个强大的工具包，它能符号化地追踪一个nn.Module，生成一个可操作的计算图（IR），然后允许你在该图上进行各种变换和优化，最后再生成一个新的、优化后的模型。
+
+    基本工作流：
+
+    - 符号化追踪：将一个nn.Module实例和一个样例输入传入torch.fx.symbolic_trace。它会执行一次模型，并将所有操作记录为一个静态图。
+
+    ```python
+    import torch.fx as fx
+
+    model = MyModel()
+    traced = fx.symbolic_trace(model)
+    print(traced.graph)  # 打印出图结构
+    ```
+
+    - 图变换：你可以遍历图的节点，对其进行修改。例如，将所有nn.ReLU替换为nn.LeakyReLU。
+
+    ```python
+    from torch.fx import Transformer
+
+    class ReLUReplacer(Transformer):
+        def call_module(self, target, args, kwargs):
+            if isinstance(self.traced.root_module.get_submodule(target), torch.nn.ReLU):
+                return self.traced.root_module.get_submodule('leaky_relu')(*args, **kwargs)
+            return super().call_module(target, args, kwargs)
+
+    # 使用前需要先给模型添加新的层，如 model.leaky_relu = nn.LeakyReLU()
+    transformed_model = ReLUReplacer(traced).transform()
+    ```
+
+    优势：
+
+    - 编程友好：无需手动操作ONNX或TensorFlow图，全程在PyTorch生态内。
+
+    - 功能强大：可以进行算子融合、常量折叠、图剪枝、量化插入等高级优化。
+
+    - 可解释性：生成的图是可读的Python代码，方便调试和验证。
+
+    局限性：
+
+    - 不处理动态控制流：symbolic_trace只能处理静态图，模型中的if x > 0等数据依赖的分支会被固化。
+
+    - 对所有操作要求可追踪：某些非张量操作或Python原语可能无法被记录。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  block_id: Wp6SdXD1AoNt3FxcibQchqfanne
+  page_token: Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  original_title: 如何利用torch.fx符号化追踪模型并进行图变换？
+  imported_at: '2026-09-21'

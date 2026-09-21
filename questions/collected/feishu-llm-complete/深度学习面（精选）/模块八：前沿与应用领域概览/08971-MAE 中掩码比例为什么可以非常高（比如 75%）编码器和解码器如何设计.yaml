@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3589e044b27f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: MAE 中掩码比例为什么可以非常高（比如 75%）？编码器和解码器如何设计？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块八：前沿与应用领域概览
+tags: &1
+- 深度学习面（精选）
+- 模块八：前沿与应用领域概览
+content:
+  prompt: MAE 中掩码比例为什么可以非常高（比如 75%）？编码器和解码器如何设计？
+answer:
+  mode: rubric
+  reference_answer: |-
+    高掩码比例的原因
+
+    - 图像数据包含大量的空间冗余信息（相邻像素高度相似）。如果掩码率太低（如 30%），模型仅需通过周围的邻近像素进行插值即可完成重建，根本不需要学习高级语义特征，这会使前任务过于简单，模型学不到有用表示。
+
+    - 高掩码率（75%）强制模型必须利用全局上下文和对象结构信息来推断缺失部分。例如，要重建被遮盖的狗尾巴，模型必须认识到这是狗的图片，理解狗的身体结构，这种推理需要高度抽象的语义理解。
+
+    - 实验证明，掩码率在 75% 左右对下游性能最优。掩码率太低则表征质量差，太高（>90%）则可见信息太少，重建几乎不可能，模型也难以学习。
+
+    编码器设计
+
+    - 仅处理可见的、未被掩码的 patches（通常为总 patch 数的 25%）。这样大大减小了编码器的输入序列长度，使得计算量和内存占用极低。
+
+    - 编码器由一系列标准的 Transformer 块构成，输入为可见 patch 的线性投影加上位置编码。
+
+    - 由于去除了掩码 patches，编码器能够高效地抽取上下文特征，且不浪费算力在空洞区域。
+
+    解码器设计
+
+    - 接收全部 patch 的位置编码，包括可见 patch 的特征表示和掩码令牌（一个共享的可学习向量，代表待重建的位置）。
+
+    - 解码器通常较浅（如 8 层 Transformer），宽度也较编码器窄。这大大降低了解码器的计算开销，因为解码器需要处理全序列，浅而窄保证效率。
+
+    - 解码器最后一层为线性投影，输出每个 patch 的像素值。
+
+    - 损失仅计算被掩码 patches 的重建误差（MSE），忽略可见 patches。
+
+    这种非对称设计的优势
+
+    - 编码器高效而强大：只处理可见部分，预训练极快。
+
+    - 解码器轻量且可丢弃：下游任务只使用编码器，解码器仅为预训练的辅助工具。
+
+    - 整体计算量远低于全图编码然后对比的方法。
+
+    MAE 通过高掩码率和非对称结构，巧妙地平衡了预训练效率和表示质量，成为视觉自监督学习的又一里程碑。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZXM6wIIg5iTGJ5kkNwAcdpHHnbg
+  block_id: LRpKdvDeHoAvzixtM2Zcc0eFn60
+  page_token: ZXM6wIIg5iTGJ5kkNwAcdpHHnbg
+  original_title: MAE 中掩码比例为什么可以非常高（比如 75%）？编码器和解码器如何设计？
+  imported_at: '2026-09-21'

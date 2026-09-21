@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4403c246a154
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么训练中推荐 batch size 对齐到 8 的倍数？与 Tensor Core 有关。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 为什么训练中推荐 batch size 对齐到 8 的倍数？与 Tensor Core 有关。
+answer:
+  mode: rubric
+  reference_answer: |-
+    如上一问所述，Tensor Cores 的矩阵乘加操作要求矩阵维度对齐到 8（FP16/BF16）的倍数。当输入矩阵的 m 维度（对应 batch_size * seq_len）不能整除 8 时，硬件无法高效利用 Tensor Core 的完整计算能力，性能会显著下降。
+
+    在实际训练中，矩阵乘的 m 维度通常是 batch_size * seq_len 的乘积。为了让这个乘积保持 8 的倍数，有两种做法：
+
+    - 让 batch_size 对齐到 8：这比较简单，直接设置 batch_size=8, 16, 32 等即可。
+
+    - 让每个 GPU 处理的 token 总数（micro_batch_size * seq_len）对齐到 8：如果序列长度是固定的（如 2048），那么 micro_batch_size 设为 1、2、4、8 都能保证乘积是 8 的倍数。如果序列长度变化，或者使用动态 padding，就需要在数据加载时进行填充，使每个 batch 的 token 总数对齐到 8。
+
+    因此，batch size 对齐 8 并不是强制要求，但它是确保 Tensor Core 高效利用的最简单方法。现代大模型训练几乎都会将 micro_batch_size 设为 1 或 2，此时需要关注的是 seq_len 是否对齐到 8。如果对齐了，即使 batch size 很小，Tensor Core 也能高效工作。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HfoZwdjz1iRNmPkiI3icQQafnve
+  block_id: MmgQdXh4Eo3vlKx8rbycaAPEnqg
+  page_token: HfoZwdjz1iRNmPkiI3icQQafnve
+  original_title: 为什么训练中推荐 batch size 对齐到 8 的倍数？与 Tensor Core 有关。
+  imported_at: '2026-09-21'

@@ -1,0 +1,90 @@
+---
+schema_version: 1
+id: feishu-llm-complete-96223754cd39
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 计算所有相邻符号对（bigram）频率
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 计算所有相邻符号对（bigram）频率
+answer:
+  mode: rubric
+  reference_answer: |-
+    目标：给定带频率的单词符号序列列表（如上一问的 word_symbols），统计所有相邻符号对的出现频次。频率的计算方式：对于某个单词，如果它的符号序列中有相邻对 (sym_i, sym_{i+1})，则该 bigram 获得该单词的频率次数（因为该单词在语料中出现了 freq 次，每次出现都会贡献一次这个相邻对）。因此 bigram 频率 = 所有包含该 bigram 的单词的频率之和。
+
+    实现：
+
+    - 遍历 word_symbols 中的每个 (symbols, freq)。
+
+    - 在 symbols 序列中，从索引 0 到 len-2，依次取出 (symbols[i], symbols[i+1])。
+
+    - 将 pair 加入字典，累加 freq。
+
+    代码：
+
+    ```python
+    def compute_bigram_freq(word_symbols: list) -> dict:
+        """
+        计算所有 bigram 的频率。
+        参数：
+            word_symbols: [(symbol_list, freq), ...]
+        返回：
+            bigram_freq: {(sym1, sym2): freq}
+        """
+        bigram_freq = Counter()
+        for symbols, freq in word_symbols:
+            for i in range(len(symbols) - 1):
+                pair = (symbols[i], symbols[i+1])
+                bigram_freq[pair] += freq
+        return dict(bigram_freq)
+    ```
+
+    注意：
+
+    - 如果某个单词频率很高，其内部 bigram 会被多次累加，这正确反映了语料中的统计特性。
+
+    - 在 BPE 训练过程中，每次合并后会改变某些单词的符号序列，需要重新计算 bigram 频率。为了提高效率，实际实现中会在合并后局部更新 bigram 频率，而不是每次全量重算。
+
+    示例：
+    基于上述 word_symbols：
+
+    - ('l','o') 出现于三个单词，频率之和=3+1+1=5
+
+    - ('o','w') 同理频率=5
+
+    - ('w','</w>') 只在 "low" 中出现，频率=3
+
+    - ('w','e') 在 "lower" 和 "lowest" 中出现，频率=1+1=2
+    等等。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XDqKw0GPGi6JvkkfpwUcqpdAndd
+  block_id: KshCdHvTpoGh3Oxq133cSKXdnHg
+  page_token: XDqKw0GPGi6JvkkfpwUcqpdAndd
+  original_title: 计算所有相邻符号对（bigram）频率
+  imported_at: '2026-09-21'

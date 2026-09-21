@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1d99698d0b01
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何选择LoRA的target_modules？一般选哪些线性层？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 如何选择LoRA的target_modules？一般选哪些线性层？
+answer:
+  mode: rubric
+  reference_answer: |-
+    target_modules是LoRA应用到的具体线性层。选择哪些层直接关系到可训练参数量和适配效果。
+
+    一般选哪些线性层：
+
+    标准做法是选取Transformer块中的注意力投影矩阵：Q（Query）、K（Key）、V（Value）、O（Output）。这些是注意力计算的核心，对指令遵循和风格控制最为关键。有时也包含FFN中的部分矩阵（如gate_proj、up_proj、down_proj），但并非总是必要。
+
+    选择依据：
+
+    - 模型大小与任务难度：小模型或复杂任务可能需要更多层参与（如增加FFN），以提供足够容量；简单任务或大模型则仅对Q、V就足够。
+
+    - 防止过拟合：如果数据量少，应用太多模块会导致过拟合风险增加，宜减少target_modules。
+
+    - 实验验证：常用的高效组合是 ["q_proj", "v_proj"]（许多研究指出将LoRA应用于Q和V效果突出且参数高效）。如果想增大容量，依次加入 k_proj, o_proj, gate_proj, up_proj, down_proj。
+
+    - 具体名称：不同模型实现中模块名称不同，如在HuggingFace的Llama中，它们是 q_proj, v_proj, k_proj, o_proj, gate_proj, up_proj, down_proj。通常通过 find_all_linear_names() 自动检测所有线性层，然后有选择地过滤。
+
+    实际项目中，我常先用 ["q_proj", "v_proj"] 快速实验，如果效果不够，再扩展到 ["q_proj", "k_proj", "v_proj", "o_proj"]，这样可以在参数效率和性能之间取得良好平衡。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZYXSwaWATimyqQkmZm5cAPJHnoc
+  block_id: VK6CdTXZyotm16xLzasceJh7nUe
+  page_token: ZYXSwaWATimyqQkmZm5cAPJHnoc
+  original_title: 如何选择LoRA的target_modules？一般选哪些线性层？
+  imported_at: '2026-09-21'

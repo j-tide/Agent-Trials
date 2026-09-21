@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b91413f8b4ed
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 数据并行时，每张卡上的优化器状态是完全相同还是各自存储？为什么 ZeRO-1 要分片优化器状态？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 数据并行时，每张卡上的优化器状态是完全相同还是各自存储？为什么 ZeRO-1 要分片优化器状态？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在传统的数据并行中，每张GPU拥有完整的模型副本，它们独立处理不同的输入数据，各自计算梯度。随后通过AllReduce通信将梯度全局平均或求和，使每张卡获得相同的全局梯度。每张卡使用相同的全局梯度和相同的优化器（如Adam）更新自己的本地参数，因此每张卡上的优化器状态（m和v）完全相同，也是完整的副本。
+
+    ZeRO-1 分片优化器状态的动机：这种完全冗余的优化器状态造成了巨大的显存浪费。对于N张卡的数据并行，优化器状态占用的总显存是单卡的N倍，但存储的信息完全一样。ZeRO-1将优化器状态均匀分片到N张卡，每张卡只存储1/N的优化器状态，并负责更新对应分片的参数。更新完成后，通过AllGather将更新后的参数广播给所有卡，使它们重新持有完整参数。这样，优化器状态的显存冗余被消除，单卡优化器显存降至原来的1/N，而额外增加的通信量（AllGather）相对较小，因为优化器状态不需要在每次迭代中全部传输。
+
+    本质：ZeRO-1用一次小规模的AllGather参数通信，换取了优化器状态显存的指数级压缩，使数据并行可以容纳更大的模型。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: BbFUdlbw7oYQYBxKRA0cBBi0nlf
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 数据并行时，每张卡上的优化器状态是完全相同还是各自存储？为什么 ZeRO-1 要分片优化器状态？
+  imported_at: '2026-09-21'

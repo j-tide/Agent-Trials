@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-06874cf4fa6c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F501 在 PPO 的多轮更新中，如何决定何时停止更新一个批次？根据 KL 或 clip fraction。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "\U0001F501 在 PPO 的多轮更新中，如何决定何时停止更新一个批次？根据 KL 或 clip fraction。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    PPO 会使用同一批经验数据进行多个 epoch 的更新。但若反复更新，策略会逐渐过拟合这批旧数据，导致 KL 散度过高，off-policy 性增强。需要智能地提前终止。
+
+    停止条件（任一触发即停止）：
+
+    - KL 散度过高：在每一轮 epoch 结束后，计算当前策略与旧策略（生成该批数据时）的平均 KL。若超过预设阈值（如 0.02），立即停止本批次后续 epoch，防止策略偏离过远。
+
+    - 裁剪比例过高：PPO 的 clip fraction 是比率被裁剪的 token 占比。若该比例超过 50%，说明大多数 token 的更新都触发了信任区域边界，更新过猛，应立即停止。
+
+    - 最大 epoch 数限制：设定一个硬上限（如 4 或 5），防止意外无限循环。
+
+    - 优势信号消失：若该批数据的平均优势绝对值极低（如 < 0.01），说明已基本无学习信号，提前停止可节省算力。
+
+    实现：
+
+    - 在每个 epoch 训练循环开始前，记录初始策略的对数概率，每个 epoch 结束后计算 KL 和 clip fraction。
+
+    - 使用 break 语句从训练循环中跳出，丢弃剩余 epoch。
+
+    注意：这会导致不同批次的数据被利用的次数不同（有的 2 次，有的 4 次），这是完全可接受的，且是提升样本效率与训练稳定性之间的精妙平衡。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SrIPwt6g4iOx8zkf5StcnDK8nCc
+  block_id: EI0odLZzkomqVxxRkTRcLO6snYc
+  page_token: SrIPwt6g4iOx8zkf5StcnDK8nCc
+  original_title: "\U0001F501 在 PPO 的多轮更新中，如何决定何时停止更新一个批次？根据 KL 或 clip fraction。"
+  imported_at: '2026-09-21'

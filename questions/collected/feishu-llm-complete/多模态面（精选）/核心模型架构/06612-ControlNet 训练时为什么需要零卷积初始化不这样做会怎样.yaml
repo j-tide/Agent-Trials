@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a96df5e755e8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ControlNet 训练时为什么需要“零卷积”初始化？不这样做会怎样？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 核心模型架构
+tags: &1
+- 多模态面（精选）
+- 核心模型架构
+content:
+  prompt: ControlNet 训练时为什么需要“零卷积”初始化？不这样做会怎样？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ControlNet 在 Stable Diffusion 原有网络基础上复制出一个“可训练副本”，并通过“零卷积”层将控制信号（如边缘图、姿态）接入。零卷积是指将卷积层的权重和偏置初始化为零，确保训练开始时该层的输出也为零。
+
+    - 为什么需要零卷积：
+    当训练刚开始时，控制条件（如 Canny 边缘）被随机初始化并通过新添加的卷积层注入到模型中。如果这些卷积层不是零初始化，它们就会在第一步就产生不可预测的非零输出，从而严重破坏预训练 UNet 的原有特征分布。预训练模型已经在海量数据上学习了精确的内部表征，初始的随机扰动会导致模型在早期训练中迅速“忘记”已学到的知识，产生噪声极大的输出，训练不稳定甚至崩溃。
+    零卷积保证了在 t=0t=0 时刻，新加入的侧分支输出完全为零，主干网络接收到的信息与没有 ControlNet 时完全一致。随着训练进行，侧分支的参数逐渐更新，慢慢学会从控制信号中提取有用信息并修正主干特征，这种平滑的热启动方式保护了预训练模型的完整性，使微调更加稳定高效。
+
+    - 不这样做的后果：训练初期会出现严重的性能震荡，模型生成质量急剧恶化，收敛缓慢，甚至可能永远无法恢复到预训练模型的水平。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MxkKw28Vhifwx1kXK2tcufpanqf
+  block_id: PJbgdYDypoA4vrxPuGjc5jqNnrg
+  page_token: MxkKw28Vhifwx1kXK2tcufpanqf
+  original_title: ControlNet 训练时为什么需要“零卷积”初始化？不这样做会怎样？
+  imported_at: '2026-09-21'

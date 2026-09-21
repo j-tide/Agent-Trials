@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-967810746c7a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F422 51. SFT训练过程中loss下降很慢，可能的原因有哪些？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F422 51. SFT训练过程中loss下降很慢，可能的原因有哪些？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    SFT的loss下降缓慢不同于正常收敛慢，它通常意味着训练配置、数据质量或模型能力之间存在不匹配。诊断并解决这个问题是防止训练资源浪费的关键。
+
+    原因诊断表
+
+    [嵌入表格未展开]
+
+    学习率：第一嫌疑人
+
+    学习率过低，模型每次更新的步长极小，损失下降如龟爬。学习率过高，模型在最优解附近来回跳跃，损失震荡不降。SFT通常使用较小的学习率，但如果基座模型与此任务的数据分布差距较大，可能需要稍高一点的学习率来快速拉近，然后再衰减。一个实用技巧是做“学习率范围测试”：从小到大地线性增加学习率，观察损失曲线，选择损失下降最快区间的学习率。
+
+    数据质量与冲突
+
+    SFT数据中如果存在严重的噪声（如格式错误、特殊字符乱码），或大量相互矛盾的样本（同一问题有的回答A有的回答B），模型优化时会陷入混乱，损失难以下降。检查数据中最常见的问题：指令与回答的语言是否一致？是否存在大量的重复样本（过高的重复率会让模型频繁在相同样本上过拟合，导致整体损失下降停滞，因为其他样本的损失被淹没）？回答中是否含有太多的EOS token导致训练截断？这些细节经常被忽略。
+
+    优化器的超参数不匹配
+
+    预训练阶段使用的优化器参数（如Adam的β1=0.9, β2=0.95）可能不适合SFT的微调场景。SFT通常采用更温和的动量和二阶矩估计（如β1=0.9, β2=0.999），因为数据量小得多，需要更稳定的梯度估计。权重衰减（weight decay）也是容易被忽视的因素：在SFT中，权重衰减设置过大会将模型参数强行拉向零，与保留预训练知识的目标背道而驰，导致损失下降困难。
+
+    梯度累积与有效batch size
+
+    当使用梯度累积模拟大batch size时，如果累积步数过多，每个micro-batch的梯度方向可能不一致，累积后的梯度方向模糊，导致参数更新效率低下。适当减小累积步数（增大micro batch）或降低全局batch size可能会有改善。
+
+    注意力或位置编码的不适应
+
+    如果SFT数据的序列长度分布与预训练阶段差异巨大（比如预训练大量短文本，SFT却全是长文本），可能会超出模型位置编码的有效范围，导致训练初期损失高且难以下降。这需要截断过长文本，或对位置编码进行插值扩展。
+
+    诊断流程
+
+    第一步，确认损失是否完全不动——若是，很可能是学习率过低或数据加载有bug。第二步，检查是否在某个值附近持续震荡——学习率过高或数据冲突。第三步，如果缓慢下降但远慢于预期，检查数据质量、batch size和优化器配置。第四步，换用预训练loss的1/10-1/5作为SFT学习率，通常是个不错的起点。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KPIxw03EPiQ1rrkxrvUcqRIznBf
+  block_id: W4EkdzUELoyy4qxUEMIcncopnWf
+  page_token: KPIxw03EPiQ1rrkxrvUcqRIznBf
+  original_title: "\U0001F422 51. SFT训练过程中loss下降很慢，可能的原因有哪些？"
+  imported_at: '2026-09-21'

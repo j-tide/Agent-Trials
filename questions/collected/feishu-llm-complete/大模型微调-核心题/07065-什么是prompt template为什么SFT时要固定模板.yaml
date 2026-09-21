@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d8ff70f39c82
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“prompt template”？为什么SFT时要固定模板？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 什么是“prompt template”？为什么SFT时要固定模板？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Prompt template（提示模板） 是一套预定义的、结构化的文本格式，用于将原始的对话数据（用户消息、系统提示、助手回复）包装成模型能够理解的标准化输入序列。在 ChatML 模板中，它可能长这样：
+
+    ```text
+    <|im_start|>system
+    {system_content}<|im_end|>
+    <|im_start|>user
+    {user_content}<|im_end|>
+    <|im_start|>assistant
+    {assistant_content}<|im_end|>
+    ```
+
+    模板通过特殊 token 明确划分了对话的角色、轮次和边界。
+
+    SFT 时必须固定模板的原因：
+
+    - 为模型提供稳定的学习信号
+    如果训练数据中混用了多种模板（比如有的用 USER:，有的用 ### Instruction:，有的用 ChatML），模型将被迫花费大量参数来学习这些格式之间的等价关系，而不是专注于学习如何理解和遵循指令。统一模板消除了这种“格式噪声”，让模型能够将全部注意力集中在对话内容和任务逻辑上。
+
+    - 精确控制 Loss Masking 的边界
+    SFT 中只计算 assistant 回复的损失，而模板的特殊 token（如 <|im_start|>assistant 和 <|im_end|>）为这一操作提供了可靠的锚点。固定模板使得开发者可以编写一段通用的代码，自动定位每条数据中需要计算损失的部分，极大地简化了数据处理流程并确保训练的正确性。
+
+    - 固化角色的分离与对话结构
+    模板中的特殊角色标记（如 system、user、assistant）通过海量一致的训练数据，被模型内化为不可混淆的“交互协议”。模型学会了在遇到 <|im_start|>user 时进入“倾听模式”，在 <|im_start|>assistant 后进入“生成模式”。如果模板不固定，这些角色标记的作用就会被稀释，模型可能出现角色混乱（如自己生成用户消息）。
+
+    - 提供可控的推理接口
+    固定模板使模型在推理时能够稳定地响应。开发者只需按照相同的模板格式构造输入，就能可靠地得到输出。这为下游应用提供了标准化的 API 接口。同时，通过在 system 消息中写入不同的 meta instruction，可以灵活控制模型的行为，因为模型已经在固定的模板结构中学会了如何解析和执行系统指令。
+
+    - 降低学习难度，加速收敛
+    一致的模板相当于为模型提供了一套“语法规则”。模型不需要去猜测哪里是对话的开始和结束，哪里是它的发言回合，从而可以更快地学习到任务相关的模式，提高了数据利用效率。
+
+    ✅ 总结：固定 prompt template 是为了让模型在一个清晰、无歧义的结构化环境中学习对话，确保训练信号纯粹、角色边界分明，并为推理时的稳定交互提供保证。它是 SFT 数据工程的基础规范之一。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PMU2wL6MLiKo4yk5L39cu6vqnIc
+  block_id: NPnQd7sIboYx6gxZqdxc8eDknhb
+  page_token: PMU2wL6MLiKo4yk5L39cu6vqnIc
+  original_title: 什么是“prompt template”？为什么SFT时要固定模板？
+  imported_at: '2026-09-21'

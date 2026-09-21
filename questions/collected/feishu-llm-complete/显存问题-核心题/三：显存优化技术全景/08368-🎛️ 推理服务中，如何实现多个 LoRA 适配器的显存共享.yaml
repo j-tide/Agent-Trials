@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1ee4fb780b2a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F39B️ 推理服务中，如何实现多个 LoRA 适配器的显存共享？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F39B️ 推理服务中，如何实现多个 LoRA 适配器的显存共享？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 实现多 LoRA 适配器显存共享的核心思路是：基础模型权重常驻 GPU 且全局共享，多个 LoRA
+    适配器则以“热插拔”方式动态换入换出 GPU 内存池，仅同时保留活跃适配器于 GPU，其余放 CPU 或 NVMe，通过高效的 I/O 与分页管理使数千个适配器服务于海量用户而不爆显存。\n\n\U0001F50C
+    基础模型自然共享\n\n所有 LoRA 适配器都基于同一个基础模型，因此基础模型的权重（通常占显存 95% 以上）只需在 GPU 中保存一份，天然的共享。真正需要管理的是
+    LoRA 的 A 和 B 矩阵。\n\n\U0001F5C2️ 适配器权重的显存管理策略\n\n- 集中存储 + 动态加载\n系统维护一个中央适配器仓库（CPU
+    内存或 SSD）。当请求到达时，调度器根据请求所需的 LoRA ID，将对应适配器权重异步加载到 GPU 的一个预留内存池中。一旦该请求完成，且没有其他请求在使用该适配器，就可以将其卸载，释放
+    GPU 空间给其他适配器。\n\n- 分页管理 LoRA 权重（类似 PagedAttention）\nS-LoRA 等先进系统将每个 LoRA 适配器的权重矩阵也划分为固定大小的块（tiles），存储在
+    GPU 内存池中。不同适配器的块可以在物理内存中交织存放，由统一的页表管理。每个 LoRA 矩阵的加载只需拷贝所需的块，而非整个矩阵。这种方式实现了：\n\n-
+    细粒度共享：如果两个适配器部分相同（很少见），可共享块。\n\n- 外部碎片消除：所有 LoRA 块大小相同，无外部碎片。\n\n- 高利用率：GPU 内存池被众多适配器分时复用，整体显存占用接近活跃适配器总大小。\n\n-
+    统一内存池\n将基础模型的权重、KV Cache 和 LoRA 权重统一管理在一个分页内存池中（如 Punica、vLLM 的 LoRA 集成）。GPU 显存被划分为不同类型的内存块（KV
+    block, LoRA block），按需分配，全局调度，最大化整体利用率。\n\n- 批量计算与适配器分组\n若多个请求使用不同 LoRA 适配器，需要批量执行
+    y = Wx + B_i A_i x。一些系统通过将同一批中相同适配器的请求分组，减少适配器切换开销。显存共享策略要确保热门的适配器常驻 GPU，冷门的则被换出。\n\n\U0001F4CA
+    显存节省示例\n\n- 假设一个 LoRA 适配器占 50 MB，1000 个适配器总大小 50 GB，远超单卡显存。通过动态加载，GPU 仅保留当前活跃请求所需的
+    10 个适配器（500 MB），其余暂存 CPU 内存（占用 50 GB 系统内存但 GPU 显存无压力）。这样一张 24 GB 显卡就能服务上千个定制模型。\n\n⚠️
+    挑战\n\n- 切换延迟：从 CPU 拷贝适配器到 GPU 需要时间，必须预取和流水线化以避免增加请求延迟。\n\n- 内存碎片：动态分配固定大小块可缓解，但需精心设计块大小和池容量。\n\n✅
+    因此，多 LoRA 适配器显存共享依赖统一的动态内存管理，通过分页与换入换出实现高密度部署，是“模型即服务”的关键支撑。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CiqBwrPCSiM7tNk8mpocAB3gn3b
+  block_id: URcDdQ7YwovYjPxJVuicTpLGncf
+  page_token: CiqBwrPCSiM7tNk8mpocAB3gn3b
+  original_title: "\U0001F39B️ 推理服务中，如何实现多个 LoRA 适配器的显存共享？"
+  imported_at: '2026-09-21'

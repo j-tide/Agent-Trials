@@ -1,0 +1,90 @@
+---
+schema_version: 1
+id: feishu-llm-complete-617ee3841fbd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 PyTorch 中 DDP 的基本用法及 init_process_group 的作用。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 解释 PyTorch 中 DDP 的基本用法及 init_process_group 的作用。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### DDP (DistributedDataParallel) 基本用法
+
+    DDP在每个GPU上启动一个独立的进程，每个进程持有模型的一个副本。通过集合通信（AllReduce）在反向传播后自动同步梯度，保证所有副本的参数一致。
+
+    典型代码结构：
+
+    import torch.distributed as dist
+    from torch.nn.parallel import DistributedDataParallel as DDP
+
+    # 1. 初始化进程组
+    dist.init_process_group(backend='nccl')
+
+    # 2. 获取当前进程的rank和local_rank
+    local_rank = int(os.environ['LOCAL_RANK'])
+    torch.cuda.set_device(local_rank)
+
+    # 3. 构造模型并移到对应GPU
+    model = MyModel().to(local_rank)
+    model = DDP(model, device_ids=[local_rank])
+
+    # 4. 使用DistributedSampler确保不同进程处理不同数据
+    dataset = MyDataset()
+    sampler = DistributedSampler(dataset)
+    dataloader = DataLoader(dataset, sampler=sampler, batch_size=...)
+
+    # 5. 训练循环
+    for epoch in range(num_epochs):
+        sampler.set_epoch(epoch)  # 每epoch重新shuffle
+        for batch in dataloader:
+            outputs = model(batch)
+            loss = criterion(outputs, targets)
+            loss.backward()
+            # DDP会自动进行梯度AllReduce
+            optimizer.step()
+            optimizer.zero_grad()
+
+    ### init_process_group 的作用
+
+    init_process_group 是分布式训练的通信入口，它完成以下工作：
+
+    - 指定通信后端：backend='nccl' 表示使用NVIDIA NCCL库进行GPU间通信（最高效）；backend='gloo' 适用于CPU或GPU的通用通信。
+
+    - 建立进程间连接：根据环境变量 MASTER_ADDR, MASTER_PORT 找到协调节点，所有进程向协调节点注册，形成通信组。
+
+    - 分配Ranks：每个进程获得唯一的全局rank（WORLD_RANK）和本地rank（LOCAL_RANK），用于后续的通信和GPU绑定。
+
+    - 初始化拓扑感知：NCCL会自动探测GPU间的拓扑连接（NVLink, PCIe, InfiniBand），选择最优通信路径。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Yto8wfa8ti5TgZktU1YczVp7nme
+  block_id: EFRZdQWijormMIxYqIWc2g4rnqd
+  page_token: Yto8wfa8ti5TgZktU1YczVp7nme
+  original_title: 解释 PyTorch 中 DDP 的基本用法及 init_process_group 的作用。
+  imported_at: '2026-09-21'

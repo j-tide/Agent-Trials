@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fd71c116b630
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出一个包含 warmup 的学习率调度示例。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 写出一个包含 warmup 的学习率调度示例。
+answer:
+  mode: rubric
+  reference_answer: |-
+    Warmup 使学习率在训练初期从小值线性增加到目标值，有助于稳定训练。可与余弦退火结合。
+
+    ```python
+    import torch
+    from torch.optim import AdamW
+    from torch.optim.lr_scheduler import LambdaLR
+
+    def get_cosine_schedule_with_warmup(optimizer, num_warmup_steps, num_training_steps, min_lr=0.0):
+        def lr_lambda(current_step):
+            if current_step < num_warmup_steps:
+                return float(current_step) / float(max(1, num_warmup_steps))
+            progress = float(current_step - num_warmup_steps) / float(max(1, num_training_steps - num_warmup_steps))
+            return max(min_lr, 0.5 * (1.0 + torch.cos(torch.pi * progress)))
+        return LambdaLR(optimizer, lr_lambda)
+
+    optimizer = AdamW(model.parameters(), lr=2e-5)
+    scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=100, num_training_steps=2000)
+
+    for step, batch in enumerate(train_loader):
+        train(...)
+        scheduler.step()
+    ```
+
+    说明：前100步线性增加学习率，之后按余弦曲线衰减。这是当前LLM微调中最常用的策略。LambdaLR 允许自定义任意函数，灵活性高。
+
+    也可以使用 HuggingFace transformers 中的 get_cosine_schedule_with_warmup，功能相同。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SlZHw2a2fiQQVBkkXXscts3znGd
+  block_id: AopDd1C9CoJnnLxOpP4c7womnOg
+  page_token: SlZHw2a2fiQQVBkkXXscts3znGd
+  original_title: 写出一个包含 warmup 的学习率调度示例。
+  imported_at: '2026-09-21'

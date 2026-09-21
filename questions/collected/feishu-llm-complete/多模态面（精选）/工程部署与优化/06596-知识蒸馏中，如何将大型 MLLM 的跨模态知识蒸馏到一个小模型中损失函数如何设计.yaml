@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-815cde1ab80e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 知识蒸馏中，如何将大型 MLLM 的跨模态知识蒸馏到一个小模型中？损失函数如何设计？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 知识蒸馏中，如何将大型 MLLM 的跨模态知识蒸馏到一个小模型中？损失函数如何设计？
+answer:
+  mode: rubric
+  reference_answer: |-
+    核心挑战：不仅传递单模态知识，更要将教师模型的跨模态对齐和推理能力完整迁移。
+
+    蒸馏数据：需要图像加多样化任务数据。图像来自开源数据集（COCO、LAION），任务包括描述、VQA、推理等。用教师模型为这些图像生成详细的回答作为软标签，同时尽可能保留原始数据集中的真值标注作为硬标签。
+
+    损失函数设计：
+
+    回答蒸馏损失使用KL散度，让学生模型的生成概率分布逼近教师。视觉特征对齐损失在视觉编码器输出层，用MSE拉近学生与教师的视觉token。跨模态注意力对齐是核心，在交叉注意力层让学生产生的注意力分布矩阵逼近教师的注意力分布，可用KL散度。文本特征对齐损失类似，让学生LLM中间层的文本表示逼近教师。下游任务损失在传统VQA等任务上使用交叉熵。
+
+    最终总损失 = 回答蒸馏 + 视觉特征对齐 + 跨模态注意力对齐 + 文本特征对齐 + 下游任务监督损失。各损失量级不同，通常加权比例约1 : 0.3 : 0.2 : 0.1 : 0.5。GradNorm或Uncertainty Weighting可动态调整权重。
+
+    训练策略：分阶段训练可降低难度。第一阶段只做特征对齐（不加回答蒸馏），让学生打好基础；第二阶段加入回答和注意力蒸馏。学生模型初始权重很重要，应使用预训练的轻量视觉编码器和轻量LLM，而非从头训练。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Mh1cw9XEOil6SIkDffGcWixgnte
+  block_id: AUSXdSDaIos03oxpBHRcc5Ntn8f
+  page_token: Mh1cw9XEOil6SIkDffGcWixgnte
+  original_title: 知识蒸馏中，如何将大型 MLLM 的跨模态知识蒸馏到一个小模型中？损失函数如何设计？
+  imported_at: '2026-09-21'

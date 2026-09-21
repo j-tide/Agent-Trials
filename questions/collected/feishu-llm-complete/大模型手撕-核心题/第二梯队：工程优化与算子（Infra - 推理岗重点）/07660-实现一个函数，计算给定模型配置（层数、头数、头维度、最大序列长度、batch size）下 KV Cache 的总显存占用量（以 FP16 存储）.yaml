@@ -1,0 +1,119 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6b85a76508e7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个函数，计算给定模型配置（层数、头数、头维度、最大序列长度、batch size）下 KV Cache 的总显存占用量（以 FP16 存储）。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现一个函数，计算给定模型配置（层数、头数、头维度、最大序列长度、batch size）下 KV Cache 的总显存占用量（以 FP16 存储）。
+answer:
+  mode: rubric
+  reference_answer: |-
+    1.1 核心公式推导
+
+    在标准的多头自注意力（MHA）中，每一层都需要存储 Key 和 Value 两个张量。对于单个 token，其在某一层的 K 和 V 都是形状为 (num_heads, head_dim) 的张量。因此，每 token 每层的 KV 数据量为：
+
+    [图片内容未导入]
+
+    在 FP16 下，bytes_per_elem = 2。扩展到整个序列长度 max_seq_len 和 batch size batch_size，以及所有 num_layers 层，总显存占用量为：
+
+    [图片内容未导入]
+
+    如果使用 GQA（分组查询注意力）或 MQA（多查询注意力），只需将 num_heads 替换为实际参与 KV 存储的头数 num_kv_heads。例如，LLaMA-2 70B 中 num_kv_heads=8，num_heads=64，此时显存会大幅降低。
+
+    1.2 代码实现
+
+    ```python
+    import math
+
+    def compute_kv_cache_memory(
+        num_layers: int,
+        num_heads: int,          # 或者 num_kv_heads
+        head_dim: int,
+        max_seq_len: int,
+        batch_size: int,
+        dtype_bytes: int = 2,    # FP16
+        is_gqa: bool = False,
+        num_kv_heads: int = None
+    ) -> dict:
+        """
+        计算 KV Cache 总显存（字节），同时返回可读的格式化字符串。
+        支持 GQA/MQA：传入 is_gqa=True 和 num_kv_heads。
+        """
+        if is_gqa and num_kv_heads is not None:
+            heads = num_kv_heads
+        else:
+            heads = num_heads
+
+        # 每 token 每层的 K 或 V 大小
+        per_token_kv_bytes = heads * head_dim * dtype_bytes
+        # 每 token 每层的 K+V 总大小
+        per_token_layer_bytes = 2 * per_token_kv_bytes
+        # 总显存 = 层数 * batch * 最大长度 * 每token每层大小
+        total_bytes = num_layers * batch_size * max_seq_len * per_token_layer_bytes
+
+        # 转换为可读单位
+        units = ["B", "KiB", "MiB", "GiB", "TiB"]
+        value = total_bytes
+        unit_idx = 0
+        while value >= 1024 and unit_idx < len(units) - 1:
+            value /= 1024.0
+            unit_idx += 1
+
+        return {
+            "total_bytes": total_bytes,
+            "readable": f"{value:.2f} {units[unit_idx]}",
+            "per_token_layer_bytes": per_token_layer_bytes,
+            "heads_used": heads
+        }
+
+    # 示例：LLaMA-2 7B (num_layers=32, num_heads=32, head_dim=128)
+    mem_info = compute_kv_cache_memory(32, 32, 128, 2048, 4)
+    print(mem_info["readable"])  # 约 4 GiB
+    ```
+
+    1.3 扩展到量化缓存
+
+    如果 KV Cache 本身也被量化为 INT8 或 FP8，显存占用会进一步减半或更多。例如，使用 FP8 时 dtype_bytes=1。上述函数可通过改变 dtype_bytes 参数覆盖此场景。
+
+    1.4 注意事项
+
+    - 上述计算是理论下界，实际引擎（如 vLLM）中由于分页管理、块内对齐等因素，实际占用可能略高（通常有 <5% 的碎片开销）。
+
+    - 当使用 PagedAttention 时，显存占用受物理块大小的限制，内部碎片（最后一个块未满）会增加少量开销，但整体仍然接近理论值。
+
+    - 在分布式推理（张量并行）中，KV Cache 被切分到多个 GPU 上，每张 GPU 的显存占用为上述计算值除以并行路数（假设均匀切分）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IhgfwCPtoif3TWkyezuc4sW9nbg
+  block_id: H5x6d91W9oJgljxXlPHc34N9nqb
+  page_token: IhgfwCPtoif3TWkyezuc4sW9nbg
+  original_title: 实现一个函数，计算给定模型配置（层数、头数、头维度、最大序列长度、batch size）下 KV Cache 的总显存占用量（以
+    FP16 存储）。
+  imported_at: '2026-09-21'

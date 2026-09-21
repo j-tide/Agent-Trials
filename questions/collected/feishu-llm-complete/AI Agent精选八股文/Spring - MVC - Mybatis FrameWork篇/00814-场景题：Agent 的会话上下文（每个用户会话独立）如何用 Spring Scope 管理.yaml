@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cf14c3aa2292
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 的会话上下文（每个用户会话独立）如何用 Spring Scope 管理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 的会话上下文（每个用户会话独立）如何用 Spring Scope 管理？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（自定义 Scope、ThreadLocal、Session Scope、请求上下文）\n\n1️⃣ Common
+    Answer\n\n可以用 Session Scope，每个用户的会话一个实例。或者用 ThreadLocal 存上下文。\n\n2️⃣ Impressive
+    Answer\n\n- 场景分析：\n\n- 解决方案： 方案 1：Session Scope（Web 环境）\n\n@Component\n@Scope(value
+    = WebApplicationContext.SCOPE_SESSION, proxyMode = ScopedProxyMode.TARGET_CLASS)\npublic
+    class AgentSessionContext {\n    private List<Message> history = new ArrayList<>();\n
+    \   private Map<String, Object> preferences = new HashMap<>();\n        \n    public
+    void addMessage(Message message) {\n        history.add(message);\n    }\n        \n
+    \   // getters...\n}\n    \n@Service\npublic class AgentService {\n    @Autowired\n
+    \   private AgentSessionContext sessionContext;  // 每个用户会话一个实例\n        \n    public
+    void chat(String message) {\n        sessionContext.addMessage(new Message(message));\n
+    \       // 处理逻辑\n    }\n}\n\n-   **注意**：需要在 singleton Bean 中注入 Session Scope Bean
+    时，使用 `proxyMode = ScopedProxyMode.TARGET_CLASS` 创建代理对象。\n\n**方案 2：自定义 Scope（非
+    Web 环境）**\n\n// 定义自定义 Scope\npublic class ConversationScope implements Scope {\n
+    \   private final ThreadLocal<Map<String, Object>> conversationContext = ThreadLocal.withInitial(HashMap::new);\n
+    \       \n    @Override\n    public Object get(String name, ObjectFactory<?> objectFactory)
+    {\n        return conversationContext.get().computeIfAbsent(name, k -> objectFactory.getObject());\n
+    \   }\n        \n    @Override\n    public Object remove(String name) {\n        return
+    conversationContext.get().remove(name);\n    }\n        \n    @Override\n    public
+    void registerDestructionCallback(String name, Runnable callback) {\n        //
+    销毁回调\n    }\n        \n    @Override\n    public Object resolveContextualObject(String
+    key) {\n        return null;\n    }\n        \n    @Override\n    public String
+    getConversationId() {\n        return String.valueOf(Thread.currentThread().getId());\n
+    \   }\n}\n    \n// 注册自定义 Scope\n@Configuration\npublic class ScopeConfig {\n    @Bean\n
+    \   public static CustomScopeConfigurer customScopeConfigurer() {\n        CustomScopeConfigurer
+    configurer = new CustomScopeConfigurer();\n        configurer.addScope(\"conversation\",
+    new ConversationScope());\n        return configurer;\n    }\n}\n    \n// 使用自定义
+    Scope\n@Component\n@Scope(\"conversation\")\npublic class AgentContext {\n    private
+    List<Message> history = new ArrayList<>();\n    // ...\n}\n\n**方案 3：ThreadLocal
+    + RequestContextHolder（简单场景）**\n\n@Component\npublic class AgentContextHolder
+    {\n    private static final ThreadLocal<AgentContext> CONTEXT = new ThreadLocal<>();\n
+    \       \n    public static void setContext(AgentContext context) {\n        CONTEXT.set(context);\n
+    \   }\n        \n    public static AgentContext getContext() {\n        return
+    CONTEXT.get();\n    }\n        \n    public static void clear() {\n        CONTEXT.remove();\n
+    \   }\n}\n    \n// 拦截器中设置上下文\n@Component\npublic class AgentInterceptor implements
+    HandlerInterceptor {\n    @Override\n    public boolean preHandle(HttpServletRequest
+    request, HttpServletResponse response, Object handler) {\n        String conversationId
+    = request.getHeader(\"X-Conversation-Id\");\n        AgentContext context = contextRepository.findByConversationId(conversationId);\n
+    \       AgentContextHolder.setContext(context);\n        return true;\n    }\n
+    \       \n    @Override\n    public void afterCompletion(HttpServletRequest request,
+    HttpServletResponse response, Object handler, Exception ex) {\n        AgentContextHolder.clear();\n
+    \   }\n}\n\n- 方案对比：\n\n[嵌入表格未展开]\n\n- 实践建议：\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcnvs1vpcZFwbQuFu4YQ2dzle
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 3、场景题：Agent 的会话上下文（每个用户会话独立）如何用 Spring Scope 管理？
+  imported_at: '2026-09-21'

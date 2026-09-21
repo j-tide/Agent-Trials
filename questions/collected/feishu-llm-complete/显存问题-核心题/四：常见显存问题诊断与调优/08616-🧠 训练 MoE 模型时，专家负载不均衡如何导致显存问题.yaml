@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a952f44efa86
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E0 训练 MoE 模型时，专家负载不均衡如何导致显存问题？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F9E0 训练 MoE 模型时，专家负载不均衡如何导致显存问题？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 专家负载不均衡指不同专家处理的 token 数量差异巨大。这会导致某些专家所在的 GPU（专家并行时）或该专家的优化器状态/激活集中爆发，显存消耗严重不均，进而导致负载高的设备
+    OOM，而其他设备显存闲置。\n\n\U0001F50D 详细机制：\n\n- 专家并行下的显存不对称：在 MoE 训练中，常采用专家并行（Expert Parallelism）将不同专家分布到不同
+    GPU。如果路由策略使得绝大部分 token 都被分配到少数几个专家（例如 90% 的 token 都去了专家 1 和 2），那么持有这些专家的 GPU 将需要存储和计算大量的中间激活、梯度和优化器状态，而其他专家的
+    GPU 则相对空闲。这导致单卡显存峰值极高，容易出现 OOM。\n\n- 激活值与临时缓冲区膨胀：专家接收的 token 数决定了其 FFN 层的批量大小。负载高的专家需要处理的
+    token 数量可能是平均的数十倍，那么该专家的输入张量大小（[num_tokens, hidden]）急剧增加，前向和反向产生的激活值以及梯度缓冲区随之线性甚至超线性增长。例如，top-2
+    路由下，若某个专家被 10 倍 token 选中，其对应的中间激活占用可能达到 10 倍，瞬间撑爆显存。\n\n- 优化器状态分布不均：由于专家参数是分片存储的，但优化器状态（如
+    Adam 的动量、方差）与参数一一对应，同样会集中在热门专家的 GPU 上。如果某个专家的参数梯度更新频繁，其优化器状态占用不变，但该专家的参数分片所在的
+    GPU 还需要存储大量其他专家的状态吗？不，专家并行下每卡只有部分专家，但热门专家的卡需要处理大量 token 的梯度同步，可能导致通信缓冲区堆积。\n\n-
+    通信负载不均导致缓冲积压：All-to-All 通信用于 token 路由，如果负载不均，某些 GPU 需要发送/接收远超其他卡的数据量，通信缓冲区可能被占满，甚至触发反压，使得临时张量不能及时释放，造成显存堆叠。\n\n\U0001F4CA
+    实例：\n\n假设 8 个专家分布在 4 张 GPU 上（每卡 2 个专家）。由于路由 collapse，专家 0 和 1 处理了 70% 的 token，它们都在
+    GPU0 上。正常每卡激活约 5GB，现在 GPU0 需要处理 3.5 倍 token，激活飙升到 17.5GB，而其他卡仅 2.5GB。GPU0 OOM，训练崩溃。\n\n✅
+    应对方案：\n\n- 负载均衡损失 (Load Balancing Loss)：添加辅助损失鼓励路由器平均分配 token，如 Switch Transformer
+    的负载均衡损失。\n\n- 专家容量限制 (Expert Capacity)：限制每个专家最多处理的 token 数，超出的 token 通过残差连接直接传到下一层或丢弃（会导致精度损失）。\n\n-
+    动态重新分配专家（resampling）：在检测到不均衡时，动态将热门专家的参数迁移到空闲 GPU 上？实现复杂。\n\n- 使用 ZeRO 分片专家状态：即使专家并行，进一步用
+    ZeRO 对优化器状态进行分片，缓解单卡压力。\n\n- 监控与自动调整：实时监控每张卡的显存占用和 token 分配，及时调整容量因子或路由策略。\n\n\U0001F501
+    显存问题本质：负载不均打破了分布式训练中精心设计的显存平衡，使得某些设备成为瓶颈，导致全局 OOM。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K8Caw8DYRifcnzkTTjUcLwE4ngd
+  block_id: Eb4fdv7Knog0BhxVLt5cfdzHnJh
+  page_token: K8Caw8DYRifcnzkTTjUcLwE4ngd
+  original_title: "\U0001F9E0 训练 MoE 模型时，专家负载不均衡如何导致显存问题？"
+  imported_at: '2026-09-21'

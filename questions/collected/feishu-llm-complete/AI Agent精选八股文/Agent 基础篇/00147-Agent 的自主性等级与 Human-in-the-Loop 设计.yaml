@@ -1,0 +1,99 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ea0fd28e7520
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Agent 的自主性等级与 Human-in-the-Loop 设计
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: Agent 的自主性等级与 Human-in-the-Loop 设计
+answer:
+  mode: rubric
+  reference_answer: |-
+    1、基础题：什么是 Human-in-the-Loop（HITL）？
+
+    难度级别：⭐（HITL 概念、人工介入时机）
+
+    Human-in-the-Loop 是指在 Agent 执行过程中，在特定节点暂停，让人来做决策或确认，然后再继续执行。核心目的是防止 Agent 在高风险或高不确定性的操作上自主犯错。典型场景：删除数据、向外部用户发送消息、执行金融交易等不可逆操作，都应该先暂停等待人工确认。
+
+    ---
+
+    2、进阶题：Agent 的自主性等级如何划分？在 LangGraph 里如何用 interrupt() 实现 HITL？
+
+    难度级别：⭐⭐（五级自主性谱系、介入触发标准、interrupt() 机制与状态持久化）
+
+    1️⃣ Common Answer
+
+    Agent 的自主性可以分成几个等级，从完全人工控制到完全自动。HITL 就是在关键节点让人确认，比如删数据前要用户同意。LangGraph 里用 interrupt() 函数实现，调用后 Agent 暂停，等用户输入后再继续。
+
+    2️⃣ Impressive Answer
+
+    我会从三个角度来回答：
+
+    - 五级自主性谱系。Agent 自主性不是开关，是个连续谱系：L0 全人工——Agent 只提供建议，操作由人执行，比如知识问答；L1 人工审批——Agent 制定方案，人审批后才执行，比如代码生成后人工 review；L2 有限自主——低风险操作自动执行，高风险操作暂停等待确认；L3 监督自主——Agent 全程自主，人可以随时介入干预；L4 全自动——无需人工干预，比如定时数据管道。实际产品里绝大多数都在 L2-L3 之间。
+
+    - 何时触发人工介入。核心判断标准是两个维度：操作不可逆程度——删除数据、发消息给外部用户、金融交易，一旦执行很难撤回，必须有人工确认；Agent 的置信度——如果 Thought 里出现了明显的不确定性表达，这是强信号，应该触发 HITL 而不是让 Agent 自己猜。
+
+    - LangGraph 的 interrupt() 实现。调用 interrupt() 时传入要展示给用户的信息，LangGraph 会把当前 graph 执行状态持久化到 checkpointer（比如 SqliteSaver），然后挂起等待。前端收到挂起信号后展示确认界面，用户操作后通过 Command(resume=user_decision) 恢复执行。最大的价值是：状态是持久化的，即使服务重启，挂起的任务也不丢失，用户几小时后再回来确认也没问题，这在企业级 Agent 产品里非常关键。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：Agent 在执行"批量发送营销邮件"任务时，如何设计 HITL 流程来防止误发？
+
+    难度级别：⭐⭐（HITL 工程设计、审批流程、异常处理）
+
+    1️⃣ Common Answer
+
+    在发送前让用户确认一下，用户同意了再发。可以用 interrupt() 暂停，展示要发的邮件列表，用户确认后继续。
+
+    2️⃣ Impressive Answer
+
+    我会设计一个两阶段审批流程：第一阶段，Agent 完成邮件内容生成和收件人筛选后，触发 interrupt() 展示预览——包括收件人数量、邮件主题、内容摘要、预计发送时间。用户可以选择"全部确认"、"修改后确认"或"取消"。第二阶段，如果收件人超过一定阈值（比如 1000 人），增加一层管理员二次确认，防止普通用户误触发大规模发送。
+
+    工程细节：interrupt() 的状态用 PostgresSaver 持久化，确保审批流程可以跨越服务重启；发送过程本身做分批处理，每批之间加速率限制，即使发送中途出问题也能从断点续发，不会重复发送。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcn4jjgWrWE8DNJfxzobP2hae
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: Agent 的自主性等级与 Human-in-the-Loop 设计
+  imported_at: '2026-09-21'

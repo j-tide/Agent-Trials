@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9fd071416d6b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 你如何实现对某个 LLM 的请求重试（例如遇到 Rate Limit 时指数退避）？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: 你如何实现对某个 LLM 的请求重试（例如遇到 Rate Limit 时指数退避）？
+answer:
+  mode: rubric
+  reference_answer: "\U0001F504 指数退避（Exponential Backoff） 是处理临时性错误（如 429 Rate Limit）的标准策略。\n\n\U0001F6E0️
+    方案一：利用底层 SDK 的重试机制\n\n大多数 LLM SDK（如 openai）已经内置了重试逻辑。LangChain 的 ChatOpenAI 接受
+    max_retries 参数，它会传递给 OpenAI 客户端。\n\nmodel = ChatOpenAI(model=\"gpt-4\", max_retries=5)
+    \ # OpenAI SDK 会自动使用指数退避重试 5 次\n\n\U0001F6E0️ 方案二：自定义重试 Runnable\n\n你可以使用 tenacity
+    库创建一个带重试逻辑的 Runnable。\n\nfrom tenacity import retry, stop_after_attempt, wait_exponential\nfrom
+    langchain_core.runnables import RunnableLambda\n\n@retry(stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=30))\ndef call_model_with_retry(input):\n
+    \   return model.invoke(input)\n\nretry_chain = prompt | RunnableLambda(call_model_with_retry)
+    | parser\n\n\U0001F6E0️ 方案三：使用 LangChain 的 with_retry 功能（部分版本提供）\n\nLangChain
+    的 Runnable 提供了 with_retry 方法（较新版本），可以配置重试次数和退避策略。\n\nrobust_model = model.with_retry(\n
+    \   retry_if_exception_type=(openai.RateLimitError,),\n    stop_after_attempt=3,\n
+    \   wait_exponential_multiplier=1,\n    wait_exponential_max=30\n)\n\n\U0001F4CA
+    监控重试：在回调中记录重试次数，当重试频繁时发出告警，可能是配额不足或模型选择不当。\n\n⚠️ 注意事项：\n\n- 对于幂等的请求（如 temperature=0
+    的相同 Prompt），重试是安全的。\n\n- 对于非幂等请求，重试可能导致重复消费（如扣费多次），需要确保服务端的幂等性。\n\n- 在 stream
+    模式下，重试处理较复杂，通常建议在应用层手动处理。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NWPhwBZQ9iuqdXkPhHNcLThjnig
+  block_id: Ja2udmEl4oCe8FxypX2cPg61n0b
+  page_token: NWPhwBZQ9iuqdXkPhHNcLThjnig
+  original_title: 你如何实现对某个 LLM 的请求重试（例如遇到 Rate Limit 时指数退避）？
+  imported_at: '2026-09-21'

@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-441f9be72bf3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F501 激活值重计算开启后仍然 OOM，可能是什么原因？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F501 激活值重计算开启后仍然 OOM，可能是什么原因？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 梯度检查点只能减少部分激活，但其他部分如模型权重、优化器状态、梯度、KV Cache（如果适用）仍然占用大量显存，并且重计算本身也会产生临时峰值。若
+    OOM 依然发生，通常是总体显存仍超限，或者重计算实现没有覆盖最主要的激活源。\n\n\U0001F50D 可能原因分析\n\n- 优化器状态和梯度仍然过大\n梯度检查点对权重、梯度、优化器状态无影响。若模型很大，优化器状态（如
+    Adam 的 8 bytes/param）和梯度（FP16 2 bytes/param）仍可能占总显存 80% 以上。开启检查点只是将激活从 50% 降低到
+    10%，但优化器状态没变，总显存依然超标。\n\n- 基础模型权重未压缩\n即使冻结主模型或使用 LoRA，若基础权重为 FP16，7B 占 14GB，13B
+    占 26GB。检查点省下激活的几 GB 不足以弥补。此时需量化基础权重（QLoRA）。\n\n- 重计算未涵盖所有大激活\n默认的梯度检查点可能只对 torch.utils.checkpoint.checkpoint
+    包裹的模块生效，但某些操作（如自定义注意力）可能遗漏，导致其内部激活仍被保留。另外，若只对一部分层设置检查点，其他层激活照常保留。\n\n- 重计算产生的临时峰值超出\n开启检查点后，反向传播时会重新运行前向，临时分配该段的所有激活。若检查点分段太大（例如
+    10 个 Block 一段），重计算时激活峰值可能接近无检查点的水平，这可能导致瞬时 OOM。\n\n- KV Cache 占用被忽视\n训练时编码器-解码器模型或某些自回归训练（如
+    teacher forcing）也会需要存储 K、V 以供交叉注意力，这部分与序列长度成正比，检查点不能减少它。长序列下 KV Cache 可能成为大头。\n\n-
+    其他占用：通信缓冲区、数据加载\n分布式训练中的通信缓冲（如 all-reduce 的临时空间）以及 pin_memory 的数据缓冲区也占用显存。检查点对此无效。可尝试关闭
+    overlap_comm 或调小 batch size。\n\n- 碎片或缓存导致 false OOM\n如前述，碎片可能使得分配失败。检查 memory_reserved
+    与 allocated。\n\n✅ 解决顺序\n若开启检查点仍 OOM：先用 memory_summary 确认是真实占用还是碎片；接着考虑量化权重、分片优化器、减小
+    batch/序列；再检查重计算的粒度。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BbCrwkO3wiWmAikFy0zc2OK6nPg
+  block_id: VeoZdq7RXoH7HTxa3EKcQi7mnwg
+  page_token: BbCrwkO3wiWmAikFy0zc2OK6nPg
+  original_title: "\U0001F501 激活值重计算开启后仍然 OOM，可能是什么原因？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7b19dbb7af69
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 大模型训练中，如何保证数值计算的确定性？为什么有时要牺牲它？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 大模型训练中，如何保证数值计算的确定性？为什么有时要牺牲它？
+answer:
+  mode: rubric
+  reference_answer: |-
+    确定性意味着用相同的输入、相同的初始权重和相同的随机种子，每次运行得到的输出完全一致（bit-exact）。在深度学习中，完全确定性难以实现，因为GPU的浮点运算非结合性（例如并行reduction顺序不可控）会导致微小差异。但我们可以通过设置来消除大部分随机性。
+
+    保证方法（PyTorch）：
+
+    - 设置torch.use_deterministic_algorithms(True)，强制使用确定性算法（如将atomicAdd替换为确定性实现）。
+
+    - 设置torch.backends.cudnn.deterministic = True，让cuDNN使用确定性算法。
+
+    - 设置torch.backends.cudnn.benchmark = False，关闭自动算法搜索（否则每次运行可能选不同算法）。
+
+    - 设置所有的随机种子：Python、numpy、PyTorch、CUDA。
+
+    - 禁用数据加载的多线程随机性（worker_init_fn固定seed）。
+
+    - 控制cuDNN的卷积操作等。
+
+    为什么要牺牲确定性？
+
+    - 性能：确定性算法通常比非确定性算法慢。例如，cuDNN的某些卷积算法在非确定性模式下可以利用硬件并行性更快地计算，但结果有微小的浮点误差。开启确定性后，框架必须选择速度较慢的算法，训练吞吐可能下降10%~30%。
+
+    - 内存：某些确定性实现需要额外的缓冲区。
+
+    在大模型训练中，我们通常不追求bit-exact确定性，因为这点浮点误差不会影响收敛和最终性能。牺牲一点确定性换取显著的训练速度提升是划算的。只有在需要严格复现实验结果、定位bug或者进行敏感的科学计算时，才会开启确定性模式。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: PAoTdakbuouodlx6mMEcbIEBndg
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: 大模型训练中，如何保证数值计算的确定性？为什么有时要牺牲它？
+  imported_at: '2026-09-21'

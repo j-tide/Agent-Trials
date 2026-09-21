@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4062ae067c72
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释“计算量 (FLOPs)”与“训练时间”的关系，如何估算训练所需 GPU 小时？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 解释“计算量 (FLOPs)”与“训练时间”的关系，如何估算训练所需 GPU 小时？
+answer:
+  mode: rubric
+  reference_answer: |-
+    计算量（FLOPs）是衡量模型运算规模的静态指标，训练时间则是动态的耗时。二者通过硬件算力和利用率连接起来。
+
+    关系公式：
+
+    训练时间 (秒) ≈ 总计算量 (FLOPs) / (GPU算力 (FLOPS) × GPU数量 × 利用率)
+
+    估算训练所需 GPU 小时的步骤：
+
+    - 计算单步计算量：对于 Transformer，一次前向+反向传播的 FLOPs 可近似为 6 × P × T，其中 P 是模型参数量，T 是每步处理的 token 总数 (Global Batch Size in tokens)。这个近似公式在序列长度远大于模型维度时较为精确。
+
+    - 计算总计算量：总计算量 = 单步FLOPs × 总训练步数。
+
+    - 估算硬件算力：以 NVIDIA A100 (80GB) 为例，其 FP16 Tensor Core 的峰值算力为 312 TFLOPS。多卡集群的总算力 = 312e12 FLOPS × GPU数量。
+
+    - 估算利用率 (MFU)：大模型训练的 MFU 通常在 30%-60%。这受并行策略、通信带宽、数据加载等因素影响。
+
+    - 代入公式计算：
+    训练小时数 ≈ (总FLOPs) / (312e12 × GPU数量 × MFU) / 3600
+    例如，一个65B模型，用1T tokens训练，总FLOPs约为 6 × 65e9 × 1e12。在512张A100上，假设MFU=50%，则大致需要数十天。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Yto8wfa8ti5TgZktU1YczVp7nme
+  block_id: RK40dqA2HotAr5xsk6xcR8LWnZe
+  page_token: Yto8wfa8ti5TgZktU1YczVp7nme
+  original_title: 解释“计算量 (FLOPs)”与“训练时间”的关系，如何估算训练所需 GPU 小时？
+  imported_at: '2026-09-21'

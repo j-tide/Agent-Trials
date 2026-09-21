@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5b8af15ee476
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何确保微调任务的高可用性？比如训练中断恢复。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如何确保微调任务的高可用性？比如训练中断恢复。
+answer:
+  mode: rubric
+  reference_answer: |-
+    大模型微调任务通常运行时间长（数小时到数天）、资源消耗大，确保其高可用性至关重要。这需要从故障预防、故障检测、故障恢复三个层面构建完整的体系。
+
+    - 故障预防与检测 (Prevention & Detection)
+
+    - 心跳检测：训练任务的主进程（Rank 0）定期向平台调度器报告心跳。超时未报告，则认为任务异常或节点故障。
+
+    - 健康检查探针：在训练容器中配置liveness和readiness探针。liveness探针用于检测容器是否僵死；readiness探针检测训练进程是否启动完毕。当探针失败时，Kubernetes会自动重启容器。
+
+    - 实时监控与告警：监控关键指标（GPU温度、ECC错误、NCCL通信超时、损失值NaN等）。一旦发现异常，立即推送告警并自动尝试恢复。
+
+    - 冗余基础设施：使用多可用区部署、高可用的共享存储（如基于Ceph的对象存储）。
+
+    - 故障恢复机制 (Recovery Mechanisms)
+
+    - 基于检查点的断点续训 (Checkpoint & Resume)：这是核心手段。训练框架（如DeepSpeed, FSDP, HuggingFace Trainer）被配置为周期性（如每100步）自动保存完整的训练状态（模型权重、优化器状态、学习率调度器状态、数据迭代器状态）到一个共享的、高可用的存储中。
+
+    - 自动重启：当故障被检测到后，调度器在另一个健康的GPU节点上重新创建一个相同的训练容器。
+
+    - 状态恢复：新容器启动时，自动从共享存储中定位到最新的检查点文件，加载完整训练状态。然后，无缝地从断点处继续训练，仅损失最后未保存的部分训练步数。
+
+    - Failover策略：
+
+    - 数据与模型保护
+
+    - 训练数据的版本化：确保新容器能加载到完全一致的数据版本。
+
+    - 模型权重的异地备份：检查点文件除了保存在集群本地高速缓存外，也异步上传到对象存储中，作为异地容灾备份，防止整个集群存储故障导致数据丢失。
+
+    通过这套体系，微调任务可以做到“机器宕机无感知”，将长时间训练的中断影响降至最低，从“怕中断”变为“不怕中断”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ty64w3f7OipOfgkdPWVcn8ganTf
+  block_id: Bt0qdlbivohe3XxjvI6cq35tnuf
+  page_token: Ty64w3f7OipOfgkdPWVcn8ganTf
+  original_title: 如何确保微调任务的高可用性？比如训练中断恢复。
+  imported_at: '2026-09-21'

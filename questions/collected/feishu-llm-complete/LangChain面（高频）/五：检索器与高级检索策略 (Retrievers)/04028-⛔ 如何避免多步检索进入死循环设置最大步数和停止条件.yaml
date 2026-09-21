@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e6b8e518feef
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⛔ 如何避免多步检索进入死循环？设置最大步数和停止条件。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "⛔ 如何避免多步检索进入死循环？设置最大步数和停止条件。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    多步检索的最大风险是无限循环或检索到重复信息。防御措施如下：
+
+    - 设置最大迭代步数（max_iterations）
+
+    最直接的控制：限制循环最多执行 N 次（例如 3-5 次）。超过后，无论是否找到答案，都强制停止，将当前累积文档作为最终上下文返回。这是在 LangChain 中配置 MultiStepQueryRetriever 时的必选参数。
+
+    - 明确的停止条件（Stop Condition）
+
+    在每次 LLM 决策时，要求它输出一个特殊标记（如“Final Answer:”或“STOP”）。当 LLM 认为现有信息已足够回答，就输出这个标记，循环自动终止。Prompt 设计至关重要。
+
+    - 检测信息增益（Information Gain）
+
+    计算新检索到的文档与已有文档的重叠率。如果新文档中超过 80% 的内容与已存在文档语义重复，说明检索已陷入冗余，可以提前终止。可以通过计算 TF-IDF 余弦相似度或简单的 Jaccard 指数来实现。
+
+    - 查询多样性检查
+
+    记录历史查询，避免 LLM 生成与之前高度相似的查询。如果新查询与某个历史查询的语义相似度（用 embedding 比较）高于 0.9，则要求 LLM 重新生成或直接终止。
+
+    - 用户问题充分性评估
+
+    用一个独立的轻量级模型（或规则）评估当前累积文档是否包含了回答问题的必要实体。如果所有必要实体都出现了，可以终止。
+
+    实际代码示例（概念性）：
+
+    max_steps = 3
+    for step in range(max_steps):
+        docs = retriever.get_relevant_documents(query)
+        context = merge_docs(context, docs)
+        decision, new_query = llm.decide_next_step(question, context)
+        if "Final Answer" in decision:
+            break
+        query = new_query
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HEY1ws44PidEGlkYttccK5AenXe
+  block_id: LXeGdt9a6orKTZxqInwcMnXInyf
+  page_token: HEY1ws44PidEGlkYttccK5AenXe
+  original_title: "⛔ 如何避免多步检索进入死循环？设置最大步数和停止条件。"
+  imported_at: '2026-09-21'

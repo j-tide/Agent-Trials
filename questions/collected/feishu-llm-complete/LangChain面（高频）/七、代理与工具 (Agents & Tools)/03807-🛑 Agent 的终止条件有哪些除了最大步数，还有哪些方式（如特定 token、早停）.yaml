@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a0d2dc74bf7a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6D1 Agent 的终止条件有哪些？除了最大步数，还有哪些方式？（如特定 token、早停）"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "\U0001F6D1 Agent 的终止条件有哪些？除了最大步数，还有哪些方式？（如特定 token、早停）"
+answer:
+  mode: rubric
+  reference_answer: |-
+    除了 max_iterations，Agent 的终止还有以下几种方式：
+
+    - LLM 主动输出终止标记
+    在 ReAct 模式中，LLM 会输出 Final Answer: 来表示任务完成。这是最自然的终止方式。AgentExecutor 检测到这个标记后，会停止循环并提取答案。
+
+    - 特定 Token 终止
+    可以为 LLM 设置 stop 参数，当生成到某个字符串时提前停止。例如设置 stop=["Observation:"]，这可以避免 LLM 在思考时胡编乱造观察结果。但这对 Agent 终止本身不是主要方式。
+
+    - 时间超时（Timeout）
+    可以设置整个 Agent 执行的总时间限制。例如，如果 30 秒内未完成，则强制终止。这对于在线服务很重要，防止单个请求占用过久。LangChain 目前没有内置这个功能，但可以在外层用 asyncio.wait_for 实现。
+
+    - 早停（Early Stopping）
+    如前所述，当达到最大步数时，可以通过 early_stopping_method 让 Agent 强制生成一个答案。这相当于一种“软终止”，而不是直接报错。
+
+    - 回调函数中断
+    利用 LangChain 的回调系统，可以在 on_agent_action 等方法中根据自定义逻辑抛出异常，从而中断执行。例如，检测到工具连续返回相同错误时，主动终止。
+
+    - 自定义终止条件
+
+    在 Agent 的 Prompt 中可以定义额外的终止规则。例如：“如果你发现用户的问题与天气无关，直接回答‘我不知道’并终止。” 这样 LLM 可以在某些条件下提前结束，而不必调用工具。
+
+    - 输出解析失败重试次数限制
+    当 Agent 的输出格式不符合预期（解析错误），AgentExecutor 会尝试重新调用 LLM。max_execution_time 或 max_retries（通过 handle_parsing_errors 参数控制）可以限制重试次数，防止无限重试。
+
+    ✅ 实践：我通常会组合使用 max_iterations + early_stopping_method="generate"，并在外部设置一个总超时。对于可能失控的场景，自定义一个回调来监控状态，比如当发现 Agent 连续三次调用同一个工具且参数不变时，强制抛出异常并退出。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/L6pCw9CICiNRXDkqTmbcNMZ5nzh
+  block_id: Ye4AdUTDyorRxHxxcTfch6nln6g
+  page_token: L6pCw9CICiNRXDkqTmbcNMZ5nzh
+  original_title: "\U0001F6D1 Agent 的终止条件有哪些？除了最大步数，还有哪些方式？（如特定 token、早停）"
+  imported_at: '2026-09-21'

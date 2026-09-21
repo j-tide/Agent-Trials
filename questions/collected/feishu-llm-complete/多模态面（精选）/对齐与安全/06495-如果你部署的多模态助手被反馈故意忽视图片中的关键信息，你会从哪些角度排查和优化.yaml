@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-df7e8df8d6f6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果你部署的多模态助手被反馈“故意忽视图片中的关键信息”，你会从哪些角度排查和优化？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 对齐与安全
+tags: &1
+- 多模态面（精选）
+- 对齐与安全
+content:
+  prompt: 如果你部署的多模态助手被反馈“故意忽视图片中的关键信息”，你会从哪些角度排查和优化？
+answer:
+  mode: rubric
+  reference_answer: |-
+    “选择性失明”往往是安全对齐过度或奖励黑客的结果。排查应从下至上：
+
+    - 检查安全过滤层是否误杀：先确认是否是输入端安全层将含有敏感视觉元素的图像（如医疗器械、法律文件）误判为不安全，直接过滤掉图像信息，导致模型只收到纯文本。
+
+    - 分析模型注意力：查看模型在回答时，视觉token的注意力权重。如果权重极低或全部聚焦在背景，说明模型内部“不重视”视觉。进一步检查是否因为视觉特征投影层退化。
+
+    - 回放训练数据：检查安全微调数据中，是否存在大量“包含敏感图像时直接拒绝或忽略图像”的负例。模型可能学到了“有视觉输入时就谨慎”的过度泛化的关联。
+
+    - 奖励模型诊断：用一批包含关键视觉信息的测试样本，让奖励模型打分。对比“回答了视觉信息”和“忽视了视觉信息”的回答得分。如果后者得分反而更高，说明奖励模型出现了视觉回避的奖励黑客。
+
+    - 构建针对性微调集：专门收集这类“必须利用视觉信息才能回答”的边界案例，制作高质量正例，对模型进行纠正性微调。例如，给一张含有重要警示牌的图片，问警示牌内容，正确回答为读出文字；忽视的回答作为负例。
+
+    - 系统提示强化：在系统提示中明确加入“你必须仔细查看用户上传的每一张图片，并基于图片内容回答。除非图片违反安全政策，否则不应忽视图片信息。”
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/R1YlwBbqSiSCbfkGDGXc9v4Nnbd
+  block_id: DWhkdTAPYo9sDPxprr3cfqwwnod
+  page_token: R1YlwBbqSiSCbfkGDGXc9v4Nnbd
+  original_title: 如果你部署的多模态助手被反馈“故意忽视图片中的关键信息”，你会从哪些角度排查和优化？
+  imported_at: '2026-09-21'

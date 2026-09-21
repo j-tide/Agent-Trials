@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-69a820526a2b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚡ 1. Flash Attention：把 O(N²) 的显存读写打下来"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "⚡ 1. Flash Attention：把 O(N²) 的显存读写打下来"
+answer:
+  mode: rubric
+  reference_answer: "问题在哪？\n\n标准 self-attention 会生成一个 N×N 的注意力分数矩阵 S，然后对它做 softmax，再乘以
+    V。这个 N×N 矩阵需要反复在 GPU 的高带宽显存（HBM） 和片上缓存（SRAM） 之间搬运，而 HBM 的带宽远跟不上计算单元的速度。时间都花在 IO
+    上了，计算单元大量空转。\n\n标准做法：\nQ,K (HBM) → 算出 S=QK^T (N×N) 写出到 HBM\n→ 从 HBM 读 S 做 softmax
+    得到 P 写出到 HBM\n→ 从 HBM 读 P 乘 V 得到 O 写出到 HBM\n\n核心思想\n\n把整个计算切成小块，一次加载一个块到 SRAM，在
+    SRAM 内把该块需要的所有计算全部做完，中间那个 N×N 矩阵根本不存在 HBM 里。 利用 online softmax 技巧动态更新全局统计量，保证数学上完全等价。\n\nFlash
+    Attention：\n循环加载 Q_block, K_block (HBM → SRAM)\n  ├─ 在 SRAM 内算局部 S\n  ├─ 用 online
+    softmax 更新累积的 max 和分母\n  ├─ 直接在 SRAM 内累加该块对 O 的贡献\n  └─ 最终写出 O (SRAM → HBM)\n全程不产生完整
+    S 矩阵\n\n关键代码：online softmax 更新逻辑\n\ndef flash_attention_update(O_prev, m_prev,
+    l_prev, K_block, V_block, Q_i):\n    # 计算当前块注意力分数\n    S_ij = Q_i @ K_block.T
+    \              # (1, block_size)\n    m_curr = max(m_prev, S_ij.max())     # 更新最大值（数值稳定）\n
+    \   \n    # 修正之前的累计\n    correction = torch.exp(m_prev - m_curr)\n    l_curr =
+    correction * l_prev + torch.exp(S_ij - m_curr).sum()  # 新分母\n    \n    # 计算当前块的输出贡献并累积\n
+    \   P_ij = torch.exp(S_ij - m_curr)      # 当前块未归一化权重\n    O_curr = correction
+    * O_prev + P_ij @ V_block\n    return O_curr, m_curr, l_curr\n\n为什么快？\n\n- SRAM
+    带宽是 HBM 的 10 倍以上，把 N×N 矩阵的读写省掉，直接带来数倍加速。\n\n- 由于不存储完整注意力矩阵，显存从 O(N²) 降到 O(N)，允许训练更长序列或更大
+    batch。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VZ8HwGCqEiUGiRkSmGfcRuNdnCg
+  block_id: doxcnn3SMEX2nl9TmhROkBKqOYc
+  page_token: VZ8HwGCqEiUGiRkSmGfcRuNdnCg
+  original_title: "⚡ 1. Flash Attention：把 O(N²) 的显存读写打下来"
+  imported_at: '2026-09-21'

@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4afcee026415
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 1. 静态预规划和动态分配分别是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+content:
+  prompt: "\U0001F9E9 1. 静态预规划和动态分配分别是什么？"
+answer:
+  mode: rubric
+  reference_answer: "在多 Agent 系统中，这二者是任务分配策略的两种极端，本质区别在于 “分配决策的时间点”。\n\n静态预规划：执行前，一次性画好整张地图。\n动态分配：
+    \ 执行中，一步一步问路。\n\n静态：Plan → Assign → Execute (不可变)\n动态：Sense → Decide → Act → Sense
+    → ... (循环)\n\n① 静态预规划\n\n定义：在 Agent 开始执行之前，由一个 Planner（可以是 LLM，也可以是固定算法）根据任务描述，分解出完整的任务依赖图（DAG），并明确每个子任务由哪个
+    Agent 负责。执行阶段按图索骥，不再修改分配。\n\n特点：\n\n- 确定性：执行路径固定，易于审计、调试、复现。\n\n- 高效：无运行时决策开销，可直接并行化无依赖的子任务。\n\n-
+    僵硬：无法应对执行中出现的意外（如某个 Worker 返回异常结果，需要插入新步骤）。\n\n代码示例：静态 DAG 定义与并行执行\n\nimport asyncio\n\n#
+    任务 DAG 定义：每个任务有 id，依赖列表，执行函数\ndag = {\n    \"T1\": {\"deps\": [], \"func\": agent_a_work},\n
+    \   \"T2\": {\"deps\": [], \"func\": agent_b_work},\n    \"T3\": {\"deps\": [\"T1\",
+    \"T2\"], \"func\": agent_c_work},\n    \"T4\": {\"deps\": [\"T3\"], \"func\":
+    agent_d_work},\n}\n\nasync def execute_dag(dag):\n    results = {}\n    # 简单的拓扑执行：每次找出所有依赖已满足的任务并行执行\n
+    \   while len(results) < len(dag):\n        ready = [tid for tid, t in dag.items()
+    if tid not in results \n                 and all(d in results for d in t[\"deps\"])]\n
+    \       tasks = [asyncio.create_task(dag[t][\"func\"](results)) for t in ready]\n
+    \       completed = await asyncio.gather(*tasks)\n        for tid, res in zip(ready,
+    completed):\n            results[tid] = res\n    return results\n\n这种模式非常适合流程标准化、变化极少的场景，比如金融行业的合规审批流。\n\n②
+    动态分配\n\n定义：由一个运行时的 Supervisor 或协商机制，在每一步根据“当前全局状态”来决定“下一个激活哪个 Agent”。它没有事先写死的完整计划，而是每一步都重新评估。\n\n特点：\n\n-
+    灵活：能处理异常、中间结果不符合预期时及时调整策略（如增加验证步骤、换 Agent）。\n\n- 强适应性：对开放式、探索型任务效果极好，能走出设计者未预料到的路径。\n\n-
+    成本与风险：每步都需要 LLM 决策（烧 Token），且可能陷入循环或做出错误路由。\n\n动态分配的伪代码（Supervisor 循环）：\n\nwhile
+    True:\n    next_agent = supervisor_llm(state)   # 根据当前状态，LLM 决定下一步\n    if next_agent
+    == \"FINISH\":\n        break\n    result = agents[next_agent].run(state)  # 交给该
+    Agent 执行\n    state.update(result)                    # 更新全局状态\n\n这适用于用户意图多变、任务结构不固定的场景，如“帮我深入研究一下这家公司，看值不值得投资”。\n\n搭配使用：实际生产中，通常是“宏观静态，微观动态”。顶层用
+    DAG 划定大阶段，每个阶段内部再用动态 Supervisor 处理具体执行的不确定性。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JcycwopI3iq7iOk1kBJcuICVnOg
+  block_id: doxcnQkN8SKp9irM3P8j92ZDMQb
+  page_token: JcycwopI3iq7iOk1kBJcuICVnOg
+  original_title: "\U0001F9E9 1. 静态预规划和动态分配分别是什么？"
+  imported_at: '2026-09-21'

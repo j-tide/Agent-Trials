@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7dba5d0c33e4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是AdaLoRA？它如何自适应地分配秩？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 什么是AdaLoRA？它如何自适应地分配秩？
+answer:
+  mode: rubric
+  reference_answer: |-
+    AdaLoRA（Adaptive Low-Rank Adaptation）是一种能自动为不同层分配合适的秩（rank） 的LoRA变体。标准LoRA对所有适应层使用相同的固定秩 r，这忽略了不同层对下游任务重要性的差异——有些层可能需要更高的秩来捕捉复杂的变化，有些层可能只需要很低的秩即可。固定秩要么造成参数浪费（冗余），要么限制了关键层的表达（瓶颈）。AdaLoRA通过训练中动态调整秩，在相同的总参数预算下实现更好的性能。
+
+    自适应秩分配机制：
+
+    AdaLoRA将LoRA的增量权重 ΔW 重新参数化为奇异值分解（SVD）形式：
+
+    [图片内容未导入]
+
+    具体过程：
+
+    - 初始化：初始时给所有层分配一个平均秩预算（比如平均秩为 ravgravg），并随机初始化 P,Λ,Q。
+
+    - 重要性评估：在训练过程中，定期（如每训练一定步数）计算每个奇异值（及其对应的三元组）的重要性得分。重要性综合考虑：
+
+    - 剪枝与重分配：根据所有层的所有奇异值的重要性得分，进行全局排序。在总参数预算不变的前提下，剪掉那些重要性最低的奇异值/三元组（将其移除或置零），它们对应的秩被释放。释放出来的参数预算被重新分配给拥有更重要奇异值的层，这些层可以获得更高的秩（即增加新的奇异值/三元组，并相应调整 P,Q）。
+
+    - 持续训练：经过剪枝和重分配后，模型继续训练，让新分配的结构进一步优化。这个过程反复进行，直到收敛。
+
+    通过这种“优胜劣汰”的动态分配，AdaLoRA最终能让重要的层拥有较高的秩，次要的层拥有较低的秩，甚至有些层秩为零（即不进行任何适配）。这在参数效率上远超标准LoRA，且在相同总参数下取得更高的精度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UEbgw2D3ci93jLkR3c6cdyoInve
+  block_id: HGUQdokTRooNXAxq8JkctNWlngf
+  page_token: UEbgw2D3ci93jLkR3c6cdyoInve
+  original_title: 什么是AdaLoRA？它如何自适应地分配秩？
+  imported_at: '2026-09-21'

@@ -1,0 +1,90 @@
+---
+schema_version: 1
+id: feishu-llm-complete-eb79d17ec9fa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用外部知识库（如 Wikipedia）做事实核查，怎样设计流程？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型幻觉面
+derived_topic: 
+tags: &1
+- 大模型幻觉面
+content:
+  prompt: 使用外部知识库（如 Wikipedia）做事实核查，怎样设计流程？
+answer:
+  mode: rubric
+  reference_answer: |-
+    利用维基百科等权威知识库进行事实核查是验证模型生成内容真实性的标准方法。设计如下流程：
+
+    （1）原子事实提取与查询生成
+
+    - 同上，将待测文本拆分为原子事实。对每个原子事实，抽取核心实体和关系，生成一个或多个搜索查询。查询策略包括：直接使用陈述句作为查询、使用“实体1 关系 实体2”形式、或者仅用实体名检索。
+
+    （2）知识库检索
+
+    - 使用 Wikipedia API 或离线索引，检索相关页面摘要或全文。对于每个原子事实，获取 Top-K 篇最相关的文章或段落。可以使用稀疏检索（BM25）或稠密检索（DPR），并利用标题匹配提升精度。
+
+    - 可选：使用 Wikidata 查询结构化数据，对于数字、日期、关系等可直接进行 SPARQL 查询获取真值。例如，“爱因斯坦的出生日期”可直接返回维基数据中的精确日期。
+
+    （3）证据片段精炼与对齐
+
+    - 对检索到的长文档，进行段落重排序，选取与原子事实最相关的若干证据片段。可使用交叉编码器（cross-encoder）或基于 NLI 的评分。片段长度以包含足够上下文为准。
+
+    - 确保证据的权威性：优先使用百科类文章正文，排除讨论页或低质量段落。
+
+    （4）事实校验
+
+    - 方法一：NLI 研判。将证据片段作为前提，原子事实作为假设，运行 NLI 模型。若证据蕴含假设，则事实通过；若矛盾，则标记为事实错误（幻觉）；若中立（证据未涉及），则标记为“无法验证”，可能需要进一步检索或判定为可能幻觉（如果要求必须知道）。
+
+    - 方法二：基于问答的验证。生成一个关于该原子事实的问题，用阅读理解模型在证据片段上寻找答案。如果抽取的答案与原子事实中的信息匹配，则通过；如果不匹配或找不到答案，则可能为幻觉。该方法能处理更复杂的表述。
+
+    - 方法三：信息检索指标。计算原子事实与检索片段之间的 BERTScore 或 TF-IDF 相似度，如果相似度极低，表明无相关证据，直接标记为幻觉。这种方法快但粗。
+
+    （5）多源证据融合与决策
+
+    - 对同一事实使用多个独立来源（不同页面或不同搜索引擎结果）的证据。如果多数来源支持，则通过；若相互矛盾，则标记为有争议，需提示用户。
+
+    - 引入证据质量权重：Wikipedia 条目可信度通常高，社交媒体等不可用。
+
+    （6）结果聚合与输出
+
+    - 输出每个原子事实的核查结果：Supported（支持）、Refuted（否定）、Not Enough Evidence（证据不足）。对于 Refuted 和部分 Not Enough Evidence 可标记为幻觉。
+
+    - 同时高亮原文中的相应片段，并提供证据来源链接。
+
+    挑战与优化：
+
+    - 时效性：知识库可能不是最新的，对于时事，需要结合新闻搜索。
+
+    - 效率：批量原子事实检索和NLI较慢，可并行处理，并缓存频繁查询。
+
+    - 对模糊陈述的处理：如“研究表明……”需拆解为具体声明才能核查。
+
+    此流程是自动化事实核查系统（如FActScore的变体）的核心，能有效检测大多数事实性幻觉。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NovwwCvuyiHnmDka5CpcaQzunnc
+  block_id: RUEydztaOoVoXtxexaGcXibPnmf
+  page_token: NovwwCvuyiHnmDka5CpcaQzunnc
+  original_title: 使用外部知识库（如 Wikipedia）做事实核查，怎样设计流程？
+  imported_at: '2026-09-21'

@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e15709ca5286
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 文档分块策略有哪几种？各自的优缺点是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: 文档分块策略有哪几种？各自的优缺点是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    分块是 RAG 里“细节见真章”的地方。切得好，检索准；切不好，后面整个链路都在为碎片信息买单。我习惯把主流策略分成四类，从左到右，智能程度递增，成本也递增。
+
+    ```text
+    固定长度切分 → 递归切分 → 句子/语义切分 → 结构感知切分
+      简单粗暴      最常用       语义完整       结构化文档专属
+    ```
+
+    [嵌入表格未展开]
+
+    在生产中，绝大多数情况用“递归字符切分”就能达到不错的效果。 LangChain 和 LlamaIndex 都提供了现成的实现。
+
+    ```python
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500,         # 每个 chunk 最大字符数
+        chunk_overlap=50,       # 相邻 chunk 重叠长度，防止关键信息被切断
+        separators=["\n\n", "\n", "。", ".", " ", ""],
+        length_function=len,
+    )
+    chunks = splitter.create_documents([full_text])
+    ```
+
+    Chunk Size 和 Overlap 的经验值：
+
+    - chunk_size：通常设在 256~1024 token 之间。越小检索越精准，但可能丢失上下文；越大上下文越全，但检索粒度粗。对于中文，512 字符是个安全的起点。
+
+    - chunk_overlap：取 chunk_size 的 10%~20%。目的是在边界处形成“语义重叠带”，防止答案的关键部分正好被截断在两个 chunk 的连接处。
+
+    分块策略选型，最重要的是看文档的“亲妈”是谁——是结构化的 Markdown 还是混乱的 PDF 扫描件？是严谨的法律条款还是随意的聊天记录？没有银弹，只有最适配的刀。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Vf3WwfQfWib73PkQHd2coGQXnmf
+  block_id: doxcn0wJfjkKzYs918usFyhTQVd
+  page_token: Vf3WwfQfWib73PkQHd2coGQXnmf
+  original_title: 文档分块策略有哪几种？各自的优缺点是什么？
+  imported_at: '2026-09-21'

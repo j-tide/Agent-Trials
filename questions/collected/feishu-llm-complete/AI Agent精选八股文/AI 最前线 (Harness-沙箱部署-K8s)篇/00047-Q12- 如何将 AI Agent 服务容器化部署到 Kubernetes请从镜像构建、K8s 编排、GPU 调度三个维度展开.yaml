@@ -1,0 +1,154 @@
+---
+schema_version: 1
+id: feishu-llm-complete-91493aad9201
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 'Q12: 如何将 AI Agent 服务容器化部署到 Kubernetes？请从镜像构建、K8s 编排、GPU 调度三个维度展开。'
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: AI 最前线 (Harness|沙箱部署|K8s)篇
+tags: &1
+- AI Agent精选八股文
+- AI 最前线 (Harness|沙箱部署|K8s)篇
+content:
+  prompt: 'Q12: 如何将 AI Agent 服务容器化部署到 Kubernetes？请从镜像构建、K8s 编排、GPU 调度三个维度展开。'
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度：⭐⭐⭐（Agent 服务容器化、多阶段镜像构建、K8s Deployment/Service/HPA 编排、GPU 资源调度（nvidia.com/gpu）、模型文件挂载策略
+
+    1️⃣ Common Answer
+
+    将 AI Agent 服务容器化部署到 Kubernetes，主要步骤包括：首先使用 Docker 将 Agent 应用打包成镜像，然后在 Kubernetes 中创建 Deployment 进行部署，配置 Service 暴露服务。如果需要使用 GPU，需要在 Pod 中声明 GPU 资源请求。最后通过 HPA 实现自动扩缩容。这样就能实现 Agent 服务的容器化部署和管理。
+
+    2️⃣ Impressive Answer
+
+    将 AI Agent 服务容器化部署到 Kubernetes，需要从镜像构建、K8s 编排、GPU 调度三个维度系统设计。我按照总分结构展开：
+
+    a) 镜像构建策略
+
+    多阶段构建是关键。我使用 builder 阶段安装依赖、编译代码，然后使用轻量级的 runtime 阶段运行应用，避免将构建工具带入最终镜像。基础镜像选择 nvidia/cuda:12.1.0-runtime-ubuntu22.04，既包含 CUDA 运行时又保持镜像体积合理。
+
+    模型文件绝对不能打进镜像，因为模型文件动辄几 GB 甚至几十 GB，会导致镜像体积过大、拉取缓慢。我采用 PV/PVC 挂载方案，或者用 init container 预先从对象存储下载模型到共享卷。这样模型文件和代码镜像分离，便于独立更新。
+
+    镜像分层优化也很重要。将不常变化的依赖层（如 Python 包、系统库）放在前面的 Dockerfile 指令，频繁变化的代码层放在后面，充分利用 Docker 分层缓存机制，加速构建。
+
+    b) K8s 编排设计
+
+    Deployment 配置是核心。关键配置包括：
+
+    - 资源 requests/limits：CPU、内存设置合理配额，GPU 使用 nvidia.com/gpu: 1 声明
+
+    - 健康检查：livenessProbe 检测进程存活，readinessProbe 等待模型加载完成才标记就绪，避免过早接流量
+
+    - 优雅终止：设置 terminationGracePeriodSeconds 给模型卸载留出时间
+
+    Service 暴露策略：内部服务使用 ClusterIP，对外暴露通过 Ingress，配置 TLS 证书和域名路由。
+
+    HPA 自动扩缩容：基于 CPU/内存指标的基础扩缩容，结合自定义指标（如 QPS、GPU 利用率、请求队列长度）实现更精细的扩缩容策略。
+
+    c) GPU 资源调度
+
+    NVIDIA Device Plugin 是基础，它将 GPU 资源暴露给 K8s 调度器。GPU 共享方案根据场景选择：单租户独占用 MIG（Multi-Instance GPU），多租户共享用 vGPU 或 GPU 时间片方案。
+
+    节点亲和性很重要：使用 nodeSelector 标记 GPU 节点，或者用 nodeAffinity 设置更复杂的调度规则，如优先调度到 GPU 型号匹配的节点。GPU 拓扑感知调度（如 NVIDIA GDS）可以优化跨 GPU 通信性能。
+
+    d) 模型加载优化
+
+    模型预热通过 readinessProbe 实现：启动脚本先加载模型到 GPU 内存，只有模型加载完成，readinessProbe 才返回成功，Pod 才会加入 Service 端点。
+
+    模型缓存避免重复下载：使用 hostPath 或 PVC 缓存模型文件，多个 Pod 共享同一缓存卷，减少对象存储下载压力和启动时间。
+
+    关键 Deployment 配置示例：
+
+    ```text
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: agent-service
+    spec:
+      replicas: 3
+      selector:
+        matchLabels:
+          app: agent-service
+      template:
+        metadata:
+          labels:
+            app: agent-service
+        spec:
+          containers:
+          - name: agent
+            image: registry.example.com/agent-service:v1.0.0
+            resources:
+              requests:
+                cpu: "2"
+                memory: "8Gi"
+                nvidia.com/gpu: 1
+              limits:
+                cpu: "4"
+                memory: "16Gi"
+                nvidia.com/gpu: 1
+            volumeMounts:
+            - name: model-cache
+              mountPath: /models
+            livenessProbe:
+              httpGet:
+                path: /health
+                port: 8080
+              initialDelaySeconds: 30
+              periodSeconds: 10
+            readinessProbe:
+              httpGet:
+                path: /ready
+                port: 8080
+              initialDelaySeconds: 60
+              periodSeconds: 5
+          initContainers:
+          - name: model-downloader
+            image: curlimages/curl:latest
+            command: ["sh", "-c", "curl -o /models/llama-2-7b.gguf https://storage.example.com/models/llama-2-7b.gguf"]
+            volumeMounts:
+            - name: model-cache
+              mountPath: /models
+          volumes:
+          - name: model-cache
+            persistentVolumeClaim:
+              claimName: model-pvc
+          nodeSelector:
+            gpu-type: "a100"
+    ```
+
+    我的实践
+
+    电商导购 Agent 项目中，我们将 Agent 服务部署到 K8s，模型使用 LLaMA-2-7B。镜像采用多阶段构建，最终镜像只有 800MB，模型文件（约 15GB）通过 PVC 挂载。使用 init container 从 OSS 下载模型到 PVC，多个 Pod 共享模型缓存，启动时间从 5 分钟降低到 30 秒。HPA 配置基于 QPS 和 GPU 利用率的双指标扩缩容，高峰期自动扩到 20 个副本，GPU 利用率保持在 70-80%，既保证响应速度又控制成本。通过 nodeAffinity 将 Pod 调度到 A100 GPU 节点，避免调度到旧型号 GPU 节点导致性能下降。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M0n4w1EKwiQwxKkHxMvc4LZUn7p
+  block_id: doxcnPkGLTSydRRiXV291GpPjNh
+  page_token: M0n4w1EKwiQwxKkHxMvc4LZUn7p
+  original_title: 'Q12: 如何将 AI Agent 服务容器化部署到 Kubernetes？请从镜像构建、K8s 编排、GPU 调度三个维度展开。'
+  imported_at: '2026-09-21'

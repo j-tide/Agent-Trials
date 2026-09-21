@@ -1,0 +1,94 @@
+---
+schema_version: 1
+id: feishu-llm-complete-273078908800
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 问题 20：Kafka/RocketMQ 的生产端如何调优？batch、压缩、acks、linger.ms 等参数怎么配？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 问题 20：Kafka/RocketMQ 的生产端如何调优？batch、压缩、acks、linger.ms 等参数怎么配？
+answer:
+  mode: rubric
+  reference_answer: "难度：⭐⭐⭐（批量发送、压缩算法对比、acks 与吞吐的 trade-off、异步发送）\n\n1️⃣ Common Answer
+    嗯...生产端调优主要是批量发送和压缩。batch.size 设置大一点，linger.ms 设置几百毫秒，这样能攒更多消息一起发。压缩用 gzip 或者
+    snappy。acks 设置成 1 或者 all，保证可靠性。异步发送也很快。\n\n2️⃣ Impressive Answer 我会从这几个角度思考：\n\n-
+    批量发送：batch.size + linger.ms 的配合逻辑\n\nKafka 配置：\n\n```text\n# 单个批次最大字节数（默认 16KB，建议
+    32KB-1MB）\nbatch.size=32768\n\n# 等待批次攒满的最大时间（默认 0ms，建议 10-100ms）\nlinger.ms=20\n```\n\n配合逻辑：\n\n-
+    linger.ms 控制等待时间，batch.size 控制批次大小\n\n- 两者任一达到阈值即发送（先到先发）\n\n- 高吞吐场景：linger.ms=50-100ms，batch.size=1MB\n\n-
+    低延迟场景：linger.ms=0-10ms，batch.size=32KB\n\nRocketMQ 配置：\n\n```text\n// 批量发送（默认
+    1KB，建议 4KB-1MB）\nproducer.setRetryTimesWhenSendFailed(2); // 失败重试\nproducer.setSendMsgTimeout(3000);
+    // 发送超时 3s\n\n// 批量发送代码示例\nList<Message> messages = new ArrayList<>();\nfor (int
+    i = 0; i < 100; i++) {\n    messages.add(new Message(\"TopicTest\", (\"Hello\"
+    + i).getBytes()));\n}\nSendResult result = producer.send(messages); // 批量发送\n```\n\n-
+    压缩算法对比\n\n[嵌入表格未展开]\n\nKafka 配置：\n\n```text\n# 压缩算法（默认 none）\ncompression.type=lz4
+    \ # 推荐：LZ4 或 Snappy\n```\n\nRocketMQ 配置：\n\n```text\n// 消息体超过阈值时压缩（默认 4KB，建议 1KB-10KB）\nproducer.setCompressMsgBodyOverHowmuch(1024);\n\n//
+    压缩算法（默认 ZIP，建议 LZ4）\nproducer.setCompressLevel(5); // ZIP 压缩级别（0-9）\n```\n\n实战经验：\n\n-
+    日志采集场景：使用 Zstd，压缩率高，节省带宽\n\n- 实时计算场景：使用 LZ4，低延迟，高吞吐\n\n- 订单交易场景：使用 Snappy，平衡性能与可靠性\n\n-
+    acks 参数：吞吐与可靠性的 trade-off\n\nKafka 配置：\n\n```text\n# 0：不等待确认（最快，可能丢消息）\n# 1：等待
+    Leader 确认（折中）\n# all/-1：等待所有 ISR 确认（最可靠）\nacks=1\n```\n\n[嵌入表格未展开]\n\nRocketMQ
+    配置：\n\n```text\n// 同步发送（等待 Broker 确认）\nSendResult result = producer.send(message);
+    // 默认同步\n\n// 异步发送（不等待确认，回调处理）\nproducer.send(message, new SendCallback() {\n
+    \   @Override\n    public void onSuccess(SendResult sendResult) {\n        //
+    发送成功回调\n    }\n    \n    @Override\n    public void onException(Throwable e) {\n
+    \       // 发送失败回调\n    }\n});\n```\n\n- 异步发送 + 回调：提升吞吐的最佳实践\n\nKafka 代码示例：\n\n```text\nProperties
+    props = new Properties();\nprops.put(\"bootstrap.servers\", \"localhost:9092\");\nprops.put(\"acks\",
+    \"1\");\nprops.put(\"retries\", 3); // 失败重试\nprops.put(\"batch.size\", 32768);\nprops.put(\"linger.ms\",
+    20);\nprops.put(\"buffer.memory\", 33554432); // 缓冲区大小 32MB\nprops.put(\"compression.type\",
+    \"lz4\");\nprops.put(\"key.serializer\", StringSerializer.class.getName());\nprops.put(\"value.serializer\",
+    StringSerializer.class.getName());\n\nProducer<String, String> producer = new
+    KafkaProducer<>(props);\n\n// 异步发送 + 回调\nproducer.send(new ProducerRecord<>(\"TopicTest\",
+    \"key\", \"value\"), \n    new Callback() {\n        @Override\n        public
+    void onCompletion(RecordMetadata metadata, Exception exception) {\n            if
+    (exception != null) {\n                // 处理失败\n                log.error(\"Send
+    failed\", exception);\n            } else {\n                // 处理成功\n                log.info(\"Send
+    success, offset: {}\", metadata.offset());\n            }\n        }\n    });\n```\n\nRocketMQ
+    代码示例：\n\n```text\nDefaultMQProducer producer = new DefaultMQProducer(\"ProducerGroup\");\nproducer.setNamesrvAddr(\"localhost:9876\");\nproducer.setRetryTimesWhenSendAsyncFailed(2);
+    // 异步重试\nproducer.start();\n\n// 异步发送 + 回调\nMessage message = new Message(\"TopicTest\",
+    \"TagA\", \"Hello\".getBytes());\nproducer.send(message, new SendCallback() {\n
+    \   @Override\n    public void onSuccess(SendResult sendResult) {\n        log.info(\"Send
+    success, msgId: {}\", sendResult.getMsgId());\n    }\n    \n    @Override\n    public
+    void onException(Throwable e) {\n        log.error(\"Send failed\", e);\n    }\n});\n```\n\n-
+    RocketMQ 生产端调优参数\n\n```text\n// 发送超时时间（默认 3s，建议 1-5s）\nproducer.setSendMsgTimeout(3000);\n\n//
+    消息体超过阈值时压缩（默认 4KB）\nproducer.setCompressMsgBodyOverHowmuch(1024);\n\n// 同步发送失败重试次数（默认
+    2）\nproducer.setRetryTimesWhenSendFailed(2);\n\n// 异步发送失败重试次数（默认 2）\nproducer.setRetryTimesWhenSendAsyncFailed(2);\n\n//
+    最大消息体大小（默认 4MB，建议 1-10MB）\nproducer.setMaxMessageSize(4 * 1024 * 1024);\n```\n\n-
+    实战：从 5000 TPS 调优到 50000 TPS 的参数组合\n\n初始配置（5000 TPS）：\n\n```text\n# Kafka\nbatch.size=16384\nlinger.ms=0\nacks=all\ncompression.type=none\n```\n\n优化配置（50000
+    TPS）：\n\n```text\n# Kafka\nbatch.size=1048576          # 1MB\nlinger.ms=50                #
+    50ms\nacks=1                      # 降低可靠性提升吞吐\ncompression.type=lz4        # 启用压缩\nbuffer.memory=67108864
+    \     # 64MB 缓冲区\nmax.in.flight.requests.per.connection=10  # 提升并发\n```\n\n优化效果：\n\n-
+    批量发送提升 5 倍：16KB → 1MB\n\n- 延迟攒批提升 2 倍：0ms → 50ms\n\n- 压缩节省 50% 带宽：none → LZ4\n\n-
+    降低确认延迟：acks=all → acks=1\n\n- 总体提升：10 倍吞吐（5000 → 50000 TPS）\n\nRocketMQ 优化配置：\n\n```text\n//
+    批量发送（100 条/批次）\nList<Message> messages = new ArrayList<>();\nfor (int i = 0; i
+    < 100; i++) {\n    messages.add(new Message(\"TopicTest\", body));\n}\nproducer.send(messages);\n\n//
+    异步发送 + 回调\nproducer.send(message, callback);\n```\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---\n\n###
+    6.21 消费端性能瓶颈排查与优化"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcnv2xVPF38FPbIZplG6zYixc
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: 问题 20：Kafka/RocketMQ 的生产端如何调优？batch、压缩、acks、linger.ms 等参数怎么配？
+  imported_at: '2026-09-21'

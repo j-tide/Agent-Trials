@@ -1,0 +1,92 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5ea295e076aa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F310 当你使用 LangServe 部署一个带记忆的链时，如何自动管理 session？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F310 当你使用 LangServe 部署一个带记忆的链时，如何自动管理 session？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangServe 是 LangChain 的服务化框架，它可以自动将你的链部署为 REST API。对于带记忆的链，LangServe 内置了自动会话管理功能。
+
+    工作原理：
+
+    - 当客户端调用 API 时，需要在请求头中传递 X-Session-Id（或请求体中的 session_id 字段，取决于配置）。
+
+    - LangServe 会自动解析该会话 ID，并使用它来初始化或加载对应的 Memory。
+
+    - 你不需要在每个请求中手动创建 Memory，只需在定义链时提供 Memory 的工厂函数或配置。
+
+    具体步骤：
+
+    - 定义链时，使用 RunnableWithMessageHistory 包装你的链。这个包装器会为每个 session_id 自动管理历史记录。
+
+    ```python
+    from langchain_core.runnables.history import RunnableWithMessageHistory
+    from langchain.memory import ChatMessageHistory
+
+    def get_session_history(session_id: str):
+        # 根据 session_id 返回一个 ChatMessageHistory 实例（可以是内存或持久化）
+        return ChatMessageHistory()
+
+    chain_with_history = RunnableWithMessageHistory(
+        your_chain,
+        get_session_history,
+        input_messages_key="input",
+        history_messages_key="chat_history",
+    )
+    ```
+
+    - 使用 LangServe 的 add_routes 注册。LangServe 会自动处理 session_id 的传递。
+
+    ```python
+    from langserve import add_routes
+    add_routes(app, chain_with_history, path="/chat")
+    ```
+
+    - 客户端调用：在 POST 请求的 JSON body 中包含 input 和 session_id（或通过 header X-Session-Id）。LangServe 会自动从请求中提取 session_id，并调用 get_session_history 获取对应的历史记录，注入到链中。
+
+    优势：
+
+    - 完全自动化，开发者无需在链中手动管理 Memory。
+
+    - 支持多种后端（内存、Redis、Postgres等），只需在 get_session_history 中返回相应的 ChatMessageHistory 实例。
+
+    - 同一个链可以同时服务多个用户，自动隔离。
+
+    踩过的坑：确保 get_session_history 是线程安全的，并且在高并发下能正确返回对应会话的历史记录。如果使用 Redis 等共享存储，注意连接池配置。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Dajiw8ewCiTjamklohBcMVI0nre
+  block_id: Cqv5ddSitoxeAHxxjSFcqqVanug
+  page_token: Dajiw8ewCiTjamklohBcMVI0nre
+  original_title: "\U0001F310 当你使用 LangServe 部署一个带记忆的链时，如何自动管理 session？"
+  imported_at: '2026-09-21'

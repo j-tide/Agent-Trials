@@ -1,0 +1,114 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b686034ba86e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E0️ 49. 如何构造让模型学会“调用工具”的SFT数据？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F6E0️ 49. 如何构造让模型学会“调用工具”的SFT数据？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    工具调用能力是现代AI Agent的核心技能。SFT数据需要教会模型三件事：何时该调用工具、以何种格式调用、以及如何利用工具返回的结果。这不是简单的“一问一答”，而是需要构造完整的“感知-决策-执行-反馈”循环。
+
+    一、工具调用SFT数据的核心构成
+
+    [嵌入表格未展开]
+
+    二、数据构造的完整示例
+
+    <|im_start|>system
+    你可以使用以下工具：
+    1. get_weather(city: string, date: string) - 查询指定城市和日期的天气
+    2. calculate(expression: string) - 执行数学计算
+
+    当需要使用工具时，请以以下格式输出：
+    <tool_call>{"tool": "工具名", "arguments": {...}}</tool_call>
+    <|im_end|>
+    <|im_start|>user
+    北京今天和明天的平均温度分别是多少？哪个更暖和？
+    <|im_end|>
+    <|im_start|>assistant
+    <tool_call>{"tool": "get_weather", "arguments": {"city": "北京", "date": "今天"}}</tool_call>
+    <tool_call>{"tool": "get_weather", "arguments": {"city": "北京", "date": "明天"}}</tool_call>
+    <|im_end|>
+    <|im_start|>tool
+    [{"tool": "get_weather", "result": {"temperature": 25}}, {"tool": "get_weather", "result": {"temperature": 28}}]
+    <|im_end|>
+    <|im_start|>assistant
+    根据查询结果，北京今天25°C，明天28°C。明天更暖和。
+    <|im_end|>
+
+    三、数据构造的关键设计点
+
+    工具定义的多样性：训练数据中工具列表应该变化，包括不同数量、不同领域的工具。这训练模型面对新的工具集时的适应能力。不能总是同样的三个工具，否则模型只会对固定工具集有效。
+
+    调用时机的判断训练：有些指令需要工具，有些不需要。数据中应混合：
+
+    - 明确需要工具的请求（“查一下天气”）
+
+    - 不需要工具的请求（“讲个笑话”）
+
+    - 模糊边界的请求（“今天过得怎么样”——可能需要查天气也可能只是闲聊）
+
+    对于模糊边界，如果数据中始终调用工具或不调用，模型会形成偏见。正确做法是展示合理的判断过程：如果信息充分，可以不调用；如果缺少关键信息，主动调用。
+
+    错误处理与重试：工具可能调用失败（参数错误、超时、返回异常）。数据中应包含这些异常场景及模型的正确处理方式：
+
+    - 参数错误→检查参数格式并重试
+
+    - 工具不存在→告知用户并建议替代方案
+
+    - 结果异常→表示不确定并建议用户核实
+
+    并行调用与串行依赖：
+
+    - 并行调用：多个互不依赖的工具可同时调用（如上例中同时查两天天气）
+
+    - 串行依赖：后一个工具的输入依赖前一个工具的输出，需分步进行
+
+    数据中两种模式都要覆盖，训练模型区分依赖关系。
+
+    四、工具调用数据的质量检验
+
+    - 格式精确性：生成的工具调用JSON必须可解析、参数类型正确
+
+    - 工具选择的合理性：是否选择了最合适的工具完成任务
+
+    - 结果利用的充分性：是否准确解读了工具返回结果，有无遗漏关键信息
+
+    - 回退机制：工具不可用时是否有合理的Plan B
+
+    ✅ 总结：工具调用SFT数据需要构造“系统定义工具→用户任务→模型决策→工具返回→模型整合回复”的完整闭环。关键在于工具定义的多样性、调用时机的判断、异常处理的覆盖，以及并行/串行模式的区分。这些数据让模型从“被动的回答者”变为“主动的行动者”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tx5MwZddviIdFJkeUJbc7HEvnWe
+  block_id: WAuqdZBVvoJKxLxwtp9cWbPenQg
+  page_token: Tx5MwZddviIdFJkeUJbc7HEvnWe
+  original_title: "\U0001F6E0️ 49. 如何构造让模型学会“调用工具”的SFT数据？"
+  imported_at: '2026-09-21'

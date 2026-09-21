@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2f4ac25ab225
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对抗训练如何在 PyTorch 中实现？比如 FGSM。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 对抗训练如何在 PyTorch 中实现？比如 FGSM。
+answer:
+  mode: rubric
+  reference_answer: |-
+    对抗训练通过向输入注入微小扰动，使模型对此类攻击具有鲁棒性。FGSM（Fast Gradient Sign Method） 是一种快速生成对抗样本的方法。
+
+    实现步骤：
+
+    - 正常前向传播，计算损失。
+
+    - 计算输入图像的梯度（requires_grad=True）。
+
+    - 使用梯度符号生成扰动：perturbation = epsilon * gradient.sign()
+
+    - 将扰动加到原始图像上，形成对抗样本。
+
+    - 用对抗样本再次计算损失，反向传播更新参数。
+
+    ```python
+    def fgsm_attack(model, images, labels, epsilon, loss_fn):
+        images.requires_grad = True
+        outputs = model(images)
+        loss = loss_fn(outputs, labels)
+        loss.backward()
+        # 生成扰动
+        perturbed = images + epsilon * images.grad.sign()
+        return torch.clamp(perturbed, 0, 1)  # 保持合法像素范围
+
+    # 在训练循环中
+    for images, labels in train_loader:
+        # 正常训练步骤（可选）
+        # ...
+        # 生成对抗样本
+        adv_images = fgsm_attack(model, images, labels, epsilon=0.007, loss_fn=loss_fn)
+        # 用对抗样本训练
+        outputs = model(adv_images)
+        loss = loss_fn(outputs, labels)
+        loss.backward()
+        optimizer.step()
+    ```
+
+    注意：通常将正常样本和对抗样本的损失混合（例如各占50%），以保持对干净数据的泛化能力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SlZHw2a2fiQQVBkkXXscts3znGd
+  block_id: JTkUdeCLboPZPTxtpLPcum0zn7f
+  page_token: SlZHw2a2fiQQVBkkXXscts3znGd
+  original_title: 对抗训练如何在 PyTorch 中实现？比如 FGSM。
+  imported_at: '2026-09-21'

@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a537dda99ce8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: MLM 中使用的 [MASK] 标记在预训练和微调时不一致，这带来了什么问题？如何缓解？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 二：模型架构与预训练范式
+tags: &1
+- Transfomer精选面试
+- 二：模型架构与预训练范式
+content:
+  prompt: MLM 中使用的 [MASK] 标记在预训练和微调时不一致，这带来了什么问题？如何缓解？
+answer:
+  mode: rubric
+  reference_answer: |-
+    问题的本质
+
+    这个问题在学术上被称为“预训练-微调分布不一致”。在预训练阶段，模型大量看到[MASK]这个特殊符号，并学会了围绕它来组织预测——模型内部学习了一套“检测到[MASK]→激活特定预测模式”的神经响应。但在微调阶段，下游任务（文本分类、序列标注、问答等）的输入中完全不会出现[MASK]标记。
+
+    这就导致两个层面的问题：
+
+    - 表示层面：预训练时学到的与[MASK]相关的权重和激活模式在下游任务中不仅无用，还可能成为噪声源。模型需要在下游任务中“遗忘”这部分预训练知识，这浪费了模型容量。
+
+    - 行为层面：模型习惯了“看到[MASK]就要预测缺失词”的模式，但下游任务没有这个环节，模型的行为模式需要切换，这种切换可能导致微调初期的不稳定。
+
+    缓解策略的演进
+
+    BERT本身的三种处理方式（80%掩码、10%随机替换、10%保留原词）就是针对这个问题的第一道防线。通过让模型在预训练阶段就知道：不是所有“需要关注的位置”都是[MASK]，有些是随机干扰词，有些就是正确的词。这样，模型对[MASK]标记本身的依赖被削弱了，它学会了更广义的“根据上下文判断词汇合理性”的能力。
+
+    但这一防线并不彻底，后续模型做了更根本的改进：
+
+    XLNet：彻底去掉[MASK]
+
+    XLNet采用排列语言模型，完全摒弃了[MASK]标记。它将输入序列的token顺序随机打乱（实际上是打乱预测顺序，而非真正的文本顺序），然后以自回归的方式逐个预测。比如对于序列“A B C D”，一次打乱后预测顺序变为“B D A C”，模型按这个顺序自回归预测，在预测A时，可以看到B和D（因为它们在排列中排在A前面），从而获得双向上下文信息。整个过程没有引入任何[MASK]，从根本上消除了不一致问题。
+
+    RoBERTa：动态掩码
+
+    RoBERTa保留了[MASK]标记，但做了关键改进——动态掩码。BERT在数据预处理阶段生成掩码后，整个预训练过程中每条数据的掩码模式是固定的。RoBERTa改为每次将数据送入模型时都重新随机生成掩码。这样：
+
+    - 模型看到同一句话的无数次不同掩码版本，学会了更鲁棒的上下文理解，不再“记忆”特定位置的掩码。
+
+    - 由于掩码模式不断变化，模型无法形成对[MASK]的机械依赖，必须每次都重新根据上下文推理。
+
+    ERNIE：实体级掩码
+
+    ERNIE的思路是让掩码粒度更贴近语义单元。它不是随机掩码单个token，而是识别出完整的实体或短语，一次性掩码整个语义单元（比如把“北京故宫”整个掩码，而不是只掩码“北京”或“故宫”）。由于语义单元比单个token更难从局部恢复，模型被迫学习更深层的上下文推理，从而减少了对[MASK]表面形式的关注。
+
+    其他辅助手段
+
+    - 在微调时，可以适当降低与[MASK]相关的嵌入向量的学习率，让它们缓慢适应新的输入分布。
+
+    - 在预训练后期，可以逐步降低[MASK]替换的比例（从80%降到更低），让模型逐步过渡到更接近下游任务的输入分布。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IvhswLbEUiXCsXkJOiNcgAn0n1x
+  block_id: ZU9Od0bAMor4b7xdFuKc5oRdnbe
+  page_token: IvhswLbEUiXCsXkJOiNcgAn0n1x
+  original_title: MLM 中使用的 [MASK] 标记在预训练和微调时不一致，这带来了什么问题？如何缓解？
+  imported_at: '2026-09-21'

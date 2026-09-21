@@ -1,0 +1,94 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9d7a41ef0744
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 简述使用HuggingFace Trainer进行SFT的完整流程。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 简述使用HuggingFace Trainer进行SFT的完整流程。
+answer:
+  mode: rubric
+  reference_answer: |-
+    使用HuggingFace的Trainer进行SFT，可以规范化训练流程并利用其丰富的功能（分布式训练、日志、评估、checkpoint等）。以下是典型流程：
+
+    - 准备环境与模型
+
+    - 安装transformers, datasets, peft, trl等库。
+
+    - 加载基座模型（如AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf")），并配置量化（如果使用QLoRA）。
+
+    - 加载对应的tokenizer，设置pad_token（如果没有则设为eos_token），并确保padding_side="right"。
+
+    - 数据预处理
+
+    - 准备SFT数据集，可以是JSONL格式，包含instruction和output字段，或者多轮对话的conversations。
+
+    - 应用对话模板（如ChatML），将原始数据转换为文本序列。例如：
+
+    <|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{instruction}<|im_end|>\n<|im_start|>assistant\n{response}<|im_end|>
+
+    - 使用tokenizer对文本进行编码，生成input_ids和attention_mask。
+
+    - 构造labels：复制input_ids，然后将属于prompt部分的token位置（直到最后一个<|im_start|>assistant之后）设置为-100。通常通过查找特定token的位置来实现。简单做法：将input_ids中所有在assistant回复之前的token的label设为-100。
+
+    - 配置PEFT（如LoRA）
+
+    - 使用LoraConfig设置LoRA参数（r, lora_alpha, target_modules, lora_dropout, task_type="CAUSAL_LM"）。
+
+    - 调用get_peft_model(model, lora_config)获得可训练的PeftModel。
+
+    - 定义训练参数
+
+    - 使用TrainingArguments（或Seq2SeqTrainingArguments）设置：
+
+    - 实例化Trainer
+
+    - trainer = Trainer(model=model, args=training_args, train_dataset=train_dataset, eval_dataset=eval_dataset, tokenizer=tokenizer, data_collator=custom_data_collator)
+
+    - data_collator：默认的DataCollatorForSeq2Seq可以处理padding和label mask，但若需要packing等，需自定义。
+
+    - 开始训练
+
+    - trainer.train()
+
+    - 训练完成后，保存模型：trainer.save_model() 或 model.save_pretrained()。如果是LoRA，保存的是适配器权重。
+
+    - 评估与推理
+
+    - 加载训练好的模型进行人工评估或自动化测试。
+
+    - 可以合并LoRA权重后导出为完整模型用于部署。
+
+    ✅ 总结：HuggingFace Trainer提供了一套标准化的SFT训练框架，通过配置模型、数据、训练参数和PEFT，即可高效完成微调。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZYXSwaWATimyqQkmZm5cAPJHnoc
+  block_id: TrK4dFMysoMlXwxX50ScWQYPnEY
+  page_token: ZYXSwaWATimyqQkmZm5cAPJHnoc
+  original_title: 简述使用HuggingFace Trainer进行SFT的完整流程。
+  imported_at: '2026-09-21'

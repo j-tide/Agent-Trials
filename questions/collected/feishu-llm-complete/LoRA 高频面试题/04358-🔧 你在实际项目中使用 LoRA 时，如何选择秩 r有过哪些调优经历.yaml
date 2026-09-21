@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5145da3f0781
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F527 你在实际项目中使用 LoRA 时，如何选择秩 r？有过哪些调优经历？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LoRA 高频面试题
+derived_topic: 
+tags: &1
+- LoRA 高频面试题
+content:
+  prompt: "\U0001F527 你在实际项目中使用 LoRA 时，如何选择秩 r？有过哪些调优经历？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    选择秩 r 是 LoRA 微调中最直接也最关键的参数。它决定了低秩适配器所能承载的信息容量上限。我的选择策略经历了从“拍脑袋”到“看数据”的转变。
+
+    - 理论指导与经验法则
+
+    - 任务复杂度为先：如果任务与预训练模型高度一致（如通用对话风格调整），r=4 到 88 通常足够；如果任务需要注入全新的领域知识或学习复杂的推理模式（如法律文书、代码生成），我会从 r=16 开始尝试。
+
+    - 奇异值谱分析：我会对关键层的预训练权重进行 SVD 分解，观察其奇异值的衰减速度。如果奇异值在较小的索引处就迅速衰减到接近零，说明该权重的内在秩较低，用一个较小的 r（如8）就能捕获其主要更新方向；反之，若衰减缓慢，则需要更大的 r。
+
+    - 显存与计算约束：在资源受限（如单卡、大模型）的情况下，r 的选择必须向显存低头。但在资源允许时，适当增大 r 往往能带来更好的效果。
+
+    - 调优经历：从“固定”到“动态”
+
+    - 早期阶段：保守的试探。我曾在一个情感分析任务上，从 r=2 开始，逐步增加到 4、8、16。结果发现 r=8 相较于 r=4 有显著提升，但 r=16 提升微弱，且训练和推理延迟开始增加。最终在性能与成本之间选择了 r=8。这让我意识到，对于相对简单的任务，存在一个“饱和点”，超过它的 r 投入产出比不高。
+
+    - 中期阶段：结合 AdaLoRA 的思路。在一个多任务学习场景中，不同层对各个任务的贡献程度不同。我为所有层统一设置了较大的初始秩 r=32，但在训练时引入了类似 AdaLoRA 的机制，通过监测各层 LoRA 参数的梯度范数或奇异值重要性，手动筛选出“主导层”和“次要层”。最终将次要层的秩裁剪至 8，主导层保持 32。在参数量不变的情况下，性能反超了全层 r=32 的配置。
+
+    - 当前最佳实践：在新项目中，我首选 PiSSA (Principal Singular Values and Singular Vectors Adaptation) 初始化。它用 SVD 分解预训练权重，取主导奇异向量来初始化 A 和 B。这相当于从一个极优的起点开始训练，避免了从零探索。此时即使 r 设置得稍小，收敛速度和效果也常优于标准初始化的 r 更大的配置。这让我将更多精力从“找最优 r”转移到“找最优初始化”上。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XjiewYcvci750Gkvcqyc01XBnDc
+  block_id: EmLHdrMqAoJwP9xstwZc3tYRnJd
+  page_token: XjiewYcvci750Gkvcqyc01XBnDc
+  original_title: "\U0001F527 你在实际项目中使用 LoRA 时，如何选择秩 r？有过哪些调优经历？"
+  imported_at: '2026-09-21'

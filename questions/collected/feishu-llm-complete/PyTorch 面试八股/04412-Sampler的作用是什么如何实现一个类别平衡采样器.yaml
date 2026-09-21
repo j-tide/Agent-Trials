@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-acc671bad9e0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Sampler的作用是什么？如何实现一个类别平衡采样器？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: Sampler的作用是什么？如何实现一个类别平衡采样器？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Sampler（采样器） 控制 DataLoader 如何从数据集中抽取样本的顺序和频率。它生成索引序列，传递给 Dataset.getitem。默认情况下，DataLoader 使用 RandomSampler（当 shuffle=True）或 SequentialSampler（当 shuffle=False）。
+
+    实现类别平衡采样器：
+    目标是在每个 batch 中各类别样本数量大致均等，缓解类别不均衡。需要继承 torch.utils.data.Sampler
+
+    ```python
+    from torch.utils.data import Sampler
+    import numpy as np
+    from collections import Counter
+
+    class BalancedBatchSampler(Sampler):
+        def __init__(self, dataset, labels, batch_size, num_batches):
+            self.labels = np.array(labels)
+            self.classes = np.unique(labels)
+            self.batch_size = batch_size
+            self.num_batches = num_batches
+            self.class_indices = {c: np.where(self.labels == c)[0] for c in self.classes}
+
+        def __iter__(self):
+            # 每个 batch 从每个类别中均匀采样
+            samples_per_class = self.batch_size // len(self.classes)
+            for _ in range(self.num_batches):
+                batch = []
+                for c in self.classes:
+                    batch.extend(np.random.choice(self.class_indices[c], samples_per_class, replace=False))
+                np.random.shuffle(batch)
+                yield from batch
+
+        def __len__(self):
+            return self.batch_size * self.num_batches
+    ```
+
+    注意：更好的方式是使用 WeightedRandomSampler，为每个样本赋予与类别频率成反比的权重，然后进行带权随机采样，无需手动平衡每个 batch。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BLzXwUOV1i4vVjkNph6csNj1nwe
+  block_id: HOOKdwVjWoL95XxGF9jchej1nUg
+  page_token: BLzXwUOV1i4vVjkNph6csNj1nwe
+  original_title: Sampler的作用是什么？如何实现一个类别平衡采样器？
+  imported_at: '2026-09-21'

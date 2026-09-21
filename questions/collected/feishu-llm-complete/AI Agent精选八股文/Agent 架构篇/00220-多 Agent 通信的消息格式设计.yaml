@@ -1,0 +1,101 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fe7b65598314
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多 Agent 通信的消息格式设计
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+content:
+  prompt: 多 Agent 通信的消息格式设计
+answer:
+  mode: rubric
+  reference_answer: |-
+    1、基础题：Agent 之间通信的消息格式应该包含哪些基本字段？
+
+    难度级别：⭐⭐（结构化消息设计、链路追踪、task_id 的作用）
+
+    一个生产可用的 Agent 消息结构至少应包含：task_id（贯穿整个任务生命周期，用于追踪完整链路）、message_id（消息唯一标识）、sender/receiver（发送方/接收方 Agent 名称）、content（结构化消息内容）、message_type（request/response/error/status）、timestamp（用于排序和超时检测）。其中 task_id 是最关键的字段——所有相关 Agent 调用都携带同一个 task_id，才能在监控系统中把散落各处的调用聚合成一条完整链路。
+
+    ---
+
+    2、进阶题：LangGraph SharedState 共享内存模式和消息队列解耦模式各有什么优劣？如何选型？
+
+    难度级别：⭐⭐（LangGraph SharedState、消息队列、架构选型）
+
+    1️⃣ Common Answer
+
+    LangGraph 用一个共享的 State 对象来传递信息，所有 Agent 都可以读写。消息队列是把消息发到队列里，其他 Agent 从队列取，可以解耦。两种方式都可以用，看具体情况选择。
+
+    2️⃣ Impressive Answer
+
+    我会从两种模式的核心机制和适用边界来分析：
+
+    - LangGraph SharedState 模式：所有 Agent 节点共享同一个 State 对象，每个节点读取 State、执行逻辑、返回增量更新，通过 reducer 合并。优势是简单直接、内置持久化（checkpointer）、天然支持 human-in-the-loop。但有两个工程限制：所有 Agent 都能读到全部数据，无法做权限隔离；State 对象随任务进行持续膨胀，可能触发 Token 超限问题。
+
+    - 消息队列解耦模式：适合 Agent 跨服务、跨进程通信的场景，用 Redis Stream 或 Kafka 作为消息总线，Agent 订阅自己的 topic。优势是松耦合、独立扩缩容、消息持久化支持断点续处理；代价是引入外部依赖、运维复杂度上升、调试时需要跨多个系统查日志。
+
+    - 选型建议：单进程、任务流程固定的多 Agent 用 LangGraph SharedState；跨服务、需要高可用、Agent 独立部署的场景用消息队列。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：多 Agent 系统上线后，发现某个任务链路出错但很难定位是哪个 Agent 出了问题，怎么解决？
+
+    难度级别：⭐⭐（链路追踪、task_id 设计、可观测性）
+
+    1️⃣ Common Answer
+
+    可以在每个 Agent 里面加日志，出错的时候打印出来，然后去查日志就能找到是哪里出了问题。
+
+    2️⃣ Impressive Answer
+
+    这是多 Agent 系统可观测性的核心问题，根本原因是消息设计时没有统一的追踪 ID。解决方案分两层：
+
+    第一层是消息设计层面，强制每条 Agent 消息携带 task_id 和 parent_message_id，形成完整的消息追踪树。所有 Agent 的日志都带上 task_id，这样在日志系统里只需过滤 task_id 就能聚合出一条任务的完整执行链路。
+
+    第二层是工具层面，接入 LangSmith 或 OpenTelemetry，自动采集每个 Agent 节点的输入输出、耗时、Token 用量，在 UI 上直接可视化完整的调用链路，定位问题从"查日志"变成"看 Trace 图"。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JcycwopI3iq7iOk1kBJcuICVnOg
+  block_id: doxcnCEeM6cAsQbvv7EhDhrKk0f
+  page_token: JcycwopI3iq7iOk1kBJcuICVnOg
+  original_title: 多 Agent 通信的消息格式设计
+  imported_at: '2026-09-21'

@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-664c6503f77b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F393 20. SFT训练中的“teacher forcing”是什么？有什么优缺点？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F393 20. SFT训练中的“teacher forcing”是什么？有什么优缺点？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Teacher forcing是序列生成模型训练中的一种标准策略：在训练过程中，无论模型在前一时刻预测了什么，下一时刻的输入总是来自训练数据的真实token，而不是模型自己的预测。这就像老师在学生每写完一个字后，不管学生写对写错，都把正确的下一个字直接递给他，让他基于正确的字继续往下写。
+
+    在SFT中的应用
+    在SFT中，teacher forcing意味着，对于回答部分y1, y2, ..., yT，在预测yt时，模型接收到的上下文中的历史token是真实序列y1, ..., y_{t-1}，而不是模型自己之前预测的y1', ..., y_{t-1}'。训练过程是并行的：一次性将整个回答序列输入解码器，通过因果掩码，每个位置只看到真实的过去token。这带来了巨大的计算效率，因为可以一次性计算所有token的损失，无需串行生成。
+
+    Teacher Forcing的优点
+
+    - 训练稳定且快速收敛：由于每一步的条件都是完美的真实上下文，梯度信号稳定，没有误差累积，模型能够快速学习到正确的条件概率分布，训练初期的收敛速度极快。
+
+    - 并行计算：整个序列可以一次性前向传播，极大利用GPU的并行能力，相比自回归训练节省了大量的时间。
+
+    - 避免训练初期的不稳定性：在模型刚开始训练、生成质量极差时，如果采用自回归生成作为输入，模型会陷入混乱的上下文，难以学到任何东西。Teacher forcing保证了训练初期就能接收到有效学习信号。
+
+    Teacher Forcing的缺点
+
+    - 暴露偏差（Exposure Bias）：这是最核心的问题。训练时模型只见过“完美”的上下文，推理时却需要在自己生成的、可能有误差的上下文中运行。训练和推理的输入分布不一致，模型在推理时一旦出错就会越错越远，因为这是它从未经历过的状态。
+
+    - 误差累积：推理时，某一步的一个小错误（选了一个次优的token）会使得后续的所有输入偏离训练分布，进而导致后续生成更大错误，形成恶性循环。
+
+    - 过度依赖真实历史：模型可能学会过分依赖真实历史的特定模式，而不是学习从任意合理上下文中进行预测的鲁棒能力。这在多轮对话中表现为，如果用户输入稍有拼写错误或不规范，模型的表现可能大幅下降。
+
+    - 难以学会恢复策略：因为从未在错误上下文中训练，模型不知道如何从错误中恢复。一旦跑偏，无法自我纠正。
+
+    缓解策略
+
+    - 在训练后期混合使用一些自回归生成的上下文（如计划采样，Scheduled Sampling），让模型逐渐接触自己生成的上下文，缓解暴露偏差。
+
+    - 强化学习微调（RLHF/DPO）：让模型在自己的生成样本上进行训练，通过奖励信号学习在“自己的分布”下优化。
+
+    - 使用beam search等解码策略减少推理时的单点错误。
+
+    Teacher forcing是必要的训练手段，但其内在缺陷决定了仅靠SFT难以达到最优的序列级生成质量，这也是后续对齐阶段存在的价值。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KPIxw03EPiQ1rrkxrvUcqRIznBf
+  block_id: Or4ddadr1oAJGfxEdyscTkAdnje
+  page_token: KPIxw03EPiQ1rrkxrvUcqRIznBf
+  original_title: "\U0001F393 20. SFT训练中的“teacher forcing”是什么？有什么优缺点？"
+  imported_at: '2026-09-21'

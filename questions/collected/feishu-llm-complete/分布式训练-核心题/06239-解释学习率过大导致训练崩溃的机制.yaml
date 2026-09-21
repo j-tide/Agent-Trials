@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-904605e1d943
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释“学习率过大”导致训练崩溃的机制。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 解释“学习率过大”导致训练崩溃的机制。
+answer:
+  mode: rubric
+  reference_answer: |-
+    学习率控制着参数更新的步幅。过大的学习率会导致训练崩溃，其机制可以从多个层面理解：
+
+    参数更新层面：设梯度为g，学习率为η，参数更新为Δθ = -ηg。如果η过大，一次更新就可能将参数推向远离当前最优点的位置。在非凸的损失曲面上，这意味着参数可能从一个相对稳定的区域“跳”到一个高损失区域，甚至跳出合理的数值范围。
+
+    激活值爆炸：参数骤变后，下一轮前向传播时，线性层的输出会急剧放大。经过多层堆叠，激活值呈指数级增长（尤其在无归一化的深层网络中）。当激活值超出浮点数表示范围（FP16最大65504），就变成Inf。Inf经过后续激活函数（如softmax、log）计算，产生NaN，整个网络输出崩溃。
+
+    梯度爆炸：爆炸的激活值导致损失函数值极大，反向传播计算的梯度相应极大（因为梯度与激活值成正比）。这些巨大梯度在深层网络中连乘，导致浅层参数的梯度也大到不可思议。即使使用梯度裁剪，如果学习率本身过大，裁剪后的更新量仍然可能太大，无法完全阻止参数被推出合理区域。
+
+    优化器状态失衡：对于Adam等自适应优化器，过大的梯度会迅速改变动量m和二阶矩v的估计。由于v的更新依赖梯度平方，大梯度会让v变得极大，导致后续步骤的有效学习率（η / (√v + ε)）变得极小，模型可能陷入停滞；或者因为初始v很小，第一次大梯度使得更新量超乎想象，直接破坏模型。
+
+    损失曲面“悬崖”：大模型的损失曲面存在大量陡峭区域（“悬崖”）。在这些区域，梯度值巨大。如果学习率过大，参数可能被推下悬崖，损失瞬间飙升，再也无法通过常规梯度下降找回。Warmup的初衷就是避免训练初期参数在随机初始状态下直接遭遇悬崖。
+
+    因此，学习率过大本质上是破坏了梯度下降的稳定性假设，使得局部线性近似失效，参数更新失去控制。合适的初始学习率和Warmup是确保训练稳定的基石。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: SLU8dYD7ioRZJTxCrx9cNRa9nqc
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: 解释“学习率过大”导致训练崩溃的机制。
+  imported_at: '2026-09-21'

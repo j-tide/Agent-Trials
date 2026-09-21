@@ -1,0 +1,109 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cc75a9f1fb38
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: LangGraph 如何实现 Human-in-the-Loop（人机协作）？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: LangGraph 如何实现 Human-in-the-Loop（人机协作）？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度：⭐⭐⭐（中断机制、人工审核、工作流编排）
+
+    1️⃣ Common Answer：
+
+    Human-in-the-Loop 就是让 Agent 在某些节点停下来，等人工确认后再继续。LangGraph 可以设置 interruptbefore 或 interruptafter 参数，在特定节点前后暂停。人可以修改 State，然后 Agent 继续执行。
+
+    2️⃣ Impressive Answer：
+
+    LangGraph 的 Human-in-the-Loop 基于中断机制 + Checkpoint 持久化，实现了 Agent 与人的无缝协作。核心是在工作流的关键节点插入"人工确认点"，让人类可以审核、修正或引导 Agent 的行为。
+
+    三种典型模式：
+
+    模式一：审核确认模式（适合敏感操作）
+
+    from langgraph.graph import StateGraph, END
+
+    # 在执行支付前中断，等待人工确认
+    app = workflow.compile(
+        checkpointer=PostgresCheckpointSaver.from_conn_string(DB_URL),
+        interrupt_before=["execute_payment"]
+    )
+
+    # Agent 执行到 execute_payment 前会暂停
+    config = {"configurable": {"thread_id": "order_456"}}
+    result = app.invoke({"messages": [{"role": "user", "content": "支付 100 元"}]}, config)
+    # 此时 result.status == "interrupted"
+
+    # 人工审核后继续执行
+    approved_state = app.get_state(config)
+    approved_state.values["approval_status"] = "approved"
+    app.update_state(config, approved_state.values)
+    result = app.invoke(None, config)  # 继续执行
+
+    模式二：人工修正模式（适合 Agent 出错）
+
+    # Agent 生成错误回答，人工修正后继续
+    state = app.get_state(config)
+    state.values["messages"].append({
+        "role": "human",
+        "content": "你的回答有误，正确答案是..."
+    })
+    app.update_state(config, state.values)
+
+    模式三：人工引导模式（适合复杂决策）
+
+    # 在决策节点插入人工选择，决策后暂停让人工确认
+    app = workflow.compile(
+        checkpointer=memory,
+        interrupt_after=["decide_strategy"]
+    )
+
+    工程实践要点：
+
+    - 状态可视化：通过 app.get_state(config) 获取当前 State，展示给人工审核
+
+    - 超时处理：设置人工确认的超时时间，超时后自动降级或拒绝
+
+    - 审计日志：记录每次人工干预的操作人、时间、修改内容
+
+    - 权限控制：结合 RBAC，只有授权用户才能执行确认操作
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BGoPwvMLhic7wKkrioacP0oynIh
+  block_id: doxcnRQ4Ad4NOdBisvy5PSWFNwc
+  page_token: BGoPwvMLhic7wKkrioacP0oynIh
+  original_title: LangGraph 如何实现 Human-in-the-Loop（人机协作）？
+  imported_at: '2026-09-21'

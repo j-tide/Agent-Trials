@@ -1,0 +1,102 @@
+---
+schema_version: 1
+id: feishu-llm-complete-39be0689e4d7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EC 2. Spring Cloud Feign 的底层原理是什么？如何实现负载均衡和重试？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: "\U0001F9EC 2. Spring Cloud Feign 的底层原理是什么？如何实现负载均衡和重试？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    2.1 Feign 的本质：动态代理 + 契约解析
+
+    Feign 本身是一个 声明式 HTTP 客户端，它通过 JDK 动态代理，把接口方法调用转换成 HTTP 请求。
+
+    ```java
+    @FeignClient(name = "order-service", configuration = FeignConfig.class)
+    public interface OrderClient {
+        @GetMapping("/orders/{id}")
+        Order getOrder(@PathVariable Long id);
+    }
+    ```
+
+    当调用 getOrder(123) 时，背后发生了什么？
+
+    - Feign 在运行时为 OrderClient 生成代理对象。
+
+    - 通过 Contract（默认是 Spring MVC 的 SpringMvcContract）解析方法上的注解，生成 RequestTemplate。
+
+    - 代理方法拦截后，将参数值填充到 RequestTemplate，交给 Client 组件执行 HTTP 请求。
+
+    - Spring Cloud Feign 使用 FeignBlockingLoadBalancerClient 或早期的 LoadBalancerFeignClient 替换默认的 HTTP 客户端，集成了负载均衡。
+
+    2.2 负载均衡集成
+
+    Spring Cloud Feign 依赖 Spring Cloud LoadBalancer（或 Ribbon）实现客户端负载均衡。过程：
+
+    - 解析 @FeignClient(name = "order-service") 中的服务名。
+
+    - 通过服务发现组件（Nacos/Consul）获取该服务名对应的所有实例。
+
+    - 内置的 ReactorServiceInstanceLoadBalancer 根据策略（轮询/随机/权重）选出一个实例。
+
+    - 将 RequestTemplate 中的目标 URL 替换为选中的真实地址，发起请求。
+
+    如果你想替换负载均衡算法，只需要自定义一个 ServiceInstanceListSupplier 或 LoadBalancer Bean。
+
+    2.3 重试机制如何实现
+
+    Feign 自带了重试功能，但需要显式开启：
+
+    - Feign 内置重试器：在 Feign.Builder 中配置 Retryer.Default，可以设置最大重试次数、初始间隔等。不过这只适用于幂等方法，GET 请求默认是安全的。
+
+    - 配合 Spring Retry：在配置中增加 spring.cloud.loadbalancer.retry.enabled=true，并提供一个 RetryTemplate Bean。这样底层 LoadBalancer 在发现连接失败时会自动重试下一个实例，起到“故障转移”的效果。
+
+    ```yaml
+    spring:
+      cloud:
+        loadbalancer:
+          retry:
+            enabled: true
+    feign:
+      client:
+        config:
+          default:
+            retryer: feign.Retryer.Default
+    ```
+
+    注意：只应该重试那些幂等的请求，非幂等请求重试可能导致数据重复或状态异常，需要配合接口幂等设计一起使用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CDpWwiHlFibwCokmhxDcZEhbnQb
+  block_id: doxcndRcCfyWK317OQW3suL0nkf
+  page_token: CDpWwiHlFibwCokmhxDcZEhbnQb
+  original_title: "\U0001F9EC 2. Spring Cloud Feign 的底层原理是什么？如何实现负载均衡和重试？"
+  imported_at: '2026-09-21'

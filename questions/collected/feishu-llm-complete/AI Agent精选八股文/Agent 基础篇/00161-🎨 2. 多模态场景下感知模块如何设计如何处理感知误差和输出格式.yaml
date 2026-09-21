@@ -1,0 +1,126 @@
+---
+schema_version: 1
+id: feishu-llm-complete-61d7ddf9de89
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3A8 2. 多模态场景下感知模块如何设计？如何处理感知误差和输出格式？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F3A8 2. 多模态场景下感知模块如何设计？如何处理感知误差和输出格式？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    2.1 多模态感知模块的设计蓝图
+
+    多模态感知的核心挑战是异构对齐：图片是像素，语音是波形，文本是 token。模块必须把它们统一到同一种“语言”下。
+
+    [图片内容未导入]
+
+    具体实现建议：
+
+    - 图像：用 ViT + 投影层输出语义描述，或者直接用多模态 LLM（如 LLaVA）的视觉 token。
+
+    - 语音：先过 ASR 转文字，再放入统一文本流；或直接用音频-文本对齐模型提取高层语义。
+
+    - 文本：保留原样或做摘要后注入。
+
+    - 统一表示层：所有模态结果转换为 {"content": "...", "confidence": 0.0~1.0, "source": "camera_1"} 这类结构化字典。
+
+    2.2 感知误差的处理
+
+    感知模型不是万能的，误差来自模型能力、环境噪声、遮挡等。必须显式处理。
+
+    误差分类与对策：
+
+    - 分类错误（把猫认成狗）：依赖置信度过滤、多帧投票、多模型交叉验证。
+
+    - 定位误差（目标框偏移）：输出框+不确定性范围，下游使用空间容错。
+
+    - 漏检（没看到物体）：设定时间窗口，连续几帧无目标才确认消失。
+
+    代码示例：带置信度过滤和时序平滑的感知
+
+    import numpy as np
+    from collections import deque
+
+    class RobustPerception:
+        def __init__(self, model, confidence_threshold=0.6, window_size=5):
+            self.model = model
+            self.threshold = confidence_threshold
+            self.history = deque(maxlen=window_size)  # 时间窗口平滑
+
+        def perceive(self, image):
+            raw_result = self.model.detect(image)  # [{label, bbox, confidence}]
+            # 过滤低置信度
+            filtered = [obj for obj in raw_result if obj['confidence'] > self.threshold]
+            self.history.append(filtered)
+            # 时序投票：连续出现多次才确认
+            stable_objects = self.vote()
+            return stable_objects
+
+        def vote(self):
+            # 简化：最近窗口内至少出现 3 次的标签才保留
+            all_labels = []
+            for frame in self.history:
+                for obj in frame:
+                    all_labels.append(obj['label'])
+            from collections import Counter
+            counts = Counter(all_labels)
+            return {label for label, cnt in counts.items() if cnt >= 3}
+
+    2.3 统一输出格式
+
+    为了大脑能稳定解析，感知输出必须标准化。推荐采用 JSON Schema 约束，使用 Function Calling 或 Constrained Decoding 生成。
+
+    perception_schema = {
+        "type": "object",
+        "properties": {
+            "percepts": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "modality": {"type": "string", "enum": ["image", "audio", "text"]},
+                        "description": {"type": "string"},
+                        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                        "source": {"type": "string"}
+                    }
+                }
+            }
+        }
+    }
+    # 要求 LLM 基于感知数据输出此格式的 JSON，再传给大脑
+
+    感知误差不可消灭，只能通过“置信度标识 + 时序平滑 + 多源融合”来抑制。Agent 的大脑要学会与不完美的感官共存。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcnGFyLSc5L7hqbxue400iwDb
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: "\U0001F3A8 2. 多模态场景下感知模块如何设计？如何处理感知误差和输出格式？"
+  imported_at: '2026-09-21'

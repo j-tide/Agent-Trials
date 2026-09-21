@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b558d746ec40
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练 RM 时，通常使用多大的 batch size？为什么 batch size 对偏好比较很重要？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 2-偏好数据与奖励建模
+tags: &1
+- RLHF面试高频考点
+- 2-偏好数据与奖励建模
+content:
+  prompt: 训练 RM 时，通常使用多大的 batch size？为什么 batch size 对偏好比较很重要？
+answer:
+  mode: rubric
+  reference_answer: |-
+    典型范围：在大型语言模型的 RM 训练中，全局 batch size（所有 GPU 上总和）通常在 32 到 128 个比较对 之间，有时会更大（如 256）。这指的是成对比较的数量，而非 token 数。
+
+    为什么 batch size 很重要？
+
+    RM 的训练损失是基于“对比”的。一个 batch 内的样本构成直接影响了梯度信号的丰富度和对比学习的质量。
+
+    - 构建有效的对比空间：BT 模型损失 -log σ(r_w - r_l) 只在一个独立的偏好对上进行。理论上，batch size 为 1 也能训练。但实践中，更大的 batch size 能自然地将更多无关的 (prompt, response) 组合在一起。虽然它们不参与 loss 计算，但在使用正则化（如批次归一化）或某些隐式对比机制时，更大的 batch 能提供更稳定的统计量。
+
+    - 挖掘“困难负样本”：最关键的对比学习技巧是批内负样本挖掘。我们可以构造一种训练方式：对于一个 batch 内的 N 个偏好对，我们不仅计算原始对内的 chosen vs rejected 损失，还可以将某个 prompt 的 chosen 回答与其他 prompt 的 chosen 回答进行对比（作为更强的负例）。或者，在批内寻找那些 RM 评分最高的 rejected 和评分最低的 chosen，让它们形成“最难”的对比。所有这些挖掘策略都要求 batch size 足够大，才能包含有意义的困难负样本。 如果 batch size 太小，挖掘池过浅，模型学不到有区分力的决策边界。
+
+    - 稳定梯度和训练：RM 训练对偏好数据中的噪声（如标注错误）很敏感。小 batch 下的梯度方向可能被个别错误标签主导，导致训练震荡。较大的 batch 通过平均效应，能产生更平稳、更代表整体偏好趋势的梯度。
+
+    - 与 PPO 阶段的匹配：PPO 阶段的 batch 通常也很大，用于生成和评估大量回答。RM 在训练时接触到的 batch 尺度与推理时（为 PPO 打分）的尺度保持一致，有助于避免因 batch 统计差异带来的分布偏移。
+
+    实践考虑：由于每个样本包含很长的 prompt 和一对回答，RM 训练的显存消耗巨大。通常需要配合梯度累积（Gradient Accumulation）来模拟大 batch 训练。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KFgpwxoYei4VBPkDUJfcFKLLnVf
+  block_id: YcZedXh5pozpGDxr0GQcXdltnIU
+  page_token: KFgpwxoYei4VBPkDUJfcFKLLnVf
+  original_title: 训练 RM 时，通常使用多大的 batch size？为什么 batch size 对偏好比较很重要？
+  imported_at: '2026-09-21'

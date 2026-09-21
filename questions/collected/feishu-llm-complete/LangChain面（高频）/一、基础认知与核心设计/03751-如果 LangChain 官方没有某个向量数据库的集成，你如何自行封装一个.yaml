@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-74d17eded50d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果 LangChain 官方没有某个向量数据库的集成，你如何自行封装一个？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 一、基础认知与核心设计
+tags: &1
+- LangChain面（高频）
+- 一、基础认知与核心设计
+content:
+  prompt: 如果 LangChain 官方没有某个向量数据库的集成，你如何自行封装一个？
+answer:
+  mode: rubric
+  reference_answer: "当官方和社区包都缺少某个向量数据库（例如自研的向量库或小众数据库 Milvus Lite）时，我们可以利用 langchain-core
+    提供的抽象基类，快速封装一个符合 LangChain 接口的集成。\n\n\U0001F6E0️ 核心步骤：\n\n- 继承 VectorStore 基类\nlangchain-core
+    中定义了 VectorStore 抽象类，需要实现几个核心方法：add_texts（添加文本并生成嵌入）、similarity_search（相似度检索）、from_texts（类方法，从文本创建向量库）等。如果需要支持异步，还要实现
+    asimilarity_search 等。\n\n- 实现嵌入的生成与存储\n在 add_texts 中，使用给定的 Embeddings 对象（如 OpenAIEmbeddings）将文本转换为向量，然后将向量和元数据一起存入你的数据库。存储格式需要支持后续的相似度搜索（通常是余弦距离或欧氏距离）。\n\n-
+    实现检索逻辑\n在 similarity_search 中，将用户查询转化为向量，调用数据库的近似最近邻（ANN）搜索接口，取出 top-k 结果，并包装为
+    Document 对象返回。\n\n\U0001F4DC 伪代码示例：\n\nfrom langchain_core.vectorstores import
+    VectorStore\nfrom langchain_core.documents import Document\nfrom typing import
+    List, Optional\n\nclass MyCustomVectorStore(VectorStore):\n    def __init__(self,
+    embedding_model, connection_string):\n        self.embedding_model = embedding_model\n
+    \       self.db = MyDatabaseClient(connection_string)\n\n    def add_texts(self,
+    texts, metadatas=None, **kwargs):\n        embeddings = self.embedding_model.embed_documents(texts)\n
+    \       for text, emb, meta in zip(texts, embeddings, metadatas or []):\n            self.db.insert(embedding=emb,
+    text=text, metadata=meta)\n\n    def similarity_search(self, query: str, k: int
+    = 4, **kwargs) -> List[Document]:\n        query_emb = self.embedding_model.embed_query(query)\n
+    \       results = self.db.search(query_emb, k)\n        return [Document(page_content=r[\"text\"],
+    metadata=r[\"meta\"]) for r in results]\n\n\U0001F50C 集成到 LangChain 生态：\n封装完成后，你的类可以直接作为
+    Retriever 在 LCEL 链中使用：retriever = MyCustomVectorStore(embeddings, conn).as_retriever()。因为遵循了
+    VectorStore 接口，LangChain 的 RetrievalQA 等高级链也能无缝使用。\n\n\U0001F4A1 设计要点：\n\n- 确保你的数据库客户端支持批量插入和
+    ANN 搜索索引。\n\n- 对于大规模数据，考虑实现 delete 方法以支持数据更新。\n\n- 可以通过 @override 装饰器确保正确重写了基类方法。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/USKKwi5KSi2ZMjkmlvGcAON4nag
+  block_id: CBXUdrNzcoE2TxxSgltcmCELnMc
+  page_token: USKKwi5KSi2ZMjkmlvGcAON4nag
+  original_title: 如果 LangChain 官方没有某个向量数据库的集成，你如何自行封装一个？
+  imported_at: '2026-09-21'

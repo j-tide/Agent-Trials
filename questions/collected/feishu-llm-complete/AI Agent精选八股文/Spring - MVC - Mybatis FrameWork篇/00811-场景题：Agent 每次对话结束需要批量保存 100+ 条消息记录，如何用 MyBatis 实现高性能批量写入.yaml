@@ -1,0 +1,87 @@
+---
+schema_version: 1
+id: feishu-llm-complete-95dbc5e23760
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 每次对话结束需要批量保存 100+ 条消息记录，如何用 MyBatis 实现高性能批量写入？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 每次对话结束需要批量保存 100+ 条消息记录，如何用 MyBatis 实现高性能批量写入？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐⭐（批量优化、性能调优、Agent 场景）
+
+    1️⃣ Common Answer 可以用 foreach 标签，把 100 条消息拼成一条 INSERT 语句，一次性插入数据库。或者用 ExecutorType.BATCH，循环调用 insert 方法，然后 flushStatements。
+
+    2️⃣ Impressive Answer
+
+    - foreach 批量插入：
+
+    ```text
+    <insert id="batchInsertMessages">
+      INSERT INTO agent_message (session_id, role, content, create_time)
+      VALUES
+      <foreach collection="messages" item="msg" separator=",">
+        (#{msg.sessionId}, #{msg.role}, #{msg.content}, #{msg.createTime})
+      </foreach>
+    </insert>
+    ```
+
+    性能：100 条数据约 50ms，一次网络交互，最优方案。
+
+    - BATCH 模式兜底：如果消息量超过 1000 条（SQL 长度超限），切换到 BATCH 模式：
+
+    ```text
+    SqlSession batchSession = sqlSessionFactory.openSession(ExecutorType.BATCH);
+    try {
+      AgentMessageMapper mapper = batchSession.getMapper(AgentMessageMapper.class);
+      for (AgentMessage msg : messages) {
+        mapper.insert(msg);
+      }
+      batchSession.flushStatements();
+      batchSession.commit();
+    } finally {
+      batchSession.close();
+    }
+    ```
+
+    - Agent 场景优化：消息记录按 session_id 分表，避免单表过大；批量插入前去重校验，避免重复插入相同消息；异步化处理：对话结束后异步批量保存，不阻塞用户响应。
+
+    - 性能监控：通过 MyBatis 插件统计批量操作耗时，设置超时告警（如 100 条消息超过 100ms 告警）；连接池调优：批量操作占用连接时间长，适当增加连接池最大连接数（如从 10 增加到 20）。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VU1MwcbuKiIco5kkmQCc1W0lnFc
+  block_id: doxcn22bI6RfZu6DhrgaU1JuUOg
+  page_token: VU1MwcbuKiIco5kkmQCc1W0lnFc
+  original_title: 3、场景题：Agent 每次对话结束需要批量保存 100+ 条消息记录，如何用 MyBatis 实现高性能批量写入？
+  imported_at: '2026-09-21'

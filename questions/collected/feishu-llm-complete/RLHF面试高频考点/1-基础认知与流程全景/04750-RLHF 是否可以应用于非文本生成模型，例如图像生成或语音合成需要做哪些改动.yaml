@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e6bd68cc7c27
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: RLHF 是否可以应用于非文本生成模型，例如图像生成或语音合成？需要做哪些改动？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 1-基础认知与流程全景
+tags: &1
+- RLHF面试高频考点
+- 1-基础认知与流程全景
+content:
+  prompt: RLHF 是否可以应用于非文本生成模型，例如图像生成或语音合成？需要做哪些改动？
+answer:
+  mode: rubric
+  reference_answer: |-
+    完全可以，RLHF 的思想是通用的，但其具体实现需要针对不同模态进行重大调整。
+
+    应用于图像生成（如扩散模型）：
+
+    - 生成过程的序列化：扩散模型生成图像是一个迭代去噪的序列过程（从纯噪声逐步去噪到清晰图像）。可以将每一步去噪操作视为一个“动作”，整个生成链视为轨迹。状态是当前的噪声图，奖励模型在最终生成的清晰图像上打分。
+
+    - 奖励模型设计：不再基于文本语义，而是直接对图像进行偏好评估。奖励模型可以是卷积神经网络（ViT等），输入一张图像，输出标量奖励。训练数据由人类对生成图像进行二元比较或评分获得，关注图像质量、美学、指令遵循度等。
+
+    - RL算法：可以使用类似 PPO 的方法，但需要处理扩散模型独特的目标函数。一种做法是直接微调解码器或 UNet 的参数，最大化最终图像的奖励。由于扩散模型通常通过得分匹配训练，RL 微调可以通过策略梯度（REINFORCE 或 PPO）来实现，其中每个去噪步的“对数概率”可以近似为噪声预测的差异。例如，DDPO (Denoising Diffusion Policy Optimization) 就是一种把 PPO 应用于扩散模型的框架。
+
+    - KL 惩罚：同样需要一个冻结的参考扩散模型，计算当前模型与参考模型在去噪轨迹上的 KL 散度，防止图像质量崩溃或生成模式坍塌。
+
+    应用于语音合成：
+
+    - 语音合成通常是自回归或基于流的生成模型，可以类似文本模型，将每个音频 token 的生成视为动作。
+
+    - 奖励模型评估自然度、清晰度、情感表达等。可以是一个基于音频特征提取的神经网络。
+
+    - RL 微调可改变模型输出的韵律、情感、风格等高层属性，而不仅仅是复制训练数据中的模板。
+
+    需要的关键改动：
+
+    - 奖励模型架构需要适配相应模态（图像、音频）的特征提取器。
+
+    - 人类反馈的收集：标注员需要比较图像、音频样本，给出偏好。
+
+    - 策略梯度的实现：需要推导出所选生成模型（扩散模型、GAN、自回归模型）下对数概率对参数的梯度，并可能使用重要性采样、得分函数估计等技巧。
+
+    - 多维度评估：图像和音频的质量、美学等更难以量化，奖励模型可能更容易出现偏差，需要更细致的对抗训练和正则化。
+
+    RLHF 在这些领域的应用目前还处于早期但发展迅速，核心障碍在于人类偏好数据采集成本极高，以及生成轨迹的数值稳定性难以控制。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PqJ4wugfeipRFqkWsvycxnxonwY
+  block_id: B37gd8CMioZBccxMegpc6MAynBe
+  page_token: PqJ4wugfeipRFqkWsvycxnxonwY
+  original_title: RLHF 是否可以应用于非文本生成模型，例如图像生成或语音合成？需要做哪些改动？
+  imported_at: '2026-09-21'

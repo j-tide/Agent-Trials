@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5c9ed53a7ca1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果模型 API 返回了超出 max_tokens 限制的错误，你在 LangChain 中如何处理和重试？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: 如果模型 API 返回了超出 max_tokens 限制的错误，你在 LangChain 中如何处理和重试？
+answer:
+  mode: rubric
+  reference_answer: "当模型返回类似 context_length_exceeded 或 maximum context length 的错误时，意味着输入
+    Token 超出模型上下文窗口。LangChain 没有内置自动处理，需要手动实现重试与降级策略。\n\n\U0001F6E0️ 处理流程：\n\n- 捕获异常：在自定义的
+    Callback 或 RunnableLambda 中捕获 OpenAIError（或相应提供商的异常）。\n\n- 重试机制：使用 with_fallbacks()
+    或手动实现 try/except。重试时，可以采取以下降级措施：\n\n- 使用 LangChain 的 trim_messages 工具：在 Prompt
+    模板中，可以使用 MessagesPlaceholder 配合 trim_messages 辅助函数，自动裁剪超出窗口的消息。\n\n\U0001F4DC
+    示例：\n\nfrom langchain_core.runnables import RunnableLambda\n\ndef handle_context_error(input,
+    config):\n    try:\n        return model.invoke(input)\n    except ContextWindowExceededError:\n
+    \       # 裁减消息：只保留最近 5 轮\n        trimmed = input[-10:]  # 假设每轮2条消息\n        return
+    model.invoke(trimmed)\n\nsafe_chain = prompt | RunnableLambda(handle_context_error)
+    | parser\n\n\U0001F9E0 更好的方案：在构建 Prompt 时，使用 trim_messages 限制总 Token 数，防患于未然：\n\nfrom
+    langchain_core.messages import trim_messages\ntrimmed = trim_messages(messages,
+    max_tokens=3000, token_counter=model.get_num_tokens)"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NWPhwBZQ9iuqdXkPhHNcLThjnig
+  block_id: XgMRdeOF8owLgdxrA2scL5SHnTe
+  page_token: NWPhwBZQ9iuqdXkPhHNcLThjnig
+  original_title: 如果模型 API 返回了超出 max_tokens 限制的错误，你在 LangChain 中如何处理和重试？
+  imported_at: '2026-09-21'

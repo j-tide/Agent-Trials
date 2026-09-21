@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-866bd2cac3aa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E1️ 你如何防止缓存被恶意刷写导致成本增加？有没有限流措施？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F6E1️ 你如何防止缓存被恶意刷写导致成本增加？有没有限流措施？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    恶意刷写是指攻击者不断用新的、无意义的 Prompt 来填充缓存，导致缓存空间被占满，并且由于未命中而频繁调用 LLM，成本飙升。防御策略：
+
+    - 限流（Rate Limiting）：在网关或应用层限制单个 IP/用户的请求频率。Nginx、FastAPI 中间件、或者 API 网关均可实现。超过阈值返回 429。
+
+    - 缓存写入控制：
+
+    - 只对成功响应缓存：检查 LLM 返回状态，对错误或异常响应不缓存。
+
+    - 设置缓存 Value 最大体积：防止超大响应撑爆 Redis 内存。
+
+    - 限制写入频率：为每个用户维护一个写入计数器，短时间内写入超过阈值则暂停缓存写入（降级为直接调用 LLM 但不缓存）。
+
+    - 缓存内容过滤：如果返回内容被标记为有害、违规，不写入缓存。
+
+    - 使用专用缓存层：让缓存服务独立，并配备资源限制（Redis 的 maxmemory、maxclients）。
+
+    - 监控告警：监控缓存写入速率和键数量，异常飙升时触发告警。
+
+    - 认证授权：只有合法用户请求才启用缓存。未认证用户的请求不缓存，也不读取缓存。
+
+    实践：我们曾经遇到竞争对手通过脚本大量发送随机查询试图耗尽我们的 LLM 配额。我们在 WAF 层增加了基于行为分析的限流，同时在应用层加入了“同一 IP 每分钟写入缓存次数上限 20”的逻辑，超过后自动对该 IP 禁用缓存 30 分钟。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VWvFwnt5pi19m7ky7Udc0PatnRe
+  block_id: RTfQd79zQoxQWWxm1msctXKEnMc
+  page_token: VWvFwnt5pi19m7ky7Udc0PatnRe
+  original_title: "\U0001F6E1️ 你如何防止缓存被恶意刷写导致成本增加？有没有限流措施？"
+  imported_at: '2026-09-21'

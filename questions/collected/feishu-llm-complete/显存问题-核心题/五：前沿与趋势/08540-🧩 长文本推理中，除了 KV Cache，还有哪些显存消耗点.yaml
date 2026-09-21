@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9878b21bfb6e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 长文本推理中，除了 KV Cache，还有哪些显存消耗点？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 五：前沿与趋势
+tags: &1
+- 显存问题-核心题
+- 五：前沿与趋势
+content:
+  prompt: "\U0001F9E9 长文本推理中，除了 KV Cache，还有哪些显存消耗点？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    除了权重和 KV Cache，以下部分同样会占用不少显存，尤其在长上下文时：
+
+    - Prefill 阶段的临时激活
+    处理长 prompt 时，框架会分配 Q、K、V 张量以及注意力计算的中间缓冲区。即使使用 FlashAttention 不保存完整注意力矩阵，仍需为 Q、K、V 分配空间，其大小为 [batch, heads, seq_len, head_dim]，与 seq_len 成正比。对于 128K 的 prompt，单是 Q 或 K 就可能占用数百 MB，叠加起来瞬间可达数 GB，然后被释放。
+
+    - 通信缓冲区（分布式推理）
+    如果使用张量并行（TP）或流水线并行（PP），NCCL 通信需要预留缓冲区，其大小与 hidden size 和序列长度相关。多卡并行时这些缓冲常驻显存，总量可达数 GB。
+
+    - 内存池与碎片
+    像 vLLM 的 PagedAttention 会预留一大块显存作为块池，其中未使用的块也算作占用。显存碎片也可能导致实际可用空间小于理论值。
+
+    - 框架与 CUDA 上下文开销
+    PyTorch 的 CUDA 缓存分配器、驱动层面的 context 等会占用 0.5–1 GB。
+
+    - 多模态模型的附加组件
+    视觉编码器权重、投影层，以及图像特征本身都会额外消耗显存。
+
+    - 多 LoRA 适配器
+    若同时加载多个 LoRA，每个适配器矩阵虽小（数十 MB），但数量多时也要计算在内。
+
+    因此，优化长文本推理显存必须全方位考虑，对权重、KV Cache、临时缓冲、并行策略等进行综合压缩与调度，才能最大程度地释放显存潜力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MJGdw1gNQi7XukkJrfvczohinLU
+  block_id: BYTtdLZr0ouFQexDQEhcfJhonHf
+  page_token: MJGdw1gNQi7XukkJrfvczohinLU
+  original_title: "\U0001F9E9 长文本推理中，除了 KV Cache，还有哪些显存消耗点？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8d48849447a3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F916 在 Agent 中，如何限制工具的执行权限？（如禁止执行某些 shell 命令）"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F916 在 Agent 中，如何限制工具的执行权限？（如禁止执行某些 shell 命令）"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Agent 的工具权限控制是安全的重中之重。核心思想是白名单 + 上下文校验 + 沙箱。
+
+    - 工具函数内部做权限检查：每个工具函数在收到参数时，首先判断当前用户或会话是否有权执行该操作。用户身份可以通过 config 中的 metadata 传入。
+
+    ```python
+    @tool
+    def run_shell(command: str, user_role: str) -> str:
+        if user_role != "admin":
+            return "权限不足，无法执行Shell命令。"
+        # 白名单命令列表
+        allowed_commands = ["ls", "cat", "echo"]
+        cmd_name = command.split()[0]
+        if cmd_name not in allowed_commands:
+            return f"禁止执行命令: {cmd_name}"
+        # 实际执行（务必放在沙箱中）
+        ...
+    ```
+
+    - 参数校验与消毒：对工具输入进行严格验证，防止命令注入。例如，如果期望用户提供文件名，只允许字母数字和下划线，拒绝包含 ;, &&, | 等特殊字符。
+
+    - 沙箱执行环境：即使通过了白名单，也不要直接在当前服务器 Shell 中执行命令。使用 Docker 容器或 nsjail 等沙箱工具，限制网络、文件系统访问，并设置资源限制（CPU、内存、超时）。
+
+    - 分层权限：根据用户角色或任务动态选择可用的工具集合。在创建 Agent 时，通过 tools 参数传入过滤后的工具列表。这样 Agent 根本“看不到”无权使用的工具。
+
+    - 人工确认：对高风险操作（如删除、支付），工具可以先返回一个确认请求，待用户明确同意后再执行第二次调用（参见工具设计中的“人工审批”）。
+
+    实践：我们的运维 Agent 曾不慎执行了 rm -rf /tmp/* 的变种（用户输入了带有通配符的路径）。事故后我们引入严格的路径白名单和 Docker 沙箱，并将文件操作工具放在独立容器中，即使误操作也不会影响主机。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XoyiwSgvhi0b6ckB3czcJzTAnIe
+  block_id: ZFcEdkDEcoYHSOxYpRaceF9pnfA
+  page_token: XoyiwSgvhi0b6ckB3czcJzTAnIe
+  original_title: "\U0001F916 在 Agent 中，如何限制工具的执行权限？（如禁止执行某些 shell 命令）"
+  imported_at: '2026-09-21'

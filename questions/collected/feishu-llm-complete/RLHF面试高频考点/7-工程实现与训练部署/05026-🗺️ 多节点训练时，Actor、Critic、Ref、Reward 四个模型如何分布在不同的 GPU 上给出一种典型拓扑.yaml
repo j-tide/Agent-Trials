@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ac0bda2e8f6f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F5FA️ 多节点训练时，Actor、Critic、Ref、Reward 四个模型如何分布在不同的 GPU 上？给出一种典型拓扑。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "\U0001F5FA️ 多节点训练时，Actor、Critic、Ref、Reward 四个模型如何分布在不同的 GPU 上？给出一种典型拓扑。"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F3AF 分布目标\n\n- Actor：计算量最大，需要最快的 GPU 和最复杂的并行策略。\n\n- Critic：计算量次之，可与
+    Actor 共享部分资源或独立部署。\n\n- Ref 和 RM：仅推理，可共用较少的 GPU，甚至部署在 CPU 上。\n\n\U0001F5FA️ 典型拓扑（16
+    GPU，4 节点）\n\n┌────────────────────────────────────────────────────────────┐\n│
+    节点 1-3（12 GPU，A100-80G）                                │\n│ ┌───────────┐ ┌───────────┐
+    ┌───────────┐ ┌───────────┐   │\n│ │ Actor \U0001F170️   │ │ Actor \U0001F170️
+    \  │ │ Actor \U0001F170️   │ │ Critic \U0001F152  │   │\n│ │ (TP=2)    │ │ (TP=2)
+    \   │ │ (TP=2)    │ │ (TP=1)    │   │\n│ └───────────┘ └───────────┘ └───────────┘
+    └───────────┘   │\n│ 节点 4（4 GPU，A100-80G）                                   │\n│
+    ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐   │\n│ │ Ref \U0001F141
+    \    │ │ RM \U0001F17C      │ │ Rollout   │ │ Rollout   │   │\n│ │ (TP=1)    │
+    │ (TP=1)    │ │ Worker \U0001F146  │ │ Worker \U0001F146  │   │\n│ └───────────┘
+    └───────────┘ └───────────┘ └───────────┘   │\n└────────────────────────────────────────────────────────────┘\n\n-
+    Actor 使用张量并行（TP=2）分布在 6 个 GPU 上，因为它需要承载梯度计算和自回归采样的双重压力。\n\n- Critic 部署在独立的 GPU
+    上（或与 Actor 共享部分 GPU 但隔离）。\n\n- Ref 和 RM 是纯推理，各占 1 个 GPU，甚至可以进一步共享同一 GPU 的不同时段。\n\n-
+    Rollout Workers 使用剩余 GPU 进行推理，也可与 Ref/RM 的 GPU 复用（时分复用）。\n\n\U0001F4A1 极端节省方案：将
+    Ref 和 RM 量化为 8-bit，并使用 CPU 推理（llama.cpp），可将所有 GPU 资源集中给 Actor 和 Critic。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TWMuwtjygiXKQYkjGELcArHan1b
+  block_id: MbeAds4JFoeYpSxcE9CcP2Ddnag
+  page_token: TWMuwtjygiXKQYkjGELcArHan1b
+  original_title: "\U0001F5FA️ 多节点训练时，Actor、Critic、Ref、Reward 四个模型如何分布在不同的 GPU 上？给出一种典型拓扑。"
+  imported_at: '2026-09-21'

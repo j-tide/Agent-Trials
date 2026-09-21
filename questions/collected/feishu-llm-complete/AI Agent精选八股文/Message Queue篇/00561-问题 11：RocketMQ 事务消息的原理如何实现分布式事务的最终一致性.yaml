@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-49bf24970866
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 问题 11：RocketMQ 事务消息的原理？如何实现分布式事务的最终一致性？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 问题 11：RocketMQ 事务消息的原理？如何实现分布式事务的最终一致性？
+answer:
+  mode: rubric
+  reference_answer: "难度：⭐⭐⭐（事务消息、半消息、事务回查、最终一致性）\n\n1️⃣ Common Answer\n\nRocketMQ
+    有事务消息，先发半消息再提交。半消息就是暂时不能被消费者消费的消息，等本地事务执行成功后再提交，这样就能保证分布式事务的最终一致性。\n\n2️⃣ Impressive
+    Answer\n\n我会从这几个角度思考：事务消息的完整流程、半消息的存储原理、事务回查机制、与本地消息表方案的对比、实战应用场景。\n\n- 事务消息的完整流程\n\n```text\nProducer
+    \                   RocketMQ Broker              Consumer\n   |                              |
+    \                        |\n   |--- 1. 发送半消息 ----------->|                         |\n
+    \  |                              |-- 写入 HALF_TOPIC       |\n   |<-- 返回发送成功 -------------|
+    \                        |\n   |                              |                         |\n
+    \  |--- 2. 执行本地事务           |                         |\n   |   (如：创建订单)             |
+    \                        |\n   |                              |                         |\n
+    \  |--- 3a. 事务成功 → Commit --->|                         |\n   |                              |--
+    投递到真实 Topic ----->|\n   |                              |                         |--
+    4. 正常消费\n   |--- 3b. 事务失败 → Rollback ->|                         |\n   |                              |--
+    删除半消息            |\n   |                              |                         |\n
+    \  |   (Producer 崩溃/超时)       |                         |\n   |                              |--
+    4. 事务回查 --------->|\n   |<-- 查询本地事务状态 ---------|                         |\n   |---
+    返回 Commit/Rollback ---->|                         |\n```\n\n- 半消息的存储原理\n\n半消息并不会直接写入用户指定的
+    Topic，而是先写入一个系统内部 Topic：RMQ_SYS_TRANS_HALF_TOPIC。这个 Topic 对消费者不可见，确保了在本地事务执行完成前，消息不会被消费。当事务提交后，RocketMQ
+    会将消息从 RMQ_SYS_TRANS_HALF_TOPIC 移动到真实的 Topic 中，消费者才能消费。\n\n- 事务回查机制\n\nRocketMQ
+    通过事务回查机制解决生产者崩溃或超时的问题：\n\n- 回查条件：当生产者发送半消息后，超过一定时间（默认 60 秒）未收到 Commit/Rollback
+    响应时触发\n\n- 回查次数：默认最多回查 15 次\n\n- 回查间隔：每次间隔 60 秒\n\n- 回查逻辑：Broker 调用生产者实现的 TransactionListener.checkLocalTransaction()
+    方法，查询本地事务状态\n\n- 状态返回：\n\n- 与本地消息表方案的对比\n\n[嵌入表格未展开]\n\n- 实战：订单创建 + 积分发放的事务消息方案\n\n```text\n//
+    订单服务生产者\npublic class OrderTransactionListener implements TransactionListener
+    {\n    \n    @Override\n    public LocalTransactionState executeLocalTransaction(Message
+    msg, Object arg) {\n        try {\n            // 执行本地事务：创建订单\n            Long
+    orderId = createOrder(msg);\n            // 将订单ID存入消息属性，供回查使用\n            msg.putUserProperty(\"orderId\",
+    orderId.toString());\n            return LocalTransactionState.COMMIT_MESSAGE;\n
+    \       } catch (Exception e) {\n            log.error(\"创建订单失败\", e);\n            return
+    LocalTransactionState.ROLLBACK_MESSAGE;\n        }\n    }\n    \n    @Override\n
+    \   public LocalTransactionState checkLocalTransaction(MessageExt msg) {\n        String
+    orderId = msg.getUserProperty(\"orderId\");\n        // 查询订单状态\n        Order
+    order = orderService.getById(orderId);\n        if (order != null && order.getStatus()
+    == OrderStatus.PAID) {\n            return LocalTransactionState.COMMIT_MESSAGE;\n
+    \       } else if (order != null && order.getStatus() == OrderStatus.FAILED) {\n
+    \           return LocalTransactionState.ROLLBACK_MESSAGE;\n        }\n        return
+    LocalTransactionState.UNKNOWN;\n    }\n}\n\n// 积分服务消费者\n@RocketMQMessageListener(topic
+    = \"order-topic\", consumerGroup = \"points-consumer\")\npublic class PointsConsumer
+    implements RocketMQListener<OrderMessage> {\n    \n    @Override\n    public void
+    onMessage(OrderMessage message) {\n        // 发放积分\n        pointsService.addPoints(message.getUserId(),
+    message.getPoints());\n    }\n}\n```\n\n通过事务消息，我们实现了订单创建与积分发放的分布式事务一致性，即使订单服务崩溃，RocketMQ
+    也会通过事务回查机制确保最终一致性。\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---\n\n### 6.12 消息队列的高可用架构"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcn24QIEyTHUYTJmaF67OuV8e
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: 问题 11：RocketMQ 事务消息的原理？如何实现分布式事务的最终一致性？
+  imported_at: '2026-09-21'

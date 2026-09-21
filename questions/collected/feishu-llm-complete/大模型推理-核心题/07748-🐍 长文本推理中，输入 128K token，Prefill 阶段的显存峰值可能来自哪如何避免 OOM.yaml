@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6292ea1f1b15
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F40D 长文本推理中，输入 128K token，Prefill 阶段的显存峰值可能来自哪？如何避免 OOM？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: "\U0001F40D 长文本推理中，输入 128K token，Prefill 阶段的显存峰值可能来自哪？如何避免 OOM？"
+answer:
+  mode: rubric
+  reference_answer: "处理 128K token 的 Prefill 时，显存峰值主要来自两个方面：注意力得分矩阵和中间激活值。\n\n\U0001F9CA
+    显存峰值来源\n\n[图片内容未导入]\n\n- 中间激活与残差\n\n在 Prefill 时，Transformer 的每一层都需要临时存储 LayerNorm
+    的输出、残差连接前的值等。这些激活值的总量随序列长度线性增长，但在超长序列下也极为可观。例如，对 128K 序列，单层激活可能达到数 GB。\n\n✅ 避免
+    OOM 的关键技术\n\n[图片内容未导入]\n\n- 分段 Prefill（Chunked Prefill）：将超长 prompt 拆分成多个小块（chunks），逐块进行
+    prefill，并穿插 decode 步骤。这样既限制了单次 prefill 的峰值显存，又避免因 prefill 耗时过长导致 decode 请求饥饿。\n\n-
+    序列并行（Sequence Parallelism）：将序列切分到多张 GPU 上，每张 GPU 负责一部分 token 的注意力计算，通过通信合并结果（如
+    Ring Attention）。这也能分散显存压力。\n\n- 激活重计算（Gradient Checkpointing）：在训练中常用，推理 prefill
+    时也可选择性地不保存某些中间激活，在需要时重计算，以时间换空间。\n\n- KV Cache 量化：在 prefill 阶段生成的 KV Cache 可立即进行
+    INT8 量化，减少后续 decode 的显存占用。\n\n\U0001F4A1 实践：目前，借助 FlashAttention 和分块 prefill，vLLM
+    等框架已经可以在 8×A100 上推理 128K 的长文本而不 OOM。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C0pNwQLAmiNN2tkVnWGccLYLns0
+  block_id: LKwsdHImrokA8qxFUKjczi5JnRe
+  page_token: C0pNwQLAmiNN2tkVnWGccLYLns0
+  original_title: "\U0001F40D 长文本推理中，输入 128K token，Prefill 阶段的显存峰值可能来自哪？如何避免 OOM？"
+  imported_at: '2026-09-21'

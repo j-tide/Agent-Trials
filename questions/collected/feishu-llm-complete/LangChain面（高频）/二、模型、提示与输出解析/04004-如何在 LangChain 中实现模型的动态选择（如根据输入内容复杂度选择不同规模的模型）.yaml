@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-11de27e65dae
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在 LangChain 中实现模型的动态选择（如根据输入内容复杂度选择不同规模的模型）？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: 如何在 LangChain 中实现模型的动态选择（如根据输入内容复杂度选择不同规模的模型）？
+answer:
+  mode: rubric
+  reference_answer: "\U0001F9E0 动态模型选择可以根据任务复杂度、用户等级、成本预算等条件，自动切换不同能力/价格的模型。例如：简单问题用
+    gpt-3.5-turbo，复杂推理用 gpt-4o。\n\n\U0001F500 实现方案一：使用 RunnableBranch 进行条件路由\n\nRunnableBranch
+    根据输入条件选择不同的 Runnable 分支。它接受一个 (condition, runnable) 对的列表，顺序评估，首个满足条件的路径被执行。\n\nfrom
+    langchain_core.runnables import RunnableBranch, RunnableLambda\n\ndef is_complex(input_dict):\n
+    \   # 判断逻辑：问题长度、关键词、历史复杂度评分等\n    return len(input_dict[\"question\"]) > 100 or
+    \"复杂\" in input_dict[\"question\"]\n\ngpt35 = ChatOpenAI(model=\"gpt-3.5-turbo\")\ngpt4
+    = ChatOpenAI(model=\"gpt-4o\")\n\nbranch = RunnableBranch(\n    (lambda x: is_complex(x),
+    prompt | gpt4 | parser),\n    prompt | gpt35 | parser  # 默认简单分支\n)\n\nresult =
+    branch.invoke({\"question\": \"...\"})\n\n\U0001F500 实现方案二：使用 RunnableLambda 自定义函数\n\n更灵活的方式是在自定义函数中根据输入选择模型：\n\ndef
+    choose_model(input_dict):\n    if is_complex(input_dict):\n        model = gpt4\n
+    \   else:\n        model = gpt35\n    chain = prompt | model | parser\n    return
+    chain.invoke(input_dict)\n\ndynamic_chain = RunnableLambda(choose_model)\n\n\U0001F500
+    实现方案三：结合 Router Chain（旧式）或 LangGraph\n\n在更复杂的多步 Agent 中，可以由一个“分类器” LLM 先判断任务类型，然后路由到不同的链。这可以通过
+    LangGraph 构建一个状态机实现。\n\n⚙️ 性能与成本优化：\n\n- 可以将模型实例缓存起来（例如通过 functools.lru_cache），避免每次创建新实例。\n\n-
+    结合 with_fallbacks，当复杂模型不可用时自动降级到简单模型。\n\n- 在回调中记录每次决策的依据和模型选择，便于后续分析成本与效果。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NWPhwBZQ9iuqdXkPhHNcLThjnig
+  block_id: TeA9d8HthoDnsXxACUGcC5hbnkh
+  page_token: NWPhwBZQ9iuqdXkPhHNcLThjnig
+  original_title: 如何在 LangChain 中实现模型的动态选择（如根据输入内容复杂度选择不同规模的模型）？
+  imported_at: '2026-09-21'

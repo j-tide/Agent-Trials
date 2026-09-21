@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-740f62a48785
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EC 1. WiredTiger 的 B-Tree 存储结构、MVCC 实现、Checkpoint 机制、压缩算法"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F9EC 1. WiredTiger 的 B-Tree 存储结构、MVCC 实现、Checkpoint 机制、压缩算法"
+answer:
+  mode: rubric
+  reference_answer: |-
+    WiredTiger 是 MongoDB 3.2 之后的默认存储引擎，它的设计目标是在高并发写入的场景下，同时保证读写性能和数据一致性。
+
+    ① B-Tree 存储结构
+
+    WiredTiger 使用 B+ Tree 变种 存储数据和索引。它将数据按键排序，叶子节点存储实际数据。与传统的 B-Tree 不同，WiredTiger 的树节点大小是 4KB～32KB，与操作系统页大小对齐，以便高效利用磁盘 IO。它不直接在原位置更新数据，而是采用 Copy-on-Write 的方式：修改一个页面时，会先复制一份，在副本上修改，然后原子地更新父节点的指针。这使得写操作不会直接污染原始的干净页面，天然支持 MVCC。
+
+    [图片内容未导入]
+
+    ② MVCC（多版本并发控制）
+
+    WiredTiger 的 MVCC 是基于 事务 ID（Transaction ID） 和 时间戳 实现的。每个文档的每个版本都关联一个事务 ID。当一个写事务开始，它创建数据的新的版本，并标记上自己的事务 ID，而旧版本仍然保留。读事务根据自己开始时的时间戳，只能看到在该时间戳之前已经提交的版本。这样，读操作永远不会阻塞写操作，写操作也不会阻塞读操作。被淘汰的旧版本由后台的垃圾回收线程定期清理
+
+    ```text
+    MVCC 版本链:
+      Key "name"  → [Version 3: txn=103] → [Version 2: txn=101] → [Version 1: txn=98]
+                          ▲
+                      读事务 txn=102 只能看到 Version 2
+    ```
+
+    ③ Checkpoint 机制
+
+    WiredTiger 采用 定期 Checkpoint 的方式将内存中的脏页刷写到磁盘，形成一致性的数据快照。Checkpoint 默认每 60 秒执行一次，也可以在日志文件达到 2GB 时触发。在 Checkpoint 期间，WiredTiger 会创建一个新的快照，然后将该快照中所有脏页写入磁盘。这个过程是增量的，即它只写入自上次 Checkpoint 以来发生变化的页面，而不是全量导出。在 MongoDB 崩溃恢复时，它会从最近的 Checkpoint 开始，并重放之后的 Journal 日志，恢复到崩溃前的一致性状态。
+
+    ④ 压缩算法
+
+    WiredTiger 支持多种压缩算法，以 CPU 换空间。
+
+    - snappy：默认的压缩算法。压缩率适中，压缩和解压速度快，适合大多数场景。
+
+    - zlib：压缩率更高，但 CPU 开销更大，适合存储空间敏感或冷数据。
+
+    - zstd（MongoDB 4.2+）：在压缩率和速度之间提供了更好的平衡。
+
+    - none：不压缩，适合对延迟极其敏感且磁盘空间充足的场景。
+
+    ```javascript
+    // 创建集合时指定压缩算法
+    db.createCollection("logs", {
+        storageEngine: {
+            wiredTiger: { configString: "block_compressor=zstd" }
+        }
+    })
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BXVdwSFoCiy4apkiMglchiTGnmh
+  block_id: doxcn2hZOCdTIQILBzXVqn6ksph
+  page_token: BXVdwSFoCiy4apkiMglchiTGnmh
+  original_title: "\U0001F9EC 1. WiredTiger 的 B-Tree 存储结构、MVCC 实现、Checkpoint 机制、压缩算法"
+  imported_at: '2026-09-21'

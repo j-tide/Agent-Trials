@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8b4dbeca5c7a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 给定一个已训练好的 BPE 词汇表（合并规则），实现从词汇表生成合并优先级列表（merges），以便用于编码
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 给定一个已训练好的 BPE 词汇表（合并规则），实现从词汇表生成合并优先级列表（merges），以便用于编码
+answer:
+  mode: rubric
+  reference_answer: |-
+    在实际中，我们可能得到一个词汇表文件，里面包含所有子词 token 及其 ID，但没有显式记录合并的顺序（合并规则）。然而，要正确编码一个单词，我们需要知道合并规则的先后顺序。如果只有最终的词汇表，能否推断出合并顺序？理论上，如果我们知道所有合并产生的 token 以及基础字符，可以通过重建合并树来恢复顺序。但通常 BPE 训练输出都会直接保存 merges 列表（即 (pair, new_token) 的序列），因为它决定了编码行为。
+
+    如果手头只有一个词汇表（所有子词），而没有顺序，则无法唯一确定合并顺序，因为不同的合并顺序可能产生相同的词汇表。因此，“从词汇表生成合并优先级列表”这一任务一般是在训练过程中直接记录 merges 并保留。但有些库（如 HuggingFace Tokenizers）会保存一个 merges.txt 文件，其每一行是一对 token，按合并顺序排序（最早合并的在上面）。如果我们只有词汇表，但缺失合并顺序，我们无法恢复。所以这个问题的实际意图是：在实现 BPE 训练器时，需要输出一个合并规则列表，供编码使用。 通常我们训练完后就会拥有 merges，直接存储即可，无需生成。
+
+    不过，有一种可能：给定由 BPE 训练过程产生的最终符号集合以及每个符号的组成（例如知道 'low' 是由 'lo' + 'w' 合并而来），我们可以尝试重建合并树，但要确定先后顺序，需要额外的频率信息或时间戳。因此标准做法是：训练时直接记录合并顺序。
+
+    代码体现：训练时，在每次合并操作后，将合并的 pair 和新符号追加到 merges 列表中。这就是合并优先级列表，可直接用于编码。例如：
+
+    ```python
+    merges = []  # 记录合并顺序
+    for step in range(num_merges):
+        best_pair = select_best_pair(...)
+        new_tok = best_pair[0] + best_pair[1]
+        merges.append( (best_pair, new_tok) )
+        # 执行合并...
+    ```
+
+    编码时，按 merges 的顺序逐条应用。这就是之前 encode_word 函数的输入。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XDqKw0GPGi6JvkkfpwUcqpdAndd
+  block_id: DDoQdmUuoo7Mnvx7W8ucNkbonrb
+  page_token: XDqKw0GPGi6JvkkfpwUcqpdAndd
+  original_title: 给定一个已训练好的 BPE 词汇表（合并规则），实现从词汇表生成合并优先级列表（merges），以便用于编码
+  imported_at: '2026-09-21'

@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7130ad5449dd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 平台需要同时支持 REST 和 SSE 两种调用模式，如何设计统一的 Controller 层？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 平台需要同时支持 REST 和 SSE 两种调用模式，如何设计统一的 Controller 层？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（统一入口、策略模式、Accept 头协商）\n\n1️⃣ Common Answer\n\n可以写两个
+    Controller，一个返回 JSON，一个返回 SSE。或者同一个 Controller 根据 Accept 头判断，如果是 text/event-stream
+    就返回 SseEmitter，否则返回普通对象。\n\n2️⃣ Impressive Answer\n\n- 策略模式设计：\n\n```text\npublic
+    interface ResponseStrategy {\n    Object execute(Supplier<String> contentGenerator);\n}\n\n@Component\npublic
+    class RestResponseStrategy implements ResponseStrategy {\n    @Override\n    public
+    Object execute(Supplier<String> contentGenerator) {\n        return Result.success(contentGenerator.get());\n
+    \   }\n}\n\n@Component\npublic class SseResponseStrategy implements ResponseStrategy
+    {\n    @Override\n    public Object execute(Supplier<String> contentGenerator)
+    {\n        SseEmitter emitter = new SseEmitter(120_000L);\n        CompletableFuture.runAsync(()
+    -> {\n            try {\n                String content = contentGenerator.get();\n
+    \               emitter.send(SseEmitter.event().data(content));\n                emitter.complete();\n
+    \           } catch (Exception e) {\n                emitter.completeWithError(e);\n
+    \           }\n        });\n        return emitter;\n    }\n}\n```\n\n- 统一 Controller：\n\n```text\n@RestController\n@RequestMapping(\"/agent/chat\")\npublic
+    class AgentChatController {\n    \n    @Autowired\n    private RestResponseStrategy
+    restStrategy;\n    \n    @Autowired\n    private SseResponseStrategy sseStrategy;\n\n
+    \   @GetMapping(produces = {MediaType.APPLICATION_JSON_VALUE, \n                            MediaType.TEXT_EVENT_STREAM_VALUE})\n
+    \   public Object chat(@RequestParam String query, \n                       @RequestHeader(\"Accept\")
+    String accept) {\n        Supplier<String> generator = () -> agentService.generate(query);\n
+    \       \n        if (accept.contains(MediaType.TEXT_EVENT_STREAM_VALUE)) {\n
+    \           return sseStrategy.execute(generator);\n        }\n        return
+    restStrategy.execute(generator);\n    }\n}\n```\n\n- 生产考虑：\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---\n\n---\n\n###
+    参数校验与数据绑定"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EvyJwQ60XiC313kQqbUcyFhEnAh
+  block_id: doxcnpXj1PpzHppo6wpEmsXYLPh
+  page_token: EvyJwQ60XiC313kQqbUcyFhEnAh
+  original_title: 3、场景题：Agent 平台需要同时支持 REST 和 SSE 两种调用模式，如何设计统一的 Controller 层？
+  imported_at: '2026-09-21'

@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-65fa4b8506f2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 ZeRO-3 参数分片下的“参数收集”与“参数释放”时机。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 解释 ZeRO-3 参数分片下的“参数收集”与“参数释放”时机。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO-3通过精确控制参数的“收集”和“释放”时机，实现了显存的极致利用。这个时机控制就像一个精密的仓储管理系统：
+
+    参数收集（AllGather）时机：恰好在某一层开始计算之前。这个时机必须精确——不能太早，否则临时参数占用显存时间过长，挤压激活值和梯度存储空间；不能太晚，否则计算无法进行，GPU会空等。通常这个时机设置在层计算的入口处，比如在Transformer层的forward()函数被调用时立即触发。
+
+    参数释放时机：恰好在某一层计算完成之后。一旦该层的前向输出已经计算完毕，输入的完整参数就不再被需要，可以立即释放。释放后，对应的显存可以被下一层的AllGather复用。这个释放操作通常紧跟在层输出的产生之后。
+
+    反向传播中的特殊处理：反向传播同样需要完整参数来计算权重梯度和输入梯度。但与前向不同，反向传播中各卡已经持有完整的激活值（从前向保留），但参数仍然被分片。因此，反向传播时同样需要再次AllGather每层的完整参数。计算完该层梯度后，完整参数同样立即释放。
+
+    精妙的显存复用：因为参数是“即用即取，用完即弃”，不同层的AllGather可以复用同一块显存缓冲区。整个训练过程中，参数收集的峰值显存仅相当于最大单层的参数量，而非整个模型。对于7B模型（32层），单层参数约0.44GB，远小于完整模型的14GB。这就是ZeRO-3能将单卡持久参数显存从14GB压缩到1.75GB（持久存储）+ 单层临时缓冲（~0.44GB）的关键原因。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: BkNXdgP8foHphoxNDGwcuJUNn7g
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: 解释 ZeRO-3 参数分片下的“参数收集”与“参数释放”时机。
+  imported_at: '2026-09-21'

@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-96fd675097f4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何通过hook实现“层冻结”的动态切换？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何通过hook实现“层冻结”的动态切换？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在微调场景中，有时需要在训练过程中动态地冻结和解冻某些层，例如从解冻顶层开始，逐步解冻更深的层。这可以通过register_forward_hook或更直接地修改requires_grad来实现，但hook能实现无侵入、条件化的控制。
+
+    实现思路：
+
+    - 注册一个forward_pre_hook，在它内部，根据当前训练策略（例如epoch数），动态地将该层的所有参数的requires_grad设置为True或False。
+
+    - 注意，改变requires_grad后，需要重新初始化优化器（因为优化器管理的参数组变了），通常更简洁的做法是：
+
+    直接在backward_hook中清零梯度：如果只想冻结特定层的更新，而不想改变优化器，可以在该层的backward_hook中，将计算出的梯度乘以0，这样优化器虽然会处理这些参数，但它们的梯度为零，不会改变。
+
+    ```python
+    def freeze_grad_hook(module, grad_input, grad_output):
+        # 将所有梯度乘以0
+        for grad in grad_input:
+            if grad is not None:
+                grad.zero_()
+        return grad_input
+
+    # 对要冻结的层注册此hook
+    handle = model.layer1.register_backward_hook(freeze_grad_hook)
+
+    # 当需要解冻时，移除hook
+    handle.remove()
+    ```
+
+    这种方式非常灵活，无需重建优化器，但要注意，对于Adam等有动量累积的优化器，即使梯度为零，之前的动量可能仍会导致参数微小更新。更彻底的冻结仍需修改requires_grad。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  block_id: N6uRdT6JLoloKKxGnn8cJzh2n9e
+  page_token: Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  original_title: 如何通过hook实现“层冻结”的动态切换？
+  imported_at: '2026-09-21'

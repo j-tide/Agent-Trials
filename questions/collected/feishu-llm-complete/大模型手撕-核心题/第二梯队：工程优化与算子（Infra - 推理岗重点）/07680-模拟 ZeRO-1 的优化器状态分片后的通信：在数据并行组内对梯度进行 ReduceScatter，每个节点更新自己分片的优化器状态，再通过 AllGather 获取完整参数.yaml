@@ -1,0 +1,93 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5a546e2857c9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 模拟 ZeRO-1 的优化器状态分片后的通信：在数据并行组内对梯度进行 ReduceScatter，每个节点更新自己分片的优化器状态，再通过 AllGather
+  获取完整参数。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 模拟 ZeRO-1 的优化器状态分片后的通信：在数据并行组内对梯度进行 ReduceScatter，每个节点更新自己分片的优化器状态，再通过 AllGather
+    获取完整参数。
+answer:
+  mode: rubric
+  reference_answer: |-
+    16.1 ZeRO-1 原理
+
+    ZeRO-1 将优化器状态（Adam 的 m, v）切分到各个 DP 节点上。每个节点只存储与自己负责参数分片对应的优化器状态。训练时：
+
+    - 每个节点计算本地梯度（全部参数）。
+
+    - 对梯度执行 ReduceScatter，使得每个节点得到自己负责那一部分参数的全局平均梯度（规约结果）。
+
+    - 每个节点使用该部分梯度更新自己本地的优化器状态和参数（只更新自己负责的部分）。
+
+    - 通过 AllGather 收集所有节点更新后的参数部分，还原完整模型参数。
+
+    16.2 模拟
+
+    ```python
+    def zero1_step(params, grads, optimizer_states, rank, world_size):
+        """
+        params: 完整模型参数列表（每个节点开始时都相同）
+        grads: 完整梯度列表（每个节点计算得到）
+        optimizer_states: 每个节点只持有自己负责分片的优化器状态，假设均匀切分
+        """
+        # 1. ReduceScatter 梯度
+        # 每个梯度被均匀切成 world_size 块，各节点得到对应块的规约和
+        scattered_grads = []
+        for g in grads:
+            chunks = list(torch.chunk(g, world_size, dim=0))   # 按某个维切分
+            # 对每个块做 allreduce 并只保留对应 rank 的块
+            # 用 AllReduce + 本地取块模拟 ReduceScatter
+            # 实际 ReduceScatter 是高效的原语，这里模拟：
+            reduced = allreduce_chunk(chunks, rank)  # 返回该节点负责的那一块
+            scattered_grads.append(reduced)
+        # 2. 更新本地优化器状态和参数
+        for i, g_chunk in enumerate(scattered_grads):
+            # 取出对应参数分片
+            param_chunk = get_param_chunk(params[i], rank, world_size)
+            # 更新 optimizer state 和 param_chunk
+            update_with_adam(param_chunk, g_chunk, optimizer_states[i])
+            # 写回分片
+            set_param_chunk(params[i], rank, param_chunk)
+        # 3. AllGather 参数，恢复完整模型
+        for i, p in enumerate(params):
+            gathered = allgather_chunks(p, world_size)   # 收集所有分片
+            params[i].data.copy_(gathered)
+    ```
+
+    通信量：ReduceScatter 和 AllGather 各一次，每次传输的数据量为梯度/参数总大小。与标准数据并行（一次 AllReduce）通信量相当，但优化器状态显存大幅减少。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: IgKBdkcBbop3FaxDTwqc19QUntd
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 模拟 ZeRO-1 的优化器状态分片后的通信：在数据并行组内对梯度进行 ReduceScatter，每个节点更新自己分片的优化器状态，再通过
+    AllGather 获取完整参数。
+  imported_at: '2026-09-21'

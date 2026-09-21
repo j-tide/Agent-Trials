@@ -1,0 +1,98 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8ac3c46bb3d9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 评估模型幻觉率的常用自动化指标有哪些？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型幻觉面
+derived_topic: 
+tags: &1
+- 大模型幻觉面
+content:
+  prompt: 评估模型幻觉率的常用自动化指标有哪些？
+answer:
+  mode: rubric
+  reference_answer: |-
+    评估大模型幻觉率的自动化指标，核心目标是以无监督或弱监督的方式量化生成文本与事实依据之间的一致性。按照方法论，可以分为以下几类：
+
+    （1）基于自然语言推理（NLI）的指标
+
+    - 蕴含率（Entailment Ratio）：将生成文本拆分为原子事实，判断每个事实是否能被源文或检索证据“蕴含”。通常计算被蕴含的事实比例。具体指标如 FactCC（专为摘要设计）和 SummaC（提供多种NLI变体），它们直接使用预训练NLI模型（如RoBERTa-MNLI）输出蕴含、矛盾或中立的概率。
+
+    - ANLI（Adversarial NLI）：通过对抗生成的难题库检验模型对细微矛盾的敏感度，指标是模型在这些难样本上的准确率。
+
+    - AlignScore：在大量合成的不一致数据上微调的模型，输入源文和生成文本，直接输出0~1的忠实度得分，可视为一种连续性NLI指标。
+
+    （2）基于问答的指标
+
+    - QAGS（Question Answering for Grounding Summaries）：自动从源文生成问题，用源文和生成文本分别回答，计算两组答案的语义等价性（如ROUGE-L、BERTScore）。若生成文本的答案与源文答案不一致，则判定为潜在幻觉。该指标能发现信息增删和扭曲。
+
+    - QuestEval：将QAGS思想与NLI融合，不仅比较答案，还考虑答案与问题、源文的多重蕴涵关系，分数更全面。
+
+    （3）基于信息抽取的指标
+
+    - 实体重叠与幻觉率：抽取生成文本中的命名实体，检查有多少实体未在源文或知识库中出现。简单计算 实体幻觉率 = 新实体数 / 总实体数。变体可针对数字、日期等精确信息。
+
+    - 三元组重叠率：同时抽取主语-谓语-宾语三元组，计算生成文本的三元组被源文支撑的比例。常用OpenIE工具。
+
+    （4）基于检索增强的指标
+
+    - FActScore：专为人物传记等事实密集型文本设计。将生成文本拆分为原子事实，每个事实在维基百科中检索证据，用NLI判断支撑情况，最终计算 被支撑的事实数 / 总事实数。该指标直接对应“事实正确率”，是检索增强评估的代表。
+
+    - 检索式自我一致性：不依赖固定知识库，而是将生成文本的多个采样与搜索引擎实时检索结果比较，求一致性分数。
+
+    （5）基于概率和不确定性的指标
+
+    - 序列平均对数似然（Length-Normalized Log Prob）：计算整个输出的归一化对数概率，越低越可疑。但需模型校准且不绝对。
+
+    - 预测熵（Predictive Entropy）：生成过程中每个token的熵的平均值。高熵可能表示模型在猜测，易幻觉。这类指标常作为辅助信号。
+
+    - 多次采样一致性（Self-Consistency）：如SelfCheckGPT，计算多次生成样本之间的语义分歧，分歧度与幻觉正相关。具体用NLI或BERTScore衡量各样本对主回答的支持度。
+
+    （6）基于大模型裁判的指标
+
+    - GPT-4/Judge：用强模型作为裁判，给定生成文本和参考源文，要求直接输出幻觉评级或逐句标签。通过设计精细提示可得到高相关性指标，常用于生成训练信号或顶层评估。
+
+    - G-Eval：利用链式思维让大模型对文本质量进行打分，其中包含事实一致性维度。
+
+    （7）混合指标
+
+    - UniEval：将多种评估任务（包含事实一致性）统一到一个框架，将评估转化为QA问题，输出多维度分数。
+
+    - BARTScore：将评估视为文本生成任务，计算生成文本在给定源文下的条件概率，可反映忠实性，但属于隐性指标。
+
+    选用策略：
+
+    - 对于忠实性幻觉（与源文比），首选NLI类（SummaC）和QA类（QAGS）。
+
+    - 对于事实性幻觉（与外部知识比），首选检索增强类（FActScore）或强模型裁判。
+
+    - 实际中常组合使用，以多指标投票或平均提高鲁棒性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/OmqQw0xtUiipkXkFcXAcR7O0nDb
+  block_id: YDBzdBKezoEDLExG0D6cPi7inQc
+  page_token: OmqQw0xtUiipkXkFcXAcR7O0nDb
+  original_title: 评估模型幻觉率的常用自动化指标有哪些？
+  imported_at: '2026-09-21'

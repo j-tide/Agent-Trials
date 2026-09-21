@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8fa072447106
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 15. 什么是“benchmark contamination”？如何检测SFT数据是否泄漏？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 15. 什么是“benchmark contamination”？如何检测SFT数据是否泄漏？
+answer:
+  mode: rubric
+  reference_answer: |-
+    基准污染是指模型在训练数据中直接或间接地“见过”评测基准的题目或答案，导致评估结果虚高，无法反映其真实的泛化能力。在LLM时代，这是一个普遍的、严重损害评估可信度的问题。
+
+    污染的类型
+
+    - 直接污染：训练集中包含与基准完全一致或仅进行微小改写的题目。
+
+    - 间接污染：训练集中包含与基准题目在本质上考察相同知识点、且表述方式类似的样本，即使不是原题，也可能提供不公平的优势。
+
+    - 跨语言污染：基准是英文，但训练集中包含该题目的高质量中文翻译。
+
+    - 模板污染：基准使用了某种特殊的格式或模板（如“请回答问题，选项为A、B、C，只输出答案”），而训练集恰好也大量使用了这个模板。
+
+    如何检测SFT数据是否泄漏
+
+    - n-gram重叠分析（初筛）
+    将SFT数据与基准测试题目进行n-gram（如13-gram）的重叠率计算。如果某条SFT数据与某道基准题目的13-gram重叠率超过一个阈值（如60%），则标记为疑似污染。这是最快速但粗糙的方法，无法检测语义改写。
+
+    - 语义嵌入相似度（精筛）
+    用句子嵌入模型将SFT数据和基准题目转化为向量，计算余弦相似度。对相似度过高的对进行人工审查。这可以发现经过改写的间接污染。
+
+    - 强模型辅助判断（终审）
+    对于前两步筛选出的可疑样本对，使用GPT-4等强模型进行语义等价判断。让模型回答：这两个问题是否在考察完全相同的知识和能力？如果回答“是”，则判定为污染，从训练集中移除该样本。
+
+    - “金丝雀”测试（主动性检测）
+    在训练集中故意植入一些极其罕见、不可能自然出现的“金丝雀”字符串（如一段关于虚构事件的特定描述）。如果训练后的模型能够复述这些字符串，说明数据被模型记忆了。随后检查评测集是否被“污染”了——但这是检测评测集是否被混入训练数据的方法，而不是检测训练数据是否被评测集污染。对于SFT，我们更关心反过来：评测集是否泄漏进了SFT数据。
+
+    - 隔离评估
+    最终极的验证：构造一个与SFT数据在时间、来源上完全隔离的独立评估集。如果模型在公开基准上突飞猛进，但在隔离评估集上性能不变甚至下降，说明公开基准的成绩很可能是污染导致的。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BdiuwRnUqijJb9kQLngc34v7ngc
+  block_id: IosldvRnAo7X0QxpR0LcJScsnDh
+  page_token: BdiuwRnUqijJb9kQLngc34v7ngc
+  original_title: 15. 什么是“benchmark contamination”？如何检测SFT数据是否泄漏？
+  imported_at: '2026-09-21'

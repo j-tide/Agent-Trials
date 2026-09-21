@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-07b22b6b9a19
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F310 如果 LangServe 服务需要水平扩展，你会怎么设计？共享什么状态？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F310 如果 LangServe 服务需要水平扩展，你会怎么设计？共享什么状态？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangServe 服务是无状态的，这使其水平扩展相对简单。扩展时，需要注意哪些状态需要共享、哪些可以独立。
+
+    架构设计：
+
+    - 无状态服务：每个 LangServe 实例是独立的，不存储任何本地状态。用户请求可以由任意实例处理。
+
+    - 负载均衡：在服务前端放置负载均衡器（如 Nginx、HAProxy、云服务商的 ELB），将流量分发到多个实例。对于 WebSocket（如果需要），需配置 sticky session（根据 session_id 路由到同一实例），因为 LangServe 本身不强制。
+
+    - 共享存储：
+
+    - 独立存储：
+
+    扩展实例：在 Kubernetes 中，通过 Deployment 设置 replicas，配合 HPA 根据 CPU/内存使用率自动扩缩。由于是异步服务，通常 CPU 不会成为瓶颈，更可能的是并发连接数或 LLM API 限制，所以 HPA 可以基于自定义指标（如活跃请求数）触发。
+
+    共享什么？
+
+    - 必须共享：LLM 缓存（Redis）、聊天记忆（Redis/DB）、限流计数器（Redis）。
+
+    - 无需共享：本地模型文件（如 LangChain 代码本身）、瞬时请求上下文、临时文件。
+
+    实践：我们一个 RAG 服务就是采用这种架构：4 个 Pod 的 LangServe，前面挂载 Nginx Ingress Controller，共享 Redis 用于缓存和记忆，PG 存储审计日志。当流量翻倍时，手动增加副本数，服务零中断。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K973wYln7iD4oCkYW2acmsT4nke
+  block_id: UB8ld02x0ooRhYxDmwecAIIqnmf
+  page_token: K973wYln7iD4oCkYW2acmsT4nke
+  original_title: "\U0001F310 如果 LangServe 服务需要水平扩展，你会怎么设计？共享什么状态？"
+  imported_at: '2026-09-21'

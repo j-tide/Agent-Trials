@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2d6068a9524b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚖️ 2. Cache-Aside 和 Write-Through 有什么区别？在 Agent 会话缓存场景如何选择？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "⚖️ 2. Cache-Aside 和 Write-Through 有什么区别？在 Agent 会话缓存场景如何选择？"
+answer:
+  mode: rubric
+  reference_answer: "这两种模式的核心区别在于 “谁负责维护缓存” 以及 “数据库和缓存的耦合程度”。\n\n[嵌入表格未展开]\n\n在 Agent
+    会话缓存场景的选择：\n\nAgent 会话缓存通常包含 用户上下文、对话历史、工具调用状态 等数据。这类场景的特点是 读非常频繁，写相对低频但要求及时生效，且对短暂的不一致有一定的容忍度（例如，用户最新一条消息缓存失效，下一次就能从
+    DB 拉取到正确历史）。\n\n- 对话历史读取：典型的读多写少。用 Cache-Aside 最灵活，应用完全控制缓存的粒度（例如只缓存最近 50 条消息），并在写入新消息时主动删除旧缓存。无需引入重型的
+    Write-Through 代理。\n\n- 会话状态更新（如 status: \"thinking\" → \"answering\"）：如果希望状态立即可见且应用逻辑简单，可以局部使用
+    Write-Through 的思想：更新状态时同步更新 Redis，同时异步写 DB。这实质上是一种基于 Redis 的轻量 Write-Through。\n\n-
+    LLM 调用结果缓存：强烈推荐 Cache-Aside。大模型回复一旦生成就不会再变，不存在更新问题，只需处理过期和淘汰。\n\n示例代码：Agent 对话历史缓存的
+    Cache-Aside 实践\n\nimport redis, json, time\nfrom datetime import datetime\n\nr
+    = redis.Redis()\nCACHE_TTL = 300  # 5分钟\n\ndef get_session_history(session_id:
+    str) -> list:\n    cache_key = f\"session:{session_id}:history\"\n    # 1. 查缓存\n
+    \   cached = r.get(cache_key)\n    if cached:\n        return json.loads(cached)\n
+    \   \n    # 2. 缓存未命中，查数据库\n    history = db.fetch_messages(session_id)  # 从 MongoDB
+    读取\n    # 3. 写入缓存\n    r.setex(cache_key, CACHE_TTL, json.dumps(history))\n    return
+    history\n\ndef add_message(session_id: str, message: dict):\n    # 1. 先写数据库\n
+    \   db.insert_message(session_id, message)\n    # 2. 删除缓存，下一次读取时会重建\n    r.delete(f\"session:{session_id}:history\")\n\n选择策略：\n\n如果团队需要快速迭代，Agent
+    数据模型变化频繁，选择 Cache-Aside 会更灵活。如果会话状态强依赖实时一致性，且有成熟的缓存中间件支持，可局部引入 Write-Through。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QbEawmJTRiAdEik5pKCciSZqnTf
+  block_id: doxcnJqxDMBQmvwe5kjI0nifpXb
+  page_token: QbEawmJTRiAdEik5pKCciSZqnTf
+  original_title: "⚖️ 2. Cache-Aside 和 Write-Through 有什么区别？在 Agent 会话缓存场景如何选择？"
+  imported_at: '2026-09-21'

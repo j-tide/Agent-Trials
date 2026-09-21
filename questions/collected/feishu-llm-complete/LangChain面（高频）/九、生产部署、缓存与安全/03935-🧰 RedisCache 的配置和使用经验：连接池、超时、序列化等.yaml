@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c505f104e70a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9F0 RedisCache 的配置和使用经验：连接池、超时、序列化等。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F9F0 RedisCache 的配置和使用经验：连接池、超时、序列化等。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    生产中使用 RedisCache 需注意以下细节：
+
+    连接池：不要为每个请求创建新的 Redis 连接。应该创建全局的 redis.ConnectionPool，然后传递给 RedisCache。
+
+    ```python
+    import redis
+    pool = redis.ConnectionPool(host="localhost", port=6379, max_connections=20)
+    r = redis.Redis(connection_pool=pool)
+    cache = RedisCache(redis_=r)
+    ```
+
+    超时设置：避免因 Redis 故障导致请求阻塞。设置 socket_connect_timeout 和 socket_timeout。
+
+    序列化：LangChain 默认使用 pickle 序列化 LLMResult，但 pickle 不安全，且跨语言兼容性差。生产环境建议改为 JSON 序列化（RedisCache 不支持，需要自定义）。RedisSemanticCache 则使用 JSON。
+
+    容错与降级：当 Redis 不可用时，不应影响主业务流程。可以包装缓存逻辑，捕获异常后跳过缓存，直接调用 LLM。LangChain 内部在缓存失败时默认会 fallback 到无缓存调用，但建议监控异常。
+
+    内存管理：设置 maxmemory 策略（如 allkeys-lru）防止 Redis 内存溢出，同时设置 TTL。
+
+    监控：通过 Prometheus Redis Exporter 监控缓存命中率、内存使用、延迟等。
+
+    实战经验：早期我们直接用默认的 RedisCache，结果在并发场景下出现 ConnectionError，原因是连接池耗尽。调整 max_connections 并增加重试机制后解决。同时，我们切换到 RedisSemanticCache 以获得语义匹配能力，但在使用中发现其 Embedding 计算开销较大，因此又结合了本地 InMemoryCache 做一级缓存，Redis 做二级缓存。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VWvFwnt5pi19m7ky7Udc0PatnRe
+  block_id: E6I6dpijMorfFqx6MeqcTdUhnBf
+  page_token: VWvFwnt5pi19m7ky7Udc0PatnRe
+  original_title: "\U0001F9F0 RedisCache 的配置和使用经验：连接池、超时、序列化等。"
+  imported_at: '2026-09-21'

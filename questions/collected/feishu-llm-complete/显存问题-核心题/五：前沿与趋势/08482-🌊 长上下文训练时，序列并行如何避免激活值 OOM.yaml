@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c16fb822252a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F30A 长上下文训练时，序列并行如何避免激活值 OOM？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 五：前沿与趋势
+tags: &1
+- 显存问题-核心题
+- 五：前沿与趋势
+content:
+  prompt: "\U0001F30A 长上下文训练时，序列并行如何避免激活值 OOM？"
+answer:
+  mode: rubric
+  reference_answer: "在训练中，反向传播需要保留所有层的中间激活（如 Q、K、V、注意力输出、FFN 输入等），其大小与序列长度成正比。当序列长度达
+    128K 时，仅这些激活就可能占用几十 GB 显存，导致 OOM。\n\n序列并行（Sequence Parallelism, SP） 将输入序列沿长度维度切分成多个分片，分别放到不同的
+    GPU 上。每张 GPU 只负责自己那一段序列的激活存储和计算，从而将单卡的激活峰值压到 1/N（N 为 SP 并行度）。\n\n\U0001F517 通常与张量并行（TP）结合使用：\n\n-
+    TP 将 hidden 维度切分，SP 将 seq 维度切分，两者正交，共同作用。\n\n- 对于 LayerNorm、Dropout 等独立操作，各 GPU
+    直接处理自己的序列段，无需通信。\n\n- 对于注意力、线性层等需要全局信息的操作，通过 all-gather 或 reduce-scatter 在 SP
+    组内交换数据，虽引入额外通信，但换来的是显存的巨幅下降。\n\n\U0001F4CA 实例： 使用 8 路 SP 训练 128K 序列，假设单卡原本需要 40
+    GB 激活，启用后每卡仅需约 5 GB，使原本不可能的训练变为可行。结合 FlashAttention 和梯度检查点，显存压力进一步降低。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MJGdw1gNQi7XukkJrfvczohinLU
+  block_id: G1EDdRzlCoEsuax7TU8c4qGenEg
+  page_token: MJGdw1gNQi7XukkJrfvczohinLU
+  original_title: "\U0001F30A 长上下文训练时，序列并行如何避免激活值 OOM？"
+  imported_at: '2026-09-21'

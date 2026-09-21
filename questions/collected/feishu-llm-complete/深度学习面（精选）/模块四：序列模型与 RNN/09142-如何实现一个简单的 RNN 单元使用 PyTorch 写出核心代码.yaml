@@ -1,0 +1,98 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5d5975b5e92b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何实现一个简单的 RNN 单元？使用 PyTorch 写出核心代码。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块四：序列模型与 RNN
+tags: &1
+- 深度学习面（精选）
+- 模块四：序列模型与 RNN
+content:
+  prompt: 如何实现一个简单的 RNN 单元？使用 PyTorch 写出核心代码。
+answer:
+  mode: rubric
+  reference_answer: |-
+    以下手动实现一个vanilla RNN单元，包含前向传播和权重初始化。
+
+    import torch
+    import torch.nn as nn
+
+    class SimpleRNNCell(nn.Module):
+        def __init__(self, input_size, hidden_size):
+            super().__init__()
+            self.input_size = input_size
+            self.hidden_size = hidden_size
+            # 输入到隐藏的权重
+            self.W_ih = nn.Parameter(torch.randn(hidden_size, input_size) * 0.01)
+            # 隐藏到隐藏的权重
+            self.W_hh = nn.Parameter(torch.randn(hidden_size, hidden_size) * 0.01)
+            # 偏置
+            self.b_h = nn.Parameter(torch.zeros(hidden_size))
+
+        def forward(self, x, h_prev):
+            # x: (batch, input_size)
+            # h_prev: (batch, hidden_size)
+            # 线性变换
+            linear = torch.matmul(x, self.W_ih.t()) + torch.matmul(h_prev, self.W_hh.t()) + self.b_h
+            h_next = torch.tanh(linear)
+            return h_next
+
+    # 循环使用
+    class SimpleRNN(nn.Module):
+        def __init__(self, input_size, hidden_size, num_layers=1):
+            super().__init__()
+            self.num_layers = num_layers
+            self.hidden_size = hidden_size
+            self.cells = nn.ModuleList([
+                SimpleRNNCell(input_size if i == 0 else hidden_size, hidden_size)
+                for i in range(num_layers)
+            ])
+
+        def forward(self, x, h0=None):
+            # x: (seq_len, batch, input_size)
+            seq_len, batch, _ = x.shape
+            if h0 is None:
+                h = [torch.zeros(batch, self.hidden_size, device=x.device) for _ in range(self.num_layers)]
+            else:
+                h = list(h0)  # list of (batch, hidden_size)
+            outputs = []
+            for t in range(seq_len):
+                inp = x[t]
+                for layer in range(self.num_layers):
+                    h[layer] = self.cells[layer](inp, h[layer])
+                    inp = h[layer]
+                outputs.append(h[-1].unsqueeze(0))
+            output = torch.cat(outputs, dim=0)  # (seq_len, batch, hidden_size)
+            return output, torch.stack(h, dim=0)  # hidden: (num_layers, batch, hidden_size)
+
+    实际应用中直接使用 nn.RNN 即可，其内部经过cuDNN优化，速度更快。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H9klwWRiMic1XAkzqs5csdQ1nvg
+  block_id: AEXCd4V2XodCmwxQtU6cbcTDnIc
+  page_token: H9klwWRiMic1XAkzqs5csdQ1nvg
+  original_title: 如何实现一个简单的 RNN 单元？使用 PyTorch 写出核心代码。
+  imported_at: '2026-09-21'

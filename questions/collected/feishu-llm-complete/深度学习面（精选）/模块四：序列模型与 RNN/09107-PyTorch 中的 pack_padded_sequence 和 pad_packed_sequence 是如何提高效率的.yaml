@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ddabd88de099
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: PyTorch 中的 pack_padded_sequence 和 pad_packed_sequence 是如何提高效率的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块四：序列模型与 RNN
+tags: &1
+- 深度学习面（精选）
+- 模块四：序列模型与 RNN
+content:
+  prompt: PyTorch 中的 pack_padded_sequence 和 pad_packed_sequence 是如何提高效率的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    [图片内容未导入]
+
+    pack_padded_sequence
+    该函数将一个已填充的序列张量和一个记录各序列长度的列表作为输入，返回一个 PackedSequence 对象。它本质上将非填充元素按时间步紧凑排列，并记录每个时间步实际有效的 batch 大小（batch_sizes）。例如，batch 内有 3 个长度分别为 5,3,2 的序列，pack 后的数据按时间步组织：第一步有 3 个样本，第二步有 3 个，第三步有 2 个（最短的已结束），第四、五步只有 1 个样本。这样 RNN 在每一步只计算实际存在的样本，跳过了填充位置。
+
+    效率提升
+
+    - 避免无效计算：RNN（尤其是 cuDNN 实现的 LSTM/GRU）可以直接接收 PackedSequence，在每一步只对有效序列进行运算，完全跳过填充。从而节省了乘法、加法和激活的计算量。
+
+    - 梯度传播优化：反向传播时也仅在有效的路径上流动，减少无用梯度的计算。
+
+    - 内存节省：不需要存储填充位置的中间激活值，降低显存占用。
+
+    pad_packed_sequence
+    它是反向操作，将 PackedSequence 恢复为填充后的规整张量，便于后续的全连接层或损失计算。通常会返回一个和输入同样形状的张量，但非有效位置的值可以是任意（通常用 0 填充），需结合掩码使用。
+
+    示例用法
+
+    ```python
+    import torch.nn.utils.rnn as rnn_utils
+    # x: [max_len, batch, feature]
+    # lengths: [batch]
+    packed = rnn_utils.pack_padded_sequence(x, lengths, enforce_sorted=True)
+    output, hidden = lstm(packed)
+    output_padded, _ = rnn_utils.pad_packed_sequence(output)
+    ```
+
+    注意：需按序列长度降序排列以保证正确性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Hzh6wrqVbixchzkZXJDcLj5cnqh
+  block_id: Tj8rdmhkkoFTiLxvURJcQYShncf
+  page_token: Hzh6wrqVbixchzkZXJDcLj5cnqh
+  original_title: PyTorch 中的 pack_padded_sequence 和 pad_packed_sequence 是如何提高效率的？
+  imported_at: '2026-09-21'

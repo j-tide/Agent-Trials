@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-15d0c5266223
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 算子融合是什么？Transformer 中哪些操作可以融合？如线性层+激活，注意力融合。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 五：推理部署与高效化
+tags: &1
+- Transfomer精选面试
+- 五：推理部署与高效化
+content:
+  prompt: 算子融合是什么？Transformer 中哪些操作可以融合？如线性层+激活，注意力融合。
+answer:
+  mode: rubric
+  reference_answer: |-
+    算子融合是指将原本会被拆分成多个独立内核（kernel）执行的计算操作，在 GPU 上合并成一个内核来完成。这样做可以大幅减少全局内存（HBM）的中间结果读写和内核启动开销。由于 GPU 计算速度远高于内存带宽，融合是提升实际性能的关键手段。
+
+    在 Transformer 架构中，可以融合的典型操作有：
+
+    - 线性层 + 激活函数：MatMul 的结果直接在寄存器/共享内存中应用 GELU、ReLU、SiLU 等，避免把大矩阵写回 HBM 再读回。
+
+    - 线性层 + 偏置 + 激活：将 MatMul、AddBias、Activation 三者一次完成。
+
+    - QKV 投影融合：将自注意力中 Q、K、V 三个线性层权重在内存中拼接，变成一次大矩阵乘法，直接产生拼接后的 QKV 张量，然后通过视图拆分。
+
+    - 注意力计算融合：FlashAttention 将 QK^T、softmax、乘以 V 甚至 mask、dropout 全部融合成极少数内核，内部通过分块和 online softmax 完成，完全不生成完整的 N×N 注意力矩阵。
+
+    - LayerNorm / RMSNorm + 后续线性层：对归一化输出直接进行矩阵乘，省去一次写回。
+
+    - 残差连接 + LayerNorm：将 Add 和 LayerNorm 融合为一个内核。
+
+    - Logits + Softmax + CrossEntropy（训练时）：把最后的线性层、softmax 和 loss 计算融合，减少内存占用。
+
+    - 量化/反量化与计算的融合：例如权重 INT8/FP8 加载后即时反量化并执行 MatMul，无需存储完整高精度中间张量。
+
+    - MLP 块整体融合：如将 gate_proj、up_proj 后的激活和与 down_proj 之间的乘法合并。
+
+    通过算子融合，一个 Transformer 块中原来几十个小内核可以被压缩到个位数，大幅削减带宽瓶颈。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XlvZwbMXgi5eebkXzxvcP7w4nnf
+  block_id: LkVadjMdboweoQx56tdcfmZAnve
+  page_token: XlvZwbMXgi5eebkXzxvcP7w4nnf
+  original_title: 算子融合是什么？Transformer 中哪些操作可以融合？如线性层+激活，注意力融合。
+  imported_at: '2026-09-21'

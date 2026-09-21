@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-43e4394b0eda
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 张量并行（Tensor Parallelism）是如何拆分 Transformer 层的权重矩阵的？以 Megatron 为例说明。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 四：训练优化与稳定性
+tags: &1
+- Transfomer精选面试
+- 四：训练优化与稳定性
+content:
+  prompt: 张量并行（Tensor Parallelism）是如何拆分 Transformer 层的权重矩阵的？以 Megatron 为例说明。
+answer:
+  mode: rubric
+  reference_answer: |-
+    张量并行是将单层内的权重矩阵切分到多个 GPU 上并行计算，主要解决单卡显存无法容纳整个层参数的问题。
+
+    Megatron-LM 中的张量并行：
+
+    对于 Transformer 的自注意力和 FFN 层，权重矩阵按列或按行切分，配合通信操作。
+
+    MLP 块（两层全连接）：
+    设输入为 X，权重为 A（升维）和 B（降维）。
+
+    - 将 A 沿列切分为 A1,A2，分别放在两张 GPU 上。输入 X 完全相同（由上一层输出广播而来）。各 GPU 计算 Yi=GeLU(XAi)。
+
+    - 将 B 沿行切分为 B1,B2。各 GPU 计算 Zi=YiBi。然后通过 AllReduce 将各 GPU 的 Zi 相加，得到最终输出。这里通信发生在激活值的 AllReduce。
+
+    [图片内容未导入]
+
+    通信分析：每次前向中，张量并行需要进行两次 AllReduce（分别在 FFN 后和注意力后）。通信量正比于批次大小 × 序列长度 × 隐藏维度。由于通信发生在层内，对带宽和延迟敏感，因此张量并行通常在节点内使用高速 NVLink 连接，不适合跨节点。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JQ7Ewcu5vi3kzPkkXV2cvczhnyh
+  block_id: VkJOdRsUqoRRdyx0w05cLUc9nth
+  page_token: JQ7Ewcu5vi3kzPkkXV2cvczhnyh
+  original_title: 张量并行（Tensor Parallelism）是如何拆分 Transformer 层的权重矩阵的？以 Megatron 为例说明。
+  imported_at: '2026-09-21'

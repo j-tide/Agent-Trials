@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9e5a92a64830
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“fine-tuning data contamination”？如何检测和避免？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 什么是“fine-tuning data contamination”？如何检测和避免？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Fine-tuning Data Contamination（微调数据污染） 是指在微调数据集中，出现了与评测基准（Benchmark）高度相似或完全一致的样本。这导致模型在评测中“作弊”得分虚高，无法反映其真实泛化能力。
+
+    一、如何检测污染
+
+    - n-gram重叠检测（初筛）：将微调数据集与评测集中的每个样本进行n-gram（如13-gram）的重叠率计算。如果某个微调样本与评测题目的n-gram重叠率超过阈值（如60%），则标记为可疑。这种方法计算快但粗糙，能快速捕获直接复制和轻微改写的污染。
+
+    - 语义嵌入相似度（精筛）：使用句子嵌入模型（如all-MiniLM-L6-v2）将微调数据和评测题目转化为向量，计算余弦相似度。对相似度过高（如>0.9）的样本对进行人工审查。这能发现措辞完全不同但考察相同知识的间接污染。
+
+    - 强模型辅助判断（终审）：对于前两步筛选出的可疑样本，使用GPT-4等强模型进行语义等价判断。让模型回答：“这两个问题是否在考察完全相同的知识和能力？”如果回答“是”，则判定为污染。
+
+    - 金丝雀测试（主动防御）：在微调集中故意植入一组极其罕见、独一无二的“金丝雀”字符串。如果在推理时，你能引导模型复述出这些金丝雀字符串，就证明模型“记住”了训练集，进而可以反向评估评测集是否被泄漏到训练数据中。
+
+    二、如何避免污染
+
+    - 源头隔离：在收集SFT数据时，严格排除所有已知评测基准的来源（如MMLU官网、GSM8K的GitHub）。
+
+    - 严格去重与清洗：在数据预处理阶段，执行多层去污染管道（n-gram + 语义相似度 + 人工复核），对与公开评测集重叠的样本进行删除或改写。
+
+    - 时间隔离：确保SFT数据的来源时间早于评测基准的发布时间，或晚于但不包含该基准的内容。
+
+    - 构建独立的私有评测集：最重要的防线是拥有一个完全封闭、从未公开、内部专家构造的评测集。用它作为最终的试金石，可以完全避免公开基准污染带来的虚假高分。
+
+    ✅ 总结：数据去污染是保证模型评测公平性和可信度的基石。它需要多层级的自动化检测与人工审核相结合，并最终依赖独立的私有评测集来验证模型的真实能力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/W8ymwxsGKimT6Fk1YIOcORI9nLe
+  block_id: RMMzdhysLoljzwxTNfUcXFpqnXd
+  page_token: W8ymwxsGKimT6Fk1YIOcORI9nLe
+  original_title: 什么是“fine-tuning data contamination”？如何检测和避免？
+  imported_at: '2026-09-21'

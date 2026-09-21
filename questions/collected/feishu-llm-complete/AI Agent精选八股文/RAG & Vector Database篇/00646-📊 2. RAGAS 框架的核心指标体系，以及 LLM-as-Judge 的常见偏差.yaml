@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-36d0ffb9a6d9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 2. RAGAS 框架的核心指标体系，以及 LLM-as-Judge 的常见偏差"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "\U0001F4CA 2. RAGAS 框架的核心指标体系，以及 LLM-as-Judge 的常见偏差"
+answer:
+  mode: rubric
+  reference_answer: "RAGAS (Retrieval Augmented Generation Assessment) 是目前 RAG 评估的事实标准之一。它不依赖人工标注，而是用
+    LLM 作为裁判，自动对 RAG 系统的关键维度进行打分。\n\n2.1 RAGAS 核心指标速览\n\n```text\nRAGAS 指标体系\n├──
+    Generation 指标 (评估生成答案)\n│   ├── Faithfulness (忠实度)   —— 答案是否完全基于上下文\n│   └── Answer
+    Relevancy (答案相关性) —— 答案是否紧扣问题\n│\n└── Retrieval 指标 (评估检索质量)\n    ├── Context Precision
+    (上下文精确度) —— 检索到的文档里有多少是真正有用的\n    └── Context Recall (上下文召回率)   —— 回答问题所需的信息，上下文都包含了吗\n```\n\n-
+    Faithfulness：将答案拆解为若干“陈述”，逐条判断能否在上下文中找到支撑。最终得分 = 能找到支撑的陈述数 / 总陈述数。\n\n- Answer
+    Relevancy：判断答案是否切题、不冗余。\n\n- Context Precision：检索到的文档片段中，相关文档的排名是否靠前。\n\n- Context
+    Recall：回答所需的所有关键信息，是否都被检索出来了。\n\n代码示例：使用 RAGAS 评估一个 RAG 结果\n\n```python\nfrom
+    ragas import evaluate\nfrom ragas.metrics import faithfulness, answer_relevancy,
+    context_precision, context_recall\nfrom datasets import Dataset\n\n# 准备评估数据\neval_dataset
+    = Dataset.from_dict({\n    \"question\": [\"公司最新的年假政策是什么？\"],\n    \"answer\":
+    [\"根据2026年员工手册，年假为15天，可累积。注意必须每年休完10天。\"],\n    \"contexts\": [[\"公司年假政策：每年15天，可累积至30天。\"]],\n
+    \   \"ground_truth\": [\"公司年假为15天，可累积至30天，无强制休完要求。\"]\n})\n\n# 运行评估\nresults =
+    evaluate(eval_dataset, metrics=[faithfulness, answer_relevancy, \n                                          context_precision,
+    context_recall])\nprint(results)\n# 输出: {'faithfulness': 0.5, ...}  因为 \"必须每年休完10天\"
+    找不到上下文支持\n```\n\n2.2 LLM-as-Judge 的常见偏差与工程规避\n\n用 LLM 做裁判不是完美无瑕的，我踩过的几个坑：\n\n-
+    位置偏差：裁判 LLM 倾向于认为第一个答案更好，或者在长文档中更关注开头和结尾，忽略中间。\n\n- 长度偏差：裁判容易给更长的回答打高分，即使内容是冗余的。\n\n-
+    自我偏好：用 GPT-4 评估 GPT-4 生成的答案，可能偏高。\n\n- 评分不一致：同一份答案在不同时间打分可能不同。\n\n示例：减少位置偏差的 Pairwise
+    Judge\n\n```python\ndef pairwise_judge_with_position_correction(answer_a, answer_b,
+    question):\n    prompt = f\"问题: {question}\\n回答 A: {answer_a}\\n回答 B: {answer_b}\\n请选出更好的回答。\"\n
+    \   choice_ab = llm(prompt)  # A在前\n    prompt_ba = f\"问题: {question}\\n回答 A:
+    {answer_b}\\n回答 B: {answer_a}\\n请选出更好的回答。\"\n    choice_ba = llm(prompt_ba) #
+    B在前\n    # 综合判断\n    if choice_ab == \"A\" and choice_ba == \"B\":\n        return
+    \"A更好\"   # 顺序交换后仍一致\n    elif choice_ab == \"B\" and choice_ba == \"A\":\n        return
+    \"B更好\"\n    else:\n        return \"位置偏差严重，需人工复核\"\n```"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcn03zDfd6TJ6meuE7u3fNChb
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "\U0001F4CA 2. RAGAS 框架的核心指标体系，以及 LLM-as-Judge 的常见偏差"
+  imported_at: '2026-09-21'

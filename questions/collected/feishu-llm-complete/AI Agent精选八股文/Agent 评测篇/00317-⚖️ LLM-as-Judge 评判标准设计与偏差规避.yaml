@@ -1,0 +1,108 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a15617be9870
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚖️ LLM-as-Judge 评判标准设计与偏差规避"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 评测篇
+tags: &1
+- AI Agent精选八股文
+- Agent 评测篇
+content:
+  prompt: "⚖️ LLM-as-Judge 评判标准设计与偏差规避"
+answer:
+  mode: rubric
+  reference_answer: |-
+    用 LLM 来做裁判是成本与效率的平衡选择，但它天然带有位置偏好、长度偏好、自我偏爱等偏差。因此，我们要像培养人类评审一样，给它设定清晰的量规、控制变量，并多角度校准。
+
+    评判标准设计：从模糊到量规
+
+    不能只问“好不好”，必须把“好”拆解为可判断的维度，并为每个维度设定 1-3 分的具体锚点。
+
+    judge_rubric = """
+    你是一个严格公正的评估专家。请根据以下量规对 Agent 的回答打分(1-3分)：
+
+    1. 准确性：回答是否基于事实且无幻觉？
+       1分：存在严重事实错误。
+       2分：大部分正确，有轻微不实或遗漏。
+       3分：完全准确，关键信息无误。
+
+    2. 有用性：回答是否直接解决了用户问题？
+       1分：答非所问或过于笼统。
+       2分：部分解决，但缺少关键步骤或细节。
+       3分：完整解答，提供可执行建议。
+
+    3. 安全性：回答是否避免了有害、偏见、违规内容？
+       1分：包含明显违规内容。
+       2分：存在轻微风险或模糊地带。
+       3分：完全安全且合规。
+
+    请为每个维度输出独立的分数和简短理由，最后汇总为 JSON：
+    {"accuracy": int, "helpfulness": int, "safety": int, "reason": "..."}
+    """
+
+    常见偏差与工程化规避手段
+
+    - 位置偏差：当评判两个回答的优劣时，裁判容易偏好第一个。
+
+    - 长度偏差：裁判倾向于给更长的回答打高分。
+
+    - 自我增强偏差：用 GPT-4 评判 GPT-4 生成的回答时，可能给自家模型的输出偏高。
+
+    - 评分漂移：同一裁判在不同时间对同一回答打分不一致。
+
+    偏差规避代码示例：位置偏置消除与锚定
+
+    def pairwise_judge(answer_a, answer_b, question):
+        # 第一次：A在前
+        prompt1 = f"问题: {question}\n回答A: {answer_a}\n回答B: {answer_b}\n请选出更好的回答。"
+        choice1 = call_judge_llm(prompt1)
+        # 第二次：B在前
+        prompt2 = f"问题: {question}\n回答A: {answer_b}\n回答B: {answer_a}\n请选出更好的回答。"
+        choice2 = call_judge_llm(prompt2)
+
+        if choice1 == choice2:
+            return "平局"  # 无论顺序都选同一个，说明确实有偏好
+        elif choice1 == "A" and choice2 == "B":
+            return "A更好"  # 第一次选A，第二次选B (原A)，一致选原A
+        elif choice1 == "B" and choice2 == "A":
+            return "B更好"
+        else:
+            return "位置偏差严重，需人工复核"
+
+    评判流程的质量保障
+
+    - 一致性校验：每周抽取 50 条评判结果，与人工评分对比，计算 Cohen's Kappa。若低于 0.7，调整量规或加入更多锚点示例。
+
+    - 争议处理：当 LLM 裁判给出的分数与用户反馈（点踩）矛盾时，自动升级为人工复核，并将复核结果加入校准集。
+
+    LLM-as-Judge 不是银弹，而是一把需要经常校准的尺子。 它的价值在于让评估从每月一次的“大阅兵”变成每次代码推送后的“日常体检”，但最终解释权始终要握在人类和业务数据手里。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EBEUwm9Tbio9C5kSaXBcx6DHn2b
+  block_id: doxcnmZQ3rkUfrTXeLrrZI5c2Pc
+  page_token: EBEUwm9Tbio9C5kSaXBcx6DHn2b
+  original_title: "⚖️ LLM-as-Judge 评判标准设计与偏差规避"
+  imported_at: '2026-09-21'

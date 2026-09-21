@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4094d00cad0a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ".3 使用 OutputFixingParser 作为兜底"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: ".3 使用 OutputFixingParser 作为兜底"
+answer:
+  mode: rubric
+  reference_answer: |-
+    即使经过了预处理，JSON 可能仍然不合法。此时，OutputFixingParser 可以作为最后的保险。它会在内部调用修复 LLM，根据错误信息重新生成合法的 JSON。
+
+    ```python
+    from langchain_core.output_parsers import OutputFixingParser
+
+    # 基础解析器
+    base_parser = PydanticOutputParser(pydantic_object=Person)
+
+    # 修复解析器
+    fixing_parser = OutputFixingParser.from_llm(
+        parser=base_parser,
+        llm=ChatOpenAI(model="gpt-4o", temperature=0)
+    )
+
+    # 链：prompt -> model -> 预处理 -> 修复解析器
+    chain = prompt | model | RunnableLambda(extract_and_clean_json) | fixing_parser
+    ```
+
+    这样，我们就构建了一个三层防护：Prompt 指令 → 预处理提取 → 修复解析，确保即使模型输出混杂了额外文本，也能得到正确的结构化数据。
+
+    ---
+
+    ### 你如何测试 Output Parser 的健壮性？如果 LLM 反复输出错误格式，怎么办？
+
+    在生产环境中，Output Parser 的健壮性直接决定了应用的可靠性。我们需要构建一套完善的测试体系，并制定应对反复出错的策略。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/FkhTw9yBsiro60k5CSIcZezcnj6
+  block_id: MUcjdmcC5opJMfxlhSWc8znAnK7
+  page_token: FkhTw9yBsiro60k5CSIcZezcnj6
+  original_title: ".3 使用 OutputFixingParser 作为兜底"
+  imported_at: '2026-09-21'

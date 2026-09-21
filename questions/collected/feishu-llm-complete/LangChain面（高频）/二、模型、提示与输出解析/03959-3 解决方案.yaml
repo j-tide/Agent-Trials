@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fc08f4d45f28
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 15.3 解决方案
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: 15.3 解决方案
+answer:
+  mode: rubric
+  reference_answer: |-
+    - 使用 parse_partial_json：LangChain 提供了 langchain_core.utils.json.parse_partial_json，可以解析不完整的 JSON 字符串，返回当前已成功解析的部分。你可以在流式回调中逐步更新解析结果。
+
+    - 自定逐步解析器：继承 BaseOutputParser，重写 stream 方法，在内部维护一个缓冲区，每当收到新的 Token，尝试用 parse_partial_json 提取当前结果，并通过回调通知上层。
+
+    - 在 Prompt 中强调格式完整性：虽然不能完全避免，但可以要求模型“输出紧凑的 JSON 且不要添加额外内容”，减少流式异常。
+
+    ```python
+    from langchain_core.utils.json import parse_partial_json
+
+    class StreamingJsonParser(BaseOutputParser):
+        def parse(self, text: str) -> Any:
+            return json.loads(text)
+
+        def stream(self, input: AsyncIterator[str]) -> AsyncIterator[Any]:
+            buffer = ""
+            async for chunk in input:
+                buffer += chunk
+                try:
+                    # 尝试部分解析
+                    partial = parse_partial_json(buffer)
+                    yield partial
+                except Exception:
+                    pass  # 解析失败，等待更多数据
+    ```
+
+    ### 如何为 Output Parser 编写单元测试？你会 mock LLM 的输出吗？
+
+    单元测试是保证解析器健壮性的基石。我们遵循“不依赖外部服务”的原则，一定会 mock LLM 的输出。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/FkhTw9yBsiro60k5CSIcZezcnj6
+  block_id: LweGdEUTxo1AyNx5yPccdCutnIe
+  page_token: FkhTw9yBsiro60k5CSIcZezcnj6
+  original_title: 15.3 解决方案
+  imported_at: '2026-09-21'

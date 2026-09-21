@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-791a323db989
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: RoPE 位置编码及其应用到 Q, K
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: RoPE 位置编码及其应用到 Q, K
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    def apply_rotary_emb(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+        """
+        对输入 x 应用旋转位置编码。x 形状为 (..., seq_len, dim)
+        cos, sin 形状为 (seq_len, dim//2) 或 (..., seq_len, dim//2)
+        """
+        # 将 x 按最后一维分成两半，分别进行旋转
+        dim = x.shape[-1]
+        x1, x2 = x[..., :dim//2], x[..., dim//2:]
+        cos = cos.unsqueeze(-2)  # 便于广播
+        sin = sin.unsqueeze(-2)
+        rotated = torch.cat([x1 * cos - x2 * sin, x1 * sin + x2 * cos], dim=-1)
+        return rotated
+
+    def precompute_rotary_embeddings(seq_len: int, dim: int, theta: float = 10000.0):
+        """预计算 cos 和 sin 表"""
+        freqs = 1.0 / (theta ** (torch.arange(0, dim, 2, dtype=torch.float32) / dim))  # (dim/2,)
+        t = torch.arange(seq_len, dtype=torch.float32)
+        freqs = torch.outer(t, freqs)  # (seq_len, dim/2)
+        cos = torch.cos(freqs)
+        sin = torch.sin(freqs)
+        return cos, sin
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: OtWPdOSC3o8OFVx5w6ecQH56nAd
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: RoPE 位置编码及其应用到 Q, K
+  imported_at: '2026-09-21'

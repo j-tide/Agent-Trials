@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-57b4820b5a42
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多模态模型的分片策略与纯语言模型有何不同？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 多模态模型的分片策略与纯语言模型有何不同？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多模态模型需要处理异构的组件结构，分片不能简单沿袭纯LLM方案。
+
+    差异分析：
+
+    [嵌入表格未展开]
+
+    具体分片策略差异：
+
+    视觉编码器参数小，使用数据并行即可，无需分片。若强行分片，会在小参数上引入不必要的通信。
+
+    LLM部分沿用成熟的分片方案（张量并行+流水线并行），但需注意视觉token在序列前部，当使用序列并行时，视觉token和文本token需统一分片。由于视觉token之间相关性高，分片后的通信可能更大。
+
+    投影层连接视觉和语言，应放置在与LLM第一个流水线阶段相同的设备上，避免跨设备传输投影后的视觉token。
+
+    推荐的分片拓扑：视觉编码器部署在少量GPU上（如2-4卡），用数据并行；LLM使用（张量并行×流水线并行）的网格（如TP=4, PP=4），视觉编码器GPU与LLM首阶段GPU通过高速连接直连。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  block_id: S8NcdYjBIoCArTxBSYRcU78nnFe
+  page_token: KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  original_title: 多模态模型的分片策略与纯语言模型有何不同？
+  imported_at: '2026-09-21'

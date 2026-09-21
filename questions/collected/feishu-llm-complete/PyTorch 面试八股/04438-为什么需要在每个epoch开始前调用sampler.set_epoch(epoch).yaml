@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-36bfe81cefaf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么需要在每个epoch开始前调用sampler.set_epoch(epoch)？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 为什么需要在每个epoch开始前调用sampler.set_epoch(epoch)？
+answer:
+  mode: rubric
+  reference_answer: |-
+    DistributedSampler.set_epoch(epoch)的作用是为每个epoch设置不同的随机种子，以保证不同epoch中数据的打乱顺序不同，从而增强训练的随机性和泛化能力。
+
+    原理：
+
+    - DistributedSampler在shuffle=True时，内部使用torch.Generator生成随机排列。该生成器的种子基于epoch值计算（通常是base_seed + epoch）。
+
+    - 如果不调用set_epoch，默认epoch=0，则每个epoch的打乱顺序完全相同，数据多样性丧失，模型容易记住数据顺序而过拟合。
+
+    - 调用后，每个epoch会有一个全新的随机排列，使得模型每个epoch看到的数据顺序都不同。
+
+    使用方式：
+
+    ```python
+    for epoch in range(num_epochs):
+        train_sampler.set_epoch(epoch)  # 必须在每个epoch开始前调用
+        for batch in train_loader:
+            ...
+    ```
+
+    注意：在分布式训练中，必须确保所有进程调用的set_epoch传入相同的epoch值，以保证全局数据打乱的一致性，从而继续维持各进程数据子集的不重叠性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KwdbwAt6ziL8zKkU7VMcVNEin8d
+  block_id: F2LgdTZbFo3y2IxD6qOcdFbIn7c
+  page_token: KwdbwAt6ziL8zKkU7VMcVNEin8d
+  original_title: 为什么需要在每个epoch开始前调用sampler.set_epoch(epoch)？
+  imported_at: '2026-09-21'

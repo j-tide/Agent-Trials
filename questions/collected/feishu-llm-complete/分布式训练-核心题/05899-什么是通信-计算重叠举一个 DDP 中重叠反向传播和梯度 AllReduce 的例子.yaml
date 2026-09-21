@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7cc7c48ac9aa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 15.什么是“通信-计算重叠”？举一个 DDP 中重叠反向传播和梯度 AllReduce 的例子。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 15.什么是“通信-计算重叠”？举一个 DDP 中重叠反向传播和梯度 AllReduce 的例子。
+answer:
+  mode: rubric
+  reference_answer: |-
+    通信-计算重叠是指在神经网络训练过程中，将通信操作（如梯度同步）与计算操作（如反向传播、前向传播）在时间上并行执行，以隐藏通信延迟，提高整体硬件利用率。
+
+    DDP 中的重叠实例：
+
+    - 在标准 DDP 中，反向传播逐层计算梯度。DDP 会注册钩子，在每一层梯度计算完成后立即启动该层梯度的异步 AllReduce（通常被分组到梯度桶中）。
+
+    - 当 AllReduce 在后台执行时，反向传播继续向前推进，计算更早层的梯度。
+
+    - 通过这种方式，大部分梯度通信被隐藏在后续层的反向计算时间里，几乎“免费”完成。
+
+    - 等到所有层反向传播结束，大部分梯度也已同步完毕，可以直接进行优化器更新。
+
+    具体场景：假设模型有 Transformer 层 L1, L2, ..., Ln。反向传播从 Ln 开始。当 Ln 的梯度计算完成后，DDP 将 Ln 的梯度（可能还有 Ln-1 的部分梯度，因桶机制）打包，提交异步 AllReduce。同时，反向传播开始计算 Ln-1 的梯度。在 Ln-1 计算期间，Ln 的 AllReduce 在通信链路上传输。最终，所有层的梯度都在计算的同时完成了同步，显著缩短训练时间。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XxBHwhYPNiVrDYkSIHCccehWn72
+  block_id: K2ODdbh3koytI9xxqAYcQW8bn2e
+  page_token: XxBHwhYPNiVrDYkSIHCccehWn72
+  original_title: 15.什么是“通信-计算重叠”？举一个 DDP 中重叠反向传播和梯度 AllReduce 的例子。
+  imported_at: '2026-09-21'

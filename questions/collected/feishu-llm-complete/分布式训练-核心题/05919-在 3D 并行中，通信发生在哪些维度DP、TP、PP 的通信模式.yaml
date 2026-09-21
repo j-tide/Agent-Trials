@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cc084c714d96
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 35.在 3D 并行中，通信发生在哪些维度？DP、TP、PP 的通信模式。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 35.在 3D 并行中，通信发生在哪些维度？DP、TP、PP 的通信模式。
+answer:
+  mode: rubric
+  reference_answer: |-
+    3D 并行 = 数据并行 (DP) + 张量并行 (TP) + 流水线并行 (PP)。
+
+    DP（数据并行）的通信模式：
+
+    - 通信内容：梯度同步。
+
+    - 通信原语：AllReduce（标准 DP）或 ReduceScatter + AllGather（ZeRO 系列）。
+
+    - 通信频率：每个训练步一次（或通过梯度累积延迟）。
+
+    - 通信特点：全局通信，涉及所有 DP 组内 GPU。带宽需求高，但可以通过重叠和分桶隐藏延迟。
+
+    TP（张量并行）的通信模式：
+
+    - 通信内容：激活值及其梯度（层内矩阵乘法输出）。
+
+    - 通信原语：AllReduce（MLP 第二层和注意力输出层的 f/g 操作），AllGather 或 ReduceScatter（在某些切分策略中）。
+
+    - 通信频率：每个 Transformer 层前向和反向各至少一次，频率极高。
+
+    - 通信特点：限于 TP 组内（通常单节点内），利用 NVLink 高带宽。若跨节点，通信量大会成为瓶颈。
+
+    PP（流水线并行）的通信模式：
+
+    - 通信内容：层间激活值和梯度（边界处的输入/输出）。
+
+    - 通信原语：点对点 Send/Recv（或通过 NCCL 的 P2P 传输）。
+
+    - 通信频率：每个微批次在每个阶段边界一次。频率低。
+
+    - 通信特点：数据量相对小，通常跨节点，对带宽要求不高，但延迟敏感。
+
+    三者组合时，DP 通信量最大，TP 最频繁，PP 最轻。通信瓶颈通常在 TP（若跨机）和 DP 的跨机部分。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XxBHwhYPNiVrDYkSIHCccehWn72
+  block_id: Yf7sdPmNHoSJk0xrNeOcyDBWn65
+  page_token: XxBHwhYPNiVrDYkSIHCccehWn72
+  original_title: 35.在 3D 并行中，通信发生在哪些维度？DP、TP、PP 的通信模式。
+  imported_at: '2026-09-21'

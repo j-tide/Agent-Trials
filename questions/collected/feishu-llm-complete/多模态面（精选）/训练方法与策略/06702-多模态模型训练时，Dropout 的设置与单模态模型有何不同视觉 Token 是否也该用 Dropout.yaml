@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-34f692e62653
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多模态模型训练时，Dropout 的设置与单模态模型有何不同？视觉 Token 是否也该用 Dropout？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 训练方法与策略
+tags: &1
+- 多模态面（精选）
+- 训练方法与策略
+content:
+  prompt: 多模态模型训练时，Dropout 的设置与单模态模型有何不同？视觉 Token 是否也该用 Dropout？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在多模态模型中，Dropout的设置需要针对不同模态和不同层分别考虑，因为各模态的信息密度和冗余度不同。
+
+    与单模态的差异：
+
+    - 文本侧Dropout：LLM通常已有较完善的Dropout设置（如attention dropout、residual dropout）。在多模态训练中，为了防止LLM遗忘，一般保持其原有的Dropout率不变，或略微降低（因为多模态数据引入了额外正则化）。
+
+    - 视觉侧Dropout：视觉特征的冗余度通常高于文本，适当提高视觉侧的Dropout有助于防止过拟合，并提升泛化能力。但需谨慎，因为视觉细节对多模态理解至关重要。
+
+    - 跨模态层Dropout：在交叉注意力或融合层，可使用略高的Dropout率，强迫模型不依赖单一的跨模态交互路径，增强鲁棒性。
+
+    视觉Token的Dropout：
+
+    应该使用，但需精心设计。视觉token直接应用标准的神经元Dropout（随机置零特征维度）效果不佳，因为它破坏了token内部的语义完整性。更有效的是Token级的Dropout或空间Dropout：
+
+    - 随机丢弃视觉Token（Token Masking）：以一定概率（如10-20%）随机丢弃整个视觉token（将整个patch的特征向量置为零）。这类似于图像区域被遮挡，强制模型根据剩余token和文本补全信息。在训练MAE或MIM任务时尤其常见。
+
+    - 空间Dropout：在ViT的特征图通道上进行Dropout，即对每个patch，随机丢弃部分通道，但保留patch的空间完整性。
+
+    - 分层Dropout率：视觉编码器浅层（提取纹理边缘）保留较高信息，Dropout率应低；深层（高级语义）可适当提高。
+
+    - 与单模态的区别：多模态中有文本作为互补信息，视觉token的丢失可通过文本部分弥补，因此相比纯视觉模型，视觉Dropout的容忍度更高，正则可更强。
+
+    实践建议：
+
+    - LLM保持原Dropout率。
+
+    - 视觉编码器使用Stochastic Depth（随机丢弃整层）和Patch Dropout（随机丢弃10% patch token）。
+
+    - 跨模态注意力层使用略高的attention dropout（如0.1-0.2）。
+
+    - 在训练初期和末期可动态调整Dropout率：初期低，让模型充分学习；末期高，进一步正则化。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VC80wRxL0i553WkSOuIcjkHenRp
+  block_id: OtpQd6roSogKMZxAxezcCLegnwh
+  page_token: VC80wRxL0i553WkSOuIcjkHenRp
+  original_title: 多模态模型训练时，Dropout 的设置与单模态模型有何不同？视觉 Token 是否也该用 Dropout？
+  imported_at: '2026-09-21'

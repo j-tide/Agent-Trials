@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cdc8e90722eb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CF 序列长度变化如何导致 OOM？举例说明。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F4CF 序列长度变化如何导致 OOM？举例说明。"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 序列长度 L 是激活显存最重要的因子之一，尤其注意力机制会产生 O(L²) 的中间矩阵。当序列长度突然增大，激活显存可能平方级爆发，瞬间导致
+    OOM。\n\n\U0001F50D 机制与示例\n\n假设训练一个 Transformer 模型，hidden=4096，层数 32，heads=32，训练时没有使用
+    FlashAttention 或梯度检查点。\n\n- 基准 (L=512)：\n注意力分数矩阵 S 大小为 [batch, heads, 512, 512]，FP16
+    下占 1×32×512×512×2 ≈ 16 MB。\n其它线性层激活约 [batch, L, hidden] 形状，共 32 层，每层 Q、K、V 各约
+    1×512×4096×2 = 4 MB，总计约 4×3×32 ≈ 384 MB。\n整个激活量可能 1 GB 左右，加上模型权重，24GB 显存绰绰有余。\n\n-
+    情况 1：数据中出现 L=4096 的样本\nS 变为 [1, 32, 4096, 4096]，大小为 32×4096²×2 ≈ 1 GB！仅注意力矩阵就暴增
+    64 倍。\n其他线性激活 (Q,K,V) 也变为 4 MB→ 32 MB 每层，总计 32×32×3 ≈ 3 GB。激活总量迅速达到 4-5 GB，加上权重、优化器，可能超出
+    24GB，OOM。\n\n- 情况 2：使用 FlashAttention 但未用梯度检查点，L 从 2048 提升到 8192\nFlashAttention
+    不存注意力矩阵，但 Q、K、V 仍为 O(L)，且前向中会保留这些张量用于反向。\nL=2048 时，每层 Q/K/V 各约 2048×4096×2=16
+    MB，32层共约 1.5 GB，激活总和可能 3 GB。\nL=8192 时，每层 8192×4096×2=64 MB，32层共约 6 GB，激活总和可能
+    12 GB。加上模型，可能 OOM。\n\n⚙️ 为何序列长度变化导致显存非线性增长\n\n因为注意力矩阵理论上是 O(L²)（无优化时），而其他激活是 O(L)。即使有
+    FlashAttention，重计算过程也可能临时产生 O(L²) 的工作缓冲区（但被分块控制在 SRAM 内），显存仍然 O(L) 但基数变大。\n\n\U0001F527
+    如何避免\n\n- 对训练数据进行严格截断，设定 max_seq_length，超出截断或滑动窗口。\n\n- 使用梯度检查点，即便长序列，激活驻留也受控。\n\n-
+    结合 FlashAttention，消除 O(L²) 矩阵的显存占用。\n\n- 动态 batch：根据序列长度动态调整 batch size，长序列时自动减小
+    batch。Hugging Face 的 Trainer 支持 pad_to_multiple_of 等，但更好是用自定义 batch sampler。\n\n\U0001F4CA
+    实例\n\n微调 Longformer 时，某 batch 中出现了 8192 token 的文档，OOM。后来加入截断（max=4096）并开启 FlashAttention，问题解决。\n\n✅
+    因此，序列长度是激活显存的主导因素，控制其峰值是关键。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BbCrwkO3wiWmAikFy0zc2OK6nPg
+  block_id: O9nBdvCeaoeht8xsWTKcX3hfnoh
+  page_token: BbCrwkO3wiWmAikFy0zc2OK6nPg
+  original_title: "\U0001F4CF 序列长度变化如何导致 OOM？举例说明。"
+  imported_at: '2026-09-21'

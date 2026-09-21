@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-86a57159801a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "✍️ 3. 产品上线了一个 AI 写作助手，用户反馈生成的文章结构散、逻辑跳跃，你会用哪个反思框架优化，怎么设计？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "✍️ 3. 产品上线了一个 AI 写作助手，用户反馈生成的文章结构散、逻辑跳跃，你会用哪个反思框架优化，怎么设计？"
+answer:
+  mode: rubric
+  reference_answer: "诊断问题：\n\n文章结构散、逻辑跳跃，属于典型的长文本连贯性缺失问题。这类问题没有像“代码是否运行成功”那样的硬性对错标准，所以纯
+    Reflexion 不合适。如果只让模型自我反思（Self-Refine），它可能不知道自己哪里“跳”了，因为模型在生成时是逐 token 自回归的，天然缺乏全局审视。\n\n最佳选择：Critique-and-Revise，并引入一个专门的“逻辑结构评审员”模型。\n\n设计思路如下：\n\n我们不让“写手”自己检查作文，而是引入一位“语文老师”。这位老师（Critic）专门训练/设计用来识别逻辑断裂、结构松散等模式。老师批改完后，把评语和修改建议还给写手，写手再去精修。\n\n架构图：\n\n用户指令\n
+    \  │\n   ▼\n┌────────────┐\n│  写作模型   │ ← 初稿生成 (Writer)\n│ (LLM)      │\n└─────┬──────┘\n
+    \     │ 初稿\n      ▼\n┌────────────┐\n│  逻辑评审员  │ ← 结构诊断 (Critic)\n│ (专用LLM/   │
+    \  识别：论点脱节、缺少过渡句、总分总缺失等\n│  规则引擎)  │\n└─────┬──────┘\n      │ 结构问题列表 + 修改建议\n
+    \     ▼\n┌────────────┐\n│  写作模型   │ ← 定向修改 (Writer)\n│ (LLM)      │   根据具体问题，进行段落级重写\n└─────┬──────┘\n
+    \     │ 修改稿\n      ▼\n   [最终输出]\n\n为什么这样设计？\n\n- 角色分离，克服盲区：生成模型在逐token预测时容易丢失全局视角。评审员模型可以专门在“文章完成后”进行全局扫描，它接受的训练信号可能就是“段落衔接度”、“论点推进逻辑”等，能精准指出“第二段到第三段缺少因果连接词”这类具体问题。\n\n-
+    可迭代：如果修改稿还不理想，可以再次回到评审步骤，通常 1-2 轮就能显著改善结构。\n\n- 成本可控：评审员模型可以是一个参数量更小、针对结构分析精调过的模型（甚至可以用精调的BERT类模型），推理成本远低于反复用大模型自我反思。\n\n\U0001F539
+    落地代码骨架\n\nclass WritingAssistant:\n    def __init__(self, writer_llm, critic_llm):\n
+    \       self.writer = writer_llm\n        self.critic = critic_llm  # 可以是专门精调的结构评审模型\n\n
+    \   def generate_and_refine(self, user_instruction, max_rounds=2):\n        #
+    1. 初稿生成\n        draft = self.writer.generate(f\"请根据指令写一篇文章：\\n{user_instruction}\")\n
+    \       \n        for round in range(max_rounds):\n            # 2. 逻辑结构评审\n            critique_prompt
+    = f\"\"\"\n请你以专业编辑的身份，评估以下文章的结构和逻辑连贯性。\n重点检查：总论点是否清晰？段落间是否有有效的过渡？是否存在逻辑跳跃？\n指出具体问题（引用原文句子），并给出针对性的修改建议。\n\n文章：\n{draft}\n\"\"\"\n
+    \           critic_feedback = self.critic.generate(critique_prompt)\n            \n
+    \           # 3. 检查是否还有问题\n            if \"无明显问题\" in critic_feedback or \"结构良好\"
+    in critic_feedback:\n                break\n                \n            # 4.
+    根据评审意见修改\n            revision_prompt = f\"\"\"\n请根据编辑的以下评审意见，对文章进行修改，重点改进结构和逻辑连贯性。\n\n原文章：\n{draft}\n\n评审意见：\n{critic_feedback}\n\n请在保留核心观点和内容的基础上，只针对结构问题进行重写。输出修改后的全文。\n\"\"\"\n
+    \           draft = self.writer.generate(revision_prompt)\n            \n        return
+    draft\n\n进阶优化：少样本激活评审能力\n如果评审员模型不是精调模型，而是一个通用LLM，我们可以通过few-shot示例来激活它的结构评审能力。在critic_prompt前加入2-3个（问题文章片段
+    → 结构问题分析 → 修改建议）的例子，能显著提升评审的稳定性和深度。\n\n这个方案解决了关键痛点： 把“写作”和“结构审查”解耦，用专门的代价去攻克长文本的连贯性难题，而不是指望模型在生成的一瞬间万事俱备。这也是工程上应对复杂文本质量要求的最实用的分治策略。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcn6v4iLJrIBLoX18M8rrsrxe
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: "✍️ 3. 产品上线了一个 AI 写作助手，用户反馈生成的文章结构散、逻辑跳跃，你会用哪个反思框架优化，怎么设计？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9e8d4595c9be
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释自回归模型训练时的“并行化”是如何实现的（通过因果掩码）。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 解释自回归模型训练时的“并行化”是如何实现的（通过因果掩码）。
+answer:
+  mode: rubric
+  reference_answer: |-
+    自回归模型的核心限制是：预测第 tt 个token时，只能看到前 t−1 个token。理论上这要求串行计算，但训练时通过因果掩码（Causal Masking）实现了整个序列的并行计算。
+
+    ### 因果掩码的机制
+
+    假设输入序列为“A B C D”，长度4。在自注意力的计算中：
+
+    - 计算所有位置的Query和Key。
+
+    - 构建一个上三角为负无穷的注意力掩码矩阵（形状为4×4）：
+
+    [  0, -∞, -∞, -∞ ]
+    [  0,  0, -∞, -∞ ]
+    [  0,  0,  0, -∞ ]
+    [  0,  0,  0,  0 ]
+
+    - 在softmax之前，将这个掩码加到注意力分数矩阵上。被掩码的位置加上负无穷后，softmax输出趋近于0，相当于无法看到未来token。
+
+    ### 训练时的并行化
+
+    - 整个句子“A B C D”一次性输入模型。
+
+    - 通过掩码，每个位置的注意力计算自动被限制在前文范围内：
+
+    - 这样，一次前向传播就同时得到了所有位置的预测输出，可以与目标序列“B C D E”直接计算损失。
+
+    - 无需像RNN那样按时间步串行展开，训练效率得到极大提升。
+
+    ### 为什么推理时不能并行
+
+    推理时，模型必须逐个生成token，因为生成第 t+1t+1 个token需要第 tt 个token的输出作为输入，而第 tt 个token尚未生成。因此推理是串行的，但KV缓存机制可以缓存历史键值对，避免重复计算。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Yto8wfa8ti5TgZktU1YczVp7nme
+  block_id: S9yWdkAjFotzWvxi4Okc8oJznAe
+  page_token: Yto8wfa8ti5TgZktU1YczVp7nme
+  original_title: 解释自回归模型训练时的“并行化”是如何实现的（通过因果掩码）。
+  imported_at: '2026-09-21'

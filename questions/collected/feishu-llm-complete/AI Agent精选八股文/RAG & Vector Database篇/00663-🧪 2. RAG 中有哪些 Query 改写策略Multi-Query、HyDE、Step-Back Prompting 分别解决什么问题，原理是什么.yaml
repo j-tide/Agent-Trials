@@ -1,0 +1,121 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4b6bf4c8925d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EA 2. RAG 中有哪些 Query 改写策略？Multi-Query、HyDE、Step-Back Prompting 分别解决什么问题，原理是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "\U0001F9EA 2. RAG 中有哪些 Query 改写策略？Multi-Query、HyDE、Step-Back Prompting
+    分别解决什么问题，原理是什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    为了解决上述鸿沟，业界演化出了多种 Query 改写策略。它们不是在检索算法上修修补补，而是从源头把“人类的问题”转译成“更适合检索的查询”。
+
+    策略一：Multi-Query（多查询改写）
+
+    解决什么问题：用户提问角度单一，召回面太窄。
+
+    原理：用 LLM 把用户原始 Query 改写成多个不同角度、不同表达方式的查询，并行检索，再合并去重。这就像你让三个不同背景的人去图书馆找同一问题的资料，他们可能会用不同的关键词、不同的问题，最终拼出更全面的信息。
+
+    ```python
+    def multi_query_rewrite(original_query: str, llm) -> list:
+        prompt = f"""将以下用户问题改写成3个不同的查询，每个从不同角度或使用不同关键词，以便更全面地检索相关文档。
+    原始问题：{original_query}
+    改写查询："""
+        response = llm(prompt)
+        # 解析返回的3个查询
+        queries = [q.strip() for q in response.split('\n') if q.strip()]
+        return queries
+
+    # 示例
+    original = "怎么提高模型性能？"
+    queries = multi_query_rewrite(original, llm)
+    # 可能返回：
+    # 1. 模型推理速度优化方法
+    # 2. 提高LLM准确率的调优技巧
+    # 3. 大模型吞吐量和延迟优化
+    ```
+
+    注意：多查询会增加 3~5 倍的检索开销，所以通常在检索后合并时用 RRF（倒数排名融合）或直接拼接，而不是简单叠加。适合对召回率要求极高的场景。
+
+    策略二：HyDE（假设文档嵌入）
+
+    解决什么问题：用户提问太短、太模糊，无法有效检索。
+
+    原理：让 LLM 先“脑补”一篇可能包含答案的假设文档，然后把这篇假设文档向量化去检索。 这听起来反直觉，但非常有效。因为 LLM 生成的假设文档会模仿知识库文档的写作风格、用词和结构，从而拉近了用户意图和文档之间的语义距离。
+
+    ```text
+    用户问：“怎么缓解过拟合？”
+      → LLM 生成假设文档：“过拟合是指模型在训练集上表现好，在测试集上表现差。缓解方法有：1. 增加数据量 2. 正则化（L1/L2） 3. Dropout 4. 早停法...”
+      → 用这个假设文档去检索，比直接用“怎么缓解过拟合？”更可能召回机器学习教材里的相关章节。
+    ```
+
+    ```python
+    def hyde_rewrite(original_query: str, llm) -> str:
+        prompt = f"""请写一篇简短文档（约100字），回答以下问题。不需要完全正确，只需用专业、正式的语言描述可能的内容。
+    问题：{original_query}
+    假设文档："""
+        hypothetical_doc = llm(prompt)
+        return hypothetical_doc
+    ```
+
+    适用场景：用户问题非常简短、泛泛，或者领域专业性很强，用户不会用专业术语提问时。HyDE 尤其适合 FAQ 类知识库。
+
+    策略三：Step-Back Prompting（后退提示）
+
+    解决什么问题：用户问的具体问题太细节，但检索需要更上层的背景知识。
+
+    原理：当用户问“GPT-4o 的注意力头数是多少？”这类具体参数时，直接检索可能找不到精确数字。但如果“后退一步”，先检索“GPT-4o 模型架构概述”，再从里面找头数就容易多了。Step-Back 就是让 LLM 把用户的具体问题抽象成一个更上层的、更宽泛的“背景问题”，然后用这个背景问题去检索，最后在检索到的文档中抽取出具体答案。
+
+    ```python
+    def step_back_rewrite(original_query: str, llm) -> str:
+        prompt = f"""你是一个帮助检索的助手。对于用户的具体问题，请生成一个更通用、更上层的背景问题，以便检索相关文档。
+    具体问题：{original_query}
+    背景问题："""
+        return llm(prompt)
+
+    # 示例
+    step_back_rewrite("GPT-4o 的注意力头数是多少？", llm)
+    # → "GPT-4o 的模型架构和参数配置"
+    ```
+
+    适用场景：用户问题非常具体、需要特定细节，且这些细节可能在文档中不是直接以问答形式存在，而是隐藏在概述章节中。
+
+    三种策略对比总结：
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcnmEa2cv1E5oEQZFv7oM4QOb
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "\U0001F9EA 2. RAG 中有哪些 Query 改写策略？Multi-Query、HyDE、Step-Back Prompting
+    分别解决什么问题，原理是什么？"
+  imported_at: '2026-09-21'

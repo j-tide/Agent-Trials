@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c0a53d5fb774
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: LoRA能否应用在FFN层？这样做有什么影响？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: LoRA能否应用在FFN层？这样做有什么影响？
+answer:
+  mode: rubric
+  reference_answer: |-
+    可以，LoRA完全可以应用在FFN层（如前馈网络中的gate_proj, up_proj, down_proj）。在HuggingFace PEFT库中，只需将这些层的名称加入target_modules列表即可。
+
+    这样做的影响：
+
+    正面影响：
+
+    - 更大的容量上限：FFN层通常占据了Transformer模型总参数的大部分（可达2/3），对其应用LoRA能提供巨大的可训练容量，理论上可以学习更复杂的任务适配，如注入大量新知识或深度改变模型的语言风格。
+
+    - 修正特定知识：FFN层被广泛认为存储了模型的事实性和词汇知识。通过对FFN层微调，可以更直接地修正错误的事实记忆或引入新领域的概念映射。
+
+    负面影响与风险：
+
+    - 可训练参数量显著增加：FFN层的维度（如intermediate_size）通常很大，对其应用LoRA会使总可训练参数量急剧膨胀，可能从几百万增加到几千万甚至上亿。这会增加显存占用和训练时间，部分抵消了LoRA的高效优势。
+
+    - 灾难性遗忘风险增大：FFN层存储了大量预训练知识，直接修改这些参数（即使通过LoRA）更易扰动原有知识，导致模型忘记预训练的通用能力。
+
+    - 更容易过拟合：尤其是微调数据量较少时，过大的可训练容量会使模型迅速过拟合到训练数据表面模板，丧失泛化能力。
+
+    - 收益递减：在很多只涉及行为格式化的任务上，对FFN层的额外投入带来的性能提升微乎其微，甚至因为遗忘而导致整体效果变差。
+
+    实践建议：
+
+    - 对于绝大多数指令微调、风格迁移等任务，不建议对FFN层应用LoRA，仅对注意力层适配就足够，且更安全。
+
+    - 只有在任务确实需要深度知识注入（如让模型学会全新的专业领域术语和事实）且数据量充足时，才考虑扩展至FFN层。
+
+    - 如果决定应用，建议使用更小的秩r（如r=4或8）以及更保守的学习率，并严格监控通用基准的遗忘情况。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UEbgw2D3ci93jLkR3c6cdyoInve
+  block_id: FKHAd9yMAob8MVx2gbJc5C1onTc
+  page_token: UEbgw2D3ci93jLkR3c6cdyoInve
+  original_title: LoRA能否应用在FFN层？这样做有什么影响？
+  imported_at: '2026-09-21'

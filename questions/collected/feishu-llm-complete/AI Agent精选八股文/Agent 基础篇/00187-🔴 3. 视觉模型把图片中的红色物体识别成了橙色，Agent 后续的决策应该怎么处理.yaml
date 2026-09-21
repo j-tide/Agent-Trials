@@ -1,0 +1,120 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ead9dc073965
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F534 3. 视觉模型把图片中的红色物体识别成了橙色，Agent 后续的决策应该怎么处理？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F534 3. 视觉模型把图片中的红色物体识别成了橙色，Agent 后续的决策应该怎么处理？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是一个典型的感知不确定性场景，处理它需要三层递进：察觉 → 验证 → 容错决策。
+
+    核心思路： 绝不能把感知结果当作绝对真理，Agent 的决策必须对“红色/橙色”这类细微差别设计容错空间。
+
+    3.1 第一步：察觉不确定性
+
+    在感知模块输出时，附带混淆矩阵信息或替代标签。例如视觉模型不只返回 "橙色"，而是返回：
+
+    {
+      "primary_label": "橙色",
+      "confidence": 0.65,
+      "secondary_labels": ["红色": 0.30],
+      "ambiguity_flag": true
+    }
+
+    这种输出会立刻触发大脑的警惕。
+
+    3.2 第二步：主动验证
+
+    大脑收到高模糊度感知后，不直接执行基于该颜色动作，而是启动验证子流程：
+
+    - 多视角请求：如果摄像头可转动，要求“再拍一张不同光照下的照片”。
+
+    - 跨模态验证：询问用户确认，或调用另一独立视觉模型做复核。
+
+    - 逻辑校验：如果任务是“拿一个红色苹果”，但眼前物体形状是橙子，则明知颜色可疑也先不做抓取。
+
+    def verify_perception(image, uncertain_percept):
+        if uncertain_percept['ambiguity_flag']:
+            # 尝试用另一模型验证
+            second_opinion = second_model.classify(image)
+            if second_opinion['label'] != uncertain_percept['primary_label']:
+                # 返回多模型加权结果
+                return weighted_decision([uncertain_percept, second_opinion])
+        return uncertain_percept
+
+    3.3 第三步：决策容错与降级
+
+    如果无法消除不确定性，大脑应采取鲁棒决策：
+
+    - 避免依赖该属性：如果任务是“把红色的块挑出来”，而识别结果在红/橙间摇摆，就拒绝动作或转而询问用户。
+
+    - 用行动试探：比如指令“把那个可能是红色也可能是橙色的东西单独放一边，等待后续处理”。
+
+    - 设计可逆操作：若决策不可逆（如支付、删除），必须确认；若可逆，可以在低置信度下冒险执行但记录日志。
+
+    完整的决策容错逻辑代码：
+
+    def handle_color_ambiguity(percept, task):
+        if task == "pick_red_apple":
+            if percept['primary_label'] == 'red' and percept['confidence'] > 0.8:
+                return "执行抓取"
+            elif 'red' in percept['secondary_labels']:
+                # 有可能是红色，请求确认
+                return "无法确认颜色，请用户确认该水果是否为红色"
+            else:
+                # 完全不是红色，跳过
+                return "跳过该物体"
+        elif task == "sort_by_color":
+            # 可以设置“不确定”分类区
+            if percept['ambiguity_flag']:
+                return "放入‘待人工分类’区域"
+            else:
+                return f"放入{percept['primary_label']}区"
+
+    3.4 系统级保障：事后学习
+
+    每一次因感知错误导致的决策失误，都应被记录并用于微调或规则调整：
+
+    - 将红色-橙色混淆的样本加入训练集，微调视觉模型。
+
+    - 在 Agent 的长期记忆中存入一条经验：“在暖光光照下，该型号摄像头对红/橙区分度下降，需打开白灯或调用备用摄像头。”
+
+    对于 Agent 而言，视觉错误不是 bug，而是它在真实物理世界中必须学会与之共存的常态。 优秀的 Agent 设计，不是追求传感器完美，而是让决策链条对感官误差具备免疫力。
+
+    ---
+
+    感知模块让 Agent 拥有了看、听、读的感官，多模态设计把这些感官统一成了同一门语言；而对感知误差的处理，则划出了玩具和真实产品之间的分界线——前者假设世界清晰可辨，后者在无尽的模糊与不确定中依然做出可靠的选择。当你设计好一个能处理“红色可能是橙色”的 Agent 时，它就已经准备好走出实验室，面对真实世界了。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcnJksUDQJaeOfkZIrdBrZYJd
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: "\U0001F534 3. 视觉模型把图片中的红色物体识别成了橙色，Agent 后续的决策应该怎么处理？"
+  imported_at: '2026-09-21'

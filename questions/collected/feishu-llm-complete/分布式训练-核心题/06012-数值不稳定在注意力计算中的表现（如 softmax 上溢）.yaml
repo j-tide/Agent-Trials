@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-26f583b96295
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "“数值不稳定”在注意力计算中的表现（如 softmax 上溢）"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: "“数值不稳定”在注意力计算中的表现（如 softmax 上溢）"
+answer:
+  mode: rubric
+  reference_answer: |-
+    自注意力机制的核心是计算 softmax(QK^T / √d_k)。当序列长度L很大，或者隐藏维度d_k很大时，Q和K的点积值会非常分散，极可能出现绝对值很大的数。在FP16下，数值范围上限只有65504，一旦点积超过这个值，指数函数exp(x)就会直接爆掉变成Inf，然后softmax的分母也会变成Inf，最终整个输出变成NaN。
+
+    即使没有超过上限，如果点积值普遍很大，比如全部在10到20之间，softmax的输出会极度尖锐——某个位置的权重接近1，其他位置接近0。这意味着注意力几乎变成了“硬选择”，梯度几乎为零，这就是典型的softmax“饱和”问题。饱和不仅导致梯度消失，还会让模型丧失从多个位置聚合信息的能力。
+
+    更隐蔽的问题在于FP16混合精度训练。即使使用了stable softmax（先减去每行最大值），如果点积值太大，减去最大值后仍然可能有部分值非常小（比如-50以下）。在FP16下，exp(-50)约等于1.9e-22，已经远小于FP16能表示的最小正规数（约6e-8），会直接下溢变成0。当softmax分母中大量值变成0，只剩下最大值那项是1，分母就变成1，但梯度计算时涉及除以分母，如果分母恰好也是0（所有值都极小），就会产生除零NaN。
+
+    解决方法：
+
+    - Stable Softmax：计算前先减去每行最大值，这是数学上等价的变换，保证指数输入最大为0，不会上溢。PyTorch的F.softmax默认就实现了这个trick。
+
+    - 缩放因子√d_k：将点积方差控制在1左右，避免点积值过大。这是Transformer原始论文中的关键设计。
+
+    - 使用BF16替代FP16：BF16的指数位与FP32相同，动态范围极大，几乎不会上溢下溢。
+
+    - FlashAttention：通过分块计算和在线softmax，在GPU SRAM中完成所有计算，避免中间结果写入HBM，同时内部处理了数值稳定性。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: WtUfdGOzToJo6MxpymCcalynnPf
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: "“数值不稳定”在注意力计算中的表现（如 softmax 上溢）"
+  imported_at: '2026-09-21'

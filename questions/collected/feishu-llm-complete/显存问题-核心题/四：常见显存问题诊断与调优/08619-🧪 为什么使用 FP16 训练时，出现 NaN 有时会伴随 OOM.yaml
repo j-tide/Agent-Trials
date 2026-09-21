@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1594e432c4ba
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EA 为什么使用 FP16 训练时，出现 NaN 有时会伴随 OOM？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F9EA 为什么使用 FP16 训练时，出现 NaN 有时会伴随 OOM？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 FP16 训练中，NaN 经常是数值不稳定的症状，而这些不稳定往往由激活或梯度过大引起。大激活值在产生
+    NaN 的同时，可能已经占用了大量显存（例如注意力矩阵），或触发框架分配额外缓冲区用于异常处理，两者叠加导致 OOM。\n\n\U0001F50D 具体关联：\n\n-
+    爆炸的激活值导致显存突增\nNaN 的一个常见来源是注意力 logits 变得极大，softmax 后产生 NaN。在产生 NaN 的前向过程中，已经计算出了超大的注意力分数矩阵，若没有
+    FlashAttention 优化，该矩阵尺寸为 [B, heads, S, S]，显存占用与序列长度平方成正比。当 S 很大时，这个矩阵本身就消耗大量显存，可能直接导致
+    OOM。所以 NaN 和 OOM 常同时出现，但 OOM 是因（或者并存），NaN 是果。\n\n- 梯度溢出导致的额外内存分配\n反向传播检测到梯度 inf/NaN
+    后，PyTorch 的 AMP 可能尝试回退或重算某些部分。例如，scaler.step(optimizer) 发现溢出，会跳过 optimizer.step()，但之前反向传播分配的梯度张量仍在。如果跳过步骤后，用户的代码没有正确清理或覆盖这些梯度，下一次迭代又会分配新的梯度，造成梯度内存泄漏，逐
+    step 累积最终 OOM。\n\n- 异常处理引发的张量拷贝\n一些训练框架在遇到 NaN 时，会自动保存当前模型状态或打印调试信息。例如，DeepSpeed
+    可能会 dump 模型参数或梯度到 CPU，过程中可能在 GPU 上产生副本。如果原已接近显存上限，这些额外操作会触发 OOM。\n\n- 通信库的异常重试\n分布式训练中，All-Reduce
+    梯度时若某个 rank 的梯度包含 inf/NaN，NCCL 可能会报告错误或重试，但不会增加显存。但某些包装器会先 gather 一小部分检查，额外分配缓冲，可能造成临时峰值。\n\n-
+    激活值检查点的重计算风暴\n如果 NaN 出现在梯度检查点重计算阶段，重计算可能分配原前向没有的临时张量，引发瞬时 OOM。\n\n\U0001F4CA 真实案例：使用
+    FP16 训练 GPT-2 时，某个 batch 出现 NaN loss，随后 OOM。分析发现，该 batch 文本极长，注意力分数矩阵分配了 15GB，已接近显存极限，而后续
+    softmax 产生 NaN 时又尝试分配一个同等大小的矩阵用于调试日志（作者代码中 torch.save 了注意力矩阵），直接撑爆显存。解决方案：移除调试代码，开启
+    FlashAttention。\n\n✅ 结论：FP16 训练中的 NaN 和 OOM 是一对“难兄难弟”，通常由同一个根源——数值过大导致张量膨胀——引发。强化数值稳定性（如使用
+    BF16、梯度裁剪、更好的初始化）可同时减少两者。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K8Caw8DYRifcnzkTTjUcLwE4ngd
+  block_id: FfBQdFdKmoWVwSxpoQucYFSan3b
+  page_token: K8Caw8DYRifcnzkTTjUcLwE4ngd
+  original_title: "\U0001F9EA 为什么使用 FP16 训练时，出现 NaN 有时会伴随 OOM？"
+  imported_at: '2026-09-21'

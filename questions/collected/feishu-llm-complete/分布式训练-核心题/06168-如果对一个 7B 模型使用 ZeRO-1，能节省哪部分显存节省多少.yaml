@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9f1081040576
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果对一个 7B 模型使用 ZeRO-1，能节省哪部分显存？节省多少？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 如果对一个 7B 模型使用 ZeRO-1，能节省哪部分显存？节省多少？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO-1 (Optimizer State Partitioning) 将原本在数据并行中每张 GPU 都完整保存的优化器状态（如 Adam 的 m 和 v）分片（partition）到所有 GPU 上，每张 GPU 只持有 1/N 的优化器状态，并只负责更新对应分片的参数。
+
+    对于 7B 模型，使用 AdamW 优化器，优化器状态（FP32 的 m 和 v）原本占用：
+
+    [图片内容未导入]
+
+    如果使用 8 张 GPU，则每张卡只需要 56 GB / 8 = 7 GB 的优化器状态显存。节省了 49 GB。加上主权重（master weights）也需要分片，实际上 ZeRO-1 通常连同主权重一起分片，或者主权重也作为优化器状态的一部分。总体来看，优化器相关的显存从 84 GB（56 GB m/v + 28 GB master weights）降至约 10.5 GB per GPU。总节省约 73.5 GB per GPU。这使得原本显存不足的大模型得以训练。
+
+    需要注意的是，ZeRO-1 不会减少模型参数和梯度的显存占用，它们仍然是完整副本。但优化器状态通常是最大的显存消耗源之一（2倍于参数量），因此节省效果显著。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: HhaHd2unfo3Uv4xFsnOckLLpnmc
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 如果对一个 7B 模型使用 ZeRO-1，能节省哪部分显存？节省多少？
+  imported_at: '2026-09-21'

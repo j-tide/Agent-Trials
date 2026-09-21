@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f62a607c2f64
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F517 LangChain vs \U0001F578️ LangGraph：核心区别是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F517 LangChain vs \U0001F578️ LangGraph：核心区别是什么？"
+answer:
+  mode: rubric
+  reference_answer: "### ▎一句话说清\n\nLangChain 是“搭积木”的链式框架，LangGraph 是“画流程图”的有状态图框架。\n\n前者解决“怎么把多个组件串起来”，后者解决“怎么让组件根据运行时状态循环、分支、暂停甚至回退”。\n\n###
+    ▎深度解析\n\n- 执行模型不同\n\n- LangChain 的 LCEL（LangChain Expression Language）构建的是有向无环图（DAG）。链一旦
+    invoke，数据就从头流到尾，中间无法动态循环或根据中间结果回到上游。\n\n- LangGraph 基于状态图（State Graph），节点之间可以形成环，边上可以挂条件判断，甚至支持暂停等待人工确认后再恢复执行。这让
+    Agent 的“观察-思考-行动”循环天然可被建模。\n\n- 状态管理能力\n\n- LangChain 的 Chain 本质是无状态的，每次调用独立，需要记忆时得额外接
+    Memory 组件。\n\n- LangGraph 把状态作为一等公民，每个节点都接收状态、返回状态更新，图自动管理状态的持久化和传递。这对于多步 Agent
+    或需要纠错的流程至关重要。\n\n- 复杂度天花板\n\n- 简单 RAG、单一工具调用、顺序流水线，LangChain 足够优雅。\n\n- 多 Agent
+    协作、带人工审核的工作流、根据运行结果动态决定下一步（甚至重试），LangGraph 的图结构不会变成“意大利面条”，因为它本身就是可观察、可测试的图。\n\n###
+    ▎示例代码对比\n\nLangChain：搭建一个简单的 poet chain（无循环）\n\nfrom langchain_core.prompts import
+    ChatPromptTemplate\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.output_parsers
+    import StrOutputParser\n\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\",
+    \"你是一位诗人，用古诗风格回应。\"),\n    (\"user\", \"{input}\")\n])\nmodel = ChatOpenAI()\nchain
+    = prompt | model | StrOutputParser()\nprint(chain.invoke({\"input\": \"春天\"}))\n\n这条链只能顺序执行：填
+    prompt → 调模型 → 解析输出，无法根据输出内容决定是否重新生成。\n\nLangGraph：一个带自循环的简易 Agent（可重试直到满意）\n\nfrom
+    langgraph.graph import StateGraph, END\nfrom typing import TypedDict\n\nclass
+    AgentState(TypedDict):\n    query: str\n    answer: str\n    attempts: int\n\ndef
+    generate_answer(state):\n    # 模拟调用LLM\n    state[\"answer\"] = f\"回答：{state['query']}
+    (第{state['attempts']}次)\"\n    state[\"attempts\"] += 1\n    return state\n\ndef
+    should_continue(state):\n    # 如果尝试次数<2且答案中不含“满意”，则循环回生成节点\n    if state[\"attempts\"]
+    < 2 and \"满意\" not in state[\"answer\"]:\n        return \"generate\"\n    return
+    END\n\ngraph = StateGraph(AgentState)\ngraph.add_node(\"generate\", generate_answer)\ngraph.set_entry_point(\"generate\")\ngraph.add_conditional_edges(\"generate\",
+    should_continue, {\n    \"generate\": \"generate\",\n    END: END\n})\napp = graph.compile()\nprint(app.invoke({\"query\":
+    \"今天天气\", \"attempts\": 0}))\n\n这里 should_continue 就是 LangGraph 的精髓——用代码控制工作流的循环与终止。LangChain
+    的 LCEL 做不到这一点。\n\n\U0001F9E0 面试这么说最加分\n“LangChain 让我快速串联模型、检索、工具，适合单一方向的管道；而一旦需要
+    Agent 反复规划、自我修正，或设计多人协作流程，我就会选用 LangGraph，因为它的状态图原生支持循环和持久化，图结构本身就能当系统设计文档看。”\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AuVxwYFDWiT663kKLskczm8mnIh
+  block_id: doxcnznCJ6LuyUI1ru2Ix9Q1v6c
+  page_token: AuVxwYFDWiT663kKLskczm8mnIh
+  original_title: "\U0001F517 LangChain vs \U0001F578️ LangGraph：核心区别是什么？"
+  imported_at: '2026-09-21'

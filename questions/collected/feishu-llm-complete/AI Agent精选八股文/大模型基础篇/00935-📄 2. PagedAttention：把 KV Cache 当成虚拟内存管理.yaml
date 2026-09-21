@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1c5ad613849a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4C4 2. PagedAttention：把 KV Cache 当成“虚拟内存”管理"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F4C4 2. PagedAttention：把 KV Cache 当成“虚拟内存”管理"
+answer:
+  mode: rubric
+  reference_answer: |-
+    问题在哪？
+
+    自回归生成时，需要为每个请求缓存完整的 KV Cache。传统做法为每个序列预分配一块最大长度的连续显存，造成：
+
+    - 内部碎片：短序列浪费了分配但未使用的尾部。
+
+    - 无法共享：多个请求的系统提示词即使完全相同，也要各存一份。
+
+    - 分配不灵活：释放的显存无法高效复用给新请求，吞吐量极低。
+
+    核心思想
+
+    将 KV Cache 切割成固定大小的 block（如 16 个 token 一块），像操作系统的内存分页一样管理。 每个序列的 KV Cache 不再要求物理连续，而是通过 block table 记录逻辑位置到物理块的映射。
+
+    [图片内容未导入]
+
+    带来的好处
+
+    - 零内部碎片：需要多少 token 就分配多少块，最后一块才可能有少许未用空间。
+
+    - 前缀共享：所有请求共用同一个系统提示词的 KV blocks，显存节省 50% 以上。
+
+    - 动态调度：请求完成或抢占后，释放的 block 立即进入空闲池，用于新请求，显存利用率可达 80% 以上。
+
+    关键代码：Block Table 管理
+
+    block_size = 16
+    free_blocks = list(range(total_blocks))  # 空闲物理块索引
+    block_tables = {}  # seq_id -> [phy_block_0, phy_block_1, ...]
+
+    def allocate(seq_id, num_tokens):
+        needed = (num_tokens + block_size - 1) // block_size
+        new_blocks = [free_blocks.pop() for _ in range(needed)]
+        block_tables.setdefault(seq_id, []).extend(new_blocks)
+        # 将 token 对应的 K,V 写入这些物理块
+
+    def free_sequence(seq_id):
+        free_blocks.extend(block_tables.pop(seq_id))
+
+    注意力计算时，通过 block table 将逻辑位置翻译为物理地址，用定制 CUDA kernel 一次性完成，避免拷贝和碎片。这就是 vLLM 吞吐量能数倍于传统 HF 推理的根因。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VZ8HwGCqEiUGiRkSmGfcRuNdnCg
+  block_id: doxcn8W1sdfcXqrEobuVxfj3Ize
+  page_token: VZ8HwGCqEiUGiRkSmGfcRuNdnCg
+  original_title: "\U0001F4C4 2. PagedAttention：把 KV Cache 当成“虚拟内存”管理"
+  imported_at: '2026-09-21'

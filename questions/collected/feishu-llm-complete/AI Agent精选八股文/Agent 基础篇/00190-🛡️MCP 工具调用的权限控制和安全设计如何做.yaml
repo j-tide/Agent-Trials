@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3f637ac90de4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E1️MCP 工具调用的权限控制和安全设计如何做？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F6E1️MCP 工具调用的权限控制和安全设计如何做？"
+answer:
+  mode: rubric
+  reference_answer: "MCP 让模型能够自主调用外部工具，这带来了巨大的安全挑战。我们必须遵循纵深防御原则，在多个层级上设置权限检查点。\n\n安全架构总览：\n\n[图片内容未导入]\n\n第一层：Host
+    层 — 身份认证与会话管理\n\n- 谁在操作？ 必须在 Host 层面确认当前用户身份。对于 Web 应用，这通常是 JWT 或 OAuth2 令牌；对于桌面应用，可以是操作系统用户身份。\n\n-
+    安全实践：Host 初始化时要求用户登录，将用户 ID 或 Access Token 注入到 MCP Client 的上下文里，后续所有请求都携带该身份。\n\n//
+    Spring Security + JWT 获取当前用户\nAuthentication auth = SecurityContextHolder.getContext().getAuthentication();\nString
+    userId = auth.getName();\n// 传递给 MCP Client\nmcpClient.setUserContext(userId);\n\n第二层：Client
+    层 — 工具权限过滤 & 人在回路\n\n- 哪些工具可用？ 不是所有 Server 暴露的工具都应该对当前用户开放。Client 需要维护一份工具权限映射表。\n\n-
+    实现方式：在 ToolCallbackProvider 或 Client 的 listTools() 之后，根据用户角色过滤结果。\n\n- 人在回路（Human-in-the-loop）：对高风险操作（如转账、删除数据），Host
+    应弹出确认对话框，让用户明确授权后才真正发送 tools/call。\n\npublic List<Tool> getFilteredTools(McpClient
+    client, String userId) {\n    List<Tool> allTools = client.listTools();\n    UserPermissions
+    perms = permissionService.getPermissions(userId);\n    return allTools.stream()\n
+    \           .filter(tool -> perms.isAllowed(tool.getName()))\n            .collect(Collectors.toList());\n}\n\n//
+    执行前检查\nif (tool.isHighRisk() && !userConfirmed(tool.getName())) {\n    throw new
+    SecurityException(\"用户未授权高风险操作: \" + tool.getName());\n}\n\n第三层：Server 层 — 参数校验
+    & 作用域控制\n\n- 输入必须被视为不可信。 即使 Client 做了初步过滤，Server 也必须对每次 tools/call 的参数进行严格校验。\n\n-
+    使用 JSON Schema 进行声明式校验（MCP 本身提供了 inputSchema，Server 应强制执行）。\n\n- 作用域与限流：Server
+    可以限制某个用户或 Client 的调用频率，防止滥用。\n\n@PostMapping(\"/tools/call\")\npublic ResponseEntity<CallToolResult>
+    callTool(@RequestBody CallToolRequest request) {\n    // 1. 校验工具是否存在\n    Tool
+    tool = toolRegistry.get(request.getName());\n    if (tool == null) throw new ToolNotFoundException();\n
+    \   \n    // 2. 用 JSON Schema 校验参数\n    SchemaValidator validator = new SchemaValidator(tool.getInputSchema());\n
+    \   if (!validator.validate(request.getArguments())) {\n        throw new InvalidArgumentsException();\n
+    \   }\n    \n    // 3. 检查作用域 (例如，只能查询自己的数据)\n    String userId = request.getMeta(\"user_id\");\n
+    \   if (!tool.isAllowedForUser(userId, request.getArguments())) {\n        throw
+    new ForbiddenException();\n    }\n    \n    // 4. 执行并记录审计日志\n    auditLog.record(userId,
+    request.getName(), request.getArguments());\n    return ResponseEntity.ok(tool.execute(request.getArguments()));\n}\n\n附加防线：\n\n-
+    传输层安全：生产环境中，Client-Server 之间使用 HTTPS + API Key 或 mTLS，绝不能在公网裸奔。\n\n- 内容安全：Server
+    返回的数据可能包含敏感信息，应在返回前做脱敏处理（如手机号中间四位打星）。\n\n- 审计追踪：每一次 tools/call 都要记录谁、什么时间、调用了什么工具、参数是什么，用于事后追溯和合规。\n\n一句话记住：
+    MCP 的威力在于“开放性”，而开放性的代价是“攻击面”。你在每一层都要问自己一个问题：“如果一个恶意 Prompt 要求调用这个工具，它能造成多大的破坏？”
+    答案越小，你的设计就越安全。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Na85wIeNuichcjklD4LcUQ6Gn2c
+  block_id: doxcnrr8Eib7gmaTG2IVnIkf0Bd
+  page_token: Na85wIeNuichcjklD4LcUQ6Gn2c
+  original_title: "\U0001F6E1️MCP 工具调用的权限控制和安全设计如何做？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9413e33529b3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么 Transformer 的残差分支常用 0 初始化或小初始化？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 为什么 Transformer 的残差分支常用 0 初始化或小初始化？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 Transformer 中，残差分支（即每个子层内部的通路，如注意力输出投影、FFN 的第二层）常采用 0 初始化或极小初始化，目的是在训练初期让模型表现为恒等映射，从而稳定训练。
+
+    原因：
+
+    - 训练刚开始时，注意力层和 FFN 的权重是随机初始化的，输出带有大量噪声。如果这些噪声不加约束地通过残差连接与主干信号相加，会迅速污染有用的嵌入信息，导致深层网络早期训练极不稳定甚至发散。
+
+    - 通过将残差分支的最后一层初始化为0（或接近0），则整个子层的初始输出近似为0，那么 x + F(x) ≈ x，模型退化为恒等映射。这样，信号和梯度都能沿着残差连接顺畅传播，不受噪声干扰。
+
+    - 随着训练进行，这些被抑制的权重逐渐学习到有意义的变换，模型平稳地从“复述”输入过渡到“改造”输入。
+
+    具体实践：
+
+    - 对于每个 Transformer 层的注意力输出投影矩阵，常使用 Xavier 初始化后再乘以一个很小的缩放因子（如 1/sqrt(2*num_layers)），或者直接初始化为0。
+
+    - 对于 FFN 的第二层（降维层），也常采用类似的极小初始化。
+
+    - Megatron-LM 和 DeepSpeed 等框架通常对残差分支的权重进行特殊的初始化缩放。
+
+    这种技巧是深层 Transformer 能够成功训练的关键创新之一。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: Q9iSdBcQqoNNAsxlchIcYKJVnSc
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: 为什么 Transformer 的残差分支常用 0 初始化或小初始化？
+  imported_at: '2026-09-21'

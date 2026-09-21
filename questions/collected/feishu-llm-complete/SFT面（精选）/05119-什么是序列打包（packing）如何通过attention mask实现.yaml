@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-afd877d57348
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是序列打包（packing）？如何通过attention mask实现？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 什么是序列打包（packing）？如何通过attention mask实现？
+answer:
+  mode: rubric
+  reference_answer: |-
+    序列打包（Sequence Packing）是一种提高SFT训练效率的技术，它将多条较短的训练样本（指令-回答对）拼接成一条接近模型最大输入长度的长序列，从而减少padding浪费，大幅提升每次迭代中有效token的计算比例。
+
+    一、为什么需要序列打包？
+
+    SFT数据的一个典型问题是：指令和回答的长度差异很大，短的问答可能只有几十个token，而长的则可能上千。如果使用传统的固定长度padding策略，每个batch中的短样本会被填充大量无意义的[PAD] token，导致计算资源浪费在无效的padding上。序列打包通过将短样本首尾相接，填满整个上下文窗口，使得GPU的每一次前向/反向传播都处理尽可能多的有效token，从而提升训练吞吐量（通常提升2-5倍）。
+
+    二、如何通过attention mask实现？
+
+    不能简单地将样本拼接后就训练，因为模型会错误地让不同样本之间相互“看见”并进行注意力计算，导致信息泄露和训练混乱。正确的做法是构造分块对角注意力掩码（block-diagonal attention mask），让每个样本内部的token可以相互关注，但不同样本之间的注意力权重为负无穷（即相互屏蔽）。
+
+    具体实现步骤：
+
+    - 将多个样本（例如样本A的prompt+response、样本B的prompt+response...）直接拼接成一个长序列 [A_prompt, A_response, B_prompt, B_response, ...]。
+
+    - 记录每个样本在长序列中的起始和结束位置。
+
+    - 构造一个二维的注意力掩码矩阵（形状为[总长度, 总长度]），其中允许注意力的位置设为0，不允许的设为 -inf（或一个非常大的负数）。对于每个样本，只有它内部的token（即它自己的prompt和response部分）之间的注意力被允许，对其他样本的token的注意力被屏蔽。
+
+    - 将这个掩码传递给模型的注意力层（通常通过attention_mask参数，用0/1或布尔值表示，然后内部转换为加性掩码）。
+
+    三、实现中的关键细节
+
+    - 自回归生成任务的因果掩码：SFT训练的是自回归语言模型，已经有因果掩码（下三角矩阵）。在packing时，需要将因果掩码与分块对角掩码结合，即在每个样本内部仍保持因果（只看之前的token），但不同样本之间完全不互看。这可以通过在标准因果掩码的基础上，将不同样本之间的位置也设为-inf来实现。
+
+    - 位置编码：由于不同样本被拼接到一起，它们的位置ID是连续的，模型会认为后面的样本紧接前面的样本。这对于绝对位置编码可能引入噪声（影响较小），但对于RoPE等相对位置编码，由于注意力被限制在各自块内，位置连续性影响不大。通常无需特殊处理。
+
+    - EOS token处理：在拼接时，通常需要在每个样本的response之后保留或插入EOS token，以让模型学习结束生成，同时避免不同样本直接相连。
+
+    四、框架支持
+
+    HuggingFace的DataCollatorForSeq2Seq等需要自定义才能实现packing。可以通过编写自定义的DataCollator，手动拼接样本并生成相应的attention_mask。一些开源库（如axolotl、trl中的SFTTrainer）已经内置了packing功能，只需设置packing=True即可。
+
+    ✅ 总结：序列打包通过拼接短样本并构造分块对角注意力掩码，极大地提高了SFT的GPU有效利用率，是加速SFT训练的关键技术。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZYXSwaWATimyqQkmZm5cAPJHnoc
+  block_id: CD6sdNhiHo7u5Kxy5C3cOsEOnFb
+  page_token: ZYXSwaWATimyqQkmZm5cAPJHnoc
+  original_title: 什么是序列打包（packing）？如何通过attention mask实现？
+  imported_at: '2026-09-21'

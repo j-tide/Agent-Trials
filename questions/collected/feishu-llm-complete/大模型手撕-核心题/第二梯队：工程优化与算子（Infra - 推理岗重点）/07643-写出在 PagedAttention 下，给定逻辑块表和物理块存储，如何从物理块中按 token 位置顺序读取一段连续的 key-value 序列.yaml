@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-265a7be9521f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出在 PagedAttention 下，给定逻辑块表和物理块存储，如何从物理块中按 token 位置顺序读取一段连续的 key/value 序列。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 写出在 PagedAttention 下，给定逻辑块表和物理块存储，如何从物理块中按 token 位置顺序读取一段连续的 key/value 序列。
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    给定序列的块表 block_table（列表），全局物理存储 kv_cache 形状为 [2, num_blocks, num_heads, block_size, head_dim]，以及要读取的起止 token 位置 start 和 end，我们需要提取出形状为 [num_heads, end-start, head_dim] 的连续 K、V 张量。由于数据分散在不同物理块中，需逐块读取并拼接。
+
+    实现
+
+    ```python
+    def read_kv_range(block_table, kv_cache, start, end, block_size):
+        """
+        block_table: list[int] 物理块索引列表
+        kv_cache: Tensor [2, num_blocks, num_heads, block_size, head_dim]
+        start, end: 读取区间 [start, end)
+        block_size: 每块 token 数
+        返回: (K, V) 每个形状 [num_heads, end-start, head_dim]
+        """
+        num_heads = kv_cache.shape[2]
+        head_dim = kv_cache.shape[4]
+        out_k = torch.empty(num_heads, end - start, head_dim, dtype=kv_cache.dtype, device=kv_cache.device)
+        out_v = torch.empty_like(out_k)
+        out_idx = 0
+        pos = start
+        while pos < end:
+            logic_blk = pos // block_size          # 逻辑块索引
+            offset = pos % block_size              # 块内偏移
+            phy_blk = block_table[logic_blk]       # 物理块索引
+            # 本块可读取的长度
+            can_read = min(block_size - offset, end - pos)
+            # 从物理块中复制
+            out_k[:, out_idx:out_idx+can_read, :] = kv_cache[0, phy_blk, :, offset:offset+can_read, :]
+            out_v[:, out_idx:out_idx+can_read, :] = kv_cache[1, phy_blk, :, offset:offset+can_read, :]
+            out_idx += can_read
+            pos += can_read
+        return out_k, out_v
+    ```
+
+    说明：此函数产生了连续缓冲区，便于后续注意力计算（如矩阵乘法）。但在高效 GPU 内核中，为避免显式拷贝开销，通常直接在 kernel 中按块加载到共享内存，跳过中间缓冲区。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IhgfwCPtoif3TWkyezuc4sW9nbg
+  block_id: NIJxd8IaWoxpfFx3ZSVcP3Fkntg
+  page_token: IhgfwCPtoif3TWkyezuc4sW9nbg
+  original_title: 写出在 PagedAttention 下，给定逻辑块表和物理块存储，如何从物理块中按 token 位置顺序读取一段连续的 key/value
+    序列。
+  imported_at: '2026-09-21'

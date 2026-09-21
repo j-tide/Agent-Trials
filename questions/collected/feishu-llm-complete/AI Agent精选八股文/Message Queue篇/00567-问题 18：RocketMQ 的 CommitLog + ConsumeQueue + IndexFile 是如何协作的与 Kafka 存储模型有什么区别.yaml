@@ -1,0 +1,122 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a968630ac580
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 问题 18：RocketMQ 的 CommitLog + ConsumeQueue + IndexFile 是如何协作的？与 Kafka 存储模型有什么区别？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 问题 18：RocketMQ 的 CommitLog + ConsumeQueue + IndexFile 是如何协作的？与 Kafka 存储模型有什么区别？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度：⭐⭐⭐⭐（CommitLog 统一存储、ConsumeQueue 逻辑队列、IndexFile 消息检索）
+
+    1️⃣ Common Answer 嗯...RocketMQ 的存储有三个部分，CommitLog 存消息，ConsumeQueue 存队列信息，IndexFile 做索引。Kafka 是每个分区独立存文件。RocketMQ 这样设计主要是为了性能吧，写的时候都写到一个文件里，读的时候通过 ConsumeQueue 找到 CommitLog 的位置。
+
+    2️⃣ Impressive Answer 我会从这几个角度思考：
+
+    - CommitLog：统一顺序写入
+
+    - 所有 Topic 的消息都顺序写入同一个 CommitLog 文件
+
+    - 单文件固定 1GB，写满后滚动创建新文件
+
+    - 顺序写入，磁盘 IO 性能最优，写入吞吐高
+
+    - ConsumeQueue：逻辑消费队列
+
+    - 每个 Topic 的每个 Queue 对应一个 ConsumeQueue
+
+    - 每条记录固定 20 字节：8 字节 CommitLog offset + 4 字节消息大小 + 8 字节 Tag hashcode
+
+    - 极小文件，可以全量加载到内存，快速定位消息
+
+    - IndexFile：基于 Key 的消息检索
+
+    - HashMap 结构，支持按消息 Key（如订单 ID）快速查找
+
+    - 索引文件包含 Key hashcode、CommitLog offset、时间戳等
+
+    - 用于业务查询、消息追踪场景
+
+    - 写入流程
+
+    ```text
+    Producer → Broker 写入 CommitLog（顺序写）
+             ↓
+        异步构建 ConsumeQueue（更新 offset）
+             ↓
+        异步构建 IndexFile（如果有 Key）
+    ```
+
+    - 读取流程
+
+    ```text
+    Consumer → 读取 ConsumeQueue（内存）
+             ↓
+        获取 CommitLog offset + size
+             ↓
+        从 CommitLog 随机读取消息
+    ```
+
+    - 与 Kafka 存储模型对比
+
+    [嵌入表格未展开]
+
+    Trade-off 分析：
+
+    - RocketMQ 牺牲读取性能换取极致写入性能和消息检索能力
+
+    - Kafka 牺牲检索能力换取简单架构和良好读取性能
+
+    - RocketMQ 适合订单、支付等需要按 Key 查询的场景
+
+    - Kafka 适合日志采集、流计算等纯消费场景
+
+    - 实战经验
+
+    - 文件清理策略：默认 72 小时，磁盘空间达到 85% 时强制删除，可配置 deleteWhen 和 fileReservedTime
+
+    - 磁盘水位告警：监控 CommitLog 和 ConsumeQueue 目录使用率，超过 80% 发告警
+
+    - 性能优化：flushDiskType 设置为 ASYNC_FLUSH 提升写入性能（牺牲可靠性）
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    ### 6.19 RocketMQ 消息过滤机制
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcnU57Lz0NlemmOQMeoTC2Hmb
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: 问题 18：RocketMQ 的 CommitLog + ConsumeQueue + IndexFile 是如何协作的？与 Kafka
+    存储模型有什么区别？
+  imported_at: '2026-09-21'

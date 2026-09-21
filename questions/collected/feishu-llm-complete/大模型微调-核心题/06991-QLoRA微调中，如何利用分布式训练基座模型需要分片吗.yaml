@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-89c03abff658
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: QLoRA微调中，如何利用分布式训练？基座模型需要分片吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: QLoRA微调中，如何利用分布式训练？基座模型需要分片吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    QLoRA是在LoRA基础上，将基座模型权重量化为4-bit NormalFloat（NF4），并引入双重量化和分页优化器，使得单卡就能微调超大模型。在分布式环境中：
+
+    - 单卡情况：QLoRA设计初衷就是单卡高效微调。对于7B-13B模型，单张24GB GPU即可；65B模型单张48GB GPU也能运行。分布式不是必需的。
+
+    - 多卡分布式：如果需要更快训练或更大全局batch，可以结合数据并行（DDP）。因为基座权重是4-bit量化且冻结，每张卡都能加载完整的量化权重，显存占用很小（例如70B模型量化后仅约35 GB + 常量开销）。DDP时，只需在适配器参数上进行All-Reduce同步梯度，通信量微乎其微。
+
+    - 基座模型是否需要分片：如果使用多卡，但每张卡依然装不下量化后的权重（例如70B模型在24GB卡上，量化后仍超过24GB？事实上70B量化为4-bit后约35 GB，需要48GB卡才能单卡装下），这时可以利用ZeRO-3分片基座的量化权重，或者使用FSDP分片。但是，QLoRA通常与bitsandbytes量化结合，而ZeRO-3或FSDP对量化权重的分片支持有限。因此更常见的做法是：要么使用更大显存的单卡，要么转为使用普通LoRA（FP16）并结合ZeRO-3分片，而不是QLoRA。
+
+    实际上，如果必须在小于48GB的卡上微调70B模型，通常会采用QLoRA + 单卡 >48GB的实例，或者使用Paged Optimizer + CPU offload，但分片4-bit权重目前不是主流。QLoRA主要还是面向单卡或少量卡的节省显存方案，在大规模分布式训练中反而不常见。
+
+    结论：QLoRA分布式训练一般用DDP加速，不需要分片基座（因为单卡已能容纳量化权重）；若单卡容量不足，应考虑使用普通LoRA（FP16）+ ZeRO-3，或者升级硬件。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: Q4f7dr2O3oCAlDxFlEMcKDABn9b
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: QLoRA微调中，如何利用分布式训练？基座模型需要分片吗？
+  imported_at: '2026-09-21'

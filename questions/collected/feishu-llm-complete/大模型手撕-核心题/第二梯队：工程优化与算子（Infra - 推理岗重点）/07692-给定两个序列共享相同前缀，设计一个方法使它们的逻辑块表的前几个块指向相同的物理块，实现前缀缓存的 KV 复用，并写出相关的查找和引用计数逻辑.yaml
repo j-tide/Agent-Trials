@@ -1,0 +1,100 @@
+---
+schema_version: 1
+id: feishu-llm-complete-93ea4bd953d4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 给定两个序列共享相同前缀，设计一个方法使它们的逻辑块表的前几个块指向相同的物理块，实现前缀缓存的 KV 复用，并写出相关的查找和引用计数逻辑。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 给定两个序列共享相同前缀，设计一个方法使它们的逻辑块表的前几个块指向相同的物理块，实现前缀缓存的 KV 复用，并写出相关的查找和引用计数逻辑。
+answer:
+  mode: rubric
+  reference_answer: |-
+    设计
+
+    - 维护一个全局“前缀哈希表”或“Radix树”，将 token 序列映射到物理块列表。
+
+    - 当新序列的 prompt 到来时，先计算其前缀与已缓存前缀的重叠块数。
+
+    - 对于重叠部分，新序列的块表直接指向那些物理块，并增加引用计数；对于剩余部分，分配新块。
+
+    - 物理块需要引用计数，当某个序列结束或不再需要前缀时，减少引用计数；计数归零时回收块。
+
+    实现（简化版）
+
+    ```python
+    class PrefixCacheManager:
+        def __init__(self, total_blocks, block_size):
+            self.allocator = BlockAllocator(total_blocks)
+            self.block_size = block_size
+            self.ref_counts = [0] * total_blocks
+            # 前缀匹配表：可以使用 token 序列的哈希作为键，存储该前缀对应的块表
+            # 实际系统多采用 Radix 树，这里用简单字典示意
+            self.prefix_map = {}  # token_tuple -> list of physical block indices
+
+        def match_prefix(self, prompt_tokens):
+            """返回匹配的前缀长度（token数）和对应的块表"""
+            # 遍历可能的哈希，实际可逐块查找
+            # 这里仅为示意：假设 prompt_tokens 已经被分块
+            # 返回匹配的块表部分和匹配的 token 数
+            matched_blocks = []
+            matched_len = 0
+            # 逐块检查...
+            return matched_blocks, matched_len
+
+        def allocate_with_prefix(self, seq_id, prompt_tokens):
+            matched_blocks, matched_len = self.match_prefix(prompt_tokens)
+            block_table = matched_blocks.copy()
+            # 增加匹配块的引用计数
+            for blk in block_table:
+                self.ref_counts[blk] += 1
+            # 为剩余 token 分配新块
+            remaining = prompt_tokens[matched_len:]
+            new_blocks = self._allocate_for_tokens(remaining)
+            block_table.extend(new_blocks)
+            # 缓存新前缀（如果需要）
+            self._cache_prefix(prompt_tokens, block_table)
+            return block_table
+
+        def _allocate_for_tokens(self, tokens):
+            num_blocks = (len(tokens) + self.block_size - 1) // self.block_size
+            return [self.allocator.allocate() for _ in range(num_blocks)]
+
+        def release_blocks(self, block_table):
+            for blk in block_table:
+                self.ref_counts[blk] -= 1
+                if self.ref_counts[blk] == 0:
+                    self.allocator.free(blk)
+    ```
+
+    实际应用：vLLM 通过自动前缀缓存（Automatic Prefix Caching）实现了类似机制，利用 token 序列的哈希值快速匹配前缀物理块，极大减少了相同 system prompt 或共享前缀的 prefill 开销。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IhgfwCPtoif3TWkyezuc4sW9nbg
+  block_id: K4EmdPx6VoqQp3xrMfhc8pCGnXf
+  page_token: IhgfwCPtoif3TWkyezuc4sW9nbg
+  original_title: 给定两个序列共享相同前缀，设计一个方法使它们的逻辑块表的前几个块指向相同的物理块，实现前缀缓存的 KV 复用，并写出相关的查找和引用计数逻辑。
+  imported_at: '2026-09-21'

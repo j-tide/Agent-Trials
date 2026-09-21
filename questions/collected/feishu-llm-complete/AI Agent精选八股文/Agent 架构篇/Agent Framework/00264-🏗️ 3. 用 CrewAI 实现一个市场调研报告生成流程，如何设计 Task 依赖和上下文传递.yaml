@@ -1,0 +1,163 @@
+---
+schema_version: 1
+id: feishu-llm-complete-53471b591d97
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3D7️ 3. 用 CrewAI 实现一个“市场调研报告生成”流程，如何设计 Task 依赖和上下文传递？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F3D7️ 3. 用 CrewAI 实现一个“市场调研报告生成”流程，如何设计 Task 依赖和上下文传递？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    我们要设计一个生成《新能源两轮车市场调研报告》的自动化流程，包含四个步骤：竞品数据收集 → 行业趋势分析 → 撰写报告正文 → 审核与润色。
+
+    整体架构：
+
+    数据收集 (Agent A) ─┐
+                        ├─→ 报告撰写 (Agent C) ─→ 审核 (Agent D)
+    趋势分析 (Agent B) ─┘
+
+    数据收集和趋势分析可以并行，因为它们互不依赖。报告撰写必须等它们都完成，审核则依赖报告初稿。
+
+    第一步：定义 Agent
+
+    from crewai import Agent, Task, Crew
+    from crewai.tools import SerperDevTool  # 搜索引擎工具
+
+    # 共享工具
+    search_tool = SerperDevTool()
+
+    # 竞品分析师
+    competitor_agent = Agent(
+        role="竞品分析专家",
+        goal="收集主要竞品的产品特性、定价、市场策略信息",
+        backstory="你擅长通过公开网络信息快速整理竞品情报",
+        tools=[search_tool],
+        verbose=True
+    )
+
+    # 行业趋势分析师
+    trend_agent = Agent(
+        role="行业趋势分析师",
+        goal="分析新能源两轮车行业的技术趋势、政策环境和市场规模",
+        backstory="你关注新能源、出行领域的宏观动向，能提炼关键洞察",
+        tools=[search_tool],
+        verbose=True
+    )
+
+    # 报告撰写员
+    writer_agent = Agent(
+        role="报告撰写专家",
+        goal="将数据和洞察整合成一份结构清晰、语言专业的市场调研报告",
+        backstory="你擅长商业写作，能用客观数据和犀利观点打动读者",
+        verbose=True
+    )
+
+    # 审核编辑
+    reviewer_agent = Agent(
+        role="审核编辑",
+        goal="检查报告的事实准确性、逻辑严谨性和语言流畅度",
+        backstory="你对文字有洁癖，确保每一份报告零差错",
+        verbose=True
+    )
+
+    第二步：设计 Task 及依赖关系
+
+    关键点在于 context 参数：它接收一个 Task 列表，当前 Task 会把列表中所有前置 Task 的输出自动注入提示词，从而让 Agent 能“看到”前面做了什么。
+
+    # Task 1: 竞品数据收集（无依赖）
+    task_competitor = Task(
+        description="调研当前市场上主要的新能源两轮车品牌（如雅迪、爱玛、小牛、九号等），"
+                    "收集它们的主销车型、价格区间、续航里程、智能功能、渠道策略。",
+        expected_output="一份结构化竞品对比表，包含品牌、车型、价格、续航、核心卖点",
+        agent=competitor_agent,
+        async_execution=True  # 可与 Task 2 并行执行
+    )
+
+    # Task 2: 行业趋势分析（无依赖）
+    task_trend = Task(
+        description="分析新能源两轮车行业的最新政策（如新国标）、锂电池vs钠电池技术路线、"
+                    "市场规模增长预测、目标用户画像变化。",
+        expected_output="一份行业趋势摘要，包含政策、技术、市场、用户四方面的关键发现",
+        agent=trend_agent,
+        async_execution=True  # 与 Task 1 并行
+    )
+
+    # Task 3: 撰写报告（依赖 Task 1 和 Task 2 的输出）
+    task_writing = Task(
+        description="根据竞品数据和行业趋势，撰写《新能源两轮车市场调研报告》全文。"
+                    "报告结构：摘要、市场概况、竞品分析、趋势洞察、机会与风险、建议。"
+                    "使用专业但易懂的语言，1500字左右。",
+        expected_output="完整的市场调研报告 Markdown 文本",
+        agent=writer_agent,
+        context=[task_competitor, task_trend]  # 关键：注入前两个任务的输出
+    )
+
+    # Task 4: 审核润色（依赖 Task 3）
+    task_review = Task(
+        description="对报告初稿进行审校。检查数据准确性（对照竞品表和趋势摘要）、"
+                    "逻辑连贯性、语言表达。有疑问处标出修改建议，最后输出润色后的终稿。",
+        expected_output="润色后的最终报告，附带修改摘要",
+        agent=reviewer_agent,
+        context=[task_writing]
+    )
+
+    第三步：组装 Crew 并运行
+
+    crew = Crew(
+        agents=[competitor_agent, trend_agent, writer_agent, reviewer_agent],
+        tasks=[task_competitor, task_trend, task_writing, task_review],
+        process=Process.sequential,  # 虽然串行，但内部异步任务会并行执行
+        verbose=True
+    )
+
+    result = crew.kickoff(inputs={"topic": "新能源两轮车市场调研"})
+    print(result)
+
+    关键设计解读：
+
+    - 并行提速：async_execution=True 让 Task 1 和 Task 2 同时跑，整个流程时长大约等于最慢的那个收集任务 + 撰写 + 审核，而不是四者累加。
+
+    - 上下文穿透：Task 3 的 context=[task_competitor, task_trend] 会把前两个任务的 expected_output 文本自动拼入 Task 3 的描述中，所以撰写 Agent 能看到真实的竞品数据和趋势分析，而不是凭空想象。
+
+    - 质量闭环：最后一个审核 Task 用 context=[task_writing] 拿到初稿，并让审核 Agent 对照原始数据（在提示词中要求“对照竞品表和趋势摘要”），从而形成事实核查的闭环，减少幻觉。
+
+    - 确定性优先：选择了 Sequential Process，因为这里的步骤逻辑清晰，不需要 Manager 动态决策。如果希望将来流程更灵活（比如审核不通过自动打回重写），可以升级为 Hierarchical。
+
+    ---
+
+    这个设计把 CrewAI 的三个核心概念串了起来：Agent 是脑，Task 是手，Crew 是神经中枢。依赖关系用 context 自然表达，并行标记让无依赖的任务互不等待，最终形成一条从数据到洞察、从洞察到报告、从报告到终稿的完整知识生产线。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/URfRwgIyEi3zoQk8qc5cj7yPnfb
+  block_id: doxcnrwJzeExUKx4dHEh3tUIRQd
+  page_token: URfRwgIyEi3zoQk8qc5cj7yPnfb
+  original_title: "\U0001F3D7️ 3. 用 CrewAI 实现一个“市场调研报告生成”流程，如何设计 Task 依赖和上下文传递？"
+  imported_at: '2026-09-21'

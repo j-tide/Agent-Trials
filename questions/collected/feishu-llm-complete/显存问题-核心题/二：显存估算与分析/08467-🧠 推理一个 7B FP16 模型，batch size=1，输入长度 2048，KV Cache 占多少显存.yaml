@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-937cf9815a6f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E0 推理一个 7B FP16 模型，batch size=1，输入长度 2048，KV Cache 占多少显存？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "\U0001F9E0 推理一个 7B FP16 模型，batch size=1，输入长度 2048，KV Cache 占多少显存？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    要精确估算 KV Cache 的显存占用，我们需要知道模型的层数、注意力头数、头维度等参数。以典型的 7B 模型（如 Llama-2-7B 架构）为例：32 层，32 个注意力头，头维度 128（因为 hidden_size 4096 / 32 = 128）。没有使用 GQA（分组查询注意力）时，KV 头的数量等于注意力头的数量，即 32。
+
+    KV Cache 存储的是每个 token 在每一层的 Key 和 Value 张量。对于一个 token、一层、一个头，Key 和 Value 各自是一个长度为 128 的 FP16 向量（2 字节）。所以每个 token 每层每头的 KV 对共占用：2 (K) + 2 (V) = 4 个向量，即 128 × 2 × 2 = 512 字节？更准确的计算：
+
+    每个头的 K 大小 = 头维度 × 元素大小 = 128 × 2 = 256 字节
+
+    每个头的 V 大小 = 128 × 2 = 256 字节
+
+    每个头的 KV 对 = 512 字节。
+
+    总 KV Cache 大小 = 输入长度 × 层数 × 头数 × 每头 KV 对字节数
+
+    = 2048 × 32 × 32 × 512 字节。
+
+    让我们计算：
+
+    2048 × 32 = 65536
+
+    65536 × 32 = 2,097,152 （即总头-层-位置数）
+
+    2,097,152 × 512 = 1,073,741,824 字节 = 1 GB（因为 1 GB = 1024^3 字节，大约 1.0737 GB ≈ 1 GB）。实际上，1,073,741,824 字节正好是 1 GiB。所以 KV Cache 占用 1 GiB 显存。
+
+    如果模型是 7B FP16，权重大约占 14 GB（7B × 2 字节）。加上 KV Cache 1 GB，再加一些中间激活（极小），总显存约 15 GB 左右。所以一张 16GB 的卡（如 Tesla P100 或 RTX 4080）勉强能跑，但需要优化。实际框架可能会有额外开销，KV Cache 通常被预先分配为输入长度最大值的连续内存，所以此例中恰好 1 GiB。
+
+    [图片内容未导入]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/U2u9wFuzEiPu2okJIcFcYZkUnhc
+  block_id: QE4TdDHk4odlQqxxmUVcQPq9nni
+  page_token: U2u9wFuzEiPu2okJIcFcYZkUnhc
+  original_title: "\U0001F9E0 推理一个 7B FP16 模型，batch size=1，输入长度 2048，KV Cache 占多少显存？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8d1e57b59253
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 3. 如何用 Etcd 实现 Agent 服务的选主和元数据管理？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Distributed systems and consistency篇
+tags: &1
+- AI Agent精选八股文
+- Distributed systems and consistency篇
+content:
+  prompt: "\U0001F9E9 3. 如何用 Etcd 实现 Agent 服务的选主和元数据管理？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    回到我们的 Agent 平台，很多场景下我们需要多个 Agent 实例高可用，但只有一个实例能执行某些定时任务（如清理过期会话）或作为对外公布的主节点。Etcd 内嵌 Raft，提供了原生的选主和分布式锁能力，我们可以很方便地用它。
+
+    3.1 基于 Etcd 的选主
+
+    利用 Etcd 的租约（Lease）和事务机制实现选主：
+
+    ```java
+    // 伪代码：创建会话
+    long leaseId = etcdClient.grant(timeoutSeconds).get().getID();
+    // 尝试在指定 key 上创建自己为主
+    Cmp cmp = new Cmp("agent/leader", Cmp.Op.EQUAL, CmpTarget.version(0));
+    PutOption option = PutOption.newBuilder().withLeaseId(leaseId).build();
+    Txn txn = etcdClient.txn().If(cmp).Then(Op.put("agent/leader", instanceId, option));
+    txn.commit().thenAccept(response -> {
+        if (response.isSucceeded()) {
+            becomeLeader(); // 成为主，启动任务
+        } else {
+            watchLeader(); // 监视 key 变化，准备接替
+        }
+    });
+    ```
+
+    当一个实例成为 Leader 后，它会定时续约。如果实例宕机，租约过期，Etcd 会自动删除 agent/leader 键，其他监听该键的实例会立刻触发竞选，实现故障转移。
+
+    3.2 元数据管理（如模型服务列表、灰度配置）
+
+    Agent 平台需要维护可用的模型服务实例列表，或者一些动态灰度规则。这些数据完全可以用 Etcd 的 Watch 机制做一个轻量级配置中心：
+
+    - 所有模型服务启动时，将自己的地址和能力元数据写入 /models/<model-name>/<instance-id>，并绑定租约。
+
+    - Agent 编排服务通过 get 拉取全量，然后 watch 增量变化，实时更新本地缓存。
+
+    - 灰度规则同样可以存为 /config/gray-rules，修改后 Watcher 通知所有 Agent 实例热生效，无需重启。
+
+    与 ZooKeeper 相比，Etcd 的优势在于 更简洁的 HTTP/gRPC API、更快的 Raft 实现、以及对 TLS 和 RBAC 的天然支持，更适合作为云原生基础设施的“坚实底座”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YhRxwgmAsiJbzZktG6wcNPNznyg
+  block_id: doxcnRa96rliNaiCLWbLEaZZxHW
+  page_token: YhRxwgmAsiJbzZktG6wcNPNznyg
+  original_title: "\U0001F9E9 3. 如何用 Etcd 实现 Agent 服务的选主和元数据管理？"
+  imported_at: '2026-09-21'

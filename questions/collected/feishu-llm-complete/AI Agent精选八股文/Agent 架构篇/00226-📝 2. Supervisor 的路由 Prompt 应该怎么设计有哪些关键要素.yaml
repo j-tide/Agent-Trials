@@ -1,0 +1,99 @@
+---
+schema_version: 1
+id: feishu-llm-complete-258fd8dffbfa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DD 2. Supervisor 的路由 Prompt 应该怎么设计？有哪些关键要素？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+content:
+  prompt: "\U0001F4DD 2. Supervisor 的路由 Prompt 应该怎么设计？有哪些关键要素？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Supervisor 的路由 Prompt 是动态分配模式的大脑。它需要具备准确理解现状 + 严格遵循输出协议的能力。设计不佳的 Prompt 会导致 Supervisor 乱路由、过早结束或死循环。
+
+    一个好的路由 Prompt 包含五个关键要素：
+
+    [图片内容未导入]
+
+    [图片内容未导入]
+
+    ## 1. 角色与目标
+    你是任务调度 Supervisor。你的职责是根据对话历史和当前进度，决定下一步应该激活哪个专家 Agent，或者工作是否已经完成。
+
+    ## 2. 可调度的 Agent 清单
+    你可以将任务路由给以下 Agent，请严格选择其中之一：
+
+    - **Analyst**：负责数据收集、竞品分析、信息检索。当你需要获取新信息或分析原始数据时选它。
+    - **Writer**：负责撰写文档、报告、邮件。当已有信息充足，需要生成文本时选它。
+    - **Reviewer**：负责审核内容、检查事实、提出修改意见。当有草稿需要质量把控时选它。
+    - **FINISH**：当任务完全达成，可以输出最终结果给用户时选择此项。
+
+    ## 3. 当前任务进度
+    用户原始需求：{user_request}
+    已经完成的步骤和结果：
+    {completed_steps_summary}
+    最近一次 Agent 的输出：{last_agent_output}
+
+    ## 4. 路由逻辑与约束
+    - 如果缺少必要信息，应优先激活 Analyst。
+    - 如果已有草稿但未被审核，必须激活 Reviewer。
+    - 如果 Reviewer 提出修改意见，应激活 Writer 进行修改。
+    - 只有在 Review 通过且用户需求完全满足时，才选择 FINISH。
+    - 禁止连续两次激活同一个 Agent，除非有明确的新信息注入。
+
+    ## 5. 强制输出格式
+    请只输出下一个要激活的 Agent 名称，不要输出任何其他内容：
+    Analyst | Writer | Reviewer | FINISH
+
+    为什么这样设计？
+
+    - 角色与目标：设定了 Supervisor 的思考边界——它是个调度员，不是执行者。
+
+    - Agent 清单：必须清晰、无歧义。每一项都要有明确的触发条件（“当你需要……时选它”），而不是简单的功能描述。这直接决定了路由准确性。
+
+    - 当前任务进度：这是 Supervisor 的“眼睛”。不要只喂原始的用户请求，必须包含已完成步骤的压缩摘要和上一步的输出，否则 Supervisor 会丧失对进度的感知。
+
+    - 路由逻辑与约束：这是硬编码的业务规则，用来纠正 LLM 的常见错误（如过早结束、喜欢重复调用同一个工具）。这些规则是你的“方向盘”。
+
+    - 强制输出格式：越简洁越好。不要让它输出 JSON 或解释，一个单词的决策最不容易出错。在代码里用 response.content.strip() 直接拿。
+
+    迭代优化技巧：
+
+    - 如果发现 Supervisor 频繁过早 FINISH，在约束中加一句“在给出 FINISH 前，请确认 {checklist}”。
+
+    - 如果总在 A 和 B 之间来回震荡，增加“禁止连续激活同一 Agent”的硬约束，或在状态中记录 last_agent，在代码层拦截。
+
+    一个好的路由 Prompt，50% 在写 Agent 描述，30% 在制定约束，20% 在维护状态摘要。把这三块做扎实，你就能用最小的 Token 开销换来最稳的路由表现。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JcycwopI3iq7iOk1kBJcuICVnOg
+  block_id: doxcnT8Er0Qxw9eP5wuj3Ty70we
+  page_token: JcycwopI3iq7iOk1kBJcuICVnOg
+  original_title: "\U0001F4DD 2. Supervisor 的路由 Prompt 应该怎么设计？有哪些关键要素？"
+  imported_at: '2026-09-21'

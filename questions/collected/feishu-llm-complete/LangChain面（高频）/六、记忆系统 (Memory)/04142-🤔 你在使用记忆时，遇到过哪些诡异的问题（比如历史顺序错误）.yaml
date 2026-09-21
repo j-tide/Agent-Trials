@@ -1,0 +1,87 @@
+---
+schema_version: 1
+id: feishu-llm-complete-87a4bb3a9a33
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "8. \U0001F914 你在使用记忆时，遇到过哪些诡异的问题？（比如历史顺序错误）"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "8. \U0001F914 你在使用记忆时，遇到过哪些诡异的问题？（比如历史顺序错误）"
+answer:
+  mode: rubric
+  reference_answer: |-
+    以下是一些真实经历过的让人头疼的记忆问题，以及它们的根因和解决方法。
+
+    - 消息顺序混乱
+
+    - 现象：加载出的记忆有时是 AI, Human 而不是 Human, AI。
+
+    - 根因：并发请求同时写入了同一个 session，或者使用了不支持顺序保证的存储后端（如某些 NoSQL 的最终一致性）。
+
+    - 解决：在应用层使用 asyncio.Lock 对同一 session 的写入加锁。使用 Redis List 的 RPUSH + LRANGE 或 PostgreSQL 的自增 ID + ORDER BY，天然保证顺序。彻底避免在流式输出中间保存消息。
+
+    - 记忆“幽灵”重现
+
+    - 现象：清空了记忆（memory.clear()），但下一轮对话又出现了旧的历史。
+
+    - 根因：clear() 只清除了应用内存中的数据，而持久化后端（如 Redis）中的 key 仍然存在，且load时又从后端加载了。
+
+    - 解决：确保 clear() 方法确实清除了底层存储。对于自定义持久化，重写 clear() 以执行 DELETE 操作。
+
+    - Token 计算不准导致超限
+
+    - 现象：设置 max_token_limit 后仍然报错 token 超限。
+
+    - 根因：LangChain 默认使用 gpt-2 tokenizer 近似计算 token，与 OpenAI 等模型的实际 tokenizer 有差异。差异累积导致实际 token 数超出预期。
+
+    - 解决：在 Memory 初始化时传入精确的 tokenizer（如 tiktoken）。或者将 max_token_limit 设得更保守（如模型上下文 4096，设 2500）。
+
+    - 摘要记忆的“过度压缩”
+
+    - 现象：对话进行几轮后，摘要变为了“用户问了一些问题，AI给了一些回答”，所有细节全部丢失。
+
+    - 根因：默认的摘要 Prompt 可能过于笼统，LLM 在摘要时偷懒。
+
+    - 解决：自定义摘要 Prompt，明确要求保留关键实体（人名、日期、数字等），并加入示例（Few-shot）。
+
+    - 不同 Memory 混用时的变量冲突
+
+    - 现象：链中同时使用了 source_memory 和 target_memory，结果某个提示词变量未被填充。
+
+    - 根因：不同 Memory 的 memory_key 重复，或者 Prompt 模板中的占位符名与 memory_key 不匹配。
+
+    - 解决：为每个 Memory 设置唯一且清晰的 memory_key，并仔细核对 Prompt 模板。
+
+    这些诡异问题大多源于对存储后端行为的不了解，或者 LangChain 内部默认行为与预期不符。单元测试和集成测试是预防它们的最好方式。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BfIEwdkqoidvoVkJcU4cu44enYf
+  block_id: XgsqdrrjmovXnaxelPychmgInGf
+  page_token: BfIEwdkqoidvoVkJcU4cu44enYf
+  original_title: "8. \U0001F914 你在使用记忆时，遇到过哪些诡异的问题？（比如历史顺序错误）"
+  imported_at: '2026-09-21'

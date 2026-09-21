@@ -1,0 +1,96 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2850106dc09a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⏱️ 4. 如何在 LangChain 中使用缓存的 Embeddings？CacheBackedEmbeddings 是如何工作的？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "⏱️ 4. 如何在 LangChain 中使用缓存的 Embeddings？CacheBackedEmbeddings 是如何工作的？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    对于频繁调用的 embedding 操作，比如用户反复查询相同或相似的文本，每次走模型计算既浪费时间又浪费计算资源。CacheBackedEmbeddings 正是为解决这个痛点设计的，它在 embedding 层和向量存储之间加了一层透明的缓存。
+
+    工作原理：
+    CacheBackedEmbeddings 是一个包装器，内部持有一个底层的 Embeddings 模型和一个 Cache 存储（如 InMemoryCache、RedisCache 等）。当调用 embed_query 或 embed_documents 时，它先根据文本的哈希值去缓存里查，如果命中就直接返回缓存的向量；如果未命中，则调用底层模型计算，并把结果存入缓存后再返回。
+
+    代码示例：
+
+    ```python
+    from langchain_openai import OpenAIEmbeddings
+    from langchain.storage import InMemoryCache, LocalFileStore
+    from langchain.embeddings import CacheBackedEmbeddings
+
+    # 底层真实 embedding 模型（较慢、较贵）
+    underlying_embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+    # 缓存层：可以使用内存缓存（重启丢失）或文件缓存（持久化）
+    # cache_store = InMemoryCache()  # 简单但一次性
+    cache_store = LocalFileStore("./embedding_cache")  # 持久化到磁盘
+
+    cached_embeddings = CacheBackedEmbeddings(
+        underlying_embeddings=underlying_embeddings,
+        document_embedding_cache=cache_store,
+        # query_embedding_cache=cache_store,  # 也可为查询单独设置缓存
+    )
+
+    # 第一次调用会计算并缓存，第二次同样文本就直接读缓存
+    vector = cached_embeddings.embed_query("LangChain 缓存测试")
+    ```
+
+    缓存键的生成：
+    默认使用 hashlib.sha256 对文本内容生成哈希，你可以通过 namespace 参数为不同项目隔离缓存空间，避免键冲突：
+
+    ```python
+    cached_embeddings = CacheBackedEmbeddings(
+        ...,
+        namespace="my_project_v2",  # 不同版本/项目用不同 namespace
+    )
+    ```
+
+    使用场景：
+
+    - 调试阶段：反复测试查询效果时，避免每次都消耗 API 额度。
+
+    - 高频查询：如用户常问的 FAQ，缓存命中率很高。
+
+    - 批量索引：如果文档有重复内容（模板、引用），缓存能大幅加速构建速度。
+
+    注意事项：
+
+    - 若底层模型或参数改变，需清空旧缓存（删除缓存目录或更改 namespace），否则会返回旧向量的错误结果。
+
+    - LocalFileStore 在分布式多实例环境下会产生冲突，那时应换用 RedisStore 等共享存储。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/I0Gnw9RQoiOa2yk59JjcwumPnrf
+  block_id: SRU0dQDWzoHH3jxppQecPggxnwo
+  page_token: I0Gnw9RQoiOa2yk59JjcwumPnrf
+  original_title: "⏱️ 4. 如何在 LangChain 中使用缓存的 Embeddings？CacheBackedEmbeddings 是如何工作的？"
+  imported_at: '2026-09-21'

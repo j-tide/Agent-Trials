@@ -1,0 +1,95 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8ea23d882930
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚖️ 2. BeanPostProcessor、InitializingBean、@PostConstruct 的执行顺序是什么？各自的应用场景？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: "⚖️ 2. BeanPostProcessor、InitializingBean、@PostConstruct 的执行顺序是什么？各自的应用场景？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这三者都工作在 Bean 的初始化附近，但它们分工不同。按照执行顺序排列如下：
+
+    执行顺序：
+    1. BeanPostProcessor.postProcessBeforeInitialization()
+    2. @PostConstruct 方法
+    3. InitializingBean.afterPropertiesSet()
+    4. @Bean(initMethod = "...") 方法
+    5. BeanPostProcessor.postProcessAfterInitialization()
+
+    用一个具体的例子来说明。假设我们需要一个 LLM 客户端的 Bean，它需要在属性注入完成后自动预热连接池：
+
+    @Component
+    public class LLMClientBean implements InitializingBean {
+
+        @Value("${llm.api.key}")
+        private String apiKey;
+
+        private HttpClientPool pool;
+
+        @PostConstruct
+        public void initPool() {
+            // @PostConstruct: 在依赖注入完成后立即创建连接池
+            this.pool = new HttpClientPool(apiKey, 10);
+            System.out.println("1. @PostConstruct - 连接池已创建");
+        }
+
+        @Override
+        public void afterPropertiesSet() throws Exception {
+            // InitializingBean: 执行连接预连，确保前几条请求不排队
+            pool.prewarm(5);
+            System.out.println("2. afterPropertiesSet - 已预热5条连接");
+        }
+
+        public void customInit() {
+            // 在 @Bean 的 initMethod 里指定
+            System.out.println("3. customInit - 可以执行额外校验");
+        }
+
+        public String call(String prompt) {
+            // 实际调用 LLM
+            return pool.getConnection().invoke(prompt);
+        }
+    }
+
+    此时如果在配置类中声明 @Bean(initMethod = "customInit")，或者通过一个 BeanPostProcessor 进行包装，可以清晰地看到它们按序执行。
+
+    各自的应用场景：
+
+    [嵌入表格未展开]
+
+    一句话总结：@PostConstruct 解决大多数初始化需求，InitializingBean 给框架开发者留口子，而 BeanPostProcessor 则站在上帝视角，在初始化前后对所有 Bean 施以全局影响。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcnJeMjuovwBKvg4RivCUBj4f
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: "⚖️ 2. BeanPostProcessor、InitializingBean、@PostConstruct 的执行顺序是什么？各自的应用场景？"
+  imported_at: '2026-09-21'

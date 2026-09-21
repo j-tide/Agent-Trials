@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-412ac296557c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编码函数：给定合并规则，将单词拆分为子词序列
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 编码函数：给定合并规则，将单词拆分为子词序列
+answer:
+  mode: rubric
+  reference_answer: "目标：给定一个合并规则列表 merges（顺序即训练时的合并顺序）和一个原始单词字符串，输出该单词的子词序列（token
+    列表）。编码过程不需要单词频率，只需要按照学习到的合并规则对字符序列逐步合并。\n\n标准做法：\n\n- 将单词拆分为字符列表，末尾加上 </w>。\n\n-
+    按照 merges 的顺序，依次处理每条规则 ( (a,b), ab )：\n\n- 最终得到的符号序列就是该单词的子词划分。\n\n实现细节：\n\n-
+    由于合并规则很多，若对每个单词都从字符开始逐个应用所有规则，效率较低。但这是 BPE 编码的基本方法，实际优化（如使用缓存、前缀树等）可加速。\n\n- 注意：在应用某条规则时，应从头到尾扫描，合并后可能立即形成新的可合并对，但规则规定只应用一次？训练时一次合并只针对特定的
+    pair，且在一次循环内，我们会把所有该 pair 都合并掉，但不会在合并后继续合并该 pair 的新出现（因为扫描是单次从左到右，如果合并后产生了新的相同
+    pair，但位于合并后的位置，是否再次合并？）。例如序列 a a a，规则 ('a','a') -> 'aa'，从左到右扫描：索引0,1合并为 'aa'，此时序列变成
+    ['aa', 'a']，索引往后移，不会再合并新的 ('aa','a') 因为当前规则是 ('a','a')，不会匹配 ('aa','a')。所以一次扫描只会合并非重叠的、原有的
+    pair。这与训练时的单步合并一致。因此我们实现时也采用同样的单趟扫描替换。\n\n代码：\n\n```python\ndef encode_word(word:
+    str, merges: list) -> list:\n    \"\"\"\n    使用学到的 BPE 合并规则对单词进行编码。\n    参数：\n
+    \       word: 原始单词字符串\n        merges: 列表，元素为 ((a,b), ab)，按训练顺序\n    返回：\n        子词列表\n
+    \   \"\"\"\n    symbols = list(word) + ['</w>']\n    \n    for (a, b), ab in merges:\n
+    \       # 应用规则 (a,b) -> ab\n        new_symbols = []\n        i = 0\n        while
+    i < len(symbols):\n            if i < len(symbols) - 1 and symbols[i] == a and
+    symbols[i+1] == b:\n                new_symbols.append(ab)\n                i
+    += 2\n            else:\n                new_symbols.append(symbols[i])\n                i
+    += 1\n        symbols = new_symbols\n    return symbols\n```\n\n注意事项：\n\n- 编码函数应当与训练时的合并逻辑完全一致，才能保证编码后的子词序列可以通过解码还原（结合
+    </w> 处理）。\n\n- 返回的子词列表可能包含单个字符和合并后的多字符符号。\n\n示例：\n假设训练后 merges 顺序为：(('l','o'),
+    'lo'), (('lo','w'), 'low')。\n单词 \"low\" -> 字符 ['l','o','w','</w>']。\n应用第一条：合并
+    ('l','o') -> ['lo','w','</w>']。\n应用第二条：合并 ('lo','w') -> ['low','</w>']。\n最终子词序列：['low',
+    '</w>']。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XDqKw0GPGi6JvkkfpwUcqpdAndd
+  block_id: Cm4hd9QL6oqC95x3B24cQswanTh
+  page_token: XDqKw0GPGi6JvkkfpwUcqpdAndd
+  original_title: 编码函数：给定合并规则，将单词拆分为子词序列
+  imported_at: '2026-09-21'

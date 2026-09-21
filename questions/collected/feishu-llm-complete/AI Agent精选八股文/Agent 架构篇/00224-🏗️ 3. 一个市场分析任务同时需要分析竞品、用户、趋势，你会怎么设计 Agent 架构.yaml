@@ -1,0 +1,112 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5f0e1bcb06ad
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3D7️ 3. 一个市场分析任务同时需要分析竞品、用户、趋势，你会怎么设计 Agent 架构？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+content:
+  prompt: "\U0001F3D7️ 3. 一个市场分析任务同时需要分析竞品、用户、趋势，你会怎么设计 Agent 架构？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这个需求天然适合多 Agent：三个分析维度相互独立，各自需要不同的数据源和专业知识。我采用 Orchestrator + Worker 模式，结合 MCP 和 A2A 协议思想，实现一个松耦合、可扩展的架构。
+
+    架构蓝图：
+
+    [图片内容未导入]
+
+    各 Agent 的具体设计：
+
+    - 竞品分析 Agent
+
+    - System Prompt：你是一位竞争情报分析师，擅长识别竞品的功能优劣势、定价策略和市场定位。
+
+    - 工具：web_scraper（抓取官网）、product_db_query（查询产品参数）、pricing_api（获取定价信息）。
+
+    - 输出：结构化 JSON，包含竞品对比矩阵和 SWOT 要点。
+
+    - 用户洞察 Agent
+
+    - 趋势分析 Agent
+
+    - Orchestrator Agent
+
+    示例代码：用 Python asyncio 模拟编排
+
+    import asyncio, json
+
+    class MarketAnalysisOrchestrator:
+        def __init__(self, agents):
+            self.agents = agents  # {"competitor": agent_obj, ...}
+
+        async def run(self, topic):
+            # 并行派发三个独立分析任务
+            tasks = [
+                self.agents["competitor"].analyze(topic),
+                self.agents["user_insight"].analyze(topic),
+                self.agents["trend"].analyze(topic)
+            ]
+            # 并行执行，return_exceptions=True 防止某一个失败阻塞全部
+            competitor, user_insight, trend = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # 结果后处理：异常降级
+            results = {"competitor": self._safe_result(competitor),
+                       "user_insight": self._safe_result(user_insight),
+                       "trend": self._safe_result(trend)}
+
+            # 启动汇总 Agent，整合三份分析
+            report = await self.agents["reporter"].synthesize(results)
+            return report
+
+        def _safe_result(self, result):
+            if isinstance(result, Exception):
+                return {"error": str(result), "partial_data": None}
+            return result
+
+    通信机制选择：
+    如果这三个 Worker 是同一进程内的对象，直接调用即可。如果是分布式部署，可以让 Orchestrator 通过 HTTP + JSON 异步调用各个 Worker 的 /analyze 端点，遵循类似 A2A 的 Task 模型：提交任务 → 返回 task_id → 轮询或 Webhook 获取结果。这样架构上更具扩展性。
+
+    关键设计考量：
+
+    - 数据流与依赖：三个分析任务互不依赖，所以并行。如果趋势分析需要先知道竞品名单，那么趋势 Agent 就必须等竞品 Agent 完成后再启动，这时就是串行+并行的混合 DAG 编排。
+
+    - 去重与冲突解决：汇总 Agent 不能简单拼接三份报告。它要识别出“用户洞察说价格是痛点，竞品分析显示头部竞品在降价”这种交叉信号，提炼出有战略意义的洞察。这需要汇总 Agent 的 System Prompt 里明确其“综合分析”的职责。
+
+    - 容错与弹性：如果趋势分析 Agent 超时（比如第三方研报 API 挂了），汇总 Agent 应能基于竞品和用户洞察给出“有限但仍有价值”的报告，而不是整体失败。
+
+    最终效果：
+
+    用户只需要输入“分析智能手表市场”，数分钟内就能得到一份涵盖竞争格局、用户需求、技术趋势的结构化报告，且每个板块都有专业 depth，而非单 Agent 那种“大而全但浅”的泛泛之谈。这种架构可以轻松复用到任何多维度分析场景：比如“新产品可行性评估”、“企业数字化转型方案”等。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JcycwopI3iq7iOk1kBJcuICVnOg
+  block_id: doxcn6ddxf0K1pBq2tRmFGPdtde
+  page_token: JcycwopI3iq7iOk1kBJcuICVnOg
+  original_title: "\U0001F3D7️ 3. 一个市场分析任务同时需要分析竞品、用户、趋势，你会怎么设计 Agent 架构？"
+  imported_at: '2026-09-21'

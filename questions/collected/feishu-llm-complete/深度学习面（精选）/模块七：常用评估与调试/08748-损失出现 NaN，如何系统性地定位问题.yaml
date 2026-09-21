@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1f689e083264
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 损失出现 NaN，如何系统性地定位问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块七：常用评估与调试
+tags: &1
+- 深度学习面（精选）
+- 模块七：常用评估与调试
+content:
+  prompt: 损失出现 NaN，如何系统性地定位问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    NaN 出现意味着数值溢出或无效操作。定位步骤：
+
+    - 定位首次出现 NaN 的位置
+
+    - 在前向传播中逐层检查输出张量是否包含 NaN 或 Inf，使用 torch.isnan(x).any() 或 torch.isinf(x).any()。找到第一个含有 NaN 的层。
+
+    - 也可在 backward 之后检查各层梯度是否含 NaN。
+
+    - 常见导致 NaN 的操作
+
+    - 除零：在除法、标准化中未加 epsilon，如 x / var 当 var=0。
+
+    - log(0) 或 sqrt(负数)：计算交叉熵损失时预测概率可能为0，可加 epsilon=1e-8。
+
+    - 梯度爆炸导致权重变为 NaN：检查梯度的最大值，使用梯度裁剪。
+
+    - 学习率过大：权重更新后变成极大值，前向时溢出。减小学习率。
+
+    - 损失函数问题：如自己实现的损失函数，使用了不稳定的操作。
+
+    - 数据问题
+
+    - 训练数据中存在 NaN 或 Inf，或归一化后有异常值。
+
+    - 标签超出范围，例如类别标签大于类别数-1。
+
+    - 数值精度问题
+
+    - 混合精度训练中，FP16 容易溢出。检查是否启用损失缩放，或改用 BF16。
+
+    - 某些操作（如 softmax）在 FP16 下可能不稳定，可强制转为 FP32。
+
+    - 模型结构
+
+    - 深层网络无归一化或残差，前向特征值指数放大。
+
+    - 注意力机制中 QK^T 的值过大，导致 softmax 后梯度极小或数值溢出，需要缩放因子。
+
+    - 使用 torch.autograd.detect_anomaly() 或 torch.autograd.set_detect_anomaly(True)，它会在反向传播时定位第一个产生 NaN 梯度的操作，非常有效。
+
+    - 采用梯度裁剪或权重裁剪，临时避免 NaN 以便继续调试。
+
+    - 二分法排查：将模型一层一层地增加，运行训练，看哪一步开始出现 NaN。
+
+    通过以上步骤，基本可以确定 NaN 的原因。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NWoUwEWXUiCS73kuJHncl6jGnNe
+  block_id: FnxudBuBpok6y1xHy2kcGX42nMb
+  page_token: NWoUwEWXUiCS73kuJHncl6jGnNe
+  original_title: 损失出现 NaN，如何系统性地定位问题？
+  imported_at: '2026-09-21'

@@ -1,0 +1,107 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a2857904bf7b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个 batch 级别的 DPO 损失计算函数，要求处理 padding：输入 batch 中包含 chosen 和 rejected 的序列，以及对应的
+  attention mask，正确计算每个序列的平均 log probability（或 sum）。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 实现一个 batch 级别的 DPO 损失计算函数，要求处理 padding：输入 batch 中包含 chosen 和 rejected 的序列，以及对应的
+    attention mask，正确计算每个序列的平均 log probability（或 sum）。
+answer:
+  mode: rubric
+  reference_answer: |-
+    背景：
+
+    在实际训练中，chosen 和 rejected 序列的长度通常不同。我们需要正确计算每个 token 的对数概率，并通过 attention mask 来忽略 padding token。DPO 损失中使用的是序列的总对数概率（或平均对数概率）。常见的做法是取 平均 token 对数概率（即除以有效 token 数），这样可以使不同长度的序列在损失中的贡献更加均衡。
+
+    实现：
+
+    ```python
+    import torch
+    import torch.nn.functional as F
+
+    def compute_log_probs(logits, labels, attention_mask):
+        """
+        计算序列的 token 级对数概率，并根据 attention mask 取平均。
+        Args:
+            logits: (B, L, V) 模型输出的 logits
+            labels: (B, L) 目标 token id
+            attention_mask: (B, L) 1 表示有效 token，0 表示 padding
+        Returns:
+            mean_log_probs: (B,) 每个序列的平均 token 对数概率
+        """
+        # 计算每个 token 的交叉熵损失（reduction='none'）
+        loss_per_token = F.cross_entropy(
+            logits.permute(0, 2, 1),  # (B, V, L)
+            labels,
+            reduction='none'
+        )  # (B, L)
+        # 对有效 token 取平均
+        loss_per_token = loss_per_token * attention_mask
+        mean_log_probs = -loss_per_token.sum(dim=1) / attention_mask.sum(dim=1)
+        return mean_log_probs
+
+    def batch_dpo_loss(
+        policy_chosen_logps: torch.Tensor,
+        policy_rejected_logps: torch.Tensor,
+        ref_chosen_logps: torch.Tensor,
+        ref_rejected_logps: torch.Tensor,
+        beta: float
+    ) -> torch.Tensor:
+        """
+        计算 batch 级别的 DPO 损失。
+        假设输入已经是每个序列的平均 token 对数概率（已经过 padding 处理）。
+        """
+        chosen_ratio = policy_chosen_logps - ref_chosen_logps
+        rejected_ratio = policy_rejected_logps - ref_rejected_logps
+        reward_diff = beta * (chosen_ratio - rejected_ratio)
+        loss = -F.logsigmoid(reward_diff).mean()
+        return loss
+
+    # 完整的训练步骤示例：
+    # 1. 将 chosen 和 rejected 序列分别输入策略模型和参考模型，获取 logits。
+    # 2. 使用 compute_log_probs 得到每个序列的平均 log prob。
+    # 3. 调用 batch_dpo_loss 计算损失。
+    ```
+
+    关于 sum 和 mean 的选择：
+
+    - Sum：序列越长，其总对数概率绝对值越大，在损失中占的权重也越大。这可能导致模型偏向于优化长序列，但长序列天然包含更多 token，其 log prob 值域更大，可能主导梯度。
+
+    - Mean：将每个序列的对数概率归一化到 token 级别，使不同长度的序列在损失中拥有相近的尺度。这是目前 DPO 的主流实现（例如 HuggingFace TRL 库中默认使用平均 log probability）。
+    建议使用 mean，并在计算时通过 attention mask 准确统计有效 token 数。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  block_id: C4nWdp7nwoBwtwxjHhccWvuDnBb
+  page_token: Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  original_title: 实现一个 batch 级别的 DPO 损失计算函数，要求处理 padding：输入 batch 中包含 chosen 和 rejected
+    的序列，以及对应的 attention mask，正确计算每个序列的平均 log probability（或 sum）。
+  imported_at: '2026-09-21'

@@ -1,0 +1,126 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bb308593b4ee
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个支持流式输出的 JSON 函数调用解析器：模拟逐 token 到达的字符串，当检测到完整的 JSON 对象（括号匹配）时即刻解析并返回，剩余部分留待后续处理。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 实现一个支持流式输出的 JSON 函数调用解析器：模拟逐 token 到达的字符串，当检测到完整的 JSON 对象（括号匹配）时即刻解析并返回，剩余部分留待后续处理。
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    在流式场景中，LLM 的响应 token 逐步到达。我们需要一个状态机跟踪括号匹配，一旦检测到最外层的大括号配对完成（即深度归零），说明一个完整的 JSON 对象已接收完毕，可以立即提取并解析该 JSON，同时将后续内容保留在缓冲区中供下一轮继续。
+
+    实现
+
+    ```python
+    import json
+    from typing import Optional, Tuple
+
+    class StreamingJSONParser:
+        def __init__(self):
+            self.buffer = ""          # 累积的字符串
+            self.in_string = False    # 是否在字符串内部
+            self.escape = False       # 前一个字符是否为转义符
+            self.brace_depth = 0      # 大括号嵌套深度
+
+        def feed(self, chunk: str) -> Optional[dict]:
+            """
+            输入一个 token 或字符串片段，如果检测到完整 JSON 对象则返回解析结果，
+            否则返回 None。
+            Args:
+                chunk: 新到达的文本片段
+            Returns:
+                dict 或 None
+            """
+            self.buffer += chunk
+            # 遍历整个缓冲区，但由于我们只需要知道何时第一个完整的 JSON 结束，
+            # 可以扫描跟踪深度
+            # 注意：这里每次 feed 都会重新扫描整个 buffer，为简单但正确。
+            # 实际性能优化可以只扫描新增部分并更新状态。
+            depth = 0
+            in_str = False
+            escape = False
+            start_idx = -1
+            for i, ch in enumerate(self.buffer):
+                if ch == '{' and not in_str:
+                    if depth == 0:
+                        start_idx = i
+                    depth += 1
+                elif ch == '}' and not in_str:
+                    depth -= 1
+                    if depth == 0 and start_idx != -1:
+                        # 找到完整 JSON
+                        json_str = self.buffer[start_idx:i+1]
+                        try:
+                            obj = json.loads(json_str)
+                            # 将剩余部分保留在缓冲区
+                            self.buffer = self.buffer[i+1:]
+                            return obj
+                        except json.JSONDecodeError:
+                            # JSON 不合法，可能还未完成，继续等待
+                            pass
+                elif ch == '"' and not escape:
+                    in_str = not in_str
+                elif ch == '\\' and not escape:
+                    escape = True
+                    continue
+                escape = False
+            return None
+
+    # 示例测试
+    if __name__ == "__main__":
+        parser = StreamingJSONParser()
+        # 模拟流式输入
+        chunks = ['{"na', 'me": "search", "arg', 'uments": {"q', 'uery": "AI"}}', '额外的文本']
+        for c in chunks:
+            result = parser.feed(c)
+            if result:
+                print("解析到 JSON:", result)
+                print("剩余缓冲区:", parser.buffer)
+    ```
+
+    说明
+
+    - 该解析器维护一个简单的状态机：跟踪是否在字符串内（in_str）以及转义状态，确保不会错误地将字符串内的花括号计入深度。
+
+    - 每当深度从 1 降为 0 时，说明最外层 JSON 对象闭合，尝试解析。若解析失败（例如 JSON 格式尚不完整），则继续等待更多数据。
+
+    - 解析成功后，将已使用的部分从缓冲区移除，剩余文本可继续处理后续 JSON 对象。
+
+    - 此实现假设 JSON 对象只包含简单的嵌套，不处理 JSON 数组等，但对于函数调用场景足够。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  block_id: ZRYAdndq0owzcPx2gX3ckNitn9g
+  page_token: Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  original_title: 实现一个支持流式输出的 JSON 函数调用解析器：模拟逐 token 到达的字符串，当检测到完整的 JSON 对象（括号匹配）时即刻解析并返回，剩余部分留待后续处理。
+  imported_at: '2026-09-21'

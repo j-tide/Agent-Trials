@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-95dcc440e150
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 4. Redis 和数据库双写一致性如何保证？延时双删 vs Binlog 监听哪个更好？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F9E9 4. Redis 和数据库双写一致性如何保证？延时双删 vs Binlog 监听哪个更好？"
+answer:
+  mode: rubric
+  reference_answer: "缓存与数据库的双写一致性问题，本质上是“两个独立系统间的数据同步”。操作数据库和操作缓存不是原子的，任何中间状态中断都可能导致缓存与数据库长期不一致。\n\n为何会有不一致？\n\n假设更新数据库后删除缓存：\n\n1.
+    更新数据库成功\n2. 删除缓存失败（网络闪断）\n→ 缓存中仍是旧数据，下次读取直接返回脏数据。\n\n即使第一步成功，第二步也可能失败。如果反过来，先删缓存再更新数据库：\n\n1.
+    删除缓存成功\n2. 更新数据库 → 但此时另一并发读请求发现缓存未命中，将旧数据写入缓存\n→ 缓存又被污染。\n\n因此必须引入补偿机制。\n\n方案一：延时双删\n\n原理：先删缓存
+    → 更新数据库 → 等待一小段时间（如 200ms） → 再次删除缓存。\n\n第二次删除是为了清除“并发读请求在更新数据库期间写入缓存的旧数据”。\n\npublic
+    void updateWithDelayDoubleDelete(String key, Object newValue) {\n    redis.del(key);
+    \                   // 1. 先删缓存\n    db.update(newValue);               // 2. 更新数据库\n
+    \   try {\n        Thread.sleep(200);             // 3. 等待一会\n    } catch (InterruptedException
+    e) {\n        Thread.currentThread().interrupt();\n    }\n    redis.del(key);
+    \                   // 4. 再次删缓存\n}\n\n优点：实现非常简单，不依赖外部组件，适合并发量不高的场景。\n\n缺点：\n\n-
+    第二次删除的延迟时间难以精确设定，太短清不掉，太长影响用户体验。\n\n- 两次删除中间仍可能有脏读，且第二次删除失败需要重试机制。\n\n- 侵入性强，每个写接口都要写这段代码。\n\n方案二：基于
+    Binlog 监听的缓存主动失效（推荐）\n\n原理：利用数据库自身的变更日志 Binlog，通过 Canal 等组件实时监听，一旦监听到数据更新，就自动清理或更新对应的缓存。应用程序无需关心缓存操作，完全解耦。\n\n架构链路：\n\n应用
+    → 更新MySQL → MySQL产生Binlog → Canal模拟Slave拉取Binlog \n→ 解析为事件 → 投递给MQ(Kafka)或直接推送
+    → 缓存更新服务 → 删除/更新Redis\n\n优点：\n\n- 完全解耦：应用代码零侵入，只关心数据库，无需操作缓存。\n\n- 实时性高：Binlog
+    是准实时推送，延迟在秒级以下。\n\n- 可靠：Canal 支持 HA，MQ 保证消息不丢失，可重试。\n\n- 统一缓存管理：所有缓存失效逻辑集中到一个服务，方便治理。\n\n哪个更好？\n\n对于绝大多数项目，Binlog
+    监听方案明显优于延时双删。延时双删只能作为小项目或遗留系统的临时方案。一旦进入高并发或微服务阶段，Canal + MQ 的架构是生产级标准。\n\n[嵌入表格未展开]\n\n一句话收束：延时双删是应急的创可贴，Binlog
+    监听是根治的疫苗。选择哪个，取决于你系统的规模和运维能力，但终局一定是走向解耦的监听模式。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QbEawmJTRiAdEik5pKCciSZqnTf
+  block_id: doxcn4OZ6ui89YQbDD7qGchp3ae
+  page_token: QbEawmJTRiAdEik5pKCciSZqnTf
+  original_title: "\U0001F9E9 4. Redis 和数据库双写一致性如何保证？延时双删 vs Binlog 监听哪个更好？"
+  imported_at: '2026-09-21'

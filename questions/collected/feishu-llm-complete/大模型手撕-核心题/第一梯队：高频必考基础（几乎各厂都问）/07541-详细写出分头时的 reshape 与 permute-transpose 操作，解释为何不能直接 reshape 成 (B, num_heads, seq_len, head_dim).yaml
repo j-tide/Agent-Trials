@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-18789fa8f696
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 详细写出分头时的 reshape 与 permute/transpose 操作，解释为何不能直接 reshape 成 (B, num_heads, seq_len,
+  head_dim)。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 详细写出分头时的 reshape 与 permute/transpose 操作，解释为何不能直接 reshape 成 (B, num_heads,
+    seq_len, head_dim)。
+answer:
+  mode: rubric
+  reference_answer: |-
+    2.1 分头操作的维度变换过程
+
+    假设输入经过线性投影后形状为 (B, seq_len, num_heads * head_dim)。我们需要将其转换为 (B, num_heads, seq_len, head_dim) 以便在注意力计算中每个头独立处理。
+
+    分两步：
+
+    - q = q.view(B, seq_len, self.num_heads, self.head_dim) → 形状 (B, seq_len, num_heads, head_dim)
+
+    - q = q.transpose(1, 2) → 形状 (B, num_heads, seq_len, head_dim)
+
+    2.2 为什么不能直接 reshape 成 (B, num_heads, seq_len, head_dim)？
+
+    关键在于 PyTorch 张量的内存布局和 view 的工作原理。
+
+    线性层输出的最后一维是 num_heads * head_dim 个元素。这些元素在内存中按如下顺序排列：
+
+    ```text
+    [seq_pos_0: head0_dim0, head0_dim1, ..., head0_dim_last, head1_dim0, head1_dim1, ..., head1_dim_last, ...]
+    ```
+
+    即对于每个序列位置，各个头的元素是交错存储的。view 操作要求新形状在内存中是连续的，并且按照行优先顺序依次读取。
+
+    如果直接 view(B, num_heads, seq_len, head_dim)，则新形状下的内存读取顺序为：先填充 batch 维度，然后 num_heads 维度，接着 seq_len 维度，最后 head_dim 维度。这会将原本属于同一个序列位置、不同头的元素错误地分配给不同的头，导致数据错乱。
+
+    因此，必须先将 head_dim 与 num_heads 维度分离开来，即先 view 成 (B, seq_len, num_heads, head_dim)。此时，由于我们在原始形状中最后一维就是按 (head_dim) 为一组连续存放的，然后才轮到下一个头，所以这个 view 是合法的——它只是将原本隐式的 num_heads * head_dim 拆分成了显式的两个维度。然后通过 transpose(1, 2) 交换 seq_len 和 num_heads 的位置，得到最终的标准形状。
+
+    2.3 验证正确性
+
+    可通过一个小例子来验证两种方式的差异。如果直接 view 成错误形状，会导致同一序列位置的 Q 向量中包含不同头的混合信息，使得注意力计算完全错误。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTpnwxWMsiVDwIkIoX0c1TU4ned
+  block_id: GBQsdkNsgohlUHxjdn0c8Q69n42
+  page_token: QTpnwxWMsiVDwIkIoX0c1TU4ned
+  original_title: 详细写出分头时的 reshape 与 permute/transpose 操作，解释为何不能直接 reshape 成 (B, num_heads,
+    seq_len, head_dim)。
+  imported_at: '2026-09-21'

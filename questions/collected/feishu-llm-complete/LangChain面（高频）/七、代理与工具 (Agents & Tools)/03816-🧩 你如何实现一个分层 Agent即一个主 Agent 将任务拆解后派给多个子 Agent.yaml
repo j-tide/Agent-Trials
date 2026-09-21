@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0bf3cd4e141d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 你如何实现一个分层 Agent？即一个主 Agent 将任务拆解后派给多个子 Agent。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "\U0001F9E9 你如何实现一个分层 Agent？即一个主 Agent 将任务拆解后派给多个子 Agent。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    分层 Agent（Hierarchical Agent）的核心是一个“主管” Agent + 多个“专家” Agent。主管 Agent 负责理解用户意图，将任务拆解，分配给最合适的子 Agent，并汇总它们的结果。
+
+    实现方式
+
+    - 将子 Agent 封装为 Tool
+    这是最简单、最直接的方式。每个专家 Agent 被包装成一个 Tool，主 Agent 像调用普通工具一样调用它们。
+
+    ```python
+    from langchain.tools import Tool
+
+    # 假设已有两个专家 Agent 的 executor
+    legal_expert = create_legal_agent()
+    medical_expert = create_medical_agent()
+
+    def call_legal_expert(query: str) -> str:
+        return legal_expert.run(query)
+
+    def call_medical_expert(query: str) -> str:
+        return medical_expert.run(query)
+
+    tools = [
+        Tool(name="LegalExpert", func=call_legal_expert, description="处理法律问题"),
+        Tool(name="MedicalExpert", func=call_medical_expert, description="处理医疗问题"),
+    ]
+    # 主 Agent 使用这些工具
+    manager_agent = create_openai_functions_agent(llm, tools, prompt)
+    ```
+
+    - 自定义主管 Agent 的逻辑
+    如果子 Agent 的调用需要更复杂的上下文（如共享记忆），可以自定义 AgentExecutor，在其中实现任务分配逻辑。
+
+    - 使用 Multi-Agent 框架（如 AutoGen）与 LangChain 集成
+
+    对于更复杂的协作，可以引入专门的多 Agent 框架，让 LangChain 的工具和链作为底层能力。
+
+    关键设计点
+
+    - 接口标准化：子 Agent 的输入输出应简单明了，推荐使用 JSON 格式。
+
+    - 错误隔离：子 Agent 失败时，应返回明确的错误信息，供主 Agent 决策。
+
+    - 记忆共享：如果需要，所有 Agent 可以共用同一个 RedisChatMessageHistory 或向量库。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YCqcw5pbDir9BEkHaCScKiSBnwc
+  block_id: FWZ3do4idojWzOxVSiuc5PYlnfb
+  page_token: YCqcw5pbDir9BEkHaCScKiSBnwc
+  original_title: "\U0001F9E9 你如何实现一个分层 Agent？即一个主 Agent 将任务拆解后派给多个子 Agent。"
+  imported_at: '2026-09-21'

@@ -1,0 +1,90 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f4067d56b464
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练大模型时，如何保证可复现性？随机种子的设置有哪些注意事项？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 训练大模型时，如何保证可复现性？随机种子的设置有哪些注意事项？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### 确定性随机性的设置
+
+    要保证两次训练得到完全相同的结果，必须严格控制所有随机性来源：
+
+    import random
+    import numpy as np
+    import torch
+
+    SEED = 42
+
+    # 1. Python & Numpy
+    random.seed(SEED)
+    np.random.seed(SEED)
+
+    # 2. PyTorch CPU & GPU
+    torch.manual_seed(SEED)
+    torch.cuda.manual_seed(SEED)
+    torch.cuda.manual_seed_all(SEED)  # 多GPU时
+
+    # 3. cuDNN 确定性
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False  # 关闭自动算法搜索
+
+    # 4. DataLoader worker 种子
+    def worker_init_fn(worker_id):
+        worker_seed = torch.initial_seed() % 2**32
+        np.random.seed(worker_seed)
+        random.seed(worker_seed)
+
+    dataloader = DataLoader(..., num_workers=8, worker_init_fn=worker_init_fn)
+
+    # 5. 分布式 Sampler 的 shuffle
+    sampler = DistributedSampler(dataset, seed=SEED)
+
+    ### 注意事项
+
+    - 浮点数非结合性：由于GPU并行计算的非确定性顺序（如归约操作），即使所有随机种子相同，不同硬件或不同CUDA版本也可能导致微小差异（通常 < 1e-7）。完全bit-wise的复现几乎不可能，尤其在大规模分布式环境下。
+
+    - Dropout / 随机深度：这些层的随机性也受随机种子控制，种子固定后行为一致。
+
+    - 优化器状态初始化：Adam的m和v初始为0，不受种子影响；但若使用带噪的优化器（如NoisyAdam），则需种子。
+
+    - 数据增强：所有涉及随机性的增强（如图像随机裁剪、文本随机删除词）都需要由统一的种子控制。
+
+    ### 实践建议
+
+    追求统计可复现性（多次训练指标在可接受范围内波动）而非绝对比特级复现。当需要调试或对比消融实验时，固定种子是必须的；在最终大模型训练时，可以不固定数据加载种子以获得更好的数据多样性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Yto8wfa8ti5TgZktU1YczVp7nme
+  block_id: NESkdSTTgoZZOPxCEBCcaSncnRe
+  page_token: Yto8wfa8ti5TgZktU1YczVp7nme
+  original_title: 训练大模型时，如何保证可复现性？随机种子的设置有哪些注意事项？
+  imported_at: '2026-09-21'

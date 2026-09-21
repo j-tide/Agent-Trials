@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-10b82ef7aaa5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何利用backward hook实现梯度反转层？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何利用backward hook实现梯度反转层？
+answer:
+  mode: rubric
+  reference_answer: |-
+    梯度反转层（Gradient Reversal Layer, GRL）在正向传播时是恒等映射，反向传播时将梯度乘以一个负系数（通常为 −λ−λ），从而实现梯度的“反转”。它常用于对抗性训练，如领域自适应（Domain-Adversarial Neural Network, DANN），逼迫特征提取器学习到领域无关的表征。
+
+    在PyTorch中，可以通过 register_backward_hook 或更现代的方式（torch.autograd.Function）来实现。最稳定和推荐的方式是自定义一个 torch.autograd.Function，因为hook方式在某些情况下可能不够可靠。
+
+    实现（自定义Function）：
+
+    ```python
+    from torch.autograd import Function
+
+    class GradientReversal(Function):
+        @staticmethod
+        def forward(ctx, x, lambda_=1.0):
+            # 保存λ供反向使用
+            ctx.lambda_ = lambda_
+            return x.view_as(x)
+
+        @staticmethod
+        def backward(ctx, grad_output):
+            # 梯度乘以负的λ并返回（对于x的梯度）
+            return grad_output.neg() * ctx.lambda_, None  # 第二个梯度对应lambda_参数（不需要）
+
+    def grad_reverse(x, lambda_=1.0):
+        return GradientReversal.apply(x, lambda_)
+    ```
+
+    使用示例：
+
+    ```python
+    x = torch.randn(3, requires_grad=True)
+    y = grad_reverse(x, lambda_=0.1)
+    loss = y.sum()
+    loss.backward()
+    print(x.grad)  # 梯度被反转且缩放
+    ```
+
+    注意：使用 register_backward_hook 也可行，但需注意 hook 的签名，并且它直接修改梯度流。自定义 Function 更清晰、更可控。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HAxGwBLA5iBs8qkyVHtcDa23nug
+  block_id: XmUidWwwioWwb6xf52IclzDLnPf
+  page_token: HAxGwBLA5iBs8qkyVHtcDa23nug
+  original_title: 如何利用backward hook实现梯度反转层？
+  imported_at: '2026-09-21'

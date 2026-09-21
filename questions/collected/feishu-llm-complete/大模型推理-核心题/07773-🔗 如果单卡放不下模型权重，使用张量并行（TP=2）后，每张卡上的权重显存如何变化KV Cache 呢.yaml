@@ -1,0 +1,49 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d8f5cb27da3d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F517 如果单卡放不下模型权重，使用张量并行（TP=2）后，每张卡上的权重显存如何变化？KV Cache 呢？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: "\U0001F517 如果单卡放不下模型权重，使用张量并行（TP=2）后，每张卡上的权重显存如何变化？KV Cache 呢？"
+answer:
+  mode: rubric
+  reference_answer: "张量并行（TP）是将单个层的权重矩阵切分到多张 GPU 上，每张 GPU 只保存一部分权重，从而突破单卡显存限制。\n\n\U0001F9EE
+    权重显存变化\n\n对于绝大多数层（如 Attention 的 QKV 投影、FFN 的线性层），权重可以按列或按行切分。以 TP=2 为例：\n\n[图片内容未导入]\n\n-
+    按行切分：权重矩阵沿着输入维度切分，输入 X 需要先切分，每张卡计算后通过 All‑Reduce 汇总。\n\n无论哪种，每张卡上保存的权重总量大约是原始权重的
+    1/TP。对于 TP=2，每张卡权重显存从 14 GB 降为约 7 GB（不考虑切分引入的微小额外开销）。\n\n\U0001F9E0 KV Cache 的变化\n\nKV
+    Cache 的切分方式与 Attention 的头数切分一致。在 TP 中，通常会将注意力头平均分配到各 GPU。例如，32 个 Q 头，TP=2，每张卡负责
+    16 个 Q 头，同时 K 和 V 头也相应切分。因此，每张卡的 KV Cache 大小也是原来的 1/TP。这是因为每张卡只需要存储自己负责的那部分头的
+    KV 对。\n\n对于 GQA，Key 和 Value 头数更少，切分后每张卡的 KV Cache 也等比减少。\n\n\U0001F4E6 通信与激活\n\nTP
+    会引入额外的 All‑Reduce 通信（每层 1～2 次），这会增加延迟，但显存收益巨大。激活值的切分与权重类似，每张卡的激活内存也大致降为 1/TP。\n\n\U0001F4A1
+    结论：TP=2 时，每张卡的权重和 KV Cache 都大约减半，使得原本单卡装不下的模型得以运行。这正是 70B 模型能在 2×A100 上推理的原因。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C0pNwQLAmiNN2tkVnWGccLYLns0
+  block_id: MOpJdHGiwoZoa7xHhutcWCdWnMh
+  page_token: C0pNwQLAmiNN2tkVnWGccLYLns0
+  original_title: "\U0001F517 如果单卡放不下模型权重，使用张量并行（TP=2）后，每张卡上的权重显存如何变化？KV Cache 呢？"
+  imported_at: '2026-09-21'

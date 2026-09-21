@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b80781833a01
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: backward hook可以用来做什么？如何利用它调试梯度？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: backward hook可以用来做什么？如何利用它调试梯度？
+answer:
+  mode: rubric
+  reference_answer: |-
+    backward hook 在反向传播时触发，可以获取该层的输入梯度和输出梯度。它非常适合调试梯度、实现梯度修改（如梯度裁剪、反转）等。
+
+    注册方式：
+
+    ```python
+    def my_bwd_hook(module, grad_input, grad_output):
+        # grad_input: 包含该层输入梯度（即对前一层输出的梯度）的元组
+        # grad_output: 包含该层输出梯度（即来自下一层的梯度）的元组
+        print(f"Layer {module.__class__.__name__} grad_input[0] shape: {grad_input[0].shape}")
+        print(f"Layer {module.__class__.__name__} grad_output[0] shape: {grad_output[0].shape}")
+        # 可以返回修改后的grad_input元组，来改变传递给前一层的梯度（例如梯度反转）
+        # return modified_grad_input
+
+    hook_handle = model.layer1.register_backward_hook(my_bwd_hook)
+    ```
+
+    调试梯度：
+
+    - 检查 grad_input 是否出现 None 或全零，定位梯度消失问题。
+
+    - 检查 grad_output 的范数，当发生梯度爆炸时可以据此裁剪梯度。
+
+    - 打印梯度的统计量（均值、标准差、最小值、最大值），观察梯度流是否健康。
+
+    注意：
+
+    - backward_hook 的签名在 PyTorch 新版本中已更改为 (module, grad_input, grad_output) 不带额外参数。
+
+    - 对于某些操作（如 nn.Conv2d），grad_input 可能包含多个张量（权重梯度、偏置梯度、输入梯度），需要根据层类型区分。
+
+    - 在 backward_hook 中返回修改后的 grad_input 元组，可以实现梯度反转（GRL）或梯度缩放。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  block_id: ZPwVdTicLo7bgux19MHcmYd5n6c
+  page_token: Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  original_title: backward hook可以用来做什么？如何利用它调试梯度？
+  imported_at: '2026-09-21'

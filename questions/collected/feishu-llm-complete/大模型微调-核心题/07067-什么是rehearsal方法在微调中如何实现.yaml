@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5c253e5c3f03
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“rehearsal”方法？在微调中如何实现？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 什么是“rehearsal”方法？在微调中如何实现？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Rehearsal（经验回放） 是一种通过持续向模型“重放”旧任务的知识来减缓灾难性遗忘的技术。它借用了深度强化学习的术语，在LLM微调中被广泛用来保护模型的通用能力。
+
+    在微调中的实现方法：
+
+    - 维护一个回放缓冲区（Replay Buffer）：
+    这个缓冲区存放的不是SFT数据，而是从预训练数据中随机抽样出的、具有代表性的高质量通用文本（如维基百科段落、书籍、代码等）。缓冲区大小通常是SFT数据集的5%~20%。
+
+    - 混合采样训练（Interleaved Training）：
+    在每个训练batch中，除了从SFT数据集中采样外，还从回放缓冲区中随机采样一小部分（例如一个batch中10%的样本来自缓冲区，90%来自SFT数据）。这些预训练文本被当作普通的自回归语言建模任务来训练（无指令格式），即只计算文本部分的next-token prediction损失。
+
+    - 动态更新缓冲区：
+
+    - 损失计算与Masking：
+    预训练文本没有指令模板，通常直接将其作为纯文本序列，输入模型计算标准语言模型损失。需要确保不被SFT的损失掩码所干扰（即不对这部分进行掩码，或单独计算损失）。
+
+    作用：Rehearsal就像在微调过程中不断“温习”旧知识，让模型参数的更新不仅受到SFT数据的影响，还受到预训练文本的约束，从而有效缓解模型在适应新任务时对通用知识的遗忘。这是全参数微调时保护模型能力的标准操作。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/W8ymwxsGKimT6Fk1YIOcORI9nLe
+  block_id: PJVSdWnnpoqdQoxdi4Zcn6CKn7d
+  page_token: W8ymwxsGKimT6Fk1YIOcORI9nLe
+  original_title: 什么是“rehearsal”方法？在微调中如何实现？
+  imported_at: '2026-09-21'

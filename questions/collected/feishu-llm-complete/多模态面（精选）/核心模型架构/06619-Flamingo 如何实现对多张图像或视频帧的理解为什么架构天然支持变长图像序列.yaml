@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-166a454791bb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Flamingo 如何实现对多张图像或视频帧的理解？为什么架构天然支持变长图像序列？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 核心模型架构
+tags: &1
+- 多模态面（精选）
+- 核心模型架构
+content:
+  prompt: Flamingo 如何实现对多张图像或视频帧的理解？为什么架构天然支持变长图像序列？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Flamingo 的架构设计天然支持任意数量的图像或视频帧，其核心在于感知器重采样器（Perceiver Resampler） 和门控交叉注意力层的组合。
+
+    实现对多张图像或视频帧的理解：
+
+    - 视觉特征提取：对每张图片或每个视频帧，使用冻结的视觉编码器（如 CLIP ViT）提取特征图。对于视频，可以采样多帧。
+
+    - 感知器重采样器压缩：将一张图片或一个视频的所有帧（即多个视觉特征序列）送入一个共享的感知器重采样器。它使用固定数量（如 64 个）的可学习潜在查询向量，通过交叉注意力从这些变长的视觉特征序列中提取、压缩出固定数量（64 个）的视觉 token，代表该图片/视频的“视觉摘要”。
+
+    - 多图的统一处理：如果有多张图片，每张图片/视频都独立通过感知器重采样器，各自产生 64 个视觉 token。因此，N 张图片就会产生 N×64N×64 个视觉 token。
+
+    - 交错序列拼接：在文本序列中，通过 <image> 占位符标记图片位置。构建 LLM 输入时，将相应图片的 64 个视觉 token 直接插入到 <image> 标记之后（或替换它）。这样，LLM 看到的序列就是：[文本] [视觉token组1] [文本] [视觉token组2] ...。
+
+    架构天然支持变长图像序列的原因：
+
+    - 感知器重采样器处理变长输入：无论输入是 1 张图还是 100 帧视频，感知器重采样器都输出固定长度的视觉 token 序列。这完美解决了可变数量图像带来的序列长度不确定性。
+
+    - LLM 自注意力处理可变序列：LLM 本身是 Transformer，可以处理任何长度的序列（受限于上下文窗口）。多组固定长度的视觉 token 组与文本 token 交错拼接后，最终序列长度是确定的，LLM 直接处理即可。
+
+    - 门控交叉注意力进一步增强：Flamingo 在 LLM 的每一层插入了门控交叉注意力层，这些层直接以文本 token 为 query，从对应的视觉 token（由感知器重采样器提供）中检索信息。这为模型提供了另一条视觉信息通道，并且通过门控机制控制视觉信息的注入。
+
+    因此，Flamingo 不需要为不同数量的图片改变任何网络结构，通过感知器重采样器的固定输出长度，巧妙地将多图/视频统一成定长的视觉 token 组序列，天然支持变长视觉序列。这使其成为处理交错图文和视频理解的典范架构。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZVxdwilOdisAVMkysX3c0vaDnfb
+  block_id: GPy2drFQBoTVchxIQsscrAQInOc
+  page_token: ZVxdwilOdisAVMkysX3c0vaDnfb
+  original_title: Flamingo 如何实现对多张图像或视频帧的理解？为什么架构天然支持变长图像序列？
+  imported_at: '2026-09-21'

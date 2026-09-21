@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0afa55751194
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Tensor Cores 需要什么条件才能启用？(如矩阵尺寸对齐)
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: Tensor Cores 需要什么条件才能启用？(如矩阵尺寸对齐)
+answer:
+  mode: rubric
+  reference_answer: |-
+    Tensor Cores 是 NVIDIA GPU 中的专用硬件单元，专为加速矩阵乘加运算（D=A*B+C）而设计。要启用 Tensor Cores，需要满足以下条件：
+
+    精度要求：
+
+    - 输入矩阵必须为 FP16、BF16、TF32、INT8 或 INT4 等特定格式。FP32 的矩阵乘法不会使用 Tensor Cores（除非启用 TF32 模式，将 FP32 截断为 TF32 用于计算，结果仍为 FP32）。
+
+    矩阵尺寸对齐：
+
+    - 对于 FP16/BF16，矩阵的维度（m, n, k）需要对齐到 8 的倍数。这是因为 Tensor Core 每次处理一个固定大小的矩阵块（如 16×16×16）。如果不对齐，cuBLAS 会自动 padding 或回退到普通 CUDA Core 实现，导致性能大幅下降。
+
+    - 在实际模型设计中，隐藏维度（hidden_dim）通常设为 512、768、1024、4096 等 8 的倍数；注意力头数也设为 8 的倍数。这是专门为了最大程度利用 Tensor Cores。
+
+    其他条件：
+
+    - 使用 cuBLAS 或 cuDNN 等库调用，并在代码中启用 Tensor Cores（PyTorch 默认已开启）。
+
+    - 对于某些操作，需要显式设置 torch.backends.cuda.matmul.allow_tf32 = True（在 Ampere 及更新架构上）来允许使用 TF32。
+
+    为什么尺寸对齐很重要：如果矩阵尺寸不对齐，比如隐藏维度是 1025，那么 cuBLAS 无法高效地将其映射到 Tensor Core 的固定块上，只能回退到普通 CUDA Core，速度会慢 3-5 倍。因此，在设计模型结构时，始终将关键维度设为 8 或 16 的倍数。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HfoZwdjz1iRNmPkiI3icQQafnve
+  block_id: V6SndF8JWoivejxLcqScunApnig
+  page_token: HfoZwdjz1iRNmPkiI3icQQafnve
+  original_title: Tensor Cores 需要什么条件才能启用？(如矩阵尺寸对齐)
+  imported_at: '2026-09-21'

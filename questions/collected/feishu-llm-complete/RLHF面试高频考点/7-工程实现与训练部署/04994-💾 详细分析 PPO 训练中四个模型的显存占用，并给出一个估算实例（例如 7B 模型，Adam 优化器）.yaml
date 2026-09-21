@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a95e21be5308
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BE 详细分析 PPO 训练中四个模型的显存占用，并给出一个估算实例（例如 7B 模型，Adam 优化器）。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "\U0001F4BE 详细分析 PPO 训练中四个模型的显存占用，并给出一个估算实例（例如 7B 模型，Adam 优化器）。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    PPO 训练需要同时驻留 Actor、Critic、Reference、Reward Model 四个模型。我们以 7B 参数，FP16 混合精度，Adam 优化器 为例，列出显存账单。
+
+    单个模型的理论显存占用
+
+    [嵌入表格未展开]
+
+    PPO 中四个模型的角色与显存需求
+
+    - Actor：需要训练，存权重 + 梯度 + 优化器状态。若有 LoRA，仅 LoRA 参数可训练，底座权重冻结（无梯度、无优化器状态），大幅降低。
+
+    - Critic：同 Actor，通常需要训练，全参数或部分参数。
+
+    - Reference：纯推理，冻结，仅需 FP16 权重。
+
+    - Reward Model：纯推理，冻结，仅需 FP16 权重。
+
+    最小显存消耗方案（LoRA + 共享底座）
+
+    假设：
+
+    - Actor 和 Critic 共享底座，使用 LoRA（r=16），可训练参数仅 ~0.2% 总参数，约 14M。
+
+    - 底座权重（7B）冻结，FP16 常驻，不需梯度/优化器状态。
+
+    - Ref 和 RM 也共享同一底座，或分别加载（若兼容）。
+
+    显存估算：
+
+    [嵌入表格未展开]
+
+    若不用 LoRA，全参数训练 Actor+Critic，则 Actor 和 Critic 各自需 84 GB，完全不现实。因此实际大规模 RLHF 必须用 LoRA 或 ZeRO 分片。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NjChwugaCicZr4kcCfocK8KMnid
+  block_id: MIvJdc40MoGoXOxHPnacwGKbn5e
+  page_token: NjChwugaCicZr4kcCfocK8KMnid
+  original_title: "\U0001F4BE 详细分析 PPO 训练中四个模型的显存占用，并给出一个估算实例（例如 7B 模型，Adam 优化器）。"
+  imported_at: '2026-09-21'

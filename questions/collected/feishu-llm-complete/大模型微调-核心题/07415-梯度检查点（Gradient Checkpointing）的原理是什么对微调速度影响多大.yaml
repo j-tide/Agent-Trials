@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-49cc3c9ef0bb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 梯度检查点（Gradient Checkpointing）的原理是什么？对微调速度影响多大？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 梯度检查点（Gradient Checkpointing）的原理是什么？对微调速度影响多大？
+answer:
+  mode: rubric
+  reference_answer: |-
+    梯度检查点（Gradient Checkpointing）是一种“用时间换空间”的技术。在全参数微调中，显存的一大杀手是中间激活值（activations）——前向传播时每一层的输出都需要保留，供反向传播计算梯度。梯度检查点通过选择性丢弃部分中间激活，并在反向传播时重新计算它们，从而将显存峰值大幅降低，代价是增加了额外的计算量。
+
+    原理
+
+    - 前向传播时，不保存所有层的完整激活，而是将网络划分为若干个“检查点段”（通常每个Transformer Block就是一个段）。在每个段的边界，强制保存该段的输入张量（即检查点），而段内各层的中间结果全部丢弃。
+
+    - 反向传播时，当需要计算段内某一层的梯度时，利用之前保存的检查点输入，重新执行一次该段的前向计算，临时恢复出所需的中间激活，然后立即计算梯度并释放这些临时激活。
+
+    - 这样，显存中不再需要同时存储整个模型的激活，而只需存储每个检查点的输入（通常很小）以及当前正在处理的段的临时激活。显存复杂度从 O(n) 降到 O(√n) 或更低。
+
+    对微调速度的影响
+
+    梯度检查点会显著增加计算量，从而降低训练速度。具体影响取决于检查点的粒度：
+
+    - 如果每个Transformer Block作为一段，那么反向传播时每个Block都需要重计算一次前向。这意味着额外的前向计算量约等于整个模型的一次前向，因此总训练时间大约增加 25% ~ 30%。
+
+    - 如果使用更粗粒度的分段（如每两个Block一个检查点），则额外计算量减少，但节省的显存也会减少。
+
+    - 在实际微调中，尤其是结合FlashAttention等高效注意力实现，梯度检查点的额外开销往往被部分掩盖，因为重计算过程中的矩阵乘法依然高度并行。但无论如何，它是对训练吞吐量有明显影响的操作。
+
+    使用建议
+
+    - 全参数微调时，梯度检查点几乎是必选项，尤其是当序列长度较长或batch size较大时。否则激活显存轻易就会撑爆80GB的A100。
+
+    - 可通过权衡：如果显存充足，可适当减少检查点粒度（如每两个Block一个检查点）以提升速度；如果显存紧张，则必须细化到每个Block甚至更细（如选择性检查点，仅对注意力层做重计算）。
+
+    - 它与FlashAttention、序列并行等技术协同，可将显存峰值压到最低。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: CAIxdwSUWoMe0OxyGoOcZYlhn7g
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 梯度检查点（Gradient Checkpointing）的原理是什么？对微调速度影响多大？
+  imported_at: '2026-09-21'

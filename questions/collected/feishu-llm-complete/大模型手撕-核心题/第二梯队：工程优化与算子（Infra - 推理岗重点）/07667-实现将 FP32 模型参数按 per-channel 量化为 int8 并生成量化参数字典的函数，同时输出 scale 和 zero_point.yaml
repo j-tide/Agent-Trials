@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0055a5ef15ce
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现将 FP32 模型参数按 per-channel 量化为 int8 并生成量化参数字典的函数，同时输出 scale 和 zero_point。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现将 FP32 模型参数按 per-channel 量化为 int8 并生成量化参数字典的函数，同时输出 scale 和 zero_point。
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    对模型的每一个可量化权重（如 nn.Linear 的 weight），按输出通道进行对称量化，得到 int8 权重和 per-channel scale。将这些信息打包成字典，便于后续部署或反量化。
+
+    ```python
+    def quantize_model_weights(model, bits=8):
+        quant_state = {}
+        for name, module in model.named_modules():
+            if isinstance(module, nn.Linear):
+                W = module.weight.data  # [out_features, in_features]
+                # per-channel 对称量化
+                qmax = 2**(bits-1) - 1
+                max_per_ch = torch.max(torch.abs(W), dim=1).values
+                scales = max_per_ch / qmax
+                scales[scales==0] = 1e-8
+                W_int = torch.round(W / scales.unsqueeze(1)).clamp(-qmax, qmax).to(torch.int8)
+                # 存储
+                quant_state[name + '.weight'] = {'int': W_int, 'scale': scales, 'bits': bits}
+                # 对于 bias，通常不量化，保留原样
+                if module.bias is not None:
+                    quant_state[name + '.bias'] = module.bias.data.clone()
+        return quant_state
+
+    # 使用
+    model = SimpleNet()
+    q_state = quantize_model_weights(model)
+    ```
+
+    反量化重建：
+
+    ```python
+    def dequantize_model(model, q_state):
+        for name, module in model.named_modules():
+            if isinstance(module, nn.Linear):
+                w_info = q_state[name + '.weight']
+                W_fp = w_info['int'].float() * w_info['scale'].unsqueeze(1)
+                module.weight.data.copy_(W_fp)
+    ```
+
+    这样即可将模型权重转换为 int8 并存储为字典，用于后续的量化推理或微调。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: HmjZddUhnotGbYxVUsccaboTndh
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 实现将 FP32 模型参数按 per-channel 量化为 int8 并生成量化参数字典的函数，同时输出 scale 和 zero_point。
+  imported_at: '2026-09-21'

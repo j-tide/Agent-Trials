@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2f2c160f1311
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "“上下文感知解码”如何抑制幻觉？举例说明。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型幻觉面
+derived_topic: 
+tags: &1
+- 大模型幻觉面
+content:
+  prompt: "“上下文感知解码”如何抑制幻觉？举例说明。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    上下文感知解码指在解码过程中，不仅利用语言模型自身的概率分布，还显式地将生成内容的上下文相关性和忠实度信号作为约束或偏置项，加入到token选择中，从而抑制偏离给定上下文的幻觉。
+
+    实现方式与示例：
+
+    （1）上下文-生成一致性奖励
+
+    - 方法：在每一步生成时，对候选token评估其与给定源文（或对话历史）的语义一致性。例如，使用一个轻量的交叉注意力模块或NLI模型实时计算“如果选择该token，整体生成句被源文蕴含的概率”。将此概率作为奖励加到模型原始logits上。
+
+    - 示例：对于摘要任务，当模型在解码“该药物可治疗……”时，若源文中并未提及“治疗”任何疾病，而提到了“缓解”，那么“治疗”的上下文一致性得分会很低，会被抑制，而“缓解”会被增强，从而抑制了夸大事实的幻觉。
+
+    （2）拷贝机制增强与约束
+
+    - 方法：在解码时，提高从源文中直接拷贝token的概率，降低生成源文外新token的意愿。尤其对数字、命名实体、日期等关键信息，通过修改logits，大幅提升与源文匹配的token分数。
+
+    - 示例：在回答“爱因斯坦出生于哪年”且上下文提供了“1879”时，解码到年份时，token“1”、“8”、“7”、“9”的概率被强制拔高，防止模型根据自身知识输出“1878”等错误记忆。
+
+    （3）注意力引导与聚焦
+
+    - 方法：强制解码器在生成某些片段时，将注意力集中在源文的相关部分。如果注意力权重偏离源文关键区，则施加惩罚。这确保了生成内容在“注视”源文的前提下产出，减少了无据想象。
+
+    - 示例：在多轮对话中，当用户问“我之前提到的那个地方”，通过上下文感知解码，模型被引导聚焦回对话历史中最早提及地名的区域，而不是随机生成一个新地名。
+
+    （4）上下文感知的重复惩罚
+
+    - 方法：自适应地调整重复惩罚。如果某个token在源文中不常出现，但模型却要重复使用它，则加大惩罚；而在需要忠实复现源文术语的场景（如翻译专业名词），则减小惩罚。
+
+    核心思想：上下文感知解码将“生成什么”部分地从“语言模型先验”转移到“输入上下文约束”上，显式地对抗自回归模型容易遗忘源文、依赖自身参数的倾向。这是一种强有效的忠实性幻觉抑制策略。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Irfsw2cRail5NekqfrKci2KYn4T
+  block_id: H7fydeHUkoKCuMx3VQXckdvtnHg
+  page_token: Irfsw2cRail5NekqfrKci2KYn4T
+  original_title: "“上下文感知解码”如何抑制幻觉？举例说明。"
+  imported_at: '2026-09-21'

@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-207bf4cc3ab7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ZeRO-1 是如何分片优化器状态的？每个 GPU 存 1/N 的优化器状态，更新时怎么办？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: ZeRO-1 是如何分片优化器状态的？每个 GPU 存 1/N 的优化器状态，更新时怎么办？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO-1将优化器状态（Adam的m和v、FP32主权重）按参数维度均匀切分到所有数据并行的GPU上。假设有8张卡，每张卡只存储1/8的优化器状态，也只负责更新对应分片的参数。但前向和反向传播仍需要完整的模型参数，这就需要在计算和更新之间建立一套精确的通信机制。
+
+    前向和反向传播阶段：与标准数据并行完全相同。每张卡都持有完整的FP16模型参数（ZeRO-1不改变参数的存储方式），处理自己的微批次数据，独立执行前向和反向传播，计算完整的梯度。这个阶段ZeRO-1不做任何干预，训练吞吐与标准DP完全一致。
+
+    优化器更新阶段：这是ZeRO-1发挥作用的关键时刻。每张卡拥有完整的梯度，但只拥有1/N的优化器状态。为了正确更新，需要经过三个步骤：
+
+    第一步：ReduceScatter梯度分片。各卡将本地计算的完整梯度进行ReduceScatter操作。这个操作先按参数分片维度将所有卡的梯度求和（Reduce），然后将归约后的结果按分片规则“散落”（Scatter）到各卡——每张卡只得到自己负责那部分参数的全局梯度。例如，卡0只保留参数分区0的梯度，卡1只保留分区1的梯度。通信数据量等于梯度总大小。
+
+    第二步：本地更新。每张卡用自己分到的梯度，更新本地持有的1/N优化器状态（m、v），并进一步更新对应的FP32主权重。这一步完全在本地进行，无需通信。
+
+    第三步：AllGather参数同步。更新完成后，每张卡拥有更新后的参数分片。为了让所有卡重新获得完整的模型参数（用于下一轮前向传播），需要执行AllGather——每张卡将自己更新后的参数分片广播给所有其他卡，同时接收其他卡的分片。通信数据量等于参数总大小。
+
+    简单来说，ZeRO-1用一次ReduceScatter和一次AllGather，换取了优化器状态显存的8倍压缩。这两次通信的总数据量约为28GB（对于7B模型），而标准DP仅需一次梯度AllReduce（14GB），通信量翻了一倍。但因为优化器状态通常是最大的显存消耗源（占112GB中的84GB），这个代价在大模型训练中是完全值得的。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: W3mfdo7u8oBIbLxByKKcqpxYnI2
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: ZeRO-1 是如何分片优化器状态的？每个 GPU 存 1/N 的优化器状态，更新时怎么办？
+  imported_at: '2026-09-21'

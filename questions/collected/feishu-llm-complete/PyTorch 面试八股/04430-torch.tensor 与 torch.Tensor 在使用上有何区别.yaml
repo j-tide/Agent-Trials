@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d751fba0921b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: torch.tensor 与 torch.Tensor 在使用上有何区别？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: torch.tensor 与 torch.Tensor 在使用上有何区别？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是一个非常经典的“陷阱”问题。torch.tensor 是一个函数，而 torch.Tensor 是一个类。这个区别看似微小，但在实际编码中至关重要。
+
+    - torch.tensor(data)（函数）
+
+    - 数据拷贝：它会为传入的data创建一个全新的副本，并推断其数据类型。
+
+    - 灵活性：你可以通过dtype参数强制指定返回的张量类型，实现int到float的转换。
+
+    - 推荐用法：这是目前PyTorch官方推荐的构造方式，因为它的行为是确定的、可预测的。
+
+    - torch.Tensor(data)（类构造器）
+
+    - 数据共享：如果传入的data是一个Python列表，行为与torch.tensor类似。但如果传入一个NumPy数组，它会尽可能地共享内存，而不是拷贝。这意味修改原始NumPy数组会影响到张量，反之亦然。
+
+    - 类型锁定：当传入Python列表时，torch.Tensor会强制将其转换为全局默认的张量类型（torch.float32），无论原始列表是什么类型。它不接受dtype参数，无法在构造时改变类型。这个行为非常隐蔽，很容易导致输入整数却得到浮点数的bug。
+
+    ```python
+    import numpy as np
+
+    # 场景1：传入 Python 列表
+    data_list = [1, 2, 3]
+    a = torch.tensor(data_list)   # 推断为 torch.int64
+    b = torch.Tensor(data_list)   # 强制变为 torch.float32 ！这是bug之源
+
+    # 场景2：传入 NumPy 数组
+    data_np = np.array([1.0, 2.0, 3.0], dtype=np.float64)
+    c = torch.tensor(data_np)     # 拷贝并转换为 float32 (默认) 或保留 float64
+    d = torch.Tensor(data_np)     # 共享内存，张量类型为 torch.float64
+    data_np[0] = 99.0
+    print(d[0])  # 输出 99.0，张量随之改变
+    ```
+
+    结论：除非你明确需要torch.Tensor的内存共享特性或创建未初始化张量，否则在所有场景下都应使用 torch.tensor 或 torch.as_tensor。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Vf94wFO62ij7vwkGFVbcOxpdnRe
+  block_id: R77AdAK5WontlCxbiZvcRVNEnTg
+  page_token: Vf94wFO62ij7vwkGFVbcOxpdnRe
+  original_title: torch.tensor 与 torch.Tensor 在使用上有何区别？
+  imported_at: '2026-09-21'

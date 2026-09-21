@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-af5a34f365e1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F5A5️ 如何使用 CPU Offload 将 Ref 和 Reward 模型卸载到系统内存，以减少 GPU 显存压力？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "\U0001F5A5️ 如何使用 CPU Offload 将 Ref 和 Reward 模型卸载到系统内存，以减少 GPU 显存压力？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    CPU Offload 是将不参与梯度更新的模型（Ref、RM）的权重和计算迁移到 CPU 内存，只在需要时临时拷贝到 GPU，用完后立即释放。
+
+    实现方式：
+
+    - 手动管理：用 PyTorch 的 .to('cpu') / .to('cuda') 切换模型位置。
+
+    - 框架集成：DeepSpeed Inference、Accelerate 的 cpu_offload，可自动将推理模型权重放在 CPU，并在前向时逐层加载到 GPU 执行，然后卸载下一层。
+
+    优势：
+
+    - Ref 和 RM 完全冻结，只需推理。它们占用 14 GB × 2 = 28 GB GPU 显存，卸载后这笔显存被释放，可用于增大 Actor/Critic 的 batch size 或序列长度。
+
+    - 与训练流水线重叠：Ref/RM 的计算可与 GPU 上的训练异步，进一步隐藏延迟。
+
+    开销：
+
+    - CPU→GPU 数据传输受 PCIe 带宽限制（~16-32 GB/s），对于大模型会有明显延迟。优化手段：逐层加载，每次只传一层权重，隐藏在前向计算中；或对 Ref/RM 使用量化，减少传输量。
+
+    实践技巧：将 Ref 和 RM 部署在单独的 CPU 推理服务（如 llama.cpp），通过网络将 prompt/response 发送过去获取奖励，完全隔离 GPU 资源。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NjChwugaCicZr4kcCfocK8KMnid
+  block_id: PSrxdGndTosFvoxMBt9ckamgnjg
+  page_token: NjChwugaCicZr4kcCfocK8KMnid
+  original_title: "\U0001F5A5️ 如何使用 CPU Offload 将 Ref 和 Reward 模型卸载到系统内存，以减少 GPU 显存压力？"
+  imported_at: '2026-09-21'

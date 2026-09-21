@@ -1,0 +1,132 @@
+---
+schema_version: 1
+id: feishu-llm-complete-50e4e62cd1d9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 用 LangGraph 实现多工具 ReAct Agent，如何处理工具调用失败和重试？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: 用 LangGraph 实现多工具 ReAct Agent，如何处理工具调用失败和重试？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度：⭐⭐⭐（错误处理、重试策略、容错设计）
+
+    1️⃣ Common Answer：
+
+    工具调用失败的时候可以捕获异常，然后重试几次。如果还是失败就告诉用户工具不可用。可以用 try-except 包裹工具调用，设置一个重试次数计数器。
+
+    2️⃣ Impressive Answer：
+
+    处理工具调用失败需要分层设计：工具层重试、节点层容错、图层降级。核心是区分临时性错误（网络超时、限流）和永久性错误（参数错误、权限不足），采用不同的处理策略。
+
+    三层容错架构：
+
+    第一层：工具层重试（针对临时性错误）
+
+    from tenacity import retry, stop_after_attempt, wait_exponential
+    from langchain.tools import tool
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10)
+    )
+    @tool
+    def search_weather(city: str) -> str:
+        """查询城市天气"""
+        response = requests.get(f"https://api.weather.com/{city}")
+        response.raise_for_status()
+        return response.json()
+
+    第二层：节点层容错（工具节点统一处理）
+
+    def tool_node(state: AgentState) -> AgentState:
+        """工具调用节点，统一处理错误和重试"""
+        tool_calls = state["messages"][-1].get("tool_calls", [])
+
+        for tool_call in tool_calls:
+            try:
+                result = tools[tool_call["name"]].invoke(tool_call["args"])
+                state["messages"].append({
+                    "role": "tool",
+                    "tool_call_id": tool_call["id"],
+                    "content": str(result)
+                })
+            except Exception as error:
+                error_type = classify_error(error)
+                if error_type == "temporary":
+                    state["tool_errors"].append({
+                        "tool_call": tool_call,
+                        "error": str(error),
+                        "error_type": "temporary"
+                    })
+                    state["retry_count"] += 1
+                else:
+                    state["messages"].append({
+                        "role": "tool",
+                        "tool_call_id": tool_call["id"],
+                        "content": f"工具调用失败（{error_type}）：{str(error)}"
+                    })
+        return state
+
+    第三层：图层降级（超过重试次数后切换策略）
+
+    def should_continue(state: AgentState) -> str:
+        temp_errors = [e for e in state["tool_errors"] if e["error_type"] == "temporary"]
+        if temp_errors and state["retry_count"] < 3:
+            return "retry"
+        if state["retry_count"] >= 3:
+            return "fallback"
+        return "continue"
+
+    # 降级节点：优先用缓存，其次询问用户
+    def fallback_node(state: AgentState) -> AgentState:
+        cached_result = get_cached_result(state["tool_errors"][0]["tool_call"])
+        if cached_result:
+            state["messages"].append({
+                "role": "system",
+                "content": f"工具调用失败，使用缓存结果：{cached_result}"
+            })
+        else:
+            state["messages"].append({
+                "role": "assistant",
+                "content": f"工具调用失败，能否直接提供需要的信息？"
+            })
+        return state
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BGoPwvMLhic7wKkrioacP0oynIh
+  block_id: doxcnsguowbCmwtz75cIYZj4rFc
+  page_token: BGoPwvMLhic7wKkrioacP0oynIh
+  original_title: 用 LangGraph 实现多工具 ReAct Agent，如何处理工具调用失败和重试？
+  imported_at: '2026-09-21'

@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a66cb3187cad
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F504 3. Agent 服务发布时，有正在进行的 SSE 长连接和 LLM 调用，如何实现无损下线？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: "\U0001F504 3. Agent 服务发布时，有正在进行的 SSE 长连接和 LLM 调用，如何实现无损下线？"
+answer:
+  mode: rubric
+  reference_answer: "这才是今天的重头戏。无损下线不是简单地调个配置，而是一套 “流量摘除 → 存量排空 → 进程退出” 的组合拳。\n\n3.1
+    无损下线的前置工作：注册中心摘除（最关键的第一步）\n\n服务实例准备下线时，必须先通知注册中心（Nacos/Eureka/Consul）把自己标记为不健康或直接摘除，让负载均衡不再分配新流量。这一步通常由
+    k8s preStop hook 或发布系统回调完成。\n\n```yaml\n# k8s 示例\nlifecycle:\n  preStop:\n    exec:\n
+    \     command:\n        - curl\n        - -X POST\n        - http://localhost:8080/actuator/service-registry?status=DOWN\n```\n\n这样，在
+    Spring 容器关闭之前，新请求已经进不来了，为存量请求的处理争取了时间窗口。\n\n3.2 优雅停机配置 + 主动资源清理\n\n在前面基础配置之上，我们要专门处理
+    SSE 和 LLM 调用的持久性逻辑。\n\n针对 SSE 长连接\nSSE 本质是一个永远不会结束的 HTTP 请求，返回 SseEmitter。如果服务器直接关闭，客户端会报错。我们需要主动完成它。\n\n-
+    做法：监听 ContextClosedEvent 或实现 SmartLifecycle，在容器关闭时，遍历你维护的所有活跃的 SseEmitter 集合。\n\n-
+    向每个 SseEmitter 发送一个自定义的“服务即将停止”事件（如 {event: \"shutdown\", data: \"bye\"}），然后调用
+    emitter.complete()。\n\n- 同时，你可以将 SseEmitter 超时设置为和 timeout-per-shutdown-phase
+    接近的值，保证整体不卡死。\n\n```java\n@Component\npublic class SseSessionManager implements
+    ApplicationListener<ContextClosedEvent> {\n    private final List<SseEmitter>
+    emitters = new CopyOnWriteArrayList<>();\n    \n    @Override\n    public void
+    onApplicationEvent(ContextClosedEvent event) {\n        for (SseEmitter emitter
+    : emitters) {\n            try {\n                emitter.send(SseEmitter.event().name(\"shutdown\").data(\"服务即将重启\"));\n
+    \               emitter.complete();\n            } catch (Exception e) {\n                emitter.completeWithError(e);\n
+    \           }\n        }\n        emitters.clear();\n    }\n}\n```\n\n针对 LLM 调用\n\nLLM
+    调用通常是异步或阻塞调用，必须等待它返回或达到超时。\n\n- 如果你的 LLM 调用使用线程池（AsyncTaskExecutor），需要配合 SmartLifecycle
+    停止线程池。\n\n- 必须确保线程池关闭前，会尝试让现有任务执行完毕（调用 shutdown() 再 awaitTermination）。\n\n- 同时，利用
+    OpenFeign 或 RestTemplate 的超时设置，避免无限期挂起。设置请求连接超时和读取超时，比如 10 秒，那么停机时最多等 10 秒。\n\n3.3
+    给下线操作留出时间缓冲\n\n即使配置了优雅停机，也要在容器编排层面预留时间。k8s 的 terminationGracePeriodSeconds 建议大于
+    spring.lifecycle.timeout-per-shutdown-phase 加上一点缓冲，例如设成 45 秒，避免被强制 SIGKILL。\n\n整体下线时序图（简单文字描述）\n\n-
+    preStop: 标记 /actuator/health 返回 OUT_OF_SERVICE。\n\n- 等待约 5 秒（视流量情况而定），让注册中心同步，不再有新请求进入。\n\n-
+    发送 SIGTERM，触发 ShutdownHook，Spring 开始优雅关闭。\n\n- ContextClosedEvent 发布 → 自定义监听器主动完成
+    SSE 连接并通知客户端。\n\n- SmartLifecycle.stop() 按顺序关闭线程池、等待 LLM 任务完成或超时。\n\n- 内嵌 Web
+    服务器 phase 最高，最后才 stop，此时所有存量请求已处理完毕。\n\n- 进程结束，容器退出。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NHwYwCwRDiPz1OkM3b9cXNBinUd
+  block_id: doxcn3YlZITCmLuh6Ujmsksq0Ke
+  page_token: NHwYwCwRDiPz1OkM3b9cXNBinUd
+  original_title: "\U0001F504 3. Agent 服务发布时，有正在进行的 SSE 长连接和 LLM 调用，如何实现无损下线？"
+  imported_at: '2026-09-21'

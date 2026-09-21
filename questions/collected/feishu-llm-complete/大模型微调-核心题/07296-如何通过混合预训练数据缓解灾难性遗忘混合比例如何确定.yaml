@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-081d936eb6d3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何通过混合预训练数据缓解灾难性遗忘？混合比例如何确定？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如何通过混合预训练数据缓解灾难性遗忘？混合比例如何确定？
+answer:
+  mode: rubric
+  reference_answer: |-
+    混合预训练数据（也称为经验回放或数据重放）是一种简单却极其有效的缓解灾难性遗忘的方法。它通过在微调过程中定期或持续地重放预训练阶段见过的通用文本，提醒模型“不要忘记你是谁”。
+
+    实现方式
+
+    - 从预训练语料库（如维基百科、书籍、高质量网页等）中随机抽取一个子集，构建回放数据集。
+
+    - 在SFT的每个训练batch中，除了SFT样本外，还以一定比例混入这些通用文本。这些文本直接作为标准的自回归语言建模任务：输入文本片段，模型预测下一个token，计算交叉熵损失。
+
+    - 通用文本的损失和SFT任务的损失可以直接相加，联合优化。
+
+    为什么有效？
+
+    从优化角度看，SFT数据的梯度将参数拉向新任务的狭窄区域，而通用文本的梯度则提供了指向预训练分布广袤区域的“修正力”。两者共同作用，使得参数的更新方向不是纯粹沿着SFT梯度，而是两者的加权平均。这相当于在损失曲面上施加了一个指向预训练盆地的“锚”，防止参数完全脱离旧知识的谷底。
+
+    混合比例的确定
+
+    - 典型范围：预训练数据的比例通常占每个batch的 5% ~ 20%。
+
+    - 全量微调时：遗忘风险高，建议比例取 10% ~ 15%。例如，一个batch有128条序列，其中约13~19条是通用文本，其余为SFT数据。
+
+    - PEFT时：遗忘风险低，比例可降至 1% ~ 5%，甚至可不混。
+
+    - 依据遗忘程度动态调整：先尝试用10%进行一轮微调，评估模型在通用基准（如MMLU）上的得分变化。如果通用能力下降超过2个百分点，则提高比例至15%或20%；如果SFT任务学习变慢，则适当降低比例。
+
+    - 数据质量：混合的预训练数据必须经过筛选，确保高质量、无有害内容，且与目标领域有一定的距离，以避免引入新的偏差。
+
+    - 平衡SFT任务学习：比例过高会稀释SFT信号，导致微调目标学习不充分。可以通过监控SFT验证集损失和通用基准，找到两者兼得的平衡点。
+
+    实践技巧：不必每个epoch都使用相同的回放数据。可以定期更新回放数据集，以覆盖更广的预训练分布，增强锚定效果。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: YBUtd1dMKoRPhTx6xWmcCp6enfd
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 如何通过混合预训练数据缓解灾难性遗忘？混合比例如何确定？
+  imported_at: '2026-09-21'

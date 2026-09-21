@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f81adb95994f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 2.1 哨兵机制
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Redis
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Redis
+content:
+  prompt: 2.1 哨兵机制
+answer:
+  mode: rubric
+  reference_answer: "### 哨兵模式的工作原理\n\n### \U0001F6E1️ 1. Redis 哨兵模式的主要作用是什么？\n\nRedis
+    Sentinel（哨兵）是 Redis 官方提供的高可用方案。它并不是一个代理，而是一组运行在特殊模式下的 Redis 进程，它们共同完成四项核心任务：监控、自动故障转移、通知和配置提供者。\n\n[图片内容未导入]\n\n①
+    监控\n哨兵会周期性地向所有主库、从库以及其它哨兵实例发送 PING 命令，检查它们是否在线。如果某个实例在规定时间内没有响应，哨兵会将其标记为“主观下线”。\n\n②
+    自动故障转移\n\n当哨兵发现主库被判定为“客观下线”后，它会在从库中选出一个最优的作为新主库，然后让其它从库去复制新主库，并通知客户端新的主库地址。整个过程无需人工干预。这是哨兵最重要的价值。\n\n③
+    通知\n哨兵可以将故障转移的结果、主库切换等事件通过 Pub/Sub 消息推送给客户端，或者调用管理员配置的脚本（如 client-reconfig-script），实现告警和自动化运维。\n\n④
+    配置提供者\n客户端可以连接任意一个哨兵，询问“当前主库的地址是什么？”。哨兵会返回当前活跃的主库 IP 和端口。这样客户端就不需要在配置里写死主库地址，实现了服务发现。在
+    Spring Data Redis、Lettuce 等客户端中，可以配置 redis-sentinel:// 协议，让客户端自动获取主库地址并订阅切换事件。\n\n示例代码：客户端连接哨兵获取主库地址\n\nfrom
+    redis.sentinel import Sentinel\n\nsentinel = Sentinel([('localhost', 26379), ('localhost',
+    26380), ('localhost', 26381)])\n# 获取当前主库的连接\nmaster = sentinel.master_for('mymaster',
+    socket_timeout=0.1)\nmaster.set('key', 'value')\nprint(master.get('key'))\n\n###
+    ⚖️ 2. 哨兵如何判断主节点客观下线？\n\n哨兵判断主库“真正死了”需要两步：从 主观下线（SDOWN） 到 客观下线（ODOWN）。这一步非常谨慎，因为如果只有一个哨兵网络波动就触发主从切换，会造成不必要的抖动。\n\n主观下线
+    (SDOWN)                客观下线 (ODOWN)\n───────────────                ───────────────\n单个哨兵自己认为
+    master 挂了      多个哨兵投票认为 master 挂了\n                                 (达到 quorum
+    票数)\n\n1. Sentinel-1 发现 master 超时\n   → 标记为 SDOWN\n2. Sentinel-1 向其他哨兵询问: \"你们觉得
+    master 还活着吗？\"\n   → 命令: SENTINEL is-master-down-by-addr <ip> <port>\n3. 其他哨兵回复自己的判断
+    (SDOWN or not)\n4. Sentinel-1 统计投票:\n   if 同意的票数 >= quorum:\n       将 master 标记为
+    ODOWN\n       开始故障转移流程\n\n具体的判断过程：\n\n- 主观下线判定：每个哨兵每秒向其监控的所有主库、从库、哨兵发送 PING。如果在
+    down-after-milliseconds 毫秒内没有收到有效回复（PONG、LOADING 或 MASTERDOWN），该哨兵就认为该节点“主观下线”。这个参数对主库和从库是同一个值，通常设置为
+    30 秒左右。\n\n- 客观下线判定：某个哨兵将主库标记为 SDOWN 后，它会向其它哨兵发送 SENTINEL is-master-down-by-addr
+    命令，询问它们对该主库状态的判断。当至少 quorum 个哨兵都认为主库是 SDOWN 时，当前哨兵就将主库标记为 ODOWN，并立即发起一次投票选举自己成为领导者（Leader），由
+    Leader 执行故障转移。\n\nquorum 与 majority（多数）的区别：\n\n- quorum：用来判定“主库是否客观下线”的最小票数。可以设置为小于多数（如
+    quorum=2，5 个哨兵），但不能小于 2。\n\n- majority：用于选举 Leader 所需的最小票数，公式为 N/2 + 1（N 为哨兵数量）。例如
+    3 个哨兵时 majority = 2，5 个哨兵时 majority = 3。\n\n示例配置：\n\n# sentinel.conf\nsentinel
+    monitor mymaster 192.168.1.10 6379 2  # 最后一位是 quorum\nsentinel down-after-milliseconds
+    mymaster 30000\n\n### \U0001F32A️ 3. 生产环境中有 3 个哨兵，配置 quorum=2，如果 1 个哨兵网络分区，会发生什么？\n\n我们先明确场景：3
+    个哨兵，quorum=2，有一个哨兵（Sentinel-3）因为网络分区被隔离了——它无法与其它两个哨兵以及主库通信，但其他两个哨兵和主库、从库之间网络正常。\n\n[图片内容未导入]\n\n分步行为分析：\n\n第一阶段：分区发生，主观下线判断\n\n-
+    Sentinel-3 发现与主库的连接也断了（因为它自己网络不通），它会将主库标记为 SDOWN。\n\n- Sentinel-3 尝试向 Sentinel-1
+    和 Sentinel-2 询问“主库是否下线”，但由于网络不通，得不到回复。它自己的票数只有 1，无法达到 quorum=2，所以 Sentinel-3 不会将主库标记为
+    ODOWN，更不会发起故障转移。\n\n- 同时，Sentinel-1 和 Sentinel-2 与主库、从库之间网络正常，它们并没有觉得主库有问题。所以
+    Sentinel-1 和 Sentinel-2 不会标记 SDOWN，也不会触发 ODOWN。\n\n结论：此时系统不会发生故障转移。 被分区的 Sentinel-3
+    处于“孤立无援”的状态，既不能推动客观下线，也无法选举自己为 Leader，因为 Leader 选举需要 majority 票数（3 个哨兵中需要 2 票），它一个人凑不够。\n\n第二阶段：如果故障同时发生在主库\n\n假设就在这个分区期间，主库真的宕机了。Sentinel-1
+    和 Sentinel-2 检测到主库 SDOWN，然后互相询问，得票 2 >= quorum，将主库标记为 ODOWN。接着，Sentinel-1 和 Sentinel-2
+    开始选举 Leader：两个哨兵中 majority = 2，它们互相投票可以选出 Leader（比如 Sentinel-1 获得 2 票，其中自己投自己一票，Sentinel-2
+    投一票），然后 Leader 执行故障转移，将一个从库提升为新主库。\n\n此时，被分区的 Sentinel-3 仍然认为旧主库是 SDOWN，但它无法干扰正常的故障转移流程，因为它与多数派隔离。当
+    Sentinel-3 网络恢复后，它会从其他哨兵那里得知新的主库信息，并更新自己的元数据，不会造成脑裂。\n\n第三阶段：极端情况——主库与多数哨兵分区\n\n如果分区发生在“主库
+    + 1 个哨兵”与“两个从库 + 2 个哨兵”之间。被分区的哨兵只有 1 个，它无法将主库判定为 ODOWN（票数不够）。而多数派的 2 个哨兵发现主库不可达，它们会达成一致，将主库标记为
+    ODOWN，并选举 Leader 执行故障转移，把一个从库提升为新主库。\n\n此时会产生 短暂的双主：旧主库在分区侧可能仍接受写入（因为它的客户端还在），新主库在多数派侧接受写入。当网络分区恢复后，旧主库会被哨兵降级为从库，并同步新主库的数据，旧主库在分区期间写入的数据将丢失。这正是
+    Redis 的主从异步复制本质决定的。\n\n如何避免这种数据丢失？\n可以配置 min-replicas-to-write 和 min-replicas-max-lag：当主库发现可用的从库数量低于阈值时，拒绝写入，从而在分区时避免孤立的旧主库产生脏数据。\n\n#
+    redis.conf\nmin-replicas-to-write 1\nmin-replicas-max-lag 10\n\n总结： 在 3 哨兵 + quorum=2
+    的配置下，单个哨兵的网络分区不会导致故障转移，也不会产生脑裂（多数派哨兵会正确决策）。但如果同时发生主库与多数派的分区，则会出现短暂的写入丢失风险——这是任何基于异步复制的系统都需面对的权衡。为此，合理的
+    quorum 和 min-replicas-to-write 配置，以及客户端对 Sentinel 切换事件的及时响应，是保障数据安全与高可用的关键。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WYybwaFDnib3uYkGNzpcRvJsnzd
+  block_id: doxcnUTNHejwJPYCG1ESY1hflQw
+  page_token: WYybwaFDnib3uYkGNzpcRvJsnzd
+  original_title: 2.1 哨兵机制
+  imported_at: '2026-09-21'

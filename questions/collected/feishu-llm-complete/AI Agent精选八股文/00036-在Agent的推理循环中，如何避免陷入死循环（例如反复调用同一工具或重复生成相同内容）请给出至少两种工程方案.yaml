@@ -1,0 +1,109 @@
+---
+schema_version: 1
+id: feishu-llm-complete-25de4459a540
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 7.在Agent的推理循环中，如何避免陷入“死循环”（例如反复调用同一工具或重复生成相同内容）？请给出至少两种工程方案。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 
+tags: &1
+- AI Agent精选八股文
+content:
+  prompt: 7.在Agent的推理循环中，如何避免陷入“死循环”（例如反复调用同一工具或重复生成相同内容）？请给出至少两种工程方案。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### 方案一：循环检测与中断机制（基于历史轨迹分析）
+
+    在每次推理步骤后，检查当前执行轨迹是否与历史步骤构成循环。如果检测到循环，则强制中断并采取补救措施。
+
+    具体实现：
+
+    - 记录调用指纹
+    对每一步的工具调用生成一个指纹（fingerprint），包括：工具名称 + 参数的规范化哈希（忽略时间戳等动态字段）。例如：
+
+    def get_fingerprint(tool_name, params):
+        # 对参数排序并序列化，确保相同语义产生相同指纹
+        sorted_params = json.dumps(params, sort_keys=True)
+        return hashlib.md5(f"{tool_name}:{sorted_params}".encode()).hexdigest()
+
+    - 维护调用序列与集合
+
+    - 循环判定逻辑
+
+    - 中断与补救
+    当检测到循环时：
+
+    优点：无需修改模型，纯工程实现，通用性强。
+
+    缺点：需要定义合理的阈值（阈值太小可能误杀正常的多轮交互，太大则循环持续太久）。
+
+    ---
+
+    ### 方案二：状态机约束 + 工具调用预算（有限状态自动机）
+
+    将 Agent 的推理过程建模为一个有限状态机（FSM），并在每个状态下限制可用的工具集合及调用次数。这能从根本上防止进入无意义的循环。
+
+    具体实现：
+
+    - 定义状态
+    例如一个客服 Agent 的状态：
+
+    - 定义状态转移规则
+
+    - 调用预算
+    为每个状态分配最大工具调用次数：
+
+    state_budget = {
+        "START": 1,
+        "GATHERING_INFO": 3,
+        "RESOLVING": 2
+    }
+
+    - 一旦某状态下的调用次数超过预算，自动推进到下一个状态或终止。
+
+    - 在提示词中嵌入状态规则
+    将当前状态和允许的工具列表注入到每次 LLM 调用的系统消息中：
+
+    - 工程实现
+    在 Agent 的主循环中，维护 state 和 call_count_in_state。每次模型请求工具时，检查是否允许该工具、是否超限、是否触发状态转移。如果违反规则，则强制覆盖模型的输出（例如拒绝调用，要求直接回答）。
+
+    优点：从设计层面限制循环，对模型依赖小，可预测性强。
+
+    缺点：需要针对不同任务预先设计状态机，不够通用；复杂任务的状态定义可能繁琐。
+
+    ---
+
+    ### 两种方案的对比与选择
+
+    [嵌入表格未展开]
+
+    最佳实践：两者结合使用。用状态机预算作为主防机制，防止模型在某个阶段过度调用工具；再用循环检测作为兜底，捕获状态机未覆盖的异常循环（例如模型在不同工具间来回跳转）。
+
+    另外，最简单但有效的技巧是：在系统提示词中显式加入“禁止重复”指令，例如：“如果你发现已经调用过相同的工具且参数相同，请直接基于之前的结果回答，不要再重复调用。” 虽然模型不一定严格遵守，但能显著降低循环概率。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M526wldNTiQFB3kmM2mcFsoaneh
+  block_id: I7DadNqppotDbkxWvYMc5r5Rnhg
+  page_token: M526wldNTiQFB3kmM2mcFsoaneh
+  original_title: 7.在Agent的推理循环中，如何避免陷入“死循环”（例如反复调用同一工具或重复生成相同内容）？请给出至少两种工程方案。
+  imported_at: '2026-09-21'

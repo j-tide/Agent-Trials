@@ -1,0 +1,111 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a51fe31ef76b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在注意力分数上添加 ALiBi 线性偏置，编写生成头相关斜率的函数，并实现无位置编码的长序列注意力。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 在注意力分数上添加 ALiBi 线性偏置，编写生成头相关斜率的函数，并实现无位置编码的长序列注意力。
+answer:
+  mode: rubric
+  reference_answer: |-
+    9.1 ALiBi 原理
+
+    ALiBi（Attention with Linear Biases）不依赖可学习的位置编码，而是直接在注意力分数上添加一个与距离成线性关系的负偏置。每个注意力头有一个独特的斜率，控制其对远距离依赖的惩罚程度。这使得模型可以外推至比训练时更长的序列。
+
+    斜率通常取几何级数，如对于 num_heads 个头，斜率为 2^(-8/num_heads * i) （i 从 1 开始）或类似方案。
+
+    9.2 代码实现
+
+    ```python
+    def get_alibi_slopes(num_heads):
+        """生成每个头的ALiBi斜率"""
+        def power_sequence(n, start=1):
+            # 产生 2^(-8/n * i) 序列
+            return torch.tensor([2**(-8 / n * (i + 1)) for i in range(n)])
+        return power_sequence(num_heads)  # shape (num_heads,)
+
+    class AlibiSelfAttention(nn.Module):
+        def __init__(self, hidden_dim, num_heads, dropout=0.1):
+            super().__init__()
+            self.hidden_dim = hidden_dim
+            self.num_heads = num_heads
+            self.head_dim = hidden_dim // num_heads
+            self.slopes = get_alibi_slopes(num_heads)  # (num_heads,)
+
+            self.qkv_proj = nn.Linear(hidden_dim, 3 * hidden_dim, bias=False)
+            self.out_proj = nn.Linear(hidden_dim, hidden_dim, bias=False)
+            self.dropout = nn.Dropout(dropout)
+
+        def forward(self, x, key_padding_mask=None):
+            B, seq_len, _ = x.shape
+            qkv = self.qkv_proj(x)
+            q, k, v = qkv.chunk(3, dim=-1)
+            q = q.view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+            k = k.view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+            v = v.view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+
+            scale = math.sqrt(self.head_dim)
+            attn_scores = torch.matmul(q, k.transpose(-2, -1)) / scale
+
+            # 构建ALiBi偏置矩阵
+            # 距离矩阵: (seq_len, seq_len)
+            device = x.device
+            positions = torch.arange(seq_len, device=device)
+            dists = positions.unsqueeze(0) - positions.unsqueeze(1)  # (L, L)
+            # 只惩罚未来位置（或双向均可，此处实现单向因果）
+            causal_mask = torch.tril(torch.ones(seq_len, seq_len, device=device))
+            alibi_bias = -self.slopes.view(-1, 1, 1) * dists.abs().unsqueeze(0)  # (H, L, L)
+            alibi_bias = alibi_bias.masked_fill(causal_mask == 0, float('-inf'))
+
+            attn_scores = attn_scores + alibi_bias.unsqueeze(0)  # (B, H, L, L)
+
+            if key_padding_mask is not None:
+                attn_scores = attn_scores.masked_fill(
+                    key_padding_mask.unsqueeze(1).unsqueeze(2), float('-inf')
+                )
+
+            attn_weights = F.softmax(attn_scores, dim=-1)
+            attn_weights = self.dropout(attn_weights)
+            attn_output = torch.matmul(attn_weights, v)
+
+            attn_output = attn_output.transpose(1, 2).contiguous().view(B, seq_len, -1)
+            return self.out_proj(attn_output)
+    ```
+
+    9.3 长序列外推
+
+    由于 ALiBi 的偏置是线性的，模型在训练时习得每个头对距离的敏感度，推理时遇到更长序列，该线性偏置依然适用，无需额外修改。这相比 RoPE 等需要插值的方法更为简洁。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTpnwxWMsiVDwIkIoX0c1TU4ned
+  block_id: Jq7Wdg9NboiF0JxEHRrc5VOnnxb
+  page_token: QTpnwxWMsiVDwIkIoX0c1TU4ned
+  original_title: 在注意力分数上添加 ALiBi 线性偏置，编写生成头相关斜率的函数，并实现无位置编码的长序列注意力。
+  imported_at: '2026-09-21'

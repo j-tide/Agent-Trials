@@ -1,0 +1,96 @@
+---
+schema_version: 1
+id: feishu-llm-complete-636ae11e8719
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何从断点恢复训练？需要保存和加载哪些内容？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何从断点恢复训练？需要保存和加载哪些内容？
+answer:
+  mode: rubric
+  reference_answer: |-
+    从断点恢复训练需要完整地保存训练状态，而不仅仅是模型权重。这包括：
+
+    - 模型参数：model.state_dict()
+
+    - 优化器状态：optimizer.state_dict()（包含动量、方差等）
+
+    - 学习率调度器状态：scheduler.state_dict()
+
+    - 训练进度：当前的 epoch 和 global_step
+
+    - 随机数状态：torch.random.get_rng_state() 以及 cuda 和 numpy 的随机状态，以确保数据增强和 dropout 的可复现。
+
+    - 数据加载器状态（可选，较复杂）：对于 IterableDataset 流式数据，可能需要记录文件偏移量；对于 Map-style 数据集，DistributedSampler 需要设置正确的 epoch。
+
+    保存检查点：
+
+    ```python
+    checkpoint = {
+        'epoch': epoch,
+        'global_step': global_step,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'scheduler_state_dict': scheduler.state_dict(),
+        'loss': current_loss,
+        'rng_states': {
+            'torch': torch.random.get_rng_state(),
+            'cuda': torch.cuda.get_rng_state_all(),
+            'numpy': np.random.get_state(),
+        }
+    }
+    torch.save(checkpoint, f'checkpoint_epoch_{epoch}.pt')
+    ```
+
+    恢复训练：
+
+    ```python
+    checkpoint = torch.load('checkpoint_epoch_10.pt')
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+    start_epoch = checkpoint['epoch'] + 1
+
+    # 恢复随机种子（关键！）
+    torch.random.set_rng_state(checkpoint['rng_states']['torch'])
+    torch.cuda.set_rng_state_all(checkpoint['rng_states']['cuda'])
+    np.random.set_state(checkpoint['rng_states']['numpy'])
+    ```
+
+    注意事项：
+
+    - 在分布式训练中，torch.save 通常只在 rank0 执行，避免多卡同时写入冲突。
+
+    - 恢复时，分布式环境必须与保存时完全一致（卡数、模型并行策略），否则状态字典的键可能不匹配。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SlZHw2a2fiQQVBkkXXscts3znGd
+  block_id: J7padwRQio6vkIx3kBLceQPwnSf
+  page_token: SlZHw2a2fiQQVBkkXXscts3znGd
+  original_title: 如何从断点恢复训练？需要保存和加载哪些内容？
+  imported_at: '2026-09-21'

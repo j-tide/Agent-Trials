@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-982a8aacaea4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: RAG 检索到错误文档如何诱发幻觉？模型是否应具有甄别能力？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型幻觉面
+derived_topic: 
+tags: &1
+- 大模型幻觉面
+content:
+  prompt: RAG 检索到错误文档如何诱发幻觉？模型是否应具有甄别能力？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在RAG（检索增强生成）中，检索组件可能因索引质量、查询模糊或知识库污染而返回与事实不符或无关的文档。如果模型盲从这些错误文档，就会产生来源幻觉。
+
+    诱发的幻觉类型：
+
+    - 直接事实污染：检索到的文档含有虚假陈述，模型将其视为可靠来源进行引用和生成，产出事实性幻觉。
+
+    - 无关文档的强制整合：检索出的文档与问题相关但不包含答案，模型为了“使用检索结果”，强行从文档中拼凑出看似合理的回答，表现为无据推理的幻觉。
+
+    - 文档冲突时的错误选择：多个文档给出矛盾信息，模型可能选择了错误的一方，或者混合二者生成混乱的回答。
+
+    - 伪造引用：文档虽真，但模型生成的答案超出了文档内容，却仍标注源自该文档，形成来源幻觉。
+
+    模型应具备甄别能力吗？
+
+    是的，理想情况下模型必须发展出对检索文档的甄别能力。 这包括：
+
+    - 相关性判断：识别检索文档是否与问题实质相关，如果不相关，应忽略而非强行使用。
+
+    - 权威性评估：能够在多文档冲突时，依据权威特征（如来源可信度）选择性采信或提出冲突。
+
+    - 证据充分性检查：判断文档中是否包含回答所需的充分证据。若不足，应表达不确定性或要求更多信息，而非编造。
+
+    - 自我校验与拒答：当检索文档都不支持任何可靠回答时，模型应能够说“提供的资料无法回答该问题”。
+
+    当前实现路径：
+
+    - 训练数据构造：在RAG微调数据中，混入错误、无关、矛盾文档，训练模型在这种情况下生成“无法回答”或“信息冲突”等恰当回应，而不是盲从。
+
+    - 检索后过滤：引入轻量级 NLI 或交叉编码器，在生成前过滤掉不相关或低质文档，重新查询或裁剪。
+
+    - 引用强制与归因：训练模型生成时必须逐句标注引用，并用 NLI 自动检测引用支撑度，对于不支撑的句子进行惩罚或剔除。
+
+    - 两阶段生成：第一阶段模型先输出对检索文档的分析（是否相关、是否充足），第二阶段再生成最终答案，把甄别过程显式化。
+
+    给模型注入甄别能力是 RAG 走向鲁棒和可信的关键一步，能将检索噪声转化为抗幻觉的训练信号，而不是幻觉的催化剂。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QE2VwXQi9iNrtQkMDCMcYxdJn2g
+  block_id: GaISdF5baoVQUdxyHP7ccd3Knae
+  page_token: QE2VwXQi9iNrtQkMDCMcYxdJn2g
+  original_title: RAG 检索到错误文档如何诱发幻觉？模型是否应具有甄别能力？
+  imported_at: '2026-09-21'

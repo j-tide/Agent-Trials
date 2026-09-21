@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d2d5ffad953b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 混合精度训练中，视觉编码器、投影层和 LLM 分别适合使用 FP16 还是 BF16？为什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 混合精度训练中，视觉编码器、投影层和 LLM 分别适合使用 FP16 还是 BF16？为什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    FP16 vs BF16 的核心区别：FP16有5位指数，范围窄（±65,504），易溢出；BF16有8位指数，与FP32动态范围相同，不易溢出，但尾数精度低。
+
+    [嵌入表格未展开]
+
+    详细解释：
+
+    视觉编码器处理连续像素值，不同图像亮度、对比度差异大，导致浅层激活值的范围变化剧烈。FP16可能在极亮或极暗图像上溢出。此外，ViT中的LayerNorm和Softmax在FP16下若未特殊处理（如转为FP32计算），容易产生NaN。因此视觉编码器强烈建议使用BF16。若硬件不支持BF16，则需对视觉编码器的关键层（如Softmax、LayerNorm）保持FP32，其余用FP16。
+
+    LLM经过充分预训练，其激活值分布已被Batch/Layer Normalization规范化，动态范围相对稳定。BF16足以覆盖，且LLM更关注吞吐而非单层精度，BF16是标准选择。
+
+    投影层连接两者，视觉token的分布受视觉编码器影响。为保险起见，跟随视觉侧使用BF16。
+
+    实践建议：现代A100/H100均支持BF16，全模型使用BF16是最稳定高效的选择。在仅支持FP16的V100上，需对视觉编码器关键层启用FP32。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  block_id: UGZqd0fJjoJ63Vx1RLLcAieonEW
+  page_token: KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  original_title: 混合精度训练中，视觉编码器、投影层和 LLM 分别适合使用 FP16 还是 BF16？为什么？
+  imported_at: '2026-09-21'

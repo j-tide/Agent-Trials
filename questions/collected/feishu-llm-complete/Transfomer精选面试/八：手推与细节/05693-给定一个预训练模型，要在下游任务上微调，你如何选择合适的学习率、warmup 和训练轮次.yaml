@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-446f2e7f8e9f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 给定一个预训练模型，要在下游任务上微调，你如何选择合适的学习率、warmup 和训练轮次？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 八：手推与细节
+tags: &1
+- Transfomer精选面试
+- 八：手推与细节
+content:
+  prompt: 给定一个预训练模型，要在下游任务上微调，你如何选择合适的学习率、warmup 和训练轮次？
+answer:
+  mode: rubric
+  reference_answer: |-
+    学习率：
+
+    - 对于大模型的 full fine-tuning，学习率通常比预训练小 1~2 个数量级，如预训练 lr=3e-4，微调可设为 5e-5~5e-6，防止破坏预训练表征。
+
+    - 若使用 LoRA 或 Adapter 微调，学习率可适当提高（如 1e-4~5e-4），因为只训练少量参数。
+
+    - 方法：先跑一个小 grid search，在 {1e-5, 2e-5, 5e-5, 1e-4} 中测试，选择验证集最好的。可以使用 learning rate finder（逐步增大 lr 并记录 loss，选择下降最快区间）。
+
+    Warmup：
+
+    - 微调通常需要较少的 warmup，但若训练数据较少或学习率较大，设置 5%~10% 的步数作为 warmup 可防止初期梯度破坏权重。
+
+    - 对于全量微调，warmup 比例可设 0%~5%；对于 LoRA，可不设或设少量步数。
+
+    训练轮次：
+
+    - 取决于数据量大小。小数据集（几千条）一般 3~20 个 epoch，中型数据集可 1~5 个 epoch。
+
+    - 使用 early stopping 结合 dev 指标，patience 设为 3~5 个 epoch。
+
+    - 注意：过多轮次容易过拟合，尤其当数据量少时。
+
+    - 可以预先固定一个较大的轮次，但用验证指标保存最佳模型。
+
+    实操流程：
+
+    - 固定 batch size（硬件允许最大），选择合适的优化器（AdamW）。
+
+    - 小范围搜索学习率，同时设置 5% warmup 和余弦衰减。
+
+    - 根据验证曲线调整：若 loss 快速下降后平坦，可适当增加轮次；若上升，提前停止。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EBHXwK722iy3IFk6JHScIo6cn2g
+  block_id: Vgj4dMP6po5qvrxk4F8cfw0An3g
+  page_token: EBHXwK722iy3IFk6JHScIo6cn2g
+  original_title: 给定一个预训练模型，要在下游任务上微调，你如何选择合适的学习率、warmup 和训练轮次？
+  imported_at: '2026-09-21'

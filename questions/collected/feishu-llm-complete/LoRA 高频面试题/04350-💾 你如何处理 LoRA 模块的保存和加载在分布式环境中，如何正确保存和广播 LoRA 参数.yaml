@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f2615359a2a3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BE 你如何处理 LoRA 模块的保存和加载？在分布式环境中，如何正确保存和广播 LoRA 参数？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LoRA 高频面试题
+derived_topic: 
+tags: &1
+- LoRA 高频面试题
+content:
+  prompt: "\U0001F4BE 你如何处理 LoRA 模块的保存和加载？在分布式环境中，如何正确保存和广播 LoRA 参数？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    处理 LoRA 模块的保存加载，尤其是在分布式环境中，核心在于理解“哪些参数需要保存”以及“如何避免参数冗余”。
+
+    - 保存和加载标准实践
+
+    - 使用官方 API：坚决使用 model.save_pretrained("path") 和 PeftModel.from_pretrained(base_model, "path")。这确保 LoRA 配置（adapter_config.json）和权重（adapter_model.safetensors）被完整保存和加载，避免了手动处理权重字典可能导致的不兼容风险。
+
+    - 只保存可训练参数：LoRA 保存时只包含 A,B 矩阵和 LayerNorm 等附加训练参数，体积极小。坚决不要保存整个模型权重。
+
+    - 分布式环境下的保存策略
+
+    - DDP (DataParallel)：每个进程都持有完整的一套 LoRA 参数。为防止写入冲突，必须在保存前加一个屏障 dist.barrier()，并指定只有 rank 0 执行 save_pretrained。其他 rank 跳过保存，因为所有 rank 的 LoRA 参数在同步后是完全一致的。
+
+    - ZeRO-3 + LoRA：ZeRO-3 会将基座模型参数分片，但 LoRA 参数是独立的。在 DeepSpeed 中，必须使用 model.save_checkpoint(output_dir) 来保存整个训练状态。如果只想保存 LoRA 权重，需要先调用 deepspeed.zero.GatheredParameters 将所有分片的基座参数在内存中临时重组，然后提取出 LoRA 参数进行保存。这是一个常见陷阱，直接 save_pretrained 在 ZeRO-3 下可能导致基座权重不完整。
+
+    - 广播加载：加载 LoRA 权重时，让所有 rank 都读取同一个文件，然后 PyTorch 的 load_state_dict 会自然地加载到各自的模型中。LoRA 权重参数不通过 PyTorch 的 DistributedDataParallel 的梯度同步机制广播，而是通过文件系统共享或显式的 broadcast_object_list 在内存中广播。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XjiewYcvci750Gkvcqyc01XBnDc
+  block_id: Q4gMdYLvroZhxvxHJMscFCuJnkd
+  page_token: XjiewYcvci750Gkvcqyc01XBnDc
+  original_title: "\U0001F4BE 你如何处理 LoRA 模块的保存和加载？在分布式环境中，如何正确保存和广播 LoRA 参数？"
+  imported_at: '2026-09-21'

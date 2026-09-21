@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cabc0b1a958e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“混合并行”？DP、TP、PP 三者的组合原则。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 什么是“混合并行”？DP、TP、PP 三者的组合原则。
+answer:
+  mode: rubric
+  reference_answer: |-
+    混合并行是将数据并行（DP）、张量并行（TP）和流水线并行（PP）组合在一起，以训练单卡无法容纳的巨型模型。三种并行策略各有侧重，组合的核心原则是扬长避短，逐级扩展。
+
+    三者特点对比表：
+
+    [嵌入表格未展开]
+
+    组合原则：
+
+    - TP优先节点内：TP的通信发生在每个Transformer层内部，频率极高（每层2次AllReduce），数据量也大。节点内NVLink带宽可达900 GB/s，远高于跨节点IB网络（通常25-50 GB/s每卡）。因此TP几乎总是被限制在单个节点内部，并行度不超过单节点GPU数（如8）。
+
+    - PP跨节点，但注意气泡：PP的通信是层间的点对点传输，频率低（每个微批次每层边界一次），通信量也较小。PP可以跨节点，但受限于流水线深度和气泡率。通常PP的并行度不宜过大（10~20），以减少气泡开销。
+
+    - DP作为全局扩展维度：DP的通信是梯度AllReduce，发生在整个训练步结束时，可以利用通信与计算重叠（DDP）。DP可以跨大量节点扩展，且与ZeRO结合可显著降低单卡显存冗余。在3D并行中，DP通常是最大并行维度，负责扩展到数百甚至数千卡。
+
+    - 层级叠加顺序：通常先设定TP（如8卡节点内），再设定PP（如16个流水线阶段），最后将剩余的卡全部用于DP。三个维度的乘积应等于总GPU数量。
+
+    组合实例分析：
+
+    假设有1024张A100 GPU，单机8卡，共128台节点。
+
+    - TP=8（占用1个节点，所有节点内部采用相同的TP切分）
+
+    - PP=16（需要16个TP组串联成流水线，占用16个节点）
+
+    - DP=1024/(8×16)=8（8个这样的16节点流水线组做数据并行）
+
+    这样，DP=8, TP=8, PP=16，实现了3D并行。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: Myjbdpy37oCjrzxD9rUckb79nmg
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: 什么是“混合并行”？DP、TP、PP 三者的组合原则。
+  imported_at: '2026-09-21'

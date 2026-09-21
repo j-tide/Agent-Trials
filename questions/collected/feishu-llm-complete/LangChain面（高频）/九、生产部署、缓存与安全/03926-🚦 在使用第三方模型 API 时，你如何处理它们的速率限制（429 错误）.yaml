@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3db0c470f461
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6A6 在使用第三方模型 API 时，你如何处理它们的速率限制（429 错误）？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F6A6 在使用第三方模型 API 时，你如何处理它们的速率限制（429 错误）？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    429错误是API调用中不可避免的障碍，处理原则是：主动限流避免触发，触发后优雅重试。
+
+    - 主动限流（预防）：在应用层设置令牌桶或固定窗口限流，使请求速率始终低于API限额。例如，OpenAI RPM为3500，我们在Nginx层和FastAPI中间件层设置每实例每分钟不超过3000请求，留出余量。
+
+    - 动态调整并发：使用 asyncio.Semaphore 限制并发调用数，避免瞬时高峰。当接近限额时，自动减少并发，将请求排队。
+
+    - 捕获与重试：当请求返回429时，根据响应头 Retry-After（如果有）等待指定秒数后重试。若无此头，则使用指数退避策略。LangChain的 AsyncOpenAI 客户端默认会进行一定次数的重试，但退避策略不够灵活，通常需要自定义。
+
+    - 熔断机制：当连续429错误超过阈值时，触发熔断，暂时停止所有请求，等待一段时间再恢复。避免在API已经过载的情况下继续增加压力，甚至被暂时封禁。
+
+    - 多账号负载均衡：对于高频应用，可以申请多个API Key，通过路由将请求分散到不同Key上，每个Key的速率限制独立计算。可借助LiteLLM等代理实现。
+
+    实践：我们曾因一个爬虫工具瞬间发送大量请求，导致OpenAI返回大量429，并短暂封禁了我们的Key。事后我们实现了令牌桶限流和指数退避重试，并增加了主动监控，一旦剩余配额低于阈值，立即告警并降低并发，此后再未出现因限流导致的服务中断。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WzEDwedwxiXAD4kdXdjcKjdQnCe
+  block_id: IvqOdKRp5oognexzJ9GcZUMnndg
+  page_token: WzEDwedwxiXAD4kdXdjcKjdQnCe
+  original_title: "\U0001F6A6 在使用第三方模型 API 时，你如何处理它们的速率限制（429 错误）？"
+  imported_at: '2026-09-21'

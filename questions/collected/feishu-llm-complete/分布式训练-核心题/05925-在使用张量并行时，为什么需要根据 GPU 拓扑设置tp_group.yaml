@@ -1,0 +1,46 @@
+---
+schema_version: 1
+id: feishu-llm-complete-948a36a4090b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 40.在使用张量并行时，为什么需要根据 GPU 拓扑设置“tp_group”？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 40.在使用张量并行时，为什么需要根据 GPU 拓扑设置“tp_group”？
+answer:
+  mode: rubric
+  reference_answer: |-
+    张量并行（TP）需要在每一层的前向和反向进行多次 AllReduce 或 AllGather，通信量巨大且频率极高。如果参与 TP 的 GPU 不在同一高带宽域（如跨节点），那么慢速链路会立即成为训练瓶颈，导致 GPU 大量空闲。因此，tp_group 必须严格限制在物理拓扑中最快的互联组内。
+
+    GPU 拓扑通常分层：节点内通过 NVLink/NVSwitch 全互联，带宽极高（如 600 GB/s per GPU）；跨节点则依赖 InfiniBand，带宽低一个数量级（如 25-50 GB/s）。如果将 TP 组设置在跨节点，那些频繁的 AllReduce 将全部通过 IB，延迟高、带宽低，导致训练速度骤降。所以，通常 tp_group 的大小等于节点内的 GPU 数量（如 8），且通过设置环境变量或 DeepSpeed 配置确保这些 GPU 处于同一 NVSwitch 域。
+
+    实践：在 Megatron 或 DeepSpeed 中，初始化时根据 local_rank 和节点内 GPU 拓扑自动形成 tp_group，也可以手动指定。确保 tp_group 内的 rank 对应的 GPU 能通过 NVLink 高效通信。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XxBHwhYPNiVrDYkSIHCccehWn72
+  block_id: NpRfdBKzyoVMW6xM5urcSrxNnfc
+  page_token: XxBHwhYPNiVrDYkSIHCccehWn72
+  original_title: 40.在使用张量并行时，为什么需要根据 GPU 拓扑设置“tp_group”？
+  imported_at: '2026-09-21'

@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7ad922466b7d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 微调后模型在通用基准（如MMLU）上下降，可能的原因和解决方向？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 微调后模型在通用基准（如MMLU）上下降，可能的原因和解决方向？
+answer:
+  mode: rubric
+  reference_answer: |-
+    微调后模型在MMLU这类覆盖57个学科的知识密集型基准上得分下降，是灾难性遗忘和行为偏差的共同体现。可能的原因和解决方向如下：
+
+    可能原因：
+
+    - 灾难性遗忘：SFT数据分布通常较窄，且训练轮数过多、学习率过大时，模型会过度适应微调任务，而丧失预训练阶段积累的广泛知识。这是最主要的原因。
+
+    - 输出格式偏差：SFT可能彻底改变了模型的输出风格。例如，模型被训练得过于“热情”，对MMLU的选择题不是直接输出答案“A”，而是输出一段冗长的解释，导致自动化评分脚本无法匹配正确答案，造成“假性遗忘”。
+
+    - 安全对齐的过度保守：如果SFT数据中包含了大量拒绝回答或表达不确定性的样本，模型可能会将对MMLU中一些有争议或它不确定的题目也采取保守策略（如拒绝回答或给出模糊结论），从而丢分。
+
+    - 捷径学习的副作用：预训练模型可能在MMLU上高分，是因其学会了某些表面统计关联（如选项长度、词频）。SFT覆盖了这些捷径，迫使模型更深层理解，但能力暂时没跟上，导致分数短期下降。
+
+    - 数据污染的反向效果：如果预训练模型的高分部分来自于数据污染（即MMLU原题泄漏到了预训练语料），那么SFT可能恰好“遗忘”了这些泄漏的原题，分数表现为真实的、不可避免的下降。
+
+    解决方向：
+
+    - 混合预训练数据进行SFT：在SFT数据中混入5%-10%的预训练高质量文本（如维基百科），起到“知识锚定”作用，是缓解遗忘最直接有效的方法。
+
+    - 严格控制训练强度：使用更小的学习率（如1e-6），并严格早停，通常在1-2个epoch内完成微调。
+
+    - 使用PEFT（参数高效微调）：如LoRA，从根源上冻结预训练参数，几乎完全避免遗忘。
+
+    - 调整输出格式：在SFT数据中，也加入一些要求“直接输出答案”的指令，教会模型在需要简洁时保持简洁。推理时也可通过系统提示引导。
+
+    - 分维度评估：逐学科分析MMLU的下降情况。如果是全面下降，那是遗忘；如果只是某几类下降，可能是数据偏差。这能帮助精准定位问题。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/W8ogw5bIzisu3CkICRmcGngqnWc
+  block_id: UkXvdDJlKoJ7NvxtHfYcRcFYn1e
+  page_token: W8ogw5bIzisu3CkICRmcGngqnWc
+  original_title: 微调后模型在通用基准（如MMLU）上下降，可能的原因和解决方向？
+  imported_at: '2026-09-21'

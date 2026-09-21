@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1b10cc928a59
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分析一下不使用任何显存优化技术时，一个 7B 模型在 FP16 下的理论训练显存需求。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 四：训练优化与稳定性
+tags: &1
+- Transfomer精选面试
+- 四：训练优化与稳定性
+content:
+  prompt: 分析一下不使用任何显存优化技术时，一个 7B 模型在 FP16 下的理论训练显存需求。
+answer:
+  mode: rubric
+  reference_answer: |-
+    模型 7B 参数，假设优化器为 Adam，无梯度检查点、无 CPU Offload、无模型并行。FP16 混合精度训练（FP16 参数和梯度，FP32 优化器状态和主副本）：
+
+    - 参数（FP16）：7B × 2 = 14 GB
+
+    - 梯度（FP16）：14 GB（在反向时存在，可与参数同时占用）
+
+    - 优化器状态（FP32 momentum + variance）：7B × 4 × 2 = 56 GB
+
+    - 主副本参数（FP32）：7B × 4 = 28 GB
+
+    - 激活值：取决于序列长度、批次大小。以 2048 tokens，batch size=1 为例，每层激活约需 50-100 MB，若 32 层，则约 1.6-3.2 GB；注意力矩阵会额外占用较大内存。总激活可能在 5-15 GB。
+
+    总计峰值约 14+14+56+28+10 ≈ 122 GB（若梯度与参数不同时，可略少，但优化器和主副本必须常驻）。这显存需求远超单张 A100 80GB，必须使用张量并行或 ZeRO 等分布式技术。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/E82jwDMh9ihtDhkHbRYcE2JCnNe
+  block_id: ZFQMdxm8foWqYnxNyScccKP7nwX
+  page_token: E82jwDMh9ihtDhkHbRYcE2JCnNe
+  original_title: 分析一下不使用任何显存优化技术时，一个 7B 模型在 FP16 下的理论训练显存需求。
+  imported_at: '2026-09-21'

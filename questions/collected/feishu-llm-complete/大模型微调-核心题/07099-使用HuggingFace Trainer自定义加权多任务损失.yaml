@@ -1,0 +1,90 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0b9c58032ed6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用HuggingFace Trainer自定义加权多任务损失
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 使用HuggingFace Trainer自定义加权多任务损失
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    from transformers import Trainer
+    import torch.nn.functional as F
+
+    class WeightedMultiTaskTrainer(Trainer):
+        def __init__(self, task_weight_dict, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.task_weight_dict = task_weight_dict  # e.g. {'code': 2.0, 'chat': 1.0}
+
+        def compute_loss(self, model, inputs, return_outputs=False):
+            labels = inputs.pop("labels")
+            # 取出任务类型权重并拓展到与labels相同形状
+            task_types = inputs.pop("task_type", None)  # 假设数据中有 task_type 字段
+            outputs = model(**inputs)
+            logits = outputs.logits
+
+            # 计算每个token的交叉熵
+            loss_fct = torch.nn.CrossEntropyLoss(reduction='none', ignore_index=-100)
+            per_token_loss = loss_fct(logits.view(-1, logits.size(-1)), labels.view(-1))
+            per_token_loss = per_token_loss.view(labels.size())
+
+            if task_types is not None:
+                # 根据任务类型赋予权重
+                weights = torch.ones_like(labels, dtype=torch.float)
+                for task, weight in self.task_weight_dict.items():
+                    mask = (task_types == task)
+                    weights[mask] = weight
+                # 忽略 -100 的位置
+                valid_mask = (labels != -100).float()
+                weighted_loss = (per_token_loss * weights * valid_mask).sum() / (weights * valid_mask).sum()
+            else:
+                # 默认平均
+                weighted_loss = per_token_loss.sum() / (labels != -100).sum()
+
+            return (weighted_loss, outputs) if return_outputs else weighted_loss
+    ```
+
+    使用：
+
+    ```python
+    trainer = WeightedMultiTaskTrainer(
+        task_weight_dict={'code': 2.0, 'math': 1.5, 'chat': 1.0},
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        # ...
+    )
+    trainer.train()
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: QX0LdWg6borv37xQKJ6ceeUWnAc
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: 使用HuggingFace Trainer自定义加权多任务损失
+  imported_at: '2026-09-21'

@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-82a3dd287a25
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4E6 28. SFT训练时batch size如何选择？有什么影响？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F4E6 28. SFT训练时batch size如何选择？有什么影响？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    SFT中batch size的选择是一个需要在梯度稳定性、泛化能力和训练效率之间权衡的决策。与预训练动辄上千的全局batch size不同，SFT通常采用较小的batch size。
+
+    典型范围
+
+    对于7B-13B级别的模型，SFT常用的单卡micro batch size通常在4到16之间，配合梯度累积，全局batch size通常在32到256之间。最终取值受限于GPU显存容量、数据总量和训练稳定性需求。
+
+    小batch size的优势：更好的泛化性
+
+    小batch size引入了更大的梯度噪声。这种噪声在优化过程中起到了隐式正则化的作用，阻止模型收敛到SFT数据分布的尖锐极小值点，而是倾向于找到更宽缓的极小值。宽缓的极小值泛化性能更好，意味着模型对未见过的指令更具鲁棒性。因此，在数据量不大、需要模型举一反三的SFT场景中，适当偏小的batch size往往能获得更好的最终效果。
+
+    大batch size的优势：训练稳定与加速
+
+    较大的batch size能提供更准确的梯度估计（梯度方差小），使训练过程更加稳定，损失曲线更平滑。同时，大batch size能更充分地利用GPU的并行计算能力，提高训练吞吐量。但在SFT有限的数据量下，大batch size可能导致模型过快收敛到尖锐极小值，削弱泛化能力，甚至引发一定程度的灾难性遗忘。
+
+    数据总量与batch size的关系
+
+    当SFT数据量较大（例如几十万条以上）时，batch size可以适当放大，因为数据本身的多样性已经提供了足够的正则化，不必过分依赖梯度噪声。当数据量较小（几千到一万条）时，必须使用较小的batch size，并配合更多的训练轮数，以确保模型能从有限数据中提取泛化模式而不至于过拟合。
+
+    梯度累积的角色
+
+    受限于GPU显存，单卡的micro batch size往往无法达到期望的全局batch size。梯度累积允许在多个micro-batch上计算梯度并累积求和，然后一次性更新参数。这使得在有限硬件上模拟任意大小的全局batch size成为可能。需要注意的是，使用梯度累积时，Batch Normalization等依赖批次统计量的层会受影响（好在现代LLM很少使用BN），但Layer Normalization不受影响。
+
+    实践建议
+
+    - 起始尝试全局batch size 128，观察训练稳定性和验证集表现。
+
+    - 如果验证损失波动剧烈或不收敛，适当增大batch size。
+
+    - 如果出现明显过拟合（训练损失远低于验证损失），减小batch size或增加数据。
+
+    - 显存受限时，优先采用梯度累积而非过度降低micro batch size。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KPIxw03EPiQ1rrkxrvUcqRIznBf
+  block_id: SZEZd48lnoHs7QxlIr7cBaXZn4g
+  page_token: KPIxw03EPiQ1rrkxrvUcqRIznBf
+  original_title: "\U0001F4E6 28. SFT训练时batch size如何选择？有什么影响？"
+  imported_at: '2026-09-21'

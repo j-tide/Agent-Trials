@@ -1,0 +1,99 @@
+---
+schema_version: 1
+id: feishu-llm-complete-49c39e150d46
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: RAG Agent 评估：平衡检索质量、答案忠实度与任务完成度
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 评测篇
+tags: &1
+- AI Agent精选八股文
+- Agent 评测篇
+content:
+  prompt: RAG Agent 评估：平衡检索质量、答案忠实度与任务完成度
+answer:
+  mode: rubric
+  reference_answer: |-
+    RAG Agent 有三根柱子：检索要找得到（Retrieval Quality），答案要基于找来的东西（Faithfulness），任务要真的解决（Task Completion）。但现实中它们经常打架：检索得分很高，答案却成了资料的拼凑，没真正回答用户；或者任务完成了，但事实胡编。这时候需要一套决策框架。
+
+    ▎三大指标的定义与量化
+
+    ```python
+    # 用 Ragas 评估单条结果
+    from ragas import evaluate
+    from ragas.metrics import context_recall, faithfulness
+    from datasets import Dataset
+
+    eval_dataset = Dataset.from_dict({
+        "question": ["我的保单什么时候到期？"],
+        "answer": ["您的保单于2025-12-31到期。"],
+        "contexts": [["保单号: 123, 到期日: 2025-12-31", "续费政策..."]],
+        "ground_truth": ["2025-12-31"]
+    })
+    score = evaluate(eval_dataset, metrics=[context_recall, faithfulness])
+    print(score)
+    ```
+
+    冲突时的综合判断框架：加权场景矩阵
+
+    我会把业务场景分三类，预先定义每个指标的权重和最低及格线。
+
+    - 场景1：事实敏感型（医疗、金融）
+    忠实度是红线，设硬性阈值≥0.9。一旦低于，不论任务完成度多高，直接判定失败。
+    权重：忠实度 0.5，检索质量 0.3，任务完成 0.2。
+
+    - 场景2：任务导向型（客服下单、操作类）
+    任务完成为王，但依然要求忠实度不能太低（如≥0.7）。
+    权重：任务完成 0.5，忠实度 0.3，检索 0.2。
+
+    - 场景3：探索咨询型（知识查询、对比分析）
+    检索质量最重要，因为答案可能无唯一标准，但信息来源必须全面。
+    权重：检索质量 0.5，任务完成 0.3，忠实度 0.2。
+
+    综合分计算公式：
+    最终得分 = w1*检索 + w2*忠实度 + w3*任务完成度
+    但必须满足所有硬性阈值才参与计算，否则直接归零。
+
+    冲突仲裁例子：
+
+    检索满分（1.0），但忠实度只有 0.5（意味着模型无视检索到的文档，自己发挥）。这时即便任务完成度高，我也会判定为严重缺陷，因为它是“幻觉型成功”。在一个金融客服场景里，这会被直接打回。
+
+    ▎用“忠实度-任务完成度”四象限来管理
+
+    我习惯把每次评估画到二维图里：
+
+    - 第一象限（高忠实+高完成）：完美，继续监控。
+
+    - 第二象限（低忠实+高完成）：危险，可能是胡乱生成了看起来对的答案。必须修复。
+
+    - 第三象限（低忠实+低完成）：双重失败，往往是检索或推理的根本缺陷。
+
+    - 第四象限（高忠实+低完成）：资料找到了，但未能解决任务，需要优化推理或工具链。
+
+    这样团队讨论时，就不用争“哪个指标更重要”，而是看象限分布。如果大量点落在第二象限，马上暂停迭代，先修幻觉。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SEdiwaoGBiWMFYk0pl3c9iW4n7c
+  block_id: doxcnzL5TlZSLTNFXWvsUCL9olg
+  page_token: SEdiwaoGBiWMFYk0pl3c9iW4n7c
+  original_title: RAG Agent 评估：平衡检索质量、答案忠实度与任务完成度
+  imported_at: '2026-09-21'

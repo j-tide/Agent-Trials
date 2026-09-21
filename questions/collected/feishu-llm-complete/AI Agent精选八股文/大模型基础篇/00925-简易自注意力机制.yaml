@@ -1,0 +1,93 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e7d003d4d063
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 简易自注意力机制
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: 简易自注意力机制
+answer:
+  mode: rubric
+  reference_answer: |-
+    要求：手写 Scaled Dot-Product Attention，含 Q/K/V 线性变换及 mask 处理。
+
+    核心代码（PyTorch风格，但底层可用矩阵乘法实现）：
+
+    ```python
+    import torch
+    import torch.nn.functional as F
+    import math
+
+    def scaled_dot_product_attention(Q, K, V, mask=None):
+        # Q,K,V 形状: (batch, heads, seq_len, d_k)
+        d_k = Q.size(-1)
+        scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
+        if mask is not None:
+            # mask中True位置置为极小值
+            scores = scores.masked_fill(mask == 0, float('-inf'))
+        attn = F.softmax(scores, dim=-1)
+        output = torch.matmul(attn, V)
+        return output, attn
+
+    class SimpleSelfAttention(torch.nn.Module):
+        def __init__(self, d_model, n_heads):
+            super().__init__()
+            assert d_model % n_heads == 0
+            self.d_model = d_model
+            self.n_heads = n_heads
+            self.d_k = d_model // n_heads
+            self.W_q = torch.nn.Linear(d_model, d_model)
+            self.W_k = torch.nn.Linear(d_model, d_model)
+            self.W_v = torch.nn.Linear(d_model, d_model)
+            self.out_proj = torch.nn.Linear(d_model, d_model)
+
+        def split_heads(self, x):
+            batch, seq, _ = x.size()
+            return x.view(batch, seq, self.n_heads, self.d_k).transpose(1, 2)
+
+        def forward(self, x, mask=None):
+            Q = self.split_heads(self.W_q(x))
+            K = self.split_heads(self.W_k(x))
+            V = self.split_heads(self.W_v(x))
+            attn_out, _ = scaled_dot_product_attention(Q, K, V, mask)
+            # 合并多头
+            attn_out = attn_out.transpose(1, 2).contiguous().view(x.size(0), -1, self.d_model)
+            return self.out_proj(attn_out)
+    ```
+
+    关键点：mask 在解码器自回归时使用下三角，值为 -inf 让 softmax 归零；多头拆分与合并时注意维度变换。
+
+    [图片内容未导入]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AxkEwVG8kibSjokIPVEc6aggnjo
+  block_id: doxcnqGDp2rlGgRRLa1s91wgQrM
+  page_token: AxkEwVG8kibSjokIPVEc6aggnjo
+  original_title: 简易自注意力机制
+  imported_at: '2026-09-21'

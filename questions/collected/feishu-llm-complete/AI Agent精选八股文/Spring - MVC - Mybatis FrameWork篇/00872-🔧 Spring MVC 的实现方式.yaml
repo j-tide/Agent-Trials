@@ -1,0 +1,108 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ed8a0cdd201b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F527 Spring MVC 的实现方式"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: "\U0001F527 Spring MVC 的实现方式"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Spring 提供了两个主流工具：SseEmitter（阻塞式，适合 Tomcat 线程模型）和 响应式 Flux<ServerSentEvent>（WebFlux 专用，但我们这里限定 MVC，就用 SseEmitter）。
+
+    完整示例：创建一个 Agent SSE 接口
+
+    ```java
+    @RestController
+    @RequestMapping("/agent")
+    public class AgentController {
+
+        @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+        public SseEmitter streamResponse(@RequestParam String prompt) {
+            // 超时时间设为 5 分钟，避免长连接被断开
+            SseEmitter emitter = new SseEmitter(300_000L);
+
+            // 在异步线程中模拟 Agent 生成过程
+            Executors.newSingleThreadExecutor().execute(() -> {
+                try {
+                    String[] words = {"Hello", ", ", "this", " is", " a", " streaming", " response"};
+                    for (String word : words) {
+                        // 发送一条事件，可以附带事件名和数据
+                        emitter.send(SseEmitter.event()
+                                .name("message")
+                                .data(word));
+                        Thread.sleep(500); // 模拟逐词生成延迟
+                    }
+                    // 正常完成
+                    emitter.complete();
+                } catch (IOException | InterruptedException e) {
+                    emitter.completeWithError(e);
+                }
+            });
+
+            // 设置回调处理客户端断开
+            emitter.onCompletion(() -> System.out.println("连接完成"));
+            emitter.onTimeout(() -> System.out.println("连接超时"));
+            return emitter;
+        }
+    }
+    ```
+
+    关键点：
+
+    - produces = MediaType.TEXT_EVENT_STREAM_VALUE 告诉浏览器这是 SSE 流。
+
+    - 每次 send() 都会把数据以 data: ...\n\n 的格式写入响应体，浏览器端通过 EventSource API 接收。
+
+    - 记得处理超时和异常，否则 Servlet 线程可能挂起。
+
+    配置线程池（避免阻塞主线程）
+
+    ```java
+    @Configuration
+    public class AsyncConfig implements AsyncConfigurer {
+        @Override
+        public Executor getAsyncExecutor() {
+            ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+            executor.setCorePoolSize(10);
+            executor.setMaxPoolSize(50);
+            executor.setQueueCapacity(100);
+            executor.initialize();
+            return executor;
+        }
+    }
+    ```
+
+    这样，每个 SSE 连接消耗一个异步线程，Tomcat 主线程迅速释放，可以支撑更多并发。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EvyJwQ60XiC313kQqbUcyFhEnAh
+  block_id: doxcnGDB3y1d22fJw5xw2wQsnNh
+  page_token: EvyJwQ60XiC313kQqbUcyFhEnAh
+  original_title: "\U0001F527 Spring MVC 的实现方式"
+  imported_at: '2026-09-21'

@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ad848ae77ad8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“loss scaling”？为什么FP16训练需要它，BF16不需要？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 什么是“loss scaling”？为什么FP16训练需要它，BF16不需要？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Loss Scaling（损失缩放） 是混合精度训练中，为解决 FP16 格式梯度下溢问题而采用的一种技术。
+
+    为什么 FP16 需要它？
+
+    FP16 的指数范围很窄（能表示的最小正规数约 6e-5），而大模型训练后期，许多梯度的值会变得非常微小（例如 1e-7 甚至更小）。这些微小的梯度值落在 FP16 的表示范围之外，会被直接截断为 0。一旦梯度变为 0，对应的参数将无法得到更新，导致模型训练停滞，无法收敛。
+
+    Loss Scaling 的做法：
+
+    - 前向传播计算出 loss 后，将 loss 乘以一个很大的常数（如 65536），得到放大后的 scaled loss。
+
+    - 反向传播时，计算出的梯度也会相应地放大相同倍数。原本微小的梯度被放大后，就进入了 FP16 能够表示的范围，从而避免了变为 0 的命运。
+
+    - 在优化器更新参数之前，再将梯度除以相同的常数，恢复其原始的尺度。
+
+    这样，模型既能享受 FP16 高速低存储的好处，又能避免梯度下溢。通常，Loss Scaling 的值可以动态调整（自动找到不会导致溢出的最大缩放因子），也可手动设置。
+
+    为什么 BF16 不需要？
+
+    BF16 的指数位数与 FP32 相同，其动态范围（能表示的最小/最大值）与 FP32 完全一致。FP16 中那些小到无法表示的梯度值，在 BF16 中依然可以被精确表示（虽然尾数精度较低）。因此，BF16 训练时，梯度下溢的问题几乎不存在，自然不需要 Loss Scaling 这种补救措施。
+
+    简而言之，Loss Scaling 是 FP16 为了弥补其动态范围窄的“先天缺陷”而打的一个“补丁”。而 BF16 天生没有这个缺陷，因此不需要这个补丁，训练过程更简洁、稳定。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: Cbd2di6oro2xnNxGgIgcNYp3nAe
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 什么是“loss scaling”？为什么FP16训练需要它，BF16不需要？
+  imported_at: '2026-09-21'

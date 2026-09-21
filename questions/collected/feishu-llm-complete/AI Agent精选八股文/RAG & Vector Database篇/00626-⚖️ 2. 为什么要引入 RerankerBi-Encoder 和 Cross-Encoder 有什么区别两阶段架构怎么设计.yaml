@@ -1,0 +1,90 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0dc659662f7f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚖️ 2. 为什么要引入 Reranker？Bi-Encoder 和 Cross-Encoder 有什么区别？两阶段架构怎么设计？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "⚖️ 2. 为什么要引入 Reranker？Bi-Encoder 和 Cross-Encoder 有什么区别？两阶段架构怎么设计？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    2.1 Bi-Encoder vs Cross-Encoder：本质区别
+
+    [嵌入表格未展开]
+
+    直观比喻：
+
+    - Bi-Encoder 像招聘助理，快速浏览一万份简历，筛出 100 份可能合适的。
+
+    - Cross-Encoder 像部门主管，把这 100 份简历仔细读一遍，挑出最匹配的 5 份。
+
+    2.2 两阶段架构设计
+
+    [图片内容未导入]
+
+    代码示例：用 sentence-transformers 的 Cross-Encoder 做精排
+
+    ```python
+    from sentence_transformers import CrossEncoder
+
+    # 加载 Cross-Encoder 模型（通常比 Bi-Encoder 大，但更准）
+    reranker = CrossEncoder('BAAI/bge-reranker-large')
+
+    # 召回阶段已经拿到了候选文档 (top-100)
+    candidates = [
+        "太阳能电池的基本原理",
+        "光伏电站运维手册",
+        "单晶硅效率提升的研究与实践",
+        "如何清洗太阳能板",
+        "钙钛矿材料的最新进展",
+    ]
+    query = "如何提高光伏板的转换效率？"
+
+    # 构造 (query, doc) 对
+    pairs = [(query, doc) for doc in candidates]
+
+    # 精排：Cross-Encoder 对每一对打分
+    scores = reranker.predict(pairs)
+
+    # 按分数降序排列，取 Top-3 给 LLM
+    ranked_docs = sorted(zip(candidates, scores), key=lambda x: x[1], reverse=True)[:3]
+    # 结果：单晶硅效率提升研究 > 钙钛矿材料 > 太阳能电池原理
+    ```
+
+    为什么不能直接用 Cross-Encoder 做全量检索？
+
+    假设你有 1000 万篇文档，Cross-Encoder 需要对每一篇都和查询拼在一起跑一遍完整的 Transformer 前向。这一轮下来可能要几分钟甚至几小时，延迟根本无法接受。两阶段架构的本质是 “用廉价的粗筛换昂贵的精挑”——100 次 Cross-Encoder 调用是可行的，100 万次则不行。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcnv5BgSqdGKP2OVhfK1eRkIf
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "⚖️ 2. 为什么要引入 Reranker？Bi-Encoder 和 Cross-Encoder 有什么区别？两阶段架构怎么设计？"
+  imported_at: '2026-09-21'

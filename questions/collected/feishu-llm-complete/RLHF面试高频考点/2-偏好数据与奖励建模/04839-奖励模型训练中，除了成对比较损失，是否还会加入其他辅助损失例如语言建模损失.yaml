@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-febc7ad25c64
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 奖励模型训练中，除了成对比较损失，是否还会加入其他辅助损失？例如语言建模损失？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 2-偏好数据与奖励建模
+tags: &1
+- RLHF面试高频考点
+- 2-偏好数据与奖励建模
+content:
+  prompt: 奖励模型训练中，除了成对比较损失，是否还会加入其他辅助损失？例如语言建模损失？
+answer:
+  mode: rubric
+  reference_answer: |-
+    会，而且这往往是提升 RM 泛化能力和稳定性的关键技巧。 单一的排序损失容易让 RM 发生“奖励漂移”或“语言能力退化”。
+
+    - 语言建模损失 (LM Loss / SFT Loss)
+
+    - 做法：在 RM 的训练目标中，添加一个额外的交叉熵损失，要求 RM 对 chosen 回答的 token 进行预测。损失函数变为：
+
+    [图片内容未导入]
+
+    - 其中 α 是一个较小的权重（如 0.01）。
+
+    - 作用：
+
+    - 正负例分数间隔损失 (Margin Loss)
+
+    - 做法：强制要求 r_w - r_l > margin。损失函数变为 Hinge-like：max(0, margin - (r_w - r_l))。
+
+    - 作用：这不仅要求排序正确，还要求好坏之间有明确的分数鸿沟。这能避免 RM 给所有回答都打出差不多的分数，使得 PPO 阶段缺乏有区分度的梯度信号。
+
+    - 安全/有用性的多任务损失
+
+    - 做法：如果偏好数据带有安全、有用等维度的标签，可以为每个维度训练一个单独的标量头，并在 BT 损失之外，加入这些维度分数的回归损失。
+
+    - 作用：实现多目标对齐，让 RM 能给出多维度的评判，使后续 PPO 可以灵活地调节各维度的权重。
+
+    - 价值校准损失 (Value Calibration Loss)
+
+    - 做法：对一小批有人工绝对评分（如1-5分）的数据，让 RM 的标量输出直接拟合这个评分（MSE损失）。
+
+    - 作用：校准 RM 分数的绝对范围，防止分数在 RL 优化中无限制增长（reward drift）。它为 RM 的分数赋予了实际的尺度含义。
+
+    结论：一个鲁棒的 RM 训练管线通常会结合 BT 损失、LM 损失，并可能加入 Margin 损失，形成多任务学习框架。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KFgpwxoYei4VBPkDUJfcFKLLnVf
+  block_id: S7M1dp7wdoPr8Gxg7Vecfxd0n0c
+  page_token: KFgpwxoYei4VBPkDUJfcFKLLnVf
+  original_title: 奖励模型训练中，除了成对比较损失，是否还会加入其他辅助损失？例如语言建模损失？
+  imported_at: '2026-09-21'

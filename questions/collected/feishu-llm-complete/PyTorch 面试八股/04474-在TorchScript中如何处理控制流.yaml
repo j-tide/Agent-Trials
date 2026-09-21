@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-026edc9fb1a3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在TorchScript中如何处理控制流？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 在TorchScript中如何处理控制流？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在TorchScript中，控制流的处理取决于你是用 trace 还是 script 得到模型。
+
+    - 对于 trace 得到的模型：控制流会被静态展开。trace 只记录执行过的那条路径，其他分支被丢弃。因此，它不能处理动态变化的条件。如果强行需要控制流，可以在 trace 时使用 @torch.jit.script 装饰该子模块，或者用 torch.jit.script 整体转换。
+
+    - 对于 script 得到的模型：控制流完美支持。script 直接将Python的 if、for、while 转换为TorchScript的 if、loop 等原语。这些控制流在TorchScript中表现为静态图中的条件分支或循环，允许运行时根据张量值动态执行。
+
+    示例：使用 torch.jit.script 处理控制流
+
+    ```python
+    import torch
+
+    @torch.jit.script
+    def my_func(x: torch.Tensor) -> torch.Tensor:
+        if x.sum() > 0:
+            return x * 2
+        else:
+            return x * -1
+
+    # 或者装饰整个模块
+    class MyModule(nn.Module):
+        @torch.jit.script
+        def forward(self, x):
+            if x.mean() > 0.5:
+                return x + 1
+            else:
+                return x - 1
+    ```
+
+    关键点：TorchScript的控制流要求条件表达式必须是 Bool 类型的张量（0维），通常通过 .item() 或比较操作得到。在 script 中，可以直接使用 if 语句，编译器会处理成 prim::If 节点。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WSlbwtUNQiNbKakCLPDcsZ9Hnsg
+  block_id: IpXAd5tsKoclC2xXT25ceu3jncg
+  page_token: WSlbwtUNQiNbKakCLPDcsZ9Hnsg
+  original_title: 在TorchScript中如何处理控制流？
+  imported_at: '2026-09-21'

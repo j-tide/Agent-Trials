@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2adb759a974b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 大规模训练时，梯度累积（Gradient Accumulation）的作用是什么？它会影响 BN 吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块六：深度学习基础训练与推理部署
+tags: &1
+- 深度学习面（精选）
+- 模块六：深度学习基础训练与推理部署
+content:
+  prompt: 大规模训练时，梯度累积（Gradient Accumulation）的作用是什么？它会影响 BN 吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    作用
+
+    梯度累积是指在多个连续的 micro-batch 上计算梯度，但不立即更新参数，而是累加这些梯度，直到累积到等效于目标大 batch size 的数量后，再执行一次参数更新。这样可以在显存有限的条件下模拟大 batch 训练。例如，目标 global batch size 为 256，但单卡每次只能处理 32，则累积 8 步后更新，相当于 batch size 256。它几乎不增加显存，却可以增大有效 batch size，稳定训练，并充分利用 GPU 的算力。
+
+    对 Batch Normalization 的影响
+
+    标准的 BN 在每个 micro-batch 内部独立计算均值和方差，不跨累积步。因此，梯度累积会导致 BN 统计量不准确：BN 看到的只是小 batch（如32），而非全局 batch（256）的统计，这会降低模型的性能。解决方案：
+
+    - 使用 SyncBN（跨卡同步 BN 统计量），但仍然不能解决累积步之间统计独立的问题。SyncBN 可以保证每个卡上的 batch 统计被同步，但累积步之间 BN 的均值和方差仍然来自于各个 micro-batch 的局部统计。
+
+    - 更准确的做法是计算跨累积步的全局统计量：在训练时，可以利用所有累积步的均值和方差重新计算公式，或者使用 Ghost BN、Virtual BN 等技巧，但往往实现复杂。实践中，如果累积步数不多，BN 影响可以接受，也可以使用 Group Normalization (GN) 或 Layer Normalization (LN) 等不依赖 batch 统计的归一化方法彻底避免该问题。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ChO2w20yAiZl9Zko9tUc2plKnwe
+  block_id: F1pndlaNLoFhpsxnCwTcbKF1nI9
+  page_token: ChO2w20yAiZl9Zko9tUc2plKnwe
+  original_title: 大规模训练时，梯度累积（Gradient Accumulation）的作用是什么？它会影响 BN 吗？
+  imported_at: '2026-09-21'

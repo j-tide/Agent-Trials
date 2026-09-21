@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cf4d3a29e349
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: RLHF的完整流程包含哪几个阶段？每个阶段的目标是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: RLHF的完整流程包含哪几个阶段？每个阶段的目标是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    RLHF的完整流水线包含三个精心设计的阶段，环环相扣，目标层层递进。
+
+    第一阶段：SFT (Supervised Fine-Tuning)
+
+    这个阶段的目标不是追求极致的对话能力，而是冷启动。如果直接从预训练模型开始RLHF，模型会输出格式混乱、角色颠倒的文本，奖励模型面对这些“噪声”将完全无法给出有效评分，强化学习无从开始。SFT通过高质量的“指令-回答”对，将模型迅速拉入“基本合理的对话区域”，教会它：
+
+    - 区分用户和助手角色。
+
+    - 理解对话轮次和基本格式。
+
+    - 建立初步的安全边界（对明显恶意请求进行拒绝）。
+
+    第二阶段：奖励模型训练 (Reward Model Training)
+    这是RLHF的技术核心。目标是训练出一个能模拟人类偏好的“自动评委”。它的输入是(指令, 回答)，输出是一个代表回答质量的标量分数。这个模型通常是从SFT模型初始化的，但将最后的语言模型头（LM head）替换为一个输出单个数值的线性层。它的训练数据是人类的偏好对比数据，通过最大化“好回答”与“差回答”之间的分数差异来学习。
+
+    第三阶段：PPO (Proximal Policy Optimization)
+    在这个阶段，我们使用强化学习算法PPO来微调SFT模型。SFT模型作为初始策略π_SFT，同时也是PPO目标函数中KL惩罚项的参考模型。PPO算法让模型主动生成回答，由冻结的奖励模型打分，然后通过最大化期望奖励来更新模型参数。为了防止模型投机取巧（奖励破解），PPO损失函数中会加入一个KL散度惩罚项，强制模型不要偏离π_SFT太远。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ko2bwQagXiifotkNsNgcEOTnnbh
+  block_id: Ih3ZdkY0FoaxrwxWUFLcaaLTnmf
+  page_token: Ko2bwQagXiifotkNsNgcEOTnnbh
+  original_title: RLHF的完整流程包含哪几个阶段？每个阶段的目标是什么？
+  imported_at: '2026-09-21'

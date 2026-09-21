@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-48e6170db672
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚡ 混合精度训练（FP16/BF16）在 RLHF 中如何配置？不同模型是否可以使用不同精度？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "⚡ 混合精度训练（FP16/BF16）在 RLHF 中如何配置？不同模型是否可以使用不同精度？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    混合精度训练：前向和反向计算使用 FP16/BF16，主权重副本和优化器状态使用 FP32。
+
+    RLHF 中的配置：
+
+    - Actor 和 Critic：使用标准的 PyTorch AMP（torch.cuda.amp）。对 FP16，需开启损失缩放（GradScaler）；对 BF16，动态范围与 FP32 相同，通常无需缩放。
+
+    - Ref 和 RM：可完全以 FP16/BF16 进行推理，不需要 FP32 主副本，因为权重固定。
+
+    - 优化器：Adam 的动量、方差状态以 FP32 存储，这与 AMP 的设定一致。
+
+    不同模型使用不同精度：
+
+    - 完全可以，且推荐。例如 Actor 使用 BF16 训练（避免缩放），Ref 使用 FP16 推理（省显存），RM 甚至可以使用 INT8 量化推理。
+
+    - 需注意：如果 Actor 和 Ref 权重在计算 KL 时共享，需保证两者精度一致，否则 KL 计算会产生系统性偏差。通常 Actor 和 Ref 都应基于同一 FP16/BF16 底座。
+
+    数值稳定性：对 FP16 训练，需监控梯度是否下溢；BF16 则几乎不出现此问题。对于大型模型，BF16 是首选。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NjChwugaCicZr4kcCfocK8KMnid
+  block_id: XhvUdju9Yo9RImxqtA1cp8eFnBh
+  page_token: NjChwugaCicZr4kcCfocK8KMnid
+  original_title: "⚡ 混合精度训练（FP16/BF16）在 RLHF 中如何配置？不同模型是否可以使用不同精度？"
+  imported_at: '2026-09-21'

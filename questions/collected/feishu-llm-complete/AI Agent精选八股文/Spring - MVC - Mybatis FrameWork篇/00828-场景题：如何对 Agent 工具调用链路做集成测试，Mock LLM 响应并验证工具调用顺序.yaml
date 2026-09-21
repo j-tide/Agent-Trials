@@ -1,0 +1,87 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7c4392f80cac
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：如何对 Agent 工具调用链路做集成测试，Mock LLM 响应并验证工具调用顺序？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：如何对 Agent 工具调用链路做集成测试，Mock LLM 响应并验证工具调用顺序？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐⭐（集成测试、Mock 链路、验证顺序、InOrder）\n\n1️⃣ Common Answer\n\n用
+    @SpringBootTest 启动整个应用，用 @MockBean Mock 掉 LLMService，然后测试 Agent 的工具调用，用 InOrder
+    验证调用顺序。\n\n2️⃣ Impressive Answer\n\n- 集成测试类：\n\n@SpringBootTest\n@AutoConfigureMockMvc\npublic
+    class AgentIntegrationTest {\n        \n    @Autowired\n    private MockMvc mockMvc;\n
+    \       \n    @MockBean\n    private LLMService llmService;\n        \n    @MockBean\n
+    \   private ToolService toolService;\n        \n    @Captor\n    private ArgumentCaptor<ToolRequest>
+    toolRequestCaptor;\n        \n    @Test\n    public void testAgentToolCallSequence()
+    throws Exception {\n        // 1. Mock LLM 响应：第一次请求要求调用工具\n        LLMResponse
+    llmResponse1 = LLMResponse.builder()\n            .content(\"I need to search
+    for information\")\n            .toolCalls(List.of(\n                ToolCall.builder().toolId(\"search-tool\").parameters(Map.of(\"query\",
+    \"Java\")).build()\n            ))\n            .build();\n        when(llmService.chat(any())).thenReturn(llmResponse1);\n
+    \           \n        // 2. Mock 工具响应\n        ToolResponse toolResponse = ToolResponse.success(\"Java
+    is a programming language\");\n        when(toolService.call(any())).thenReturn(CompletableFuture.completedFuture(toolResponse));\n
+    \           \n        // 3. Mock LLM 响应：第二次请求基于工具结果回答\n        LLMResponse llmResponse2
+    = LLMResponse.builder()\n            .content(\"Java is a programming language
+    created by Sun Microsystems\")\n            .build();\n        when(llmService.chat(any())).thenReturn(llmResponse2);\n
+    \           \n        // 4. 执行 Agent 调用\n        mockMvc.perform(post(\"/api/agent/chat\")\n
+    \               .contentType(MediaType.APPLICATION_JSON)\n                .content(\"{\\\"prompt\\\":\\\"What
+    is Java?\\\"}\"))\n            .andExpect(status().isOk())\n            .andExpect(jsonPath(\"$.content\").value(\"Java
+    is a programming language created by Sun Microsystems\"));\n            \n        //
+    5. 验证工具调用顺序\n        InOrder inOrder = inOrder(llmService, toolService);\n            \n
+    \       // 验证：第一次调用 LLM\n        inOrder.verify(llmService).chat(argThat(req ->
+    \n            req.getPrompt().equals(\"What is Java?\")\n        ));\n            \n
+    \       // 验证：调用工具\n        inOrder.verify(toolService).call(argThat(req -> \n
+    \           req.getToolId().equals(\"search-tool\") &&\n            req.getParameters().get(\"query\").equals(\"Java\")\n
+    \       ));\n            \n        // 验证：第二次调用 LLM（包含工具结果）\n        inOrder.verify(llmService).chat(argThat(req
+    -> \n            req.getMessages().stream().anyMatch(msg -> \n                msg.getContent().contains(\"Java
+    is a programming language\")\n            )\n        ));\n    }\n}\n\n- 验证工具调用参数：\n\n@Test\npublic
+    void testToolCallParameters() {\n    // ... Mock 设置\n        \n    mockMvc.perform(post(\"/api/agent/chat\")\n
+    \           .contentType(MediaType.APPLICATION_JSON)\n            .content(\"{\\\"prompt\\\":\\\"Search
+    for Java\\\"}\"))\n        .andExpect(status().isOk());\n        \n    // 验证工具调用参数\n
+    \   verify(toolService).call(toolRequestCaptor.capture());\n    ToolRequest capturedRequest
+    = toolRequestCaptor.getValue();\n        \n    assertEquals(\"search-tool\", capturedRequest.getToolId());\n
+    \   assertEquals(\"Java\", capturedRequest.getParameters().get(\"query\"));\n}\n\n-
+    验证调用次数：\n\n@Test\npublic void testToolCallCount() {\n    // ... Mock 设置\n        \n
+    \   mockMvc.perform(post(\"/api/agent/chat\")\n            .contentType(MediaType.APPLICATION_JSON)\n
+    \           .content(\"{\\\"prompt\\\":\\\"Search for Java\\\"}\"))\n        .andExpect(status().isOk());\n
+    \       \n    // 验证工具只调用了一次\n    verify(toolService, times(1)).call(any());\n
+    \       \n    // 验证 LLM 调用了两次（初始请求 + 工具结果后的请求）\n    verify(llmService, times(2)).chat(any());\n}\n\n-
+    异常场景测试：\n\n@Test\npublic void testToolCallFailure() throws Exception {\n    //
+    Mock 工具调用失败\n    when(toolService.call(any()))\n        .thenReturn(CompletableFuture.failedFuture(new
+    RuntimeException(\"Tool failed\")));\n        \n    // 验证 Agent 能够处理工具失败\n    mockMvc.perform(post(\"/api/agent/chat\")\n
+    \           .contentType(MediaType.APPLICATION_JSON)\n            .content(\"{\\\"prompt\\\":\\\"Search
+    for Java\\\"}\"))\n        .andExpect(status().isOk())\n        .andExpect(jsonPath(\"$.content\").value(\"Sorry,
+    I encountered an error\"));\n}\n\n- Agent 场景实战：测试 Agent 的工具调用决策逻辑，Mock LLM 响应要求调用工具，Mock
+    工具返回结果，验证 Agent 是否正确调用工具、是否将工具结果传递给 LLM、最终回答是否符合预期。\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcniCuoTmaiNJaZ8pKjGuQwHb
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 3、场景题：如何对 Agent 工具调用链路做集成测试，Mock LLM 响应并验证工具调用顺序？
+  imported_at: '2026-09-21'

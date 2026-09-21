@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ac3d30a30508
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 梯度累积是如何实现的？它解决了什么问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 梯度累积是如何实现的？它解决了什么问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    实现原理：
+
+    梯度累积是一种在显存受限时模拟大 batch size 的技术。核心步骤：
+
+    - 对于每个 mini-batch，执行前向传播、计算 loss。
+
+    - 调用 loss.backward()，计算梯度。此时梯度会累加到叶子节点的 .grad 属性上。
+
+    - 重复 1-2 步（多个 mini-batch），不进行 optimizer.step() 和 optimizer.zero_grad()。
+
+    - 当累积了 K 个 mini-batch 的梯度后，调用 optimizer.step() 更新参数。
+
+    - 调用 optimizer.zero_grad() 清空梯度，准备下一轮累积。
+
+    解决的问题：
+
+    - 突破显存限制：允许在单张 GPU 上用很小的 micro-batch 进行训练，却能获得大 batch 的收敛效果。
+
+    - 稳定训练：某些模型需要大 batch 才能收敛，而硬件无法支持时，梯度累积是唯一选择。
+
+    - 均衡计算与通信：在分布式训练中，有时也通过梯度累积减少通信频率。
+
+    代码示例：
+
+    accumulation_steps = 4
+    for i, data in enumerate(dataloader):
+        loss = model(data) / accumulation_steps  # 注意 loss 缩放
+        loss.backward()
+        if (i + 1) % accumulation_steps == 0:
+            optimizer.step()
+            optimizer.zero_grad()
+
+    关键：因为每次 backward() 的梯度会相加，所以需要对 loss 进行缩放（除以累积步数），以保证更新的量级与使用真实大 batch 时一致。这是因为 loss.backward() 计算的是梯度对 batch 的累加，我们需保持梯度期望不变。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BR8jwpyRCirUwbkqDCzc7IufnKc
+  block_id: VPuvdnwq4os1PPxdZjYc2EJYnsJ
+  page_token: BR8jwpyRCirUwbkqDCzc7IufnKc
+  original_title: 梯度累积是如何实现的？它解决了什么问题？
+  imported_at: '2026-09-21'

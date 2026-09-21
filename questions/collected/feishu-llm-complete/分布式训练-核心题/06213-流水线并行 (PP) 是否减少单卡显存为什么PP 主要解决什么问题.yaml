@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3dbb68bd45bb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 流水线并行 (PP) 是否减少单卡显存？为什么？PP 主要解决什么问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 流水线并行 (PP) 是否减少单卡显存？为什么？PP 主要解决什么问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    流水线并行将模型的不同层分配到不同的GPU上，每张GPU只负责其中一部分层的计算和存储。因此，PP确实减少单卡显存。单卡的参数和优化器状态仅包含其负责的那几层，而不是全部层。例如，一个48层的模型，用PP=4切分，每张卡只存12层的参数和优化器状态，显存大约降为原来的1/4（忽略嵌入层等非均匀分布）。
+
+    但PP不减少激活值显存。每张卡仍然要为它负责的层处理完整的micro batch数据，激活值峰值取决于该层的大小和微批次大小，与未切分时相同（只是激活值只存在于该卡负责的层中，而不是全模型）。
+
+    PP主要解决的问题是模型太大，单卡放不下所有层。它与ZeRO不同，ZeRO通过分片优化器状态和参数来解决显存问题，但每张卡仍要“看到”所有层的计算（通过AllGather）。PP则是从根本上将模型“拆开”，每张卡物理上只拥有部分层，属于模型并行范畴。PP常与TP和DP组合使用，构成3D并行，以训练万亿参数模型。
+
+    PP的缺点是有流水线气泡，设备利用率下降。1F1B调度策略可部分缓解。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: DCoidirDzoDYfnxVqyeccGfmnfd
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 流水线并行 (PP) 是否减少单卡显存？为什么？PP 主要解决什么问题？
+  imported_at: '2026-09-21'

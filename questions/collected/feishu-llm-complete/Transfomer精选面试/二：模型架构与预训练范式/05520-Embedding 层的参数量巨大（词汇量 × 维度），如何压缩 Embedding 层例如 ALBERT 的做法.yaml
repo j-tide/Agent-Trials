@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7b52c23638e8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Embedding 层的参数量巨大（词汇量 × 维度），如何压缩 Embedding 层？例如 ALBERT 的做法。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 二：模型架构与预训练范式
+tags: &1
+- Transfomer精选面试
+- 二：模型架构与预训练范式
+content:
+  prompt: Embedding 层的参数量巨大（词汇量 × 维度），如何压缩 Embedding 层？例如 ALBERT 的做法。
+answer:
+  mode: rubric
+  reference_answer: |-
+    问题：对于大词表（如 30k），嵌入矩阵参数量 = V×dmodel。对于 BERT，这是约 23M 参数（30k × 768），占相当大比例。随着隐藏维度增大，嵌入层成为瓶颈。
+
+    压缩方法：
+
+    - 分解嵌入参数（ALBERT）：ALBERT 提出将嵌入矩阵分解为两部分：一个小的嵌入矩阵 E（维度 V×E，E 远小于 H），然后通过一个线性投影层（E×HE×H）映射到隐藏维度 HH。总参数量 = V×E+E×H。通过设置小的 E（如 128），大幅减少参数量（例如原 30k×768 ≈ 23M 变为 30k×128 + 128×768 ≈ 3.8M + 0.1M ≈ 3.9M，缩减约 83%）。同时，嵌入层的学习与隐藏层解耦，允许独立调整嵌入维度。
+
+    - 参数共享：将输入嵌入与输出 Softmax 层共享权重（Weight Tying）。这减少了近一半的嵌入相关参数，还能提升泛化（如 GPT、Attention Is All You Need 中使用的）。
+
+    - 低秩分解：将嵌入矩阵分解为两个低秩矩阵的乘积（类似 ALBERT），或使用 Tensor Train 分解。
+
+    - 哈希嵌入（Hash Embeddings）：通过多个哈希函数将词汇映射到固定大小的桶，减少参数。但信息损失较大，不常用在大模型中。
+
+    - 自适应输入嵌入（Adaptive Input Embedding）：对高频词和低频词使用不同容量的嵌入，但实现复杂。
+
+    ALBERT 的做法如上所述，是典型的分解方案，用更小的嵌入维度+投影，有效控制参数量。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SbTdwOcZ4iLPOwkcuOvcEg8On4b
+  block_id: PdBTdl1k5obhljxk8zhcuZ0unAf
+  page_token: SbTdwOcZ4iLPOwkcuOvcEg8On4b
+  original_title: Embedding 层的参数量巨大（词汇量 × 维度），如何压缩 Embedding 层？例如 ALBERT 的做法。
+  imported_at: '2026-09-21'

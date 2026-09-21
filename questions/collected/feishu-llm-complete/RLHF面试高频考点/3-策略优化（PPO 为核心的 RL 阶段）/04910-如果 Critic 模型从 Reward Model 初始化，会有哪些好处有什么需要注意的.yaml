@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dc049e6efa53
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果 Critic 模型从 Reward Model 初始化，会有哪些好处？有什么需要注意的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: 如果 Critic 模型从 Reward Model 初始化，会有哪些好处？有什么需要注意的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    好处：
+
+    - 语义空间的继承与加速收敛：RM 已经在大量人类偏好数据上训练过，其内部表征已经学会了区分回答的“好坏”。Critic 的任务是估计给定状态（部分生成的文本）的未来回报。从 RM 初始化，意味着 Critic 在训练初期就拥有了一个质量不错的“语言理解与价值判断”底座，不需要从零开始学习语言。这使得 Critic 能够更快地提供准确的价值估计，从而稳定训练初期的优势计算，加速整体收敛。
+
+    - 目标对齐：RM 的最终输出是对完整回答的评分，而 Critic 需要预测这个评分在生成过程中的期望。两者对“好”的认知在底层应该是高度一致的。共享初始化的参数有助于保持这种一致性，避免因不同初始化引入的概念分歧。
+
+    需要注意的事项：
+
+    - 灾难性遗忘与过拟合：RM 是为了精确区分完整回答的细微质量差异而训练的，其顶层参数可能对某些表面特征（如长度、特定格式）已经产生了过拟合。如果直接用它初始化 Critic，并在 PPO 过程中继续训练，Critic 可能会延续 RM 的这些偏见。更危险的是，如果 Critic 在某个 batch 中过度拟合到了一些噪声样本，它可能会“忘记” RM 教给它的一些基本判断力。
+
+    - 任务的不匹配性：RM 的训练数据是完整、高质量的回复，而 Critic 在 RL 训练中需要评估各种“半成品”甚至是错误序列。RM 的初始权重在面对这些分布外的烂尾文本时，可能会给出错误的价值估计（例如，对一个开篇流畅但后面崩溃的文本仍然给高分），导致 Actor 被误导。因此，需要让 Critic 尽快接触到 RL 过程中产生的各种中间状态样本，来适应这个“脏乱差”的环境。
+
+    - 更新时的谨慎调整：由于初始权重已经很好，Critic 的学习率可能需要设置得比 Actor 更小，以避免剧烈更新破坏其已经具有的评判能力。同时，价值函数裁剪（value clipping）等技术对于保护继承自 RM 的权重尤其重要。
+
+    总结：这是一种高效的“热启动”策略，能极大缩短 Critic 的冷启动期。但必须时刻警惕 Critic 对 RM 偏见的继承，并用充分的 RL 探索样本和保守的学习率来帮助它适应策略优化过程中的各种非完美状态。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UCjewCVubi1tThkQzKzczCP2nyc
+  block_id: SzUKdJ4uWomseCxHi7mcpSb1nwb
+  page_token: UCjewCVubi1tThkQzKzczCP2nyc
+  original_title: 如果 Critic 模型从 Reward Model 初始化，会有哪些好处？有什么需要注意的？
+  imported_at: '2026-09-21'

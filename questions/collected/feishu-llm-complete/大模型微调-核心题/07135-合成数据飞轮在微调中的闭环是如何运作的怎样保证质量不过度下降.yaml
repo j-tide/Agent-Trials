@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e66b484a06a5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 合成数据飞轮在微调中的闭环是如何运作的？怎样保证质量不过度下降？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 合成数据飞轮在微调中的闭环是如何运作的？怎样保证质量不过度下降？
+answer:
+  mode: rubric
+  reference_answer: |-
+    合成数据飞轮 是一个利用模型自身或强模型生成数据，再用这些数据训练更强模型的自动化、自循环系统。其闭环运作流程如下：
+
+    - 初始SFT模型（V1）：使用人类标注数据训练一个基础SFT模型。
+
+    - 候选回答生成：对于大量无标签或仅有指令的数据，用V1模型以高温度和多样化的解码策略生成多个候选回答。
+
+    - 自动过滤与评分：通过多层过滤器（规则检查、困惑度过滤、安全审核）和一个强评判模型（如GPT-4或V1自身）对候选回答进行多维度打分。
+
+    - 构造高质量数据集：保留得分最高的回答，构造新的SFT或偏好对齐（DPO）数据集。
+
+    - 训练新模型（V2）：使用该数据集训练出更强的V2模型。
+
+    - 循环：V2成为新的生成器，回到步骤2，生成更高质量的数据，再训练V3，如此循环。
+
+    如何保证质量不过度下降？ 这是飞轮的核心风险——模型退化（Model Collapse）。防止措施包括：
+
+    - 注入“新鲜血液”：定期向循环中加入新的人工标注数据、来自其他强模型的数据，或来自真实用户的新指令，打破数据的同质化和封闭性。
+
+    - 使用冻结的高标准评判器：始终使用一个最初表现优异的、冻结的强模型（如GPT-4）作为评判器，而不是用不断进化的模型自身。这能确保评判标准不随时间发生漂移。
+
+    - 多样性约束：在数据筛选时，加入多样性过滤器（如语义去重），确保数据集的分布不会坍缩。
+
+    - 对抗性样本注入：在生成阶段，刻意生成对抗性、诱导模型犯错的问题，并将其加入训练，提升模型鲁棒性，避免其只学会生成“安全但平庸”的回答。
+
+    - 持续监控通用基准：在每一轮迭代后，在独立的通用基准（如MMLU）和多样性指标（Self-BLEU）上评估模型。一旦指标恶化，立即停止飞轮并分析原因。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RK7mw2OHeiOHyEkfsfXcDkH1nRh
+  block_id: Mi6hd6TOgo61STxh9OxcM2XUnVg
+  page_token: RK7mw2OHeiOHyEkfsfXcDkH1nRh
+  original_title: 合成数据飞轮在微调中的闭环是如何运作的？怎样保证质量不过度下降？
+  imported_at: '2026-09-21'

@@ -1,0 +1,177 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2f35c65f9ba3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 2.2 Kafka消息可靠性
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 2.2 Kafka消息可靠性
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### 消息可靠性保证
+
+    1、基础题：Kafka的acks参数有什么作用？
+
+    ⭐（acks=0、1、all/-1）
+
+    acks参数控制Producer发送消息后的确认机制：
+
+    - acks=0：发送后不等待确认，可能丢失消息，但吞吐量最高
+
+    - acks=1：等待Leader写入成功确认，Leader故障可能丢失
+
+    - acks=all/-1：等待ISR所有副本写入成功确认，可靠性最高
+
+    2、进阶题：如何保证Kafka消息不丢失？
+
+    ⭐⭐（Producer、Broker、Consumer三层保证）
+
+    1️⃣ Common Answer Producer设置acks=all，Broker设置多个副本，Consumer关闭自动提交offset，处理完再手动提交。这样就能保证不丢失。
+
+    2️⃣ Impressive Answer 保证Kafka消息不丢失需要从Producer、Broker、Consumer三个层面综合考虑：
+
+    Producer层面：
+
+    - 设置acks=all，确保ISR所有副本都写入成功才确认
+
+    - 配置retries=Integer.MAX_VALUE，发送失败自动重试
+
+    - 设置max.in.flight.requests.per.connection=1，保证重试时顺序
+
+    - 使用带回调的send方法，处理发送失败的情况
+
+    Broker层面：
+
+    - 设置replication.factor>=3，保证有足够副本
+
+    - 设置min.insync.replicas>1，确保至少2个副本写入成功
+
+    - 设置unclean.leader.election.enable=false，禁止非ISR副本成为Leader
+
+    - 设置log.flush.interval.messages和log.flush.interval.ms，定期刷盘
+
+    Consumer层面：
+
+    - 设置enable.auto.commit=false，关闭自动提交offset
+
+    - 业务处理成功后再手动提交offset
+
+    - 处理失败时不要提交offset，下次重新消费
+
+    - 结合数据库事务，保证消息处理和业务操作的一致性
+
+    极端情况处理： 即使配置了上述参数，在极端情况下（比如所有ISR副本同时故障）仍可能丢失消息。可以通过以下方式进一步增强：
+
+    - 使用transactional.id开启事务支持
+
+    - 配合数据库实现 Exactly Once 语义
+
+    - 定期对账，发现数据不一致时补偿
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    3、场景题：你的Kafka消息偶尔丢失，如何排查？
+
+    ⭐⭐⭐（系统性排查思路）
+
+    1️⃣ Common Answer 先看配置对不对，acks是不是all，副本数够不够。然后看日志，有没有报错。Consumer是不是自动提交了offset。一个个排查。
+
+    2️⃣ Impressive Answer Kafka消息丢失问题需要系统性排查，我会按照以下思路进行：
+
+    第一步：确认丢失环节
+
+    - 检查Producer发送日志，确认消息是否成功发送到Kafka
+
+    - 检查Broker日志，确认消息是否成功写入磁盘
+
+    - 检查Consumer日志，确认消息是否被消费但offset提交失败
+
+    - 通过监控工具（如Kafka Manager、Burrow）查看各环节指标
+
+    第二步：排查Producer配置
+
+    - 确认acks配置，如果不是all，可能Leader写入成功但Follower未同步
+
+    - 检查retries配置，是否重试次数过少就放弃了
+
+    - 查看回调日志，是否有发送失败的记录
+
+    - 确认buffer.memory是否充足，避免内存不足导致丢弃
+
+    第三步：排查Broker配置
+
+    - 检查replication.factor，副本数是否足够
+
+    - 确认min.insync.replicas，是否至少2个副本同步
+
+    - 查看unclean.leader.election.enable，是否允许非ISR副本成为Leader
+
+    - 检查磁盘IO，是否有写入延迟导致超时
+
+    第四步：排查Consumer配置
+
+    - 确认enable.auto.commit，如果自动提交可能处理失败但offset已提交
+
+    - 检查auto.offset.reset配置，是否从最新位置开始消费
+
+    - 查看消费日志，是否有异常但未回滚offset
+
+    - 确认业务逻辑，是否处理失败时错误地提交了offset
+
+    第五步：排查网络和环境
+
+    - 检查网络稳定性，是否有丢包或延迟
+
+    - 查看Broker资源使用，CPU、内存、磁盘是否饱和
+
+    - 确认Zookeeper状态，是否影响元数据同步
+
+    - 检查JVM GC，是否有长时间停顿
+
+    常见问题和解决方案：
+
+    - 问题：Leader切换时消息丢失 → 解决：设置min.insync.replicas>1
+
+    - 问题：Consumer自动提交offset → 解决：改为手动提交
+
+    - 问题：网络抖动导致超时 → 解决：增加request.timeout.ms
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/OKxBw38EbiXvoAksf2jc1fn6nMh
+  block_id: doxcnd8HSL9cMyjbAjGhE9na3zg
+  page_token: OKxBw38EbiXvoAksf2jc1fn6nMh
+  original_title: 2.2 Kafka消息可靠性
+  imported_at: '2026-09-21'

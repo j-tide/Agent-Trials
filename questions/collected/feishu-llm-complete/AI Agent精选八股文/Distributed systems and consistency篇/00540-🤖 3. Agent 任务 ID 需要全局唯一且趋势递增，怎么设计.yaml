@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-79ae4f9799e5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F916 3. Agent 任务 ID 需要全局唯一且趋势递增，怎么设计？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Distributed systems and consistency篇
+tags: &1
+- AI Agent精选八股文
+- Distributed systems and consistency篇
+content:
+  prompt: "\U0001F916 3. Agent 任务 ID 需要全局唯一且趋势递增，怎么设计？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Agent 任务的特点是高并发（大量对话任务同时创建）、需要按时间排序（趋势递增便于分页和追踪），并且可能跨租户、跨会话。我们可以设计一个 带业务语义的复合 ID，兼顾可读性和性能。
+
+    3.1 方案一：改良雪花算法 + 业务标记
+
+    基础 ID 用雪花算法保证高性能和唯一性，再在外部包装一层业务可读性。
+
+    - 格式：task-{timestamp}-{workerId}-{sequence} 或 T{yyyyMMddHHmmss}{machine}{seq}
+
+    - 实现：
+
+    3.2 方案二：号段模式 + 时间前缀（推荐用于任务中心）
+
+    任务场景下，我们往往希望 ID 能一眼看出创建时间，并且严格递增，方便追踪。号段模式正合适：
+
+    - ID 结构：{日期前缀}{业务码}{自增序号}
+
+    - 例子：20260607-AI-00001234
+
+    - 实现：
+
+    3.3 架构设计要点
+
+    - 高可用：号段服务本身需要集群化，使用 Nacos/Eureka 注册，客户端负载均衡。当号段服务全挂时，本地缓存号段仍可支撑一段时间。
+
+    - 性能：号段模式单机可达千万 QPS，远超任务生成需求。
+
+    - 趋势递增：自然按照 日期+自增 排序，数据库索引友好，前端分页查询按 ID 降序即可获取最新任务。
+
+    - 扩展性：未来如果需要按租户隔离，可以在 ID 中加入租户标识，如 TNT123_20260607_0012。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YhRxwgmAsiJbzZktG6wcNPNznyg
+  block_id: doxcn3wwnVeqxcw74l2mVTekQbd
+  page_token: YhRxwgmAsiJbzZktG6wcNPNznyg
+  original_title: "\U0001F916 3. Agent 任务 ID 需要全局唯一且趋势递增，怎么设计？"
+  imported_at: '2026-09-21'

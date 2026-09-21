@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8358c7f5bd64
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F5A8️ 如何利用回调实现一个简单的流式输出到 Stdout？StreamingStdOutCallbackHandler 的原理是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F5A8️ 如何利用回调实现一个简单的流式输出到 Stdout？StreamingStdOutCallbackHandler 的原理是什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    流式输出是现代对话应用的基本体验。LangChain 内置的 StreamingStdOutCallbackHandler 正是通过回调机制，将 LLM 生成的新 token 实时打印到标准输出。
+
+    原理
+
+    - 当 LLM 开启流式模式（例如 ChatOpenAI(model="gpt-4", streaming=True)）时，API 返回的是一个生成器，逐块返回生成的文本。
+
+    - LangChain 在调用 LLM 的过程中，每收到一个 token，就会触发 on_llm_new_token(self, token: str, **kwargs) 回调事件。
+
+    - StreamingStdOutCallbackHandler 重写了这个方法，将接收到的 token 直接 print(token, end="", flush=True) 输出到标准输出，并且可选的当生成开始时打印一个前缀，结束后打印换行符。
+
+    底层源码简析（概念）:
+
+    class StreamingStdOutCallbackHandler(BaseCallbackHandler):
+        def on_llm_new_token(self, token: str, **kwargs) -> None:
+            sys.stdout.write(token)
+            sys.stdout.flush()
+
+    自定义流式输出回调
+
+    你可以仿照它实现更复杂的功能，比如只显示前 N 个字符，或者把 token 发送到 WebSocket。
+
+    from langchain.callbacks import BaseCallbackHandler
+
+    class MyStreamHandler(BaseCallbackHandler):
+        def on_llm_new_token(self, token: str, **kwargs) -> None:
+            # 自定义处理，例如发送给前端
+            print(f"[{token}]", end="")
+
+    使用
+    将 streaming=True 的 LLM 和该回调一起传入链，即可实现流式输出。
+
+    llm = ChatOpenAI(model="gpt-4", streaming=True)
+    chain = ConversationChain(llm=llm, callbacks=[MyStreamHandler()])
+    chain.run("你好")  # token 逐个出现在 stdout
+
+    注意事项
+
+    - 必须设置 streaming=True，否则 on_llm_new_token 不会被触发。
+
+    - 流式回调只在 LLM 生成阶段有效，Agent 的中间推理步骤不会经过此回调，除非你单独处理。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  block_id: LGfbdc0MgoZVQPxQ1YCccdVin6d
+  page_token: LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  original_title: "\U0001F5A8️ 如何利用回调实现一个简单的流式输出到 Stdout？StreamingStdOutCallbackHandler
+    的原理是什么？"
+  imported_at: '2026-09-21'

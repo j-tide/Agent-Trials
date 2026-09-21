@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f19d9d3db3d8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F682 流水线并行（PP）为什么能减少单卡显存？它切分的是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F682 流水线并行（PP）为什么能减少单卡显存？它切分的是什么？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 流水线并行（PP）通过将模型的不同层分配到不同设备，每张卡只存储和处理一部分连续层，从而单卡权重和激活显存都大幅减少。它切分的是模型深度（层数）。\n\n\U0001F50D
+    原理：\n\n- 假设模型有 32 个 Transformer 层，PP 度数为 4，则将 Layer 1-8 放在 GPU0，Layer 9-16 放 GPU1，依此类推。\n\n-
+    每张卡仅拥有部分层的参数以及这些层的优化器状态和梯度，权重显存自然与层数成正比，约降为 1/PP。\n\n- 前向过程中，GPU0 计算 micro-batch
+    0 的 1-8 层，然后将中间激活（hidden states）传给 GPU1。 GPU1 继续计算，同时 GPU0 开始处理下一个 micro-batch。\n\n-
+    激活显存：因为每张卡只处理部分层，每层的激活驻留时间有限，且通过调度可限制同时存在的 micro-batch 数量。相比单卡保存所有层的激活，单卡激活显存显著降低。\n\n\U0001F9E9
+    切分的是什么？\n\n切分的是模型层的集合，而不是层内张量。因此 PP 的通信只发生在切分点，传输的是层间激活，数据量远小于 TP 的 All-Reduce。这使
+    PP 适合跨节点部署，通信带宽要求较低。\n\n✅ 因此，PP 通过横向切分模型深度，直接减少单卡权重和激活，并以较小的通信开销实现。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WSBEwNJCni9q3ok7cN6cISL3nwe
+  block_id: Vw5zdEFsuo6iNZxu84ZcOwfcnR9
+  page_token: WSBEwNJCni9q3ok7cN6cISL3nwe
+  original_title: "\U0001F682 流水线并行（PP）为什么能减少单卡显存？它切分的是什么？"
+  imported_at: '2026-09-21'

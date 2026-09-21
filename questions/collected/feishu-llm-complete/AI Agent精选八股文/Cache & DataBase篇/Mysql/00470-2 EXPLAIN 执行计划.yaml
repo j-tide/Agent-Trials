@@ -1,0 +1,136 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1a994d33fd21
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 4.2 EXPLAIN 执行计划
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 4.2 EXPLAIN 执行计划
+answer:
+  mode: rubric
+  reference_answer: "### EXPLAIN 执行计划分析\n\n1、基础题：EXPLAIN 的关键字段有哪些？\n\n⭐（id、type、key、rows、Extra）\n\nEXPLAIN
+    的关键字段包括：\n\n- id：查询的标识符\n\n- type：访问类型（ALL、index、range、ref、eq_ref、const）\n\n-
+    key：实际使用的索引\n\n- rows：预估扫描的行数\n\n- Extra：额外信息（Using index、Using where、Using temporary）\n\n2、进阶题：详细说明
+    EXPLAIN 各字段的分析方法\n\n⭐⭐（id、select_type、type、key、rows、Extra）\n\n1️⃣ Common Answer
+    EXPLAIN 显示 SQL 的执行计划。id 是查询的标识，type 是访问类型，key 是用的索引，rows 是扫描行数，Extra 是额外信息。type=ALL
+    是全表扫描，最慢。key=NULL 是没用索引。\n\n2️⃣ Impressive Answer EXPLAIN 是分析 SQL 性能的核心工具，需要系统化理解各字段含义。我将从
+    id、select_type、type、key、rows、Extra 六个字段详细说明。\n\nid 字段：\n\n含义：查询的标识符，表示查询的执行顺序。\n\n分析规则：\n\n-
+    id 相同：执行顺序从上到下\n\n- id 不同：id 越大越先执行（子查询）\n\n- id 为 NULL：表示这是 UNION 的结果\n\n示例：\n\nEXPLAIN
+    \nSELECT * FROM orders WHERE user_id = 1\nUNION\nSELECT * FROM orders WHERE user_id
+    = 2;\n\n+----+-------------+-------+------+---------------+------+---------+------+------+-------------+\n\n|
+    id | select_type | table | type | possible_keys | key  | key_len | ref  | rows
+    | Extra       |\n+----+-------------+-------+------+---------------+------+---------+------+------+-------------+\n\n|
+    \ 1 | PRIMARY     | orders| ref  | idx_user_id   | idx_user_id | 4 | const |   10
+    | Using index |\n|  2 | UNION       | orders| ref  | idx_user_id   | idx_user_id
+    | 4 | const |   10 | Using index |\n|NULL| UNION RESULT| <union1,2>| ALL | NULL
+    \         | NULL | NULL    | NULL | NULL |             |\n+----+-------------+-------+------+---------------+------+---------+------+------+-------------+\n\nselect_type
+    字段：\n\n含义：查询的类型。\n\n常见类型：\n\n- SIMPLE：简单查询，不包含子查询或 UNION\n\n- PRIMARY：最外层的查询\n\n-
+    SUBQUERY：子查询\n\n- DERIVED：派生表（FROM 子句中的子查询）\n\n- UNION：UNION 中的第二个或后续查询\n\n- UNION
+    RESULT：UNION 的结果\n\n示例：\n\nEXPLAIN \nSELECT * FROM orders WHERE user_id IN (\n
+    \   SELECT user_id FROM users WHERE status = 'ACTIVE'\n);\n\n+----+-------------+-------+------+---------------+------+---------+------+------+-------------+\n\n|
+    id | select_type | table | type | possible_keys | key  | key_len | ref  | rows
+    | Extra       |\n+----+-------------+-------+------+---------------+------+---------+------+------+-------------+\n\n|
+    \ 1 | PRIMARY     | orders| ALL  | NULL          | NULL | NULL    | NULL | 1000
+    | Using where |\n|  2 | SUBQUERY    | users | ref  | idx_status    | idx_status
+    | 102 | const |  100 | Using index |\n+----+-------------+-------+------+---------------+------+---------+------+------+-------------+\n\ntype
+    字段：\n\n含义：访问类型，表示 MySQL 如何查找数据。\n\n性能排序（从好到坏）：\n\nconst > eq_ref > ref > range
+    > index > ALL\n\n详细说明：\n\nconst：主键或唯一索引查询，最多返回一行，最快。\n\nEXPLAIN SELECT * FROM
+    users WHERE id = 1;\n\ntype=const, key=PRIMARY, rows=1\n\neq_ref：连接查询时使用主键或唯一索引，每行只匹配一行。\n\nEXPLAIN
+    \nSELECT * FROM orders o \nJOIN users u ON o.user_id = u.id;\n\ntype=eq_ref, key=PRIMARY,
+    rows=1\n\nref：使用非唯一索引，可能匹配多行。\n\nEXPLAIN SELECT * FROM orders WHERE user_id =
+    1;\n\ntype=ref, key=idx_user_id, rows=10\n\nrange：范围查询，使用索引的范围扫描。\n\nEXPLAIN SELECT
+    * FROM orders WHERE create_time > '2024-01-01';\n\ntype=range, key=idx_create_time,
+    rows=1000\n\nindex：索引扫描，扫描整个索引。\n\nEXPLAIN SELECT user_id FROM orders;\n\ntype=index,
+    key=idx_user_id, rows=100000\n\nALL：全表扫描，最慢。\n\nEXPLAIN SELECT * FROM orders WHERE
+    status = 'PAID';\n\ntype=ALL, key=NULL, rows=100000\n\nkey 字段：\n\n含义：实际使用的索引。\n\n分析规则：\n\n-
+    key=NULL：未使用索引，需要优化\n\n- key=索引名：使用了索引\n\n- key=PRIMARY：使用了主键\n\n示例：\n\nEXPLAIN
+    SELECT * FROM orders WHERE user_id = 1;\n\npossible_keys=idx_user_id, key=idx_user_id\n\n使用了
+    idxuserid 索引。\n\nkey_len 字段：\n\n含义：使用的索引长度。\n\n分析规则：\n\n- key_len 越短越好：索引长度越短，查询越快\n\n-
+    key_len=字段长度：使用了整个索引\n\n- key_len<字段长度：使用了索引的前缀\n\n示例：\n\nEXPLAIN SELECT * FROM
+    orders WHERE user_id = 1;\n\nkey=idx_user_id, key_len=4\n\nuser_id 是 INT 类型，长度为
+    4 字节，使用了整个索引。\n\nrows 字段：\n\n含义：预估扫描的行数。\n\n分析规则：\n\n- rows 越少越好：扫描行数越少，查询越快\n\n-
+    rows 很大：需要优化\n\n示例：\n\nEXPLAIN SELECT * FROM orders WHERE user_id = 1;\n\nrows=10\n\n预估扫描
+    10 行，性能较好。\n\nExtra 字段：\n\n含义：额外信息。\n\n常见值：\n\nUsing index：使用了索引覆盖，不需要回表查询，性能好。\n\nEXPLAIN
+    SELECT user_id FROM orders WHERE user_id = 1;\n\nExtra=Using index\n\nUsing where：使用了
+    WHERE 过滤。\n\nEXPLAIN SELECT * FROM orders WHERE user_id = 1 AND status = 'PAID';\n\nExtra=Using
+    where\n\nUsing temporary：使用了临时表，性能差。\n\nEXPLAIN SELECT user_id, COUNT(*) FROM
+    orders GROUP BY user_id;\n\nExtra=Using temporary\n\nUsing filesort：使用了文件排序，性能差。\n\nEXPLAIN
+    SELECT * FROM orders ORDER BY user_id;\n\nExtra=Using filesort\n\n实战案例：\n\n某电商系统慢
+    SQL 优化：\n\n问题 SQL：\n\nSELECT * FROM orders WHERE user_id = 123456 AND status =
+    'PAID';\n\nEXPLAIN 分析：\n\ntype=ALL, key=NULL, rows=100000, Extra=Using where\n\n全表扫描，未使用索引。\n\n优化方案：\n\n-
+    添加联合索引：\n\nCREATE INDEX idx_user_status ON orders(user_id, status);\n\n- 优化后的
+    EXPLAIN：\n\ntype=ref, key=idx_user_status, rows=10, Extra=Using index\n\n使用索引，扫描行数大幅减少，性能提升
+    10000 倍。\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n3、场景题：如何通过 EXPLAIN 定位并优化慢 SQL？\n\n⭐⭐⭐（EXPLAIN
+    分析、定位问题、优化方案、效果验证）\n\n1️⃣ Common Answer 用 EXPLAIN 看一下 SQL 的执行计划，看 type 是什么，key
+    是什么。如果是 type=ALL，就是全表扫描，需要加索引。如果是 key=NULL，就是没用索引，也要加索引。\n\n2️⃣ Impressive Answer
+    通过 EXPLAIN 定位和优化慢 SQL 是一个系统化流程，包括 EXPLAIN 分析、定位问题、优化方案和效果验证四个步骤。我将详细说明每个步骤的具体操作。\n\nEXPLAIN
+    分析：\n\n第一步：获取 EXPLAIN 输出\n\nEXPLAIN SELECT * FROM orders WHERE user_id = 123456
+    AND status = 'PAID';\n\n第二步：分析 EXPLAIN 输出\n\n+----+-------------+-------+------+---------------+------+---------+------+--------+-------------+\n\n|
+    id | select_type | table | type | possible_keys | key  | key_len | ref  | rows
+    \  | Extra       |\n+----+-------------+-------+------+---------------+------+---------+------+--------+-------------+\n\n|
+    \ 1 | SIMPLE      | orders| ALL  | NULL          | NULL | NULL    | NULL | 100000
+    | Using where |\n+----+-------------+-------+------+---------------+------+---------+------+--------+-------------+\n\n第三步：判断性能问题\n\n根据
+    EXPLAIN 输出判断性能问题：\n\n- type=ALL：全表扫描，性能差\n\n- key=NULL：未使用索引，性能差\n\n- rows=100000：扫描行数多，性能差\n\n定位问题：\n\n场景一：全表扫描\n\n问题
+    SQL：\n\nSELECT * FROM orders WHERE user_id = 123456 AND status = 'PAID';\n\nEXPLAIN
+    输出：\n\ntype=ALL, key=NULL, rows=100000\n\n问题定位：\n\n- type=ALL：全表扫描\n\n- key=NULL：未使用索引\n\n-
+    rows=100000：扫描 10 万行\n\n优化方案：\n\n- 添加联合索引：\n\nCREATE INDEX idx_user_status ON
+    orders(user_id, status);\n\n- 优化后的 EXPLAIN：\n\ntype=ref, key=idx_user_status,
+    rows=10\n\n场景二：索引失效\n\n问题 SQL：\n\nSELECT * FROM orders WHERE DATE(create_time)
+    = '2024-01-01';\n\nEXPLAIN 输出：\n\ntype=ALL, key=NULL, rows=100000\n\n问题定位：\n\n-
+    type=ALL：全表扫描\n\n- key=NULL：索引失效（因为对 create_time 字段使用了 DATE() 函数）\n\n优化方案：\n\n-
+    改写 SQL，避免使用函数：\n\nSELECT * FROM orders \nWHERE create_time >= '2024-01-01 00:00:00'
+    \n  AND create_time < '2024-01-02 00:00:00';\n\n- 优化后的 EXPLAIN：\n\ntype=range,
+    key=idx_create_time, rows=1000\n\n场景三：扫描行数多\n\n问题 SQL：\n\nSELECT * FROM orders
+    WHERE user_id = 123456;\n\nEXPLAIN 输出：\n\ntype=ref, key=idx_user_id, rows=5000\n\n问题定位：\n\n-
+    type=ref：使用了索引\n\n- rows=5000：扫描 5000 行，仍然较多\n\n优化方案：\n\n- 添加分页：\n\nSELECT * FROM
+    orders WHERE user_id = 123456 LIMIT 0, 20;\n\n- 只查询需要的字段：\n\nSELECT id, order_no,
+    amount, status \nFROM orders WHERE user_id = 123456 LIMIT 0, 20;\n\n- 优化后的 EXPLAIN：\n\ntype=ref,
+    key=idx_user_id, rows=20\n\n场景四：使用临时表\n\n问题 SQL：\n\nSELECT user_id, COUNT(*) FROM
+    orders GROUP BY user_id;\n\nEXPLAIN 输出：\n\ntype=index, key=idx_user_id, rows=100000,
+    Extra=Using temporary; Using filesort\n\n问题定位：\n\n- Extra=Using temporary：使用了临时表\n\n-
+    Extra=Using filesort：使用了文件排序\n\n优化方案：\n\n- 添加复合索引：\n\nCREATE INDEX idx_user_id_amount
+    ON orders(user_id, amount);\n\n- 优化后的 EXPLAIN：\n\ntype=index, key=idx_user_id_amount,
+    rows=100000, Extra=Using index\n\n效果验证：\n\n第一步：对比执行时间\n\n-- 优化前\nSELECT * FROM
+    orders WHERE user_id = 123456 AND status = 'PAID';\n-- 执行时间：5 秒\n\n-- 优化后\nSELECT
+    * FROM orders WHERE user_id = 123456 AND status = 'PAID';\n-- 执行时间：0.02 秒\n\n第二步：对比
+    EXPLAIN 输出\n\n-- 优化前\nEXPLAIN SELECT * FROM orders WHERE user_id = 123456 AND
+    status = 'PAID';\n-- type=ALL, key=NULL, rows=100000\n\n-- 优化后\nEXPLAIN SELECT
+    * FROM orders WHERE user_id = 123456 AND status = 'PAID';\n-- type=ref, key=idx_user_status,
+    rows=10\n\n第三步：验证业务功能\n\n确保优化后的 SQL 功能正确，数据准确。\n\n实战案例：\n\n某电商订单查询接口优化：\n\n问题
+    SQL：\n\nSELECT * FROM orders WHERE user_id = 123456 AND status = 'PAID';\n\nEXPLAIN
+    分析：\n\ntype=ALL, key=NULL, rows=100000\n\n全表扫描，未使用索引。\n\n优化方案：\n\n- 添加联合索引：\n\nCREATE
+    INDEX idx_user_status ON orders(user_id, status);\n\n- 优化后的 EXPLAIN：\n\ntype=ref,
+    key=idx_user_status, rows=10\n\n效果验证：\n\n- SQL 执行时间从 5 秒降低到 0.02 秒\n\n- 接口响应时间从
+    5 秒降低到 0.1 秒\n\n- 性能提升 50 倍\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n4、容易一起考的题\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PruYwWzfSiDw2dkgSMrcuononnf
+  block_id: doxcnvTFV6olPaHmeyRlPW4aBKb
+  page_token: PruYwWzfSiDw2dkgSMrcuononnf
+  original_title: 4.2 EXPLAIN 执行计划
+  imported_at: '2026-09-21'

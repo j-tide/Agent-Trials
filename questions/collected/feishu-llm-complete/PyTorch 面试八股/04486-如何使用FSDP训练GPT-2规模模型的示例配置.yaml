@@ -1,0 +1,98 @@
+---
+schema_version: 1
+id: feishu-llm-complete-17a603ceec45
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用FSDP训练GPT-2规模模型的示例配置。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何使用FSDP训练GPT-2规模模型的示例配置。
+answer:
+  mode: rubric
+  reference_answer: |-
+    FSDP (Fully Sharded Data Parallel) 是PyTorch官方实现的ZeRO-3等效技术。以下是一个使用torch.distributed.fsdp训练GPT-2的示例配置骨架：
+
+    ```python
+    from torch.distributed.fsdp import (
+        FullyShardedDataParallel as FSDP,
+        MixedPrecision,
+        ShardingStrategy,
+        BackwardPrefetch,
+        StateDictType,
+    )
+    from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
+    from transformers import GPT2Model, GPT2Config
+
+    # 初始化分布式
+    dist.init_process_group(backend='nccl')
+
+    # 定义GPT-2模型
+    config = GPT2Config(vocab_size=50257, n_embd=768, n_head=12, n_layer=12)
+    model = GPT2Model(config)
+
+    # FSDP混合精度配置
+    mp_policy = MixedPrecision(
+        param_dtype=torch.bfloat16,
+        reduce_dtype=torch.bfloat16,
+        buffer_dtype=torch.bfloat16,
+    )
+
+    # 自动包装策略：每个Transformer Block被单独分片
+    auto_wrap_policy = functools.partial(
+        transformer_auto_wrap_policy,
+        transformer_layer_cls={GPT2Model.transformer.h[0].__class__}
+    )
+
+    # 构造FSDP模型
+    fsdp_model = FSDP(
+        model,
+        sharding_strategy=ShardingStrategy.FULL_SHARD,  # ZeRO-3
+        auto_wrap_policy=auto_wrap_policy,
+        mixed_precision=mp_policy,
+        backward_prefetch=BackwardPrefetch.BACKWARD_PRE,
+        device_id=torch.cuda.current_device(),
+        limit_all_gathers=True,
+        use_orig_params=True,  # 保持参数名与原始一致
+    )
+
+    # 之后进行标准训练循环
+    ```
+
+    说明：
+
+    - 这里将每个Transformer层单独分片，最大化显存节省。
+
+    - 使用BF16混合精度，优化器为AdamW。
+
+    - 训练时务必使用torch.cuda.amp.autocast。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  block_id: YC7qdI57RosxrMxWrkwcOd1lnMf
+  page_token: AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  original_title: 如何使用FSDP训练GPT-2规模模型的示例配置。
+  imported_at: '2026-09-21'

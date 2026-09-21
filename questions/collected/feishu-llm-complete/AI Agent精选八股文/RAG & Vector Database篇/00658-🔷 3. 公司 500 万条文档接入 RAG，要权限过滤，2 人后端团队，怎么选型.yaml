@@ -1,0 +1,116 @@
+---
+schema_version: 1
+id: feishu-llm-complete-01803366d008
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F537 3. 公司 500 万条文档接入 RAG，要权限过滤，2 人后端团队，怎么选型？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "\U0001F537 3. 公司 500 万条文档接入 RAG，要权限过滤，2 人后端团队，怎么选型？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这个场景有三个硬约束：中等数据量（500 万）、必须有权限隔离（部门 A 不能搜部门 B 的文档）、运维人力极度有限（2 人）。它们共同指向一个选择：pgvector。
+
+    为什么不是 Milvus？
+
+    Milvus 性能确实强，但部署需要 etcd、MinIO、Coordinator、Proxy 等一整套组件。2 个人维护一套分布式系统，出问题半夜起来修，风险太高。在 500 万这个量级，pgvector 配合 HNSW 索引完全够用，不必上重型武器。
+
+    权限过滤怎么实现？
+    这是选 pgvector 最关键的理由。PostgreSQL 原生支持 Row-Level Security（RLS），你可以在文档表上创建策略，让每个部门的用户只能看到自己部门的行。向量检索时，SQL 的 WHERE 子句会自动过滤掉无权限的数据，然后再在过滤后的集合里做相似度搜索——权限和搜索在同一个查询里完成，不需要应用层再拼结果。
+
+    我们的落地设计：
+
+    ```sql
+    -- 1. 文档表，包含向量字段和部门字段
+    CREATE TABLE docs (
+        id SERIAL PRIMARY KEY,
+        content TEXT,
+        department VARCHAR(50),
+        embedding VECTOR(1536)  -- OpenAI embedding 维度
+    );
+
+    -- 2. HNSW 索引（比默认 IVFFlat 查询更快）
+    CREATE INDEX ON docs USING hnsw (embedding vector_cosine_ops);
+
+    -- 3. 行级安全策略：用户只能看自己部门的文档
+    ALTER TABLE docs ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY dept_isolation ON docs
+        FOR SELECT
+        USING (department = current_setting('app.current_department'));
+
+    -- 4. 查询时，应用先设置当前部门，然后执行向量检索
+    SET app.current_department = 'engineering';
+    SELECT content, 1 - (embedding <=> query_embedding) AS similarity
+    FROM docs
+    ORDER BY embedding <=> query_embedding
+    LIMIT 10;
+    ```
+
+    代码示例：应用层查询（Python）
+
+    ```python
+    import psycopg2
+
+    def search_docs(query_text: str, department: str, embedding_model):
+        query_emb = embedding_model.encode(query_text)
+        conn = psycopg2.connect(...)
+        cur = conn.cursor()
+        # 设置当前请求的部门上下文
+        cur.execute("SET app.current_department = %s", (department,))
+        cur.execute("""
+            SELECT content, 1 - (embedding <=> %s::vector) AS similarity
+            FROM docs
+            ORDER BY embedding <=> %s::vector
+            LIMIT 10
+        """, (query_emb, query_emb))
+        rows = cur.fetchall()
+        cur.close()
+        return rows
+    ```
+
+    为什么这个方案适合 2 人团队？
+
+    - 没有引入新数据库，运维负担几乎为零。
+
+    - 权限模型完全复用 PG 的 RLS，不需要在应用层写复杂的权限逻辑。
+
+    - 向量检索就是一句 SQL，团队里任何一个后端都能看懂、维护。
+
+    - 500 万条数据，HNSW 索引的查询延迟在 10ms 以内，完全满足业务需求。
+
+    如果未来数据涨到 5000 万？ 那时候团队也大概率扩张了，可以把向量部分迁移到 Milvus 或 Qdrant，而权限数据仍然留在 PG，在应用层做一次结果过滤。但当下，pgvector 是这个场景下最务实、最稳健的选择。
+
+    ---
+
+    ### 4.4 RAG 评估
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcnKph7gGUjZyn7awgINzY4Qd
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "\U0001F537 3. 公司 500 万条文档接入 RAG，要权限过滤，2 人后端团队，怎么选型？"
+  imported_at: '2026-09-21'

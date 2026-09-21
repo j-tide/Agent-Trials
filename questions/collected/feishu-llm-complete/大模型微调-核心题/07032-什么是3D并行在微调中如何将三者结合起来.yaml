@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8d352816dc24
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是3D并行？在微调中如何将三者结合起来？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 什么是3D并行？在微调中如何将三者结合起来？
+answer:
+  mode: rubric
+  reference_answer: |-
+    3D并行 是将数据并行（DP）、张量并行（TP）、流水线并行（PP） 这三种策略叠加使用的终极方案，用于训练万亿参数级别的模型。
+
+    “3D”的含义：三种并行策略在逻辑上构成了一个三维网格。DP在“数据”维度扩展，TP在“层内”维度切分，PP在“层间”维度切分。最终，每个GPU都被分配在三维空间中的一个特定坐标上。
+
+    在微调中如何结合？
+
+    结合的核心原则是：让通信模式适配硬件拓扑。
+
+    - 节点内用TP：同一台服务器内的GPU通过NVLink/NVSwitch互联，带宽极高（数百GB/s），延迟极低。这正好匹配TP高频、大通信量的需求。通常TP度设为节点内GPU数，如8。
+
+    - 节点间用PP：不同服务器之间通过网络（如InfiniBand）互联，带宽相对较低，延迟更高。PP只需要传递层间激活，通信量小，天然适合跨节点。PP深度可以等于参与训练的节点数。
+
+    - 大规模扩展用DP：在上述TP和PP构成的“模型副本”之上，再用数据并行复制多份，以处理更大的全局batch，提升总体吞吐。DP的All-Reduce通信发生在所有卡之间，其通信量也很大，因此通常也需要高速网络。
+
+    举例：微调一个70B模型，使用32台8卡A100服务器（共256卡）。
+
+    - TP=8：在单机8卡内使用张量并行，解决单层权重和激活的显存问题。
+
+    - PP=4：跨4个节点使用流水线并行，将这4个节点（共32卡）上的模型层串联起来。
+
+    - DP=8：将上述TP×PP构成的“超级模型副本”复制8份，总共形成8个数据并行组，处理8个不同的数据分片。
+
+    这样，训练时，TP的All-Gather/All-Reduce在机器内部完成；PP的激活传递在相邻机器间点对点进行；DP的梯度All-Reduce则在所有256张卡上全局同步。三者协同，最大化利用了整个集群的显存和算力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: HdDJd0umzoVmq1xYJb2c9LnHnoc
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 什么是3D并行？在微调中如何将三者结合起来？
+  imported_at: '2026-09-21'

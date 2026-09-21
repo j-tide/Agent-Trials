@@ -1,0 +1,105 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4b11c53ae4b8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 5、场景题：用 AutoGen 实现一个「自动化数据分析助手」，用户提出分析需求后，系统自动生成代码、执行、可视化并生成报告，如何设计 Agent 角色和对话流程？⭐⭐⭐⭐
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: 5、场景题：用 AutoGen 实现一个「自动化数据分析助手」，用户提出分析需求后，系统自动生成代码、执行、可视化并生成报告，如何设计 Agent
+    角色和对话流程？⭐⭐⭐⭐
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐⭐（系统架构设计、多 Agent 协作）\n\n1️⃣ Common Answer\n\n我会设计三个 Agent：一个
+    UserProxyAgent 接收用户需求，一个 AssistantAgent 生成代码，一个 UserProxyAgent 执行代码。然后 AssistantAgent
+    生成报告。对话流程就是用户说需求，Assistant 生成代码，UserProxy 执行，然后生成报告。\n\n2️⃣ Impressive Answer\n\n-
+    Agent 角色设计\n\n# 1. 需求理解 Agent（AssistantAgent）\nrequirement_agent = AssistantAgent(\n
+    \   name=\"requirement_analyst\",\n    system_message=\"你负责理解用户的数据分析需求，明确分析目标、数据源、指标维度，输出结构化需求文档。\",\n
+    \   llm_config={\"model\": \"gpt-4\"}\n)\n   \n# 2. 代码生成 Agent（AssistantAgent）\ncode_generator
+    = AssistantAgent(\n    name=\"data_engineer\",\n    system_message=\"你负责根据需求文档生成
+    Python 数据分析代码，使用 pandas、matplotlib 等库，代码需包含错误处理。\",\n    llm_config={\"model\":
+    \"gpt-4\"}\n)\n   \n# 3. 代码执行 Agent（UserProxyAgent）\ncode_executor = UserProxyAgent(\n
+    \   name=\"executor\",\n    code_execution_config={\n        \"work_dir\": \"data_analysis\",\n
+    \       \"use_docker\": True,\n        \"timeout\": 120\n    },\n    human_input_mode=\"NEVER\"\n)\n
+    \  \n# 4. 可视化专家（AssistantAgent）\nvisualization_agent = AssistantAgent(\n    name=\"visualizer\",\n
+    \   system_message=\"你负责根据分析结果设计合适的可视化方案，生成 matplotlib/seaborn 绘图代码。\",\n    llm_config={\"model\":
+    \"gpt-3.5-turbo\"}  # 成本优化\n)\n   \n# 5. 报告生成 Agent（AssistantAgent）\nreport_generator
+    = AssistantAgent(\n    name=\"report_writer\",\n    system_message=\"你负责整合分析结果和图表，生成结构化
+    Markdown 报告，包含数据洞察和建议。\",\n    llm_config={\"model\": \"gpt-4\"}\n)\n\n- 对话流程设计（Nested
+    Chat + Group Chat 混合架构）\n\n# 主对话：需求理解 → 报告生成\ndef main_workflow():\n    # 第一步：需求理解\n
+    \   requirement = requirement_agent.generate_reply(\n        messages=[{\"role\":
+    \"user\", \"content\": user_request}]\n    )\n       \n    # 第二步：启动嵌套对话处理数据分析\n
+    \   analysis_result = initiate_chats([\n        {\n            \"sender\": code_generator,\n
+    \           \"recipient\": code_executor,\n            \"message\": f\"根据需求生成并执行代码：{requirement}\",\n
+    \           \"clear_history\": True\n        },\n        {\n            \"sender\":
+    visualization_agent,\n            \"recipient\": code_executor,\n            \"message\":
+    \"根据分析结果生成可视化\",\n            \"clear_history\": True\n        }\n    ])\n       \n
+    \   # 第三步：生成最终报告\n    report = report_generator.generate_reply(\n        messages=[{\n
+    \           \"role\": \"user\", \n            \"content\": f\"需求：{requirement}\\n分析结果：{analysis_result}\\n生成报告\"\n
+    \       }]\n    )\n       \n    return report\n\n- 容错和优化机制\n\n- 完整对话示例\n\nUser:
+    \"帮我分析 2024 年 Q1 的销售数据，找出 Top 10 商品，并展示销售趋势\"\n   \nRequirement_Agent: \"需求已明确：1.
+    数据源：sales_q1_2024.csv 2. 分析目标：Top 10 商品、销售趋势 3. 输出：排行榜 + 折线图\"\n   \n[Nested Chat
+    1 - 数据分析]\nCode_Generator → 生成 pandas 聚合代码\nCode_Executor → 执行代码，返回 Top 10 商品数据\n
+    \  \n[Nested Chat 2 - 可视化]\nVisualization_Agent → 生成 matplotlib 绘图代码\nCode_Executor
+    → 执行代码，生成趋势图\n   \nReport_Generator: \"## 2024 Q1 销售分析报告\\n### Top 10 商品\\n[表格]\\n###
+    销售趋势\\n[图表]\\n### 洞察\\n1. 3 月销售额增长 20%...\"\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---\n\n###
+    AutoGen ConversableAgent 与多 Agent 对话机制\n\n1、基础题：AutoGen 中 ConversableAgent 的作用是什么？\n\n难度级别：⭐（考察要点：ConversableAgent
+    定义、initiate_chat、终止条件）\n\nConversableAgent 是 AutoGen 中所有 Agent 类型的基类，封装了消息收发、回复生成（LLM/函数/人工）和终止判断三个核心能力。两个
+    Agent 通过 initiate_chat 触发对话，轮流发言，直到 is_termination_msg 检测到终止条件（如消息包含 \"TERMINATE\"）为止。\n\n---\n\n2、进阶题：AutoGen
+    的 human_input_mode 三种模式有什么区别，GroupChat 的发言权管理如何工作？\n\n难度级别：⭐⭐（考察要点：ALWAYS/NEVER/TERMINATE
+    模式工程含义、GroupChatManager 发言权策略、speaker_selection_method）\n\n1️⃣ Common Answer\n\nhuman_input_mode
+    有三种：ALWAYS 就是每次都要人工输入，NEVER 是全自动不需要人，TERMINATE 是终止时才要人工确认。GroupChat 里有 GroupChatManager
+    来管理谁发言，可以设置 round_robin 轮流或者 auto 自动选。\n\n2️⃣ Impressive Answer\n\n我会从 3 个角度来回答这个问题：\n\n-
+    首先说 human_input_mode 的工程含义。三种模式对应三种人机协作程度：ALWAYS 是每步都等人，适合完全人工驾驶；NEVER 是全程自动，适合
+    CI/CD 批处理；TERMINATE 是自动执行、完成后人工确认结果。生产环境里 TERMINATE 是最实用的，既保证效率，又让人在关键节点做最终把关。\n\n-
+    其次说 GroupChatManager 的发言权策略。speaker_selection_method 有三种选项：auto 让 LLM 根据上下文选人，最灵活但每轮多耗一次
+    token；round_robin 轮流发言，省 token 但不智能；工程上最推荐 allowed_or_disallowed_speaker_transitions，预先定义合法的发言顺序（比如
+    researcher 后只能 coder），兼顾可控性和效率。\n\n- 最后说 AutoGen 和 LangGraph 的根本区别。LangGraph 是图驱动，执行路径预先定义；AutoGen
+    是对话驱动，Agent 用自然语言协调，路径由对话动态决定。前者适合确定性生产流程，后者适合探索性任务。实际项目可以混用：用 LangGraph 定义骨架，在特定节点内嵌
+    AutoGen 对话。\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---\n\n3、场景题：用 AutoGen 实现代码自动生成与执行时，如何防止
+    Agent 无限循环调用同一个工具？\n\n难度级别：⭐⭐（考察要点：max_turns 限制、is_termination_msg 设计、UserProxyAgent
+    代码执行配置）\n\n1️⃣ Common Answer\n\n可以设置 max_turns 来限制最大轮次，防止无限循环。另外 is_termination_msg
+    可以检测终止条件，比如消息里有 TERMINATE 就停止。\n\n2️⃣ Impressive Answer\n\n防止无限循环要从两个层面入手。\n\n第一，硬限制层面：initiate_chat
+    设置 max_turns=10，作为兜底的轮次上限，不管什么情况都不会超出。\n\n第二，逻辑终止层面：在 is_termination_msg 里检测 TERMINATE
+    关键词，同时在 assistant 的 system_message 里明确指示：任务成功或者连续两次执行失败后，必须输出 TERMINATE，否则 LLM
+    可能陷入\"执行 → 失败 → 再执行\"的死循环。根本原因通常是工具返回的错误信息没有被正确处理，LLM 误判任务尚未完成，这个可以通过 LangSmith
+    Trace 看到 Tool Run 和 LLM Run 的交替次数来验证。\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---\n\n-
+    定义：允许一个 Agent 在处理任务时启动一个独立的子对话（Sub-conversation），子对话完成后再将结果返回到主对话。类似函数调用，但对话式执行。\n\n-
+    触发机制：通过 register_nested_chat() 注册，当 Agent 收到特定消息或满足条件时自动触发嵌套对话。\n\n- 上下文隔离：嵌套对话拥有独立的对话历史和状态，不会污染主对话上下文，避免历史消息过长影响
+    LLM 性能。\n\n- 复杂任务分解：将\"编写完整数据分析报告\"拆解为\"数据收集→清洗→分析→可视化\"四个子任务，每个子任务由专门的嵌套对话处理\n\n-
+    对话历史管理：主对话只保留高层决策和最终结果，子对话处理细节过程，有效控制 token 消耗\n\n- 专业化分工：不同嵌套对话可以配置不同的 Agent
+    组合和 LLM，如代码生成用 GPT-4，文本总结用 GPT-3.5，成本优化\n\n- 代码执行失败处理：codeexecutor 捕获异常后自动反馈给
+    codegenerator，触发自我修正循环（最多重试 3 次）\n\n- 结果验证：执行完成后自动检查输出文件是否存在、数据格式是否正确\n\n- 成本控制：代码生成和报告生成使用
+    GPT-4，可视化使用 GPT-3.5，降低成本\n\n- 人工介入点：在报告生成前设置 human_input_mode=\"TERMINATE\"，允许用户确认或调整分析方向"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MHAaw5sSsiptF5kxdKYcdIWfnze
+  block_id: doxcnm16uHuBX7QgwX33RhjLQzb
+  page_token: MHAaw5sSsiptF5kxdKYcdIWfnze
+  original_title: 5、场景题：用 AutoGen 实现一个「自动化数据分析助手」，用户提出分析需求后，系统自动生成代码、执行、可视化并生成报告，如何设计
+    Agent 角色和对话流程？⭐⭐⭐⭐
+  imported_at: '2026-09-21'

@@ -1,0 +1,177 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e0292ad5a459
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 进阶题：准确率到了瓶颈怎么办？有了解模型微调嘛？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: 进阶题：准确率到了瓶颈怎么办？有了解模型微调嘛？
+answer:
+  mode: rubric
+  reference_answer: |-
+    1️⃣ Common Answer
+
+    针对垂直领域数据进行收集，并且对基模做 LoRa，实现准确率提升。
+
+    2️⃣ Impressive Answer
+
+    "我们在 RAG  召回系统中，对 Qwen2.5-7B 做了 LoRA 微调，主要解决通用模型在 xx 领域的两个问题：一是不熟悉 xx 术语和行业黑话，二是输出格式不符合 xx 报告的规范。具体流程是：先从业务日志里提取了 300 条真实的投研问答，再用 Claude 扩充到 800 条，人工筛选后保留 600 条高质量数据。用 LLaMA-Factory 对 Qwen2.5-7B-Instruct 做 LoRA 微调（rank=8，alpha=16），在单卡 A100 上训练了 3 个 epoch，约 2 小时。效果对比：领域问答准确率从 72% 提升到 89%，格式合规率从 60% 提升到 95%，幻觉率从 18% 降到 7%。微调后的模型集成进 RAG 系统，替换了原来的通用 Qwen3.5，整体答疑质量有明显提升。"
+
+    整体流程图
+
+    ```text
+    业务需求分析
+        ↓
+    数据准备（最关键，占 60% 工作量）
+        ↓
+    选择微调方法（LoRA / QLoRA / 全量）
+        ↓
+    配置训练参数
+        ↓
+    启动训练 + 监控 loss 曲线
+        ↓
+    效果评估（对比微调前后）
+        ↓
+    部署推理（vLLM / Ollama）
+    ```
+
+    Step 1：数据准备（最重要）
+
+    数据格式：Alpaca 格式（最通用）
+
+    ```text
+    [
+      {
+        "instruction": "分析宁德时代2024年Q3的营收情况",
+        "input": "营收数据：Q3营收1000亿，同比增长15%，毛利率28%",
+        "output": "宁德时代2024年Q3营收表现稳健，营收1000亿元同比增长15%，毛利率维持在28%的健康水平，主要受益于储能业务放量和海外市场拓展..."
+      }
+    ]
+    ```
+
+    数据来源：
+
+    - 方案 A（最快）：用 GPT-4/Claude 生成种子数据，人工筛选
+
+    - 方案 B（最真实）：从业务日志里提取真实的用户问题 + 专家回答
+
+    - 方案 C（混合）：A 生成初稿，B 的真实数据做质量校验
+
+    数据量经验值：
+
+    - 500-1000 条：能让模型学会领域风格和格式
+
+    - 3000-5000 条：能显著提升领域准确率
+
+    - 10000+ 条：接近全量微调效果
+
+    Step 2：选择微调方法
+
+    [嵌入表格未展开]
+
+    LoRA 核心原理：
+
+    不直接更新原始权重矩阵 W，而是训练两个小矩阵 A（d×r）和 B（r×d），其中 r 远小于 d（如 r=8，d=4096）。推理时 W' = W + BA，参数量从 d² 降到 2dr，当 r=8 时参数量减少 99.6%。
+
+    Step 3：用 LLaMA-Factory 训练（推荐工具）
+
+    ```text
+    # 安装
+    pip install llamafactory
+
+    # 启动 WebUI（最简单，不用写代码）
+    llamafactory-cli webui
+
+    # 或者用命令行
+    llamafactory-cli train \
+      --model_name_or_path Qwen/Qwen2.5-7B-Instruct \
+      --stage sft \
+      --do_train \
+      --finetuning_type lora \
+      --lora_rank 8 \
+      --lora_alpha 16 \
+      --dataset my_finance_data \
+      --template qwen \
+      --num_train_epochs 3 \
+      --per_device_train_batch_size 2 \
+      --gradient_accumulation_steps 4 \
+      --learning_rate 1e-4 \
+      --output_dir ./output/qwen2.5-7b-finance-lora
+    ```
+
+    关键参数说明（面试会问）：
+
+    - lora_rank=8：低秩矩阵的秩，越大效果越好但显存越多，通常 8-16
+
+    - lora_alpha=16：缩放系数，通常设为 rank 的 2 倍
+
+    - learning_rate=1e-4：LoRA 的学习率比全量微调大 10 倍（全量通常 1e-5）
+
+    - gradient_accumulation_steps=4：梯度累积，等效于 batch_size×4，节省显存
+
+    Step 4：监控训练过程
+
+    看 loss 曲线判断是否正常：
+
+    ```text
+    正常情况：
+    train_loss: 2.5 → 1.8 → 1.2 → 0.8 → 0.6（平滑下降后趋于平稳）
+    eval_loss:  2.6 → 1.9 → 1.3 → 0.9 → 0.85（略高于 train_loss，正常）
+
+    过拟合信号：
+    train_loss: 2.5 → 0.3（下降太快，说明数据太少或 epoch 太多）
+    eval_loss:  2.6 → 1.5 → 2.0 → 2.5（先降后升，已过拟合）
+
+    欠拟合信号：
+    train_loss 在 1.5 以上不再下降（数据太少或 learning_rate 太小）
+    ```
+
+    Step 5：效果评估
+
+    ```text
+    # 对比微调前后在测试集上的表现
+    test_queries = [
+        "分析新能源行业的投资机会",
+        "宁德时代的核心竞争力是什么",
+        ...  # 50条测试问题
+    ]
+
+    # 评估指标
+    # 1. 领域准确率（人工标注）：答案是否符合金融专业标准
+    # 2. 格式合规率：是否按要求输出结构化格式
+    # 3. 幻觉率：是否编造不存在的数据
+    # 4. BLEU/ROUGE：与标准答案的文本相似度
+    ```
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Vf3WwfQfWib73PkQHd2coGQXnmf
+  block_id: doxcnyn1x5IP1qVCPsgLdMe2bDz
+  page_token: Vf3WwfQfWib73PkQHd2coGQXnmf
+  original_title: 进阶题：准确率到了瓶颈怎么办？有了解模型微调嘛？
+  imported_at: '2026-09-21'

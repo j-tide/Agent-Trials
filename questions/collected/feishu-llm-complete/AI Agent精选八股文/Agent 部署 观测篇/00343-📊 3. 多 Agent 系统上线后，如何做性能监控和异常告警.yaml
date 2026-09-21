@@ -1,0 +1,115 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b14d6ec6cfe4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 3. 多 Agent 系统上线后，如何做性能监控和异常告警？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 部署 观测篇
+tags: &1
+- AI Agent精选八股文
+- Agent 部署 观测篇
+content:
+  prompt: "\U0001F4CA 3. 多 Agent 系统上线后，如何做性能监控和异常告警？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    多 Agent 的性能监控，不能只盯着 CPU 和内存，我们要同时看业务健康度、调用链成本、安全边界和外部依赖。我习惯建立五个维度的看板，每条告警规则都直接关联业务影响。
+
+    监控维度图谱
+
+    [图片内容未导入]
+
+    维度一：应用级健康（红色告警）
+
+    - 任务成功率：Agent 最终给出有效答案的比例。如果这个值从 95% 掉到 80%，马上响警报。
+
+    - 单次任务端到端延迟：P50/P95/P99 耗时。如果 P95 超过 10 秒，用户体验会显著下降。
+
+    - 消息队列积压：如果用异步任务，积压数代表系统正在过载。
+
+    维度二：成本与效率（橙色告警）
+
+    - 每任务平均 Token 消耗：按模型和类型（输入/输出）拆分。若某 Agent 突然开始消耗大量 Token（比如陷入死循环），要立即发现。
+
+    - 平均推理步数：一个任务 Agent 走了多少轮。步数飙升通常意味着 Agent 在兜圈子或无法解决某个子问题。
+
+    维度三：协作质量（黄色告警）
+
+    - 工具调用成功率：按工具名分面。如果某个关键 API 的失败率突增，说明外部依赖出问题了。
+
+    - Agent 间通信次数：Supervisor 模式的“群聊”里，有效决策前的发言次数。突然变多可能意味着 Agent 们在推诿或无法达成一致。
+
+    示例代码：用 Prometheus 暴露指标
+
+    ```python
+    from prometheus_client import start_http_server, Counter, Histogram, Gauge
+
+    task_counter = Counter('agent_task_total', 'Task outcomes', ['status'])
+    llm_tokens = Counter('agent_llm_tokens', 'Token usage', ['model', 'type'])
+    task_duration = Histogram('agent_task_duration_seconds', 'Task latency')
+    tool_calls = Counter('agent_tool_calls', 'Tool calls', ['tool', 'status'])
+    active_tasks = Gauge('agent_active_tasks', 'Running tasks')
+    interaction_steps = Histogram('agent_interaction_steps', 'Steps per task')
+
+    start_http_server(9090)
+
+    # 在任务完成时
+    task_counter.labels(status='success').inc()
+    task_duration.observe(elapsed)
+    interaction_steps.observe(step_count)
+    ```
+
+    Grafana 告警规则示例（PromQL）：
+
+    - 任务成功率过低：
+    sum(rate(agent_task_total{status="success"}[5m])) / sum(rate(agent_task_total[5m])) < 0.85
+    持续 5 分钟就触发 PagerDuty。
+
+    - 某 Agent 陷入死循环（步数过多）：
+    histogram_quantile(0.95, rate(agent_interaction_steps_bucket[5m])) > 20
+    说明 95% 的任务在 20 步内无法结束，需要检查该 Agent 的 Prompt 或工具调用逻辑。
+
+    - 成本异常飙升：
+    sum(increase(agent_llm_tokens[1h])) > 100000
+    一小时内 Token 超过 10 万，可能需要限流或检查循环。
+
+    异常告警的分级与处理：
+
+    - Critical（致命）：任务成功率低于阈值、LLM 全部返回 5xx、敏感词护栏被绕过。这些需要立刻人工介入。
+
+    - Warning（警告）：P95 延迟上升、Token 消耗异常、某工具可用率下降。可以先观察，如果持续则升级。
+
+    - Info（信息）：新模型上线后的效果对比、流量波动。用于日常复盘，不告警。
+
+    告警的最终目的是减少人工阅读日志的时间。一条好的告警应该直接告诉你：哪个 Agent、在什么环节、出了什么问题、影响了多少用户。比如：
+
+    收束：多 Agent 的可观测性建设，本质上是把一群“黑箱”智能体之间的每一次握手、每一次等待、每一次误解，全部翻译成可量化的信号。当某个信号开始尖叫时，你能在用户察觉到问题之前，就顺着 Trace 这条藤蔓，摸到问题的根——是 Prompt 的歧义，还是工具的暂时失联，抑或是那群 Agent 在某个问题上陷入了永无止境的辩论。这就是工程化 AI 带来的真正掌控力。
+
+    “[Critical] Agentic RAG 系统任务成功率降至 76%（低于 85% 阈值）。过去 5 分钟失败 34 次。请查看 Grafana 面板或查询 trace ID: abc123 的失败案例。”
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YRlmwa5uTigqcrk9KUrccccrnmh
+  block_id: doxcnz0EHaOMgUmX82LZWmj4Qad
+  page_token: YRlmwa5uTigqcrk9KUrccccrnmh
+  original_title: "\U0001F4CA 3. 多 Agent 系统上线后，如何做性能监控和异常告警？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-47b973008558
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个并行工具调用调度器：接收一个 LLM 返回的多个工具调用请求（列表），并发执行这些工具调用（可用多线程模拟），等待所有完成后收集结果。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 实现一个并行工具调用调度器：接收一个 LLM 返回的多个工具调用请求（列表），并发执行这些工具调用（可用多线程模拟），等待所有完成后收集结果。
+answer:
+  mode: rubric
+  reference_answer: "原理\n\n当 LLM 返回多个独立的工具调用（如并行搜索多个关键词），我们可以利用多线程并发执行以降低总延迟。调度器需要管理线程池、收集结果（包括异常），并维持调用顺序以便后续处理。\n\n实现\n\n```python\nimport
+    concurrent.futures\nfrom typing import List, Dict, Any\n\nclass ParallelToolScheduler:\n
+    \   def __init__(self, tool_registry: Dict[str, Callable], max_workers: int =
+    5):\n        \"\"\"\n        tool_registry: 函数名到可调用对象的映射\n        \"\"\"\n        self.registry
+    = tool_registry\n        self.max_workers = max_workers\n\n    def execute_parallel(self,
+    tool_calls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:\n        \"\"\"\n        tool_calls:
+    列表，每个元素包含 \"name\" 和 \"arguments\"\n        返回: 列表，每个元素包含 \"name\", \"arguments\",
+    \"result\" 或 \"error\"\n        \"\"\"\n        results = [None] * len(tool_calls)\n
+    \       \n        def run_one(idx, call):\n            name = call[\"name\"]\n
+    \           args = call.get(\"arguments\", {})\n            try:\n                if
+    name not in self.registry:\n                    raise ValueError(f\"未注册的工具: {name}\")\n
+    \               result = self.registry[name](**args)\n                return idx,
+    {\"name\": name, \"arguments\": args, \"result\": result}\n            except
+    Exception as e:\n                return idx, {\"name\": name, \"arguments\": args,
+    \"error\": str(e)}\n\n        with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers)
+    as executor:\n            futures = [\n                executor.submit(run_one,
+    i, call) for i, call in enumerate(tool_calls)\n            ]\n            for
+    future in concurrent.futures.as_completed(futures):\n                idx, res
+    = future.result()\n                results[idx] = res\n        return results\n\n#
+    示例\ndef search(query):\n    import time, random\n    time.sleep(random.random())
+    \ # 模拟耗时\n    return f\"搜索 '{query}' 的结果\"\n\ndef calculator(expr):\n    return
+    eval(expr)\n\nscheduler = ParallelToolScheduler({\"search\": search, \"calculator\":
+    calculator})\ncalls = [\n    {\"name\": \"search\", \"arguments\": {\"query\":
+    \"天气\"}},\n    {\"name\": \"search\", \"arguments\": {\"query\": \"新闻\"}},\n    {\"name\":
+    \"calculator\", \"arguments\": {\"expr\": \"3*15\"}}\n]\nres = scheduler.execute_parallel(calls)\nfor
+    r in res:\n    print(r)\n```\n\n说明\n\n- 使用 ThreadPoolExecutor 实现并发，适用于 I/O 密集型工具调用。\n\n-
+    每个调用分配唯一索引，结果按原始顺序存储。\n\n- 异常被捕获为 error 字段，不中断其他调用。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  block_id: HenpdGM16oMEAPxzwzDcFONWnkb
+  page_token: Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  original_title: 实现一个并行工具调用调度器：接收一个 LLM 返回的多个工具调用请求（列表），并发执行这些工具调用（可用多线程模拟），等待所有完成后收集结果。
+  imported_at: '2026-09-21'

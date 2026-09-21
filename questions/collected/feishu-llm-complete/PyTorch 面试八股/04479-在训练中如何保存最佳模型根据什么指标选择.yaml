@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7ed3f2e9d89d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在训练中如何保存最佳模型？根据什么指标选择？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 在训练中如何保存最佳模型？根据什么指标选择？
+answer:
+  mode: rubric
+  reference_answer: |-
+    保存最佳模型通常依赖于一个监控指标，当该指标创下历史最佳时，将当前模型的参数（state_dict）保存到磁盘。
+
+    最佳指标选择：
+
+    - 验证损失（Validation Loss）：最通用的指标，越低越好。但需注意，损失最低的模型不一定是生成质量最好的，可能会过拟合或模板化。
+
+    - 特定任务指标：对于分类任务，选择验证集准确率（Accuracy）或 F1-score；对于生成任务，可以选择 BLEU、ROUGE 或通过 GPT-4 评判的胜率。在微调中，我更推荐使用与业务目标直接相关的指标。
+
+    - 安全与对齐指标：在安全敏感的微调中，会同时监控“安全拒绝率”和“误拒绝率”，只在两者都达标的情况下才考虑保存。
+
+    实现方法：
+
+    ```python
+    best_val_loss = float('inf')
+    for epoch in range(epochs):
+        train_loss = train_one_epoch(...)
+        val_loss = validate(...)
+
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': best_val_loss,
+            }, 'best_model.pt')
+            print(f'New best model saved with val_loss: {best_val_loss:.4f}')
+    ```
+
+    保存内容：不仅保存模型权重，还应保存优化器状态、当前 epoch 和最佳指标值，以便后续恢复训练或进行断点续训。
+
+    注意事项：
+
+    - 不要仅凭训练损失保存模型，因为训练损失可以持续下降而验证损失可能已反弹。
+
+    - 可以同时保存多个“最佳”模型，例如“最佳验证损失”和“最佳验证准确率”，但最终选择哪个上线，应通过离线评估和在线 A/B 测试决定。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SlZHw2a2fiQQVBkkXXscts3znGd
+  block_id: AVyQdwZC1oSGi1xmiOXcqp63nxf
+  page_token: SlZHw2a2fiQQVBkkXXscts3znGd
+  original_title: 在训练中如何保存最佳模型？根据什么指标选择？
+  imported_at: '2026-09-21'

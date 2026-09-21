@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-90b85e27c24e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么需要负载均衡损失？写出其公式。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 为什么需要负载均衡损失？写出其公式。
+answer:
+  mode: rubric
+  reference_answer: |-
+    MoE 训练中一个非常头疼的问题是“专家坍塌”：路由网络在训练初期可能迅速收敛到只激活极少数几个专家（甚至仅 1 个），其他专家收不到 token，得不到训练，形同虚设。这完全浪费了 MoE 的容量优势。坍塌的原因是门控网络存在正反馈循环——某个专家碰巧在初期被多选了几次，它学得稍微好一点，下一轮就更可能被选中，形成富者愈富的马太效应。
+
+    负载均衡损失就是为了打破这个正反馈而设计的。它鼓励所有专家被均匀使用，具体做法是在训练损失中加一个辅助项，惩罚专家间的 token 分配不均。
+
+    公式：
+
+    L_aux = α * N * sum(f_i * P_i)
+
+    其中：
+
+    - N 是专家数量。
+
+    - f_i 是第 i 个专家实际处理到的 token 比例（在整个 batch 中，有多少比例的 token 被路由到了专家 i）。计算方式是对该专家的路由概率求和后归一化。
+
+    - P_i 是第 i 个专家的平均路由概率（所有 token 对专家 i 的 softmax 概率的均值）。
+
+    - α 是负载均衡损失的权重，通常设为一个较小的值，如 0.01。太大了会强制所有专家完全均分 token，破坏专家的特化能力；太小了又起不到均衡作用。
+
+    这一项的直观含义是：如果 token 集中在少数专家上，f_i 和 P_i 会同时偏大，乘积增大，损失增加，迫使门控把 token 分配给更多专家。训练初期通常需要设置较大的 α 来建立均衡，随着训练进行可以逐渐减小 α 让专家更自由地分化。监控指标是每个专家的 token 接收量，理想情况是各专家负载大致均衡，但允许有一定差异。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQczwN8cliZ2XSkOI26ckCcPnuf
+  block_id: QOkZdpNY5oXcWYxylTsc4VhDnlg
+  page_token: GQczwN8cliZ2XSkOI26ckCcPnuf
+  original_title: 为什么需要负载均衡损失？写出其公式。
+  imported_at: '2026-09-21'

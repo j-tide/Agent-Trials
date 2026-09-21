@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5f672abcf60c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 用 Python 多进程或伪代码模拟 AlltoAll 通信：每个节点有 N 个分块，第 i 块发往节点 i，同时接收来自其他节点的对应块。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 用 Python 多进程或伪代码模拟 AlltoAll 通信：每个节点有 N 个分块，第 i 块发往节点 i，同时接收来自其他节点的对应块。
+answer:
+  mode: rubric
+  reference_answer: "5.1 原理\n\nAlltoAll 是一种全交换通信：每个节点向每个其他节点（包括自身）发送一个独立的数据块，并接收来自每个其他节点的数据块。典型实现是：节点
+    i 向节点 j 发送块 j，从节点 j 接收块 i。\n\n5.2 模拟实现\n\n假设每个节点拥有一个长度为 N 的列表，blocks[r][c] 表示节点
+    r 要发送给节点 c 的数据块。最终每个节点 c 收集到所有节点发给它的块。\n\n```python\ndef simulate_alltoall(all_blocks):\n
+    \   \"\"\"\n    all_blocks: 二维列表，all_blocks[r][c] 是节点 r 打算发给节点 c 的数据块。\n    返回:
+    每个节点收到的块列表 (received[r][c] 来自节点 c 的块)。\n    \"\"\"\n    N = len(all_blocks)\n
+    \   received = [ [None]*N for _ in range(N) ]\n    # 所有节点同时进行：对于每个发送者 r 和接收者 c，将
+    all_blocks[r][c] 发送到 received[c][r]\n    for r in range(N):\n        for c in
+    range(N):\n            # r 发送给 c\n            received[c][r] = all_blocks[r][c]
+    \ # 模拟即时完成\n    return received\n```\n\n更真实的通信模拟可以用步数表示：如果网络不支持全交换，可通过多轮点对点实现，例如使用环形
+    AlltoAll 算法，此处从简。\n\n5.3 环形 AlltoAll 的简单模拟\n\n在环形拓扑中，通过 N-1 步，每个节点每步向邻居发送一个数据块并转发。\n\n```python\ndef
+    ring_alltoall(blocks):\n    N = len(blocks)\n    # 每个节点当前持有的待发送列表，初始就是要发给各个节点的块\n
+    \   sendbuf = [ list(blocks[r]) for r in range(N) ]  # sendbuf[r][c] \n    recvbuf
+    = [ [None]*N for _ in range(N) ]\n    for step in range(N-1):\n        for r in
+    range(N):\n            downstream = (r + 1) % N\n            # 决定本轮发送哪一块：通常是 (r
+    - step) 索引\n            send_idx = (r - step) % N\n            # 发送 sendbuf[r][send_idx]
+    给下游，下游将其存入 recvbuf[downstream][send_idx]\n            recvbuf[downstream][send_idx]
+    = sendbuf[r][send_idx]\n        # 更新 sendbuf 为刚接收到的数据，继续转发\n        # 细节略\n```"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: YSL6dTQMuoM2MsxQ5hWcIoR2n5e
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 用 Python 多进程或伪代码模拟 AlltoAll 通信：每个节点有 N 个分块，第 i 块发往节点 i，同时接收来自其他节点的对应块。
+  imported_at: '2026-09-21'

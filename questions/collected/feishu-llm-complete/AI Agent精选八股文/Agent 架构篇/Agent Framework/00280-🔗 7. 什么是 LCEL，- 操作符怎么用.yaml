@@ -1,0 +1,93 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1c31435c07c1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F517 7. 什么是 LCEL，| 操作符怎么用？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F517 7. 什么是 LCEL，| 操作符怎么用？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LCEL 是 LangChain Expression Language 的缩写。它不是另一种编程语言，而是用管道符 | 把处理单元串联起来的一种声明式语法。
+
+    想象一个物理实验：水从水龙头流出，经过滤芯，再流进杯子。每一个环节只做一件事，数据就像水一样单向流过各个部件。
+
+    在代码里，这个流程就是：
+
+    ```python
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_openai import ChatOpenAI
+    from langchain_core.output_parsers import StrOutputParser
+
+    prompt = ChatPromptTemplate.from_template("给一家卖{product}的公司起三个名字")
+    model = ChatOpenAI()
+    parser = StrOutputParser()
+
+    # 这就是 LCEL 的 | 操作符
+    chain = prompt | model | parser
+    ```
+
+    | 操作符到底做了什么？
+    在 Python 里它被重载为 Runnable.or。简化的内部逻辑可以理解为：
+
+    ```python
+    class Runnable:
+        def __or__(self, other):
+            # 返回一个新的 RunnableSequence，调用时先运行 self，输出作为 other 的输入
+            return RunnableSequence(self, other)
+    ```
+
+    所以 prompt | model | parser 本质上创建了一个 RunnableSequence 对象。当你调用 chain.invoke({"product": "智能手表"}) 时：
+
+    - prompt 把输入字典转换成 ChatPromptValue（一串消息对象）。
+
+    - model 接收这些消息，输出一个 AIMessage。
+
+    - parser 从 AIMessage 中提取出纯文本字符串。
+
+    | 不只用于串联，还能并联、分支。例如：
+
+    ```python
+    # 同时生成大纲和正文
+    chain = RunnableParallel(
+        outline=prompt_outline | model | StrOutputParser(),
+        article=prompt_article | model | StrOutputParser()
+    )
+    ```
+
+    这里的 RunnableParallel 内部也是用 | 把多个子链并联起来。所以 | 就是 LCEL 的胶水——它让你能用搭积木的方式搭建复杂的数据流管道，而无需写任何胶水代码。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SuxqwVBLli4q94kJFBAcOLkFnZc
+  block_id: doxcnyaKI4WzXanimKxrc3pPNle
+  page_token: SuxqwVBLli4q94kJFBAcOLkFnZc
+  original_title: "\U0001F517 7. 什么是 LCEL，| 操作符怎么用？"
+  imported_at: '2026-09-21'

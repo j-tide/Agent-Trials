@@ -1,0 +1,115 @@
+---
+schema_version: 1
+id: feishu-llm-complete-36b0d0b1a077
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "✂️ 14. 为什么有时需要基于“句子”而非“字符数”进行分割？如何实现？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "✂️ 14. 为什么有时需要基于“句子”而非“字符数”进行分割？如何实现？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    基于句子的分割，最根本的目的是保护语义的最小完整单元——句子。一个句子被腰斩后，往往无法独立理解，生成模型也会产生错误推理。而基于字符数硬切分，可能刚好卡在主语和谓语之间，让 chunk 变成语法碎片。
+
+    所以，在以下情况必须基于句子分割：
+
+    - 需要高语义完整性的知识问答。
+
+    - 下游模型对不完整输入的容忍度低（例如小模型）。
+
+    - 文本主要由长句组成（如学术论文、法律文本）。
+
+    实现方法：
+
+    方法一：使用 NLP 句子分割器 + 自定义 Splitter
+    先用 spaCy 或 nltk 将文本切分为句子列表，然后设计一个 Splitter 将这些句子作为最小原子进行合并，确保每个块在句子边界处结束。
+
+    ```python
+    import spacy
+    from langchain.text_splitter import TextSplitter
+    from typing import List
+
+    nlp = spacy.load("en_core_web_sm")  # 或 zh_core_web_sm
+
+    class SentenceAwareSplitter(TextSplitter):
+        def __init__(self, chunk_size: int, chunk_overlap: int = 0):
+            self.chunk_size = chunk_size
+            self.chunk_overlap = chunk_overlap
+
+        def split_text(self, text: str) -> List[str]:
+            doc = nlp(text)
+            sentences = [sent.text for sent in doc.sents]
+            chunks = []
+            current_chunk = ""
+            for sent in sentences:
+                if len(current_chunk) + len(sent) <= self.chunk_size:
+                    current_chunk += " " + sent if current_chunk else sent
+                else:
+                    chunks.append(current_chunk)
+                    # 重叠部分：保留最后几个句子
+                    if self.chunk_overlap:
+                        overlap_sents = []
+                        back_len = 0
+                        for prev_sent in reversed(sentences[:sentences.index(sent)]):
+                            if back_len + len(prev_sent) <= self.chunk_overlap:
+                                overlap_sents.insert(0, prev_sent)
+                                back_len += len(prev_sent)
+                            else:
+                                break
+                        current_chunk = " ".join(overlap_sents) + " " + sent
+                    else:
+                        current_chunk = sent
+            if current_chunk:
+                chunks.append(current_chunk)
+            return chunks
+    ```
+
+    方法二：使用 LangChain 实验性句子分割器
+    SentenceTransformersTokenTextSplitter 能够结合 token 限制和句子边界。它先按句子切分，再按 token 数合并，优先保证句子完整。
+
+    ```python
+    from langchain.text_splitter import SentenceTransformersTokenTextSplitter
+
+    splitter = SentenceTransformersTokenTextSplitter(
+        chunk_size=200,
+        chunk_overlap=20,
+        tokens_per_chunk=256,
+        model_name="sentence-transformers/all-mpnet-base-v2",
+    )
+    ```
+
+    实践提示：
+    基于句子的分割必然会牺牲 chunk 长度的一致性（句子长度不一），但这正是“语义优先”所付出的代价。一定要用 length_function 配合模型的 tokenizer 监控真实 token 数，防止超长句导致 chunk 超出模型限制。另外，对于无清晰句子边界的文本（如代码、表格），需要回退到字符分割。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/O97CwA74Ji4ZHWkDTIRcb7OanUg
+  block_id: EgyMdknJdowEiWxNmMMcq1tTnGb
+  page_token: O97CwA74Ji4ZHWkDTIRcb7OanUg
+  original_title: "✂️ 14. 为什么有时需要基于“句子”而非“字符数”进行分割？如何实现？"
+  imported_at: '2026-09-21'

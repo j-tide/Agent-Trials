@@ -1,0 +1,94 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2fe01720ec8e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F680 2. 为什么 MongoDB 写入性能好？内存配置如何影响性能？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F680 2. 为什么 MongoDB 写入性能好？内存配置如何影响性能？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    MongoDB 的写入性能之所以出色，并非因为单次写操作有多快，而是因为它把随机写转化为了顺序写，并充分利用了内存来吸收写峰值。
+
+    写入性能好的秘密：
+
+    - WiredTiger 的写入模型
+    WiredTiger 不直接在磁盘上修改原数据。写入请求到达后，它先将修改记录在内存中的 Journal Buffer（日志缓冲区），然后以顺序追加的方式快速写入 Journal 文件（磁盘上的 WAL）。真正的数据页面修改只发生在内存的缓存中（脏页），由后台的 Checkpoint 线程定期刷盘。也就是说，写操作的延迟主要取决于一次内存更新和一次顺序日志写入，而不是磁盘的随机 IO。
+
+    - 文档模型的自然优势
+    MongoDB 的文档是自包含的，通常不需要像关系型数据库那样跨越多个表进行复杂的 JOIN 写入。很多时候，一个业务操作只需要更新一个 BSON 文档，MongoDB 原生保证单文档操作的原子性，无需分布式事务的开销。
+
+    - 高并发下的无锁争用
+    WiredTiger 使用 意向锁 和 MVCC，使得多个写操作可以并发地在不同的文档上执行，读操作则不会被写操作阻塞。只有对同一个文档的并发写才会发生锁竞争。
+
+    内存配置如何影响性能？
+
+    WiredTiger 内部缓存的默认大小是 (系统内存 - 1GB) * 50%。这个缓存用于存放未压缩的 B-Tree 页面（数据页和索引页）。内存越大，能缓存的热数据就越多，磁盘 IO 就越少，性能就越好。
+
+    - 缓存不足：当工作集（经常访问的数据和索引）超过缓存大小，WiredTiger 需要频繁将不常用的页面驱逐出缓存，并从磁盘读取新的页面。这会导致 Page Fault 飙升，磁盘 IO 成为瓶颈，请求延迟显著增加。表现为 mongostat 中的 faults 字段升高。
+
+    - 缓存过大：虽然性能可能更好，但会挤压操作系统和其他进程的内存，可能导致 OOM。
+
+    配置 WiredTiger 缓存大小：
+
+    ```yaml
+    # mongod.conf
+    storage:
+      wiredTiger:
+        engineConfig:
+          cacheSizeGB: 8  # 固定大小，推荐为物理内存的 60% 左右
+    ```
+
+    监控缓存使用情况：
+
+    ```javascript
+    // 查看缓存使用统计
+    db.serverStatus().wiredTiger.cache
+    /*
+    {
+      "bytes currently in the cache": 1234567890,
+      "maximum bytes configured": 8589934592,
+      "pages evicted by application threads": 120,
+      "pages read into cache": 50000,
+      ...
+    }
+    */
+    ```
+
+    如果 pages evicted by application threads（应用线程被迫参与驱逐页面）持续很高，说明缓存不足，需要扩容内存或增加缓存配置。
+
+    一句话收束： MongoDB 的写入高性能来自“日志顺序写 + 内存缓存修改 + 后台异步刷盘”的组合拳。而 WiredTiger 缓存则是这套机制的发动机——它越大，数据在内存中待得越久，磁盘的负担就越轻，整个系统的吞吐量就越能稳定在峰值。在生产中，监控缓存驱逐率、命中率和脏页比例，是判断内存配置是否合理的关键。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BXVdwSFoCiy4apkiMglchiTGnmh
+  block_id: doxcnjJzos7UDg12T6gSmZPDf5Z
+  page_token: BXVdwSFoCiy4apkiMglchiTGnmh
+  original_title: "\U0001F680 2. 为什么 MongoDB 写入性能好？内存配置如何影响性能？"
+  imported_at: '2026-09-21'

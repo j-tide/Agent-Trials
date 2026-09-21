@@ -1,0 +1,96 @@
+---
+schema_version: 1
+id: feishu-llm-complete-22783a8bc22a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BB 用 LangServe 将一个 LCEL 链部署为 API，最少需要几行代码？写出示例。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F4BB 用 LangServe 将一个 LCEL 链部署为 API，最少需要几行代码？写出示例。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    最少只需要 6 行有效代码（除去导入和模型初始化）。以下是一个最简示例，将一个简单的问答链部署为 API：
+
+    ```python
+    # 1. 导入必要模块
+    from fastapi import FastAPI
+    from langserve import add_routes
+    from langchain_openai import ChatOpenAI
+    from langchain_core.prompts import ChatPromptTemplate
+
+    # 2. 创建FastAPI应用
+    app = FastAPI(title="我的LLM服务")
+
+    # 3. 构建LCEL链
+    prompt = ChatPromptTemplate.from_template("请解释：{topic}")
+    llm = ChatOpenAI(model="gpt-3.5-turbo")
+    chain = prompt | llm
+
+    # 4. 将链添加为路由（核心！）
+    add_routes(app, chain, path="/explain")
+    ```
+
+    这段代码做了以下事情：
+
+    - 创建了一个 FastAPI 实例。
+
+    - 定义了一个简单的 LCEL 链：接受 topic，生成解释。
+
+    - 使用 add_routes 将这个链挂载到 /explain 路径上。
+
+    启动服务（uvicorn app:app --reload）后，你将自动获得以下端点：
+
+    - POST /explain/invoke：单次调用，返回完整结果。
+
+    - POST /explain/stream：流式调用，返回 SSE 流。
+
+    - POST /explain/batch：批量调用。
+
+    - GET /explain/playground/：一个在线测试页面（需显式开启 playground=True）。
+
+    如果想进一步控制输入输出，可以为链添加类型注解，LangServe 会自动生成对应的 JSON Schema：
+
+    ```python
+    from pydantic import BaseModel
+    class TopicInput(BaseModel):
+        topic: str
+    chain = prompt | llm
+
+    # 指定输入类型
+    add_routes(app, chain.with_types(input_type=TopicInput), path="/explain")
+    ```
+
+    这样 OpenAPI 文档就会清晰地展示 topic 是一个必填的字符串字段。可见 LangServe 将部署复杂度降到了最低，让开发者把精力集中在链的逻辑上。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K973wYln7iD4oCkYW2acmsT4nke
+  block_id: MH2ld5CvGoxckpxCxK9c3es2nIb
+  page_token: K973wYln7iD4oCkYW2acmsT4nke
+  original_title: "\U0001F4BB 用 LangServe 将一个 LCEL 链部署为 API，最少需要几行代码？写出示例。"
+  imported_at: '2026-09-21'

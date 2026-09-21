@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7dcd4758afc5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 张量并行中，MLP 的两次矩阵乘法如何分配？前向和反向的通信模式。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 张量并行中，MLP 的两次矩阵乘法如何分配？前向和反向的通信模式。
+answer:
+  mode: rubric
+  reference_answer: |-
+    延续上例，TP=2的MLP层：
+
+    前向传播：
+
+    - Y_a = X @ W1_a，Y_b = X @ W1_b （各自独立，无通信）
+
+    - Y_a = GeLU(Y_a)，Y_b = GeLU(Y_b)
+
+    - Z_a = Y_a @ W2_a，Z_b = Y_b @ W2_b （各自独立）
+
+    - Z = AllReduce(Z_a + Z_b) （一次AllReduce，求和）
+
+    反向传播：
+
+    - 梯度∂L/∂Z已通过AllReduce得到，每张卡持有完整∂L/∂Z。
+
+    - 计算∂L/∂W2_a = Y_a^T @ ∂L/∂Z（本地），∂L/∂W2_b同理。
+
+    - 计算∂L/∂Y_a = ∂L/∂Z @ W2_a^T（本地），∂L/∂Y_b同理。
+
+    - 计算∂L/∂X_a = ∂L/∂Y_a @ W1_a^T（本地，需先经过GeLU反向）。此时每张卡得到的是∂L/∂X的部分贡献（因为Y是部分和，梯度也是部分）。需要将两张卡的∂L/∂X进行AllReduce求和，得到完整∂L/∂X。
+
+    - 同时计算∂L/∂W1_a = X^T @ ∂L/∂Y_a（本地）。
+
+    所以，前向和反向各需要一次AllReduce。TP的通信量正比于batch_size × seq_len × hidden_dim，与参数量无关。因此，当hidden_dim很大时，TP通信量很大，但参数量也大，TP节省的显存和计算量也显著。TP最适合节点内高带宽（NVLink）环境。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: U5MAdqObWo2c7vxuNn5c6kdbnbg
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: 张量并行中，MLP 的两次矩阵乘法如何分配？前向和反向的通信模式。
+  imported_at: '2026-09-21'

@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ea0c9a5778fa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 微调时，ZeRO 的 stage 选择与全量训练有何不同？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 微调时，ZeRO 的 stage 选择与全量训练有何不同？
+answer:
+  mode: rubric
+  reference_answer: |-
+    微调（Fine-tuning）时，模型的绝大部分参数可能是冻结的（如LoRA），或者我们只更新全部参数（全量微调），两种情况的ZeRO需求差异很大。
+
+    - 全量微调：所有参数都参与训练，梯度、优化器状态与预训练时完全相同。因此ZeRO的stage选择与预训练一致：通常需要ZeRO-2分片梯度和优化器状态，甚至ZeRO-3分片参数，才能将单卡显存降至可接受范围。
+
+    - 参数高效微调（PEFT，如LoRA）：可训练参数仅为全量的千分之一，梯度和优化器状态极小（几乎忽略不计）。显存的主要消耗是只读的预训练参数（FP16副本）。此时ZeRO-3的参数分片可直接将这些只读参数分布到多卡，极大节省显存。而ZeRO-1/2对梯度和优化器状态的分片收益微乎其微，因为这部分本来就不大。因此，LoRA微调时，如果单卡显存不够放只读参数，直接上ZeRO-3是最佳选择；如果显存充足，甚至完全不需要ZeRO。
+
+    所以微调时的stage选择更灵活：对于全量微调，stage与预训练一致；对于PEFT，按需使用ZeRO-3即可，ZeRO-1/2非必需。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: K2dLdzGX8oil5Kx2hOqcSxg1nab
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: 微调时，ZeRO 的 stage 选择与全量训练有何不同？
+  imported_at: '2026-09-21'

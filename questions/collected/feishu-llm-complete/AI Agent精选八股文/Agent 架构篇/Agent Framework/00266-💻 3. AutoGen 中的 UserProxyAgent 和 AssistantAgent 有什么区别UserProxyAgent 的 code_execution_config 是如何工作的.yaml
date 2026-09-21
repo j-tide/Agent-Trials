@@ -1,0 +1,135 @@
+---
+schema_version: 1
+id: feishu-llm-complete-59127fb65252
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BB 3. AutoGen 中的 UserProxyAgent 和 AssistantAgent 有什么区别？UserProxyAgent
+  的 code_execution_config 是如何工作的？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F4BB 3. AutoGen 中的 UserProxyAgent 和 AssistantAgent 有什么区别？UserProxyAgent
+    的 code_execution_config 是如何工作的？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    3.1 两者的本质区别
+
+    [嵌入表格未展开]
+
+    最简对比图示：
+
+    [图片内容未导入]
+
+    AssistantAgent 是系统的“大脑”，它用 LLM 来分析问题、生成代码、提出建议。
+
+    UserProxyAgent 是系统的“手脚”，它可以代表用户执行代码，把执行结果返回给 AssistantAgent 以便进一步修正。它还能代表用户直接发起对话或提供人工反馈。
+
+    3.2 code_execution_config 的工作原理
+
+    code_execution_config 是 UserProxyAgent 独有的配置项，它让 Agent 能够自动执行 AssistantAgent 生成的代码块。
+
+    from autogen import UserProxyAgent
+
+    user_proxy = UserProxyAgent(
+        name="用户代理",
+        human_input_mode="NEVER",  # 完全自动，不等待人工
+        code_execution_config={
+            "work_dir": "workspace",          # 代码执行的工作目录
+            "use_docker": False,              # 是否用 Docker 隔离执行
+            "timeout": 60,                    # 单次执行超时 (秒)
+            "last_n_messages": 3,             # 检查最近多少条消息中的代码块
+        }
+    )
+
+    执行流程：
+
+    - AssistantAgent 生成一条消息，其中包含代码块（标记为 ```python ... ```）。
+
+    - UserProxyAgent 收到消息后，自动提取代码块。
+
+    - UserProxyAgent 在 work_dir 下写入临时文件，通过命令行（如 python script.py）执行。
+
+    - 执行结果（stdout 和 stderr）被捕获，打包成一条新消息，返回给 AssistantAgent。
+
+    - AssistantAgent 看到执行结果后，如果报错则尝试修正代码，重新发给 UserProxyAgent 执行；如果成功则给出最终答案。
+
+    关键配置项说明：
+
+    - use_docker：强烈建议生产环境设为 True，让代码在 Docker 容器中运行，避免恶意代码破坏宿主机。默认为 False 以便开发。
+
+    - timeout：防止无限循环或长时间运行的代码拖死会话。
+
+    - last_n_messages：控制提取代码块的范围。设置为 3 表示只在最近 3 条消息中找代码，避免重复执行旧代码。
+
+    - work_dir：代码文件存放的目录，多个会话可以共享同一个工作目录以便复用文件。
+
+    人工介入模式 human_input_mode 的配合：
+
+    - "NEVER"：完全自动执行，适合纯自动化流程。
+
+    - "TERMINATE"：只有当 Assistant 发出 TERMINATE 信号时才请求人工确认。
+
+    - "ALWAYS"：每次需要执行代码或做出决策时都停下来等待人工输入，适合需要人类监督的敏感任务。
+
+    一个完整的自动代码执行示例：
+
+    from autogen import AssistantAgent, UserProxyAgent
+
+    assistant = AssistantAgent(
+        name="数据科学家",
+        llm_config={"config_list": [{"model": "gpt-4", "api_key": "..."}]},
+        system_message="你是一个数据科学家，用 Python 完成任务。将代码放在 ```python ``` 中。"
+    )
+
+    user_proxy = UserProxyAgent(
+        name="执行者",
+        human_input_mode="NEVER",
+        code_execution_config={
+            "work_dir": "data_science_workspace",
+            "use_docker": False,
+            "timeout": 120,
+        }
+    )
+
+    user_proxy.initiate_chat(
+        assistant,
+        message="请编写 Python 代码，读取 sales.csv 并计算每个地区的总销售额，最后输出结果。"
+    )
+
+    收束：
+
+    UserProxyAgent 相当于给 AssistantAgent 配了一位忠实的“执行秘书”，它不会自己思考，但能把助手写的代码一丝不苟地跑起来，并把输出原样汇报。这种“脑手分离”的架构是 AutoGen 高效解决实际问题的基础——助手只管想，执行只管做，出错一起改。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MHAaw5sSsiptF5kxdKYcdIWfnze
+  block_id: doxcnSuNxLO6FQ4DBdd2fc7aTje
+  page_token: MHAaw5sSsiptF5kxdKYcdIWfnze
+  original_title: "\U0001F4BB 3. AutoGen 中的 UserProxyAgent 和 AssistantAgent 有什么区别？UserProxyAgent
+    的 code_execution_config 是如何工作的？"
+  imported_at: '2026-09-21'

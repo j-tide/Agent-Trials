@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c46848f7c87b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ZeRO-3 分片参数后，前向和反向传播时参数如何获取？对显存有何影响？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: ZeRO-3 分片参数后，前向和反向传播时参数如何获取？对显存有何影响？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO-3 (Parameter Partitioning) 在 ZeRO-2 的基础上进一步将模型参数本身分片到所有 GPU 上。每张 GPU 仅持久保存一部分参数（例如一层中的一部分权重）。在前向传播和反向传播需要完整参数时，通过 AllGather 通信操作从其他 GPU 收集所需的参数片段，组装成完整参数，计算完毕后立即丢弃（释放显存）。这种“随用随取，用完即弃”的策略极大降低了单卡持久存储的模型参数显存。
+
+    具体流程：
+
+    - 前向传播：当计算到第 i 层时，该层的所有参数通过 AllGather 从各 GPU 的分片中收集完整权重；进行该层计算；计算完成后，释放掉该层参数的显存，仅保留自己分片的那部分。
+
+    - 反向传播：同理，需要重新 AllGather 该层参数来计算梯度。计算出的梯度同样通过 ReduceScatter 分片到对应 GPU 进行更新。
+
+    对显存的影响：模型参数不再是每张卡的常驻内存，而是被均摊到所有 GPU。对于 7B 模型，FP16 权重占用 14 GB，用 8 GPU 分片后，每卡仅需 14/8 = 1.75 GB 持久存储参数。这使得单卡可以训练远超自己显存的模型。然而，通信量显著增加，因为每层前向和反向都需要全量参数的 AllGather 和梯度的 ReduceScatter。即便如此，ZeRO-3 仍是训练超大模型的核心技术。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: CQ9adNYhVoLsCHxOTeycrnWgnLg
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: ZeRO-3 分片参数后，前向和反向传播时参数如何获取？对显存有何影响？
+  imported_at: '2026-09-21'

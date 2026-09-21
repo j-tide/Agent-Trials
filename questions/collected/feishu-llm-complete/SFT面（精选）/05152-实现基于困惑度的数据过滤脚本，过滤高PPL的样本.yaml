@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-eb1ad6613c1f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现基于困惑度的数据过滤脚本，过滤高PPL的样本
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 实现基于困惑度的数据过滤脚本，过滤高PPL的样本
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from tqdm import tqdm
+
+    def filter_by_ppl(input_file, output_file, model_name='gpt2', threshold=1000.0):
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = AutoModelForCausalLM.from_pretrained(model_name).cuda()
+        model.eval()
+        kept = 0
+        total = 0
+        with open(input_file, 'r') as fin, open(output_file, 'w') as fout:
+            for line in tqdm(fin):
+                total += 1
+                data = json.loads(line)
+                text = data['output']  # 仅评估回复部分的PPL
+                inputs = tokenizer(text, return_tensors='pt').to('cuda')
+                with torch.no_grad():
+                    outputs = model(**inputs, labels=inputs['input_ids'])
+                    loss = outputs.loss
+                    ppl = torch.exp(loss).item()
+                if ppl < threshold:
+                    fout.write(line)
+                    kept += 1
+        print(f'保留 {kept}/{total} 条, 过滤率 {1-kept/total:.2%}')
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JFt9wvuo1ijVfLktrcDcfTR8nTd
+  block_id: F8SxdCC6ZoGRZWxaCoAc7854nJh
+  page_token: JFt9wvuo1ijVfLktrcDcfTR8nTd
+  original_title: 实现基于困惑度的数据过滤脚本，过滤高PPL的样本
+  imported_at: '2026-09-21'

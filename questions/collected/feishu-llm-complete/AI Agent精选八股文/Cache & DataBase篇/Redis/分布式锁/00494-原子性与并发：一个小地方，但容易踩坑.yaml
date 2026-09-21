@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e6332023bf63
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 原子性与并发：一个小地方，但容易踩坑
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Redis / 分布式锁
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Redis
+- 分布式锁
+content:
+  prompt: 原子性与并发：一个小地方，但容易踩坑
+answer:
+  mode: rubric
+  reference_answer: |-
+    同一个会话，理论上是串行到达，但客户端重试、网络抖动可能导致并发。核心字段更新我会用 Lua 脚本 把“读取-修改-写入-续期”包在一起，避免覆盖。
+
+    一个精简的 Lua 例子（更新 slots + 追加历史 + 续期）：
+
+    ```lua
+    -- KEYS[1] = session_key
+    -- ARGV[1] = new_slots_json
+    -- ARGV[2] = history_item_json
+    -- ARGV[3] = ttl_seconds
+    local exists = redis.call('EXISTS', KEYS[1])
+    if exists == 0 then return nil end
+
+    redis.call('HSET', KEYS[1], 'slots', ARGV[1],
+               'last_active', redis.call('TIME')[1])
+    redis.call('RPUSH', KEYS[1] .. ':history', ARGV[2])
+    redis.call('LTRIM', KEYS[1] .. ':history', -20, -1)  -- 只保留最近20轮
+    redis.call('EXPIRE', KEYS[1], ARGV[3])
+    redis.call('EXPIRE', KEYS[1] .. ':history', ARGV[3])
+    return 1
+    ```
+
+    这样状态更新和历史追加一步完成，即便并发也不会出现 slot 更新了但历史没写入的情况。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KURhwPKP5irrxjkQpTQcE3xxnTY
+  block_id: doxcn2wwZfUOliKLWuXNS7zQyPh
+  page_token: KURhwPKP5irrxjkQpTQcE3xxnTY
+  original_title: 原子性与并发：一个小地方，但容易踩坑
+  imported_at: '2026-09-21'

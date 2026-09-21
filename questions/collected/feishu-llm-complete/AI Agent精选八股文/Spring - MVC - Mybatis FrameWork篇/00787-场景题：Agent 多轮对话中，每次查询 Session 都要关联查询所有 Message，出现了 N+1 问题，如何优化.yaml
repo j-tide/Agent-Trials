@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fc2a1d3035f8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 多轮对话中，每次查询 Session 都要关联查询所有 Message，出现了 N+1 问题，如何优化？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 多轮对话中，每次查询 Session 都要关联查询所有 Message，出现了 N+1 问题，如何优化？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐⭐（N+1 问题、懒加载、批量查询、Agent 场景）
+
+    1️⃣ Common Answer 用懒加载，访问 Message 时再查。或者用 JOIN 查询，一次性查出所有数据。用 MyBatis 的 batch 查询。
+
+    2️⃣ Impressive Answer
+
+    - N+1 问题分析：查询 10 个 Session，每个 Session 关联查询 100 条 Message，共执行 1 + 10 × 100 = 1001 次 SQL（1 次查 Session，1000 次查 Message），性能极差。根本原因：循环中逐个查询关联数据。
+
+    - 优化方案 1：懒加载 + 批量查询：
+
+    ```text
+    List<Long> sessionIds = sessions.stream().map(Session::getId).collect(Collectors.toList());
+    List<Message> messages = messageMapper.selectList(new LambdaQueryWrapper<Message>().in(Message::getSessionId, sessionIds));
+    ```
+
+    - 手动组装 Session 和 Message 的关联关系，减少 SQL 次数到 2 次（1 次查 Session，1 次批量查 Message）。
+
+    - 优化方案 2：JOIN 查询：
+
+    ```text
+    <resultMap id="sessionWithMessagesMap" type="Session">
+        <id property="id" column="id"/>
+        <collection property="messages" ofType="Message" fetchType="eager">
+            <id property="id" column="msg_id"/>
+        </collection>
+    </resultMap>
+    <select id="selectSessionWithMessages" resultMap="sessionWithMessagesMap">
+        SELECT s.*, m.id as msg_id FROM session s LEFT JOIN message m ON s.id = m.session_id WHERE s.id = #{id}
+    </select>
+    ```
+
+    - 一次 SQL 查询出 Session 和所有 Message，避免 N+1 问题。
+
+    - Agent 场景最佳实践：
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VU1MwcbuKiIco5kkmQCc1W0lnFc
+  block_id: doxcnnA0LKcysVknreKK4itrT1g
+  page_token: VU1MwcbuKiIco5kkmQCc1W0lnFc
+  original_title: 3、场景题：Agent 多轮对话中，每次查询 Session 都要关联查询所有 Message，出现了 N+1 问题，如何优化？
+  imported_at: '2026-09-21'

@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-29fc842b1db5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 模型训练时，哪些部分适合保持 FP32，哪些可以降为 FP16？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 一：显存基础与构成
+tags: &1
+- 显存问题-核心题
+- 一：显存基础与构成
+content:
+  prompt: "\U0001F9E9 模型训练时，哪些部分适合保持 FP32，哪些可以降为 FP16？"
+answer:
+  mode: rubric
+  reference_answer: "在混合精度训练中，并非所有张量都适合降为 FP16。一个核心原则是：对数值范围敏感、需要高精度累积的操作保留 FP32；而对计算吞吐和存储空间需求大、数值范围相对稳定的操作降为
+    FP16/BF16。\n\n\U0001F534 适合保持 FP32 的部分：\n\n- 优化器状态：Adam/AdamW 的一阶动量（m）和二阶动量（v）必须保持
+    FP32。这些状态需要累积大量微小梯度更新，如果使用 FP16，动量值很容易因精度不足而丢失，导致优化器无法有效工作。这也是为什么 8-bit Adam 仅对动量进行量化，而并非使用
+    FP16。\n\n[图片内容未导入]\n\n- 批次归一化（BatchNorm）：BN 层计算均值和方差时需要高精度，FP16 下的舍入误差可能导致统计量不稳定，因此通常强制在
+    FP32 下执行 BN 的前向传播。\n\n- 损失计算与 softmax：损失函数（如交叉熵）和 softmax 操作容易因为数值范围问题产生溢出。特别是
+    softmax 中的指数运算，可能因为一个大的输入值而溢出。因此通常保持 FP32。\n\n\U0001F7E2 适合降为 FP16/BF16 的部分：\n\n-
+    前向和反向传播中的权重和激活值：这是混合精度训练的主要优化对象。矩阵乘法（GEMM）和卷积等计算密集型操作可以在 FP16 Tensor Core 上获得数倍加速。激活值的显存占用也减半。\n\n-
+    梯度的存储：反向传播计算出的梯度以 FP16 存储，大幅减少显存。在更新前再转换为 FP32 应用到主权重上。\n\n- 大部分逐元素操作：如 ReLU、Dropout、残差连接等，对精度相对不敏感，可用
+    FP16。\n\n\U0001F4CA 训练精度分配表：\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SFq7wCCaDiTsttkuiXFc1rBOnGc
+  block_id: CrXddWkDkof2i9x7pb9c7uaynxs
+  page_token: SFq7wCCaDiTsttkuiXFc1rBOnGc
+  original_title: "\U0001F9E9 模型训练时，哪些部分适合保持 FP32，哪些可以降为 FP16？"
+  imported_at: '2026-09-21'

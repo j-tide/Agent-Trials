@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-018b138abefe
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在推理时，残差连接会和归一化一起被融合吗？融合后的计算图是怎样的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 基础理论与核心组件
+tags: &1
+- Transfomer精选面试
+- 基础理论与核心组件
+content:
+  prompt: 在推理时，残差连接会和归一化一起被融合吗？融合后的计算图是怎样的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    可以。推理时的图优化通常将相邻的线性层 + 残差连接 + 归一化融合为一个高效的算子，减少内存读写。
+
+    融合后的计算图（以Pre-Norm RMSNorm为例）：
+
+    原始流程：
+
+    ```text
+    1. z = RMSNorm(x)       # 读 x，写 z
+    2. a = z W_Q            # 读 z，写 a (Q)
+    3. 注意力计算 ...
+    4. 残差相加: x + attn_out
+    5. RMSNorm ...
+    6. FFN ...
+    7. 残差相加 ...
+    ```
+
+    融合后，RMSNorm可以与上一个线性层（例如FFN的输出投影）合并为一个kernel：
+
+    ```text
+    融合线性+残差+归一化(x, W, γ, residual):
+        z = x W               # 在寄存器中计算线性输出
+        # 同时累积平方和
+        rms = sqrt(mean(z^2))
+        z = (z / rms) * γ     # 归一化
+        output = z + residual # 残差相加
+    ```
+
+    这样只需要一次读取x，一次写入output，中间步骤全部在寄存器/共享内存完成，大幅减少了显存带宽需求。现代推理引擎（TensorRT、ONNX Runtime、vLLM等）都能自动或手动实现这类融合，是Transformer推理加速的重要手段。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LjGNwy8u0iSQdqk9gtcc6jeFnVc
+  block_id: TnHHdDXoMoILPUx0hBBcWQiUnne
+  page_token: LjGNwy8u0iSQdqk9gtcc6jeFnVc
+  original_title: 在推理时，残差连接会和归一化一起被融合吗？融合后的计算图是怎样的？
+  imported_at: '2026-09-21'

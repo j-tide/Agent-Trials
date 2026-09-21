@@ -1,0 +1,131 @@
+---
+schema_version: 1
+id: feishu-llm-complete-29c8fab68835
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 设计一个工具调用重试机制：如果工具执行返回错误，根据错误类型（如超时、参数错误）决定是否重试，并限制最大重试次数，实现该逻辑。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 设计一个工具调用重试机制：如果工具执行返回错误，根据错误类型（如超时、参数错误）决定是否重试，并限制最大重试次数，实现该逻辑。
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    工具调用可能因网络波动、暂时性故障或参数错误而失败。重试机制需区分可重试错误（如超时、服务不可用）和不可重试错误（如参数非法、权限不足），并设置最大重试次数和重试间隔。
+
+    实现
+
+    ```python
+    import time
+    import functools
+    from typing import Callable, Any
+
+    class RetryableError(Exception):
+        """可重试的异常基类"""
+        pass
+
+    class TimeoutError(RetryableError):
+        pass
+
+    class TemporaryError(RetryableError):
+        pass
+
+    class NonRetryableError(Exception):
+        """不可重试的异常"""
+        pass
+
+    def call_tool_with_retry(
+        tool_func: Callable,
+        *args,
+        max_retries: int = 3,
+        delay: float = 1.0,
+        backoff: float = 2.0,
+        **kwargs
+    ) -> Any:
+        """
+        带重试逻辑的工具调用包装器。
+        Args:
+            tool_func: 要调用的工具函数
+            max_retries: 最大重试次数（不包括首次调用）
+            delay: 初始重试延迟（秒）
+            backoff: 延迟倍增因子（指数退避）
+        Returns:
+            工具函数的返回值
+        Raises:
+            NonRetryableError: 不可重试的错误直接抛出
+            RetryableError: 重试耗尽后仍失败
+        """
+        last_exception = None
+        for attempt in range(max_retries + 1):
+            try:
+                return tool_func(*args, **kwargs)
+            except NonRetryableError as e:
+                # 不可重试，直接抛出
+                raise e
+            except RetryableError as e:
+                last_exception = e
+                if attempt < max_retries:
+                    sleep_time = delay * (backoff ** attempt)
+                    print(f"工具调用失败，{sleep_time:.1f}s 后重试 (尝试 {attempt+1}/{max_retries}): {e}")
+                    time.sleep(sleep_time)
+                else:
+                    raise RuntimeError(f"重试{max_retries}次后仍失败: {e}")
+            except Exception as e:
+                # 未知异常，按不可重试处理
+                raise NonRetryableError(f"未知错误: {e}")
+        raise RuntimeError(f"重试{max_retries}次后仍失败: {last_exception}")
+
+    # 示例模拟
+    def unreliable_search(query):
+        import random
+        if random.random() < 0.7:
+            raise TimeoutError("搜索超时")
+        return f"搜索结果: {query}"
+
+    try:
+        result = call_tool_with_retry(unreliable_search, "天气", max_retries=3, delay=0.5)
+        print(result)
+    except Exception as e:
+        print("最终失败:", e)
+    ```
+
+    要点
+
+    - 使用指数退避策略缓解服务端压力。
+
+    - 记录每次重试的日志，便于调试。
+
+    - 可集成到工具注册表中，为每个工具单独配置重试策略。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  block_id: E4AXdxZ1DoPwhkxxSJDcyBBjnzh
+  page_token: Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  original_title: 设计一个工具调用重试机制：如果工具执行返回错误，根据错误类型（如超时、参数错误）决定是否重试，并限制最大重试次数，实现该逻辑。
+  imported_at: '2026-09-21'

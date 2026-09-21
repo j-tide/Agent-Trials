@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0a3c2461061d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 你是否有使用依赖注入来管理 LangChain 组件实例的经验？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 十、生态对比与最佳实践
+tags: &1
+- LangChain面（高频）
+- 十、生态对比与最佳实践
+content:
+  prompt: "\U0001F9E9 你是否有使用依赖注入来管理 LangChain 组件实例的经验？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    是的，而且我认为这是构建复杂 LangChain 应用的关键架构模式。LangChain 本身不提供 DI 容器，但我们可以借助 Python 的特性或轻量级库实现。
+
+    为什么需要依赖注入？
+
+    - 可测试性：轻松地将 LLM、Retriever 替换为 Mock 实例。
+
+    - 灵活性：根据不同配置（如不同租户、不同实验组）注入不同的组件实例。
+
+    - 解耦：高层模块（如 Agent）不直接依赖底层模块（如具体的 Tool），而是依赖接口。
+
+    实现方式：
+
+    - 简单工厂函数（最常用）：
+
+    ```yaml
+    def create_chain(llm, retriever, memory=None):
+        prompt = load_prompt("v1")
+        return prompt | llm | StrOutputParser()
+    ```
+
+    在服务层，llm 和 retriever 由外部创建并传入。这样链本身不关心 llm 是 ChatOpenAI 还是 AzureChatOpenAI。
+
+    - 使用 dependency-injector 库：
+    对于大型项目，可以引入专业的 DI 容器。通过声明式配置管理所有组件的创建、生命周期和注入关系。容器可以在应用启动时组装好所有依赖，并提供给各个模块。
+
+    - FastAPI 的 Depends：
+    在 Web 层，利用 FastAPI 的依赖注入系统。你可以创建一些依赖函数，用于获取当前请求的 session_id、user_id，并据此动态创建 Memory 或检索器。比如 get_memory(user_id) 作为依赖，自动为每个请求提供隔离的记忆实例。
+
+    - 工具和 Agent 的注入：
+    Agent 的 tools 列表不应该硬编码，而是通过配置或注册表动态生成。例如：
+
+    ```yaml
+    def create_agent(llm, tool_names: List[str]):
+        tools = [TOOL_REGISTRY[name] for name in tool_names]
+        return create_openai_functions_agent(llm, tools, prompt)
+    ```
+
+    - 这样，你可以通过调整 tool_names 配置，在不修改代码的情况下改变 Agent 的能力。
+
+    实践案例：在一个多租户 SaaS 项目中，每个租户有不同的数据源和权限。我们为每个租户构建了一套独立的依赖容器，包含租户专属的向量库连接、工具权限列表、和自定义 Prompt。租户请求路由到对应的容器，实现了完全的隔离。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/OutcwjKcbiXdEJkV2g7cmhUnnkf
+  block_id: PzMEdTTVDoLpJ7xXD9VcFJxrnoJ
+  page_token: OutcwjKcbiXdEJkV2g7cmhUnnkf
+  original_title: "\U0001F9E9 你是否有使用依赖注入来管理 LangChain 组件实例的经验？"
+  imported_at: '2026-09-21'

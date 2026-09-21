@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f2887bb67b31
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写脚本，从大规模jsonl文件中随机采样平衡各任务的数据
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 编写脚本，从大规模jsonl文件中随机采样平衡各任务的数据
+answer:
+  mode: rubric
+  reference_answer: |-
+    假设 jsonl 文件中每行是一个 JSON 对象，包含 task_type 字段。我们需要按任务类型分层采样，每类采样固定数量或比例，输出平衡后的数据。
+
+    ```python
+    import json
+    import random
+    from collections import defaultdict
+
+    def balanced_sampling(input_jsonl: str, output_jsonl: str, target_per_task: int = 1000, seed=42):
+        """
+        从大 jsonl 文件中按 task_type 分层随机采样，每类采样 target_per_task 条，
+        不足则全取。输出到新 jsonl 文件。
+        """
+        random.seed(seed)
+        task_samples = defaultdict(list)
+
+        # 第一遍：按任务分类存储（只存行号或直接存 json 字符串以省内存？这里假设文件可装入内存）
+        with open(input_jsonl, 'r', encoding='utf-8') as f:
+            for line in f:
+                try:
+                    obj = json.loads(line)
+                    task_type = obj.get('task_type', 'unknown')
+                    task_samples[task_type].append(line)
+                except json.JSONDecodeError:
+                    continue
+
+        with open(output_jsonl, 'w', encoding='utf-8') as fout:
+            for task, lines in task_samples.items():
+                if len(lines) <= target_per_task:
+                    sampled = lines
+                else:
+                    sampled = random.sample(lines, target_per_task)
+                for line in sampled:
+                    fout.write(line)
+
+        print(f"采样完成，输出到 {output_jsonl}")
+    ```
+
+    说明：
+
+    - 为避免内存爆炸，如果文件非常大，可以采用两遍扫描：第一遍只统计每个 task 的行号，第二遍随机读取指定行。
+
+    - 上述简单版本适用于文件可全部加载到内存的场景。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JFt9wvuo1ijVfLktrcDcfTR8nTd
+  block_id: PHifdNE9UonyHXxiyJ6ctqz0nQh
+  page_token: JFt9wvuo1ijVfLktrcDcfTR8nTd
+  original_title: 编写脚本，从大规模jsonl文件中随机采样平衡各任务的数据
+  imported_at: '2026-09-21'

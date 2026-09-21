@@ -1,0 +1,125 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ccd37c8cfd55
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E0️ 2. 请设计一个基于本地消息表的订单通知方案，并说明如何保证消息不丢失？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F6E0️ 2. 请设计一个基于本地消息表的订单通知方案，并说明如何保证消息不丢失？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    下面以“订单创建后通知库存系统”为例，设计一个基于本地消息表的可靠通知方案。
+
+    架构流程：
+
+    [图片内容未导入]
+
+    如何保证消息不丢失？
+
+    消息不丢失需要贯穿“生产 → 传输 → 消费”全链路。
+
+    ① 生产端：消息与业务数据同库、同事务
+
+    ```sql
+    -- 伪代码：订单创建时的本地事务
+    BEGIN TRANSACTION
+        INSERT INTO orders (id, user_id, amount, status) VALUES (...);
+        INSERT INTO outbox (id, order_id, topic, message_body, status, create_time)
+             VALUES (uuid, order_id, 'order_created', '{"orderId":123}', 'PENDING', now());
+    COMMIT
+    ```
+
+    因为两行 INSERT 在同一个数据库事务里，要么都成功，要么都失败。订单创建成功，则消息必然写入磁盘；订单创建失败，消息也不会残留。这是防止消息丢失的第一道防线。
+
+    ② 发送端：可靠的轮询投递
+    定时任务每隔几秒扫描 status = 'PENDING' 的记录。为防止并发和超时，需要在消息表中加锁或使用乐观锁：
+
+    ```java
+    // 使用乐观锁防止重复发送
+    int updated = db.update(
+        "UPDATE outbox SET status='SENDING', version=version+1 WHERE id=? AND status='PENDING' AND version=?",
+        recordId, oldVersion
+    );
+    if (updated > 0) {
+        // 成功抢占到该消息的发送权
+        sendToMQ(record);
+        db.update("UPDATE outbox SET status='SENT' WHERE id=?", recordId);
+    }
+    ```
+
+    如果发送成功，标记 SENT。如果发送失败（如网络超时），可以标记 PENDING 等待下次重试，或者设置重试次数上限，超过后标记 FAILED 并告警。
+
+    ③ 传输端：MQ 自身的可靠性
+
+    消息队列（如 RocketMQ）自带同步刷盘、主从复制、消息持久化等机制。只要消息成功投递到 MQ，传输过程中的可靠性由 MQ 保证。
+
+    ④ 消费端：幂等消费 + 手动 ACK + 死信队列
+
+    - 幂等：消费者根据 order_id 判断库存是否已扣减，避免重复消费。
+
+    - 手动 ACK：消费成功后才确认消息，如果业务处理失败，不确认，MQ 会重试。
+
+    - 死信队列：重试多次仍失败的消息转入死信队列，由人工或监控系统处理，确保消息不丢失。
+
+    ⑤ 兜底：定时任务对账
+
+    除了实时通知，还可以在每天低峰期进行一次全量对账。例如对比订单表状态与库存扣减流水，发现不一致的订单自动补发通知或触发人工修复。
+
+    示例代码：轮询发送任务 (Spring Scheduler)
+
+    ```java
+    @Scheduled(fixedDelay = 5000)
+    public void sendPendingMessages() {
+        List<OutboxRecord> records = outboxMapper.selectPending(100); // 每次取100条
+        for (OutboxRecord record : records) {
+            // 乐观锁更新状态
+            boolean locked = outboxMapper.tryLock(record.getId(), record.getVersion());
+            if (!locked) continue;
+
+            try {
+                Message<String> msg = MessageBuilder.withPayload(record.getMessageBody()).build();
+                rocketMQTemplate.send(record.getTopic(), msg);
+                outboxMapper.updateStatus(record.getId(), "SENT");
+            } catch (Exception e) {
+                log.error("发送消息失败: {}", record.getId(), e);
+                outboxMapper.updateStatus(record.getId(), "PENDING"); // 回退状态，等待重试
+            }
+        }
+    }
+    ```
+
+    这个设计的好处是：无论何种异常（数据库宕机、MQ 宕机、网络分区），最终都会通过轮询和重试把消息送到 MQ，不会丢失一条已创建订单的通知。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PKVIw2nCRi0Na6kOoiocSSfonrb
+  block_id: doxcn7CKkwgWluiHDvpkfo1OZPb
+  page_token: PKVIw2nCRi0Na6kOoiocSSfonrb
+  original_title: "\U0001F6E0️ 2. 请设计一个基于本地消息表的订单通知方案，并说明如何保证消息不丢失？"
+  imported_at: '2026-09-21'

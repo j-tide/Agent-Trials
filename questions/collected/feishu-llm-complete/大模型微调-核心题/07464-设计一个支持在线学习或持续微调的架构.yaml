@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f2252c7baa83
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 设计一个支持“在线学习”或“持续微调”的架构。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 设计一个支持“在线学习”或“持续微调”的架构。
+answer:
+  mode: rubric
+  reference_answer: |-
+    这个架构的核心是构建一个自动化、闭环的数据飞轮，让模型能够基于生产反馈进行自我进化。
+
+    架构组件：
+
+    - 在线推理与反馈采集层
+
+    - 推理网关：负责实时服务，同时将每次交互的(输入， 输出)作为日志写入消息队列（如Kafka）。
+
+    - 显式/隐式反馈捕获：前端收集用户点赞、点踩、修改后发送的行为。这些反馈事件也进入同一消息队列，并带有不同的Topic标签。
+
+    - 数据精炼层（数据飞轮引擎）
+
+    - 流式数据处理：一个Flink/Spark Streaming任务订阅消息队列。它将原始日志与用户反馈进行关联和聚合，形成（指令，模型回答，用户修正/反馈）的原始数据流。
+
+    - 智能筛选：内置一个“难例检测模型”，评估模型回答的质量（如PPL、与用户修正的相似度），只筛选出模型明显答错或不满意的“高价值Bad Case”进入后续管道。
+
+    - 自动脱敏：对所有Bad Case中的用户输入，进行实时的PII检测和匿名化处理。
+
+    - 自动标注与数据资产化层
+
+    - LLM-as-Judge重写：将脱敏后的Bad Case和用户修正发送给一个强大的云端模型（如GPT-4），让它根据错误类型，自动将模型的劣质回答重写为“理想回答”，形成新的(指令， 理想回答)对。
+
+    - 人工审核队列：对于LLM重写后置信度较低的样本，或触发了安全红线的样本，自动推送到人工标注工作台，由专家最终审核。审核通过的数据自动入库，并打上版本标签。
+
+    - 持续训练与部署层
+
+    - 条件触发器：当累积的高质量修正数据达到预设阈值（如2000条），或距离上次训练已超过7天，自动触发“持续微调”任务。
+
+    - 增量训练：在上一版生产模型的基础上，仅使用新数据（混合同比例的历史核心数据）进行小步数的增量LoRA微调。这种方式时间极短、成本极低。
+
+    - 自动化评估与灰度上线：训练完成后，自动执行回归测试集评估。通过后，自动部署为Canary版本，接入1%流量。待线上A/B测试确认无劣化后，全量上线，完成一次“在线学习”循环。
+
+    技术实现核心：
+
+    - MLOps平台：使用Kubeflow或MLflow搭建全流程管道。
+
+    - 特征存储：用于统一线上和线下特征处理逻辑。
+
+    - 模型注册中心：用于管理多个版本的模型和适配器，实现平滑切换。
+
+    通过这套架构，模型不再是“一次性交付”的死物，而是一个能够持续适应环境变化、不断自我优化的“智能生命体”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ty64w3f7OipOfgkdPWVcn8ganTf
+  block_id: DsRodP1ZLoTxJxx1L3Ec7ENgnhb
+  page_token: Ty64w3f7OipOfgkdPWVcn8ganTf
+  original_title: 设计一个支持“在线学习”或“持续微调”的架构。
+  imported_at: '2026-09-21'

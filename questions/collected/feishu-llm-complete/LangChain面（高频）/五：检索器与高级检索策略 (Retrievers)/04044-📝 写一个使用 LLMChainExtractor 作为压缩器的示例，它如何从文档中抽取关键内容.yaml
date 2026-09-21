@@ -1,0 +1,100 @@
+---
+schema_version: 1
+id: feishu-llm-complete-209f8cb3ff40
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DD 写一个使用 LLMChainExtractor 作为压缩器的示例，它如何从文档中抽取关键内容？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F4DD 写一个使用 LLMChainExtractor 作为压缩器的示例，它如何从文档中抽取关键内容？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    下面代码演示了如何创建一个 ContextualCompressionRetriever，使用 LLMChainExtractor 从文档中抽取与查询直接相关的内容。
+
+    ```python
+    from langchain.retrievers import ContextualCompressionRetriever
+    from langchain.retrievers.document_compressors import LLMChainExtractor
+    from langchain.chat_models import ChatOpenAI
+
+    # 1. 假设我们已经有一个基础检索器 base_retriever（例如 VectorStoreRetriever）
+    # base_retriever = ...
+
+    # 2. 创建 LLM 实例（使用支持 function calling 的模型效果更好，但不是必须）
+    llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
+
+    # 3. 创建压缩器（Extractor）
+    compressor = LLMChainExtractor.from_llm(llm)
+
+    # 4. 构建上下文压缩检索器
+    compression_retriever = ContextualCompressionRetriever(
+        base_compressor=compressor,
+        base_retriever=base_retriever
+    )
+
+    # 5. 使用检索器
+    query = "量子计算对制药行业的影响是什么？"
+    compressed_docs = compression_retriever.get_relevant_documents(query)
+
+    # 打印结果
+    for i, doc in enumerate(compressed_docs):
+        print(f"--- 压缩后的文档片段 {i+1} ---")
+        print(doc.page_content)
+        print()
+    ```
+
+    内部工作原理：
+    当调用 get_relevant_documents(query) 时，ContextualCompressionRetriever 会：
+
+    - 调用 base_retriever.get_relevant_documents(query) 获取初始文档列表。
+
+    - 对每个文档，调用 LLMChainExtractor，其内部会构建类似以下的 Prompt：
+
+    ```text
+    你是一名信息提取专家。请根据用户的问题，从以下文档中提取出相关的关键信息。
+    如果文档中没有任何相关信息，请输出“无”。
+
+    用户问题：{query}
+
+    文档内容：{document}
+
+    提取的相关信息：
+    ```
+
+    - LLM 返回的内容（可能是原文的摘录，也可能是一些关键句子的重组）会替换原来的文档内容，形成压缩后的 Document 对象。
+
+    - 过滤掉那些被 LLM 判定为“无”相关信息的文档。
+
+    - 将压缩后的文档列表返回。
+
+    通过这种方式，原本可能长达几千字的文档被压缩成了几十字的核心信息，大大减少了后续 LLM 分析时的 token 消耗，同时提高了答案的准确率，因为无关噪音被移除了。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YrNHwdqUUiHr0JkXRNrc4c0kn5d
+  block_id: NDwudp2kDol2jvxmzgZco0Wqnad
+  page_token: YrNHwdqUUiHr0JkXRNrc4c0kn5d
+  original_title: "\U0001F4DD 写一个使用 LLMChainExtractor 作为压缩器的示例，它如何从文档中抽取关键内容？"
+  imported_at: '2026-09-21'

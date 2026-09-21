@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-254f40d9fd8b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F517 如何在 LCEL 链中为特定组件（如 Embedding）单独配置缓存？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F517 如何在 LCEL 链中为特定组件（如 Embedding）单独配置缓存？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LCEL 链本身没有“链级缓存”的概念，缓存通常是针对 LLM 或 Embedding 等底层组件单独配置的。你可以为不同的组件创建独立的缓存实例。
+
+    为 Embedding 缓存：LangChain 的 CacheBackedEmbeddings 就是专门为 Embedding 设计的缓存层。它内部使用一个 BaseStore 来缓存文本的 Embedding 向量。
+
+    ```python
+    from langchain.embeddings import CacheBackedEmbeddings
+    from langchain.storage import LocalFileStore
+    from langchain_openai import OpenAIEmbeddings
+
+    store = LocalFileStore("./cache/")
+    embeddings = OpenAIEmbeddings()
+    cached_embeddings = CacheBackedEmbeddings.from_bytes_store(embeddings, store)
+    ```
+
+    对于 LLM，在链外创建带有缓存的 LLM 实例，然后传入链中。不同 LLM 实例可以指向不同的缓存后端。例如，关键业务链用 RedisCache，非关键链用 InMemoryCache。
+
+    ```python
+    important_llm = ChatOpenAI(model="gpt-4", cache=RedisCache(...))
+    normal_llm = ChatOpenAI(model="gpt-3.5-turbo", cache=InMemoryCache())
+    chain1 = prompt1 | important_llm
+    chain2 = prompt2 | normal_llm
+    ```
+
+    注意：Embedding 模型和 LLM 的缓存 Key 生成策略不同，Embedding 是文本本身，LLM 是 Prompt + 模型参数，它们互不冲突。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VWvFwnt5pi19m7ky7Udc0PatnRe
+  block_id: LMmPdYMCJo0GlXxwOGHcOmnensd
+  page_token: VWvFwnt5pi19m7ky7Udc0PatnRe
+  original_title: "\U0001F517 如何在 LCEL 链中为特定组件（如 Embedding）单独配置缓存？"
+  imported_at: '2026-09-21'

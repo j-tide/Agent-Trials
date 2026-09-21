@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7257d0f37aa1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练时，视觉编码器的参数通常远小于 LLM，如何在流水线并行中平衡各阶段的计算时间？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 训练时，视觉编码器的参数通常远小于 LLM，如何在流水线并行中平衡各阶段的计算时间？
+answer:
+  mode: rubric
+  reference_answer: |-
+    流水线并行的效率取决于各阶段计算时间是否均衡。视觉编码器计算量小，LLM计算量大，若将视觉编码器作为独立流水线阶段，会导致该阶段空闲等待，形成严重气泡。
+
+    平衡策略：
+
+    - 视觉编码器不纳入流水线：将视觉编码器单独部署在少数GPU上，与LLM的流水线解耦。视觉编码器提前批处理图像，产出视觉token后，通过队列或显存缓存发送给LLM流水线的首阶段。LLM流水线内部保持均衡。
+
+    - 将视觉编码器与LLM浅层合并为一个流水线阶段：若视觉编码器计算量可与LLM的前几层近似，可将它们放在同一GPU上，顺序执行。这样视觉编码器的计算与后续流水线阶段的LLM计算可部分重叠。
+
+    - 异构设备与资源分配：给视觉编码器分配较少的GPU资源（如1-2张），给LLM流水线分配更多GPU。在总资源池内灵活调配，而非僵硬的等量分配。
+
+    - 动态批大小：视觉编码器处理多个图像的batch，LLM处理单个或较小的batch。通过调整各自batch大小来平衡计算量。例如视觉编码器一次编码8张图，LLM逐个处理这8张图的token序列。
+
+    实践：主流多模态模型训练中，视觉编码器冻结且不参与LLM流水线，作为独立预处理模块。平衡的核心在于解耦而非强行统一。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  block_id: EwjHdhWAno314fxoFgUcMXbdnif
+  page_token: KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  original_title: 训练时，视觉编码器的参数通常远小于 LLM，如何在流水线并行中平衡各阶段的计算时间？
+  imported_at: '2026-09-21'

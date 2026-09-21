@@ -1,0 +1,90 @@
+---
+schema_version: 1
+id: feishu-llm-complete-935942c8c3f5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4F0 如果业务要求检索结果的时间新鲜度很高（如新闻），你如何在检索时融入时间权重？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F4F0 如果业务要求检索结果的时间新鲜度很高（如新闻），你如何在检索时融入时间权重？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在新闻、社交媒体监控等场景中，文档的时间距离（新鲜度）是至关重要的排序因子。只靠语义相似度会导致旧闻排在前面。融入时间权重有几种策略，从简单到复杂：
+
+    策略一：后处理时间衰减（最简单）
+
+    在检索（或重排序）完成后，根据文档的发布时间对相似度分数进行时间衰减加权。例如：
+
+    [图片内容未导入]
+
+    策略二：向量检索前置过滤（高效）
+
+    在向量检索时，直接通过元数据过滤掉过旧的文档。例如，只检索最近 7 天内的文档。这样从根本上减少了候选集，提高了检索效率。
+
+    - 在 Chroma、Weaviate 等向量库中，可以在 search_kwargs 中传入 filter 参数：
+
+    retriever = vectorstore.as_retriever(
+        search_kwargs={
+            "k": 10,
+            "filter": {"timestamp": {"$gte": "2024-01-01"}}  # 示例，语法依数据库而定
+        }
+    )
+
+    - 如果需要更灵活的时间范围，可以利用 SelfQueryRetriever（见后续问题）将自然语言转为过滤条件。
+
+    策略三：在混合检索中融入时间分数
+    将时间新鲜度作为一个独立的检索器分数，与向量、关键词分数一起融合。例如，为每个文档计算一个时间分数 time_score = max(0, 1 - (current_time - doc_time) / time_window)，然后通过线性加权将其加入最终分数。
+    在自定义的 HybridRetriever 中，可以这样做：
+
+    def _get_relevant_documents(self, query):
+        # 获取向量和关键词的分数
+        ...
+        # 计算时间分数
+        current_ts = datetime.now().timestamp()
+        for doc in all_docs:
+            doc_ts = doc.metadata.get("timestamp")
+            delta = (current_ts - doc_ts) / (3600*24)  # 天
+            time_score = max(0, 1 - delta / 30)  # 30天内线性衰减
+            doc.metadata["final_score"] = 0.5 * similarity_score + 0.3 * keyword_score + 0.2 * time_score
+        # 按 final_score 降序排序
+
+    这种方式最灵活，但也需要谨慎设计权重，避免时间分数主导结果导致丢失高度相关但略旧的文档。
+
+    策略四：使用支持时间衰减的向量索引
+
+    一些专门的向量数据库（如 Elasticsearch、Vespa）支持在相似度函数中内嵌时间衰减，无需应用层处理。如果业务极度依赖时间，可以考虑迁移到这些更强大的搜索引擎。
+
+    注意：时间权重的引入可能会降低纯粹的语义相关性，因此需要针对业务场景调参（如 λλ 或权重），并在评估时加入时间维度的指标（如“最新相关文档的排名”）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TYm8wI1HmiQSuPkpe81c9XYanHb
+  block_id: Zt8Zd51hqoihrPx5K1ScYILsnjh
+  page_token: TYm8wI1HmiQSuPkpe81c9XYanHb
+  original_title: "\U0001F4F0 如果业务要求检索结果的时间新鲜度很高（如新闻），你如何在检索时融入时间权重？"
+  imported_at: '2026-09-21'

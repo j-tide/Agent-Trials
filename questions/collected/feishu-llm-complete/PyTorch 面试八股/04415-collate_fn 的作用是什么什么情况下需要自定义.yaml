@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-70cf2e705d2f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: collate_fn 的作用是什么？什么情况下需要自定义？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: collate_fn 的作用是什么？什么情况下需要自定义？
+answer:
+  mode: rubric
+  reference_answer: |-
+    collate_fn 是 DataLoader 的关键组件，它接收一个样本列表（来自 getitem 的多个返回），并负责将它们组合成一个批次张量。
+
+    默认行为（collate_fn=None）：
+
+    - 将样本按第一维（batch 维度）堆叠为张量，要求所有样本形状一致。
+
+    - 如果样本是 (input, target) 元组，会分别堆叠为 (batched_input, batched_target)。
+
+    需要自定义的情况：
+
+    - 变长序列：NLP 中的文本长度不一，需要填充（padding）到相同长度，并生成 attention_mask。
+
+    - 数据类型复杂：返回的是字典，包含图像、字符串、不同维度的标签等，需要分别处理。
+
+    - 特殊预处理：需要执行批次级别的归一化、数据增强，或需要生成 labels 掩码（如 SFT 中的 loss masking）。
+
+    示例：自定义 collate 处理变长序列
+
+    ```python
+    def my_collate(batch):
+        # batch 是一个列表，每个元素是 (input_ids, label)
+        inputs, labels = zip(*batch)
+        # 填充 input_ids
+        inputs = torch.nn.utils.rnn.pad_sequence(inputs, batch_first=True, padding_value=0)
+        labels = torch.tensor(labels)
+        return inputs, labels
+
+    loader = DataLoader(dataset, batch_size=16, collate_fn=my_collate)
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BLzXwUOV1i4vVjkNph6csNj1nwe
+  block_id: YiJ6d9yMaoawjDxVzStcKFfpnT7
+  page_token: BLzXwUOV1i4vVjkNph6csNj1nwe
+  original_title: collate_fn 的作用是什么？什么情况下需要自定义？
+  imported_at: '2026-09-21'

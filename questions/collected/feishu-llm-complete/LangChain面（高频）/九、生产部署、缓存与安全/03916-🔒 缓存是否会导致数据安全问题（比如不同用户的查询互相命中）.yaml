@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ecc929fbcfad
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F512 缓存是否会导致数据安全问题？（比如不同用户的查询互相命中）"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F512 缓存是否会导致数据安全问题？（比如不同用户的查询互相命中）"
+answer:
+  mode: rubric
+  reference_answer: |-
+    是的，绝对会导致。 尤其是当缓存 Key 仅基于 Prompt 字符串，而不考虑用户身份时。用户 A 的查询结果可能被用户 B 的相同查询命中并返回，造成数据泄露。例如，用户 A 查询“我的订单详情”，如果另一个用户 B 也输入完全相同的“我的订单详情”，B 可能看到 A 的订单信息（如果 LLM 的回复中包含具体内容）。这种情况在 LangChain 默认缓存中极有可能发生。
+
+    解决方案：
+
+    - 隔离缓存 Key：在生成缓存 Key 时，加入 user_id 或其他租户标识。可以通过自定义缓存实现，重写 _key 方法，拼接用户 ID。
+
+    - 使用语义缓存时谨慎：语义缓存会根据相似度匹配，即使 Prompt 不完全相同也可能命中，风险更大。建议对涉及个人数据的查询关闭语义缓存。
+
+    - 缓存内容过滤：在返回缓存结果前，检查是否包含敏感信息（例如用正则匹配身份证号、手机号），如果包含则不返回，重新生成。
+
+    - 混合策略：对公共知识类查询（如“什么是黑洞”）使用全局缓存；对个性化查询（如“我的订单”）使用用户级缓存或直接不走缓存。
+
+    - 加密缓存内容：对缓存数据加密存储，但这会增加计算开销。
+
+    实践：我们在多租户 SaaS 中，为每个租户分配独立的 Redis DB 编号，并将租户 ID 加入缓存 Key 前缀，从物理和逻辑上隔离。同时，所有包含用户输入的 Prompt 都禁止缓存，除非明确标注为公共问题。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VWvFwnt5pi19m7ky7Udc0PatnRe
+  block_id: FcaHdbf7QowKc0xCxlmcE01pnMe
+  page_token: VWvFwnt5pi19m7ky7Udc0PatnRe
+  original_title: "\U0001F512 缓存是否会导致数据安全问题？（比如不同用户的查询互相命中）"
+  imported_at: '2026-09-21'

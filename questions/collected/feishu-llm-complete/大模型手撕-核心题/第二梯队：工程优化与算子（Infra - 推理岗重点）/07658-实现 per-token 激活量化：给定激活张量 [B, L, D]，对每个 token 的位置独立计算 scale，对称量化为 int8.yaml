@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bb8e988f5c2e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 per-token 激活量化：给定激活张量 [B, L, D]，对每个 token 的位置独立计算 scale，对称量化为 int8
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现 per-token 激活量化：给定激活张量 [B, L, D]，对每个 token 的位置独立计算 scale，对称量化为 int8
+answer:
+  mode: rubric
+  reference_answer: |-
+    Per-token 量化 常用于 Transformer 激活，因为不同 token 的数值范围差异可能很大（如第一个 token 是 [CLS]）。对形状 [B, L, D] 的激活，我们在 token 维度（即每个 (b, l) 位置）独立计算 scale。因此 scale 形状为 [B, L]。量化：对于每个 (b,l)，将该 token 的 D 维向量使用对应 scale 量化为 int8。反量化同理。
+
+    实现：
+
+    - 计算每个 token 的 max_abs：沿最后一维 D 取 max(|x|) -> shape [B, L]。
+
+    - scale = max_abs / 127。
+
+    - 量化：x_q = round(x / scale.unsqueeze(-1))，clamp。
+
+    - 反量化：x_f = x_q * scale.unsqueeze(-1)。
+
+    代码：
+
+    ```python
+    def per_token_symmetric_quantize(x: torch.Tensor, bits=8):
+        """
+        x: [B, L, D]
+        Returns:
+            x_q: int8 [B, L, D]
+            scale: FP32 [B, L]
+        """
+        qmax = 127
+        qmin = -128
+        # 每个 token 的最大绝对值
+        max_abs = torch.max(torch.abs(x), dim=-1).values  # [B, L]
+        max_abs = torch.clamp(max_abs, min=1e-8)
+        scale = max_abs / qmax  # [B, L]
+        # 量化
+        x_q = torch.round(x / scale.unsqueeze(-1))
+        x_q = torch.clamp(x_q, qmin, qmax).to(torch.int8)
+        return x_q, scale
+
+    def per_token_symmetric_dequantize(x_q: torch.Tensor, scale: torch.Tensor):
+        return x_q.float() * scale.unsqueeze(-1)
+    ```
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: BAOudc9meoNw06xobsUc0jlwnkh
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 实现 per-token 激活量化：给定激活张量 [B, L, D]，对每个 token 的位置独立计算 scale，对称量化为
+    int8
+  imported_at: '2026-09-21'

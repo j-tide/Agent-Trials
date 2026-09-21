@@ -1,0 +1,91 @@
+---
+schema_version: 1
+id: feishu-llm-complete-873f27085ccc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: RoPE 的一般化形式推导
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: RoPE 的一般化形式推导
+answer:
+  mode: rubric
+  reference_answer: |-
+    题目：将二维旋转推广到 d 维空间，写出 RoPE 对 query 和 key 向量施加位置编码的完整公式（分块对角矩阵形式）。
+
+    2.1 分块对角矩阵
+
+    对于 d 维向量（d 为偶数），RoPE 将其拆分为 d/2 个二维子空间，每个子空间应用独立的旋转。总体旋转矩阵为分块对角阵：
+
+    ```text
+    R(m) = diag(R(m,0), R(m,1), ..., R(m, d/2-1))
+    ```
+
+    其中每个 2×2 块为：
+
+    ```text
+    R(m, i) = [[cos(m θ_i), -sin(m θ_i)],
+               [sin(m θ_i),  cos(m θ_i)]]
+    ```
+
+    这里 θ_i = 10000^{-2i/d}，i = 0,1,...,d/2-1。
+
+    2.2 对 Q 和 K 施加位置编码
+
+    对于位置 m 的查询向量 q_m ∈ R^d 和位置 n 的键向量 k_n ∈ R^d，RoPE 操作定义为：
+
+    ```text
+    q'_m = R(m) q_m
+    k'_n = R(n) k_n
+    ```
+
+    具体计算时，通常采用逐元素乘加的方式（而非构造庞大的矩阵），将 q_m 的元素两两分组 (x_0, x_1), (x_2, x_3), ...，然后进行旋转变换：
+
+    ```text
+    x'_0 = x_0 cos(m θ_0) - x_1 sin(m θ_0)
+    x'_1 = x_0 sin(m θ_0) + x_1 cos(m θ_0)
+    ```
+
+    依此类推。
+
+    2.3 完整公式表达
+
+    设 q_m = [q_0, q_1, ..., q_{d-1}]，则旋转后：
+
+    ```text
+    q'_{2i} = q_{2i} cos(m θ_i) - q_{2i+1} sin(m θ_i)
+    q'_{2i+1} = q_{2i} sin(m θ_i) + q_{2i+1} cos(m θ_i)
+    ```
+
+    k_n 同理。这个操作可以在实际代码中通过向量化的方式高效实现。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VuccwPjSli6dm2kOTxJclpKdnhb
+  block_id: WfD7dgEdho2vpsxfak2cZaAsnSb
+  page_token: VuccwPjSli6dm2kOTxJclpKdnhb
+  original_title: RoPE 的一般化形式推导
+  imported_at: '2026-09-21'

@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4cdd6e61b1f8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚙️量化技术 INT8 / INT4 / GPTQ / AWQ"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "⚙️量化技术 INT8 / INT4 / GPTQ / AWQ"
+answer:
+  mode: rubric
+  reference_answer: "量化就是把高精度浮点权重（FP16/BF16）映射到低位宽整数，用更小的存储和更快的整数运算换推理速度与显存。\n\n\U0001F539
+    INT8 量化（典型的 PTQ 方案）\n\n- 原理：对权重张量按通道（或整个张量）计算缩放因子 ss 和零点 zz，使浮点值 xfloat≈s⋅(xint−z)xfloat≈s⋅(xint−z)。矩阵乘法时，先做
+    INT8 乘累加，再反量化回 FP32 做偏置和激活。\n\n- 特点：几乎无损，显存减半，计算提速（需硬件支持 INT8 Tensor Core）。\n\n-
+    动态量化：激活的量化参数在线计算；静态量化：提前校准。\n\n示例：手工对称量化\n\nimport torch\n\ndef quantize_int8(tensor):\n
+    \   s_max = tensor.abs().max() / 127.0\n    q = torch.round(tensor / s_max).clamp(-128,
+    127).to(torch.int8)\n    return q, s_max\n\ndef dequantize_int8(q, s):\n    return
+    q.float() * s\n\n# 权重量化\nw_fp16 = torch.randn(512, 512, dtype=torch.float16)\nw_int8,
+    scale = quantize_int8(w_fp16.float())\n# 推理时反量化\nw_deq = dequantize_int8(w_int8,
+    scale)\n\n\U0001F539 INT4 量化（更激进）\n\n- 权重压缩到 4 位，显存仅 FP16 的 1/4。\n\n- 单纯四舍五入会导致较大精度损失，需要更聪明的量化方法。\n\n\U0001F539
+    GPTQ\n\n- 思想：基于最优脑量化的思想，逐列对权重进行量化，每量化一列，就用Hessian 信息更新其余未量化列的权重，补偿误差。\n\n- 特点：离线一次性处理，不需要反向传播，速度较快；支持分组量化（group
+    size），在组内再校准，减少异常值影响。\n\n- 效果：INT4 GPTQ 通常困惑度上升 < 1，接近 FP16 表现。\n\n\U0001F539
+    AWQ (Activation-aware Weight Quantization)\n\n- 发现：并非所有权重对输出同等重要——激活值较大通道的权重，其微小误差会被放大。\n\n-
+    做法：对这些“显著通道”先乘以大于 1 的系数，等效于减小量化步长，从而保护重要权重；其他通道步长略增。\n\n- 优点：不需要标定数据上的反向传播，轻量快速，也能达到良好精度。\n\n量化方法对比表：\n\n[嵌入表格未展开]\n\n代码示例：用
+    AutoGPTQ 加载量化模型\n\nfrom auto_gptq import AutoGPTQForCausalLM\nmodel = AutoGPTQForCausalLM.from_quantized(\n
+    \   \"TheBloke/Llama-2-7B-GPTQ\",\n    use_triton=False,\n    use_safetensors=True\n)\n#
+    直接推理\noutput = model.generate(**tokenizer(\"你好\", return_tensors=\"pt\"))\n\n一个关键点：
+    GPTQ 和 AWQ 都允许分组量化，平衡精度与压缩率；实际部署时，通常使用 4-bit 权重 + FP16 激活，以兼顾效率和精度。\n\n收束：\n\n量化是模型部署的“压缩术”，从粗粒度的
+    INT8 无损压缩到 GPTQ/AWQ 的极智压缩，每一步都是在“计算精度”和“运行效率”之间找到最优折衷。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VZ8HwGCqEiUGiRkSmGfcRuNdnCg
+  block_id: doxcnlGZuVTKn0zTOKiIoIfBuGe
+  page_token: VZ8HwGCqEiUGiRkSmGfcRuNdnCg
+  original_title: "⚙️量化技术 INT8 / INT4 / GPTQ / AWQ"
+  imported_at: '2026-09-21'

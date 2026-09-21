@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8c7adbfcf9d9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: GPTQ 和 AWQ 等权重量化方法，能否直接用于视觉编码器和扩散模型？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: GPTQ 和 AWQ 等权重量化方法，能否直接用于视觉编码器和扩散模型？
+answer:
+  mode: rubric
+  reference_answer: |-
+    GPTQ和AWQ最初针对LLM设计，但原理可迁移，需要针对视觉模型的特性进行调整。
+
+    用于视觉编码器：
+
+    GPTQ可直接应用。视觉编码器的线性层和卷积层可展开为矩阵乘法，GPTQ的逐层最优脑手术量化逻辑依然适用。需要注意视觉编码器的浅层（离输入近）对量化敏感，GPTQ在校准这些层时需要更多校准数据。AWQ的按通道缩放策略同样有效，但视觉编码器的离群值模式与LLM不同，需要重新分析哪些通道是关键通道。实践中，AWQ往往优于GPTQ，因其更好地保留了关键视觉特征通道的精度。
+
+    用于扩散模型UNet：
+
+    UNet同时包含ResNet卷积块、自注意力层和交叉注意力层。卷积层可被展开为矩阵乘法后用量化方法处理。注意力层的线性投影矩阵也可直接量化。但UNet在采样的不同时间步激活值分布差异极大，早期时间步（高噪声）的激活范围宽，后期时间步范围窄。单一校准数据集的统计可能不适用于所有时间步。
+
+    解决方案是时间步感知校准。从不同时间步均匀采样带噪图像作为校准数据，确保覆盖完整的去噪过程。此外，UNet的跳跃连接将浅层高分辨率特征与深层特征拼接，量化后的拼接可能导致精度损失加倍，因此跳跃连接的关键层应保持较高精度。
+
+    AWQ对扩散模型通常更友好，因其保持了重要通道的精度，而扩散模型的生成质量对某些通道极度敏感。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Mh1cw9XEOil6SIkDffGcWixgnte
+  block_id: Ffsod8zyQowQEfxiDhucCa0pnKK
+  page_token: Mh1cw9XEOil6SIkDffGcWixgnte
+  original_title: GPTQ 和 AWQ 等权重量化方法，能否直接用于视觉编码器和扩散模型？
+  imported_at: '2026-09-21'

@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f49ceeb3c44c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ZeRO-3 的后向传播中，梯度如何计算并分片？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: ZeRO-3 的后向传播中，梯度如何计算并分片？
+answer:
+  mode: rubric
+  reference_answer: |-
+    反向传播在ZeRO-3中同样需要先收集完整参数，计算梯度，然后分片。这个过程与前向传播对称但更复杂：
+
+    步骤一：收集参数。对于每一层（从后往前，即从输出层向输入层），先执行AllGather获取该层的完整参数。这次AllGather的通信量等于该层参数大小。
+
+    步骤二：计算完整梯度。使用该层完整参数和对应的激活值（前向时保留），计算该层参数的本地梯度。此时计算出的梯度是完整的（针对该层所有参数），但这是基于本地微批次数据的局部梯度，还不是全局梯度。
+
+    步骤三：ReduceScatter分片梯度。为了得到全局梯度并分片，立即对该层梯度执行ReduceScatter。这个操作将所有DP卡的该层梯度求和（Reduce），然后按分片规则将求和结果分散（Scatter）——每张卡只保留自己负责更新的那部分参数的全局梯度。例如，卡0只保留参数分区0的全局梯度，卡1只保留分区1的。
+
+    步骤四：释放参数和多余梯度。ReduceScatter完成后，该层的完整参数和未被保留的梯度立即释放。只有各卡负责分片的梯度被保留，用于后续优化器更新。
+
+    步骤五：本地更新。每张卡用自己分到的全局梯度，更新本地持有的优化器状态（m和v）和对应的参数分片。这一步无需通信。
+
+    这个过程逐层进行，每层都需要一次AllGather（参数收集）和一次ReduceScatter（梯度分片）。整个反向传播的总通信量 = 全模型参数的AllGather + 全模型梯度的ReduceScatter，约等于前向通信量的两倍。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: UjZRdx1UFovBFnxNa3fcT3GBnmg
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: ZeRO-3 的后向传播中，梯度如何计算并分片？
+  imported_at: '2026-09-21'

@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8050ff02bc0b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么奖励模型的评估不仅要看准确率，还要看与真实人类分数的相关性（Spearman/Pearson）？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 2-偏好数据与奖励建模
+tags: &1
+- RLHF面试高频考点
+- 2-偏好数据与奖励建模
+content:
+  prompt: 为什么奖励模型的评估不仅要看准确率，还要看与真实人类分数的相关性（Spearman/Pearson）？
+answer:
+  mode: rubric
+  reference_answer: |-
+    准确率的局限性：
+
+    准确率（Accuracy）衡量的是“在测试集上，RM 的偏好判断与人类标签一致的百分比”。它在 RM 评估中是一个有缺陷的指标：
+
+    - 只关注排序方向，忽略程度：Acc 只关心 r_w > r_l 是否成立，不关心 r_w 比 r_l 大多少。一个回答质量是90分 vs 89分，另一个是90分 vs 10分，只要 RM 都判对方向，Acc 都会给满分。但在 PPO 中，这两种情况的梯度强度天差地别。我们需要 RM 对后者给出巨大的分数差，提供强烈的优化信号。
+
+    - 对容易样本的过拟合：测试集中大量偏好对比可能是质量差距悬殊的简单样本。RM 很容易在这些样本上拿到高 Acc，掩盖了它在区分高质量样本细微差异上的无能。
+
+    - 无法反映分数校准性：Acc 不涉及分数的绝对大小。一个 RM 可能每次只以微弱优势判对（r_w 始终比 r_l 高0.001），另一个 RM 则在正确判断的同时还能拉开合理差距。前者在 Acc 上可能与后者无异，但在 PPO 中会导致梯度微弱、优化停滞。
+
+    相关性（Spearman/Pearson）的价值：
+
+    计算 RM 预测的奖励分数与人类标注员给出的绝对评分（如 1-5 分）之间的 Spearman 秩相关系数或 Pearson 线性相关系数，能回答 Acc 无法回答的问题：
+
+    - 衡量分数的单调度：Spearman 系数评估了“人类打出的分数是否与 RM 打出的分数保持相同的单调趋势”。这是最关键的，因为 RL 中 Actor 沿着奖励的梯度方向移动，只要分数单调递增，就能优化。
+
+    - 衡量分数差距的合理性：Pearson 系数（在校准后）反映了 RM 分数是否能线性地反映人类评价的质量差距。高 Pearson 系数意味着当人类认为“好一个档次”时，RM 给出的分数差也大致成比例，这能为 PPO 提供稳定且有意义的梯度规模。
+
+    - 检测奖励黑客的早期信号：如果在 PPO 过程中，RM 的 Acc 保持不变甚至略升，但与人类评分的 Spearman 系数急剧下降，这强烈暗示模型已经找到了奖励黑客的捷径——它仍在“正确排序”，但排序的依据已偏离人类价值观，分数的分布也变得极端扭曲。相关性指标能比 Acc 更早地暴露这一问题。
+
+    结论：准确率是“做对了没有”，而相关性是“做得好不好，打分合理吗”。一个可用的 RM 必须两者兼备，而相关性往往是最终的试金石。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KFgpwxoYei4VBPkDUJfcFKLLnVf
+  block_id: Om1RdwvqaoBudsxSt0fcu2Ywngb
+  page_token: KFgpwxoYei4VBPkDUJfcFKLLnVf
+  original_title: 为什么奖励模型的评估不仅要看准确率，还要看与真实人类分数的相关性（Spearman/Pearson）？
+  imported_at: '2026-09-21'

@@ -1,0 +1,97 @@
+---
+schema_version: 1
+id: feishu-llm-complete-773bb7f899bc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Reflexion 框架：Agent 的自我反思与错误修正机制
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: Reflexion 框架：Agent 的自我反思与错误修正机制
+answer:
+  mode: rubric
+  reference_answer: |-
+    1、基础题：Reflexion 框架是什么？它解决了什么问题？
+
+    难度级别：⭐（考察要点：Reflexion 的核心思想、解决的痛点）
+
+    Reflexion 是一种让 Agent 能从失败中学习的框架。它解决的核心问题是：传统 Agent 每次任务执行都是"一次性"的，失败了就重新开始，不会积累经验。Reflexion 通过在每次失败后生成自然语言反思、并持久化到记忆中，让 Agent 在下一轮重试时能参考之前的失败教训，从而逐步提升成功率。
+
+    ---
+
+    2、进阶题：Reflexion 框架的工作原理是什么？它与 ReAct 的关系是什么？
+
+    难度级别：⭐⭐⭐（考察要点：三层架构、Language Feedback vs Scalar Reward、与 ReAct 的互补关系）
+
+    1️⃣ Common Answer
+
+    Reflexion 是一种让 Agent 能够自我反思的框架。它的基本思路是：Agent 执行完一个任务后，如果失败了，就让 LLM 对这次失败进行总结，然后把这个总结记录下来，下次再试的时候参考这个总结，从而避免犯同样的错误。它和 ReAct 的区别在于，ReAct 主要关注单次执行的推理过程，而 Reflexion 是在多次尝试之间加了一层反思机制。
+
+    2️⃣ Impressive Answer
+
+    我会从三个角度思考这个问题：
+
+    - 首先是整体架构。Reflexion 分三层：Actor 层负责实际执行任务，底层通常用 ReAct 做推理，输出 Thought-Action-Observation 轨迹；Evaluator 层对执行    结果打分，判断成功或失败；Self-Reflection 层是核心，失败后让 LLM 生成结构化反思文本，存入 Episodic Memory，下一轮重试时注入 System Prompt。整个流程是多轮迭代的闭环。
+
+    - 其次是 Evaluator 的两种评估方式，这是最值得深聊的点。一种是 Scalar Reward（数值奖励），用 0/1 或连续分值评判，客观但信息稀疏，Agent 不知道"为什么失败"；另一种是 Language Feedback（语言反馈），直接让 LLM 生成自然语言批评，比如"你在第三步错误地调用了搜索工具，应该先查本地数据库"，信息密度高、改进方向明确。在复杂推理任务上，Language Feedback 效果显著优于 Scalar Reward。
+
+    - 最后是和 ReAct 的关系。用一句话概括：ReAct 是 Reflexion 的执行引擎，Reflexion 是 ReAct 的跨轮迭代优化器。两者不是竞争关系，是互补的——ReAct 负责"这一轮怎么做"，Reflexion 负责"上一轮哪里错了、这一轮怎么改"。工程上要注意三个坑：反思质量依赖模型能力、反思累积多了会撑爆 context、要设最大重试次数防止无效循环。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：在代码生成场景中，如何用 Reflexion 提升 Agent 的调试成功率？
+
+    难度级别：⭐⭐⭐（考察要点：Reflexion 在代码场景的落地、反思内容的结构化设计、重试策略）
+
+    1️⃣ Common Answer
+
+    代码生成失败了就让 Agent 看看哪里错了，然后重试。可以把错误信息传给 LLM，让它根据错误信息重新生成代码。多试几次应该能成功。
+
+    2️⃣ Impressive Answer
+
+    在代码生成场景落地 Reflexion，关键是把"错误信息"结构化成反思，而不是简单地把 stderr 塞给 LLM。
+
+    具体做法：每次代码执行失败后，Evaluator 捕获错误类型（语法错误、逻辑错误、测试不通过），然后 Self-Reflection 阶段让 LLM 生成结构化反思，包含 error_type、error_location、fix_suggestion、relevant_snippet 四个字段，存入 Memory。
+
+    下一轮重试时，把最近 3 条相关反思注入 System Prompt，告诉 Agent"上次在第 15 行参数类型用错了，这次注意用 float 而不是 str"。这比直接扔 traceback 效果好得多，因为 LLM 看到的是"为什么错"而不是"错了什么"。
+
+    另外要设最大重试次数（比如 5 次），如果 5 次仍未通过，记录这个任务为"高难度"并上报人工介入，避免无效循环消耗资源。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcn4mKI6eqJ6DmqW6YCDWNaTh
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: Reflexion 框架：Agent 的自我反思与错误修正机制
+  imported_at: '2026-09-21'

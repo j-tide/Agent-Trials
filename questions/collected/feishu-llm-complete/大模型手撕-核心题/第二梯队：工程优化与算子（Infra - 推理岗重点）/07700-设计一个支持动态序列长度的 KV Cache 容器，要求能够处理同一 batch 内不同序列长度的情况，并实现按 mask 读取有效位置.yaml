@@ -1,0 +1,103 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c4cf910afe35
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 设计一个支持动态序列长度的 KV Cache 容器，要求能够处理同一 batch 内不同序列长度的情况，并实现按 mask 读取有效位置。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 设计一个支持动态序列长度的 KV Cache 容器，要求能够处理同一 batch 内不同序列长度的情况，并实现按 mask 读取有效位置。
+answer:
+  mode: rubric
+  reference_answer: |-
+    5.1 设计思路
+
+    我们需要一个容器能够存储多个序列，每个序列长度独立。读取时可以返回一个 batch 级别的 K/V 和对应的 mask，用于后续注意力计算。
+
+    5.2 基于字典的变长实现
+
+    ```python
+    class VariableLengthKVCache:
+        def __init__(self, num_layers, num_heads, head_dim):
+            self.num_layers = num_layers
+            self.num_heads = num_heads
+            self.head_dim = head_dim
+            # 结构：self.k[layer][seq_id] = tensor [num_heads, seq_len, head_dim]
+            self.k = [{} for _ in range(num_layers)]
+            self.v = [{} for _ in range(num_layers)]
+
+        def update(self, layer_idx, seq_id, new_k, new_v):
+            """new_k: [num_heads, 1, head_dim]"""
+            if seq_id not in self.k[layer_idx]:
+                self.k[layer_idx][seq_id] = new_k
+                self.v[layer_idx][seq_id] = new_v
+            else:
+                self.k[layer_idx][seq_id] = torch.cat([self.k[layer_idx][seq_id], new_k], dim=1)
+                self.v[layer_idx][seq_id] = torch.cat([self.v[layer_idx][seq_id], new_v], dim=1)
+
+        def get_batch(self, layer_idx, seq_ids):
+            """返回 padding 后的 K, V 和 mask，形状 [B, heads, max_len, dim]"""
+            k_list = []
+            v_list = []
+            lengths = []
+            for sid in seq_ids:
+                k = self.k[layer_idx][sid]
+                v = self.v[layer_idx][sid]
+                k_list.append(k)
+                v_list.append(v)
+                lengths.append(k.size(1))
+            B = len(seq_ids)
+            max_len = max(lengths)
+            device = k_list[0].device
+            padded_k = torch.zeros(B, self.num_heads, max_len, self.head_dim, dtype=k_list[0].dtype, device=device)
+            padded_v = torch.zeros_like(padded_k)
+            mask = torch.zeros(B, max_len, dtype=torch.bool, device=device)
+            for i in range(B):
+                L = lengths[i]
+                padded_k[i, :, :L] = k_list[i]
+                padded_v[i, :, :L] = v_list[i]
+                mask[i, :L] = True
+            return padded_k, padded_v, mask
+    ```
+
+    5.3 性能分析
+
+    - 每次 batch 读取都需要 padding，产生大量冗余计算和显存浪费，尤其是序列长度分布差异较大时。
+
+    - 改进：使用 Ragged Tensor 或 PagedAttention 的非连续访问，避免 padding。
+
+    5.4 与连续批处理的结合
+
+    在实际推理引擎中，调度器会尽量将长度相近的序列组成一个 batch，以最小化 padding 开销。同时，KV Cache 管理器还负责内存的分配与回收。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IhgfwCPtoif3TWkyezuc4sW9nbg
+  block_id: Dv2IdvmjpoeVStxlvL7cltHPnbf
+  page_token: IhgfwCPtoif3TWkyezuc4sW9nbg
+  original_title: 设计一个支持动态序列长度的 KV Cache 容器，要求能够处理同一 batch 内不同序列长度的情况，并实现按 mask 读取有效位置。
+  imported_at: '2026-09-21'

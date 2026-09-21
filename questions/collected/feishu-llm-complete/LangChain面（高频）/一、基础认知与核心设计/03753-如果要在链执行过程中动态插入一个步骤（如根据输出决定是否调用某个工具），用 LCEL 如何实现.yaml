@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5635db71a80c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果要在链执行过程中动态插入一个步骤（如根据输出决定是否调用某个工具），用 LCEL 如何实现？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 一、基础认知与核心设计
+tags: &1
+- LangChain面（高频）
+- 一、基础认知与核心设计
+content:
+  prompt: 如果要在链执行过程中动态插入一个步骤（如根据输出决定是否调用某个工具），用 LCEL 如何实现？
+answer:
+  mode: rubric
+  reference_answer: "\U0001F500 在 LCEL 中，动态路由和条件分支通过 RunnableBranch 或 RunnableLambda
+    实现。\n\n场景：用户提问，模型判断问题类型。如果是简单问题直接回答，如果是复杂问题则需要调用搜索引擎获取额外信息后再回答。\n\n实现方案：\n\n-
+    使用 RunnableBranch 进行条件路由：\n\n```python\nfrom langchain_core.runnables import RunnableBranch\n\n#
+    分类函数：判断问题类型\ndef is_complex(input):\n    return \"复杂\" in input[\"type\"]\n\nbranch
+    = RunnableBranch(\n    (lambda x: is_complex(x), search_tool | prompt | model
+    | parser),  # 复杂问题走搜索分支\n    prompt | model | parser  # 默认分支（简单问题）\n)\n```\n\n-
+    使用 RunnableLambda 实现更灵活的逻辑：\n\n```python\ndef dynamic_step(input):\n    if needs_tool(input):\n
+    \       tool_result = tool.invoke(input)\n        return process_with_tool(tool_result)\n
+    \   else:\n        return model.invoke(input)\n\nchain = prompt | RunnableLambda(dynamic_step)
+    | parser\n```\n\n在 Agent 中的实现：ReAct Agent 的核心循环本质上就是一个动态路由——根据上一步的观察决定下一步是继续调用工具还是给出最终答案。LangGraph
+    让这种循环更加可视化。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DigRwjkjbieJVVkMxvpcXMMXnnh
+  block_id: HsKWdznMfoLx3ixok1ncFEbOnke
+  page_token: DigRwjkjbieJVVkMxvpcXMMXnnh
+  original_title: 如果要在链执行过程中动态插入一个步骤（如根据输出决定是否调用某个工具），用 LCEL 如何实现？
+  imported_at: '2026-09-21'

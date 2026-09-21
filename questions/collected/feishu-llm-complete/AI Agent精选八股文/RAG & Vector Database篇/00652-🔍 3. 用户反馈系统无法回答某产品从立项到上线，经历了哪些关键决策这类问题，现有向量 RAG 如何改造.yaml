@@ -1,0 +1,113 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2b68221010b3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50D 3. 用户反馈系统无法回答“某产品从立项到上线，经历了哪些关键决策”这类问题，现有向量 RAG 如何改造？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "\U0001F50D 3. 用户反馈系统无法回答“某产品从立项到上线，经历了哪些关键决策”这类问题，现有向量 RAG 如何改造？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    问题诊断：
+
+    用户要的不是某个具体片段，而是一条完整的时间线/叙事链。这类问题的答案通常散落在很多文档中：立项在邮件里，关键决策在会议纪要里，上线在发布文档里。向量 RAG 的“取 Top-K 片段”模式，无法自动将这些分散的点串成一条线。
+
+    改造方案：从“片段检索”走向“图 + 时间线”的混合架构
+
+    不需要推倒重来，我们可以在现有向量 RAG 的基础上，引入轻量级的图结构和预处理机制，专门优化对这类叙述性问题的回答。
+
+    架构蓝图：
+
+    [图片内容未导入]
+
+    具体实施步骤：
+
+    - 离线预处理：事件抽取与图谱构建
+    对所有相关文档，用 LLM 抽取出事件节点，每个事件包含：(时间, 主体, 动作, 细节)。然后按产品、项目等主体，构建一个带有时间维度的有向图。
+
+    ```python
+    # 抽取事件的 prompt 模板
+    event_prompt = """
+    从以下文本中抽取与产品决策相关的事件，每个事件输出一行：
+    格式：日期 | 主体 | 动作 | 简述
+    文本：{text}
+    """
+    ```
+
+    - 将这些事件按产品存入数据库，并在产品内部按时间排序。
+
+    - 在线查询：时序路径检索
+    当用户问“产品 Alpha 从立项到上线的关键决策”时，系统识别到这是“历程”类问题，直接查询产品 Alpha 对应的事件列表，按时间排序后，取出一系列事件节点。
+
+    ```python
+    def query_product_timeline(product_name):
+        events = db.query("SELECT * FROM events WHERE product=? ORDER BY date", product_name)
+        # 将事件序列化为描述性文本
+        timeline_text = "关键决策历程如下：\n"
+        for i, evt in enumerate(events, 1):
+            timeline_text += f"{i}. {evt.date}: {evt.subject} 执行了 {evt.action}，详情：{evt.detail}\n"
+        return timeline_text
+    ```
+
+    生成答案
+
+    把这条时序文本作为上下文，与用户原始问题一起送给 LLM，让它整合成自然、连贯的回答。由于我们提供了完整的时间线，LLM 就能自然地总结出“从立项到上线的关键决策”，而不会产生幻觉或遗漏。
+
+    ```python
+    prompt = f"""根据以下事件时间线，回答用户问题。
+    时间线：
+    {timeline_text}
+    问题：{user_question}
+    """
+    answer = llm(prompt)
+    ```
+
+    为什么这个方案有效？
+
+    - 保留了向量 RAG：对于常规的、片段式的问答，依然走高效的向量检索。
+
+    - 为特定问题提供定制索引：通过为产品、项目等实体创建“事件时间线”索引，解决了传统 RAG 做不好全局归纳和多点串联的问题。
+
+    - 成本可控：不需要构建全量知识图谱，只需要对每个产品抽取出关键决策事件，数据量不大，LLM 抽取的成本也有限。
+
+    从 0 到 1 的 MVP 实现思路：
+
+    先用一个简单的 SQLite 数据库存事件，写一个 Python 脚本定时对新增文档做事件抽取，再改造现有 RAG 的入口，增加一个意图分类器。当意图是“历程/关键决策”时，走图查询；其他情况走向量检索。整个改造两周内就能上线验证效果。
+
+    收束：
+
+    对于这类需要梳理时间线和因果链的问题，核心矛盾不在于模型理解力不够，而在于我们没有把“被拆散的知识”重新“串起来”交到模型手里。通过引入一个轻量级的事件时间线索引，我们就能在维持向量 RAG 优点的同时，弥补它无法回答全局性、序列性问题的短板。这比直接上全套 Graph RAG 更务实，也更易于落地。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcnRz4K9AtOqu2RRwZhV5wdBh
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "\U0001F50D 3. 用户反馈系统无法回答“某产品从立项到上线，经历了哪些关键决策”这类问题，现有向量 RAG 如何改造？"
+  imported_at: '2026-09-21'

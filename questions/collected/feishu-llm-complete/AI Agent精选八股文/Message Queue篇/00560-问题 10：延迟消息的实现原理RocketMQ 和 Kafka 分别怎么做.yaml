@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-78c11dec09bb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 问题 10：延迟消息的实现原理？RocketMQ 和 Kafka 分别怎么做？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 问题 10：延迟消息的实现原理？RocketMQ 和 Kafka 分别怎么做？
+answer:
+  mode: rubric
+  reference_answer: "难度：⭐⭐（延迟消息、时间轮、延迟级别、业务场景）\n\n1️⃣ Common Answer\n\nRocketMQ 支持延迟消息，发送消息时设置
+    delayLevel 就行，有 18 个延迟级别。Kafka 没有延迟消息功能，需要自己实现或者用外部调度。\n\n2️⃣ Impressive Answer\n\n我会从这几个角度思考：延迟消息的业务场景、RocketMQ
+    实现原理、Kafka 替代方案、实战落地案例。\n\n- 延迟消息的业务场景\n\n延迟消息在业务中非常常见：\n\n- 订单超时关闭：下单后 30 分钟未支付自动取消\n\n-
+    延迟通知：活动开始前 10 分钟提醒用户\n\n- 定时任务：每天凌晨 2 点生成报表\n\n- 异步回调重试：调用失败后延迟 5 分钟重试\n\n- RocketMQ
+    延迟级别机制原理\n\nRocketMQ 的延迟消息通过 18 个预定义延迟级别 实现：\n\n[嵌入表格未展开]\n\n核心实现流程：\n\n```text\nProducer
+    发送消息（设置 delayLevel=14）\n    → 消息写入 SCHEDULE_TOPIC_XXXX（而非目标 Topic）\n    → Broker
+    定时任务每秒扫描延迟消息\n    → 判断是否到达投递时间\n        → 否：继续等待\n        → 是：修改原始 Topic，清除延迟属性\n
+    \   → 投递到真实 Topic，消费者正常消费\n```\n\n关键点：\n\n- Producer 发送消息时设置 message.setDelayTimeLevel(14)（30
+    分钟）\n\n- 消息不会直接写入目标 Topic，而是写入 SCHEDULE_TOPIC_XXXX\n\n- Broker 有定时任务，每秒扫描延迟消息，判断是否到达投递时间\n\n-
+    到达时间后，将消息的 Topic 改回原始 Topic，清除延迟属性，投递到真实队列\n\n- Kafka 无内置延迟消息的替代方案\n\nKafka 原生不支持延迟消息，常用
+    3 种替代方案：\n\n方案一：时间轮（Netty HashedWheelTimer）\n\n```text\n// 生产者本地延迟发送\nHashedWheelTimer
+    timer = new HashedWheelTimer();\ntimer.newTimeout(timeout -> {\n    producer.send(new
+    ProducerRecord<>(\"order-topic\", orderId));\n}, 30, TimeUnit.MINUTES);\n```\n\n-
+    优点：简单，无需 Kafka 支持\n\n- 缺点：生产者重启会丢失任务，不适合高可靠场景\n\n方案二：外部调度系统（XXL-Job、Quartz）\n\n```text\n//
+    定时任务扫描数据库\n@Scheduled(fixedDelay = 60000)\npublic void scanTimeoutOrders() {\n
+    \   List<Order> orders = orderMapper.findTimeoutOrders();\n    orders.forEach(order
+    -> {\n        kafkaTemplate.send(\"order-cancel-topic\", order.getId());\n    });\n}\n```\n\n-
+    优点：可靠性高，任务持久化\n\n- 缺点：延迟精度依赖调度频率，数据库压力大\n\n方案三：死信队列 + 延迟重试\n\n```text\n// 消费失败后发送到延迟重试
+    Topic\n@KafkaListener(topics = \"order-topic\")\npublic void handleOrder(Order
+    order) {\n    try {\n        processOrder(order);\n    } catch (Exception e) {\n
+    \       // 发送到延迟重试 Topic，5 分钟后重试\n        kafkaTemplate.send(\"order-retry-5m\",
+    order);\n    }\n}\n```\n\n- 优点：利用 Kafka 原生能力\n\n- 缺点：需要多个 Topic 配合，复杂度高\n\n- 实战：订单
+    30 分钟未支付自动关闭\n\n我们系统的完整方案：\n\n```text\n// 1. Producer 发送延迟消息\nMessage message
+    = new Message(\"order-topic\", \n    order.getId().getBytes());\nmessage.setDelayTimeLevel(14);
+    // 30 分钟\nproducer.send(message);\n\n// 2. 消费者处理超时订单\n@RocketMQMessageListener(topic
+    = \"order-topic\", \n    consumerGroup = \"order-timeout-group\")\npublic class
+    OrderTimeoutConsumer implements \n    RocketMQListener<Order> {\n    \n    @Override\n
+    \   public void onMessage(Order order) {\n        // 检查订单状态\n        Order latest
+    = orderService.getById(order.getId());\n        if (latest.getStatus() == OrderStatus.UNPAID)
+    {\n            // 取消订单，释放库存\n            orderService.cancelOrder(latest.getId());\n
+    \       }\n    }\n}\n```\n\n关键优化：\n\n- 幂等性保障：消费者处理前检查订单状态，避免重复取消\n\n- 监控告警：延迟消息堆积超过阈值时触发告警\n\n-
+    降级方案：RocketMQ 故障时降级到数据库定时任务扫描\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---\n\n###
+    6.11 事务消息与最终一致性"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcn7UxLeXVocpsL1dqquR29Fg
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: 问题 10：延迟消息的实现原理？RocketMQ 和 Kafka 分别怎么做？
+  imported_at: '2026-09-21'

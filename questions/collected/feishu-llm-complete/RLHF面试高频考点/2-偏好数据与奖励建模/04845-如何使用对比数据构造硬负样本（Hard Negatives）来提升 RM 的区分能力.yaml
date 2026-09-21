@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dea4a44a0e5c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用对比数据构造“硬负样本”（Hard Negatives）来提升 RM 的区分能力？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 2-偏好数据与奖励建模
+tags: &1
+- RLHF面试高频考点
+- 2-偏好数据与奖励建模
+content:
+  prompt: 如何使用对比数据构造“硬负样本”（Hard Negatives）来提升 RM 的区分能力？
+answer:
+  mode: rubric
+  reference_answer: |-
+    硬负样本指那些容易被模型误判为高质量，但在人类评估中明显存在某方面缺陷的回答。它们位于决策边界的模糊地带，对训练最具信息量。
+
+    构造策略：
+
+    - 利用当前 RM 的错误案例：在训练过程中，定期用当前 RM 对一批候选回答打分。找出那些 RM 给分很高但人类标注员或专家判定为较差的样本（假阳性），以及 RM 给分很低但实际较好的样本（假阴性）。将这些错判样本与正确标签组合成新的偏好对，作为硬负样本加入训练集。
+
+    - 基于策略生成的回环 (On-policy Hard Negative Mining)
+    这需要在 PPO 迭代中配合进行：使用当前的 Actor 策略对 prompt 采样多个回答，并用当前 RM 评分。选出评分最高的几个回答，交由人工或 AI 评判员审查。那些表面诱人但包含事实错误、逻辑漏洞、安全风险的，就是完美的硬负样本。将它们与人工修正后的高质量回答配对，以此训练 RM 识别这些“美丽的陷阱”。
+
+    - 对抗性构造：给定一个高质量的 chosen 回答，有意对其进行微小的“破坏”以生成 rejected。破坏方式包括：
+
+    - 跨模型构造：使用一个强大的模型（如 GPT-4）生成高质量回答（chosen），再用一个较弱或有特定缺陷的模型生成回答（rejected），但要求该 rejected 在表面格式或流畅度上与 chosen 相当。这迫使 RM 深入内容本质进行区分。
+
+    - 温度与采样策略诱导：使用较高温度（如 T>1.0）让同一个模型生成多个不同质量的样本。高温度下模型偶尔会“说胡话”，这些样本可以作为天然的 rejected，而低温度下的高概率样本可以作为 chosen。需人工审核确保对比的有效性。
+
+    注意事项：硬负样本比例不宜过高（通常 10-30%），否则训练会过于困难、收敛缓慢。同时要防止 RM 对硬负样本过拟合，丧失对简单样本的泛化能力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KFgpwxoYei4VBPkDUJfcFKLLnVf
+  block_id: VPXhdPB5UoHkA7xMB53csvRznkc
+  page_token: KFgpwxoYei4VBPkDUJfcFKLLnVf
+  original_title: 如何使用对比数据构造“硬负样本”（Hard Negatives）来提升 RM 的区分能力？
+  imported_at: '2026-09-21'

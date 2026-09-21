@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-318d302ed781
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 大规模多模态训练中，如何应对 CPU 与 GPU 之间的数据预处理瓶颈？使用 DALI 等 GPU 加速预处理库。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 大规模多模态训练中，如何应对 CPU 与 GPU 之间的数据预处理瓶颈？使用 DALI 等 GPU 加速预处理库。
+answer:
+  mode: rubric
+  reference_answer: |-
+    数据预处理瓶颈本质是CPU无法及时准备数据，GPU空等。解决之道是将预处理计算从CPU迁移到GPU，或设法隐藏预处理延迟。
+
+    DALI加速原理：
+
+    DALI将整个预处理流水线（JPEG解码、resize、Crop、颜色归一化）作为异步GPU任务执行，直接在GPU显存中输出训练就绪的Tensor。CPU仅负责从存储读取原始字节流并送入GPU，不再参与任何图像处理。
+
+    DALI多模态适用性：
+
+    DALI原生支持图像解码和增强，也支持视频解码。对于文本tokenization，DALI目前不支持，需在CPU端并行完成。但tokenization计算轻量，不是主要瓶颈。
+
+    DALI pipeline设计：
+
+    @pipeline_def
+    def pipeline():
+        jpegs = fn.readers.file(file_root=image_dir)
+        images = fn.decoders.image(jpegs, device='mixed')  # GPU解码
+        images = fn.resize(images, resize_x=224, resize_y=224)
+        images = fn.crop_mirror_normalize(images, mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])
+        labels = fn.readers.file(file_root=label_dir)
+        return images, labels
+
+    DALI的输出可直接喂给PyTorch DataLoader的GPU Tensor，实现零拷贝。
+
+    与DataLoader的集成：将DALI作为PyTorch的IterableDataset，配合torch.utils.data.DataLoader使用，设置num_workers=0（DALI内部并行）。预取和异步执行可进一步掩盖I/O。
+
+    替代方案：若无法使用DALI，可采用GPU加速的torchvision（0.12+支持GPU解码和变换），或自定义CUDA kernel加速特定预处理步骤。
+
+    收益：使用DALI后，图像预处理延迟可从数十毫秒降至几毫秒，GPU利用率从70%提升至95%以上，训练吞吐提升显著。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  block_id: WHaDdmhNYo92VPxQ3bkcmZY6nlc
+  page_token: KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  original_title: 大规模多模态训练中，如何应对 CPU 与 GPU 之间的数据预处理瓶颈？使用 DALI 等 GPU 加速预处理库。
+  imported_at: '2026-09-21'

@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c01cc09dc3c5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4E2 编写一个回调，当 LLM 返回包含特定关键词时发出告警。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F4E2 编写一个回调，当 LLM 返回包含特定关键词时发出告警。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    下面是一个实用的告警回调，它会在 LLM 生成结束时检查完整回复，如果包含特定关键词，则通过日志、邮件或消息推送告警。
+
+    import logging
+    from langchain.callbacks import BaseCallbackHandler
+
+    class KeywordAlertHandler(BaseCallbackHandler):
+        def __init__(self, keywords, alert_func=None):
+            self.keywords = set(keywords)
+            self.alert_func = alert_func or (lambda msg: logging.warning(msg))
+
+        def on_llm_end(self, response, **kwargs):
+            text = response.generations[0][0].text if response.generations else ""
+            found = [kw for kw in self.keywords if kw in text]
+            if found:
+                msg = f"告警：LLM 回复中包含关键词: {', '.join(found)}"
+                self.alert_func(msg)
+
+    # 使用示例
+    handler = KeywordAlertHandler(
+        keywords=["机密", "内部文件", "密码"],
+        alert_func=lambda msg: requests.post(webhook_url, json={"text": msg})
+    )
+
+    为什么不在 on_llm_new_token 中做？
+    流式检测容易出现截断导致的误报（比如关键词被切成两半），在生成结束后做全量检查更准确。
+
+    注意：如果生成内容很长，一次性检查可能会消耗内存。可以结合流式缓冲，但告警仍建议在终点触发。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  block_id: Ra8ydU4zHoOQ7uxTy1XcToUCnXK
+  page_token: LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  original_title: "\U0001F4E2 编写一个回调，当 LLM 返回包含特定关键词时发出告警。"
+  imported_at: '2026-09-21'

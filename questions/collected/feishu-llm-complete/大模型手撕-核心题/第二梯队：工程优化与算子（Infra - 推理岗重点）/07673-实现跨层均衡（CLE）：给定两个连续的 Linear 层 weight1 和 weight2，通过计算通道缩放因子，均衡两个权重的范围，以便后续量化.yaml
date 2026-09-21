@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3f156c742f1a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现跨层均衡（CLE）：给定两个连续的 Linear 层 weight1 和 weight2，通过计算通道缩放因子，均衡两个权重的范围，以便后续量化
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现跨层均衡（CLE）：给定两个连续的 Linear 层 weight1 和 weight2，通过计算通道缩放因子，均衡两个权重的范围，以便后续量化
+answer:
+  mode: rubric
+  reference_answer: "跨层均衡（Cross-Layer Equalization, CLE） 用来处理两个线性层之间激活函数的缩放等效性。例如，对于
+    Linear1 -> ReLU -> Linear2 这样的结构，可以将权重按通道缩放，同时保证输出不变。设 Weight1 形状 [N1, K]，Weight2
+    形状 [N2, K]（注意两个权重的公共维度是 K，即中间特征维度）。我们可以引入缩放因子向量 s (形状 [K])，将 Weight1 的第 j 列乘以
+    s_j，Weight2 的第 j 列除以 s_j（因为第二个权重通常与中间激活相乘，中间激活是 Weight1 的输出，受 s 影响；实际上 CLE 应用于卷积或线性层，需保证等价性。对于
+    Linear1 -> Linear2，若中间无非线性或仅有 ReLU，满足 ReLU(s*x) = s * ReLU(x) 当 s>0，因此可缩放。公式：W1_new[:,
+    j] = W1[:, j] * s_j，W2_new[:, j] = W2[:, j] / s_j。这样输出不变。\n\n计算缩放因子 常通过均衡两个权重的极值范围，使得它们具有相近的量化范围。一种常见方法：对每个通道
+    j，计算 r1_j = max(|W1[:, j]|)，r2_j = max(|W2[:, j]|)，然后 s_j = sqrt(r2_j / r1_j)
+    或更一般的 s_j = r1_j^(-α) * r2_j^(1-α)？经典做法是 s_j = (r1_j / r2_j)^{1/2}，即几何平均的倒数。目的是让两个权重的范围接近。\n\n实现：\n\n```python\ndef
+    cross_layer_equalization(W1: torch.Tensor, W2: torch.Tensor):\n    \"\"\"\n    W1:
+    [out1, K] 第一层权重\n    W2: [out2, K] 第二层权重 (注意中间维度 K 必须一致)\n    Returns:\n        W1_eq,
+    W2_eq, s: 均衡后的权重和缩放因子\n    \"\"\"\n    # 计算每个通道的最大绝对值\n    r1 = torch.max(torch.abs(W1),
+    dim=0).values  # [K]\n    r2 = torch.max(torch.abs(W2), dim=0).values  # [K]\n
+    \   \n    # 防止除零\n    eps = 1e-8\n    s = torch.sqrt(r2 / (r1 + eps))\n    \n
+    \   # 应用缩放\n    W1_eq = W1 * s  # 广播乘，每列乘对应 s\n    W2_eq = W2 / s  # 每列除\n    return
+    W1_eq, W2_eq, s\n```\n\n说明：跨层均衡后，两个权重在各通道上的范围更均衡，有利于统一量化。通常作为量化前预处理步骤，与偏置修正等方法结合。在实际部署中，可将缩放因子吸收到权重中，而无需额外操作。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: RDXCd4c6LoWbP6xRIDlcWdpKnFg
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 实现跨层均衡（CLE）：给定两个连续的 Linear 层 weight1 和 weight2，通过计算通道缩放因子，均衡两个权重的范围，以便后续量化
+  imported_at: '2026-09-21'

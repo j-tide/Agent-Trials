@@ -1,0 +1,110 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3505aabb8b0e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F431 2. Spring Boot 内嵌 Tomcat 的启动原理？如何切换为 Undertow/Jetty？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: "\U0001F431 2. Spring Boot 内嵌 Tomcat 的启动原理？如何切换为 Undertow/Jetty？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    2.1 内嵌 Tomcat 启动原理
+
+    内嵌 Tomcat 的启动巧妙地融合在 Spring 容器刷新流程 中，依赖两个核心要素：
+
+    - 自动配置注册工厂
+    ServletWebServerFactoryAutoConfiguration 发现 classpath 下有 tomcat-embed-core，就会自动注册一个 TomcatServletWebServerFactory Bean，它是创建嵌入式 Tomcat 的工厂。
+
+    - 上下文触发的 onRefresh()
+    ServletWebServerApplicationContext 重写了 onRefresh()，大致逻辑：
+
+    ```java
+    protected void onRefresh() {
+        createWebServer(); // 获取工厂 → 创建并初始化 WebServer
+    }
+
+    private void createWebServer() {
+        ServletWebServerFactory factory = getWebServerFactory(); // 拿到 TomcatServletWebServerFactory
+        this.webServer = factory.getWebServer(getSelfInitializer()); // 创建 TomcatWebServer
+        // TomcatWebServer 内部完成 Tomcat 实例化、Connector 配置、端口绑定、start()
+    }
+    ```
+
+    - Tomcat 实例会被创建，设置 Host、Context，并将 DispatcherServlet 等注册进去。
+
+    - Tomcat.start() 真正把连接器线程拉起来，开始监听端口。
+
+    - 整个流程在 refresh() 的 finishRefresh() 前完成，确保 WebServer 就绪后，容器才宣告启动完毕。
+
+    2.2 切换为 Undertow 或 Jetty
+
+    Spring Boot 的可插拔设计让这一步几乎 零代码。以 Maven 为例：
+
+    - 排除默认的 Tomcat：
+
+    ```xml
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+        <exclusions>
+            <exclusion>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-tomcat</artifactId>
+            </exclusion>
+        </exclusions>
+    </dependency>
+    ```
+
+    引入 Undertow（高性能、内存占用低）：
+
+    ```xml
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-undertow</artifactId>
+    </dependency>
+    ```
+
+    或 引入 Jetty（广泛用于嵌入式场景）：
+
+    ```xml
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-jetty</artifactId>
+    </dependency>
+    ```
+
+    原理很简单：@ConditionalOnClass 检测到对应类（如 io.undertow.Undertow）存在时，自动配置就会注册 UndertowServletWebServerFactory 替代 Tomcat 工厂。后续 createWebServer() 链路不变，只是工厂实现不同。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NHwYwCwRDiPz1OkM3b9cXNBinUd
+  block_id: doxcnPrRmifYW9cUQhFmonnfm6b
+  page_token: NHwYwCwRDiPz1OkM3b9cXNBinUd
+  original_title: "\U0001F431 2. Spring Boot 内嵌 Tomcat 的启动原理？如何切换为 Undertow/Jetty？"
+  imported_at: '2026-09-21'

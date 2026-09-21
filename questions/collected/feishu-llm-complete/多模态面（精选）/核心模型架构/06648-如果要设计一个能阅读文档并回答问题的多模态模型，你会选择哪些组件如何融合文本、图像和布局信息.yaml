@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8e88372a58fe
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果要设计一个能阅读文档并回答问题的多模态模型，你会选择哪些组件？如何融合文本、图像和布局信息？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 核心模型架构
+tags: &1
+- 多模态面（精选）
+- 核心模型架构
+content:
+  prompt: 如果要设计一个能阅读文档并回答问题的多模态模型，你会选择哪些组件？如何融合文本、图像和布局信息？
+answer:
+  mode: rubric
+  reference_answer: |-
+    设计一个文档理解 MLLM，核心是捕捉文档的三个信息层面：文本语义、空间布局和视觉外观。组件选择与融合如下：
+
+    组件选择：
+
+    - 文本编码器/分词器：使用多语言、支持长文本的 LLM tokenizer（如基于 SentencePiece）。用于提取文本的语义 token。
+
+    - 视觉编码器：使用高分辨率的 ViT（如 ViT-L/14 或 ViT-Adapter），能够处理文档图像，输出保留空间结构的 patch token 特征图。这是捕捉字体、颜色、线条、表格、印章等视觉元素的基础。
+
+    - 布局编码器：一个轻量级的嵌入模块，将每个文本 token 的边界框坐标 (x0,y0,x1,y1)(x0,y0,x1,y1) 编码为向量。可以是一个简单的 MLP 或位置编码层。
+
+    - LLM 主干：一个强大的 Decoder-only LLM，作为多模态融合与推理的引擎。
+
+    - 连接器/适配器：将视觉 token 和布局嵌入投影到 LLM 词嵌入空间。可能是一个 MLP。
+
+    融合策略：
+
+    - 文本+布局融合：在文本 token 输入到 LLM 之前，将其对应的布局嵌入直接相加（或拼接后投影），作为增强的文本 token。这类似于 LayoutLM 的方式，告诉 LLM 每个词在页面上的位置。
+
+    - 视觉+空间融合：视觉编码器输出的 patch token，需要注入 2D 空间位置信息（如 patch 的行列坐标编码），使得视觉 token 携带空间信息。
+
+    - 全局与局部结合：将增强的文本 token 序列和视觉 patch token 序列拼接，送入 LLM。LLM 通过自注意力，让文本 token 可以关注到视觉 token（例如，“总计”这个词可以关注到页面右下方的视觉 patch，从而定位到金额数字区域），实现跨模态细粒度对齐。
+
+    - 多尺度/多分辨率处理：对于高密度文档，使用动态分块或高分辨率适配器，将文档切成多块分别编码，再通过带有子块位置编码的拼接送入 LLM，避免细节丢失。
+
+    - 预训练任务设计：类似 LayoutLM，可以设计 MLM、词-图像对齐等预训练任务，在大量未标注文档上预训练模型，然后再用 DocVQA 等任务数据微调。
+
+    这种设计使得模型能像人一样，既“读”文档的文字，又“看”它的外观和布局，从而准确回答需要空间定位、表格理解和票据信息抽取的问题。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZVxdwilOdisAVMkysX3c0vaDnfb
+  block_id: XY0Cd99h3oAKAbxvamgcOBYRnOe
+  page_token: ZVxdwilOdisAVMkysX3c0vaDnfb
+  original_title: 如果要设计一个能阅读文档并回答问题的多模态模型，你会选择哪些组件？如何融合文本、图像和布局信息？
+  imported_at: '2026-09-21'

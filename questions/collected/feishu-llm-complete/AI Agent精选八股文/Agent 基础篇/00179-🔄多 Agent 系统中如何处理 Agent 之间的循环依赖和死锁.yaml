@@ -1,0 +1,107 @@
+---
+schema_version: 1
+id: feishu-llm-complete-23183e14c372
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F504多 Agent 系统中如何处理 Agent 之间的循环依赖和死锁？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F504多 Agent 系统中如何处理 Agent 之间的循环依赖和死锁？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在多 Agent 协作中，循环依赖指的是：Agent A 等 Agent B 完成，Agent B 又等 Agent A 完成，两者永远等下去。
+
+    典型场景：
+
+    Orchestrator 把任务 T1 分配给 Agent A（需要知识库 X），T2 分配给 Agent B（负责更新知识库 X）。结果 Agent A 需要等 Agent B 更新完知识库才能开始，Agent B 又被安排等 Agent A 给出一些初步分析后才能决定更新什么。双方互相等待，形成死锁。
+
+    三个层次的解决方案：
+
+    ① 设计层：任务 DAG（有向无环图）强制非循环
+
+    Orchestrator 在生成任务计划时，必须构建一个有向无环图（DAG），并通过拓扑排序检测环。如果存在环，拒绝该计划，要求重新分解。
+
+    ```python
+    def check_cycle(tasks: List[Task]) -> bool:
+        """检查任务依赖图中是否有环"""
+        from collections import defaultdict
+        graph = defaultdict(list)
+        for t in tasks:
+            for dep in t.depends_on:
+                graph[t.id].append(dep)
+        # 拓扑排序
+        indegree = {t.id: 0 for t in tasks}
+        for u in graph:
+            for v in graph[u]:
+                indegree[v] = indegree.get(v, 0) + 1
+        q = [n for n, deg in indegree.items() if deg == 0]
+        visited = 0
+        while q:
+            node = q.pop(0)
+            visited += 1
+            for neighbor in graph[node]:
+                indegree[neighbor] -= 1
+                if indegree[neighbor] == 0:
+                    q.append(neighbor)
+        return visited != len(indegree)
+    # 如果返回 True，说明有环，需要人工介入或自动 re-plan
+    ```
+
+    ② 运行层：超时打破 + 降级策略
+
+    即使计划是无环的，也可能因为执行时的消息乱序或资源争用而出现实际上的相互等待（比如两方都在等对方先释放资源）。因此必须设置任务级超时和资源等待超时。
+
+    - 如果一个 Agent 等待某个依赖资源超过 30 秒，主动触发超时异常，回退到 Orchestrator。
+
+    - Orchestrator 收到超时后，执行降级：例如将任务重新分配给另一个 Agent（如果资源无冲突），或者使用本地缓存/默认值，或者直接向用户报告“当前无法完成”。
+
+    ```python
+    async def wait_for_dependency(dep_future, timeout=30):
+        try:
+            return await asyncio.wait_for(dep_future, timeout=timeout)
+        except asyncio.TimeoutError:
+            raise DeadlockException("依赖任务超时，可能存在循环等待")
+    ```
+
+    ③ 架构层：集中式调度 + 资源锁
+
+    在多 Agent 系统中，最不容易死锁的调度方式是星型拓扑：所有任务都由中心 Orchestrator 发起和协调，Worker 之间不直接互调。如果必须让 Worker 之间 A2A 直接通信，那么必须有一个全局的资源管理器来分配“锁”。
+
+    - 资源锁：如果任务需要独占某个知识库的写权限，Orchestrator 为它分配一个带有超时释放的分布式锁。
+
+    - 死锁检测线程：定期扫描所有未完成的任务和它们持有的锁/等待的依赖，构建等待图，如果发现环，强制终止其中优先级最低的那个任务，释放锁并通知相关方。
+
+    核心思想：绝不假设分布式任务会按理想顺序完成。 通过 DAG 设计避免显式环，通过超时和降级打破隐式环，通过集中调度减少不必要的点对点耦合。这是多 Agent 系统从 Demo 到 Production 的关键一步。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Bc6JwKFZHiApXjkusvBcTTrYnne
+  block_id: doxcn0El6d1oh1Qv6Jr3DK5XsFe
+  page_token: Bc6JwKFZHiApXjkusvBcTTrYnne
+  original_title: "\U0001F504多 Agent 系统中如何处理 Agent 之间的循环依赖和死锁？"
+  imported_at: '2026-09-21'

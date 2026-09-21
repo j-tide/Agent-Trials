@@ -1,0 +1,101 @@
+---
+schema_version: 1
+id: feishu-llm-complete-12b30bf4c749
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F422 3. 线上 RAG 延迟过高，Reranker 是瓶颈，怎么优化？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "\U0001F422 3. 线上 RAG 延迟过高，Reranker 是瓶颈，怎么优化？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    当你发现 RAG 系统端到端延迟超过 5 秒，而 Profile 显示 Reranker 占了其中 3 秒以上时，问题通常出在：候选太多、模型太重、调用太频繁。优化方向对应着“减量、提速、复用”三个字。
+
+    优化方案组合拳
+
+    [嵌入表格未展开]
+
+    实际优化案例：
+
+    优化前：
+
+    - 召回 100 条，用 bge-reranker-large（1.3GB 模型，CPU 推理）
+
+    - 对 100 条逐个打分，总耗时约 3.5 秒。
+
+    优化后：
+
+    - 召回数降至 30，延迟降至 1.1 秒。
+
+    - 换用 bge-reranker-base 并转为 ONNX 格式，单次推理速度翻倍。
+
+    - 引入多查询批处理：把同时到达的 3 个查询的候选拼成 batch 一起推理，GPU 利用率提升。
+
+    - 对于“退货流程”等高频查询，直接缓存排序结果，命中后延迟忽略不计。
+
+    最终端到端延迟从 5.2 秒降至 1.8 秒，Reranker 耗时占比降至 0.5 秒以内。
+
+    代码示例：ONNX 加速 + 输入截断 + 批处理
+
+    ```python
+    from optimum.onnxruntime import ORTModelForSequenceClassification
+    from transformers import AutoTokenizer
+    import torch
+
+    class FastReranker:
+        def __init__(self, model_path: str):
+            # 使用 ONNX Runtime 加速推理
+            self.model = ORTModelForSequenceClassification.from_pretrained(model_path, export=True)
+            self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+
+        def rerank(self, query: str, candidates: list, max_len: int = 256) -> list:
+            pairs = [(query, doc[:max_len]) for doc in candidates]
+            inputs = self.tokenizer(pairs, padding=True, truncation=True,
+                                    max_length=max_len, return_tensors="pt")
+            with torch.no_grad():
+                scores = self.model(**inputs).logits.squeeze(-1)
+            # 按分数降序
+            ranked_indices = scores.argsort(descending=True)
+            return [candidates[i] for i in ranked_indices]
+
+    # 使用
+    reranker = FastReranker("BAAI/bge-reranker-base")
+    top_docs = reranker.rerank("怎么退钱", candidate_docs)
+    ```
+
+    关键权衡：减少召回候选数是最直接的手段，但必须用离线评估确认 Top-30 的召回率依然满足业务要求。如果发现一些重要答案被截断在 30 名之外，就需要配合更精准的召回策略（如混合检索），而不是盲目增大候选数。
+
+    一句话收束：Reranker 的优化从来不是单一维度，而是“减候选、轻模型、上缓存、批处理”的组合拳。在精度和延迟之间找到那个让用户觉得“秒回且靠谱”的平衡点，才是 RAG 工程师的核心手艺。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcnW9gpdWek6ri2ovpS7Froye
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "\U0001F422 3. 线上 RAG 延迟过高，Reranker 是瓶颈，怎么优化？"
+  imported_at: '2026-09-21'

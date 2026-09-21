@@ -1,0 +1,116 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a8e5ac12c2d2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 推理服务化中，如何实现动态batching以提高吞吐？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 推理服务化中，如何实现动态batching以提高吞吐？
+answer:
+  mode: rubric
+  reference_answer: |-
+    动态 batching（或称为连续批处理）是一种将不同时刻到达的推理请求聚合为一个批次执行，以充分利用 GPU 并行性的技术。
+
+    核心原理：推理引擎维护一个请求队列，当 GPU 空闲时，从队列中取出多个请求，将它们的数据在 batch 维度拼接，一次性执行模型前向传播，然后再将结果拆分返回给对应的请求。这可以将多个小 batch 合并为大 batch，提高 GPU 利用率，增大吞吐。
+
+    实现方法：
+
+    - 使用推理服务器（推荐）：直接使用 NVIDIA Triton Inference Server、TorchServe、Ray Serve 等，它们内置了动态 batching 功能，只需配置参数即可。例如 Triton 的 dynamic_batching 配置：
+
+    ```python
+    dynamic_batching {
+      max_queue_delay_microseconds: 100
+    }
+    ```
+
+    - 自研服务中的实现：
+
+    - 请求队列与调度线程：主线程接收请求，将 (inputs, callback) 放入队列。后台 GPU 推理线程循环执行：等待一段时间，收集队列中的请求，拼接输入，执行模型，然后调用各自的回调返回结果。
+
+    - 关键技术：需要处理输入形状不一致的情况（如序列长度不同），可以通过填充（padding）实现，或者在模型内部使用 pack_padded_sequence / 注意力掩码。
+
+    - 延时与吞吐的权衡：设置最大等待时间（max_delay）和最大批次大小（max_batch_size）。延迟越大，组成大批次的可能性越高，吞吐越高，但单个请求的延迟也会增加。
+
+    示例代码框架：
+
+    ```python
+    import queue
+    import threading
+    import torch
+
+    class DynamicBatcher:
+        def __init__(self, model, max_batch_size=32, max_delay=0.05):
+            self.model = model
+            self.queue = queue.Queue()
+            self.thread = threading.Thread(target=self._batch_loop, daemon=True)
+            self.thread.start()
+
+        def predict(self, inputs):
+            event = threading.Event()
+            result = []
+            self.queue.put((inputs, event, result))
+            event.wait()
+            return result[0]
+
+        def _batch_loop(self):
+            while True:
+                batch = []
+                events = []
+                results = []
+                # 收集第一批
+                try:
+                    inputs, evt, res = self.queue.get(timeout=self.max_delay)
+                    batch.append(inputs); events.append(evt); results.append(res)
+                except queue.Empty: pass
+                # 在 max_delay 内继续收集
+                deadline = time.time() + self.max_delay
+                while len(batch) < self.max_batch_size and time.time() < deadline:
+                    try:
+                        inputs, evt, res = self.queue.get(timeout=deadline-time.time())
+                        batch.append(inputs); events.append(evt); results.append(res)
+                    except queue.Empty:
+                        break
+                if batch:
+                    # 拼接并推理
+                    batched_input = self._collate(batch)
+                    with torch.no_grad():
+                        batched_output = self.model(batched_input)
+                    # 拆分结果
+                    for i, out in enumerate(self._unbatch(batched_output)):
+                        results[i].append(out)
+                        events[i].set()
+    ```
+
+    - 针对LLM的连续批处理：vLLM、TGI 等框架实现了更高级的 iteration-level scheduling，可以在一个 batch 内同时包含处于 prefill 和 decode 不同阶段的请求，最大化 GPU 使用率。
+
+    优化：动态 batching 对于 Transformer 模型尤其有效，因为计算量随 batch 增大而显著提升。需要注意内存上限，避免 OOM。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WSlbwtUNQiNbKakCLPDcsZ9Hnsg
+  block_id: YqAXdfs0gop6QIx7FKcc5T9KnBd
+  page_token: WSlbwtUNQiNbKakCLPDcsZ9Hnsg
+  original_title: 推理服务化中，如何实现动态batching以提高吞吐？
+  imported_at: '2026-09-21'

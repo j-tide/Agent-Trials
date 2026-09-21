@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-89e8a68b5ac5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 混合使用多种 PEFT 方法，比如视觉侧用 Adapter，语言侧用 LoRA，是否可行？有哪些坑？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 训练方法与策略
+tags: &1
+- 多模态面（精选）
+- 训练方法与策略
+content:
+  prompt: 混合使用多种 PEFT 方法，比如视觉侧用 Adapter，语言侧用 LoRA，是否可行？有哪些坑？
+answer:
+  mode: rubric
+  reference_answer: |-
+    完全可行，且已在一些研究中采用（如视觉侧 ViT-Adapter，语言侧 LoRA）。混合使用可以发挥不同方法在各自模态的优势。
+
+    可行性示例：
+
+    - 视觉侧 Adapter：在 ViT 中插入轻量 Adapter，微调视觉特征以适配新领域（如医学图像），同时保持大部分视觉知识。
+
+    - 投影层全参数：训练对齐层。
+
+    - 语言侧 LoRA：让 LLM 学会理解适配后的视觉 token 并遵循指令。
+
+    潜在坑与应对：
+
+    - 训练不稳定/冲突：视觉 Adapter 和 LLM LoRA 同时改变特征分布，可能导致两者学习冲突，训练初期 loss 震荡。应对：分阶段训练——先固定 LLM LoRA，训练视觉 Adapter 到收敛；再联合微调，并降低整体学习率。
+
+    - 超参数难以统一：Adapter 和 LoRA 的最优学习率、调度可能不同。应对：为不同模块设置分组学习率，如视觉 Adapter 用 1e-4，LLM LoRA 用 5e-5，并分别做预热。
+
+    - 推理延迟增加：Adapter 增加推理延迟，LoRA 可合并无延迟。混合使用会部分抵消 LoRA 的速度优势。应对：仅在推理时保持视觉 Adapter，LLM 侧的 LoRA 合并，使延迟增加仅局限在视觉编码器部分。
+
+    - 总参数量虽小但零散：多个 PEFT 模块分散在不同子模块，管理和保存较繁琐。应对：统一使用 PEFT 库（如 HuggingFace PEFT）管理。
+
+    - 梯度冲突：两种方法更新的参数方向可能冲突。应对：使用梯度投影或模块特定的优化器状态。
+
+    混合 PEFT 是一种灵活的策略，但需要更细致的调参和训练技巧。在实践中，若领域偏移不极端，通常只加 LLM 的 LoRA 就已足够，混合方案仅用于强需求场景。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MdAuwpV9FirKryksWTdcr4djnoV
+  block_id: Q7t5d4QVaowYnYx6hKnccxa4nPb
+  page_token: MdAuwpV9FirKryksWTdcr4djnoV
+  original_title: 混合使用多种 PEFT 方法，比如视觉侧用 Adapter，语言侧用 LoRA，是否可行？有哪些坑？
+  imported_at: '2026-09-21'

@@ -1,0 +1,88 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cb56bb194027
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F465 在多用户聊天应用中，你如何隔离不同用户的记忆？用什么键来区分？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F465 在多用户聊天应用中，你如何隔离不同用户的记忆？用什么键来区分？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    隔离不同用户的记忆是多租户聊天应用的基础需求。LangChain 的 Memory 可以通过动态注入特定于用户的 session_id 或 user_id 来实现，这通常依赖于底层的 ChatMessageHistory。
+
+    方案：
+
+    - 使用支持 session_id 的历史存储后端，如 RedisChatMessageHistory、PostgresChatMessageHistory 或 DynamoDBChatMessageHistory。
+
+    - 在创建 Memory 时，为每个用户（或每个会话）生成一个唯一的 session_id，并传递给 ChatMessageHistory。这样，每个用户的对话历史在数据库中是物理隔离的（通过不同的键）。
+
+    - 在 Web 应用（如 FastAPI）中，可以从请求的 user_id 或 session_token 中获取标识符，然后动态构建 Memory。
+
+    代码示例（FastAPI + Redis）：
+
+    ```python
+    from langchain.memory import ConversationBufferMemory
+    from langchain.memory.chat_message_histories import RedisChatMessageHistory
+
+    @app.post("/chat")
+    async def chat(user_id: str, message: str):
+        # 根据用户 ID 创建唯一的历史存储键
+        session_id = f"user:{user_id}"
+        history = RedisChatMessageHistory(session_id=session_id, url="redis://localhost:6379")
+
+        # 创建记忆，绑定到此用户的历史
+        memory = ConversationBufferMemory(
+            chat_memory=history,
+            memory_key="chat_history",
+            return_messages=True
+        )
+
+        # 构建链并运行...
+        chain = ConversationChain(llm=llm, memory=memory)
+        response = chain.predict(input=message)
+        return response
+    ```
+
+    由于 session_id 是基于 user_id 的，不同用户的对话历史被严格隔离在 Redis 的不同键下。
+
+    隔离键的选择：
+
+    - user_id：按用户隔离。同一用户的所有会话共享记忆。
+
+    - session_id：按会话隔离。每次登录/浏览器标签页生成一个唯一 ID，会话结束记忆清除。
+
+    - user_id + session_id 组合：最灵活。可以按用户+会话维度存储。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H3N3wvSCiibLlPk5ZpjcveFHnNb
+  block_id: NBxqdHvWco8ONgxsejbcmd3knGd
+  page_token: H3N3wvSCiibLlPk5ZpjcveFHnNb
+  original_title: "\U0001F465 在多用户聊天应用中，你如何隔离不同用户的记忆？用什么键来区分？"
+  imported_at: '2026-09-21'

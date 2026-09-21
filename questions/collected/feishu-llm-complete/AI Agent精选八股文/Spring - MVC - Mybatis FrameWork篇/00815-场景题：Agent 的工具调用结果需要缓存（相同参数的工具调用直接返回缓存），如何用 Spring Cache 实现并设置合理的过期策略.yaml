@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-74602f718539
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 的工具调用结果需要缓存（相同参数的工具调用直接返回缓存），如何用 Spring Cache 实现并设置合理的过期策略？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 的工具调用结果需要缓存（相同参数的工具调用直接返回缓存），如何用 Spring Cache 实现并设置合理的过期策略？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（参数哈希、TTL 策略、缓存穿透、降级）\n\n1️⃣ Common Answer\n\n可以用 @Cacheable
+    注解在工具调用方法上。key 用工具名称和参数生成。设置一个过期时间，比如 5 分钟。如果缓存查不到就正常调用工具。\n\n2️⃣ Impressive Answer\n\n-
+    工具调用缓存设计：\n\n@Service\npublic class ToolExecutor {\n        \n    @Cacheable(\n
+    \       value = \"toolResults\",\n        key = \"#toolName + '::' + #params.hashCode()\",\n
+    \       unless = \"#result == null || #result.error != null\"\n    )\n    public
+    ToolResult executeTool(String toolName, Map<String, Object> params) {\n        //
+    调用外部工具 API\n    }\n        \n    @CacheEvict(value = \"toolResults\", key = \"#toolName
+    + '::' + #params.hashCode()\")\n    public void invalidateTool(String toolName,
+    Map<String, Object> params) {\n        // 手动清除缓存\n    }\n}\n\n- 差异化 TTL 策略（根据工具特性）：\n\n@Bean\npublic
+    RedisCacheManager cacheManager(RedisConnectionFactory factory) {\n    Map<String,
+    RedisCacheConfiguration> configs = new HashMap<>();\n        \n    // 天气工具：数据变化快，短
+    TTL\n    configs.put(\"weather\", config.entryTtl(Duration.ofMinutes(10)));\n
+    \       \n    // 搜索工具：数据相对稳定，长 TTL\n    configs.put(\"search\", config.entryTtl(Duration.ofHours(1)));\n
+    \       \n    // 知识库查询：数据稳定，超长 TTL\n    configs.put(\"kb\", config.entryTtl(Duration.ofHours(24)));\n
+    \       \n    // 计算工具：结果不变，永久缓存\n    configs.put(\"calculator\", config.entryTtl(Duration.ofDays(7)));\n
+    \       \n    return RedisCacheManager.builder(factory)\n        .withInitialCacheConfigurations(configs)\n
+    \       .build();\n}\n\n- 防止缓存穿透：工具调用失败时不缓存（unless 条件），避免缓存空值导致后续请求一直失败。\n\n-
+    缓存降级：Redis 不可用时降级到本地缓存（Caffeine），保证服务可用性：\n\n@Configuration\npublic class CacheConfig
+    {\n    @Bean\n    @Primary\n    public CacheManager compositeCacheManager(\n            RedisCacheManager
+    redisCacheManager,\n            CaffeineCacheManager caffeineCacheManager) {\n
+    \       return new CompositeCacheManager(\n            caffeineCacheManager,  //
+    本地缓存优先\n            redisCacheManager      // Redis 缓存\n        );\n    }\n}\n\n-
+    监控与告警：通过 Micrometer 暴露 cache.hits、cache.misses、cache.puts 指标，计算缓存命中率；设置告警（命中率
+    < 60% 时检查 TTL 策略）。\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcnfWRQDeBbgXGXEZObt8Uqvh
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 3、场景题：Agent 的工具调用结果需要缓存（相同参数的工具调用直接返回缓存），如何用 Spring Cache 实现并设置合理的过期策略？
+  imported_at: '2026-09-21'

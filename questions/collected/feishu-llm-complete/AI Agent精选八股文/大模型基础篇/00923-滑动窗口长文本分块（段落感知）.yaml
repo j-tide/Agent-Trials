@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2b1df9cea84a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 滑动窗口长文本分块（段落感知）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: 滑动窗口长文本分块（段落感知）
+answer:
+  mode: rubric
+  reference_answer: |-
+    要求：保持 Markdown 段落完整性，支持 chunk size 和 overlap。
+
+    实现思路：先按段落分割（双换行），再贪心合并段落直到接近 chunk size，重叠部分用上一块最后几个段落实现 overlap。
+
+    代码：
+
+    ```python
+    def markdown_splitter(text, chunk_size=1000, chunk_overlap=200):
+        paragraphs = text.split('\n\n')
+        chunks = []
+        current_chunk = []
+        current_len = 0
+        for para in paragraphs:
+            para_len = len(para)
+            if current_len + para_len > chunk_size and current_chunk:
+                # 保存当前 chunk
+                chunks.append('\n\n'.join(current_chunk))
+                # 重叠处理：保留最后几个段落使得总字符数接近 overlap
+                overlap_paras = []
+                overlap_len = 0
+                for p in reversed(current_chunk):
+                    if overlap_len + len(p) <= chunk_overlap:
+                        overlap_paras.insert(0, p)
+                        overlap_len += len(p)
+                    else:
+                        break
+                current_chunk = overlap_paras
+                current_len = overlap_len
+            current_chunk.append(para)
+            current_len += para_len
+        if current_chunk:
+            chunks.append('\n\n'.join(current_chunk))
+        return chunks
+    ```
+
+    关键点：确保 chunk 边界不会切断句子，overlap 通过保留尾部段落实现上下文衔接。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AxkEwVG8kibSjokIPVEc6aggnjo
+  block_id: doxcn4m46v2GzkDpsvp9I1bwSoe
+  page_token: AxkEwVG8kibSjokIPVEc6aggnjo
+  original_title: 滑动窗口长文本分块（段落感知）
+  imported_at: '2026-09-21'

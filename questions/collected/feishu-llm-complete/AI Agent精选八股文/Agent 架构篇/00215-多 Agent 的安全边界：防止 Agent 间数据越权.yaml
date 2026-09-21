@@ -1,0 +1,105 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a86880e9cbe8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多 Agent 的安全边界：防止 Agent 间数据越权
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+content:
+  prompt: 多 Agent 的安全边界：防止 Agent 间数据越权
+answer:
+  mode: rubric
+  reference_answer: |-
+    ---
+
+    1、基础题：什么是最小权限原则？在多 Agent 系统中如何理解它？
+
+    难度级别：⭐（最小权限原则概念、Agent 工具白名单）
+
+    最小权限原则是指每个 Agent 只能访问完成其任务所必需的工具和数据，不能多给。在多 Agent 系统中，不同 Agent 的职责不同，不能给所有 Agent 一个通用工具包，而应该为每个 Agent 配置工具白名单。一个专门做格式转换的 Agent 不应该有数据库读写权限，哪怕它从不主动使用。
+
+    ---
+
+    2、进阶题：多 Agent 系统中如何防止 Agent 间的数据越权访问？工具权限隔离和敏感数据保护应该如何设计？
+
+    难度级别：⭐⭐⭐（Agent 权限隔离设计、工具访问白名单、敏感数据不传递给不可信 Agent、输出内容安全过滤）
+
+    1️⃣ Common Answer
+
+    可以给每个 Agent 设置工具白名单，只让它用被授权的工具。对于敏感数据，在传递前做脱敏处理，比如把手机号、身份证号替换掉。不同 Agent 应该按最小权限原则配置。
+
+    2️⃣ Impressive Answer
+
+    我会用"防御纵深"框架来组织这个问题，从外到内分四层设防：
+
+    - 权限控制层（最外层）。用集中式工具注册中心管理所有 Agent 的工具权限，通过 grant_tools 为每个 Agent 显式授权，get_tools_for_agent 在运行时动态返回该 Agent 的合法工具列表。任何不在白名单内的工具调用直接拒绝，不给任何 Agent 通用工具包。
+
+    - 数据脱敏层（传递层）。对数据做三级分类：L0 公开数据可以传给任何 Agent；L1 内部数据只给受信 Agent；L2 敏感数据（PII、API Key、密码）只在专属 Agent 内部处理，绝不作为消息内容传递。消息传递前经过 DataSanitizer 自动正则脱敏。关键原则是 Sensitive by Design——在架构层阻止敏感数据流动，而不是靠运行时过滤兜底。
+
+    - 工具调用层（工具层）。能执行代码、写文件、发网络请求的工具是最大风险点。安全工具执行器需要做两道检查：先验证 Agent 是否有该工具的执行权限，再做静态代码分析拦截危险导入（如 os、subprocess）。最终在沙箱（RestrictedPython 或 Docker 容器）中执行，防止注入攻击。
+
+    - 输出过滤层（输出层）。Agent 输出在传递给用户或下游 Agent 前，要做 Prompt Injection 检测——恶意网页内容被检索后可能含有"ignore previous instructions"等注入指令，影响后续 Agent 行为，需要提前拦截。任何一层失效都有其他层兜底，这是防御纵深的核心价值。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：系统引入了第三方插件 Agent，如何防止它访问内部数据和工具？
+
+    难度级别：⭐⭐⭐（第三方 Agent 隔离、沙箱设计、API 网关审计）
+
+    1️⃣ Common Answer
+
+    可以不给第三方 Agent 访问内部数据库的权限，只给它公开的接口。对它的行为做一些日志记录，方便事后审计。
+
+    2️⃣ Impressive Answer
+
+    第三方 Agent 是多 Agent 系统中最高风险的接入点，需要从三个层次做隔离：
+
+    运行环境隔离：第三方 Agent 必须在独立的沙箱（Docker 容器或专用进程）中运行，不能和内部 Agent 共享进程空间和内存，防止通过内存读取或文件系统访问绕过权限控制。
+
+    访问路径隔离：第三方 Agent 不能直接调用内部工具，所有交互都必须通过受控的 API 网关进行。网关做身份认证（JWT）+ 权限校验（只开放公开接口）+ 请求参数校验（防止 SQL 注入、路径穿越），并对所有请求做 100% 日志记录。
+
+    数据传递控制：传递给第三方 Agent 的数据在出境前必须经过最严格的脱敏处理（L2 数据绝对不出境），返回数据在入境前经过 OutputGuard 做 Prompt Injection 检测，防止恶意插件通过输出内容影响内部 Agent 行为。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JcycwopI3iq7iOk1kBJcuICVnOg
+  block_id: doxcnoSV5T3vKAFZRgIGcXnd4Nd
+  page_token: JcycwopI3iq7iOk1kBJcuICVnOg
+  original_title: 多 Agent 的安全边界：防止 Agent 间数据越权
+  imported_at: '2026-09-21'

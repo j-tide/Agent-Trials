@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3404d95d5773
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 DDIM 和 DDPM 的核心区别，DDIM 如何实现少步骤快速生成？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 核心模型架构
+tags: &1
+- 多模态面（精选）
+- 核心模型架构
+content:
+  prompt: 解释 DDIM 和 DDPM 的核心区别，DDIM 如何实现少步骤快速生成？
+answer:
+  mode: rubric
+  reference_answer: |-
+    DDIM（Denoising Diffusion Implicit Models）与 DDPM（Denoising Diffusion Probabilistic Models）都是去噪扩散模型的变体，核心区别在于反向过程的定义方式：DDPM 的反向过程被明确定义为一个随机的马尔可夫链，而 DDIM 的反向过程则是非马尔可夫的，并且可以被视为一个确定的常微分方程（ODE） 的离散化求解过程。这一区别使得 DDIM 能够实现显著的少步骤快速生成。
+
+    DDPM 的反向过程：严格遵循马尔可夫性，即 xt−1xt−1 的生成仅依赖于 xtxt，且每一步都会引入一小部分随机噪声。这样的设计使得生成过程与正向的马尔可夫扩散过程在数学上完全对偶，训练目标也很自然。但由于每步都需重采样噪声，且链的步数必须与训练时的步数（通常1000步）保持一致才能保证质量，导致生成极慢。
+
+    DDIM 的反向过程：注意到 DDPM 的训练目标 LsimpleLsimple 仅依赖于条件分布 q(xt∣x0)q(xt∣x0) 的边缘分布，而不依赖于具体的正向马尔可夫过程细节。DDIM 抓住这一点，重新定义了一个新的非马尔可夫正向过程，它只在边缘分布上与原始 DDPM 一致。对应的反向过程被设计为一个可以跳步的确定性映射。在极限情况下，这个映射相当于求解一个与扩散过程相关的概率流 ODE。具体地，DDIM 采样公式可以写为：
+
+    [图片内容未导入]
+
+    （这是确定性版本，无随机项）。因为步骤之间不再有严格的马尔可夫依赖，DDIM 允许我们仅在扩散时间轴上均匀选取一个子序列（如从 1000 步中取 50 步）进行迭代，而无需遍历所有步。每步预测出 x0x0 后再根据时间步混合噪声，理论上等同于沿着 ODE 轨迹进行大步长跳转。由于 ODE 的轨迹相比随机链要平滑得多，这种跳转仍能保持很好的生成质量，从而将生成步数从 1000 步降至 10-50 步，速度提升数十倍。
+
+    此外，DDIM 还有一个额外的好处：由于其反向过程是确定的（若不加入随机噪声），从同一个初始噪声出发，可以生成几乎相同的图像，这使得 DDIM 非常适合于图像编辑和插值等需要一致性的任务。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MxkKw28Vhifwx1kXK2tcufpanqf
+  block_id: AecKdor8Do9Jq7xbXolcqTn0nZe
+  page_token: MxkKw28Vhifwx1kXK2tcufpanqf
+  original_title: 解释 DDIM 和 DDPM 的核心区别，DDIM 如何实现少步骤快速生成？
+  imported_at: '2026-09-21'

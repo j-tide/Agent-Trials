@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0e7015d00385
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 大模型训练中，如何保存和恢复 Checkpoint？通常包含哪些状态？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 大模型训练中，如何保存和恢复 Checkpoint？通常包含哪些状态？
+answer:
+  mode: rubric
+  reference_answer: |-
+    大模型训练可能持续数周甚至数月，期间任何中断（硬件故障、网络抖动、任务抢占）都可能导致前功尽弃。因此，Checkpoint不仅是模型的存档，更是一个完整训练状态的快照，以确保能从断点精确恢复。
+
+    ### Checkpoint 应包含的完整状态
+
+    - 模型参数：最核心的部分，包括所有权重和偏置。如果使用了ZeRO等分布式策略，每个GPU通常只保存自己分片的那部分参数，恢复时再重新组装。
+
+    - 优化器状态：对AdamW而言，包括每个参数的一阶动量m和二阶动量v（通常以FP32存储）。这部分体积是模型参数的两倍，但必须保存，因为优化器的内部状态决定了训练的动态，丢失则无法从断点继续优化。
+
+    - 学习率调度器状态：当前训练步数、当前学习率值、预热是否完成等。大模型通常使用复杂的余弦衰减等调度，若不恢复，学习率突然跳变可能导致训练不稳定。
+
+    - 数据迭代器状态：记录每个数据分片已经消费到的位置，以及全局随机种子。这样恢复后不会重复训练数据，也不会遗漏。
+
+    - 训练全局步数：已经完成的训练步数、消耗的token总数等元信息。
+
+    ### 保存与恢复的最佳实践
+
+    - 定期自动保存：按步数间隔（如每1000步）或时间间隔（如每4小时）自动保存。同时保留最近3-5个checkpoint，防止某个checkpoint损坏。
+
+    - 分布式写入：每个GPU只写自己负责的那部分状态，利用并行写入加速，避免阻塞训练。可使用异步IO。
+
+    - 恢复验证：加载checkpoint后，用一个小批次数据跑一次前向和反向，对比保存前的loss和梯度范数，确保完全一致。
+
+    - 容灾备份：将checkpoint同时写入本地高速存储和远程对象存储，防止存储节点故障。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Yto8wfa8ti5TgZktU1YczVp7nme
+  block_id: PYCRdVf3uoM8uwxnGFXcIY4mnrf
+  page_token: Yto8wfa8ti5TgZktU1YczVp7nme
+  original_title: 大模型训练中，如何保存和恢复 Checkpoint？通常包含哪些状态？
+  imported_at: '2026-09-21'

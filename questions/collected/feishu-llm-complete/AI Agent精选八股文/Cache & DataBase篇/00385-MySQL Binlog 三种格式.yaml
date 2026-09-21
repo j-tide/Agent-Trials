@@ -1,0 +1,121 @@
+---
+schema_version: 1
+id: feishu-llm-complete-937341ca94c3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: MySQL Binlog 三种格式
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: MySQL Binlog 三种格式
+answer:
+  mode: rubric
+  reference_answer: "1、什么是 MySQL Binlog？它有哪几种格式？\n\n⭐（Binlog 定义、三种格式）\n\nMySQL Binlog（Binary
+    Log）是 MySQL 的二进制日志，记录了所有对数据库数据进行修改的操作（INSERT、UPDATE、DELETE），主要用于数据恢复、主从复制、数据同步等场景。\n\nBinlog
+    有三种格式：\n\n- STATEMENT：基于 SQL 语句的复制，记录执行的 SQL 语句\n\n- ROW：基于行的复制，记录每一行数据的变化\n\n-
+    MIXED：混合模式，默认使用 STATEMENT，特殊情况下自动切换到 ROW\n\n2、请详细说明 MySQL Binlog 三种格式的区别、优缺点及适用场景？\n\n⭐⭐（三种格式的对比、优缺点分析）\n\n1️⃣
+    Common Answer STATEMENT 记录 SQL 语句，ROW 记录每一行的变化，MIXED 是混合模式。STATEMENT 节省空间但可能有问题，ROW
+    准确但空间大，MIXED 是折中方案。\n\n2️⃣ Impressive Answer MySQL Binlog 的三种格式各有优劣，我会从数据一致性、性能、空间占用等维度详细对比。给你详细讲一下：\n\n格式一：STATEMENT（基于
+    SQL 语句）\n\n记录执行的 SQL 语句本身。\n\n```text\n-- 示例：Binlog 记录的内容\nUPDATE user SET point
+    = point + 100 WHERE id = 1;\n```\n\n优点：\n\n- 空间占用小：只记录 SQL 语句，不记录具体数据变化\n\n- 网络传输快：传输的日志量小\n\n-
+    可读性强：可以直接查看执行的 SQL\n\n缺点：\n\n- 数据一致性风险：某些函数可能导致主从数据不一致 `sql-- 问题示例：NOW() 函数在主从执行时间不同UPDATE
+    user SET last_login = NOW() WHERE id = 1;\n\n-- 问题示例：UUID() 函数每次生成不同的值 INSERT
+    INTO user (id, name, token) VALUES (1, 'Alice', UUID());\n\n`\n\n- 不确定性操作：使用 LIMIT、随机函数等可能导致不一致
+    `sql-- 问题示例：LIMIT 在不同数据量下结果不同DELETE FROM log WHERE create_time < '2024-01-01'
+    LIMIT 1000;\n\n`\n\n适用场景：\n\n- 对数据一致性要求不高的场景\n\n- 读写分离的主从复制\n\n- 简单的 CRUD 操作\n\n---\n\n格式二：ROW（基于行）\n\n记录每一行数据的变化。\n\n```text\n--
+    示例：Binlog 记录的内容\n### UPDATE test.user\n### WHERE\n###   @1=1                    --
+    id\n###   @2='Alice'              -- name\n###   @3=100                  -- point
+    (修改前)\n### SET\n###   @1=1\n###   @2='Alice'\n###   @3=200                  --
+    point (修改后)\n```\n\n优点：\n\n- 数据一致性高：记录每一行的具体变化，主从数据完全一致\n\n- 支持所有操作：不受函数、随机值等影响\n\n-
+    精确恢复：可以精确恢复到某一行数据的状态\n\n缺点：\n\n- 空间占用大：记录所有行的变化，日志量巨大\n\n- 网络传输慢：传输的日志量大\n\n-
+    可读性差：无法直接查看执行的 SQL\n\n适用场景：\n\n- 对数据一致性要求高的场景（如金融、电商）\n\n- 数据同步到 ES、缓存等\n\n- 数据恢复、审计\n\n---\n\n格式三：MIXED（混合模式）\n\n默认使用
+    STATEMENT，在以下情况自动切换到 ROW：\n\n- 使用了不确定函数（NOW()、UUID()、RAND() 等）\n\n- 使用了 LIMIT
+    且没有 ORDER BY\n\n- 使用了 LOAD DATA INFILE\n\n- 使用了 INSERT ... SELECT\n\n- 使用了用户自定义函数\n\n```text\n--
+    示例：MIXED 模式下的行为\n-- 正常情况：使用 STATEMENT\nUPDATE user SET point = point + 100 WHERE
+    id = 1;\n\n-- 自动切换到 ROW：使用 NOW() 函数\nUPDATE user SET last_login = NOW() WHERE
+    id = 1;\n```\n\n优点：\n\n- 兼顾性能和一致性：大部分情况用 STATEMENT 节省空间，特殊情况用 ROW 保证一致性\n\n- 自动优化：无需手动配置，MySQL
+    自动判断\n\n缺点：\n\n- 不可控：切换逻辑由 MySQL 控制，无法精确控制\n\n- 不确定性：某些情况下可能无法准确预测使用哪种格式\n\n适用场景：\n\n-
+    对性能和一致性都有一定要求的场景\n\n- 不想手动管理 Binlog 格式的场景\n\n---\n\n三种格式对比\n\n[嵌入表格未展开]\n\n生产环境配置建议\n\n```text\n--
+    查看当前 Binlog 格式\nSHOW VARIABLES LIKE 'binlog_format';\n\n-- 设置 Binlog 格式（需要重启 MySQL）\nSET
+    GLOBAL binlog_format = 'ROW';  -- 推荐：CDC 场景\nSET GLOBAL binlog_format = 'STATEMENT';
+    \ -- 主从复制场景\nSET GLOBAL binlog_format = 'MIXED';  -- 折中方案\n\n-- 推荐配置：CDC 场景\nSET
+    GLOBAL binlog_format = 'ROW';\nSET GLOBAL binlog_row_image = 'FULL';  -- 记录修改前后的完整数据\n```\n\nCDC
+    场景推荐使用 ROW 格式的原因\n\n- 数据一致性：保证同步到 ES、缓存的数据准确\n\n- 精确变更：可以获取修改前后的完整数据\n\n- 支持所有操作：不受函数、随机值等影响\n\n-
+    Canal、Debezium 等工具：都推荐使用 ROW 格式\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n3、在电商系统中，需要将订单数据实时同步到
+    Elasticsearch，应该选择哪种 Binlog 格式？为什么？\n\n⭐⭐⭐（Binlog 格式选择、CDC 实践）\n\n1️⃣ Common Answer
+    用 ROW 格式，因为 ROW 记录每一行的变化，比较准确。STATEMENT 可能有问题，MIXED 不太好控制。\n\n2️⃣ Impressive Answer
+    在电商订单同步到 ES 的场景中，必须使用 ROW 格式。让我详细分析一下原因：\n\n场景需求分析\n\n- 订单数据需要实时同步到 ES，用于商品搜索、订单查询\n\n-
+    订单状态变更（如待支付 → 已支付 → 已发货）需要实时反映到 ES\n\n- 订单金额、用户信息等变更需要精确同步\n\n- 数据一致性要求高，不能出现订单状态不一致的情况\n\n为什么不能用
+    STATEMENT 格式？\n\nSTATEMENT 格式记录的是 SQL 语句，存在以下问题：\n\n```text\n-- 问题 1：使用 NOW()
+    函数，主从执行时间不同\nUPDATE orders \nSET status = 'PAID', \n    pay_time = NOW()  -- 主从执行时间不同，导致
+    pay_time 不一致\nWHERE id = 1001;\n\n-- 问题 2：使用 UUID() 函数，每次生成不同的值\nUPDATE orders
+    \nSET order_no = CONCAT(order_no, '_', UUID())  -- 主从生成不同的 UUID\nWHERE id = 1001;\n\n--
+    问题 3：使用 LIMIT，可能影响不同数量的行\nUPDATE orders \nSET status = 'CANCELLED' \nWHERE create_time
+    < '2024-01-01' \nLIMIT 1000;  -- 主从数据量不同，可能影响不同数量的行\n```\n\n这些问题会导致：\n\n- ES 数据不准确：订单状态、支付时间等数据不一致\n\n-
+    搜索结果错误：用户搜索订单时可能查不到或查到错误数据\n\n- 业务异常：订单状态判断错误，导致业务流程异常\n\n为什么不能用 MIXED 格式？\n\nMIXED
+    格式在大多数情况下使用 STATEMENT，只在特殊情况下切换到 ROW。但问题是：\n\n- 不可控：MySQL 自动判断切换逻辑，无法精确控制\n\n-
+    不确定性：某些情况下可能无法准确预测使用哪种格式\n\n- 风险高：如果 MySQL 判断失误，会导致数据不一致\n\n为什么必须使用 ROW 格式？\n\nROW
+    格式记录每一行的具体变化，可以获取修改前后的完整数据：\n\n```text\n-- 示例：订单状态变更\n### UPDATE test.orders\n###
+    WHERE\n###   @1=1001                -- id\n###   @2='UNPAID'            -- status
+    (修改前)\n###   @3=NULL                -- pay_time (修改前)\n### SET\n###   @1=1001\n###
+    \  @2='PAID'              -- status (修改后)\n###   @3='2024-03-29 15:00:00'  --
+    pay_time (修改后)\n```\n\nROW 格式的优势：\n\n- 数据一致性高：主从数据完全一致，ES 数据准确\n\n- 精确变更：可以获取修改前后的完整数据，便于
+    ES 更新\n\n- 支持所有操作：不受函数、随机值等影响\n\n- 精确恢复：如果 ES 同步失败，可以精确恢复到某个时间点\n\n生产环境配置\n\n```text\n--
+    设置 Binlog 格式为 ROW\nSET GLOBAL binlog_format = 'ROW';\n\n-- 设置行镜像为 FULL（记录修改前后的完整数据）\nSET
+    GLOBAL binlog_row_image = 'FULL';\n\n-- 验证配置\nSHOW VARIABLES LIKE 'binlog_format';\nSHOW
+    VARIABLES LIKE 'binlog_row_image';\n```\n\nCanal 配置示例\n\n```text\n# canal.properties\ncanal.serverMode
+    = rocketMQ\ncanal.mq.servers = 127.0.0.1:9876\ncanal.mq.producerGroup = canal_producer\n\n#
+    instance.properties\ncanal.instance.master.address=127.0.0.1:3306\ncanal.instance.master.journal.name=\ncanal.instance.master.position=\ncanal.instance.master.timestamp=\ncanal.instance.dbUsername=canal\ncanal.instance.dbPassword=canal\ncanal.instance.connectionCharset=UTF-8\ncanal.instance.filter.regex=.*\\\\..*
+    \ # 监听所有表\ncanal.instance.filter.black.regex=\n```\n\n消费者代码示例（同步订单到 ES）\n\n```text\n@RocketMQMessageListener(topic
+    = \"canal_order\", consumerGroup = \"es_sync_group\")\npublic class OrderToEsConsumer
+    implements RocketMQListener<CanalMessage> {\n    \n    @Autowired\n    private
+    ElasticsearchRestTemplate esTemplate;\n    \n    @Override\n    public void onMessage(CanalMessage
+    message) {\n        List<CanalEntry.Entry> entries = message.getEntries();\n        \n
+    \       for (CanalEntry.Entry entry : entries) {\n            if (entry.getEntryType()
+    == CanalEntry.EntryType.ROWDATA) {\n                CanalEntry.RowChange rowChange
+    = CanalEntry.RowChange.parseFrom(entry.getStoreValue());\n                \n                for
+    (CanalEntry.RowData rowData : rowChange.getRowDatasList()) {\n                    String
+    tableName = entry.getHeader().getTableName();\n                    \n                    if
+    (\"orders\".equals(tableName)) {\n                        if (rowChange.getEventType()
+    == CanalEntry.EventType.INSERT) {\n                            // 新增订单，插入到 ES\n
+    \                           Order order = parseOrder(rowData.getAfterColumnsList());\n
+    \                           esTemplate.save(order);\n                            \n
+    \                       } else if (rowChange.getEventType() == CanalEntry.EventType.UPDATE)
+    {\n                            // 更新订单，更新到 ES\n                            Order
+    order = parseOrder(rowData.getAfterColumnsList());\n                            esTemplate.save(order);\n
+    \                           \n                        } else if (rowChange.getEventType()
+    == CanalEntry.EventType.DELETE) {\n                            // 删除订单，从 ES 删除\n
+    \                           Long orderId = parseOrderId(rowData.getBeforeColumnsList());\n
+    \                           esTemplate.delete(orderId, Order.class);\n                        }\n
+    \                   }\n                }\n            }\n        }\n    }\n}\n```\n\n异常场景处理\n\n[嵌入表格未展开]\n\n监控告警指标\n\n-
+    Binlog 延迟：监控 Canal 消费 Binlog 的延迟时间\n\n- ES 同步延迟：监控消息从 MQ 到 ES 的延迟时间\n\n- 同步失败率：监控
+    ES 同步失败的次数\n\n- 数据一致性：定时比对 DB 和 ES 的数据一致性\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n4、容易一起考的题\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PKVIw2nCRi0Na6kOoiocSSfonrb
+  block_id: doxcnDnh90PGmDdVIhtYHg5rYwh
+  page_token: PKVIw2nCRi0Na6kOoiocSSfonrb
+  original_title: MySQL Binlog 三种格式
+  imported_at: '2026-09-21'

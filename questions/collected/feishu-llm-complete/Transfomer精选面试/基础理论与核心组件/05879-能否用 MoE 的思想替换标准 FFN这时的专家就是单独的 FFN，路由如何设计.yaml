@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-edcde6c810a0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 能否用 MoE 的思想替换标准 FFN？这时的“专家”就是单独的 FFN，路由如何设计？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 基础理论与核心组件
+tags: &1
+- Transfomer精选面试
+- 基础理论与核心组件
+content:
+  prompt: 能否用 MoE 的思想替换标准 FFN？这时的“专家”就是单独的 FFN，路由如何设计？
+answer:
+  mode: rubric
+  reference_answer: |-
+    完全可以，这正是 MoE（Mixture of Experts）Transformer 的核心思路。它将标准 FFN 层替换为多个并行的“专家 FFN”，并由一个门控路由器动态选择每个 token 应该激活哪些专家。
+
+    结构设计：
+
+    - 一个 MoE 层包含 N 个专家，每个专家本身就是一个完整的 FFN（通常是两层结构，如 SwiGLU）。
+
+    - 输入 token x 会先经过一个轻量级的路由器（通常是一个线性层），输出 N 个分数。经过 softmax 得到每个专家的概率分布。
+
+    - 实际中通常使用 Top-K 路由：只选取概率最高的 K 个专家（K 通常为 1 或 2），并将 token 路由给它们。
+
+    - 每个被选中的专家独立计算输出，然后根据路由权重（softmax 概率）进行加权求和，得到最终的 FFN 输出。如果 K=1，就直接取那个专家的输出。
+
+    路由设计的考量：
+
+    - 负载均衡：为了防止所有 token 都涌向同一个专家，训练时通常会加入辅助损失，惩罚专家之间的负载不均衡。这确保每个专家都有机会被训练，提升整体利用率。
+
+    - 容量因子：每个专家可以设置一个容量上限（capacity factor），限制一个 batch 内最多处理多少 token。超出的 token 会被“溢出”，可能直接通过残差连接绕过，或者由额外的共享专家处理。
+
+    - 专家选择策略：除了 Top-K，还有基于哈希的路由、随机路由等。Top-K 最常用，因为简单高效，且在推理时可以利用稀疏性只激活少数专家，大幅节省计算。
+
+    效果与挑战：MoE 可以在不显著增加推理计算量的前提下，将模型容量（总参数量）扩大数倍甚至数十倍。但专家之间的通信开销、负载均衡、以及微调时的专家坍塌等问题仍需仔细处理。Switch Transformer、GShard、Mixtral 等都是成功的 MoE 实践。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XLeKwLdoyiv7xUk0ntpcn8BYnsg
+  block_id: D53sdKrzkohFJcxWOtmcQjPhnrc
+  page_token: XLeKwLdoyiv7xUk0ntpcn8BYnsg
+  original_title: 能否用 MoE 的思想替换标准 FFN？这时的“专家”就是单独的 FFN，路由如何设计？
+  imported_at: '2026-09-21'

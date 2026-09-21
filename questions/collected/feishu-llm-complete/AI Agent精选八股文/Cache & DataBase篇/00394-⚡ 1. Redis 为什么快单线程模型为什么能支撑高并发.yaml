@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3110174a4658
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚡ 1. Redis 为什么快？单线程模型为什么能支撑高并发？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "⚡ 1. Redis 为什么快？单线程模型为什么能支撑高并发？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Redis 快，是因为它把所有数据都放在内存里，并且用单线程扫清了并发控制的一切障碍。
+
+    一个常见的误解是“单线程 = 慢”。在 Redis 的场景里恰恰相反：单线程让它避免了多线程的锁竞争、上下文切换、以及 CPU 缓存失效的开销。当一个命令执行时间在微秒级时，把这些时间花在调度线程上反而是最大的浪费。
+
+    [图片内容未导入]
+
+    单线程能支撑高并发的三个支柱：
+
+    - 纯内存操作：一次 SET 或 GET 只需要几微秒。瓶颈不在 CPU 计算，而在网络 IO。只要单线程能在微秒级处理完一个命令，它就能在 1 秒内处理几十万次请求。
+
+    - IO 多路复用（epoll）：Redis 使用 epoll（Linux 下）同时监听成千上万个客户端 socket。哪个 socket 有数据到达，就处理哪个；没有数据时，主线程就阻塞在 epoll_wait 上，不浪费任何 CPU。这使得单线程可以轻松管理数万并发连接。
+
+    - 避免锁和上下文切换：多线程程序在访问共享数据结构时必须加锁，锁竞争和线程调度会吃掉大量 CPU。Redis 单线程直接操作内存中的数据结构，零锁开销，CPU 缓存永远热乎。这就是为什么 Redis 的“单线程”反而比很多“多线程”存储系统更快。
+
+    关于 Redis 6.0 引入的多线程 IO：它只用于网络读写，把数据从 socket 搬进搬出的工作分给了 IO 线程，但命令执行仍然是单线程的。这就像在餐厅里，服务员帮你端菜、收碗筷（IO 线程），但厨房里仍然只有一个大厨（主线程）在炒菜。大厨的速度没变，但顾客的等待时间却因为并行上菜而缩短了。
+
+    一个简单的代码示例：感受一下 Redis 的单线程命令有多快。
+
+    import redis, time
+
+    r = redis.Redis(host='localhost', port=6379)
+
+    # 测试单线程吞吐量
+    start = time.time()
+    for i in range(100000):
+        r.set(f"key{i}", f"value{i}")
+    elapsed = time.time() - start
+    print(f"10 万次 SET 耗时: {elapsed:.2f} 秒, QPS: {100000/elapsed:.0f}")
+    # 典型输出: 10 万次 SET 耗时: 0.78 秒, QPS: 128000
+
+    在 Agent 场景里，我们经常用 Redis 来存储对话状态、缓存 Embedding 结果，每一次读写都是微秒级完成的，这正是 Agent 能做到毫秒级响应的基础。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Q9QMw2nf7ixgxGkQ9NUcjdpZno0
+  block_id: doxcnbud7Ig3XsQtaG2CUsGoyHf
+  page_token: Q9QMw2nf7ixgxGkQ9NUcjdpZno0
+  original_title: "⚡ 1. Redis 为什么快？单线程模型为什么能支撑高并发？"
+  imported_at: '2026-09-21'

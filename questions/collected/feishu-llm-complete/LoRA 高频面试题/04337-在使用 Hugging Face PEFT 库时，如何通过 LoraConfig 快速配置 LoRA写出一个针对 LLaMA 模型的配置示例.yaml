@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d9925bad3754
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在使用 Hugging Face PEFT 库时，如何通过 LoraConfig 快速配置 LoRA？写出一个针对 LLaMA 模型的配置示例。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LoRA 高频面试题
+derived_topic: 
+tags: &1
+- LoRA 高频面试题
+content:
+  prompt: 在使用 Hugging Face PEFT 库时，如何通过 LoraConfig 快速配置 LoRA？写出一个针对 LLaMA 模型的配置示例。
+answer:
+  mode: rubric
+  reference_answer: |-
+    from peft import LoraConfig, get_peft_model, TaskType
+    from transformers import AutoModelForCausalLM
+
+    model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf")
+
+    lora_config = LoraConfig(
+        task_type=TaskType.CAUSAL_LM,  # 指定任务类型，因果语言模型
+        r=8,                            # 低秩矩阵的秩
+        lora_alpha=16,                  # 缩放因子，常设为 r 的 2 倍
+        lora_dropout=0.1,               # LoRA 层的 dropout
+        target_modules=["q_proj", "v_proj", "k_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        # 指定要应用 LoRA 的模块名称，针对 LLaMA 常用的注意力投影和 FFN 的门控/上投影
+        bias="none",                    # 不训练 bias
+        modules_to_save=None,           # 除了 LoRA 外，还可以指定额外需要全量训练的参数，如 'embed_tokens', 'lm_head'
+    )
+
+    model = get_peft_model(model, lora_config)
+    model.print_trainable_parameters()  # 查看可训练参数量
+
+    解释：
+
+    - task_type 必须与模型任务一致，LLaMA 是因果语言模型，所以用 CAUSAL_LM。
+
+    - target_modules 选取了对生成质量影响最大的 Q/K/V/O 注意力投影，以及 FFN 中的门控和上投影（这是 LLaMA 的 SwiGLU 结构特有的层，gate_proj 和 up_proj）。有时为了极致压缩，只选 q_proj 和 v_proj 即可，但最新研究表明包含所有线性层能显著提升效果。
+
+    - modules_to_save 可用来指定需要全量微调的模块，如词表嵌入 embed_tokens 和输出头 lm_head，这对于某些任务（如扩展词表）很重要。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XjiewYcvci750Gkvcqyc01XBnDc
+  block_id: I5XadgFeCoIeklxcfgDczbzznSe
+  page_token: XjiewYcvci750Gkvcqyc01XBnDc
+  original_title: 在使用 Hugging Face PEFT 库时，如何通过 LoraConfig 快速配置 LoRA？写出一个针对 LLaMA
+    模型的配置示例。
+  imported_at: '2026-09-21'

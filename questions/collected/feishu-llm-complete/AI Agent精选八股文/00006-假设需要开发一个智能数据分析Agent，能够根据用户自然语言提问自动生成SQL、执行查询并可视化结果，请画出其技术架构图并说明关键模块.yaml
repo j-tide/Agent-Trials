@@ -1,0 +1,171 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0319545e10fb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 14.假设需要开发一个“智能数据分析Agent”，能够根据用户自然语言提问自动生成SQL、执行查询并可视化结果，请画出其技术架构图并说明关键模块。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 
+tags: &1
+- AI Agent精选八股文
+content:
+  prompt: 14.假设需要开发一个“智能数据分析Agent”，能够根据用户自然语言提问自动生成SQL、执行查询并可视化结果，请画出其技术架构图并说明关键模块。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### 一、技术架构图（ASCII）
+
+    [图片内容未导入]
+
+    [图片内容未导入]
+
+    ---
+
+    ### 二、关键模块说明
+
+    ### 意图理解 & 槽位填充模块
+
+    - 功能：解析用户自然语言，提取关键信息：查询目标（销售额/用户数等）、过滤条件（时间/地区）、聚合方式（总和/平均）、排序要求、期望的图表类型（折线图/柱状图等）。
+
+    - 技术：小参数LLM（如GPT-3.5-turbo）或基于BERT的意图分类器 + 序列标注。
+
+    - 输出：结构化查询意图JSON。
+
+    ### Schema感知模块（表结构检索）
+
+    - 功能：根据用户提问中的实体（如“销售额”“用户表”），从元数据缓存中检索相关表名、列名、外键关系、列类型、注释。
+
+    - 技术：向量检索（列注释嵌入） + 关键词匹配。预热时将所有表的DDL和注释向量化存入Milvus。
+
+    - 输出：候选表结构列表（包含字段描述），作为SQL生成的上下文。
+
+    ### SQL生成 & 优化模块
+
+    - 功能：将“意图 + 表结构”输入大模型（如GPT-4或DeepSeek-V3），生成SQL语句。并可进行规则优化（如谓词下推、避免SELECT *）。
+
+    - 关键设计：
+
+    - 输出：SQL字符串 + 预期返回字段列表。
+
+    ### SQL校验器（安全与正确性）
+
+    - 功能：静态校验SQL语法、权限、风险。
+
+    - 技术：sqlparse + 自定义AST访问者。
+
+    ### 执行引擎 & 连接池
+
+    - 功能：连接数据源（只读副本），执行校验后的SQL，返回DataFrame/JSON。
+
+    - 设计要点：
+
+    - 输出：查询结果（行+列）+ 执行耗时。
+
+    ### 结果解释 & 异常处理模块
+
+    - 功能：
+
+    - 自纠偏：失败时触发反思循环，最多重试2次（如修改字段名、添加表别名）。
+
+    ### 可视化建议 & 图表渲染器
+
+    - 功能：根据结果数据的结构（数值列、时间列、分类列）自动推荐图表类型（折线图/柱状图/散点图/饼图），并调用渲染引擎生成图片或HTML。
+
+    - 技术：规则引擎（如“有时间列+数值列 → 折线图”） + ECharts/Plotly。
+
+    - 输出：图表图片URL或内嵌HTML。
+
+    ### 对话记忆模块（短期/长期）
+
+    - 短期：存储当前会话中已生成的SQL、用户反馈（如“不对，换柱状图”），用于上下文。
+
+    - 长期：记录用户常用表、偏好图表类型，后续查询自动应用。
+
+    ### 元数据缓存
+
+    - 功能：存储数据库schema信息，避免每次查询都请求数据库。
+
+    - 技术：Redis + 定期同步（监听DDL变更）。
+
+    ### 安全与沙箱层（横切关注点）
+
+    - SQL注入防护：参数化查询 + 禁止拼接用户输入。
+
+    - 行级安全：根据用户身份动态添加WHERE tenant_id = ...。
+
+    - 数据脱敏：对敏感列（如手机号）在返回前进行掩码。
+
+    ---
+
+    ### 三、典型工作流示例
+
+    用户输入：“上个月各产品类别的销售额是多少？画个柱状图。”
+
+    - 意图理解：提取时间=上个月，维度=产品类别，指标=销售额，图表=柱状图。
+
+    - Schema感知：检索到表sales（列：category, amount, sale_date），表products（列：category_id, category_name）。
+
+    - SQL生成：
+
+    SELECT p.category_name, SUM(s.amount) as total_sales
+    FROM sales s
+    JOIN products p ON s.category_id = p.id
+    WHERE s.sale_date BETWEEN '2026-03-01' AND '2026-03-31'
+    GROUP BY p.category_name
+    ORDER BY total_sales DESC;
+
+    - 校验：通过（只读，有LIMIT自动补充）。
+
+    - 执行：返回DataFrame（category_name, total_sales）。
+
+    - 结果解释：生成“三月份，电子类销售额最高，达120万元...”。
+
+    - 可视化：自动选择柱状图，调用ECharts生成图片。
+
+    - 返回：自然语言解释 + 柱状图图片 + 原始数据表格（可选）。
+
+    ---
+
+    ### 四、关键技术选型建议
+
+    [嵌入表格未展开]
+
+    ---
+
+    ### 五、扩展性与可靠性设计
+
+    - 异步任务：大查询或复杂图表生成放入消息队列（Celery + RabbitMQ），轮询返回结果。
+
+    - 结果缓存：相同SQL+相同参数的结果缓存30分钟，减少重复查询。
+
+    - 审计日志：记录每个用户的SQL、执行时间、返回行数，用于合规与性能分析。
+
+    - 多数据源支持：通过适配器模式支持MySQL、PostgreSQL、BigQuery、Snowflake。
+
+    以上架构可构建一个安全、高效、可扩展的智能数据分析Agent，满足企业级自然语言查询与可视化需求。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M526wldNTiQFB3kmM2mcFsoaneh
+  block_id: RaAKdhJWYo270xxpJCJcsgAtnQh
+  page_token: M526wldNTiQFB3kmM2mcFsoaneh
+  original_title: 14.假设需要开发一个“智能数据分析Agent”，能够根据用户自然语言提问自动生成SQL、执行查询并可视化结果，请画出其技术架构图并说明关键模块。
+  imported_at: '2026-09-21'

@@ -1,0 +1,94 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2517e3e6ef11
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E0️ 2. 在SFT中加入工具调用历史，需要注意哪些格式问题？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F6E0️ 2. 在SFT中加入工具调用历史，需要注意哪些格式问题？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    工具调用让模型从封闭的文本生成器升级为能与外部世界交互的智能体。但在SFT中融入工具调用历史，其数据格式面临着角色扩展、边界定义、错误处理等多方面的挑战，任何一个格式漏洞都可能导致模型行为崩溃。
+
+    一、角色与消息类型的严格定义
+
+    标准对话只有system、user、assistant三种角色。引入工具后，必须增加新的角色或消息类型。最典型的做法是增加一个tool角色，用于承载工具执行后返回的结果。一段完整的多轮工具调用对话格式可能如下：
+
+    ```text
+    <|im_start|>system
+    You have access to the following functions...
+    <|im_end|>
+    <|im_start|>user
+    What's the weather in Paris?
+    <|im_end|>
+    <|im_start|>assistant
+    <tool_call>
+    {"name": "get_weather", "arguments": {"city": "Paris"}}
+    </tool_call>
+    <|im_end|>
+    <|im_start|>tool
+    {"temperature": 22, "condition": "sunny"}
+    <|im_end|>
+    <|im_start|>assistant
+    The weather in Paris is sunny with a temperature of 22°C.
+    <|im_end|>
+    ```
+
+    这里格式上有几个关键点：
+
+    - <tool_call>和</tool_call>标记：必须清晰地将工具调用的JSON与普通文本内容区分开。这些标记在分词时最好是独立的特殊token，避免与用户输入中的自然语言混淆。
+
+    - tool角色：它的出现严格紧跟在包含<tool_call>的assistant消息之后，用于向模型注入外部信息。模型在训练中学会：当看到<|im_start|>tool时，它不应该生成这个角色的内容，而是理解这是外部注入的上下文，然后等待下一个<|im_start|>assistant来继续生成。
+
+    - 历史保留：在多轮对话中，之前的工具调用和结果必须完整保留在上下文中，因为后续的调用可能依赖前面的结果。这意味着上下文窗口会因工具调用历史而迅速膨胀，对模型的长上下文能力提出了要求。
+
+    二、工具定义格式的一致性
+
+    工具的定义（通常放在system prompt中）必须有固定的、无歧义的schema。如果训练数据中，同一个函数的参数描述有时用“city”有时用“location”，模型就会混淆，导致生成错误的调用参数。最佳实践是采用JSON Schema格式来定义函数，并在所有SFT数据中严格遵循这一格式。这样模型学会的是解析结构化定义的能力，而不是记忆特定函数的名称。
+
+    三、错误处理与异常路径的格式
+
+    工具调用可能失败，可能超时，可能返回错误信息。SFT数据中必须包含这些异常路径的完整格式。例如，如果天气API返回{"error": "City not found"}，那么tool角色返回的就是这个错误JSON。紧接着，assistant应该生成：“抱歉，我找不到您说的城市，请确认一下城市名称是否正确？”这种“调用-失败-优雅处理”的闭环，必须在格式上清晰体现。如果数据中只有成功案例，模型在面对真实故障时会崩溃或产生幻觉。
+
+    四、并行调用与串行调用的格式区分
+
+    有时模型需要同时调用多个独立的工具（并行），有时后一个调用的参数依赖前一个调用的结果（串行）。在格式上，并行调用可以放在同一个<tool_call>块中，用列表表示；或者在一个assistant消息中连续写多个<tool_call>块。串行调用则需要完整的请求-响应循环。SFT数据必须覆盖这两种模式，并且格式要明确区分，让模型学会判断何时可以并行加速，何时必须串行等待。
+
+    五、多轮对话中的工具调用状态管理
+
+    工具调用不是一次性的。用户可能在下下轮要求“把刚才查到的巴黎天气信息翻译成法语”。模型需要从历史中找到tool返回的结果，再进行后续操作。这要求SFT数据中，在工具调用后的多轮对话里，继续有指令指向历史工具结果，强化模型对工具历史的二次利用能力。
+
+    ✅ 总结：工具调用SFT数据的格式需要精确扩展角色体系、统一工具定义schema、覆盖异常路径、区分串并行调用，并确保多轮历史中工具结果的可用性。格式的一致性直接决定了模型在实际应用中调用工具的可靠性和鲁棒性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QxC9wMhjZi9E20kUA1TcTNQTnSh
+  block_id: Ibr9dSEprouvSCxJinHcSl4rnwg
+  page_token: QxC9wMhjZi9E20kUA1TcTNQTnSh
+  original_title: "\U0001F6E0️ 2. 在SFT中加入工具调用历史，需要注意哪些格式问题？"
+  imported_at: '2026-09-21'

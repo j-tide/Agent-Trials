@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2500bf2dcf4c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3AF 3. 在 Agent 做复杂数学推理时，如何用 Self-Consistency 提升答案可靠性，同时把成本控制在可接受范围？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F3AF 3. 在 Agent 做复杂数学推理时，如何用 Self-Consistency 提升答案可靠性，同时把成本控制在可接受范围？"
+answer:
+  mode: rubric
+  reference_answer: "Agent 做数学推理，往往还涉及工具调用（如计算器、符号求解器）。这时的 Self-Consistency 要兼顾推理路径的多样性和外部工具的准确性。\n\n场景举例：
+    Agent 接到任务“计算这个投资组合的夏普比率”，它需要先调取历史收益率数据，再计算均值、标准差，最后代入公式。\n\n3.1 策略设计：双阶段一致性验证\n\n[图片内容未导入]\n\n关键点：
+    工具调用（如计算器）本身是确定性的，无需多次采样；需要采样的部分是调用工具的顺序、参数选择、公式选用等“规划”环节。\n\n代码骨架：Agent 内部的自洽推理节点\n\nimport
+    re, json\nfrom collections import Counter\nfrom typing import List, Tuple\n\ndef
+    solve_math_with_sc(agent, problem: str, max_samples=5, early_stop_threshold=0.6)
+    -> dict:\n    \"\"\"\n    使用 Self-Consistency 的 Agent 推理节点\n    \"\"\"\n    all_answers
+    = []\n    all_traces = []\n    \n    for i in range(max_samples):\n        # 温度稍高以产生规划多样性\n
+    \       trace = agent.run(problem, temperature=0.8)\n        # 从 trace 中提取最终数值答案（正则匹配或结构化提取）\n
+    \       answer = extract_numeric_answer(trace)\n        all_answers.append(answer)\n
+    \       all_traces.append(trace)\n        \n        # 早停检查\n        cnt = Counter(all_answers)\n
+    \       majority_ans, majority_count = cnt.most_common(1)[0]\n        if majority_count
+    >= early_stop_threshold * len(all_answers):\n            break\n    \n    # 最终投票\n
+    \   final_answer = Counter(all_answers).most_common(1)[0][0]\n    confidence =
+    Counter(all_answers)[final_answer] / len(all_answers)\n    \n    # 记录最佳推理链（可选：选择最简洁或置信度最高那条）\n
+    \   best_trace = select_best_trace(all_traces, all_answers, final_answer)\n    \n
+    \   return {\n        \"answer\": final_answer,\n        \"confidence\": confidence,\n
+    \       \"reasoning\": best_trace,\n        \"samples_used\": len(all_answers)\n
+    \   }\n\ndef extract_numeric_answer(trace: str) -> str:\n    # 从推理末尾提取“答案是...”或“最终结果：数字”等\n
+    \   # 这里只做示意，实际可以更鲁棒\n    match = re.search(r'(?:答案是|最终结果[：:])\\s*([0-9.,]+)',
+    trace)\n    if match:\n        return match.group(1).strip()\n    # fallback:
+    取最后一行数字\n    nums = re.findall(r'\\b\\d+\\.?\\d*\\b', trace)\n    return nums[-1]
+    if nums else trace[-50:]\n\n节省成本的微操：\n\n- 复用工具结果缓存：多次采样时，如果前一次已经查过某支股票的收盘价，后续采样直接用缓存，避免重复
+    API 调用。\n\n- 用并行调用替代串行：将 N 次采样请求同时发出，用异步 API 调用降低时延，且某些平台对并行请求有折扣。\n\n- 仅对高风险步骤使用
+    SC：Agent 只在关键计算节点（如公式套用、符号方程求解）启用 Self-Consistency，其他常规信息检索仍使用单次 CoT。\n\n一个实际例子：\n\n总结一句话：\n\nSelf-Consistency
+    给模型装上了“多几个参谋、投票决策”的机制，在数学这类对错分明的领域尤其有效；而通过早停、自适应采样和缓存复用，我们完全可以在不烧穿预算的前提下，把推理的可靠性从“碰运气”提升到“大概率正确”。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcnKdFMtZ8QjfOEDE5varj5ve
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: "\U0001F3AF 3. 在 Agent 做复杂数学推理时，如何用 Self-Consistency 提升答案可靠性，同时把成本控制在可接受范围？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f9c424fec1d4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果DPO训练中不使用参考模型，会发生什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如果DPO训练中不使用参考模型，会发生什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    [图片内容未导入]
+
+    这相当于直接最大化偏好回答与非偏好回答的似然差。
+
+    会发生什么？
+
+    这将导致灾难性的后果，基本等价于标准的行为克隆过拟合，并且会迅速发生分布坍缩。
+
+    - 疯狂的分布坍缩：为了让损失函数最小化，模型会毫无约束地拼命提高 ywyw 的概率，并压低 ylyl 的概率。由于偏好数据覆盖的范围有限，模型会迅速将概率质量全部集中到训练集中出现的那些“好回答”模式上，丧失所有创造性和语言多样性。它的输出会变得极其单一和模板化。
+
+    - 灾难性遗忘：由于没有参考模型作为“锚”，模型会忘记SFT阶段和预训练阶段学到的所有通用知识、推理能力和语言流畅性，最终退化为一个只会输出训练数据中那几种“高分回答”样式的、功能瘫痪的模型。
+
+    [图片内容未导入]
+
+    一句话总结：DPO中的参考模型 πrefπref 不是可选项，而是防止模型坠入“对偏好数据死记硬背”深渊的安全网。它保证了模型在学习对齐时，不会丧失作为语言模型的基本能力。
+
+    - 减小学习率，特别是策略模型的学习率。
+
+    - 更严格的裁剪（PPO-CLIP），减小 ϵ 值（如从0.2降至0.1）。
+
+    - 增加KL散度惩罚系数 β。
+
+    - 设置KL散度早停：若某步更新后，KL散度超过预设阈值（如0.01或0.02），则跳过该步更新，并可能降低学习率。
+
+    - 强化KL散度约束，增大 β 值。
+
+    - 改进奖励模型：扩充训练数据，修复已知漏洞，或者集成多个奖励模型。
+
+    - 混合训练目标：在PPO损失中混合一部分预训练语言模型损失（PPO-ptx），强制模型保持语言流畅性。
+
+    - 使用更细粒度的奖励：例如，将最终奖励分解为多个维度，或引入过程奖励。
+
+    - 增大价值模型的更新频率（例如，对每一批经验，价值模型更新K次，策略模型更新1次）。
+
+    - 调整价值模型的损失函数，或使用更大的价值模型。
+
+    - 独立设置价值模型的学习率和优化器。
+
+    - 自动化超参搜索（如使用Optuna）。
+
+    - 参考成熟开源项目（如DeepSpeed-Chat）的超参配置。
+
+    - 从保守的超参开始，逐步放宽约束。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ko2bwQagXiifotkNsNgcEOTnnbh
+  block_id: Ov6EdwJqEoqcLExomQxceZjCnld
+  page_token: Ko2bwQagXiifotkNsNgcEOTnnbh
+  original_title: 如果DPO训练中不使用参考模型，会发生什么？
+  imported_at: '2026-09-21'

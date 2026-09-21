@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3de465aa84d9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4C8 训练时，激活值占比突然升高，可能是什么配置改变了？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "\U0001F4C8 训练时，激活值占比突然升高，可能是什么配置改变了？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 激活值占比突然升高，通常是序列长度、batch size 变大，或者关闭了梯度检查点，或者模型架构变化导致的中间张量增加。\n\n\U0001F50D
+    常见原因：\n\n- 序列长度或 batch size 增大\n激活显存近似与 batch_size × seq_len 成正比。如果训练配置中不小心将 max_seq_len
+    增大（比如数据处理时未截断），或者动态 padding 导致某个 batch 特别长，激活会瞬间飙升。\n\n- 关闭梯度检查点（gradient checkpointing）\n开启
+    checkpoint 会丢弃部分中间激活，反向时重计算，以时间换空间。如果误将其关闭（例如从 FP16 O2 切换到 O1 或者更改了训练参数），所有中间激活都会常驻，导致激活占比激增。\n\n-
+    注意力实现变化\n如果从 FlashAttention 切换到传统注意力，会显式构建注意力分数矩阵 [B, heads, S, S]，该张量随 S 平方增长。这会大幅增加激活内存。反之，启用
+    FlashAttention 可降低激活。\n\n- 使用了更大的 micro-batch 进行前向\n在梯度累积场景，如果 micro_batch_size
+    增大，激活峰值随之增高。\n\n- 模型结构改变\n若在现有模型中插入新的模块（如适配器、更深层）、或特征维度临时增加，也会导致激活内存上升。\n\n\U0001F527
+    检查方法：对比配置文件中 seq_length, per_device_train_batch_size, gradient_checkpointing,
+    use_flash_attn 等参数。使用 Profiler 查看激活张量分布，定位是哪类算子导致增长。\n\n因此，要快速锁定原因：先对比当前与之前的训练超参，再检查是否无意中改动了模型前向实现。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C7vaw6NlnicTRUkFemecRp3jnLd
+  block_id: T7Z5d17W5op7itxUXYac1srQnNc
+  page_token: C7vaw6NlnicTRUkFemecRp3jnLd
+  original_title: "\U0001F4C8 训练时，激活值占比突然升高，可能是什么配置改变了？"
+  imported_at: '2026-09-21'

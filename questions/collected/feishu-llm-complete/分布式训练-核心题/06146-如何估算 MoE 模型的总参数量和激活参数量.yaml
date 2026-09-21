@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-09c299698bb8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何估算 MoE 模型的总参数量和激活参数量。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 如何估算 MoE 模型的总参数量和激活参数量。
+answer:
+  mode: rubric
+  reference_answer: |-
+    总参数量 = 非专家参数 + 专家数 × 每个专家的参数量
+
+    - 非专家参数：包括嵌入层、所有 Transformer 层中的自注意力模块（QKV 投影、输出投影）、LayerNorm/RMSNorm、以及门控网络本身。这些参数数量与一个同配置的稠密模型完全一致，与专家数无关。
+
+    - 专家参数：每个专家本质上就是一个完整的 FFN 层。在现代 MoE 中，专家通常采用 SwiGLU 结构，包含三个权重矩阵：W_gate（d_model -> d_ff）、W_value（d_model -> d_ff）和 W_out（d_ff -> d_model）。所以每个专家的参数量 = 3 × d_model × d_ff（忽略偏置）。如果 FFN 中间维度是标准 4 倍，则每个专家参数约为 12 * d_model^2；若使用 8/3 倍以对齐总参数量，参数量会相应调整。
+
+    激活参数量（又称动态参数量、每 token 实际计算量） = 非专家参数 + (每个 token 激活的专家数 k) × 每个专家的参数量
+
+    - 由于每个 token 通常只激活 Top-1 或 Top-2 个专家，所以激活参数量远小于总参数量。这是 MoE 的核心魅力：用大量总参数获得容量，用少量激活参数控制计算成本。
+
+    - 注意：激活参数量不是简单的参数个数，而是前向传播中实际参与运算的矩阵乘法规模。因此，推理时计算量是稠密模型的 1/N * k 倍（N 为专家数，假设专家容量与稠密 FFN 相同），但总参数量是稠密模型的 N * k 倍。例如 Mixtral 8x7B，总参数 47B，但每个 token 只激活 Top-2 专家，激活参数约 13B，推理计算量约等于一个 13B 的稠密模型，却拥有接近 7B×8 的知识容量。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQczwN8cliZ2XSkOI26ckCcPnuf
+  block_id: REDpdhFAUoQcmaxZx80cOoKDn3b
+  page_token: GQczwN8cliZ2XSkOI26ckCcPnuf
+  original_title: 如何估算 MoE 模型的总参数量和激活参数量。
+  imported_at: '2026-09-21'

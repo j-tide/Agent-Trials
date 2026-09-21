@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-de8100868ebc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何蒸馏出一个擅长工具调用的模型？数据应该长什么样？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型蒸馏面试-核心题
+derived_topic: 
+tags: &1
+- 大模型蒸馏面试-核心题
+content:
+  prompt: 如何蒸馏出一个擅长工具调用的模型？数据应该长什么样？
+answer:
+  mode: rubric
+  reference_answer: |-
+    蒸馏一个擅长工具调用的模型，本质上是教会学生模型一个“判断-执行-反馈”的交互循环。这需要构造包含完整“工具调用轨迹”的蒸馏数据。
+
+    数据格式示例（ChatML风格）：
+
+    <|im_start|>system
+    你可以使用以下工具：
+    {"name": "get_weather", "description": "查询城市天气", "parameters": {"city": {"type": "string", "description": "城市名"}}}
+    <|im_end|>
+    <|im_start|>user
+    今天北京天气怎么样？
+    <|im_end|>
+    <|im_start|>assistant
+    好的，让我查询一下。
+    <tool_call>{"name": "get_weather", "arguments": {"city": "北京"}}</tool_call>
+    <|im_end|>
+    <|im_start|>tool
+    {"temperature": 25, "condition": "晴"}
+    <|im_end|>
+    <|im_start|>assistant
+    北京今天晴天，气温25°C，适合出行。
+    <|im_end|>
+
+    蒸馏数据应包含的关键要素：
+
+    - 工具定义（System Prompt）：使用明确的JSON Schema描述可用工具，包括名称、功能描述和参数类型。
+
+    - 需要工具调用的指令：设计无法仅凭模型自身知识回答的指令，强制模型去调用工具。
+
+    - 工具调用指令（模型输出）：使用特殊Token（如<tool_call>和</tool_call>）包裹的、结构化的JSON，精确标记工具名称和参数。
+
+    - 工具返回结果（Tool Response）：以另一个角色（如tool）返回的JSON数据或错误信息。
+
+    - 最终回复（模型输出）：模型接收到工具结果后，将其解读、加工，生成的最终自然语言回复。
+
+    数据构造策略：
+
+    - 覆盖多样化的调用模式：并行调用（同时查询多个城市天气）、串行依赖调用（后一个调用依赖前一个的结果）、错误处理（API返回错误时，模型如何修正或请求澄清）。
+
+    - 包含“无需调用”的样本：数据集必须有大量不需要调用工具就能直接回答的指令，以训练模型判断“何时不应调用工具”。
+
+    - 使用强模型模拟工具调用轨迹：让GPT-4等强模型根据工具定义和用户指令，模拟上述完整的交互过程，可以快速生成大规模、高质量的训练数据。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/V7qdwQ0rXi2Bvbk4GVvc7jIvn2c
+  block_id: VcLrdcMFNoktORxFCshcVf0rnxn
+  page_token: V7qdwQ0rXi2Bvbk4GVvc7jIvn2c
+  original_title: 如何蒸馏出一个擅长工具调用的模型？数据应该长什么样？
+  imported_at: '2026-09-21'

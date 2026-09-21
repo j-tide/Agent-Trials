@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-65ae1465c4b3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 奖励模型训练时，如果 chosen 和 rejected 回答来自不同温度或不同模型，有什么问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 2-偏好数据与奖励建模
+tags: &1
+- RLHF面试高频考点
+- 2-偏好数据与奖励建模
+content:
+  prompt: 奖励模型训练时，如果 chosen 和 rejected 回答来自不同温度或不同模型，有什么问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这会在偏好数据中引入严重的分布偏移和虚假相关，是 RM 训练的大忌。
+
+    具体问题：
+
+    - RM 退化为“生成参数/模型识别器”
+    如果所有 chosen 都来自 temperature=0.1 的模型（输出更确定、更流畅），所有 rejected 来自 temperature=1.0 的模型（输出更随机、偶尔不通顺），RM 会迅速学会识别这种源于解码策略的风格差异，而不是去评估内容的真实质量。例如，RM 可能只是通过识别回答中词汇的确定性程度来打分，流畅但平庸的回答永远比深刻但偶有毛刺的回答得分高。
+
+    - 训练与推理的分布断裂
+    在 PPO 阶段，Actor 的采样温度通常是固定的（如 0.7），它生成的回答分布是单一的。如果 RM 是在不同温度混杂的数据上训练的，它学到的评分标准就会与 Actor 的实际生成分布发生错位。例如，Actor 生成一个有点小瑕疵但高质量的回答，RM 可能因为之前见过这类瑕疵总出现在低分回答中而给打低分，但实际上在高确定性模型输出中，这类瑕疵根本不会出现。
+
+    - 模型能力的混淆
+    如果 chosen 来自大模型（GPT-4），rejected 来自小模型（GPT-2），RM 将学会识别模型能力的系统性差异——如大模型的词汇量更丰富、语法更复杂。这会让 RM 过度关注“大模型风格”的表面特征。当对同一个小模型的不同回答进行偏好判断时，RM 可能完全失效，因为它没学过如何区分小模型自身的好坏。
+
+    正确做法：
+
+    - 同源同参数采样：保证每个偏好对的两个回答来自完全相同的模型、完全相同的解码参数，仅在随机种子（或 temperature 采样）上有区别。这样，两个回答的潜在“风格”被严格控制，唯一的差异就是采样的随机性和底层模型策略的细微差别。
+
+    - 如果必须混合，全面平衡：如果实在需要混合不同模型/温度的数据，必须确保在数据集中，每个模型/温度都同等概率地产生 chosen 和 rejected。通过数据后处理或重采样，打破“来源”与“好坏”标签之间的任何统计关联。
+
+    总之，偏好数据的构造原则是隔离唯一变量：确保导致偏好差异的唯一原因是我们想要模型学习的“质量”差异，而不是生成过程的任何其他元参数。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KFgpwxoYei4VBPkDUJfcFKLLnVf
+  block_id: KaxBd6DRGovlQhxKlk3cErWhnMe
+  page_token: KFgpwxoYei4VBPkDUJfcFKLLnVf
+  original_title: 奖励模型训练时，如果 chosen 和 rejected 回答来自不同温度或不同模型，有什么问题？
+  imported_at: '2026-09-21'

@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2e05c43d4dc0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BE 63. SFT数据的存储格式（jsonl、parquet等）对训练效率有影响吗？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F4BE 63. SFT数据的存储格式（jsonl、parquet等）对训练效率有影响吗？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    SFT数据的存储格式对训练效率的影响，虽然不如模型架构或训练算法那样显著，但在大规模训练和复杂数据管道中，选择不当的格式会变成隐藏的瓶颈，拖慢数据加载速度、浪费存储空间、增加内存压力。
+
+    一、常见格式对比
+
+    [嵌入表格未展开]
+
+    二、各格式对训练效率的具体影响
+
+    JSONL的局限：JSONL是SFT社区最常用的格式，因为它简单、人类可读、所有数据处理脚本都能轻松读写。但当数据集达到百万级别时，JSONL的弊端开始显现：
+
+    - 读取慢：解析JSON需要逐行文本解析，即使是最快的JSON解析器，也无法与列式格式的向量化读取相比。
+
+    - 存储浪费：字段名在每行都重复存储，压缩效率低。一个50万条的数据集，JSONL可能占5GB，转为Parquet可能仅占1GB。
+
+    - 无列式过滤：如果想只加载“指令”列而跳过其他列，JSONL无法做到，必须完整读取每一行的全部字段。
+
+    Parquet的优势：当SFT数据规模达到数十万条以上时，Parquet的优势显著：
+
+    - 列式存储：只读取需要的列，大幅减少I/O。例如，训练时可能需要单独读取“input_ids”和“labels”，Parquet可以只加载这两列。
+
+    - 高效的压缩与编码：文本数据经字典编码和Snappy/Zstd压缩后，存储占用通常仅为JSONL的20%-30%，不仅省磁盘，也加快了网络传输和数据加载。
+
+    - 行组索引：支持按行组跳读，随机访问效率远高于JSONL的顺序读取。
+
+    - 与大数据生态无缝集成：HuggingFace Datasets、PySpark、Dask等都可以直接高效读取Parquet，支持内存映射和流式处理。
+
+    三、实践中的选择策略
+
+    对于原型和小规模实验（<1万条），JSONL仍然是最方便的选择，因为其可读性和工具链兼容性无可替代。可以快速检查数据、手动编辑、用jq等工具查询。
+
+    对于正式训练和中等规模数据集（1万-50万条），推荐将JSONL转换为Parquet或Arrow格式进行存储和加载。HuggingFace Datasets库可以透明地缓存转换后的Arrow格式，加速后续加载。
+
+    对于超大规模数据集（>50万条），Parquet是必然选择。配合分布式训练框架（如DeepSpeed、Megatron）的流式数据加载，Parquet可以实现接近零拷贝的高效数据供给，确保GPU不会因为等数据而空闲。
+
+    四、格式转换与管道集成
+
+    一个成熟的SFT数据管道通常以JSONL作为“源格式”（便于人工检查和版本控制），但在训练启动前自动将数据转换为Parquet或Arrow缓存。训练脚本读取缓存的高效格式，实现“人类可读”与“机器高效”之间的平衡。
+
+    ✅ 总结：SFT数据格式对训练效率的影响在数据量大时不可忽视。JSONL适合小规模原型，Parquet是中等至大规模训练的最佳选择。以JSONL为源、Parquet为训练缓存的策略，兼顾了可维护性和效率。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tx5MwZddviIdFJkeUJbc7HEvnWe
+  block_id: FdXLdSuvDoLO9DxWXJ7c00Vknpb
+  page_token: Tx5MwZddviIdFJkeUJbc7HEvnWe
+  original_title: "\U0001F4BE 63. SFT数据的存储格式（jsonl、parquet等）对训练效率有影响吗？"
+  imported_at: '2026-09-21'

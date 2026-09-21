@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-351d6052bbda
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 自注意力的计算中，能否先计算 K^T V 再与 Q 相乘？这种改变有什么优缺点？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 基础理论与核心组件
+tags: &1
+- Transfomer精选面试
+- 基础理论与核心组件
+content:
+  prompt: 自注意力的计算中，能否先计算 K^T V 再与 Q 相乘？这种改变有什么优缺点？
+answer:
+  mode: rubric
+  reference_answer: |-
+    标准自注意力：先计算 QK^T 得到注意力矩阵（n×n），再与 V 相乘，计算复杂度 O(n^2 d + n^2 d) ≈ O(n^2 d)。
+
+    先计算 K^T V：K 是 n×d_k，V 是 n×d_v，K^T V 得到 d_k×d_v 的矩阵，然后 Q（n×d_k）与之相乘得到 n×d_v。复杂度为 O(n d_k d_v + n d_k d_v) ≈ O(n d^2)（设 d_k = d_v = d）。
+
+    优点：
+
+    - 当序列长度 n 远大于特征维度 d 时，复杂度从 O(n^2 d) 降为 O(n d^2)，显著降低计算量。这在处理超长序列但特征维度较小的情况下非常有利。
+
+    - 不需要显式存储 n×n 的注意力矩阵，节省显存。
+
+    缺点：
+
+    - 当 d 很大时，复杂度变为 O(n d^2)，可能比 O(n^2 d) 更差。通常 d 是固定的几百到上千，而 n 可变，对于中等长度序列，n^2 可能远大于 d^2，所以这种交换在序列长时有益，序列短时可能反而效率低。
+
+    - 更重要的是，K^T V 先计算相当于基于 Key 和 Value 构建了一个全局的“上下文映射”矩阵（d×d），然后每个 Query 通过这个映射直接得到聚合结果。这完全失去了非线性和逐位置的注意力权重分布，因为 Q 与 (K^T V) 相乘相当于用 Q 对 K 和 V 的某种全局统计进行线性组合，没有显式的两两匹配过程。这相当于一个线性化的注意力（Linearized Attention），牺牲了标准注意力的细粒度匹配能力。虽然计算效率高，但可能损失精度，在需要精确 token 级别对齐的任务上表现不佳。
+
+    因此，这种改变本质上是线性注意力的一种形式，适用于对效率要求极高、可接受一定精度损失的场景（如 Performer、Linear Transformer 等线性注意力变体）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/FXMtwVLj8iwlT6kaYxIctc95nWh
+  block_id: Q2eHdBy5ZopLi0xw6Fuc4w3Rnrb
+  page_token: FXMtwVLj8iwlT6kaYxIctc95nWh
+  original_title: 自注意力的计算中，能否先计算 K^T V 再与 Q 相乘？这种改变有什么优缺点？
+  imported_at: '2026-09-21'

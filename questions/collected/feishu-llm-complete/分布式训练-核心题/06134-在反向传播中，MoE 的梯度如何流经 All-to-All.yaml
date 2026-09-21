@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-128da3447a2a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在反向传播中，MoE 的梯度如何流经 All-to-All？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 在反向传播中，MoE 的梯度如何流经 All-to-All？
+answer:
+  mode: rubric
+  reference_answer: |-
+    All-to-All 通信在反向传播中完美对称，梯度的流动与数据的前向流动方向相反，不需要显式地设计新的通信模式。
+
+    - 前向分发 (Token -> Expert GPU)：对应于反向的梯度收集。专家计算产生的梯度需要传回给产生该 token 的原始 GPU。因此，反向阶段同样会执行一次 All-to-All，其通信模式与前向的“收集”类似：专家 GPU 将梯度发回 token 原 GPU。
+
+    - 前向收集 (Expert GPU -> Token GPU)：对应于反向的梯度分发。原始 GPU 需要将输出的梯度传给各个专家 GPU，以便计算专家权重的梯度。所以，反向阶段还会执行另一次 All-to-All，类似于前向的“分发”。
+
+    简而言之，前向传播的两次 All-to-All，在反向传播时正好对调角色，同样是两次 All-to-All，总通信量不变。这种对称性使得框架可以自动求导，无需手动编写反向通信逻辑。
+
+    对于专家参数的梯度，它只来自于该专家实际处理的那部分 token。这部分梯度在专家所在的 GPU 上直接计算，不参与跨设备的 All-to-All。而门控网络的梯度则来自最终输出对路由权重的偏导，由于 Top-k 的离散性，通常使用直通估计器 (Straight-Through Estimator, STE) 或 Gumbel Softmax 等技巧将梯度传回。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQczwN8cliZ2XSkOI26ckCcPnuf
+  block_id: AfW3dKUlfoR3JPx5fEuc4SWQn8g
+  page_token: GQczwN8cliZ2XSkOI26ckCcPnuf
+  original_title: 在反向传播中，MoE 的梯度如何流经 All-to-All？
+  imported_at: '2026-09-21'

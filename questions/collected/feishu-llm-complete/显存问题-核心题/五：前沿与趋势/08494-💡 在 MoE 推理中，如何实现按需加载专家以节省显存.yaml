@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-39d866f1e12c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4A1 在 MoE 推理中，如何实现按需加载专家以节省显存？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 五：前沿与趋势
+tags: &1
+- 显存问题-核心题
+- 五：前沿与趋势
+content:
+  prompt: "\U0001F4A1 在 MoE 推理中，如何实现按需加载专家以节省显存？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    按需加载专家（On-demand Expert Loading）旨在仅将当前推理步骤所需的专家权重保留在 GPU 显存中，其余专家置于 CPU 内存或 SSD。这通常由框架和调度器协作完成。
+
+    - 路由器预测与预取：在 Prefill 阶段，路由器会计算出每个 token 需要哪些专家。推理引擎可以预先分析整个 batch 的专家需求，提前从 CPU 异步加载即将用到的专家权重到 GPU 空闲内存中，并在使用完后立即释放或标记为可淘汰。
+
+    - 专家缓存池：在 GPU 上划分一个固定大小的专家权重缓存池（类似 KV Cache 的块池）。当需要某个专家时，如果它已在池中则直接使用；否则从 CPU 加载，若池满则根据 LRU 等策略淘汰暂不使用的专家。
+
+    - 层间流水线：利用 Transformer 的逐层特性，在计算当前层时，预取下一层所需的专家权重，掩盖传输延迟。
+
+    - 部分专家常驻：将高频使用的专家（如门控网络中权重大的）常驻 GPU，低频专家按需加载。
+
+    - 实现案例：S-LoRA 风格的分页专家管理、DeepSpeed 的 ZeRO-Inference 等，可将专家按需调入。
+
+    ✅ 通过这种动态管理，可以在单张 24GB 的显卡上推理数十个专家的大模型，显著降低显存门槛。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MBoMwuZDWiPy4akL8hvcNTnnnig
+  block_id: XKaed0u6NoeaGSxxmRXcFjtInfc
+  page_token: MBoMwuZDWiPy4akL8hvcNTnnnig
+  original_title: "\U0001F4A1 在 MoE 推理中，如何实现按需加载专家以节省显存？"
+  imported_at: '2026-09-21'

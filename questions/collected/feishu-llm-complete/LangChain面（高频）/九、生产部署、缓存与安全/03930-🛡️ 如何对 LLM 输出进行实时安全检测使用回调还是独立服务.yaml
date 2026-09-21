@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9f2800e2d817
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E1️ 如何对 LLM 输出进行实时安全检测？使用回调还是独立服务？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F6E1️ 如何对 LLM 输出进行实时安全检测？使用回调还是独立服务？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    两者结合使用是最佳实践。
+
+    - 使用回调（同步检测，快速阻断）：在 on_llm_end 回调中，对响应文本进行关键字匹配、正则检查，或调用轻量级分类器。如果发现违规，可以抛出异常阻止该响应发送给用户，或者替换为安全提示。优点是延迟低，缺点是复杂的语义违规（如隐晦歧视）可能漏报。
+
+    - 使用独立服务（异步深度审核）：将 LLM 输出发送到专门的内容安全服务（如 OpenAI Moderation API、Perspective API、或自己部署的审核模型）。由于网络调用有延迟，通常采用异步方式：不阻塞主流程，先向用户展示响应（如果风险较低），后台审核。若发现严重违规，再触发撤回或告警。
+
+    - LangChain 中的典型集成：在链的末尾添加一个 RunnableLambda 检查输出。或者通过回调记录输出，同时后台服务从日志中消费并进行审核。对于流式输出，逐 token 检测是难题，通常采用缓冲一段文本后检测，或只在输出结束后整体审核。
+
+    实践：我们的对话系统会在回调中做简单关键词过滤（零延迟阻断），同时将每条回复写入 Kafka，由独立审核服务消费并进行深度语义分析。如果发现有害内容，系统会在 2 秒内自动撤回消息并通知用户“该回复因内容违规已被屏蔽”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XoyiwSgvhi0b6ckB3czcJzTAnIe
+  block_id: QTDxdAlmYo3YPjx0oZXcky2fn6b
+  page_token: XoyiwSgvhi0b6ckB3czcJzTAnIe
+  original_title: "\U0001F6E1️ 如何对 LLM 输出进行实时安全检测？使用回调还是独立服务？"
+  imported_at: '2026-09-21'

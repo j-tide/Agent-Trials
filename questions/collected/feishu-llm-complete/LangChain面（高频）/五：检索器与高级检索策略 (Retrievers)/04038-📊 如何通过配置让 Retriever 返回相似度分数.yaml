@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a22407c4df7f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 如何通过配置让 Retriever 返回相似度分数？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F4CA 如何通过配置让 Retriever 返回相似度分数？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    默认情况下，VectorStoreRetriever 的 get_relevant_documents 只返回 Document 对象，这些对象的 metadata 中默认不包含相似度分数。要获取分数，有以下几种方法：
+
+    方法一：使用 similarity_search_with_score（不通过 Retriever，直接调用 VectorStore）
+
+    ```python
+    docs_with_scores = vectorstore.similarity_search_with_score(query, k=5)
+    for doc, score in docs_with_scores:
+        print(f"Score: {score:.4f}, Content: {doc.page_content[:100]}")
+    ```
+
+    方法二：通过自定义 Retriever 在 metadata 中注入分数
+    我们可以继承 VectorStoreRetriever 并重写 _get_relevant_documents 方法，将分数存入 metadata。
+
+    ```python
+    from langchain.vectorstores.base import VectorStoreRetriever
+    from typing import List
+    from langchain.schema import Document
+
+    class ScoreRetriever(VectorStoreRetriever):
+        def _get_relevant_documents(self, query: str, *, run_manager=None) -> List[Document]:
+            docs_with_scores = self.vectorstore.similarity_search_with_score(
+                query, k=self.search_kwargs.get("k", 4)
+            )
+            for doc, score in docs_with_scores:
+                doc.metadata["score"] = score
+            # 也可以在这里根据 score_threshold 过滤
+            threshold = self.search_kwargs.get("score_threshold")
+            if threshold is not None:
+                return [doc for doc, score in docs_with_scores if score >= threshold]
+            return [doc for doc, _ in docs_with_scores]
+    ```
+
+    方法三：结合 similarity_score_threshold 搜索类型
+    如果使用 search_type="similarity_score_threshold"，LangChain 内部会调用 similarity_search_with_relevance_scores，该方法返回的文档的 metadata 中已自动包含 score 字段（部分向量库实现支持）。但并非所有 VectorStore 都实现了该方法。Chroma 和 FAISS 支持。
+
+    ```python
+    retriever = vectorstore.as_retriever(
+        search_type="similarity_score_threshold",
+        search_kwargs={"k": 5, "score_threshold": 0.7}
+    )
+    docs = retriever.get_relevant_documents("什么是量子计算？")
+    # 文档的 metadata 中可能已包含 'score'（取决于VectorStore实现）
+    ```
+
+    结论：要求稳定获取分数，推荐自定义 Retriever，或直接使用 VectorStore 的 similarity_search_with_score。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YrNHwdqUUiHr0JkXRNrc4c0kn5d
+  block_id: KyOodlkNGoVcpQxGMO8cowECnNb
+  page_token: YrNHwdqUUiHr0JkXRNrc4c0kn5d
+  original_title: "\U0001F4CA 如何通过配置让 Retriever 返回相似度分数？"
+  imported_at: '2026-09-21'

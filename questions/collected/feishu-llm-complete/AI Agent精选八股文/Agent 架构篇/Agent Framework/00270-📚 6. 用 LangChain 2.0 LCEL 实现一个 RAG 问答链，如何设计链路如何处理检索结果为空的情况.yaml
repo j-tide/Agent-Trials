@@ -1,0 +1,173 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0d4d0917b238
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DA 6. 用 LangChain 2.0 LCEL 实现一个 RAG 问答链，如何设计链路？如何处理检索结果为空的情况？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F4DA 6. 用 LangChain 2.0 LCEL 实现一个 RAG 问答链，如何设计链路？如何处理检索结果为空的情况？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    RAG（检索增强生成）的核心流程是：先检索相关文档，再把文档和用户问题一起喂给 LLM，生成有依据的答案。
+
+    用 LCEL 来实现，我们可以把整个链路拆成几个独立的 Runnable 模块，然后用 | 管道符串联。
+
+    6.1 完整链路设计
+
+    [图片内容未导入]
+
+    6.2 LCEL 代码实现（带检索为空处理）
+
+    ```python
+    from langchain_core.runnables import RunnableLambda, RunnablePassthrough
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_core.output_parsers import StrOutputParser
+    from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+    from langchain_chroma import Chroma
+
+    # 0. 准备向量存储和检索器
+    vectorstore = Chroma(embedding_function=OpenAIEmbeddings(), persist_directory="./chroma_db")
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
+
+    # 1. 格式化文档的 Runnable
+    def format_docs(docs):
+        """将检索到的文档列表拼接成一个字符串，并处理空结果"""
+        if not docs:
+            return "【注意：知识库中没有找到相关文档，请直接基于你的常识回答，但必须声明“未在知识库中找到相关信息”。】"
+        return "\n\n".join(f"来源 {i+1}:\n{doc.page_content}" for i, doc in enumerate(docs))
+
+    format_docs_runnable = RunnableLambda(format_docs)
+
+    # 2. Prompt 模板（用 context 和 question 两个变量）
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", """你是一个智能问答助手。请根据以下提供的上下文回答用户问题。
+    要求：
+    1. 基于上下文给出准确答案。
+    2. 如果上下文中有明确答案，请引用来源编号。
+    3. 如果上下文中没有相关信息，请明确说明，并基于你的常识谨慎回答。
+    4. 保持回答简洁、专业。
+
+    上下文：
+    {context}"""),
+        ("user", "{question}")
+    ])
+
+    # 3. LLM
+    llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+    # 4. 组装 LCEL 链
+    rag_chain = (
+        {
+            "context": retriever | format_docs_runnable,  # 检索 → 格式化
+            "question": RunnablePassthrough()             # 直接传递用户问题
+        }
+        | prompt
+        | llm
+        | StrOutputParser()
+    )
+
+    # 5. 使用
+    answer = rag_chain.invoke("什么是向量检索的倒排索引？")
+    print(answer)
+    ```
+
+    6.3 处理检索结果为空的完整策略
+
+    在上面的代码中，format_docs 函数已经实现了第一层处理：如果 docs 为空，返回一段特定的提示文本，强制 LLM 声明“未在知识库中找到相关信息”。
+
+    但在生产环境中，你可能需要更精细的控制：
+
+    [嵌入表格未展开]
+
+    代码示例：用 RunnableBranch 实现条件路由
+
+    ```python
+    from langchain_core.runnables import RunnableBranch
+
+    # 判断检索结果是否为空的函数
+    def has_docs(input_dict):
+        return len(input_dict["docs"]) > 0
+
+    # 有文档时的链
+    chain_with_docs = (
+        {
+            "context": RunnableLambda(lambda d: format_docs(d["docs"])),
+            "question": RunnableLambda(lambda d: d["question"])
+        }
+        | prompt
+        | llm
+        | StrOutputParser()
+    )
+
+    # 无文档时的链：直接用 LLM 回答，但要求声明
+    prompt_no_docs = ChatPromptTemplate.from_template(
+        "用户问题：{question}\n"
+        "知识库中没有找到相关信息。请直接基于你的常识回答，"
+        "但必须在回答开头声明“知识库未找到相关信息，以下为通用知识回答：”。"
+    )
+    chain_no_docs = (
+        RunnableLambda(lambda d: {"question": d["question"]})
+        | prompt_no_docs
+        | llm
+        | StrOutputParser()
+    )
+
+    # 用分支路由
+    branch_chain = RunnableBranch(
+        (has_docs, chain_with_docs),
+        chain_no_docs  # 默认分支（检索为空时）
+    )
+
+    # 先检索，再分支
+    full_chain = {
+        "docs": retriever,
+        "question": RunnablePassthrough()
+    } | branch_chain
+
+    answer = full_chain.invoke("什么是GPT-5？")
+    ```
+
+    总结这个 RAG 链设计：
+
+    - 模块化：检索、格式化、Prompt、LLM、解析器，各司其职，都可单独测试和替换。
+
+    - 鲁棒性：通过 format_docs 注入引导语、RunnableBranch 条件路由、二次检索重试，确保即使知识库为空，系统也不会崩溃，而是给出合理回应。
+
+    - 可扩展：你可以轻松地在 retriever 之前加一个“问题改写”模块，或在 llm 之后加一个“答案验证”模块，都是 Runnable 的自由组合。
+
+    ---
+
+    ### LangChain LCEL
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SuxqwVBLli4q94kJFBAcOLkFnZc
+  block_id: doxcnKMlEKZ1yroYdRAVpAhJZKf
+  page_token: SuxqwVBLli4q94kJFBAcOLkFnZc
+  original_title: "\U0001F4DA 6. 用 LangChain 2.0 LCEL 实现一个 RAG 问答链，如何设计链路？如何处理检索结果为空的情况？"
+  imported_at: '2026-09-21'

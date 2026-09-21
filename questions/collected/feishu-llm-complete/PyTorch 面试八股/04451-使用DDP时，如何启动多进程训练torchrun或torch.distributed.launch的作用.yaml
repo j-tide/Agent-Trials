@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2f54be2c9265
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用DDP时，如何启动多进程训练？torchrun或torch.distributed.launch的作用。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 使用DDP时，如何启动多进程训练？torchrun或torch.distributed.launch的作用。
+answer:
+  mode: rubric
+  reference_answer: |-
+    DDP的多进程训练需要为每张GPU启动一个独立的Python进程。PyTorch提供了两个主要的命令行启动器：
+
+    - torch.distributed.launch（旧版，已弃用）
+
+    - torchrun（新版，推荐使用）
+
+    torchrun的作用：
+    torchrun是一个进程启动器（launcher），它会自动读取环境变量（如WORLD_SIZE、RANK、LOCAL_RANK），在集群中的每个节点上启动相应数量的训练进程，并为每个进程设置正确的分布式环境变量。用户只需编写单进程的训练脚本，无需手动管理进程的创建和销毁。
+
+    使用示例：
+
+    ```python
+    # 单机多卡（2张GPU）
+    torchrun --nproc_per_node=2 train.py
+
+    # 多机多卡（每机2张GPU，共2台机器）
+    # 在节点0上执行：
+    torchrun --nproc_per_node=2 --nnodes=2 --node_rank=0 --master_addr="192.168.1.1" --master_port=12355 train.py
+    # 在节点1上执行：
+    torchrun --nproc_per_node=2 --nnodes=2 --node_rank=1 --master_addr="192.168.1.1" --master_port=12355 train.py
+    ```
+
+    关键参数：
+
+    - --nproc_per_node：每个节点上要启动的进程数（通常等于GPU数量）。
+
+    - --nnodes：总节点数。
+
+    - --node_rank：当前节点的编号（从0开始）。
+
+    - --master_addr：主节点的IP地址。
+
+    - --master_port：主节点的端口，所有节点通过它通信。
+
+    torchrun的优势：
+
+    - 自动处理环境变量的设置和传递。
+
+    - 支持容错和弹性训练（如torchrun --rdzv_endpoint）。
+
+    - 比手动设置MASTER_ADDR等环境变量更可靠、更不易出错。
+
+    在训练脚本中，可以通过torch.distributed.get_rank()等函数获取当前进程的身份，进行相应的初始化。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KwdbwAt6ziL8zKkU7VMcVNEin8d
+  block_id: LmbrdVSCDo0YyQxuGnrczp8wnwc
+  page_token: KwdbwAt6ziL8zKkU7VMcVNEin8d
+  original_title: 使用DDP时，如何启动多进程训练？torchrun或torch.distributed.launch的作用。
+  imported_at: '2026-09-21'

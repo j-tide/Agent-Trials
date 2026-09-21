@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-145564517c01
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 弹性训练（elastic training）是什么？在微调中如何实现动态扩缩容？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 弹性训练（elastic training）是什么？在微调中如何实现动态扩缩容？
+answer:
+  mode: rubric
+  reference_answer: |-
+    弹性训练是指训练任务在运行过程中，能够动态地增加或减少计算资源（GPU节点），而无需从头开始重新训练。这对于云环境下的成本优化和故障恢复至关重要。
+
+    实现机制：
+
+    - 动态进程组管理：框架（如PyTorch Elastic、TorchElastic）能够感知节点加入或离开，自动重新初始化分布式通信组。
+
+    - 数据与状态的再分布：当节点数量变化时，数据并行度改变，需要重新划分数据分片。模型状态（如优化器）也可能需要重新分片。
+
+    - 断点恢复驱动：当资源变化时，训练暂停，保存当前检查点，然后在新规模的集群上恢复训练。这是目前最成熟也最可靠的方式。直接在线动态改变并行度（如ZeRO elastic）仍处于研究阶段，工业界尚未广泛采用。
+
+    - DeepSpeed和FSDP的支持：DeepSpeed ZeRO‑3支持在加载检查点时自动调整数据并行度；FSDP也支持从不同规模的检查点恢复。它们可以在资源变化后，通过重新加载检查点来实现弹性。
+
+    微调中的实现：
+
+    - 使用支持弹性的调度器（如Kubernetes、Slurm）和训练框架（如TorchElastic、DeepSpeed）。
+
+    - 启动训练时，以“最大节点数”或“最小节点数”配置弹性范围。
+
+    - 当需要扩缩容时，调度器发出信号，训练进程保存检查点并优雅退出。
+
+    - 新规模的节点启动后，加载上次的检查点继续训练。
+
+    动态扩缩容目前在预训练中应用较多，微调由于总步数较少，更多采用手动暂停-调整-恢复的半自动方式。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: OFgGd7se4oAnzsxVmFRcEEo0nzc
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 弹性训练（elastic training）是什么？在微调中如何实现动态扩缩容？
+  imported_at: '2026-09-21'

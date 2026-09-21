@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a2be92d5810b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E0 在 AgentExecutor 中，如果 token 即将超出上下文窗口，它会做什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "\U0001F9E0 在 AgentExecutor 中，如果 token 即将超出上下文窗口，它会做什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    答案：默认情况下，LangChain 的 AgentExecutor 不会主动监控或动态截断 token 数量。 它没有内建的“token 预算管理器”。这意味着如果 Prompt（系统指令 + 工具描述 + 历史对话 + scratchpad）的总 token 数超出模型的最大上下文窗口，API 会直接返回错误（如 OpenAI 的 context_length_exceeded），Agent 执行失败。
+
+    规避策略
+
+    - 使用摘要记忆或窗口记忆：最直接的方法。通过 ConversationSummaryBufferMemory 或 ConversationBufferWindowMemory 限制注入的历史长度，为 scratchpad 留出足够空间。
+
+    - 自定义 Token 计数器与裁剪：
+
+    - 可以在 AgentExecutor 的循环中，利用回调或包装器，在每次调用 LLM 前计算当前 Prompt 的 token 数（使用 tiktoken 或 get_num_tokens）。
+
+    - 如果超过阈值，自动裁剪 scratchpad 中最旧的几轮交互，或对早期步骤进行摘要。
+
+    - 示例思路：
+
+    ```python
+    if token_count > max_tokens * 0.9:
+        # 保留最近 N 步的 scratchpad，更早的丢弃或用一句话概括
+        truncated_scratchpad = summarize_old_steps(scratchpad)
+    ```
+
+    - 选择更大的上下文模型：如 gpt-4-1106-preview 支持 128K，可以解决大部分问题。
+
+    - 优化 Prompt 设计：精简工具描述，移除不必要的示例，减少静态 Prompt 消耗。
+
+    ✅ 经验之谈：在早期的 Agent 项目中，我经常遇到因为历史太长导致 API 报错的情况。后来直接用了 ConversationSummaryBufferMemory，并为 scratchpad 设置了最大保留步数（例如只保留最近 5 步），问题就基本消失了。如果你的 Agent 需要非常长的推理链，务必自己实现一个 token 监控器。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YCqcw5pbDir9BEkHaCScKiSBnwc
+  block_id: Kgt1dmbhbohG4ixa0j3cybDYnIf
+  page_token: YCqcw5pbDir9BEkHaCScKiSBnwc
+  original_title: "\U0001F9E0 在 AgentExecutor 中，如果 token 即将超出上下文窗口，它会做什么？"
+  imported_at: '2026-09-21'

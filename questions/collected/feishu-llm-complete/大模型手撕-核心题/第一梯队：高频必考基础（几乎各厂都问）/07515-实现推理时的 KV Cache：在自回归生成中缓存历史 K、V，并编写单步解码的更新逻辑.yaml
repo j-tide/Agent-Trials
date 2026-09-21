@@ -1,0 +1,94 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5ea4e9206f39
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现推理时的 KV Cache：在自回归生成中缓存历史 K、V，并编写单步解码的更新逻辑。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 实现推理时的 KV Cache：在自回归生成中缓存历史 K、V，并编写单步解码的更新逻辑。
+answer:
+  mode: rubric
+  reference_answer: |-
+    17.1 原理
+
+    推理时，每个生成步只需要计算最新 token 的 Q、K、V，并将新的 K、V 追加到缓存中。注意力计算时，Q 只查询所有缓存的 K、V。这避免了重复计算历史 token 的 K、V。
+
+    17.2 实现
+
+    ```python
+    class SelfAttentionWithCache(MultiHeadSelfAttention):
+        def __init__(self, hidden_dim, num_heads, dropout=0.1):
+            super().__init__(hidden_dim, num_heads, dropout)
+            self.k_cache = None
+            self.v_cache = None
+
+        def init_cache(self, batch_size, max_len, device):
+            self.k_cache = torch.zeros(batch_size, self.num_heads, max_len, self.head_dim, device=device)
+            self.v_cache = torch.zeros_like(self.k_cache)
+
+        def forward(self, x, step, key_padding_mask=None):
+            B, seq_len, _ = x.shape  # seq_len 通常为 1
+            # 计算 Q,K,V
+            qkv = self.qkv_proj(x)
+            q, k, v = qkv.chunk(3, dim=-1)
+            q = q.view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+            k = k.view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+            v = v.view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+
+            # 更新缓存
+            if step == 0:
+                self.k_cache[:, :, :seq_len] = k
+                self.v_cache[:, :, :seq_len] = v
+            else:
+                self.k_cache[:, :, step:step+seq_len] = k
+                self.v_cache[:, :, step:step+seq_len] = v
+
+            # 注意力计算：用当前的 q 与所有缓存的 k, v
+            k_all = self.k_cache[:, :, :step+seq_len]
+            v_all = self.v_cache[:, :, :step+seq_len]
+
+            scale = math.sqrt(self.head_dim)
+            attn_scores = torch.matmul(q, k_all.transpose(-2, -1)) / scale
+            attn_weights = F.softmax(attn_scores, dim=-1)
+            attn_output = torch.matmul(attn_weights, v_all)
+
+            attn_output = attn_output.transpose(1, 2).contiguous().view(B, seq_len, -1)
+            return self.out_proj(attn_output)
+    ```
+
+    17.3 扩展
+
+    实际部署中，缓存通常按层和头管理，且常结合 PagedAttention 等技术优化显存利用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTpnwxWMsiVDwIkIoX0c1TU4ned
+  block_id: OSNFdosAtoIjRVxENTTc2IhmnNf
+  page_token: QTpnwxWMsiVDwIkIoX0c1TU4ned
+  original_title: 实现推理时的 KV Cache：在自回归生成中缓存历史 K、V，并编写单步解码的更新逻辑。
+  imported_at: '2026-09-21'

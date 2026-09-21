@@ -1,0 +1,92 @@
+---
+schema_version: 1
+id: feishu-llm-complete-41b8ce71039d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚖️ 2. MongoDB 和 Elasticsearch 在搜索场景如何选型？各自适合什么场景？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "⚖️ 2. MongoDB 和 Elasticsearch 在搜索场景如何选型？各自适合什么场景？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    很多团队会把 MongoDB 和 Elasticsearch 都部署起来，让 MongoDB 做主存储，Elasticsearch 做搜索引擎，并通过 Change Stream 或消息队列保持数据同步。理解它们各自的核心优势，就能在合适的场景下减掉不必要的组件。
+
+    核心区别：
+
+    MongoDB 自己的全文索引
+    MongoDB 提供了 text 索引，支持分词、停用词、加权和相关性排序。对于简单的关键词搜索和产品内搜索，完全够用。
+
+    ```javascript
+    // 创建文本索引
+    db.articles.createIndex({ title: "text", content: "text" });
+
+    // 全文搜索
+    db.articles.find({ $text: { $search: "Agent 性能优化" } })
+               .sort({ score: { $meta: "textScore" } })
+               .limit(10);
+    ```
+
+    选型决策树
+
+    ```text
+    你的搜索需求是什么？
+    ├─ 主要是基于字段的精确筛选？(如 user_id=123 AND status="active")
+    │   └─ MongoDB 足够。复合索引 + 聚合管道高效且简单。
+    │
+    ├─ 需要全文搜索，但不是核心功能？(如站内文章搜索，数据量 < 100万)
+    │   └─ MongoDB 的 text 索引。架构简单，避免数据同步的复杂性。
+    │
+    ├─ 核心功能是强大的全文搜索？(如电商、文档检索、日志分析)
+    │   └─ Elasticsearch。它的倒排索引、分词器、相关性评分远强于 MongoDB。
+    │
+    ├─ 需要复杂的聚合分析 + 可视化？
+    │   └─ Elasticsearch + Kibana，或者 MongoDB + Metabase/Grafana。
+    │
+    └─ 数据一致性要求极高，需要事务？
+        └─ MongoDB 做主存储。如果需要强搜索，再通过 Change Stream 同步到 ES。
+    ```
+
+    混合架构：MongoDB 做主存储 + Elasticsearch 做搜索引擎
+
+    ```python
+    # MongoDB Change Stream 监听数据变更，实时同步到 Elasticsearch
+    with mongo_client.watch([{'$match': {'operationType': {'$in': ['insert', 'update', 'replace']}}}]) as stream:
+        for change in stream:
+            doc = change['fullDocument']
+            es_client.index(index='products', id=str(doc['_id']), body=doc)
+    ```
+
+    这种架构适合既要事务和灵活数据模型，又要强大搜索体验的场景，比如电商、内容平台、Agent 的知识库搜索。代价是需要维护两套存储和数据同步链路。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BXVdwSFoCiy4apkiMglchiTGnmh
+  block_id: doxcnpYvt2aEWZWaWf2rgVEZhZg
+  page_token: BXVdwSFoCiy4apkiMglchiTGnmh
+  original_title: "⚖️ 2. MongoDB 和 Elasticsearch 在搜索场景如何选型？各自适合什么场景？"
+  imported_at: '2026-09-21'

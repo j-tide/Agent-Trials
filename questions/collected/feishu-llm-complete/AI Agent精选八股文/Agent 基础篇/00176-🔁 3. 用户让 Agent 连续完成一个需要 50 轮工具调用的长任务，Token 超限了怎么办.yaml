@@ -1,0 +1,130 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7bf4b3826eb5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F501 3. 用户让 Agent 连续完成一个需要 50 轮工具调用的长任务，Token 超限了怎么办？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F501 3. 用户让 Agent 连续完成一个需要 50 轮工具调用的长任务，Token 超限了怎么办？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是生产环境 Agent 最常见的顽疾：多轮工具调用导致 messages 列表疯狂膨胀，最终超过模型上下文限制，API 报错或输出截断。
+
+    核心思路：分层压缩 + 状态外移，让上下文窗口只保留“最必要”的信息。
+
+    具体策略（可组合使用）
+
+    ① 工具返回截断与摘要
+
+    不要让原始工具输出全部进入记忆。调用后立刻截断或总结，只保留结论。
+
+    def process_observation(tool_name, raw_output, max_len=200):
+        if len(raw_output) > max_len:
+            # 调用轻量 LLM 生成摘要
+            summary = llm(f"总结以下{tool_name}输出，保留关键数据：\n{raw_output}", max_tokens=100)
+            return f"[{tool_name} 摘要]: {summary}"
+        return raw_output
+
+    ② 中期状态外移
+
+    对于一些长任务（如生成 50 页报告），Agent 不必在对话历史里保留所有中间产物。可以将阶段性成果存入外部文件或数据库，只在短期记忆里放一句“第 X 章已完成，存于 file_id: xxx”。
+
+    # 将长篇内容写入外部存储
+    file_id = save_to_storage("chapter_3_draft.txt", content)
+    # 记忆里只留索引
+    observation = f"Chapter 3 已保存。file_id: {file_id}"
+
+    ③ 分层记忆压缩
+
+    当 messages 长度接近上限时，触发压缩：
+
+    - 保留最近 K 轮完整交互（例如最后 5 轮），保证当前逻辑连贯。
+
+    - 对更早的历史进行分段摘要，每 10 轮一段，生成一句总结。
+
+    - 用结构化 JSON 记录任务目标和当前进度，替换冗长的规划文本。
+
+    def deep_compress(messages, keep_last=6):
+        if token_count(messages) < THRESHOLD:
+            return messages
+        # 旧消息部分
+        old_part = messages[:-keep_last]
+        new_part = messages[-keep_last:]
+        # 分组摘要
+        summaries = []
+        for i in range(0, len(old_part), 10):
+            chunk = old_part[i:i+10]
+            summary = llm(f"将这段Agent操作历史压缩为关键进展点：{chunk}", max_tokens=80)
+            summaries.append(summary)
+        compressed_history = "任务进度摘要：\n" + "\n".join(summaries)
+        # 重组
+        return [
+            {"role": "system", "content": compressed_history}
+        ] + new_part
+
+    ④ 任务分解与暂停-恢复
+
+    对超长任务，Agent 不一次性跑完 50 轮，而是主动分段执行：
+
+    - 阶段 1：完成子目标 A，把必要状态保存到长期记忆或外部存储。
+
+    - 结束当前会话。
+
+    - 用户发送“继续”或 Agent 自主触发新会话，从长期记忆加载状态，继续阶段 2。
+
+    # Agent 检测到上下文即将超限，主动挂起
+    def should_suspend(messages, threshold=0.8):
+        return token_count(messages) > context_limit * threshold
+
+    if should_suspend(messages):
+        # 保存完整状态到长期记忆
+        save_state({
+            "goal": original_task,
+            "progress": current_progress,
+            "last_messages": messages[-6:]  # 仅保留最近片段
+        })
+        return "我已完成当前部分，是否继续下一阶段？"
+
+    ⑤ 工具结果缓存与去重
+
+    对于重复调用同一工具且结果未变的情况，不重复写入，而是引用之前的结果 ID。
+
+    实践中的组合方案：
+
+    一个生产级长任务 Agent，通常会同时使用工具摘要 + 分层压缩 + 状态外移，实现上下文窗口的平稳滑行，让 50 步的任务也可以顺利完成，而不会爆掉 token 限制。
+
+    ---
+
+    记忆设计决定了 Agent 的“记性”有多好，检索、压缩、清理让它记得聪明又高效；面对超长任务的 Token 困境，层层压缩与状态外移则像是给 Agent 装上了“外部大脑”，让它可以处理远超窗口长度的复杂工作。把这些机制吃透，你就能做出那种令人惊叹的、仿佛永不失忆的智能助手。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcnFi5nwGWhFCdULTreFqRFeI
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: "\U0001F501 3. 用户让 Agent 连续完成一个需要 50 轮工具调用的长任务，Token 超限了怎么办？"
+  imported_at: '2026-09-21'

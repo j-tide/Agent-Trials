@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3811a48b2feb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "“contiguous_gradients” 在 ZeRO 中是什么？为什么要设置？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: "“contiguous_gradients” 在 ZeRO 中是什么？为什么要设置？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    contiguous_gradients 是 DeepSpeed 中的一个配置项，默认为 true。它决定是否将多个参数的梯度在通信前拼接成连续的内存块，然后再进行 AllReduce 或 ReduceScatter。
+
+    为什么需要：
+
+    - 深度网络中的参数梯度通常分散存储在不同的张量中，大小、形状各不相同。如果逐个发起通信，会产生大量极小的通信操作，严重浪费网络带宽（因为通信启动开销远大于小数据传输时间）。
+
+    - 开启 contiguous_gradients 后，DeepSpeed 会预分配一个大的连续缓冲区，将不同参数的梯度拷贝到这个缓冲区中，拼接成一个大的连续张量，然后对这个大张量执行一次集合通信。
+
+    - 通信完成后，再将缓冲区中的梯度拷贝回各个参数的梯度存储位置。
+
+    效果：
+
+    - 大幅减少通信启动次数，提高跨机网络带宽利用率（可达 80% 以上）。
+
+    - 略微增加 CPU 和 GPU 内存拷贝的开销，但这些拷贝操作可以与计算并行，通常不会成为瓶颈。
+
+    在大规模分布式训练中，此选项建议始终开启，因为它对通信效率的提升非常显著。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: Y0C8dsQB6oJVQRx0v0acfbmsnUh
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: "“contiguous_gradients” 在 ZeRO 中是什么？为什么要设置？"
+  imported_at: '2026-09-21'

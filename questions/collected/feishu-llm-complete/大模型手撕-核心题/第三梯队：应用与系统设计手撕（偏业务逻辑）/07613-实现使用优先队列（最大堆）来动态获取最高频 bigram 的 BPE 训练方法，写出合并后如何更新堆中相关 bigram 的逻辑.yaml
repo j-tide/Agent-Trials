@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-032500ae6ecb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现使用优先队列（最大堆）来动态获取最高频 bigram 的 BPE 训练方法，写出合并后如何更新堆中相关 bigram 的逻辑
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 实现使用优先队列（最大堆）来动态获取最高频 bigram 的 BPE 训练方法，写出合并后如何更新堆中相关 bigram 的逻辑
+answer:
+  mode: rubric
+  reference_answer: "为了更快地获取最高频 bigram，可以使用最大堆。但 Python 的 heapq 是最小堆，可以存储负频率来实现最大堆。堆中的元素为
+    (-freq, pair)，由于堆只保证顶部元素最小（负频率最大），当合并操作改变了某些 bigram 的频率后，堆中对应条目就过时了。有两种处理方式：\n\n-
+    懒删除（Lazy deletion）：不更新堆中元素，而是标记旧频率为无效，或当弹出时检查堆顶频率是否与当前 bigram_freq 中记录的一致，不一致则丢弃并重新弹出。这种方法实现简单且常用。\n\n-
+    主动更新：在堆中直接修改元素，但需要额外索引，复杂且不必要。\n\n懒删除策略：\n\n- 维护 bigram_freq 字典作为实时频率的权威源。\n\n-
+    初始化：将所有 (pair, freq) 以 (-freq, pair) 形式压入列表，然后 heapify。\n\n- 每次需要选择最佳 pair 时：\n\n-
+    选定 best_pair 后，执行合并，并使用上一问的局部更新方式更新 bigram_freq。\n\n- 更新过程中，某些 pair 的频率增加或减少，甚至新增
+    pair。对于这些变化的 pair，我们将 新的 (-new_freq, pair) 推入堆中，不删除旧条目。旧条目会在未来被弹出时因频率不匹配而丢弃。\n\n-
+    为了避免堆无限增长，可以定期清理，但通常合并次数有限，堆大小可控。\n\n堆中元素格式：由于可能出现频率相同的情况，还需要实现稳定的平局打破。如果仅存储 (-freq,
+    pair)，当频率相同时，Python 会对比 pair 元组来进行堆排序，这正好符合字典序打破平局的要求（因为堆排序基于元组比较，比较完 -freq 后会比较
+    pair）。但需注意，我们想要的是 最大频率优先，相同频率选最小字典序 pair。由于我们存储的是 (-freq, pair)，-freq 越小（即频率越大）排在堆顶；当
+    -freq 相同时，会按照 pair 排序（默认升序），因此 pair 字典序最小的会在堆顶。这正是我们想要的。例如频率都为 5 的 ('a','b') 和
+    ('a','c')，对应堆元组 (-5, ('a','b')) 和 (-5, ('a','c'))，最小的是 (-5, ('a','b'))，正确选出。\n\n实现代码：\n\n```python\nimport
+    heapq\n\ndef bpe_train_with_heap(word_symbols, num_merges):\n    # 初始化 bigram
+    频率和堆\n    bigram_freq = Counter()\n    pair_to_indices = {}\n    # 全量扫描建立 bigram_freq
+    和 pair_to_indices（略，可参考前文）\n    # ... \n    \n    # 建立堆\n    heap = []\n    for
+    pair, freq in bigram_freq.items():\n        heapq.heappush(heap, (-freq, pair))\n
+    \   \n    merges = []\n    for i in range(num_merges):\n        # 获取有效的最高频 pair\n
+    \       best_pair = None\n        while heap:\n            neg_freq, pair = heapq.heappop(heap)\n
+    \           if bigram_freq.get(pair, 0) == -neg_freq:\n                best_pair
+    = pair\n                break\n            # 否则是过时条目，丢弃\n        if best_pair
+    is None:\n            break  # 没有可合并的 pair\n        \n        # 合并\n        a,
+    b = best_pair\n        new_symbol = a + b if isinstance(a, str) else max_vocab_id
+    + 1  # 简化\n        merges.append((best_pair, new_symbol))\n        \n        #
+    更新 bigram 频率并获取受影响的 pair 及其新频率\n        affected_pairs = set()  # 频率发生变化的所有 pair（旧删除，新添加）\n
+    \       # 执行更新统计（使用上问的 update_bigram_stats 修改版，收集变化的 pair）\n        # 此处简化为：先获取所有受影响的旧
+    pair，执行合并后得到新 pairs\n        # 更新 bigram_freq\n        update_bigram_stats_with_collect(word_symbols,
+    bigram_freq, pair_to_indices, \n                                         best_pair,
+    new_symbol, affected_pairs)\n        \n        # 将受影响的 pair 的新频率推入堆\n        for
+    pair in affected_pairs:\n            new_freq = bigram_freq.get(pair, 0)\n            if
+    new_freq > 0:\n                heapq.heappush(heap, (-new_freq, pair))\n        #
+    注意：best_pair 的频率变为 0 会被移除，不需推入\n        \n    return merges\n```\n\n其中 update_bigram_stats_with_collect
+    需要在修改频率的同时，将旧 pair 和新 pair 均加入 affected_pairs 集合。核心就是前面所述减去旧 bigram 频率，合并，添加新
+    bigram 频率，并将这些 pair 标记为 affected。由于我们记录了哪些 pair 的频率变动，将其新的频率推入堆中即可。这样堆中会存在同一 pair
+    的多个条目，但依靠懒删除保证正确性。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XDqKw0GPGi6JvkkfpwUcqpdAndd
+  block_id: R2dsdVlmnoq3KsxkRdqclxRRnne
+  page_token: XDqKw0GPGi6JvkkfpwUcqpdAndd
+  original_title: 实现使用优先队列（最大堆）来动态获取最高频 bigram 的 BPE 训练方法，写出合并后如何更新堆中相关 bigram 的逻辑
+  imported_at: '2026-09-21'

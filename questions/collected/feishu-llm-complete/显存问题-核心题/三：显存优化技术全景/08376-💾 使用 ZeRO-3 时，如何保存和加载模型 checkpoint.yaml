@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f3c0ccb0bfe8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BE 使用 ZeRO-3 时，如何保存和加载模型 checkpoint？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F4BE 使用 ZeRO-3 时，如何保存和加载模型 checkpoint？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 ZeRO-3 将模型参数分片到所有卡上，因此保存和加载时需要聚合或分别处理分片。DeepSpeed
+    提供了合并保存、分片保存以及加载的专用 API，确保模型可恢复并可用于推理或再训练。\n\n\U0001F527 保存 Checkpoint：\n\n- 合并保存（推荐用于最终模型）\n调用
+    model.save_checkpoint(save_dir, tag=\"global_step\") 时，ZeRO-3 会自动将所有卡的参数分片 All-Gather
+    到 rank0，然后由 rank0 保存一份完整的 Hugging Face 格式的模型（含权重和配置文件）。这种方式占用一定 CPU 内存，但生成的 checkpoint
+    可直接用于 Hugging Face 推理。\n也支持 save_16bit_model 保存 FP16 合并权重。\n\n- 分片保存（用于恢复训练）\n默认情况下，DeepSpeed
+    保存的是 ZeRO 分片格式：每个 rank 保存自己那部分参数和优化器状态。这要求保存时所有卡都写磁盘，产生多个文件。恢复训练时，必须用相同规模（卡数）加载。这种方式速度快，不占用额外显存。\n\n\U0001F4E5
+    加载 Checkpoint：\n\n- 分片加载（恢复训练）\n使用 model.load_checkpoint(load_dir, tag=\"global_step\")
+    自动读取各卡对应的分片文件，恢复到之前训练的完整状态（包括优化器、学习率调度器等），继续训练。\n\n- 单卡加载（用于推理或再训练）\n如果保存的是合并的
+    Hugging Face 模型，可直接用 AutoModel.from_pretrained(load_dir) 加载，不依赖 DeepSpeed。然后再根据需要包装成
+    DeepSpeed 引擎（如果需继续训练，需重新初始化优化器，但可以从 checkpoint 加载权重）。\n\n⚠️ 注意事项：\n\n- ZeRO-3
+    保存合并模型时，需要所有 GPU 协同工作，如果卡数很多，聚合过程会消耗大量 CPU 内存，甚至 OOM。此时可以用 --save-interval 配合分片保存，或在单卡上加载分片后手动合并。\n\n-
+    跨版本兼容性：DeepSpeed 尽量保持 checkpoint 兼容，但不同 ZeRO stage 或 offload 配置可能不通用，加载时需匹配原始配置。\n\n✅
+    最佳实践：训练期间用分片保存（快速、低开销），训练结束后，用 ds_to_hf.py 等工具将分片 checkpoint 转换为 Hugging Face
+    格式，方便部署。\n\n- 如果可以 → 使用 ZeRO-1（只分片优化器），几乎不牺牲速度，通信开销最小。这也是最保守、最稳定的选择。\n\n- 如果单卡装不下
+    → 进入下一步。\n\n- 如果显存紧张但梯度+优化器稍大，使用 ZeRO-2，将优化器和梯度都分片。通信量相比 ZeRO-1 增加不多（仍为 1.5 倍
+    DP），但能进一步省下梯度显存。适用于 7B-13B 模型 + 中长序列。\n\n- 必须上 ZeRO-3。它将参数也分片，单卡显存需求降至 1/N。这适用于
+    30B 以上模型，或者长序列训练。代价是通信量增加到 1.5 倍 DP，且实现更复杂。\n\n- CPU Offload（ZeRO-Offload）：当启用
+    ZeRO-2/3 后显存仍然不够（例如单卡 24GB 想训 13B），可以把优化器状态和（或）梯度卸载到 CPU 内存。设置 offload_optimizer
+    和 offload_param 等。速度会下降 20%-50%，但能跨数量级扩展。\n\n- NVMe Offload（ZeRO-Infinity）：连 CPU
+    内存都不够时（比如单卡训 175B），启用 NVMe offload，将优化器状态、参数甚至激活写到大容量 SSD 上。速度进一步降低，但使得万亿参数训练成为可能。\n\n-
+    虽然 LoRA 冻结了主模型，但主模型的参数仍然存在于显存中（或需 ZeRO-3 分片以节省空间）。\n\n- 优化器状态和梯度仅针对可训练的 LoRA 参数，这部分非常小，所以
+    ZeRO-1/2 的节省效果对 LoRA 不明显，但 ZeRO-3 可以将冻结的主模型参数分片，极大降低显存占用。\n\n- 配置 DeepSpeed 时，LoRA
+    注入的线性层是唯一有梯度的参数，ZeRO 会只对这些参数的优化器状态和梯度进行分片（如果 stage>=1）。\n\n- 主模型参数被标记为冻结，不产生梯度，也没有对应的优化器状态。在
+    ZeRO-3 下，这些冻结参数仍会被分片存储，以减少单卡显存。\n\n- 使用 PEFT 库（如 Hugging Face PEFT）将 LoRA 适配器挂到模型上。\n\n-
+    启动 DeepSpeed 训练时，指定 ZeRO stage=3，并配置 \"stage3_param_persistence_threshold\" 等参数（可设大些，因为大部分参数冻结）。\n\n-
+    也可以开启 offload 将冻结参数放到 CPU，进一步释放 GPU 显存。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PfKUwsEL0iLM0ckIJbecd8xenxf
+  block_id: FFJPdL6XKo6dwJx9akrciZhFnrg
+  page_token: PfKUwsEL0iLM0ckIJbecd8xenxf
+  original_title: "\U0001F4BE 使用 ZeRO-3 时，如何保存和加载模型 checkpoint？"
+  imported_at: '2026-09-21'

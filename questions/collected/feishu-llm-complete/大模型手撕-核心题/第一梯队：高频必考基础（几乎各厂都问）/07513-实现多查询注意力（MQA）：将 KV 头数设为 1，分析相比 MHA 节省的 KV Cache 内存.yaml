@@ -1,0 +1,96 @@
+---
+schema_version: 1
+id: feishu-llm-complete-949b3d9d25f9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现多查询注意力（MQA）：将 KV 头数设为 1，分析相比 MHA 节省的 KV Cache 内存。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 实现多查询注意力（MQA）：将 KV 头数设为 1，分析相比 MHA 节省的 KV Cache 内存。
+answer:
+  mode: rubric
+  reference_answer: |-
+    8.1 MQA 原理
+
+    多查询注意力将所有查询头共享同一对 Key 和 Value 头，而查询头保持独立。这极大减少了推理时需缓存的 K、V 张量的大小，是 MHA 向 GQA 演化的极致形态。MQA 在牺牲少量模型质量的前提下，显著提升了自回归解码的吞吐量。
+
+    8.2 代码实现
+
+    ```python
+    class MultiQueryAttention(nn.Module):
+        def __init__(self, hidden_dim, num_heads, dropout=0.1):
+            super().__init__()
+            self.hidden_dim = hidden_dim
+            self.num_heads = num_heads
+            self.head_dim = hidden_dim // num_heads
+
+            self.q_proj = nn.Linear(hidden_dim, hidden_dim, bias=False)
+            self.k_proj = nn.Linear(hidden_dim, self.head_dim, bias=False)  # 只有1个头
+            self.v_proj = nn.Linear(hidden_dim, self.head_dim, bias=False)
+            self.out_proj = nn.Linear(hidden_dim, hidden_dim, bias=False)
+            self.dropout = nn.Dropout(dropout)
+
+        def forward(self, x, key_padding_mask=None, attn_mask=None):
+            B, seq_len, _ = x.shape
+
+            q = self.q_proj(x).view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+            k = self.k_proj(x).unsqueeze(1)  # (B, 1, seq_len, head_dim)
+            v = self.v_proj(x).unsqueeze(1)
+
+            scale = math.sqrt(self.head_dim)
+            attn_scores = torch.matmul(q, k.transpose(-2, -1)) / scale
+
+            if key_padding_mask is not None:
+                attn_scores = attn_scores.masked_fill(
+                    key_padding_mask.unsqueeze(1).unsqueeze(2), float('-inf')
+                )
+            if attn_mask is not None:
+                attn_scores = attn_scores.masked_fill(attn_mask == 0, float('-inf'))
+
+            attn_weights = F.softmax(attn_scores, dim=-1)
+            attn_weights = self.dropout(attn_weights)
+            attn_output = torch.matmul(attn_weights, v)
+
+            attn_output = attn_output.transpose(1, 2).contiguous().view(B, seq_len, -1)
+            return self.out_proj(attn_output)
+    ```
+
+    8.3 KV Cache 内存节省分析
+
+    - MHA 的 KV Cache：每层存储 2 * num_heads * head_dim * seq_len 个元素（K 和 V 各一份），FP16 下字节数为 4 * num_heads * head_dim * seq_len。
+
+    - MQA 的 KV Cache：2 * 1 * head_dim * seq_len 元素，即 4 * head_dim * seq_len 字节。
+
+    - 节省比例：MQA 的 KV Cache 大小是 MHA 的 1 / num_heads。例如 32 个查询头时，节省 96.875% 的 KV Cache 内存。这允许在相同显存下支持更大的 batch size 或更长的序列。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTpnwxWMsiVDwIkIoX0c1TU4ned
+  block_id: SpUGdVFWAordTlxWgOMc77vQnCp
+  page_token: QTpnwxWMsiVDwIkIoX0c1TU4ned
+  original_title: 实现多查询注意力（MQA）：将 KV 头数设为 1，分析相比 MHA 节省的 KV Cache 内存。
+  imported_at: '2026-09-21'

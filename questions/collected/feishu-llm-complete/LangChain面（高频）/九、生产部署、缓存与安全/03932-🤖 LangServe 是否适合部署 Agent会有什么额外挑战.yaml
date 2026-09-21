@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-98556a493b2f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F916 LangServe 是否适合部署 Agent？会有什么额外挑战？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F916 LangServe 是否适合部署 Agent？会有什么额外挑战？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangServe 适合部署 Agent，但 Agent 的复杂性和长时间运行特性带来了额外挑战。
+
+    适合之处：
+
+    - LangServe 天然支持 stream 和 stream_log，可以实时推送 Agent 的思考过程和工具调用结果，给用户良好的交互体验。
+
+    - RemoteRunnable 可以像调用普通链一样调用 Agent，开发客户端非常方便。
+
+    额外挑战与应对：
+
+    - 执行时间长，超时风险高：Agent 可能需要数十步推理，持续几分钟。HTTP 请求容易超时。解决方案：
+
+    - 状态管理：Agent 的 intermediate_steps 如果丢失，重试会重复执行。需要将中间状态存入共享存储（Redis），实现断点续传。
+
+    - 成本和安全：Agent 可能无限循环或调用高危工具。必须：
+
+    - 错误恢复：Agent 某一步失败（如 API 超时）不应导致整个请求失败。应在 AgentExecutor 内捕获异常，返回 AgentAction 重试或返回友好错误。
+
+    - 并发控制：Agent 消耗资源多，需要更严格的并发限制，防止系统被单个用户的任务占满。
+
+    我部署过的 Agent：一个自动生成报告的 Agent，用户提交主题，Agent 搜索、分析、撰写。我们用了异步 astream_events 将每一步推送到前端，并在 Nginx 设置了 10 分钟超时。同时，Agent 内部用 Semaphore(5) 控制并发，防止 API 过载。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K973wYln7iD4oCkYW2acmsT4nke
+  block_id: NnmVdAJ7eodfaSxlcrkcSCQqnte
+  page_token: K973wYln7iD4oCkYW2acmsT4nke
+  original_title: "\U0001F916 LangServe 是否适合部署 Agent？会有什么额外挑战？"
+  imported_at: '2026-09-21'

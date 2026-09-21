@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cc30aa472cb9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F310 在 FastAPI 中，如何使用 LangChain 的异步 API 来防止阻塞事件循环？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F310 在 FastAPI 中，如何使用 LangChain 的异步 API 来防止阻塞事件循环？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    FastAPI 是基于 Starlette 的异步框架，它的处理函数默认在线程池中运行同步函数。要充分利用异步，必须做到：
+
+    - 路由函数用 async def。
+
+    - 调用 LangChain 的异步方法（ainvoke, astream 等）。
+
+    - 任何 IO 操作（数据库、HTTP 请求）都使用异步库。
+
+    示例：
+
+    ```python
+    from fastapi import FastAPI
+    from langchain_openai import ChatOpenAI
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_core.output_parsers import StrOutputParser
+
+    app = FastAPI()
+    llm = ChatOpenAI(model="gpt-3.5-turbo", streaming=False)
+    prompt = ChatPromptTemplate.from_template("请解释：{topic}")
+    chain = prompt | llm | StrOutputParser()
+
+    @app.post("/ask")
+    async def ask(topic: str):
+        result = await chain.ainvoke({"topic": topic})
+        return {"answer": result}
+    ```
+
+    如果误用同步方法，比如 chain.invoke，FastAPI 会将该函数调度到线程池，导致线程池被耗尽时其他请求被阻塞。因此必须全部使用 ainvoke/astream。
+
+    进一步优化：
+
+    - 利用 asyncio.Semaphore 限制并发 LLM 调用，防止 API 限流。
+
+    - 使用 BackgroundTasks 执行非即时任务。
+
+    - 对于流式输出，使用 StreamingResponse 配合 chain.astream。
+
+    踩过的坑：早期我使用了同步的 requests 库在工具函数中，结果 FastAPI 的异步优势荡然无存。后来全部改成 httpx.AsyncClient，并发能力直线上升。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XRv0wx736iBPPjk1VBdcvmwSnmb
+  block_id: ICPadcUbPoQPxZx2GgBcZy3knjb
+  page_token: XRv0wx736iBPPjk1VBdcvmwSnmb
+  original_title: "\U0001F310 在 FastAPI 中，如何使用 LangChain 的异步 API 来防止阻塞事件循环？"
+  imported_at: '2026-09-21'

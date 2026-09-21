@@ -1,0 +1,134 @@
+---
+schema_version: 1
+id: feishu-llm-complete-954fc0a88734
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 2、进阶题：多环境配置管理的最佳实践是什么？如何在 Agent 服务中实现 dev/test/prod 三套环境的配置隔离？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 2、进阶题：多环境配置管理的最佳实践是什么？如何在 Agent 服务中实现 dev/test/prod 三套环境的配置隔离？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ⭐⭐⭐（application-{profile}.yml 加载机制、Profile 激活方式、配置中心集成）
+
+    1️⃣ Common Answer
+
+    多环境配置管理主要通过 application-{profile}.yml 文件实现。创建 application-dev.yml、application-test.yml、application-prod.yml，通过 spring.profiles.active 激活对应环境的配置文件。在 Agent 服务中，dev 环境使用低成本 LLM 模型，test 环境使用测试模型，prod 环境使用生产模型。
+
+    2️⃣ Impressive Answer
+
+    多环境配置管理的最佳实践需要从配置分层、环境隔离、配置中心集成、敏感信息保护四个维度系统设计。
+
+    第一，采用配置分层架构，避免重复配置。
+
+    基础配置放在 application.yml，所有环境共用；环境特定配置放在 application-{profile}.yml，只覆盖差异化部分。结合 Profile Groups 管理多组件配置：
+
+    ```text
+    # application.yml - 基础配置
+    spring:
+      application:
+        name: agent-service
+      profiles:
+        group:
+          dev: "dev,llm-dev,vector-dev"
+          prod: "prod,llm-prod,vector-prod"
+
+    agent:
+      max-concurrent-tasks: 100
+      timeout-seconds: 300
+    ```
+
+    ```text
+    # application-dev.yml - 开发环境差异配置
+    agent:
+      llm:
+        model: gpt-4o-mini    # 降低成本
+        api-key: ${LLM_API_KEY_DEV}
+      vector:
+        host: localhost
+        collection: agent_dev
+    logging:
+      level:
+        com.example.agent: DEBUG
+    ```
+
+    ```text
+    # application-prod.yml - 生产环境差异配置
+    agent:
+      llm:
+        model: qwen-max       # 高质量模型
+        api-key: ${LLM_API_KEY_PROD}
+      vector:
+        host: milvus-prod.internal
+        collection: agent_prod
+    ```
+
+    第二，容器化部署使用环境变量激活 Profile。
+
+    ```text
+    # Kubernetes ConfigMap
+    apiVersion: v1
+    kind: ConfigMap
+    data:
+      SPRING_PROFILES_ACTIVE: "prod"
+    ```
+
+    第三，集成配置中心实现动态配置。
+
+    对于 Agent 服务这类需要频繁调整参数的场景（如 LLM 温度、最大 Token 数），集成 Nacos 配置中心，通过 @RefreshScope 实现热更新，无需重启服务：
+
+    ```text
+    @RestController
+    @RefreshScope
+    public class AgentController {
+        @Value("${agent.llm.temperature}")
+        private double temperature;
+    }
+    ```
+
+    第四，敏感信息使用密钥管理服务。
+
+    LLM API Key、向量数据库密码等敏感信息绝不写入配置文件，通过环境变量或 Kubernetes Secret 注入：
+
+    ```text
+    agent:
+      llm:
+        api-key: ${LLM_API_KEY}  # 从环境变量读取，不硬编码
+    ```
+
+    3️⃣ Key Differences
+
+    ---
+
+    ### 3.15 多模块 Starter 工程实践
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NHwYwCwRDiPz1OkM3b9cXNBinUd
+  block_id: doxcnQWXAkEOFbjdSMZ7Dvdd0gd
+  page_token: NHwYwCwRDiPz1OkM3b9cXNBinUd
+  original_title: 2、进阶题：多环境配置管理的最佳实践是什么？如何在 Agent 服务中实现 dev/test/prod 三套环境的配置隔离？
+  imported_at: '2026-09-21'

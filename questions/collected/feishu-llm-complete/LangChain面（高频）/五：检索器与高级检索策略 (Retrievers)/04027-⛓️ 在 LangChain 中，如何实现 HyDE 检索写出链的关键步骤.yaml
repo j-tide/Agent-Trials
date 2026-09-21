@@ -1,0 +1,88 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e7ef6c096c06
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⛓️ 在 LangChain 中，如何实现 HyDE 检索？写出链的关键步骤。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "⛓️ 在 LangChain 中，如何实现 HyDE 检索？写出链的关键步骤。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangChain 提供了 HypotheticalDocumentEmbedder 和 HyDE 相关的集成，但也可以通过组合链轻松实现。
+
+    关键步骤：
+
+    - 准备一个 LLM：用于生成假答案。通常选择一个快速且有一定生成能力的模型，如 GPT-3.5-turbo。
+
+    - 编写生成假答案的 Prompt：要求 LLM 根据用户问题，写一段像是从百科全书或技术文档中摘录的段落。
+
+    你是一个知识库助手。请根据以下问题，写一段可能出现在文档中的回答。不需要确保事实准确，只需模仿文档的语气和风格。
+
+    问题：{question}
+    回答：
+
+    - 创建 LLMChain：使用上述 Prompt 创建一个 LLMChain。
+
+    - 将其封装为 Embeddings：使用 HypotheticalDocumentEmbedder（LangChain 社区版提供），将 LLMChain 和一个标准的 Embeddings 模型（如 OpenAIEmbeddings）结合起来。HypotheticalDocumentEmbedder 会先调用 LLMChain 生成假答案，然后将假答案传递给嵌入模型生成向量。
+
+    - 构建 Retriever：将这个 HyDE-Embeddings 传递给 VectorStore，并用它来编码所有文档。检索时，用户的查询也会先经过假答案生成，再被编码为向量去检索。
+
+    代码示例：
+
+    from langchain.chains import LLMChain
+    from langchain.embeddings import OpenAIEmbeddings
+    from langchain.embeddings.hypothetical_document import HypotheticalDocumentEmbedder
+    from langchain.vectorstores import Chroma
+
+    # 1. 生成假答案的链
+    hyde_prompt = PromptTemplate.from_template(
+        "请根据以下问题，写一段可能出现在知识库中的文档段落，模仿其风格。\n问题：{question}\n段落："
+    )
+    llm_chain = LLMChain(llm=ChatOpenAI(model="gpt-3.5-turbo", temperature=0), prompt=hyde_prompt)
+
+    # 2. 包装为 HyDE Embeddings
+    base_embeddings = OpenAIEmbeddings()
+    hyde_embeddings = HypotheticalDocumentEmbedder(llm_chain=llm_chain, base_embeddings=base_embeddings)
+
+    # 3. 创建 VectorStore（注意：所有文档需用 hyde_embeddings 编码）
+    vectorstore = Chroma(embedding_function=hyde_embeddings, ...)
+
+    # 4. 检索时，用户查询自动通过 hyde_embeddings 先扩写假答案再编码
+    retriever = vectorstore.as_retriever()
+    docs = retriever.get_relevant_documents("你的问题")
+
+    注意：由于每次检索都要调用一次 LLM 生成假答案，这会增加几秒钟的延迟。可以通过缓存常用查询的假答案来缓解。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HEY1ws44PidEGlkYttccK5AenXe
+  block_id: PvKbdKLpioW6NkxeD1bcdEXpnJc
+  page_token: HEY1ws44PidEGlkYttccK5AenXe
+  original_title: "⛓️ 在 LangChain 中，如何实现 HyDE 检索？写出链的关键步骤。"
+  imported_at: '2026-09-21'

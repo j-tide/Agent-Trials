@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8f60d2bef25e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F30A 在流式输出场景下，记忆是什么时候更新的？是在整轮对话结束后吗？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F30A 在流式输出场景下，记忆是什么时候更新的？是在整轮对话结束后吗？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在流式输出（Streaming）场景下，记忆的更新时机至关重要。标准做法是在整个回答生成完成后再更新记忆，而不是流式地边输出边更新。
+
+    原因：
+
+    - 完整性：流式输出时，AI 的回复是分块到达的，只有完整回复才构成有意义的对话历史。如果在流式过程中更新，可能会存入不完整的句子。
+
+    - 一致性：如果在流式过程中发生错误，可以丢弃整个不完整的回复，不污染记忆。
+
+    在 LangChain 中的实现：
+
+    - 当使用 chain.astream() 或 chain.stream() 时，链的内部回调会在生成完全结束后，才调用 memory.save_context。
+
+    - 即使使用 StreamingStdOutCallbackHandler，记忆的保存也是在 LLM 生成完全结束后才执行。
+
+    自定义流式处理的注意事项：
+    如果你在自建循环中手动处理流式生成，需要确保在流式循环结束后，手动调用 memory.save_context(inputs, {"output": full_response})，而不是在流式循环内调用。
+
+    示例：
+
+    ```python
+    full_response = ""
+    async for chunk in chain.astream({"input": "你好"}):
+        full_response += chunk
+        print(chunk, end="")
+    # 流式结束后，memory 会自动保存（如果链内部处理）
+    # 或者手动: memory.save_context({"input": "你好"}, {"output": full_response})
+    ```
+
+    这种设计确保了记忆模块在流式输出下的健壮性和一致性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H3N3wvSCiibLlPk5ZpjcveFHnNb
+  block_id: CkMVdxKnpovc51xaNabc5vapnCe
+  page_token: H3N3wvSCiibLlPk5ZpjcveFHnNb
+  original_title: "\U0001F30A 在流式输出场景下，记忆是什么时候更新的？是在整轮对话结束后吗？"
+  imported_at: '2026-09-21'

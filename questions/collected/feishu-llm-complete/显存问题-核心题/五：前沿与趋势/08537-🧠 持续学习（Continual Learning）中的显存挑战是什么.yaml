@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ee799b12d818
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E0 持续学习（Continual Learning）中的显存挑战是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 五：前沿与趋势
+tags: &1
+- 显存问题-核心题
+- 五：前沿与趋势
+content:
+  prompt: "\U0001F9E0 持续学习（Continual Learning）中的显存挑战是什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    持续学习旨在让模型顺序学习多个任务，而不会灾难性遗忘先前学到的知识。这一设定给显存管理带来了多重挑战，远比单任务训练复杂。
+
+    - 旧任务数据的存储与回放（Experience Replay）
+
+    最有效的抗遗忘策略是保留一部分旧任务的样本，在训练新任务时进行混合回放。这意味着需要在显存或内存中维护一个不断增长的记忆缓冲区（Memory Buffer）。随着任务增多，缓冲区大小线性膨胀，其存储的原始数据（图像、文本）可能达到数GB甚至数十GB。如果缓冲区放在GPU显存中，将直接挤占模型训练所需的权重、优化器和激活空间，极易导致OOM。
+
+    - 模型参数的动态扩展（Dynamic Architecture）
+
+    许多方法在新任务到来时，会为模型增加新的参数模块（如新的专家、Adapter、或扩展层），以避免干扰旧知识。这导致总参数量随任务数量单调递增，推理和训练时需要的显存也相应增长。如果不加控制，模型会无限膨胀，最终超出任何单卡容量。
+
+    - 多任务优化器状态的累积
+
+    某些方法（如基于贝叶斯的持续学习）需要维护每个参数的置信度或Fisher信息矩阵，其大小与参数量相当甚至更大，且每个任务可能都需要独立的统计量。这会使得优化器状态显存成倍增加。
+
+    - 旧模型冻结副本的驻留
+
+    基于知识蒸馏的持续学习方法（如LwF）通常需要保留一个旧模型的冻结副本，在训练新任务时用于生成软标签。这个冻结副本同样需要驻留在GPU显存中，与正在训练的新模型并存，直接导致权重显存需求翻倍。
+
+    - 显存碎片与生命周期管理
+
+    持续学习的训练模式是间歇性的：一段时间训练任务A，释放部分资源，再训练任务B。这种频繁的分配/释放周期非常容易造成显存碎片，尤其在需要动态扩展架构时，反复分配不同大小的张量块，可能导致即使总空闲足够，却因缺乏连续大块而OOM。
+
+    ✅ 因此，持续学习的显存挑战本质上是“时间维度上的累积”：数据、参数、优化器状态随任务序列不断沉淀，需要精细的生命周期管理和选择性卸载/压缩，以避免显存爆炸。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y9zxwr9AKiTzOrkGXcocvWJuncg
+  block_id: W47jd4p1goJcWoxeTiYc9ilanJ2
+  page_token: Y9zxwr9AKiTzOrkGXcocvWJuncg
+  original_title: "\U0001F9E0 持续学习（Continual Learning）中的显存挑战是什么？"
+  imported_at: '2026-09-21'

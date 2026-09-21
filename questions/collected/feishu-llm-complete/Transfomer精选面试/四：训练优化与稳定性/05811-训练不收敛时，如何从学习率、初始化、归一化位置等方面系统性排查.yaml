@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e26f370f28e3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练不收敛时，如何从学习率、初始化、归一化位置等方面系统性排查？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 四：训练优化与稳定性
+tags: &1
+- Transfomer精选面试
+- 四：训练优化与稳定性
+content:
+  prompt: 训练不收敛时，如何从学习率、初始化、归一化位置等方面系统性排查？
+answer:
+  mode: rubric
+  reference_answer: |-
+    系统性排查应遵循“从外到内、从粗到细”的顺序：
+
+    第一步：检查数据。确保输入没有异常值、NaN 或 Inf。验证分词器工作正常，序列长度分布合理。不收敛最常见的原因往往是数据预处理出现 bug。
+
+    第二步：检查学习率。学习率过高是导致不收敛的头号元凶。尝试大幅降低学习率（如 10 倍），观察 loss 是否开始下降。使用学习率查找器（LR Finder）来确定安全的学习率范围。如果 loss 一开始就 NaN，几乎肯定是学习率过大或初始化问题。
+
+    第三步：检查初始化。如果 loss 在几个步骤后突然 NaN，很可能是初始化不当导致的前向数值溢出。验证是否所有线性层都使用了正确的初始化方案（如 Kaiming 或 Xavier 的适当变体）。检查残差分支的最后一层是否用了较小的初始化。可以尝试从一个已经验证能收敛的小模型配置开始，逐步增大。
+
+    第四步：检查归一化位置。确认使用的是 Pre-Norm 还是 Post-Norm。如果使用 Post-Norm，训练不稳定是常态，需要配合更小的学习率和特殊的初始化（如 DeepNorm）。如果使用 Pre-Norm，确保 LayerNorm 在子层之前，残差路径未被错误地插入归一化。
+
+    第五步：检查梯度裁剪。确认梯度裁剪已开启且阈值合理（通常 1.0）。观察梯度的 L2 范数，如果长期过高，说明模型配置需要调整。
+
+    第六步：检查混合精度设置。如果使用 FP16，确认 Loss Scaling 已开启且为动态模式，缩放因子在正常范围内（如 2^16 左右）。可以尝试切换到 BF16 或 FP32 以排除精度问题。
+
+    第七步：监控训练日志。定期记录每层的梯度范数、参数更新范数、激活值均值和方差。可视化这些指标的趋势，定位突然变化的层级，有助于精确诊断。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqirwcUjyijJgRkTP9QcslHJnde
+  block_id: Qjo7d0dZ6oNpjqxTotxciUrKnBe
+  page_token: EqirwcUjyijJgRkTP9QcslHJnde
+  original_title: 训练不收敛时，如何从学习率、初始化、归一化位置等方面系统性排查？
+  imported_at: '2026-09-21'

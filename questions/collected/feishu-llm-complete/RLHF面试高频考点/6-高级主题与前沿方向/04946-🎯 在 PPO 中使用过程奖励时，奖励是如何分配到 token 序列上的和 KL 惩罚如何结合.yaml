@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-648c65511fb0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3AF 在 PPO 中使用过程奖励时，奖励是如何分配到 token 序列上的？和 KL 惩罚如何结合？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 6-高级主题与前沿方向
+tags: &1
+- RLHF面试高频考点
+- 6-高级主题与前沿方向
+content:
+  prompt: "\U0001F3AF 在 PPO 中使用过程奖励时，奖励是如何分配到 token 序列上的？和 KL 惩罚如何结合？"
+answer:
+  mode: rubric
+  reference_answer: "当使用 PRM 替代 ORM 进行 PPO 训练时，奖励分配机制会发生根本性变化——从“序列末端的孤岛”变为“贯穿全程的阶梯”。\n\n\U0001F539
+    步骤级别的奖励分配\nPRM 在每个推理步骤结束时输出一个奖励值 rtPRMrtPRM。通常的做法是：\n\n- 步骤边界标记：在训练数据中约定特殊 token（如
+    <step_end> 或 \\n\\n）来标记每个步骤的结束位置。\n\n- 奖励注入：在 PPO 的即时奖励构造中，对于步骤边界 token，赋予奖励 r_t
+    = r_t^{PRM}。对于步骤内部的所有 token，赋予奖励 r_t = 0（它们的状态价值由 Critic 间接赋予）。最后一个步骤的边界 token
+    同时接收 PRM 奖励和最终的结果验证奖励（如果有）。\n\n\U0001F539 与 KL 惩罚的结合\n\n无论使用何种奖励，KL 惩罚始终是每个 token
+    级别的密集信号。因此最终的 token 级即时奖励为：\n\ntext\n\nr_total_token = (步骤边界 ? r_PRM : 0) - β
+    * KL_divergence\n\n其中 KL 散度项在每一个生成的 token（包括步骤内部）上都会计算和施加。这样的设计有深层次的理论优雅性：\n\n-
+    KL 惩罚作为“语言流畅性的引力”，防止策略为了获得高 PRM 奖励而生成违反语法的怪异 token。\n\n- PRM 奖励作为“推理正确性的路标”，在每个步骤节点上提供明确的优化方向。\n\n-
+    步骤内部的 token 虽然没有直接的过程奖励，但 Critic 网络通过价值函数 V(s)V(s) 将未来步骤的高 PRM 奖励“贴现”回来，为它们提供了间接的、平滑的优势信号。\n\n\U0001F539
+    在 GAE 计算中的处理\n\n在计算广义优势估计 (GAE) 时，PRM 奖励被自然嵌入：\n\nδt=(步骤边界?rtPRM:0)+γV(st+1)−V(st)−β⋅KLtδt=(步骤边界?rtPRM:0)+γV(st+1)−V(st)−β⋅KLt\n\nGAE
+    公式不变，但因为 PRM 奖励的密集注入，δtδt 在步骤边界处有显著的非零值，使得优势信号更早、更频繁地发挥作用，大大降低了梯度方差。\n\n\U0001F539
+    特殊技巧：步骤级别的价值函数\n\n一些先进实践会让 Critic 也以步骤为粒度工作——Critic 仅在步骤边界 token 处输出价值预测，步骤内部
+    token 的价值通过插值得到。这进一步将 Critic 的计算集中在真正有信息的决策点上，提升了价值估计的准确性。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C9h3wKiDuic00okwpWOcPhEKnxb
+  block_id: Br3vdpODyoA9UxxODrBcqpa0nRh
+  page_token: C9h3wKiDuic00okwpWOcPhEKnxb
+  original_title: "\U0001F3AF 在 PPO 中使用过程奖励时，奖励是如何分配到 token 序列上的？和 KL 惩罚如何结合？"
+  imported_at: '2026-09-21'

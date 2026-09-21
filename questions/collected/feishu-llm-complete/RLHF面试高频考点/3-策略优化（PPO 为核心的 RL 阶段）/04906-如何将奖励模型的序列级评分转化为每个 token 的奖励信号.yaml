@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7f953fdc22f6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何将奖励模型的序列级评分转化为每个 token 的奖励信号？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: 如何将奖励模型的序列级评分转化为每个 token 的奖励信号？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是 RLHF 实践中最关键的设计决策之一。奖励模型提供的只是一个对最终“成品”的整体评价，但强化学习要求我们对生成过程中的每一个“动作”都有一个奖励信号。因此，我们必须设计一个分配方案，将这一个单一的序列级评分，合理地“拆分”或“传递”给序列中的每一个 token。
+
+    最主流的转化方案：终局奖励 + 过程惩罚
+
+    在 RLHF 的 PPO 实现中，我们几乎从不将 rfinal 平均或按某种启发式规则分配到每个 token 上。原因很简单：我们不知道哪个 token 好，哪个不好，强行分配会引入巨大的偏差。一个高明的笑话，笑点可能只在最后一个词，前面的铺垫单独看平淡无奇。如果我们把奖励平均分配，就会错误地惩罚那些功不可没的铺垫词。
+
+    因此，主流的做法是：让最终奖励保持其稀疏性，只在轨迹终点出现，而通过价值函数（Critic）来学习如何将终点的价值“传播”回前面的状态。具体来说：
+
+    - 即时奖励的设计：
+
+    [图片内容未导入]
+
+    - 价值函数的桥梁作用：
+
+    [图片内容未导入]
+
+    - 信用分配的实现：
+
+    [图片内容未导入]
+
+    替代方案与权衡：
+
+    - 完全均匀分配：将 rfinal/T 作为每个 token 的奖励。这是一种极其天真且有害的做法，会导致前面提到的对铺垫词的错误惩罚。
+
+    - 学习一个 token 级奖励模型：理论上最优，但标注成本极高，目前难以实现。
+
+    - 基于启发式的重加权：例如，根据注意力权重或某些可解释性信号，将 rfinal更多地分配给模型“关注”的那些 token。这还不成熟。
+
+    因此，“保持奖励稀疏，让价值函数来解决信用分配”是当前 RLHF 实践中的标准范式。而 KL 惩罚作为密集信号，则保证了信用分配的底层逻辑是建立在“正常语言”的基础上，而不是完全的黑盒。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/N1iEwZtKqi63XWkhV4ccypmRnkh
+  block_id: L4QUdLaJCoGVyIxjnvccLxOjnoW
+  page_token: N1iEwZtKqi63XWkhV4ccypmRnkh
+  original_title: 如何将奖励模型的序列级评分转化为每个 token 的奖励信号？
+  imported_at: '2026-09-21'

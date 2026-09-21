@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7330b7446fe5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在移动端或端侧进行高效微调？有哪些量化微调方案？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如何在移动端或端侧进行高效微调？有哪些量化微调方案？
+answer:
+  mode: rubric
+  reference_answer: |-
+    移动端/端侧设备（手机、IoT设备）资源极度受限（内存<8GB，无独立显存），无法运行标准的FP16/FP32微调。因此，必须采用参数高效微调（PEFT）与极致模型量化相结合的方案。
+
+    核心策略：
+
+    - 基座模型极致量化：将预训练模型权重量化到4-bit甚至更低的精度，如使用GPTQ或AWQ进行4-bit权重量化，使其内存占用降至原本的1/4以下。
+
+    - PEFT限制可训练参数：使用LoRA或其变体（如QLoRA），仅训练极少量适配器参数，冻结量化后的基座权重。
+
+    具体量化微调方案：
+
+    - QLoRA（Quantized LoRA）：这是目前端侧微调的事实标准。它将基座权重量化为4-bit NormalFloat(NF4)，并冻结。前向和反向传播时，将4-bit权重动态反量化为BF16/FP16进行计算，计算完后释放。梯度只更新BF16/FP16精度的LoRA适配器。它能在单张8GB内存手机上微调7B模型。
+
+    - PEQA（Parameter-Efficient and Quantization-Aware Adaptation）：在模型量化后，不添加外部适配器，而是微调量化步长（scale）等参数。这使得微调的参数极少，且与量化推理引擎完全兼容。
+
+    - 结合知识蒸馏：先让一个强大的云端模型生成面向端侧场景的合成微调数据，再用这些数据在端侧进行QLoRA微调。云端复杂推理+端侧轻量适配。
+
+    - 使用端侧推理引擎：微调完成后，使用专门针对移动端优化的推理引擎（如llama.cpp, MLC-LLM, MediaPipe）进行部署，这些引擎对量化模型有极致的内存和CPU/GPU/NPU调度优化。
+
+    挑战：即使使用QLoRA，训练时仍需临时解量化，内存和计算压力依然存在。因此，端侧微调通常适用于小批量数据的个性化适配，而非常规大规模训练。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RK7mw2OHeiOHyEkfsfXcDkH1nRh
+  block_id: RB3vdVuAno6S8MxujINc3z7knSd
+  page_token: RK7mw2OHeiOHyEkfsfXcDkH1nRh
+  original_title: 如何在移动端或端侧进行高效微调？有哪些量化微调方案？
+  imported_at: '2026-09-21'

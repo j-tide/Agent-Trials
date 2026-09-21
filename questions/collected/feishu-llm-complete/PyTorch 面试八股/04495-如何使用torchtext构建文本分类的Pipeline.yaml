@@ -1,0 +1,92 @@
+---
+schema_version: 1
+id: feishu-llm-complete-514d9740ece1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用torchtext构建文本分类的Pipeline？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何使用torchtext构建文本分类的Pipeline？
+answer:
+  mode: rubric
+  reference_answer: |-
+    torchtext 提供了便捷的文本预处理、词汇表和迭代器构建工具。以下使用其新版API（0.12+）演示文本分类流程：
+
+    ```python
+    import torch
+    from torch import nn
+    from torchtext.datasets import AG_NEWS
+    from torchtext.data.utils import get_tokenizer
+    from torchtext.vocab import build_vocab_from_iterator
+
+    # 1. 数据加载
+    train_iter = AG_NEWS(split='train')
+    tokenizer = get_tokenizer('basic_english')
+
+    # 2. 构建词表
+    def yield_tokens(data_iter):
+        for _, text in data_iter:
+            yield tokenizer(text)
+
+    vocab = build_vocab_from_iterator(yield_tokens(train_iter), specials=['<unk>', '<pad>'])
+    vocab.set_default_index(vocab['<unk>'])
+
+    # 3. 文本和标签处理管道
+    text_pipeline = lambda x: vocab(tokenizer(x))
+    label_pipeline = lambda x: int(x) - 1
+
+    # 4. 定义模型（一个简单的EmbeddingBag分类器）
+    class TextClassificationModel(nn.Module):
+        def __init__(self, vocab_size, embed_dim, num_class):
+            super().__init__()
+            self.embedding = nn.EmbeddingBag(vocab_size, embed_dim, sparse=False)
+            self.fc = nn.Linear(embed_dim, num_class)
+
+        def forward(self, text, offsets):
+            embedded = self.embedding(text, offsets)
+            return self.fc(embedded)
+
+    # 5. DataLoader的collate函数
+    def collate_batch(batch):
+        label_list, text_list, offsets = [], [], [0]
+        for _label, _text in batch:
+            label_list.append(label_pipeline(_label))
+            processed_text = torch.tensor(text_pipeline(_text), dtype=torch.int64)
+            text_list.append(processed_text)
+            offsets.append(processed_text.size(0))
+        labels = torch.tensor(label_list, dtype=torch.int64)
+        offsets = torch.tensor(offsets[:-1]).cumsum(dim=0)
+        text = torch.cat(text_list)
+        return text, offsets, labels
+
+    # 之后可使用DataLoader和标准训练循环进行训练
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  block_id: DDSudWBFIoygo3xoMMyc6mBZnjf
+  page_token: AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  original_title: 如何使用torchtext构建文本分类的Pipeline？
+  imported_at: '2026-09-21'

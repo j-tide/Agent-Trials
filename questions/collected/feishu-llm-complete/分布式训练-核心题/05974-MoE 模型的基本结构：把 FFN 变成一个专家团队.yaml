@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b000942842a0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: MoE 模型的基本结构：把 FFN 变成一个“专家团队”
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: MoE 模型的基本结构：把 FFN 变成一个“专家团队”
+answer:
+  mode: rubric
+  reference_answer: |-
+    在标准 Transformer 中，每个 token 经过自注意力后会进入一个共享的前馈网络 (FFN)。这个 FFN 虽然宽（通常是隐藏维度的 4 倍），但所有 token 共享同一组权重。这就好比一个公司里所有员工都只会做同一件事，无论来什么活都是那一套流程。MoE 的灵魂改造就是把这一层 FFN 替换为一组并行的、独立的 FFN，称为“专家”(Experts)，并引入一个门控网络 (Router/Gate) 来决定每个 token 应该分发给哪些专家，相当于给公司配了多个不同技能的团队，每件事只交给最擅长的人去处理。
+
+    直观的结构是：
+
+    - 输入序列经过自注意力层，得到每个 token 的表示。自注意力负责 token 间通信，MoE 只替换 FFN，两者分工明确。
+
+    - 这个表示进入门控网络，计算出每个 token 对各个专家的“偏好分数”。门控网络本身通常就是一层线性变换：logits = x @ W_gate，其中 W_gate 的形状是 [d_model, num_experts]，参数量很小（通常不到模型总参数的 1%）。
+
+    - 根据偏好分数，通过 Top-k 策略选出最合适的 1 个或 2 个专家。具体怎么做：对 logits 取 softmax 得到概率分布，然后选概率最高的 k 个索引。被选中的专家对应的 softmax 概率值作为后续加权合并的权重。
+
+    - Token 被送往选中的专家进行计算，得到各自输出。每个专家内部就是标准的 FFN，通常是 SwiGLU 结构（两个线性层加门控激活），从隐藏维 d_model 升到中间维 d_ff（通常 4 倍或 8/3 倍），再降回 d_model。
+
+    - 最后，门控的权重对多个专家输出进行加权合并。如果 k=1，就直接用那个专家的输出乘以它的路由权重；如果 k>1，就把多个专家的输出按各自的路由概率加权求和。合并后的结果就是这个 token 最终的 FFN 输出，送入下一层或残差相加。
+
+    整个 MoE 层因此由三部分构成：一个门控路由器、多个专家 FFN，以及一个稀疏计算调度器——在分布式环境下，专家分布在不同 GPU 上，这个调度器负责通过 all-to-all 通信高效分发和收集 token。调度器的实现非常关键，做不好会成为性能瓶颈。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQczwN8cliZ2XSkOI26ckCcPnuf
+  block_id: HFGidVH2VoTKHKx7HFtc5xQTnrh
+  page_token: GQczwN8cliZ2XSkOI26ckCcPnuf
+  original_title: MoE 模型的基本结构：把 FFN 变成一个“专家团队”
+  imported_at: '2026-09-21'

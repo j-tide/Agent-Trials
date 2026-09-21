@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d73d97b04a98
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何为多模态偏好对（如两个回答的比较）收集数据？构造“选择-拒绝”对时需要注意什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 对齐与安全
+tags: &1
+- 多模态面（精选）
+- 对齐与安全
+content:
+  prompt: 如何为多模态偏好对（如两个回答的比较）收集数据？构造“选择-拒绝”对时需要注意什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    偏好数据是 RLHF 的“原油”，它的质量直接决定了精炼出来的对齐模型的好坏。
+
+    数据收集流程：
+
+    首先，我们需要生成多样化的回答。对于同一张图像和同一个问题，我们可以用不同方式得到多个回答。比如，用不同规模或处于不同训练阶段的 MLLM 来生成；或者用同一个模型，但通过调整解码温度、top-p 等参数，得到从保守到奔放的不同回答；还可以针对性地设计一些 Prompt，诱导模型输出包含特定类型错误的回答（比如故意编造细节）。
+
+    然后，进入人工标注环节。标注员会看到（图像，指令，回答A，回答B）的四元组。他们的任务是选出更好的那个回答，并标注出另一个回答差在哪里。常见的标注维度可以对应到奖励模型的评估维度上：真实性、有用性、无害性。
+
+    最后是偏好数据验证。为了保证数据质量，一个样本通常需要分配给多个标注员。只有当标注结果的一致性（比如 Fleiss' Kappa 系数）达到阈值时，这条数据才被认为是有效的。
+
+    构造“选择-拒绝”对的关键注意事项：
+
+    这里有三个非常关键的陷阱需要避开。
+
+    第一，避免长度偏差。 人类标注员（甚至 GPT-4 这样的 AI 标注员）天然地倾向于选择更长、看起来更“详尽”的回答，即使里面包含了很多废话或编造的内容。这会引导模型变成“废话文学大师”。对策是构造偏好对时，要刻意包含一个“长但失真”和一个“短但精确”的回答，并引导标注员选择后者。
+
+    第二，真实性是硬性约束。 绝对不能允许一个文本流畅、结构清晰但存在事实错误的回答，优于一个语言朴实但完全正确的回答。在多模态场景下，这尤其重要。一个回答如果说“一只可爱的柯基犬在草地上奔跑”，但图里其实是只柴犬，那么这个回答无论写得多么优美，都必须是 Rejected。
+
+    第三，分歧的归因要清晰。 在一对回答中，最好只在少数几个关键维度上有显著差异。如果两个回答在真实性、有用性、风格上都不同，模型就很难从偏好信号中搞清楚自己到底是因为什么被奖励的。理想的状态是，两个回答在大部分方面相似，唯独一个犯了我们想纠正的错误（比如幻觉），另一个是对的。这样的偏好信号最“干净”，模型学起来也最高效。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/R2oOwlZ2GiMrQSkuLbBcNBtInEh
+  block_id: St3ad1JCVo2DjPxnsIHckCmknke
+  page_token: R2oOwlZ2GiMrQSkuLbBcNBtInEh
+  original_title: 如何为多模态偏好对（如两个回答的比较）收集数据？构造“选择-拒绝”对时需要注意什么？
+  imported_at: '2026-09-21'

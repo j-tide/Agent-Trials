@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-34e9ce0f5fcd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 流水线并行（Pipeline Parallelism）如何划分模型？GPipe 和 PipeDream 的调度策略有何不同？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块六：深度学习基础训练与推理部署
+tags: &1
+- 深度学习面（精选）
+- 模块六：深度学习基础训练与推理部署
+content:
+  prompt: 流水线并行（Pipeline Parallelism）如何划分模型？GPipe 和 PipeDream 的调度策略有何不同？
+answer:
+  mode: rubric
+  reference_answer: |-
+    流水线并行 将模型按层（或层组）垂直切分，每个设备（GPU）负责若干连续的层，形成流水线。一个 batch 被进一步划分为多个 micro-batch，以流水线方式送入第一个设备，后续设备依次处理，使得设备利用率提高。
+
+    GPipe 调度策略
+
+    - 将 micro-batch 顺序注入流水线，所有 micro-batch 的前向传播完成后，再进行反向传播。
+
+    - 由于前向和反向分离，需要暂存所有 micro-batch 的激活，直到反向时使用，因此显存占用较大。
+
+    - 优点：实现简单，流水线气泡（idle time）存在但可通过增大 micro-batch 数量来降低气泡比例。
+
+    - 周期性注入 micro-batch，形成“前向-等待-反向”的节奏，但等待时间（bubble）随 micro-batch 数量增加而减少。
+
+    PipeDream 调度策略
+
+    - 使用1F1B（one forward one backward） 的交替调度：一旦某个设备完成一个 micro-batch 的前向，立即开始另一个 micro-batch 的反向（而不是等所有前向完成）。
+
+    - 这种交错可以更早地释放激活占用的显存，降低显存峰值。
+
+    - 需要更复杂的调度逻辑和版本管理，但整体气泡更小，效率更高。
+
+    - PipeDream 还需要考虑参数版本一致性（因为前向和反向可能使用不同版本的参数），通常配合权重更新点的控制。
+
+    区别总结：
+
+    GPipe 简单，气泡可控（通过微批数量），但显存高；PipeDream 更高效，显存占用更低，但实现复杂度高。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ChO2w20yAiZl9Zko9tUc2plKnwe
+  block_id: InkjdaOfUo7EunxFDIbcHGxznZ9
+  page_token: ChO2w20yAiZl9Zko9tUc2plKnwe
+  original_title: 流水线并行（Pipeline Parallelism）如何划分模型？GPipe 和 PipeDream 的调度策略有何不同？
+  imported_at: '2026-09-21'

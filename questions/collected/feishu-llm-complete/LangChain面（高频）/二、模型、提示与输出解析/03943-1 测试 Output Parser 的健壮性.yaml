@@ -1,0 +1,108 @@
+---
+schema_version: 1
+id: feishu-llm-complete-da95d2c0db5c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 10.1 测试 Output Parser 的健壮性
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: 10.1 测试 Output Parser 的健壮性
+answer:
+  mode: rubric
+  reference_answer: |-
+    测试可以分为单元测试和集成测试两个层面。
+
+    单元测试
+
+    单元测试专注于解析器本身的逻辑，无需实际调用 LLM。我们可以手动构造各种合法和不合法的输入，验证解析器的行为是否符合预期。
+
+    ```python
+    import pytest
+    from your_parser_module import NameAgeParser
+
+    def test_valid_input():
+        parser = NameAgeParser()
+        result = parser.parse("姓名：张三，年龄：25")
+        assert result == {"姓名": "张三", "年龄": 25}
+
+    def test_missing_field():
+        parser = NameAgeParser()
+        with pytest.raises(ValueError, match="缺少必填字段"):
+            parser.parse("姓名：张三")
+
+    def test_invalid_age():
+        parser = NameAgeParser()
+        with pytest.raises(ValueError, match="年龄必须是数字"):
+            parser.parse("姓名：张三，年龄：二十五")
+
+    def test_extra_spaces():
+        parser = NameAgeParser()
+        result = parser.parse("  姓名：  李四  ，年龄： 30  ")
+        assert result == {"姓名": "李四", "年龄": 30}
+
+    def test_partial_json():
+        # 测试预处理函数
+        from your_utils import extract_and_clean_json
+        text = "好的，结果如下：\n{\"name\": \"张三\"}"
+        cleaned = extract_and_clean_json(text)
+        assert cleaned == '{"name": "张三"}'
+    ```
+
+    集成测试
+
+    集成测试调用真实的 LLM 接口，评估整个链在真实场景下的表现。可以准备一批测试样本，运行链并统计解析成功率。
+
+    ```python
+    import pytest
+    from your_chain import build_chain
+
+    @pytest.mark.integration
+    def test_chain_on_dataset():
+        chain = build_chain()
+        test_data = [
+            {"text": "我叫张三，今年28岁。", "expected_name": "张三"},
+            {"text": "李四，34岁，工程师", "expected_name": "李四"},
+            # ...更多测试用例
+        ]
+        failures = []
+        for item in test_data:
+            try:
+                result = chain.invoke({"text": item["text"]})
+                if result.name != item["expected_name"]:
+                    failures.append(f"预期{item['expected_name']}，实际{result.name}")
+            except Exception as e:
+                failures.append(f"文本'{item['text']}'解析失败: {e}")
+
+        success_rate = 1 - len(failures) / len(test_data)
+        assert success_rate >= 0.95, f"解析成功率 {success_rate:.2f} 低于 95%"
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/FkhTw9yBsiro60k5CSIcZezcnj6
+  block_id: Pwi6dB1jYoWgtLxL6Thc6FhjnAd
+  page_token: FkhTw9yBsiro60k5CSIcZezcnj6
+  original_title: 10.1 测试 Output Parser 的健壮性
+  imported_at: '2026-09-21'

@@ -1,0 +1,93 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8a09ba0c0c7b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 执行完工具调用后需要在事务提交后才发消息（避免消息先到但数据未提交），如何用 TransactionSynchronization
+  实现？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 执行完工具调用后需要在事务提交后才发消息（避免消息先到但数据未提交），如何用 TransactionSynchronization
+    实现？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（事务同步、消息发送、事务提交后执行）\n\n1️⃣ Common Answer\n\n用 @Transactional
+    注解方法，在方法最后发消息。或者用 TransactionSynchronizationManager 注册一个同步器，在事务提交后发消息。\n\n2️⃣
+    Impressive Answer\n\n- TransactionSynchronization 实现：\n\n@Service\npublic class
+    AgentService {\n       \n    @Autowired\n    private MessageProducer messageProducer;\n
+    \      \n    @Transactional\n    public void executeToolAndSendMessage(ToolRequest
+    request) {\n        // 1. 执行工具调用（事务操作）\n        ToolResult result = toolService.execute(request);\n
+    \          \n        // 2. 注册事务同步器\n        TransactionSynchronizationManager.registerSynchronization(\n
+    \           new TransactionSynchronization() {\n                @Override\n                public
+    void afterCommit() {\n                    // 事务提交后才发消息\n                    messageProducer.send(result);\n
+    \               }\n                   \n                @Override\n                public
+    void afterCompletion(int status) {\n                    // 事务完成后清理资源\n                    if
+    (status == STATUS_ROLLED_BACK) {\n                        log.warn(\"Transaction
+    rolled back, message not sent\");\n                    }\n                }\n
+    \           });\n           \n        // 3. 返回结果\n        return result;\n    }\n}\n\n-
+    封装 TransactionSynchronization 工具类：\n\n@Component\npublic class TransactionHelper
+    {\n       \n    public void afterCommit(Runnable callback) {\n        if (TransactionSynchronizationManager.isActualTransactionActive())
+    {\n            TransactionSynchronizationManager.registerSynchronization(\n                new
+    TransactionSynchronization() {\n                    @Override\n                    public
+    void afterCommit() {\n                        callback.run();\n                    }\n
+    \               });\n        } else {\n            // 如果没有事务，直接执行\n            callback.run();\n
+    \       }\n    }\n       \n    public void afterCompletion(Runnable callback)
+    {\n        if (TransactionSynchronizationManager.isActualTransactionActive())
+    {\n            TransactionSynchronizationManager.registerSynchronization(\n                new
+    TransactionSynchronization() {\n                    @Override\n                        public
+    void afterCompletion(int status) {\n                            callback.run();\n
+    \                       }\n                    });\n        } else {\n            callback.run();\n
+    \       }\n    }\n}\n\n- 使用工具类：\n\n@Service\npublic class AgentService {\n       \n
+    \   @Autowired\n    private TransactionHelper transactionHelper;\n       \n    @Autowired\n
+    \   private MessageProducer messageProducer;\n       \n    @Transactional\n    public
+    void executeToolAndSendMessage(ToolRequest request) {\n        // 执行工具调用\n        ToolResult
+    result = toolService.execute(request);\n           \n        // 注册事务提交后回调\n        transactionHelper.afterCommit(()
+    -> {\n            messageProducer.send(result);\n        });\n           \n        return
+    result;\n    }\n}\n\n- 事务回滚处理：\n\n@Transactional\npublic void executeToolAndSendMessage(ToolRequest
+    request) {\n    ToolResult result = toolService.execute(request);\n       \n    transactionHelper.afterCompletion(status
+    -> {\n        if (status == TransactionSynchronization.STATUS_COMMITTED) {\n            //
+    事务提交成功，发送消息\n            messageProducer.send(result);\n        } else if (status
+    == TransactionSynchronization.STATUS_ROLLED_BACK) {\n            // 事务回滚，记录日志或发送补偿消息\n
+    \           log.warn(\"Transaction rolled back for tool: {}\", request.getName());\n
+    \           messageProducer.sendCompensation(result);\n        }\n    });\n       \n
+    \   return result;\n}\n\n- 实践优化：\n\n- @TransactionalEventListener（Spring 4.2+）：\n\n@Component\npublic
+    class TransactionEventPublisher {\n       \n    @Autowired\n    private ApplicationEventPublisher
+    eventPublisher;\n       \n    @Transactional\n    public void executeToolAndSendMessage(ToolRequest
+    request) {\n        ToolResult result = toolService.execute(request);\n           \n
+    \       // 发布事务事件\n        eventPublisher.publishEvent(new ToolCompletedEvent(result));\n
+    \          \n        return result;\n    }\n}\n   \n@Component\npublic class TransactionEventListener
+    {\n       \n    @Autowired\n    private MessageProducer messageProducer;\n       \n
+    \   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)\n    public
+    void handleToolCompleted(ToolCompletedEvent event) {\n        // 事务提交后才执行\n        messageProducer.send(event.getResult());\n
+    \   }\n}\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcn98ESqgiwgjTYpIm9LwUCVf
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 3、场景题：Agent 执行完工具调用后需要在事务提交后才发消息（避免消息先到但数据未提交），如何用 TransactionSynchronization
+    实现？
+  imported_at: '2026-09-21'

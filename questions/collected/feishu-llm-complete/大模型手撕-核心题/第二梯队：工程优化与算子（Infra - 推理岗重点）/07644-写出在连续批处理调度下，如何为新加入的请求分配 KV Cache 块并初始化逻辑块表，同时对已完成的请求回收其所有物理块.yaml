@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5c86c1524075
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出在连续批处理调度下，如何为新加入的请求分配 KV Cache 块并初始化逻辑块表，同时对已完成的请求回收其所有物理块。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 写出在连续批处理调度下，如何为新加入的请求分配 KV Cache 块并初始化逻辑块表，同时对已完成的请求回收其所有物理块。
+answer:
+  mode: rubric
+  reference_answer: |-
+    流程
+
+    连续批处理在每轮 decode 后动态调整 batch。新请求到来时，根据其 prompt 长度预分配块；完成的请求立即回收块。
+
+    代码片段
+
+    ```python
+    def add_new_request(manager, seq_id, prompt_len):
+        num_blocks = (prompt_len + manager.block_size - 1) // manager.block_size
+        blocks = manager.allocate_blocks(seq_id, num_blocks)
+        # 后续 prefill 写入 KV 到这些块
+        return blocks
+
+    def remove_finished(manager, seq_id):
+        manager.free_seq(seq_id)
+    ```
+
+    实际调度：调度器维护 running 队列，每步迭代后检查生成 EOS 或达到 max_tokens 的序列，调用 remove_finished。新请求从 waiting 队列取出，先 prefill 分配块，然后转入 running。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IhgfwCPtoif3TWkyezuc4sW9nbg
+  block_id: FqV0dy9WQolNcCx3t6ucxIFanyC
+  page_token: IhgfwCPtoif3TWkyezuc4sW9nbg
+  original_title: 写出在连续批处理调度下，如何为新加入的请求分配 KV Cache 块并初始化逻辑块表，同时对已完成的请求回收其所有物理块。
+  imported_at: '2026-09-21'

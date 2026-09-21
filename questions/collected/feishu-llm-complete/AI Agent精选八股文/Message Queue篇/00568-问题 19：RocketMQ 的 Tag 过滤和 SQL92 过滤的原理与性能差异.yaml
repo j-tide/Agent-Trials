@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d9dec68efefb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 问题 19：RocketMQ 的 Tag 过滤和 SQL92 过滤的原理与性能差异？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 问题 19：RocketMQ 的 Tag 过滤和 SQL92 过滤的原理与性能差异？
+answer:
+  mode: rubric
+  reference_answer: "难度：⭐⭐⭐（Broker 端过滤 vs Consumer 端过滤、Tag hashcode、SQL92 表达式引擎）\n\n1️⃣
+    Common Answer 嗯...RocketMQ 可以用 Tag 过滤，比如发送消息时指定 Tag，消费时订阅特定 Tag。还有 SQL92 过滤，可以写更复杂的条件，比如
+    a > 10 and b = 'xxx'。Tag 过滤应该更快一点，SQL92 更灵活。\n\n2️⃣ Impressive Answer 我会从这几个角度思考：\n\n-
+    Tag 过滤原理\n\nBroker 端初筛：\n\n- ConsumeQueue 每条记录存储 8 字节 Tag hashcode\n\n- Consumer
+    拉取消息时，Broker 用 Tag hashcode 快速比对\n\n- Hashcode 冲突概率低（使用 MurmurHash），误判率极低\n\nConsumer
+    端精确匹配：\n\n- 消息实际拉取到 Consumer 后，再比对完整 Tag 字符串\n\n- 双重过滤确保准确性\n\n代码示例：\n\n```text\n//
+    Producer 发送消息\nMessage message = new Message(\"TopicTest\", \"TagA\", \"OrderID123\",
+    body);\n\n// Consumer 订阅 Tag\nconsumer.subscribe(\"TopicTest\", \"TagA || TagB\");
+    // 支持或运算\n```\n\n- SQL92 过滤原理\n\nBroker 端解析与过滤：\n\n- Consumer 订阅时发送 SQL92 表达式，如
+    TAGS is not null and TAGS in ('TagA', 'TagB')\n\n- Broker 解析表达式为过滤语法树\n\n- 每条消息拉取时，Broker
+    执行表达式引擎判断是否匹配\n\n- 支持的属性：TAGS、自定义属性（如 orderStatus > 0）\n\n代码示例：\n\n```text\n//
+    Producer 发送带属性的消息\nMessage message = new Message(\"TopicTest\", \"TagA\", body);\nmessage.putUserProperty(\"orderStatus\",
+    \"1\");\nmessage.putUserProperty(\"region\", \"HZ\");\n\n// Consumer 订阅 SQL92\nconsumer.subscribe(\"TopicTest\",
+    \n    MessageSelector.bySql(\"TAGS is not null and orderStatus > 0 and region
+    = 'HZ'\"));\n```\n\n- 性能对比\n\n[嵌入表格未展开]\n\n性能测试数据：\n\n- Tag 过滤：单 Broker 可支持 10
+    万+ TPS\n\n- SQL92 过滤：单 Broker 约 2-3 万 TPS（受表达式引擎性能限制）\n\n- 使用场景\n\nTag 过滤适用场景：\n\n-
+    消息分类简单（如订单状态：待支付、已支付、已发货）\n\n- 高吞吐场景（如日志采集、实时计算）\n\n- 消息属性固定，无需动态过滤\n\nSQL92 过滤适用场景：\n\n-
+    复杂业务规则（如 price > 100 and region = 'HZ' and status in (1,2)）\n\n- 低吞吐、高精度过滤\n\n-
+    需要动态调整过滤条件（不重启 Consumer）\n\n- 配置方式\n\nBroker 端配置（默认开启）：\n\n```text\n# 开启 SQL92
+    过滤支持\nenablePropertyFilter=true\n\n# SQL92 过滤最大表达式长度\nmaxMessageSize=4M\n```\n\nJava
+    代码示例：\n\n```text\n// Tag 过滤\nconsumer.subscribe(\"TopicOrder\", \"TagPaid || TagShipped\");\n\n//
+    SQL92 过滤\nconsumer.subscribe(\"TopicOrder\", \n    MessageSelector.bySql(\"TAGS
+    in ('TagPaid', 'TagShipped') and price > 100\"));\n```\n\n- 实战：过滤导致的消费倾斜问题\n\n问题现象：\n\n-
+    某个 Tag 的消息量特别大，导致消费该 Tag 的 Consumer 负载过高\n\n- 其他 Tag 的 Consumer 空闲，整体消费效率低\n\n解决方案：\n\n```text\n//
+    方案1：增加队列数和 Consumer 数，按 Tag 分组消费\n// TagA 消费者订阅 TopicOrder:Queue0-3，TagB 消费者订阅
+    TopicOrder:Queue4-7\n\n// 方案2：使用 SQL92 动态调整过滤条件\n// 根据消费延迟动态调整过滤表达式，平衡负载\n\n//
+    方案3：消息分流（推荐）\n// 将高频 Tag 的消息发送到独立 Topic\nproducer.send(new Message(\"TopicOrder_HighVolume\",
+    \"TagA\", body));\n```\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---\n\n### 6.20
+    消息队列生产端性能调优"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcnW6Lr7JMj7RciXJ32WkIs9b
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: 问题 19：RocketMQ 的 Tag 过滤和 SQL92 过滤的原理与性能差异？
+  imported_at: '2026-09-21'

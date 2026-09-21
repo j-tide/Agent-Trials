@@ -1,0 +1,112 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fe0bcdd37f03
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3E2 如何设计一个支持多租户的 MCP Server？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F3E2 如何设计一个支持多租户的 MCP Server？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    多租户的核心要求是：一个 MCP Server 实例为多个客户服务，但数据严格隔离，工具行为可能因租户而异。
+
+    设计原则：
+
+    - 上下文传递：每次工具调用必须携带租户 ID。
+
+    - 数据隔离：数据库查询自动附加租户过滤，或动态切换数据源。
+
+    - 工具差异化：不同租户可能看到不同的工具集（如 VIP 租户开放高级分析工具）。
+
+    - 无状态 Server + 请求级隔离：不能把租户上下文存成全局变量。
+
+    架构图：
+
+    [图片内容未导入]
+
+    实现步骤（Spring Boot 示例）：
+
+    第一步：定义租户上下文
+
+    public class TenantContext {
+        private static final ThreadLocal<String> CURRENT_TENANT = new ThreadLocal<>();
+        public static void set(String tenantId) { CURRENT_TENANT.set(tenantId); }
+        public static String get() { return CURRENT_TENANT.get(); }
+        public static void clear() { CURRENT_TENANT.remove(); }
+    }
+
+    第二步：用 Filter 从 MCP 请求头中提取租户 ID
+
+    在 MCP 的传输层（比如 HTTP SSE 或 stdio 无法带自定义头，所以通常在 HTTP 模式下使用 Header）。如果使用 Spring WebFlux，可以：
+
+    @Component
+    public class TenantFilter implements WebFilter {
+        @Override
+        public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+            String tenantId = exchange.getRequest().getHeaders().getFirst("X-Tenant-Id");
+            if (tenantId == null) {
+                return Mono.error(new SecurityException("Missing X-Tenant-Id header"));
+            }
+            TenantContext.set(tenantId);
+            return chain.filter(exchange).doFinally(signal -> TenantContext.clear());
+        }
+    }
+
+    第三步：在工具方法中使用租户上下文
+
+    @McpTool(name = "query_customers", description = "查询当前租户的客户列表")
+    public String queryCustomers() {
+        String tenantId = TenantContext.get();
+        // 方案A：手动拼接租户过滤
+        String sql = "SELECT * FROM customers WHERE tenant_id = '" + tenantId + "'";
+        // 方案B：使用 MyBatis-Plus 多租户插件，自动拦截
+        return jdbcTemplate.queryForList(sql).toString();
+    }
+
+    第四步：工具差异化（可选）
+
+    public List<Tool> getToolsForTenant(String tenantId) {
+        List<Tool> tools = new ArrayList<>(baseTools);
+        if ("VIP".equals(tenantService.getPlan(tenantId))) {
+            tools.add(new Tool("advanced_analytics", "高级分析", ...));
+        }
+        return tools;
+    }
+
+    这样不同租户看到的 tools/list 返回结果不同。
+
+    多租户设计的核心就是一句话：让租户 ID 像一条隐形的水印，流淌在每一次工具调用的全链路中，数据层自动过滤，业务层按需定制。 永远不要在 Server 里缓存租户相关的全局状态，用 ThreadLocal 或请求上下文保持隔离，才能安全地为成百上千个客户服务。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Na85wIeNuichcjklD4LcUQ6Gn2c
+  block_id: doxcn2nbIk4lvChT5INlD4FLJfh
+  page_token: Na85wIeNuichcjklD4LcUQ6Gn2c
+  original_title: "\U0001F3E2 如何设计一个支持多租户的 MCP Server？"
+  imported_at: '2026-09-21'

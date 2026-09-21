@@ -1,0 +1,135 @@
+---
+schema_version: 1
+id: feishu-llm-complete-001dc3677547
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 'Q19: Agent 服务的多环境部署与配置管理（Dev/Staging/Prod）如何设计？'
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: AI 最前线 (Harness|沙箱部署|K8s)篇
+tags: &1
+- AI Agent精选八股文
+- AI 最前线 (Harness|沙箱部署|K8s)篇
+content:
+  prompt: 'Q19: Agent 服务的多环境部署与配置管理（Dev/Staging/Prod）如何设计？'
+answer:
+  mode: rubric
+  reference_answer: |-
+    ⭐⭐（最佳实践类：Helm Chart 模板化、Kustomize 多环境 overlay、ConfigMap/Secret 管理、GitOps）
+
+    1️⃣ Common Answer
+
+    我们为不同环境准备了不同的配置文件。开发环境用 application-dev.yaml，预发布环境用 application-staging.yaml，生产环境用 application-prod.yaml。每个环境配置不同的数据库连接、Redis 地址和日志级别。部署时通过环境变量或者启动参数指定使用哪个配置文件。K8s 里也会用不同的 ConfigMap 来挂载这些配置文件。
+
+    2️⃣ Impressive Answer
+
+    Agent 服务的多环境部署有它的特殊性，我主要从环境差异、配置管理、部署流程和模型一致性四个方面设计。
+
+    - Agent 多环境的特殊性
+
+    和普通微服务不同，Agent 在不同环境需要配置的内容更多元：
+
+    - 模型 endpoint 不同：dev 用小模型（GPT-3.5）快速迭代节省成本，prod 用大模型（GPT-4）保证质量
+
+    - Prompt 模板不同：dev 可以用简化版快速验证，prod 用经过 A/B 测试验证的优化版
+
+    - API Key 不同：不同厂商、不同账号的 key 要隔离管理
+
+    - 工具列表不同：dev 可以开启调试工具，prod 要关闭并开启安全护栏
+
+    - Helm Chart 模板化部署
+
+    templates/ 目录放 Deployment、Service、HPA、ConfigMap 等模板，values/ 目录分环境放 values 文件。一套 Chart，不同环境只要用不同的 values 文件就能部署。
+
+    ```text
+    # values-dev.yaml
+    image:
+      repository: my-registry.com/agent-service
+      tag: v1.2.3-dev
+    replicaCount: 1
+    config:
+      modelEndpoint: https://api.openai.com/v1
+      modelName: gpt-3.5-turbo
+      enableDebugTools: true
+      logLevel: DEBUG
+    ```
+
+    ```text
+    # values-prod.yaml
+    image:
+      repository: my-registry.com/agent-service
+      tag: v1.2.3
+    replicaCount: 3
+    config:
+      modelEndpoint: https://api.openai.com/v1
+      modelName: gpt-4
+      enableDebugTools: false
+      logLevel: INFO
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 10
+    ```
+
+    - Kustomize 多环境 overlay
+
+    base/ 放通用 YAML，overlays/dev/staging/prod/ 分别放环境差异：
+
+    ```text
+    # overlays/prod/kustomization.yaml
+    namespace: prod
+    bases:
+      - ../../base
+    patchesStrategicMerge:
+      - replica-count-patch.yaml
+      - config-patch.yaml
+    ```
+
+    - 配置管理——三类分治
+
+    - ConfigMap：Prompt 模板、模型 endpoint、Feature Flag（非敏感，可提交 Git）
+
+    - Secret：API Key、数据库密码（敏感，不提交 Git）
+
+    - External Secrets Operator：从 Vault/AWS Secrets Manager 自动同步 Secret 到 K8s
+
+    - GitOps（ArgoCD）
+
+    Git 仓库是配置的唯一真实来源。所有环境的配置变更通过 PR 提交，审批通过后合并，ArgoCD 自动检测变更并同步到目标 K8s 集群。prod 环境额外加人工审批 gate。
+
+    - 环境间模型版本一致性
+
+    Model Registry（MLflow/HF Hub）管理模型版本。dev 验证通过的模型版本打 tag 后 promote 到 staging，staging 验证后再 promote 到 prod，确保每个环境使用的模型版本可追溯。
+
+    我的实践：用 Helm + ArgoCD 实现多环境管理。dev 环境自动部署（PR 合并后自动触发），staging 手动触发用于 QA 验证，prod 需要团队 Lead 审批。曾遇到 dev 的 Prompt 更新后忘记同步到 prod 导致线上效果下降，后来引入 ConfigMap 版本管理，用 Git commit hash 作为版本号，部署时强制指定版本，避免了配置不一致。从代码提交到 prod 部署约 30 分钟，大部分时间在等待审批和自动化测试。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ### Claude Code
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M0n4w1EKwiQwxKkHxMvc4LZUn7p
+  block_id: doxcnQ3EzmzW4Zc0TU1Ik54I6Jf
+  page_token: M0n4w1EKwiQwxKkHxMvc4LZUn7p
+  original_title: 'Q19: Agent 服务的多环境部署与配置管理（Dev/Staging/Prod）如何设计？'
+  imported_at: '2026-09-21'

@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-17ea1b030c9b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 36.TP 中的通信通常是点对点 (P2P) 还是集合通信？为什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 36.TP 中的通信通常是点对点 (P2P) 还是集合通信？为什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    TP 中通常使用集合通信，具体是 AllReduce、AllGather 和 ReduceScatter。
+
+    原因：
+
+    - TP 将单层权重切分到多个 GPU 上，每张卡只计算部分输出。要得到完整结果，必须将各部分贡献合并（例如求和或拼接）。
+
+    - 合并部分和最常见的是 AllReduce（如 Megatron 的 f 和 g 操作）。前向时，MLP 第二层按行切分，每卡计算部分输出，需要 AllReduce 求和得到完整输出；反向时，梯度计算也需要 AllReduce 来聚合各部分贡献。
+
+    - 对于某些切分方式（如注意力头并行），输出投影按行切分，前向需要 AllReduce 合并输出；如果按列切分 QKV，前向不需通信，反向需要 AllReduce 梯度。
+
+    - AllGather 和 ReduceScatter 在一些变体中也用到，但总体上，因为需要多个 GPU 共同参与并得到相同结果，集合通信比 P2P 更高效。P2P 在 TP 中仅用于控制消息或少量数据传输，不用于激活值聚合。
+
+    因此，TP 核心依赖集合通信，且这些通信必须非常快，所以 TP 通常限制在单节点内。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XxBHwhYPNiVrDYkSIHCccehWn72
+  block_id: FqvHd7Z4Ao2xrVx5zjAcsOGDnWr
+  page_token: XxBHwhYPNiVrDYkSIHCccehWn72
+  original_title: 36.TP 中的通信通常是点对点 (P2P) 还是集合通信？为什么？
+  imported_at: '2026-09-21'

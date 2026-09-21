@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f074aedb163b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 验证 RoPE 的对称性和周期性
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 验证 RoPE 的对称性和周期性
+answer:
+  mode: rubric
+  reference_answer: |-
+    测试脚本：
+
+    ```python
+    def test_rope_relative_property():
+        dim = 64
+        max_len = 100
+        base = 10000.0
+        freqs_cis = precompute_freqs_cis(dim, max_len, base)  # (max_len, dim//2)
+
+        # 随机生成两个 query 和 key 向量
+        B, H, L = 2, 4, 10
+        q = torch.randn(B, H, L, dim)
+        k = torch.randn(B, H, L, dim)
+        # 随机选择一对位置 m, n
+        m, n = 3, 7
+        delta = n - m
+        # 施加 RoPE
+        def rotate(t, pos):
+            cis = freqs_cis[pos].unsqueeze(0).unsqueeze(0)  # (1,1,dim//2)
+            t_ = torch.view_as_complex(t.float().reshape(*t.shape[:-1], -1, 2))
+            t_rot = t_ * cis
+            return torch.view_as_real(t_rot).flatten(-2).type_as(t)
+
+        qm_rot = rotate(q[:, :, m:m+1], m)
+        kn_rot = rotate(k[:, :, n:n+1], n)
+        # 内积
+        score_mn = torch.einsum('b h d, b h d -> b h', qm_rot.squeeze(2), kn_rot.squeeze(2))
+
+        # 改变绝对位置但保持相对距离：m'=2, n'=6 (Δ=4)
+        m2, n2 = 2, 6
+        qm2_rot = rotate(q[:, :, m2:m2+1], m2)
+        kn2_rot = rotate(k[:, :, n2:n2+1], n2)
+        score_m2n2 = torch.einsum('b h d, b h d -> b h', qm2_rot.squeeze(2), kn2_rot.squeeze(2))
+
+        # 检查是否接近
+        assert torch.allclose(score_mn, score_m2n2, atol=1e-4), "RoPE 内积不是仅依赖于相对位置！"
+        print("测试通过：内积仅依赖于相对位置。")
+
+        # 测试远程衰减：计算不同 Δ 的内积并观察趋势
+        for delta in [1, 2, 4, 8, 16, 32, 64, 128]:
+            # 随机生成 q 和 k，计算平均内积
+            pass  # 可扩展
+    ```
+
+    此脚本验证了 RoPE 的核心性质。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VuccwPjSli6dm2kOTxJclpKdnhb
+  block_id: VQLIdJlE0onCyIxu4HCcMt2Mnne
+  page_token: VuccwPjSli6dm2kOTxJclpKdnhb
+  original_title: 验证 RoPE 的对称性和周期性
+  imported_at: '2026-09-21'

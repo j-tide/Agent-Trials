@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-17f5b4f0aa54
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F504 如果一个链中既有同步组件又有异步组件，会有什么问题？如何解决？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F504 如果一个链中既有同步组件又有异步组件，会有什么问题？如何解决？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    典型问题：
+
+    - 性能瓶颈：同步组件会被扔到线程池执行，受限于线程池大小，高并发时成为瓶颈。
+
+    - 隐式阻塞：如果同步组件在异步组件之前，调用 ainvoke 时，整个流程会在线程池中执行该同步部分，之后再切回协程，增加延迟。
+
+    - 工具调用：Agent 的工具如果是同步的，AgentExecutor 会使用 run_in_executor，多个工具调用会争抢线程池。
+
+    解决方案：
+
+    - 将同步组件替换为异步版本：比如将 requests 替换为 aiohttp，数据库查询用 aiomysql。
+
+    - 使用 asyncio.to_thread 明确将同步调用封装，并适当调大线程池大小（asyncio.get_event_loop().set_default_executor(ThreadPoolExecutor(max_workers=...))）。
+
+    - 重新设计链结构：将耗时的同步操作放在独立服务中，通过异步消息队列调用，避免阻塞主链。
+
+    - 监控线程池使用率：通过 loop._default_executor 查看工作线程数，若持续满载，说明同步组件是瓶颈。
+
+    实践案例：一个 RAG 系统中，检索器使用了同步的 FAISS 查询，导致并发 20 请求时，线程池耗尽，新请求排队。我将 FAISS 查询包装在 asyncio.to_thread 并调整线程池为 100，问题缓解；最终将 FAISS 替换为支持异步的 Qdrant，瓶颈彻底消除。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XRv0wx736iBPPjk1VBdcvmwSnmb
+  block_id: DRtudR3NRo6r05xg0xUcB6munrB
+  page_token: XRv0wx736iBPPjk1VBdcvmwSnmb
+  original_title: "\U0001F504 如果一个链中既有同步组件又有异步组件，会有什么问题？如何解决？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9be6845acb29
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 INT8 矩阵乘法的模拟：输入两个 FP32 矩阵，分别量化为 int8（带 scale），在 int32 下完成矩阵乘法，再反量化回 FP32，输出结果
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现 INT8 矩阵乘法的模拟：输入两个 FP32 矩阵，分别量化为 int8（带 scale），在 int32 下完成矩阵乘法，再反量化回 FP32，输出结果
+answer:
+  mode: rubric
+  reference_answer: "INT8 矩阵乘法 是量化推理的核心。公式：假设有矩阵 A (M×K) 和 B (K×N)，分别量化为 int8，scale
+    为 s_a 和 s_b（可以是标量或向量）。则：\n\n[图片内容未导入]\n\n其中 A_q, B_q 是 int8 矩阵，矩阵乘积在 int32 累积（避免溢出），然后乘以
+    scale 的乘积反量化。如果 scale 是 per-tensor 标量，直接相乘；如果 scale 是 per-channel 向量，则需要广播处理。\n\n实现要点：\n\n-
+    使用对称 per-tensor 量化以简化，scale 为标量。\n\n- 矩阵乘法可以使用 PyTorch 的 torch.matmul 或 torch.mm，输入需转换为
+    int8？ PyTorch 对 int8 的 matmul 支持有限（通常需要通过 torch.int8 乘法后自动提升为 int32？）。可以直接使用 torch.matmul(A_q.float(),
+    B_q.float()) 但这就不是整数计算了。为了模拟整数计算，我们依然用浮点计算乘积，只是用 int8 表示值，最终结果乘以 scale 乘积。这样在数学上等价。如果要真正使用整数运算，可利用
+    torch.int32 的矩阵乘法，但 PyTorch 的 torch.mm 不支持 int8。因此模拟时可以用 torch.matmul(A_q.to(torch.int32),
+    B_q.to(torch.int32)) 在整数域得到 int32，然后转为 float 乘以 scale。这样可以验证整数计算的量化效果（精度损失）。\n\n代码：\n\n```python\ndef
+    int8_matmul_sim(A_fp: torch.Tensor, B_fp: torch.Tensor, bits=8):\n    \"\"\"\n
+    \   模拟 INT8 矩阵乘法：A(M,K) @ B(K,N)\n    采用 per-tensor 对称量化\n    \"\"\"\n    # 量化
+    A, B\n    A_q, scale_a = symmetric_quantize(A_fp, bits)  # 返回 int8, scale\n    B_q,
+    scale_b = symmetric_quantize(B_fp, bits)\n    \n    # 整数矩阵乘法（int32 避免溢出）\n    C_int32
+    = torch.matmul(A_q.to(torch.int32), B_q.to(torch.int32))\n    \n    # 反量化\n    scale_c
+    = scale_a * scale_b\n    C_fp = C_int32.float() * scale_c\n    return C_fp, C_int32,
+    scale_c\n\n# 测试\nA = torch.randn(4, 8) * 0.5\nB = torch.randn(8, 4) * 0.5\nC_orig
+    = A @ B\nC_sim, _, _ = int8_matmul_sim(A, B)\nprint(\"Max error:\", (C_orig -
+    C_sim).abs().max().item())\n```\n\n如需 per-channel，scale_a 为 [M] 或 [K]，需要广播乘法。一般量化权重
+    B 使用 per-channel（输出通道），激活 A 用 per-tensor。代码可相应调整。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: DTCRdjfqjowYuXxJTILcL39Unrb
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 实现 INT8 矩阵乘法的模拟：输入两个 FP32 矩阵，分别量化为 int8（带 scale），在 int32 下完成矩阵乘法，再反量化回
+    FP32，输出结果
+  imported_at: '2026-09-21'

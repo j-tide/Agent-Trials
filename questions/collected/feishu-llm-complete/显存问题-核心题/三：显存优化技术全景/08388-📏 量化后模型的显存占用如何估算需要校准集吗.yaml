@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6c9f975367ea
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CF 量化后模型的显存占用如何估算？需要校准集吗？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F4CF 量化后模型的显存占用如何估算？需要校准集吗？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 量化后模型显存 = 量化权重字节数 + 量化常数（scale/zero-point）+ KV Cache（若适用）+
+    激活。校准集在大多数 PTQ 方法中是必需的，用于确定量化参数和/或重建输出。\n\n\U0001F4D0 估算公式：\n\n- 权重大小 = 参数量 ×
+    每参数位数 / 8。\n\n- KV Cache = 2 × 层数 × KV 头数 × 头维度 × 精度字节 × 序列长度。\n\n- 总显存 ≈ 权重 +
+    KV Cache + 少量激活（推理时约 0.5-2 GB）。\n\n\U0001F527 是否需要校准集？\n\n- 对于 PTQ（如 GPTQ、AWQ、SmoothQuant），需要。校准集用于收集激活统计、计算
+    Hessian 或优化量化参数，通常几百到几千条样例足够。校准数据应与任务分布匹配，以保持精度。\n\n- 动态量化（如 Dynamic Quantization）
+    不需要，但精度较低。\n\n- 权重量化（如简单的 RTN round-to-nearest） 不需要校准集，可直接转换，但精度损失大，大模型基本不用。\n\n✅
+    因此，估算显存可直接计算，而高效量化离不开校准集来保证质量。\n\n- 需要完整训练循环：前向时插入伪量化节点（fake-quant），反向传播计算梯度，更新原始浮点权重。\n\n-
+    显存至少包括：全精度权重副本、梯度、优化器状态（Adam 等）、激活值。量化本身增加少量缩放因子梯度，但主体与全量微调类似。\n\n- 对于 7B 模型，QAT
+    显存需求接近全量微调（80 GB+），因此很少单独用于大模型。\n\n- 不需要反向传播，只需少量校准数据（几百到几千条）进行统计或层输出重建。\n\n-
+    显存仅需加载模型权重（可能 FP16）+ 校准时所需的激活和中间缓冲，通常比推理稍高但远低于训练。\n\n- 例如 GPTQ 或 AWQ 处理 7B 模型，在
+    24GB 显卡即可完成，显存占用约 10-15 GB。\n\n- INT4：参数量 × 0.5 字节\n\n- INT8：参数量 × 1 字节\n\n- 分组量化（如
+    group_size=128）会额外增加 scale/zero-point 的开销。例如 INT4 分组量化，每 128 个权重共享一个 FP16 scale，开销
+    = 参数量 / 128 × 2 字节，占比约 3%，通常可忽略。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/O9HXwGiEBiVBQbkH465cEZS7n1d
+  block_id: EU5DdJaUPo0Fvlx311CcyftonQ9
+  page_token: O9HXwGiEBiVBQbkH465cEZS7n1d
+  original_title: "\U0001F4CF 量化后模型的显存占用如何估算？需要校准集吗？"
+  imported_at: '2026-09-21'

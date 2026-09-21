@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-86436360757f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 处理大规模语料时内存不足，实现分批 BPE 训练的伪代码：分块读入语料，逐块统计词频和 bigram，最后合并全局 bigram 计数进行合并
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 处理大规模语料时内存不足，实现分批 BPE 训练的伪代码：分块读入语料，逐块统计词频和 bigram，最后合并全局 bigram 计数进行合并
+answer:
+  mode: rubric
+  reference_answer: "当语料过大无法全部加载内存时，需要分批处理。BPE 训练的第一步是词频统计，可以在遍历语料时累积。如果我们能分批统计词频并合并，即可得到全局词频。但
+    BPE 的合并步骤需要基于全局词频和符号序列，如果内存无法容纳所有单词的符号序列（例如单词种类极多），我们需要采用一些近似或外部存储策略。标准的分批训练方法常用于大规模
+    BPE（如 SentencePiece），使用如下策略：\n\n- 分批统计词频：逐块读取文本，切词，更新词频字典（内存中保留频率即可，单词种类通常远小于总
+    token 数，可以存入内存）。如果单词种类过多，可以牺牲罕见词进行过滤（如 min frequency）。\n\n- 初始化的符号序列：在获得全局词频后，我们可以为每个单词生成初始符号序列。如果单词种类依然太多，可在合并阶段部分驻留磁盘，或采用高效的流式合并算法。但常见的做法是：一旦词频统计完毕，单词种类数可能为几十万到几百万，符号序列可以用字典存储，对于现代内存尚可接受。如果单词种类大到百亿级别，则需采用分布式处理。对于“内存不足”通常指无法一次性加载文本，但词频字典还是能存的。伪代码可以这样设计。\n\n分批统计词频：\n\n```text\nprocedure
+    batch_collect_word_freqs(corpus_files):\n    word_freq = empty dictionary\n    for
+    each file in corpus_files:\n        for line in file:\n            words = tokenize_line(line)
+    \  # 按空格或预分词\n            for w in words:\n                word_freq[w] += 1\n
+    \   return word_freq\n```\n\n之后使用全局 word_freq 进行初始化。\n\n如果连单词的符号序列都放不下（即 word_symbols
+    太大），我们可以采取 分片合并策略：将单词根据首字母或哈希分桶，对每个桶独立进行部分 BPE 合并？但合并需要跨单词统计 bigram，不能完全独立。真正的超大规模通常使用分布式计算框架（如
+    Spark）或 SentencePiece 内部基于后缀数组的算法，不是基于单词序列。但对于本问题，我们可在伪代码中体现基本的分批思想：\n\n- 使用外部排序或数据库存储单词符号序列，每次计算
+    bigram 频率时扫描磁盘上的序列，合并后写回。这属于 I/O 密集型，但可行。\n\n- 伪代码简化：假设词频统计后单词种类可控，其余步骤在内存进行。若不能，可采用“多次遍历”方法：第一遍只统计词频，第二遍初始化符号序列并写入临时文件，第三遍开始合并，每次合并读取临时文件，更新并写回。这可以处理任意大小的词表，虽然速度慢。伪代码描述如下：\n\n```text\nprocedure
+    incremental_merge(word_freq, num_merges):\n    # 假设 word_freq 大小可放入内存，但符号序列总字节很大，我们用文件存储\n
+    \   write_initial_word_symbols_to_file(word_freq, \"symbols.txt\")\n    for step
+    in 1..num_merges:\n        bigram_freq = {}\n        # 读取 symbols.txt，统计 bigram
+    频率\n        for each (symbols_str, freq) in read_symbols_file(\"symbols.txt\"):\n
+    \           symbols = parse(symbols_str)\n            for i in 0..len(symbols)-2:\n
+    \               pair = (symbols[i], symbols[i+1])\n                bigram_freq[pair]
+    += freq\n        \n        if bigram_freq empty: break\n        best_pair = select_best(bigram_freq)\n
+    \       merges.append(best_pair)\n        \n        # 再次读取 symbols.txt，对每个序列合并
+    best_pair，写入新临时文件\n        new_file = \"symbols_step_\" + step + \".txt\"\n        for
+    each (symbols_str, freq) in read_symbols_file(\"symbols.txt\"):\n            symbols
+    = merge_in_sequence(parse(symbols_str), best_pair)\n            write new_file
+    with (symbols, freq)\n        \n        替换 symbols.txt 为新文件\n    return merges,
+    final_vocab_from_last_file\n```\n\n这种伪代码展示了如何分批/外存处理。\n\n但鉴于问题可能期待的是“分批统计词频和 bigram”，更可能在合并前，初始
+    bigram 频率可以通过分批统计得到，而不需要一次性构建所有符号序列。实际上，初始 bigram 频率可以直接从词频字典分批构建：对于每个单词，其字符序列已知，可以流式生成初始
+    bigram，累加到全局字典。这一步可以分批进行：将单词列表分块，每块生成其初始符号序列并更新 bigram 频率字典，然后丢弃该块的符号序列，只保留 bigram
+    计数。但后续合并需要修改符号序列，所以不能全部丢弃。因此需要保留符号序列以便后续合并。若内存不足以保留所有符号序列，可能采用前述外存方法。\n\n这里提供一个更务实的“分批
+    BPE 训练”伪代码，假设内存足够存下符号序列但文本不能一次性加载：\n\n```text\n算法 Batched_BPE(corpus_generator,
+    num_merges):\n    word_freq = Counter()\n    # 批次处理文本\n    for text_chunk in corpus_generator:\n
+    \       words = tokenize(text_chunk)\n        word_freq.update(words)\n    \n
+    \   # 初始化（内存中）\n    word_symbols = []\n    for word, freq in word_freq.items():\n
+    \       symbols = list(word) + ['</w>']\n        word_symbols.append([symbols,
+    freq])\n    \n    # 常规合并（内存中完成）\n    return standard_bpe_merge(word_symbols, num_merges)\n```\n\n表明主要瓶颈是文本读取，通过生成器分批读取即可。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XDqKw0GPGi6JvkkfpwUcqpdAndd
+  block_id: HbSUdb3gNoNhKBxiKPcc5rZKnOd
+  page_token: XDqKw0GPGi6JvkkfpwUcqpdAndd
+  original_title: 处理大规模语料时内存不足，实现分批 BPE 训练的伪代码：分块读入语料，逐块统计词频和 bigram，最后合并全局 bigram
+    计数进行合并
+  imported_at: '2026-09-21'

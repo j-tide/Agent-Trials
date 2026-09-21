@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bd0c3889495a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 2. GPT-as-judge评估时，如何设置prompt以减少偏差？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 2. GPT-as-judge评估时，如何设置prompt以减少偏差？
+answer:
+  mode: rubric
+  reference_answer: |-
+    GPT-as-judge（使用GPT-4等强模型作为评判者）是目前评估SFT模型最主流的高质量方法。但评判模型本身并不客观，它会受到prompt措辞、回答顺序、回答风格等多种偏差的影响。一个好的评判prompt需要精密设计。
+
+    核心策略一：强制结构化输出
+
+    不要让评判模型输出一个段落描述，而是要求它输出JSON格式的结果，包含多个维度的独立评分和简要理由。例如：
+
+    ```text
+    请从以下三个维度对回答评分（1-5分）：
+    1. 有用性：回答是否解决了用户的问题？
+    2. 准确性：回答中的事实是否正确？
+    3. 流畅度：回答的语言是否自然流畅？
+    请以JSON格式输出：{"有用性": 分数, "准确性": 分数, "流畅度": 分数, "总体评价": "简要理由"}
+    ```
+
+    结构化输出迫使模型对每个维度分别思考，减少了因某一维度突出而产生的晕轮效应。同时，JSON易于解析，便于后续统计分析。
+
+    核心策略二：交换位置并取平均
+
+    评判模型普遍存在位置偏差：倾向于给排在第一个的回答更高的分数。为抵消这种偏差，最有效的方法是对每一对回答评估两次——第二次交换两个回答的顺序。最终的评分取两次评分的平均。虽然计算量翻倍，但这是目前唯一能可靠消除位置偏差的方法。
+
+    核心策略三：加入“锚点”与校准示例
+
+    在prompt中提供少量（1-2个）带有人工标注分数的示例，说明什么样的回答得高分、什么样的得低分。这相当于给评判模型进行了few-shot校准，将其评分标准与人类标准对齐。例如：
+
+    ```text
+    评分参考：
+    - 一个得1分的回答：完全答非所问，如用户问天气，回答了一首诗。
+    - 一个得5分的回答：准确、完整地解决问题，提供额外有帮助的信息，语言友好自然。
+    ```
+
+    核心策略四：明确评分标准的具体含义
+
+    不要只写“给有用性打分”，而要详细解释什么是有用性：“5分意味着回答直接、完整地解决了问题，并主动提供了相关的额外信息；1分意味着完全忽略了用户的请求。” 模糊的标准会让评判模型自由发挥，引入不可控的偏差。
+
+    核心策略五：要求先思考再打分
+
+    在prompt中要求模型“先分析该回答的优点和不足，再给出最终分数”。这种“思维链”要求让模型进行深度推理，而不是凭表面印象草率给分。研究发现，这能显著提高评分的准确性和一致性。
+
+    核心策略六：控制回答长度带来的干扰
+
+    如果比较的两个回答长度差异很大（比如一个10个字，一个500字），评判模型可能因长度而产生偏好。可以在prompt中特别提醒：“评分时请不要被回答的长度所影响，一个简短但精准的回答可以得高分，一个冗长但空洞的回答应该得低分。”
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BdiuwRnUqijJb9kQLngc34v7ngc
+  block_id: MvFSdrS1Co3n3uxM1vvc5pGPngh
+  page_token: BdiuwRnUqijJb9kQLngc34v7ngc
+  original_title: 2. GPT-as-judge评估时，如何设置prompt以减少偏差？
+  imported_at: '2026-09-21'

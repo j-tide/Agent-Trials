@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-67e65fe5cf12
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 微调过程中验证损失下降但实际生成质量变差，为什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 微调过程中验证损失下降但实际生成质量变差，为什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这个矛盾现象根源在于 交叉熵损失作为训练代理指标的局限性。它能衡量模型对标准回答 token 的预测准确度，却无法捕捉生成质量的多维性（如逻辑性、创造性、安全性、上下文一致性）。当验证损失下降而生成质量变差时，通常发生了以下情况：
+
+    - 过拟合与模板化记忆：模型死记硬背了训练集中的高频句式和词汇。验证集与训练集分布相似（通常来自同一来源），模型靠“背诵”即可降低验证损失。但在真实开放域生成中，面对稍微变化的指令，它只会机械套用这些模板，导致回答虽然语法正确但内容空泛、逻辑断裂。
+
+    - 分布坍缩：验证损失下降伴随着模型输出概率分布的极端尖锐化。模型对某几种“安全回答模式”变得极度自信，完全压制了其他可能的生成路径。验证损失是计算在给定参考答案上的，它无法惩罚模型“遗忘”了其他同样正确但更灵活的表达方式。因此损失可以继续降低，但实际的对话体验却变得僵硬、无趣。
+
+    - 安全与对齐信号的隐性代价：如果 SFT 数据中包含大量生硬的拒绝样本或过于谨慎的表述，验证损失可能会因为这些样本中“拒绝”关键词的容易预测而下降，但实际生成时，模型却变得过度拒绝或表达模糊，损害了有用性。
+
+    - 教师强制（Teacher Forcing）的欺骗性：验证损失是在教师强制（每一步都输入真实上下文）下计算的，而真实生成是自回归的，错误会累积。过拟合使模型在教师强制下表现良好，但一旦开始自回归生成，任何微小的偏差都会让它进入从未见过的“错误上下文”区域，导致后续生成质量急剧恶化。
+
+    解决方向：不能仅依赖损失选择模型。必须结合生成式评估：定期用当前 checkpoint 对一组固定的复杂指令进行实际生成，并用强模型（如 GPT-4）或人工评估其逻辑性、有用性、流畅度等维度。当损失与生成质量背离时，应信任生成质量评估的结果，并采取早停或调整数据/超参。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: Fzsud36MloKKRmxOdjNcpcZonJe
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 微调过程中验证损失下降但实际生成质量变差，为什么？
+  imported_at: '2026-09-21'

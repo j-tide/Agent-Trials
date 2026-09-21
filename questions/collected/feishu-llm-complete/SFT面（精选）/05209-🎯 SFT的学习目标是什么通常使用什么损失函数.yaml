@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3c4f24733331
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3AF SFT的学习目标是什么？通常使用什么损失函数？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F3AF SFT的学习目标是什么？通常使用什么损失函数？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    SFT的学习目标本质上是最大化在给定指令输入条件下，生成目标回答的概率。用更正式的语言描述就是：学习一个条件概率分布 P(回答 | 指令)，使得模型在看到指令时，能输出一段高质量的回答。这个学习目标将预训练模型的“无条件生成”转化为了“有条件生成”。
+
+    损失函数方面，SFT几乎无一例外地使用标准的交叉熵损失函数（Cross-Entropy Loss），和预训练阶段一模一样。这看似没什么变化，但其中有几个关键点和技巧：
+
+    [图片内容未导入]
+
+    这个公式与预训练的区别仅在于：预训练中 x 和 y 是不加区分的连续文本，而在SFT中，x 被明确地视为“条件输入”，y 是“待预测的输出”。
+
+    - 条件生成的关键实现——Loss Masking
+    虽然损失函数形式不变，但在计算时有一个至关重要的技巧：不对指令部分的token计算损失。这就是所谓的 loss masking。具体操作是，在计算交叉熵时，将指令序列中所有token位置对应的损失乘以0，只保留回答部分的损失。如果没有这一步，模型就会去学习“生成指令”，而不是“根据指令生成回答”，这会浪费模型容量，并模糊化指令与回答的边界。
+
+    - 教师强制（Teacher Forcing）
+
+    SFT训练采用教师强制策略：在训练时，回答部分的每个位置，模型看到的都是真实的、来自训练数据的上一个token，而不是模型自己上一步预测出来的token。这使得训练过程是稳定的、可并行化的。但这种策略也埋下了暴露偏差的隐患——训练时模型从未见过自己生成的错误token，推理时一旦出错就可能越错越远。
+
+    - 概率最大化与指令遵循的等价性
+
+    虽然表面上模型只是在学习最大化下一个token的概率，但在SFT数据构造精良的前提下，这一行为等效于学习“指令遵循”。因为数据中的回答都被精心编写为高质量的、符合指令的文本。模型发现，只有学会“解读指令意图”并“生成符合意图的连贯文本”，才能在这些数据上获得低损失。这种“挟数据以令模型”的策略，是SFT能够改变模型行为模式的根本原因。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KPIxw03EPiQ1rrkxrvUcqRIznBf
+  block_id: DuHXdnw35ojPK8xYfe3cbITEnMd
+  page_token: KPIxw03EPiQ1rrkxrvUcqRIznBf
+  original_title: "\U0001F3AF SFT的学习目标是什么？通常使用什么损失函数？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,168 @@
+---
+schema_version: 1
+id: feishu-llm-complete-41a8026153d9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 1.3 MVCC 多版本并发控制
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 1.3 MVCC 多版本并发控制
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### MVCC 实现原理：ReadView、undo log、版本链
+
+    1、基础题：什么是 MVCC？它的作用是什么？
+
+    ⭐（考察 MVCC 概念、基本作用）
+
+    MVCC（Multi-Version Concurrency Control，多版本并发控制）是一种数据库并发控制机制，它通过保存数据的多个版本，使得读写操作可以互不阻塞地并发执行。
+
+    MVCC 的主要作用是：
+
+    - 提高数据库并发性能，读操作不加锁，不阻塞写操作
+
+    - 在 RR 和 RC 隔离级别下实现不同的一致性读
+
+    - 解决读写冲突，避免脏读、不可重复读等问题
+
+    2、进阶题：详细说明 MVCC 的实现原理，包括 ReadView、undo log、版本链？
+
+    ⭐⭐（考察 MVCC 核心机制、底层实现）
+
+    1️⃣ Common Answer MVCC 就是多版本并发控制，用 undo log 保存旧版本的数据，形成版本链。ReadView 是一个视图，用来判断哪个版本是可见的。每次查询的时候，根据 ReadView 找到可见的版本。这样读写就不冲突了。MySQL 的 InnoDB 引擎就是用 MVCC 来实现并发控制的。
+
+    2️⃣ Impressive Answer MVCC 是 InnoDB 引擎实现高并发访问的核心机制，我来详细说明它的实现原理：
+
+    版本链的构建依赖于 undo log。当事务修改数据时，InnoDB 会先将修改前的数据复制到 undo log 中，并在数据行中隐藏字段 DB_ROLL_PTR 指向 undo log 的上一个版本。这样，每次修改都会形成一个新的版本，通过 DB_ROLL_PTR 可以回溯到历史版本，形成版本链。
+
+    ```text
+    graph LR
+        A[当前版本] -->|DB_ROLL_PTR| B[Undo Log 版本1]
+        B -->|DB_ROLL_PTR| C[Undo Log 版本2]
+        C -->|DB_ROLL_PTR| D[Undo Log 版本3]
+    ```
+
+    ReadView 是事务进行快照读时生成的一个一致性视图，包含四个关键字段：
+
+    - m_ids：生成 ReadView 时当前活跃事务 ID 列表
+
+    - min_trx_id：活跃事务中最小的事务 ID
+
+    - max_trx_id：生成 ReadView 时应该分配给下一个事务的 ID
+
+    - creator_trx_id：当前事务 ID
+
+    可见性判断规则：当事务访问某行数据时，会根据该行数据的事务 ID trx_id 和 ReadView 进行比较：
+
+    - 如果 trx_id == creator_trx_id，说明是当前事务自己修改的，可见
+
+    - 如果 trx_id < min_trx_id，说明该版本在 ReadView 生成前已提交，可见
+
+    - 如果 trx_id >= max_trx_id，说明该版本在 ReadView 生成后才开始，不可见
+
+    - 如果 min_trx_id <= trx_id < max_trx_id，需要判断 trx_id 是否在 m_ids 中，如果在说明事务未提交，不可见；如果不在说明已提交，可见
+
+    如果当前版本不可见，就通过版本链找到上一个版本继续判断，直到找到可见版本或链表结束。
+
+    RC 和 RR 的区别在于生成 ReadView 的时机：
+
+    - RC 级别：每次 SELECT 都会生成新的 ReadView，所以能看到其他事务已提交的修改
+
+    - RR 级别：只在第一次 SELECT 时生成 ReadView，后续查询都使用同一个 ReadView，所以看不到其他事务的修改
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    3、场景题：在秒杀场景中，MVCC 如何防止超卖？
+
+    ⭐⭐⭐（考察 MVCC 实际应用、并发控制）
+
+    1️⃣ Common Answer 秒杀的时候用 MVCC 可以防止超卖，因为 MVCC 是多版本控制，可以保证数据一致性。但是秒杀主要是用锁来控制的，比如用 Redis 分布式锁或者数据库的行锁。MVCC 主要用于读操作，写操作还是要加锁的。
+
+    2️⃣ Impressive Answer 在秒杀场景中，MVCC 本身并不能完全防止超卖，需要配合锁机制使用。我来分析 MVCC 在秒杀中的作用和局限性：
+
+    MVCC 的作用主要体现在查询阶段。当用户请求秒杀时，系统需要先查询商品库存：
+
+    ```text
+    -- 快照读，使用 MVCC
+    SELECT stock FROM product WHERE id = 123;
+    ```
+
+    在 RR 隔离级别下，这个查询使用 MVCC 的快照读，不会加锁，可以支持高并发查询。但问题是，快照读读取的是 ReadView 生成时的数据版本，如果此时其他事务正在扣减库存，当前事务可能读到过期的库存数据，导致超卖。
+
+    防止超卖的正确做法是使用当前读加锁：
+
+    ```text
+    START TRANSACTION;
+    -- 当前读，加行锁，不使用 MVCC
+    SELECT stock FROM product WHERE id = 123 FOR UPDATE;
+    -- 判断库存是否充足
+    IF stock > 0 THEN
+        UPDATE product SET stock = stock - 1 WHERE id = 123;
+        INSERT INTO order ...;
+    END IF;
+    COMMIT;
+    ```
+
+    FOR UPDATE 会使用当前读，读取最新数据并加行锁，其他事务无法同时修改该行，从而防止超卖。
+
+    MVCC 的价值在于：
+
+    - 在 RR 级别下，同一个事务内多次快照读结果一致，保证业务逻辑的稳定性
+
+    - 读操作不加锁，提高系统并发能力
+
+    - 配合 Next-Key Lock，可以防止幻读
+
+    实际项目中，我会这样设计秒杀系统：
+
+    - 使用 Redis 预扣减库存，利用 Redis 的原子性保证库存准确性
+
+    - Redis 扣减成功后，再异步扣减数据库库存，使用 SELECT ... FOR UPDATE 保证最终一致性
+
+    - 对于订单查询等场景，充分利用 MVCC 的快照读提高并发性能
+
+    所以 MVCC 是提高并发性能的重要机制，但在需要强一致性的写操作场景，还是需要配合锁机制使用。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IYWfwSFCOiA86JkcgEmcmZJNnSb
+  block_id: doxcn43YHZbvL7O9jedGy4E9s7b
+  page_token: IYWfwSFCOiA86JkcgEmcmZJNnSb
+  original_title: 1.3 MVCC 多版本并发控制
+  imported_at: '2026-09-21'

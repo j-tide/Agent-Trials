@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7010cf2bff0f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 设计一个通信模拟器，输入网络拓扑（如交换机连接）和通信原语，估算完成一次 AllReduce 的时间，要求考虑带宽、延迟和并发。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 设计一个通信模拟器，输入网络拓扑（如交换机连接）和通信原语，估算完成一次 AllReduce 的时间，要求考虑带宽、延迟和并发。
+answer:
+  mode: rubric
+  reference_answer: |-
+    15.1 模拟器设计
+
+    输入：集群节点数，每个节点的 GPU 数，交换机拓扑（如胖树），链路带宽、延迟，通信原语类型（AllReduce、AllGather等），数据大小。
+
+    输出：预估完成时间。
+
+    核心思想：将通信原语分解为基本 Send/Recv 操作，根据拓扑计算每个数据包的路由路径，考虑带宽共享和网络拥塞。实际实现较复杂，这里给出简化的模型：
+
+    - 采用 Ring 算法时，AllReduce 时间 = 2*(N-1) * (latency + chunk_size / min(bandwidth, 链路瓶颈))。
+
+    - 考虑节点内 GPU 通信（NVLink）和节点间通信（IB/RoCE）的带宽差异，可分层计算。
+
+    伪代码：
+
+    ```python
+    class CommSimulator:
+        def __init__(self, topology, link_bw, link_lat):
+            self.topo = topology
+            self.bw = link_bw
+            self.lat = link_lat
+        def estimate_allreduce(self, data_size, algorithm='ring'):
+            if algorithm == 'ring':
+                steps = 2 * (self.topo.num_gpus - 1)
+                # 假设所有链路的有效带宽为最慢链路
+                bw = min(self.bw.values())
+                chunk = data_size / self.topo.num_gpus
+                time = steps * (self.lat + chunk / bw)
+                return time
+    ```
+
+    更精确需模拟消息级传输。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: WFi5dPycToPk0MxX7DccSljEnLb
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 设计一个通信模拟器，输入网络拓扑（如交换机连接）和通信原语，估算完成一次 AllReduce 的时间，要求考虑带宽、延迟和并发。
+  imported_at: '2026-09-21'

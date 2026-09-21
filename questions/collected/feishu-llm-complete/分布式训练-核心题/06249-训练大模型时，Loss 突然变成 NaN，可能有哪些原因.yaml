@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9b88e9bfbdd6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练大模型时，Loss 突然变成 NaN，可能有哪些原因？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 训练大模型时，Loss 突然变成 NaN，可能有哪些原因？
+answer:
+  mode: rubric
+  reference_answer: |-
+    训练中损失突然变为NaN是模型崩溃的标志，意味着模型参数或梯度中出现了非法数值，后续所有计算都会连锁污染。原因通常来自数值不稳定、数据问题或超参数配置错误。
+
+    数值溢出是最常见的原因。FP16混合精度训练中，FP16能表示的最大值约65504，最小值约6×10⁻⁸。当激活值或梯度超过这个范围，就会变成Inf，Inf参与运算产生NaN。注意力机制中Q和K的点积在序列长度大时容易产生极大值，如果缩放因子√d_k不够或未正确应用，softmax前的值可能溢出。此外，损失函数的log操作若输入为0，也会产生NaN。
+
+    学习率过大导致参数更新步幅过猛，权重值急剧膨胀。前向传播时激活值指数级放大，经过几层后超出浮点数范围，反向传播时梯度爆炸。这是新手最常犯的错误。
+
+    数据问题也不容忽视。训练数据中可能存在缺失值、异常值、未正确归一化的特征，或者文本中包含模型词表无法处理的特殊字符。某条数据可能触发极端计算，导致该batch的梯度异常。在多模态任务中，图像损坏或文本乱码也会引起NaN。
+
+    优化器状态损坏。Adam等自适应优化器内部维护动量m和方差v。如果训练中断后从checkpoint恢复，但优化器状态加载不正确，或者混合精度下优化器状态精度损失，可能导致学习率异常缩放，产生NaN。
+
+    模型设计缺陷。某些自定义层缺少归一化，或者残差连接配置错误，导致深层网络信号逐层放大。在Post-Norm Transformer中，如果残差累积未得到控制，深层激活值可能膨胀。此外，初始权重设置不当也会在训练初期就引发NaN。
+
+    排查时，建议按顺序检查：首先确认数据是否正常；然后观察梯度范数是否在NaN出现前骤升；降低学习率测试；切换FP16为BF16（动态范围大）或FP32全精度测试；逐步增加模型复杂度定位问题层。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: In3ldOLuyoYGiBxJof1cQOoLndb
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: 训练大模型时，Loss 突然变成 NaN，可能有哪些原因？
+  imported_at: '2026-09-21'

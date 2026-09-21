@@ -1,0 +1,100 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4ff4b317ad7d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⏯️ 14. 在加载大规模数据（如整个网站）时，如何设计断点续传机制？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "⏯️ 14. 在加载大规模数据（如整个网站）时，如何设计断点续传机制？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    大规模网站爬取很可能因网络波动、程序崩溃或反爬限制而中断，重头再来的成本太高，所以必须设计状态持久化。
+
+    核心思路：在加载过程中定期保存“处理进度”，下次启动时读取进度，跳过已处理的 URL 或页面。
+
+    具体实现方案：
+
+    - 使用文件/数据库记录已处理集合
+    用一个 JSON 文件或 SQLite 表，存储已成功处理的 URL 或文档 ID。自定义加载器在遍历时，先加载已处理集合，跳过它们。
+
+    ```python
+    import json, os
+    from typing import Iterator
+    from langchain_core.document_loaders import BaseLoader
+    from langchain_core.documents import Document
+
+    class ResumableWebLoader(BaseLoader):
+        def __init__(self, urls: list, state_file="state.json"):
+            self.urls = urls
+            self.state_file = state_file
+            self.processed = set()
+            if os.path.exists(state_file):
+                with open(state_file) as f:
+                    self.processed = set(json.load(f))
+
+        def lazy_load(self) -> Iterator[Document]:
+            for url in self.urls:
+                if url in self.processed:
+                    continue
+                try:
+                    doc = self._fetch_and_parse(url)
+                    yield doc
+                    self.processed.add(url)
+                    # 每处理一个就更新状态文件（可以批量写减少 IO）
+                    with open(self.state_file, "w") as f:
+                        json.dump(list(self.processed), f)
+                except Exception as e:
+                    # 记录错误但不中断，可加入失败队列重试
+                    pass
+    ```
+
+    - 使用 Redis 等外部存储
+    在多进程/分布式场景下，用 Redis Set 记录已处理 URL 更好，原子操作，支持并发。
+
+    - 结合爬虫框架的中间件
+    如果使用 RecursiveUrlLoader 等内置加载器，它们不支持断点续传。可以自己封装一层：先遍历生成待爬 URL 列表，再用 ResumableWebLoader 逐个处理。
+
+    - 分批加载 + 游标机制
+    对于 API 分页数据，可以将 last_page 或 last_id 存为状态，下次从该游标继续。
+
+    实践心得：
+
+    - 状态保存频率要权衡。每处理一条就写磁盘会拖慢速度，可以每 10 条写一次，或在 finally 块统一写。
+
+    - 要考虑状态损坏的情况，最好使用原子写入（先写临时文件再 rename）。
+
+    - 对于复杂的网站，我通常会先用 scrapy 或 playwright 抓取 HTML 存本地，再用 LangChain 加载本地文件，这样断点续传可以由爬虫框架负责，LangChain 侧只读取文件，简单可靠。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EY1lwce7uiXgPpklg8tcoBj6nNg
+  block_id: Ihecd9IoSoViyuxQjx6cDNxQngb
+  page_token: EY1lwce7uiXgPpklg8tcoBj6nNg
+  original_title: "⏯️ 14. 在加载大规模数据（如整个网站）时，如何设计断点续传机制？"
+  imported_at: '2026-09-21'

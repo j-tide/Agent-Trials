@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d34b91ab433e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CF 14. 如何评估一个 Embedding 模型在你的数据上的表现？用哪些指标？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F4CF 14. 如何评估一个 Embedding 模型在你的数据上的表现？用哪些指标？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    选 Embedding 模型不能只看通用基准（MTEB），必须在你自己的数据和任务上进行评估。我会构建一个特定领域的评估套件，跑三个层次的指标：
+
+    ① 检索相关指标（核心）
+
+    需要一个标注好的测试集：包含若干查询，以及对应相关的文档片段（正例）。常用指标：
+
+    - Recall@k：前 k 个检索结果中，包含至少一个相关文档的查询比例。k 通常取 5、10。
+
+    - Precision@k：前 k 个结果中相关文档的比例。
+
+    - MRR (Mean Reciprocal Rank)：第一个相关文档排名的倒数的平均值。越靠前分数越高。
+
+    - NDCG@k：考虑排名位置和相关度得分的归一化折损累计增益，适合多级相关度标注。
+
+    ② 语义相似度指标
+
+    如果没有查询-文档标注，可以用成对任务评估：比如衡量同义句对的相似度应该高，非同义句对相似度低。指标可以是 AUC 或 Spearman 相关系数。这个任务可以从你的数据中自动挖掘（例如同一段落的不同译文、摘要和原文等）。
+
+    ③ 下游任务端到端评估
+
+    最直接的是把模型放入 RAG 系统，评估最终生成答案的质量。可以用人工或 LLM-as-Judge 对 faithfulness、answer relevance、context precision 打分。
+
+    实施步骤：
+
+    - 收集约 100-200 条典型用户查询。
+
+    - 人工或利用 GPT-4 为每条查询从文档中标注 1-3 个相关片段。
+
+    - 对候选 embedding 模型分别计算 Recall@5、MRR。
+
+    - 选择综合指标最佳的模型。如果差异不明显，优先选成本更低（更快、更小）的模型。
+
+    我常用的工具：
+
+    - LangChain 的 QAEvaluation 链能快速做 QA 准确度测试。
+
+    - ragas 库专门用于 RAG 系统的多维度评估，非常方便。
+
+    - 内嵌到 pytest 中，每次模型变更自动跑评估，防止退化。
+
+    经验：在我们一个中文金融场景中，通用的 text-embedding-ada-002 和 bge-large-zh-v1.5 在 MTEB 上相差不大，但针对我们内部的术语库，后者 Recall@5 高出 11 个点。领域适配比通用排名重要得多。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/I0Gnw9RQoiOa2yk59JjcwumPnrf
+  block_id: LDaJdlv8aoG3lpxUv9ScF6CCnEc
+  page_token: I0Gnw9RQoiOa2yk59JjcwumPnrf
+  original_title: "\U0001F4CF 14. 如何评估一个 Embedding 模型在你的数据上的表现？用哪些指标？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0daebcbb5631
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练中 Batch Size 突然改变，学习率应该如何调整？（线性缩放原则）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 训练中 Batch Size 突然改变，学习率应该如何调整？（线性缩放原则）
+answer:
+  mode: rubric
+  reference_answer: |-
+    当改变训练的全局批量大小（Global Batch Size, GBS）时，学习率需要相应调整，以保持训练动态的一致性。最经典的指导原则是线性缩放法则：当批量大小乘以k倍时，学习率也应乘以k倍。
+
+    原理：在SGD中，参数更新为 Δθ = -η * (1/B) Σᵢ gᵢ，其中B是批量大小。梯度的方差与1/B成正比。当B增大时，梯度估计更准确，噪声更小，因此可以采用更大的学习率，而不会导致更新方向过于随机。线性缩放保持了Δθ的期望值不变，从而保持了训练稳定性。
+
+    应用：如果原配置GBS=256, η=1e-4，现改为GBS=1024（扩大4倍），则学习率应调整为η=4e-4。
+
+    注意事项：
+
+    - 上限约束：学习率不能无限增大。过大的学习率会导致单步更新量过大，即使梯度方向准确，也可能因为步幅太大而错过最优点或陷入不稳定。通常需要配合Warmup来平滑过渡到大的学习率。
+
+    - 大批量退化：当批量非常大（如几万）时，线性缩放可能不再适用，因为梯度噪声已经极小，继续增大学习率会导致收敛到尖锐极小值，泛化性能下降。实践中，超大批量训练时，学习率缩放因子通常小于线性比例，需要实验调优。
+
+    - 优化器差异：对于Adam等自适应优化器，其更新量已经通过二阶矩进行了归一化，对学习率的敏感度低于SGD。但线性缩放原则仍然适用，只是可能需要微调。
+
+    - Warmup配合：如果突然将批量增大数倍并同步提高学习率，模型可能不适应，应在增大批量后先进行短暂的Warmup（例如几千步），让模型适应新的更新动态。
+
+    因此，批量大小改变时，优先按线性缩放调整学习率，同时密切监控训练初期的损失和梯度范数，必要时进行微调。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: LDCjdEKUIoiRZwxNv72cJonYnPc
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: 训练中 Batch Size 突然改变，学习率应该如何调整？（线性缩放原则）
+  imported_at: '2026-09-21'

@@ -1,0 +1,102 @@
+---
+schema_version: 1
+id: feishu-llm-complete-53fb877c27ba
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 如何使用 Prometheus + Grafana 搭建显存监控面板？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F4CA 如何使用 Prometheus + Grafana 搭建显存监控面板？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 搭建流程：部署 NVIDIA DCGM Exporter 采集 GPU 显存指标 → Prometheus
+    抓取 → Grafana 可视化。同时结合推理框架自带的 Metrics（如 vLLM 的 /metrics）展示 KV Cache 利用率、请求排队等。\n\n\U0001F6E0️
+    步骤：\n\n- 部署 DCGM Exporter\n\n```bash\nhelm repo add gpu-helm-charts https://nvidia.github.io/dcgm-exporter/helm-charts\nhelm
+    install dcgm-exporter gpu-helm-charts/dcgm-exporter\n```\n\n它会在每个 GPU 节点上以 DaemonSet
+    形式运行，暴露 :9400/metrics，包含 DCGM_FI_DEV_FB_USED、DCGM_FI_DEV_FB_TOTAL 等。\n\n- 配置 Prometheus\n在
+    prometheus.yml 中添加 job：\n\n```yaml\n- job_name: 'dcgm'\n  kubernetes_sd_configs:\n
+    \   - role: pod\n  relabel_configs:\n    - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]\n
+    \     action: keep\n      regex: true\n```\n\n或者直接指定 targets。确认指标能查询。\n\n- 集成推理框架指标\nvLLM
+    默认在 :8000/metrics 暴露指标，包括 vllm:kv_cache_usage_perc、vllm:num_requests_running 等。同样加入
+    Prometheus 抓取。\n\n- Grafana 面板设计\n\n- 告警规则\n\n```yaml\n- alert: GPU memory high\n
+    \ expr: DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL > 0.95\n  for: 2m\n  labels:\n
+    \   severity: warning\n  annotations:\n    summary: \"GPU memory usage above 95%\"\n```\n\n-
+    导入现成 Dashboard\nGrafana 社区有 DCGM 仪表盘（如 ID: 12239），可直接导入再添加推理框架指标。\n\n✅ 最终效果：在一个
+    Grafana 面板上同时看到显存总量、KV Cache 占用、请求负载和告警信息，实现全方位显存可观测性。\n\n- vLLM 的 /metrics 端点提供
+    vllm:kv_cache_usage_perc 和每个请求的 vllm:request_prompt_tokens、vllm:request_generation_tokens。\n\n-
+    可通过公式估算：单请求KV Cache ≈ (prompt_len + generation_len) × 每token_kv_bytes。\n\n- TGI
+    有 tgi_request_duration_seconds 等，也可用 token 数估算。\n\n- Envoy / Nginx Plus：通过自定义健康检查或从外部脚本动态获取指标，使用加权最小连接算法。\n\n-
+    自研 Gateway：维护所有实例的剩余容量表，每次请求到来选择容量最大的实例。\n\n- 基于 gRPC 的服务网格：利用 envoy 的 load reporting
+    和 consistent hashing。\n\n- 使用 NVIDIA DCGM Exporter 收集 DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_FREE。\n\n-
+    或者直接使用推理框架的 Prometheus 指标，例如 vLLM 的 vllm:num_requests_waiting（排队数）更能反映压力。\n\n-
+    模型权重：根据精度计算。FP16: 参数量×2，INT8: ×1，INT4: ×0.5。例如 LLaMA-7B FP16 占 14 GB。\n\n- 激活与临时缓冲：推理时
+    Prefill 阶段需要临时存储注意力中间结果、算子工作区。通常预留 1–3 GB（取决于框架和 batch size）。\n\n- 其他常驻：CUDA context、通信缓冲（多卡）等
+    ~0.5–1 GB。\n\n- 每个 token 的 KV Cache 大小 = 2 × 层数 × KV 头数 × 头维度 × 精度字节。\n\n- 如果使用
+    GQA，KV 头数远小于 Query 头数。\n\n- 例如 7B 模型（无 GQA）：每 token 约 0.5 MB（FP16）。\n\n- 剩余 8
+    GB 可容纳约 16,000 token 的 KV Cache。\n\n- 显存优先分配给权重是刚性的，无法妥协。\n\n- KV Cache 池的大小直接决定了系统能同时处理的总
+    token 数（并发 × 平均序列长度）。\n\n- 通常框架如 vLLM 通过 --gpu-memory-utilization（默认 0.9）来设定，即用剩余显存的
+    90% 建立 KV 块池，剩下的 10% 作为安全缓冲。这个比例可微调：\n\n- 最佳实践：先加载模型，打印剩余显存，再乘以 0.9 作为池大小，然后根据业务最大序列长度反推能支持的最大并发数。如果不满足，则考虑量化权重或使用多卡。\n\n-
+    如果经常遇到 Prefill 阶段大激活峰值，可降低到 0.85。\n\n- 如果追求极致吞吐，且激活开销稳定，可提高到 0.95。\n\n- 有些系统（如
+    TensorRT-LLM）可以在构建引擎时预先分配 KV Cache 块数量，而不是比例。\n\n- 需要估算业务场景：如果大多数请求是短文本，可设置较大的
+    KV 池和较短的 max_model_len，从而支持极高并发；如果经常有长文档，需留出足够单请求 token 容量，同时减少并发数。\n\n- 在同一个推理服务进程中，加载新模型到另一部分显存（前提是总显存足够容纳两个模型）。\n\n-
+    新模型加载完成后，将新请求路由到新模型，旧模型继续服务正在进行的请求。\n\n- 待旧模型所有请求处理完毕，卸载旧模型，释放其占用的显存。\n\n- 显存挑战：需要至少能同时装下两个模型的权重和部分
+    KV Cache，对大模型不现实。因此需结合 offload。\n\n- 使用 K8s 的滚动更新，先启动新 Pod（新模型），旧 Pod 逐渐终止。但滚动更新期间新旧
+    Pod 共存，资源翻倍。\n\n- 可配合显存超售？不可靠。更稳妥的是额外节点。\n\n- 将旧模型参数先卸载到 CPU 内存，释放 GPU 显存。\n\n-
+    然后加载新模型到 GPU（从 CPU 预加载或直接读取）。\n\n- 切换期间服务中断但短暂，适用于允许秒级中断的场景。\n\n- 显存过渡平稳，因为 GPU
+    显存只同时保存一个模型权重。\n\n- 如果仅更新适配器而非基础模型，只需切换 LoRA 权重（几十 MB），GPU 显存几乎无波动，可瞬间完成。\n\n-
+    如果框架支持，可在旧模型释放显存后，不归还给 OS 而是保留在内存池中，立即分配给新模型，减少碎片和分配开销。\n\n- 例如 CLIP ViT-L/14
+    约 0.3B 参数，FP16 约 0.6 GB。这部分常驻显存，不随图片数量变化。\n\n- 图像经过视觉编码器后，通常通过一个投影层转换成若干个“图像 token”（例如
+    LLaVA-1.5 中每张图 576 个 token）。\n\n- 这些 token 会拼接到文本序列中，参与自回归生成。因此每张图贡献 L_img 个 token
+    的 KV Cache。\n\n- 包括系统提示、用户文本，以及所有图像 token 和生成的文本 token。\n\n- 总 token 数 = 文本 token
+    数 + 图片数 × L_img + 生成 token 数。\n\n- 每 token KV Cache 大小计算同纯文本模型。\n\n- 图像编码阶段：视觉编码器的一次前向，激活大小与图像分辨率相关，但通常几百
+    MB，可控。\n\n- 多模态融合阶段：所有图像 token 一次性输入 LLM，序列长度较长，attention 的 Prefill 需要临时空间，与总
+    token 数成平方关系（若无 FlashAttention）。因此必须用 FlashAttention。\n\n- 7B LLaVA：文本 LLM 权重
+    14 GB，视觉编码器 0.6 GB。\n\n- 每 token KV = 0.5 MB。\n\n- 输入：文本 200 token + 4 张图片 × 576
+    = 2504 token，生成 500 token，总计 3004 token → KV Cache ≈ 1.5 GB。\n\n- 激活约 2 GB。总显存约
+    18.1 GB，单卡 24GB 可运行。\n\n- 若 8 张图片，总 token 达 5800，KV Cache 约 2.9 GB，总 ~19.5 GB，仍然安全。但若图片极大导致编码激活增大，需额外预留。\n\n-
+    仅保留最近的 W 个 token 的 KV Cache，丢弃旧的。适用于模型本身支持窗口注意力（如 Mistral 的 sliding window）。\n\n-
+    实现：在逻辑页表中维护窗口，旧块直接回收。简单高效，但会丢失远期上下文。\n\n- 设定一个最大历史 token 数（如 4096），当总长度超过时，丢弃最早的
+    token（可能丢失重要信息）。\n\n- 可以结合轮次：保留最近 N 轮完整对话，超出部分删除。\n\n- 如果同时管理多个长连接，显存不足时淘汰最不活跃会话的
+    KV Cache，将其 swap 到 CPU，待需要时再换回。\n\n- 更适合多会话并发场景，通过全局淘汰释放显存。\n\n- 当对话达到一定长度，调用模型本身对历史进行摘要，用摘要代替原始历史
+    KV Cache，大幅减少 token 数。但需额外调用，增加延迟。\n\n- 有些方法只保留 Key 而丢弃 Value？不常见。但可对 KV Cache
+    压缩，保留重要部分。\n\n- 提供客户端接口重置对话历史，清空 KV Cache。\n\n- 检查是否有请求异常终止（如客户端断开但服务端未清理），导致序列的物理块仍被占用。\n\n-
+    验证框架的引用计数机制：前缀共享时，引用计数未减到零就无法回收。可能因为逻辑错误导致计数泄漏。\n\n- 查看 num_free_blocks 是否单调递减。\n\n-
+    多轮对话中，如果未设置淘汰策略或最大长度，KV Cache 随对话无限增长。\n\n- 解决：设置 max_model_len 或主动清理历史。\n\n-
+    torch.cuda.memory_reserved() 持续上升但不回落，而 allocated 稳定。这是因为分配器保留了未使用的缓存块，不归还系统。虽然不代表泄漏，但会导致
+    nvidia-smi 显示占用高。使用 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True 可缓解。\n\n-
+    某些张量（如 attention mask）被重复创建且未释放。\n\n- LoRA 适配器未正确卸载。\n\n- 使用 PyTorch Profiler
+    的 Memory Snapshot 检查未释放的张量。\n\n- 动态加载的模型或适配器未卸载，长期积累。\n\n- 检查显存中是否存在多个模型的副本。\n\n-
+    实时显存用量：DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL 按 pod 区分，使用 Timeseries 或 Stat
+    面板。\n\n- KV Cache 利用率：vllm:kv_cache_usage_perc 折线图，设置告警阈值（如 >90%）。\n\n- 并发请求数：vllm:num_requests_running。\n\n-
+    空闲块数趋势：若框架暴露 free_blocks 指标，绘制以观察碎片。\n\n- 单请求显存估算：通过 request_prompt_tokens + generation_tokens
+    乘以每 token 大小计算，可在 Grafana 中用表达式。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tr76wMZZwibI1ikxqpEcjhJtnZc
+  block_id: OHtRdZdsPoRsqgxQQrxcN2lqnob
+  page_token: Tr76wMZZwibI1ikxqpEcjhJtnZc
+  original_title: "\U0001F4CA 如何使用 Prometheus + Grafana 搭建显存监控面板？"
+  imported_at: '2026-09-21'

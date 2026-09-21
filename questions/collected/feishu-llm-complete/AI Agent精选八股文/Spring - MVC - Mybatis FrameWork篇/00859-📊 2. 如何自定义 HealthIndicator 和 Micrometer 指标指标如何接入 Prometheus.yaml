@@ -1,0 +1,121 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cc70adddbcec
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 2. 如何自定义 HealthIndicator 和 Micrometer 指标？指标如何接入 Prometheus？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: "\U0001F4CA 2. 如何自定义 HealthIndicator 和 Micrometer 指标？指标如何接入 Prometheus？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    自定义 HealthIndicator：把业务健康状况暴露出来
+
+    比如 Agent 依赖的 LLM 服务是否可达、向量数据库是否连接正常，都可以自己定义：
+
+    ```java
+    @Component
+    public class LLMHealthIndicator implements HealthIndicator {
+        @Override
+        public Health health() {
+            // 模拟一次检测请求
+            boolean llmReachable = checkLLMConnection();
+            if (llmReachable) {
+                return Health.up().withDetail("model", "gpt-4").build();
+            }
+            return Health.down().withDetail("error", "Connection timeout").build();
+        }
+    }
+    ```
+
+    在 /actuator/health 就能看到聚合结果，Kubernetes 的 liveness/readiness 探针可以直接用。
+
+    自定义 Micrometer 指标：把业务变成时序数据
+
+    核心就三种类型，覆盖大部分场景：
+
+    - Counter：只增不减，计数用（成功次数、错误次数、Token 消耗量）
+
+    - Timer：记录耗时和计数，适合看延迟分布
+
+    - Gauge：瞬时值，如当前正在处理的请求数
+
+    在代码里通过 MeterRegistry 注册：
+
+    ```java
+    @RestController
+    public class LLMController {
+        private final MeterRegistry registry;
+
+        public LLMController(MeterRegistry registry) {
+            this.registry = registry;
+        }
+
+        public String callLLM() {
+            Timer.Sample sample = Timer.start(registry);
+            try {
+                String result = llmService.invoke();
+                registry.counter("llm.calls", "status", "success").increment();
+                return result;
+            } catch (Exception e) {
+                registry.counter("llm.calls", "status", "failure").increment();
+                throw e;
+            } finally {
+                sample.stop(registry.timer("llm.call.duration"));
+            }
+        }
+    }
+    ```
+
+    也可以用 @Timed 注解，但需要 AOP 支持，上面这种显式埋点更灵活，不丢上下文。
+
+    接入 Prometheus
+
+    - 依赖：micrometer-registry-prometheus
+
+    - 暴露端点：/actuator/prometheus 就绪
+
+    - Prometheus 抓取配置：
+
+    ```yaml
+    scrape_configs:
+      - job_name: 'agent-service'
+        metrics_path: '/actuator/prometheus'
+        static_configs:
+          - targets: ['agent-svc:8081']
+    ```
+
+    随后在 Grafana 里就能直接用 rate(llm_calls_total[1m]) 或 histogram_quantile(0.99, rate(llm_call_duration_seconds_bucket[5m])) 出图。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NHwYwCwRDiPz1OkM3b9cXNBinUd
+  block_id: doxcn1UKrf4pBbVN1jiHd0ZldZe
+  page_token: NHwYwCwRDiPz1OkM3b9cXNBinUd
+  original_title: "\U0001F4CA 2. 如何自定义 HealthIndicator 和 Micrometer 指标？指标如何接入 Prometheus？"
+  imported_at: '2026-09-21'

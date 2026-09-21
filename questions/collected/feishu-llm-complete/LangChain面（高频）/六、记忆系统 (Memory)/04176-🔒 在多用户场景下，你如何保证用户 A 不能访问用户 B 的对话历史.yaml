@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d976e3ea1340
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F512 在多用户场景下，你如何保证用户 A 不能访问用户 B 的对话历史？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F512 在多用户场景下，你如何保证用户 A 不能访问用户 B 的对话历史？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    多用户隔离是安全性的基本要求。实现隔离的关键在于访问控制和数据隔离两个层面。
+
+    - 应用层访问控制
+    在 API 层面，你需要对用户身份进行认证（例如 JWT token），然后在每次请求时验证该用户是否有权访问目标 session_id。绝不能仅依赖前端传过来的 session_id，必须将 session_id 与已验证的 user_id 绑定。
+
+    典型的流程：
+
+    - 用户登录后，后端生成或接收一个 session_id，并在服务器端（如数据库或缓存）建立 session_id -> user_id 的映射。
+
+    - 当用户发出聊天请求时，后端从认证上下文获取 user_id，然后检查请求中的 session_id 是否属于该 user_id。如果不匹配，返回 403。
+
+    - 数据层隔离
+
+    在数据库或存储中，确保对话数据与用户强关联。有两种常见做法：
+
+    - 基于 user_id 命名 session_id：将 user_id 作为 session_id 的前缀或命名空间。例如 session_id = f"user_{user_id}:session_{session_key}"。这样仅凭 session_id 就能区分用户。但这不够安全，因为理论上其他用户可能猜测。
+
+    - 在查询时增加 user_id 过滤：在 PostgresChatMessageHistory 中，自定义查询逻辑，始终附加 WHERE user_id = ? 条件。这需要你扩展历史记录类，并在加载消息时根据已验证的 user_id 过滤，而不是仅凭 session_id。
+
+    - 利用 LangChain 的 BaseChatMessageHistory 扩展
+    你可以在自定义历史记录类的 messages 属性中，根据当前的 user_id 和 session_id 构建查询，确保只返回该用户在此会话下的消息。这样即使 session_id 被泄露，其他用户也无法直接通过它查询到数据（因为数据库查询会强加 user_id 条件）。
+
+    最佳实践：
+
+    - 永远不要信任客户端：所有敏感操作都在服务端执行。
+
+    - 避免使用自增 ID 作为会话标识：使用 UUID 或加密随机字符串。
+
+    - 对所有数据库查询都施加 user_id 约束。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Dajiw8ewCiTjamklohBcMVI0nre
+  block_id: KdBOdADCyoCx49xNIk7cQqoAnve
+  page_token: Dajiw8ewCiTjamklohBcMVI0nre
+  original_title: "\U0001F512 在多用户场景下，你如何保证用户 A 不能访问用户 B 的对话历史？"
+  imported_at: '2026-09-21'

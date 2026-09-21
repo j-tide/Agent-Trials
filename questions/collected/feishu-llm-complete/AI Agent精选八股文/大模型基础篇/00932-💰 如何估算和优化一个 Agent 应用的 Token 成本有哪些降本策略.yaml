@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c30d9b64a1e0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4B0 如何估算和优化一个 Agent 应用的 Token 成本？有哪些降本策略？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F4B0 如何估算和优化一个 Agent 应用的 Token 成本？有哪些降本策略？"
+answer:
+  mode: rubric
+  reference_answer: "Agent 应用的成本往往在反复的工具调用、长记忆和多步推理中指数级增长，必须要工程化治理。\n\n成本公式：\n\n[图片内容未导入]\n\n估算步骤：\n\n-
+    拆解 Agent 循环\n一个典型的 ReAct Agent 单轮可能包含：System Prompt（长期）+ 对话历史 + 当前用户问题 + 工具调用输出
+    + 思考链。\n\n- 建立 Token 记账模型\n\ndef cost_estimation(system_prompt, history_turns,
+    avg_tool_output_len, \n                    reasoning_len, final_answer_len, rounds,
+    model_pricing):\n    input_tokens = len(system_prompt)  # 系统提示\n    for h in history_turns:\n
+    \       input_tokens += len(h['user']) + len(h['assistant'])\n    input_tokens
+    += avg_tool_output_len * 3  # 假设平均调用3个工具\n    output_tokens = reasoning_len +
+    final_answer_len\n    total_input_cost = input_tokens * model_pricing['input']\n
+    \   total_output_cost = output_tokens * model_pricing['output']\n    return total_input_cost
+    + total_output_cost\n\n- 用真实 trace 回放验证\n接入 LangSmith 或自定义日志，每步记录 usage.prompt_tokens
+    和 completion_tokens，按天聚合分析。\n\n降本策略矩阵：\n\n[嵌入表格未展开]\n\n实战优化示例：\n\n# 对话历史摘要压缩\nfrom
+    langchain.memory import ConversationSummaryMemory\nmemory = ConversationSummaryMemory(llm=small_llm,
+    max_token_limit=200)\n# 每次生成后存摘要，而非全部历史\nmemory.save_context({\"input\": \"用户问题\"},
+    {\"output\": \"Agent回答\"})\ncompressed_history = memory.load_memory_variables({})[\"history\"]\n\n缓存策略：\n\nimport
+    hashlib, redis\ncache = redis.Redis()\ndef cached_llm_call(prompt: str, model:
+    str):\n    key = hashlib.sha256((model+prompt).encode()).hexdigest()\n    if cached
+    := cache.get(key):\n        return cached\n    response = call_llm_api(prompt,
+    model)\n    cache.setex(key, 3600, response)  # 1小时过期\n    return response\n\n对于
+    System Prompt 固定、用户问题大量重复的客服场景，缓存命中率可达 40% 以上。\n\n更近一步的“成本工程”思维：\n\n- 预留 token
+    预算：为每次 Agent 任务设定最高 token 上限，防止失控循环导致天价账单。\n\n- 异步打断：发现模型开始无意义重复时，由守护协程中断并返回精简总结。\n\n-
+    评估 ROI：记录每次 Agent 调用的成本和任务成功率，定期下掉 ROI 低的“花哨技能”，保持成本与商业价值对齐。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcnlRauELSvJZJ8jfCTGrURVc
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "\U0001F4B0 如何估算和优化一个 Agent 应用的 Token 成本？有哪些降本策略？"
+  imported_at: '2026-09-21'

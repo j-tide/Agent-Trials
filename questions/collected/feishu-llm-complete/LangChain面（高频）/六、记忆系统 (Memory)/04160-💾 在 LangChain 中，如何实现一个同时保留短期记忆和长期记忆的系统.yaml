@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e386546f2e7d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BE 在 LangChain 中，如何实现一个同时保留“短期记忆”和“长期记忆”的系统？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F4BE 在 LangChain 中，如何实现一个同时保留“短期记忆”和“长期记忆”的系统？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    实现“短期记忆”（精确的近期上下文）和“长期记忆”（压缩的远期全局信息）正是 ConversationSummaryBufferMemory 的设计初衷，但在更复杂的应用中，你可能需要将结构化知识（如用户偏好、提取的实体）作为长期记忆存入向量数据库，而对话历史作为短期记忆。
+
+    综合方案：
+
+    - 短期记忆：使用 ConversationSummaryBufferMemory，维护最近几轮的完整对话。它已经内建了“近期完整 + 远期摘要”的机制，本身就是一种短期+长期记忆的融合。
+
+    - 长期记忆（外部知识库）：使用 向量数据库（VectorStore） 存储从对话中提取的、可以长期复用的信息。例如，用户的姓名、偏好、历史订单等。在每次对话时，除了加载 Memory 中的历史，还可以根据当前查询从向量库中检索相关的长期记忆，并将其注入 Prompt。
+
+    实现步骤：
+
+    - 设置短期记忆：ConversationSummaryBufferMemory。
+
+    - 创建长期记忆管理器：例如定义一个函数 get_long_term_memory(user_id, query)，它从向量库中检索与该用户相关的长期记忆。
+
+    - 自定义链：在调用 LLM 之前，先调用检索函数，获取长期记忆文本；然后将短期记忆历史 + 长期记忆文本 + 用户新问题拼接成完整 Prompt。
+
+    - 更新长期记忆：在对话结束后，使用 LLM 从最新的对话中抽取值得长期保留的信息（如“用户是素食主义者”），并将其存入向量库（附带 user_id 等元数据）。
+
+    LangChain 的集成：
+
+    - 有一个 VectorStoreRetrieverMemory 类，可以将向量库直接作为 Memory 使用。它会在每次交互时，从向量库中检索与当前输入相关的记忆条目，并将它们注入 Prompt。
+
+    - 你可以将它与 ConversationBufferMemory 结合使用，前者提供长期记忆，后者提供短期上下文。
+
+    示例：
+
+    ```python
+    from langchain.memory import VectorStoreRetrieverMemory, ConversationBufferWindowMemory
+    from langchain.vectorstores import Chroma
+
+    # 长期记忆（向量检索）
+    retriever = Chroma(...).as_retriever()
+    long_term_memory = VectorStoreRetrieverMemory(retriever=retriever, memory_key="long_term")
+
+    # 短期记忆（窗口）
+    short_term_memory = ConversationBufferWindowMemory(k=5, memory_key="chat_history")
+
+    # 在链中同时使用两种记忆，Prompt 模板需包含 {long_term} 和 {chat_history}
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H3N3wvSCiibLlPk5ZpjcveFHnNb
+  block_id: MlkGddLO7omvoMxwl33cSXYUnne
+  page_token: H3N3wvSCiibLlPk5ZpjcveFHnNb
+  original_title: "\U0001F4BE 在 LangChain 中，如何实现一个同时保留“短期记忆”和“长期记忆”的系统？"
+  imported_at: '2026-09-21'

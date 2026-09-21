@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e23e2ebeb1eb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4A1 除了常规优化，还有哪些“极端”显存压缩技术可以用于 RLHF？如参数分片、重计算等。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "\U0001F4A1 除了常规优化，还有哪些“极端”显存压缩技术可以用于 RLHF？如参数分片、重计算等。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    极端压缩技术列表：
+
+    - QLoRA：底座 4-bit 量化，LoRA 适配器 FP16。可将 65B 模型压缩至 ~40 GB 显存，支持单卡微调。在 RLHF 中 Actor 和 Critic 都可应用，但需评估精度损失。
+
+    - ZeRO-Infinity：将模型参数、梯度、优化器状态卸载到 CPU 甚至 NVMe 固态硬盘，突破 GPU 显存墙。适合训练超大模型，但会牺牲速度。
+
+    - 激活检查点（Gradient Checkpointing）++：选择性对更深层激活进行重计算，或使用类似 FlashAttention 的内存高效注意力，大幅降低激活内存。
+
+    - CPU 推理 Ref/RM：将 Reference 和 Reward Model 完全移至 CPU（使用 llama.cpp 等），GPU 仅负责 Actor/Critic 训练和采样。
+
+    - 模型剪枝与蒸馏：对 Critic 或 Actor 进行结构化剪枝，或蒸馏出更小的 Critic，降低模型尺寸。
+
+    - 激活序列并行：将长序列切分到多个 GPU，每个 GPU 只存储部分激活，减少单卡激活内存。
+
+    - 混合精度深度压缩：使用 8-bit 优化器 + 4-bit 底座 + FP16 适配器，多种精度混合，最大化显存利用率。
+
+    组合使用：例如，QLoRA + CPU Offload Ref/RM + 激活检查点 + ZeRO-2，可在一张 A100-80G 上训练 70B 模型的 RLHF。这是目前“平民化”大模型对齐的最强武器。
+
+    - Actor 和 Critic 的模型参数、梯度、优化器状态
+
+    - 前向时保存的激活（用于反向重计算）
+
+    - 如果共享底座，Actor 和 Critic 的梯度会叠加
+
+    - 若使用 GAE 计算，Critic 价值网络的前向激活也会被保留
+
+    - 使用梯度累积减少 AllReduce 频率。
+
+    - 对 ZeRO-3，适当增大通信桶大小，减少小数据包开销。
+
+    - 利用 NCCL 的多树拓扑进行高效 AllReduce。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NjChwugaCicZr4kcCfocK8KMnid
+  block_id: VwZddPqdro0jYgxjTrqc4fUFnhe
+  page_token: NjChwugaCicZr4kcCfocK8KMnid
+  original_title: "\U0001F4A1 除了常规优化，还有哪些“极端”显存压缩技术可以用于 RLHF？如参数分片、重计算等。"
+  imported_at: '2026-09-21'

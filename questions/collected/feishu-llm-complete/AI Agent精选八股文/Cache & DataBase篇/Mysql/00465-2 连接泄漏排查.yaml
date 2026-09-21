@@ -1,0 +1,183 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c3494101b795
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3.2 连接泄漏排查
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 3.2 连接泄漏排查
+answer:
+  mode: rubric
+  reference_answer: "### 连接泄漏的排查与解决\n\n1、基础题：什么是连接泄漏？如何排查？\n\n⭐（连接未关闭、资源耗尽、removeAbandoned）\n\n连接泄漏是指应用获取数据库连接后，由于异常或代码缺陷未正确关闭连接，导致连接池中的连接被耗尽。排查方法包括：查看连接池监控指标、检查代码中未关闭连接的地方、启用
+    removeAbandoned 配置。\n\n2、进阶题：详细说明连接泄漏的原因、排查方法和解决方案\n\n⭐⭐（泄漏原因、排查步骤、配置方法、预防措施）\n\n1️⃣
+    Common Answer 连接泄漏就是连接没关掉，用完了要 close。排查的话就看代码里有没有忘记 close 的地方。可以用 removeAbandoned
+    配置，超时没关就自动回收。\n\n2️⃣ Impressive Answer 连接泄漏是生产环境中的常见问题，会导致连接池耗尽，影响系统稳定性。我将从泄漏原因、排查方法、解决方案和预防措施四个方面详细说明。\n\n泄漏原因：\n\n场景一：异常分支未关闭连接\n\n//
+    错误示例\npublic void updateUser(User user) {\n    Connection conn = dataSource.getConnection();\n
+    \   try {\n        // 业务逻辑\n        updateUser(conn, user);\n        // 如果这里抛出异常，连接不会被关闭\n
+    \       validateUser(user);\n    } catch (Exception e) {\n        log.error(\"Update
+    user failed\", e);\n        // 异常被捕获，但连接未关闭\n    }\n    // conn.close() 缺失\n}\n\n场景二：多层嵌套未关闭连接\n\n//
+    错误示例\npublic void processOrder(Order order) {\n    Connection conn1 = dataSource.getConnection();\n
+    \   try {\n        // 第一层操作\n        saveOrder(conn1, order);\n        \n        Connection
+    conn2 = dataSource.getConnection();\n        try {\n            // 第二层操作\n            updateInventory(conn2,
+    order);\n        } catch (Exception e) {\n            log.error(\"Update inventory
+    failed\", e);\n            // conn2 未关闭\n        }\n    } catch (Exception e)
+    {\n        log.error(\"Process order failed\", e);\n        // conn1 未关闭\n    }\n}\n\n场景三：循环中未关闭连接\n\n//
+    错误示例\npublic void batchUpdate(List<User> users) {\n    for (User user : users)
+    {\n        Connection conn = dataSource.getConnection();\n        try {\n            updateUser(conn,
+    user);\n        } catch (Exception e) {\n            log.error(\"Update user failed\",
+    e);\n            // 异常时连接未关闭\n        }\n        // conn.close() 缺失，导致循环中每次都泄漏一个连接\n
+    \   }\n}\n\n场景四：使用 ThreadLocal 未清理连接\n\n// 错误示例\npublic class ConnectionHolder
+    {\n    private static ThreadLocal<Connection> connectionHolder = new ThreadLocal<>();\n
+    \   \n    public static Connection getConnection() {\n        Connection conn
+    = connectionHolder.get();\n        if (conn == null) {\n            conn = dataSource.getConnection();\n
+    \           connectionHolder.set(conn);\n        }\n        return conn;\n    }\n
+    \   \n    // 缺少 remove() 方法，导致线程结束时连接未清理\n}\n\n排查方法：\n\n第一步：查看连接池监控指标\n\n使用 Druid
+    监控页面查看：\n\n- 活跃连接数（activeCount）：持续接近 maxActive，且不释放\n\n- 获取连接失败次数（acquireFailCount）：持续增加\n\n-
+    连接泄漏次数（removeAbandonedCount）：如果启用了 removeAbandoned，此指标会增加\n\n第二步：分析数据库连接状态\n\n使用
+    SHOW PROCESSLIST 查看数据库连接：\n\nSHOW PROCESSLIST;\n\n重点关注：\n\n- 长时间处于 Sleep 状态的连接\n\n-
+    Time 字段很大的连接（表示连接空闲时间很长）\n\n- Command 字段为 Sleep 但 Info 字段为空的连接\n\n第三步：开启连接泄漏日志\n\n配置
+    Druid 输出连接泄漏日志：\n\nspring:\n  datasource:\n    druid:\n      remove-abandoned:
+    true\n      remove-abandoned-timeout: 180\n      log-abandoned: true\n\n日志会输出泄漏连接的堆栈信息，帮助定位问题代码。\n\n第四步：代码审查\n\n根据日志中的堆栈信息，定位到具体代码，检查：\n\n-
+    是否在 try-catch 中未调用 close()\n\n- 是否在异常分支中未关闭连接\n\n- 是否使用 try-with-resources 语句\n\n解决方案：\n\n方案一：使用
+    try-with-resources\n\n// 正确示例\npublic void updateUser(User user) {\n    try (Connection
+    conn = dataSource.getConnection()) {\n        updateUser(conn, user);\n        validateUser(user);\n
+    \   } catch (Exception e) {\n        log.error(\"Update user failed\", e);\n        //
+    连接会自动关闭\n    }\n}\n\n方案二：使用 finally 关闭连接\n\n// 正确示例\npublic void updateUser(User
+    user) {\n    Connection conn = null;\n    try {\n        conn = dataSource.getConnection();\n
+    \       updateUser(conn, user);\n        validateUser(user);\n    } catch (Exception
+    e) {\n        log.error(\"Update user failed\", e);\n    } finally {\n        if
+    (conn != null) {\n            try {\n                conn.close();\n            }
+    catch (SQLException e) {\n                log.error(\"Close connection failed\",
+    e);\n            }\n        }\n    }\n}\n\n方案三：启用 removeAbandoned\n\nspring:\n
+    \ datasource:\n    druid:\n      # 启用连接泄漏检测\n      remove-abandoned: true\n      #
+    连接泄漏超时时间（秒）\n      remove-abandoned-timeout: 180\n      # 记录连接泄漏日志\n      log-abandoned:
+    true\n\n预防措施：\n\n- 代码规范\n\n强制使用 try-with-resources 语句：\n\n// 强制使用 try-with-resources\npublic
+    void updateUser(User user) {\n    try (Connection conn = dataSource.getConnection();\n
+    \        PreparedStatement ps = conn.prepareStatement(\"UPDATE user SET name =
+    ? WHERE id = ?\")) {\n        ps.setString(1, user.getName());\n        ps.setLong(2,
+    user.getId());\n        ps.executeUpdate();\n    } catch (SQLException e) {\n
+    \       log.error(\"Update user failed\", e);\n        throw new RuntimeException(e);\n
+    \   }\n}\n\n- 代码审查\n\n在 Code Review 时重点关注：\n\n- 所有获取连接的地方是否都正确关闭\n\n- 异常分支是否正确关闭连接\n\n-
+    循环中的连接是否正确关闭\n\n- 单元测试\n\n编写单元测试验证连接是否正确关闭：\n\n@Test\npublic void testConnectionLeak()
+    throws SQLException {\n    int initialActiveCount = getActiveConnectionCount();\n
+    \   \n    // 执行业务逻辑\n    userService.updateUser(user);\n    \n    int finalActiveCount
+    = getActiveConnectionCount();\n    \n    // 验证连接数是否恢复\n    assertEquals(initialActiveCount,
+    finalActiveCount);\n}\n\nprivate int getActiveConnectionCount() throws SQLException
+    {\n    DruidDataSource dataSource = (DruidDataSource) this.dataSource;\n    return
+    dataSource.getActiveCount();\n}\n\n- 监控告警\n\n配置连接泄漏告警：\n\n# Prometheus 告警规则\ngroups:\n
+    \ - name: connection_leak_alerts\n    rules:\n      - alert: ConnectionLeakDetected\n
+    \       expr: druid_connections_remove_abandoned_count > 10\n        for: 5m\n
+    \       labels:\n          severity: warning\n        annotations:\n          summary:
+    \"Connection leak detected\"\n          description: \"Connection leak count:
+    {{ $value }}\"\n\n实战案例：\n\n某订单系统出现连接泄漏问题：\n\n问题现象：\n\n- 系统运行 2 小时后，频繁出现\"获取连接超时\"异常\n\n-
+    Druid 监控显示 activeCount 持续在 95-100（maxActive=100）\n\n- removeAbandonedCount 持续增加\n\n排查过程：\n\n-
+    开启 log-abandoned，查看连接泄漏日志\n\n- 日志显示泄漏发生在 OrderService.processOrder() 方法\n\n- 代码审查发现，该方法在异常分支中未关闭连接\n\n问题代码：\n\npublic
+    void processOrder(Order order) {\n    Connection conn = dataSource.getConnection();\n
+    \   try {\n        saveOrder(conn, order);\n        updateInventory(conn, order);\n
+    \   } catch (Exception e) {\n        log.error(\"Process order failed\", e);\n
+    \       // 异常时连接未关闭\n    }\n    // conn.close() 缺失\n}\n\n修复方案：\n\npublic void
+    processOrder(Order order) {\n    try (Connection conn = dataSource.getConnection())
+    {\n        saveOrder(conn, order);\n        updateInventory(conn, order);\n    }
+    catch (Exception e) {\n        log.error(\"Process order failed\", e);\n        throw
+    new RuntimeException(e);\n    }\n}\n\n修复效果：\n\n- removeAbandonedCount 不再增加\n\n-
+    activeCount 恢复正常范围（20-40）\n\n- 获取连接超时异常消失\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n3、场景题：生产环境出现连接池耗尽，如何快速恢复？\n\n⭐⭐⭐（应急处理、根因分析、长期优化、预防措施）\n\n1️⃣
+    Common Answer 连接池耗尽了就重启服务吧，先把服务恢复。然后排查代码，看是不是有连接泄漏。找到问题代码修复一下，再部署上去。\n\n2️⃣ Impressive
+    Answer 生产环境连接池耗尽需要快速恢复和根因分析并重，我将从应急处理、根因分析、长期优化和预防措施四个方面详细说明。\n\n应急处理：\n\n第一步：快速重启服务\n\n连接池耗尽的最快恢复方法是重启服务，但需要注意：\n\n-
+    使用优雅停机，避免正在处理的请求中断\n\n- 重启前保存现场，收集日志和监控数据\n\n- 重启后密切监控，确保问题不再出现\n\n优雅停机配置：\n\nserver:\n
+    \ shutdown: graceful\nspring:\n  lifecycle:\n    timeout-per-shutdown-phase: 30s\n\n第二步：临时扩容连接池\n\n如果重启服务不可行，可以临时扩容连接池：\n\nspring:\n
+    \ datasource:\n    hikari:\n      maximum-pool-size: 200  # 从 100 增加到 200\n\n但需要注意：\n\n-
+    确保数据库 max_connections 足够\n\n- 扩容后监控数据库压力\n\n- 这只是临时方案，需要根因分析\n\n第三步：启用 removeAbandoned\n\n如果未启用
+    removeAbandoned，可以临时启用：\n\nspring:\n  datasource:\n    druid:\n      remove-abandoned:
+    true\n      remove-abandoned-timeout: 60\n      log-abandoned: true\n\n这会强制回收超时未关闭的连接，缓解连接池压力。\n\n根因分析：\n\n第一步：收集现场信息\n\n重启前收集以下信息：\n\n-
+    Druid 监控截图（activeCount、acquireFailCount、removeAbandonedCount）\n\n- 数据库 SHOW PROCESSLIST
+    输出\n\n- 应用日志（特别是异常日志）\n\n- JVM 线程 dump（jstack 命令）\n\n第二步：分析连接泄漏日志\n\n如果启用了 log-abandoned，查看日志中的堆栈信息：\n\n2024-01-01
+    10:00:00 [Druid-ConnectionPool-Abandoned] WARN  o.a.d.p.DruidDataSource - abandon
+    connection, ownerThread: Thread[http-nio-8080-exec-1,5,main], openStackTrace:\n
+    \   at java.lang.Thread.getStackTrace(Thread.java:1559)\n    at com.alibaba.druid.pool.DruidDataSource.getConnectionDirect(DruidDataSource.java:1234)\n
+    \   at com.alibaba.druid.pool.DruidDataSource.getConnection(DruidDataSource.java:998)\n
+    \   at com.example.service.OrderService.processOrder(OrderService.java:45)\n    ...\n\n根据堆栈信息定位到具体代码。\n\n第三步：代码审查\n\n根据堆栈信息，定位到具体代码，检查：\n\n-
+    是否在异常分支中未关闭连接\n\n- 是否在循环中未关闭连接\n\n- 是否使用 ThreadLocal 未清理连接\n\n第四步：验证问题\n\n编写单元测试验证问题：\n\n@Test\npublic
+    void testConnectionLeak() throws SQLException {\n    int initialActiveCount =
+    getActiveConnectionCount();\n    \n    // 执行业务逻辑\n    orderService.processOrder(order);\n
+    \   \n    int finalActiveCount = getActiveConnectionCount();\n    \n    // 验证连接数是否恢复\n
+    \   assertEquals(initialActiveCount, finalActiveCount, \n        \"Connection
+    leak detected\");\n}\n\n长期优化：\n\n方案一：使用 try-with-resources\n\n将所有获取连接的代码改为使用 try-with-resources：\n\n//
+    修改前\npublic void processOrder(Order order) {\n    Connection conn = dataSource.getConnection();\n
+    \   try {\n        saveOrder(conn, order);\n        updateInventory(conn, order);\n
+    \   } catch (Exception e) {\n        log.error(\"Process order failed\", e);\n
+    \   } finally {\n        if (conn != null) {\n            try {\n                conn.close();\n
+    \           } catch (SQLException e) {\n                log.error(\"Close connection
+    failed\", e);\n            }\n        }\n    }\n}\n\n// 修改后\npublic void processOrder(Order
+    order) {\n    try (Connection conn = dataSource.getConnection()) {\n        saveOrder(conn,
+    order);\n        updateInventory(conn, order);\n    } catch (Exception e) {\n
+    \       log.error(\"Process order failed\", e);\n        throw new RuntimeException(e);\n
+    \   }\n}\n\n方案二：使用 ORM 框架\n\n使用 MyBatis、Hibernate 等 ORM 框架，它们会自动管理连接：\n\n// MyBatis
+    示例\n@Mapper\npublic interface OrderMapper {\n    @Insert(\"INSERT INTO orders
+    (user_id, amount) VALUES (#{userId}, #{amount})\")\n    void insertOrder(Order
+    order);\n}\n\n// Service 层直接调用，无需管理连接\n@Service\npublic class OrderService {\n
+    \   @Autowired\n    private OrderMapper orderMapper;\n    \n    public void processOrder(Order
+    order) {\n        orderMapper.insertOrder(order);\n    }\n}\n\n方案三：连接池监控告警\n\n配置连接池监控告警，提前发现问题：\n\n#
+    Prometheus 告警规则\ngroups:\n  - name: connection_pool_alerts\n    rules:\n      -
+    alert: ConnectionPoolExhaustion\n        expr: hikaricp_connections_active / hikaricp_connections_max
+    > 0.9\n        for: 5m\n        labels:\n          severity: critical\n        annotations:\n
+    \         summary: \"Connection pool nearly exhausted\"\n          description:
+    \"Active connections: {{ $value }}%\"\n      \n      - alert: ConnectionLeakDetected\n
+    \       expr: druid_connections_remove_abandoned_count > 10\n        for: 5m\n
+    \       labels:\n          severity: warning\n        annotations:\n          summary:
+    \"Connection leak detected\"\n          description: \"Leak count: {{ $value }}\"\n\n预防措施：\n\n-
+    代码规范\n\n制定代码规范，强制使用 try-with-resources：\n\n// 强制使用 try-with-resources\npublic
+    void updateUser(User user) {\n    try (Connection conn = dataSource.getConnection())
+    {\n        // 业务逻辑\n    } catch (SQLException e) {\n        log.error(\"Update
+    user failed\", e);\n        throw new RuntimeException(e);\n    }\n}\n\n- 代码审查\n\n在
+    Code Review 时重点关注：\n\n- 所有获取连接的地方是否都正确关闭\n\n- 异常分支是否正确关闭连接\n\n- 循环中的连接是否正确关闭\n\n-
+    单元测试\n\n编写单元测试验证连接是否正确关闭：\n\n@Test\npublic void testConnectionLeak() throws SQLException
+    {\n    int initialActiveCount = getActiveConnectionCount();\n    \n    // 执行业务逻辑\n
+    \   userService.updateUser(user);\n    \n    int finalActiveCount = getActiveConnectionCount();\n
+    \   \n    // 验证连接数是否恢复\n    assertEquals(initialActiveCount, finalActiveCount);\n}\n\n-
+    集成测试\n\n编写集成测试，模拟高并发场景，验证连接池稳定性：\n\n@Test\npublic void testConnectionPoolUnderHighConcurrency()
+    throws InterruptedException {\n    int threadCount = 100;\n    int requestsPerThread
+    = 100;\n    CountDownLatch latch = new CountDownLatch(threadCount);\n    \n    ExecutorService
+    executor = Executors.newFixedThreadPool(threadCount);\n    \n    for (int i =
+    0; i < threadCount; i++) {\n        executor.submit(() -> {\n            try {\n
+    \               for (int j = 0; j < requestsPerThread; j++) {\n                    userService.updateUser(user);\n
+    \               }\n            } finally {\n                latch.countDown();\n
+    \           }\n        });\n    }\n    \n    latch.await();\n    \n    // 验证连接池状态\n
+    \   int activeCount = getActiveConnectionCount();\n    assertTrue(activeCount
+    < 10, \"Connection pool not released\");\n}\n\n实战案例：\n\n某电商系统在大促期间出现连接池耗尽：\n\n应急处理：\n\n-
+    立即重启服务，恢复服务可用性\n\n- 临时启用 removeAbandoned，缓解连接池压力\n\n- 收集现场信息（监控截图、日志、线程 dump）\n\n根因分析：\n\n-
+    分析连接泄漏日志，定位到 OrderService.processOrder() 方法\n\n- 代码审查发现，该方法在异常分支中未关闭连接\n\n- 验证问题：编写单元测试，复现连接泄漏\n\n长期优化：\n\n-
+    修复问题代码，使用 try-with-resources\n\n- 配置连接池监控告警\n\n- 制定代码规范，强制使用 try-with-resources\n\n预防措施：\n\n-
+    在 Code Review 时重点关注连接管理\n\n- 编写单元测试验证连接是否正确关闭\n\n- 配置连接池监控告警，提前发现问题\n\n优化效果：\n\n-
+    连接泄漏问题彻底解决\n\n- 连接池监控告警及时发现问题\n\n- 代码质量显著提升\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n4、容易一起考的题\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PruYwWzfSiDw2dkgSMrcuononnf
+  block_id: doxcn1lbMYdAek54RPxcCilUAPc
+  page_token: PruYwWzfSiDw2dkgSMrcuononnf
+  original_title: 3.2 连接泄漏排查
+  imported_at: '2026-09-21'

@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-85e6f2dadee5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 奖励模型的输出可以是一个值，也可以对序列中每个 token 打分，两者在理论和实践上有什么区别？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 2-偏好数据与奖励建模
+tags: &1
+- RLHF面试高频考点
+- 2-偏好数据与奖励建模
+content:
+  prompt: 奖励模型的输出可以是一个值，也可以对序列中每个 token 打分，两者在理论和实践上有什么区别？
+answer:
+  mode: rubric
+  reference_answer: |-
+    - 序列级标量奖励
+    这是当前 RLHF 的标准实践。RM 在完整序列的末尾给出一个单一的标量 r(x, y)，代表对整个回答的整体评价。
+
+    - 理论优势：与人类“看完一段话后给出一个整体感觉”的评估方式高度吻合。训练目标（Bradley-Terry 模型）天然匹配这种全局比较。它简单、直接、易于训练和推理。
+
+    - 实践优势：RM 结构简单（仅需一个池化层和一个标量头）。计算效率高。对于 PPO 训练，只需要将最终奖励放到轨迹的最后一个 token 上。
+
+    - 劣势：信用分配（Credit Assignment）困难。在 PPO 中，这个单一的最终奖励需要被合理地“分配”到序列中的每一个 token 上，以便进行策略更新。这严重依赖于价值函数（Critic）的估计质量。如果 Critic 不准，模型很难知道是哪几个具体 token 导致了好/坏结果。这被称为延迟奖励问题。
+
+    - 逐 Token 的密集奖励
+    这种思路是让 RM 对序列中的每一个 token 都预测一个奖励值 r(s_t, a_t)，构成一个奖励序列。
+
+    - 理论优势：直接解决了信用分配问题。PPO 中的优势函数可以直接基于每个 token 的真实奖励来计算，学习信号更密集、更精确。理论上有望实现更细粒度的风格控制或安全对齐（例如精确惩罚不安全的词）。
+
+    - 实践挑战：
+
+    - 标注的极大困难：几乎不可能让人类标注员为每一个 token 标注一个奖励分数。因此，获取真实的 token 级奖励训练数据极其困难。
+
+    - 奖励模型架构复杂化：需要 RM 对每个 token 的输出隐藏状态都接一个标量头，结构更复杂。
+
+    - 训练目标的模糊性：如何训练这样一个 token 级的 RM？如果我们仍然只有序列级的偏好比较，就无法直接监督 token 级的奖励。一种方法是将序列级奖励视为 token 级奖励的累加，但这引入了额外的建模假设。目前更常见的是将语言模型 head 本身的自回归生成概率作为隐式的 token 级奖励信号。
+
+    结论：当前主流是序列级标量奖励，因其简单高效且与人类评估一致。token 级奖励是更理想但极难实现的方向，通常用 Critic 网络的价值输出来近似，而非直接训练 RM 来输出。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KFgpwxoYei4VBPkDUJfcFKLLnVf
+  block_id: Q7tsdgHX1oB5Tvx5m94cplAKnhf
+  page_token: KFgpwxoYei4VBPkDUJfcFKLLnVf
+  original_title: 奖励模型的输出可以是一个值，也可以对序列中每个 token 打分，两者在理论和实践上有什么区别？
+  imported_at: '2026-09-21'

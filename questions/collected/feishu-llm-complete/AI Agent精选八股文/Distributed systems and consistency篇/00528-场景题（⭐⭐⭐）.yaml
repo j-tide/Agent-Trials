@@ -1,0 +1,175 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e37b1193d9b9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题（⭐⭐⭐）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Distributed systems and consistency篇
+tags: &1
+- AI Agent精选八股文
+- Distributed systems and consistency篇
+content:
+  prompt: 3、场景题（⭐⭐⭐）
+answer:
+  mode: rubric
+  reference_answer: "题目：Agent 记忆系统（向量库 + 关系库 + 缓存）在 CAP 中如何取舍？不同记忆类型的一致性要求有什么不同？\n\n1️⃣
+    Common Answer Agent 记忆系统需要高可用性，所以选择 AP 模式。向量库存储长期记忆，关系库存储结构化数据，缓存存储短期记忆。长期记忆可以接受最终一致性，短期记忆要求强一致性。不同记忆类型根据重要程度选择不同的
+    CAP 策略。\n\n2️⃣ Impressive Answer Agent 记忆系统是一个多层次的存储架构，不同类型的记忆对一致性、可用性的要求不同，需要分层设计
+    CAP 策略：\n\nAgent 记忆系统架构：\n\n```text\n┌─────────────────────────────────────────┐\n│
+    \        Agent Memory System              │\n├─────────────────────────────────────────┤\n│
+    \ Layer 1: Working Memory (Redis Cache)  │  ← 会话级，强一致性\n│  Layer 2: Semantic Memory
+    (Vector DB)   │  ← 长期记忆，最终一致性\n│  Layer 3: Episodic Memory (Relational DB)│  ←
+    事件记录，最终一致性\n│  Layer 4: Procedural Memory (Knowledge Graph)│  ← 知识图谱，最终一致性\n└─────────────────────────────────────────┘\n```\n\n分层
+    CAP 取舍策略：\n\n- Working Memory（工作记忆）- Redis Cache：\n\n- CAP 选择：AP + 最终一致性（可配置为
+    CP）\n\n- 一致性要求：高（同一会话内的记忆必须一致）\n\n- 可用性要求：极高（缓存不可用会影响对话流畅度）\n\n- 实现方案：\n\n- 工程实践：`java//
+    会话记忆：强一致性@Cacheable(value = \"session_memory\", key = \"#sessionId\",cacheManager
+    = \"strongConsistencyCacheManager\")public Memory getSessionMemory(String sessionId)
+    {// 从 Redis Master 读取} // 全局记忆：最终一致性@Cacheable(value = \"global_memory\", key
+    = \"#userId\",cacheManager = \"eventualConsistencyCacheManager\")public Memory
+    getGlobalMemory(String userId) {// 从 Redis Replica 读取}`\n\n- Semantic Memory（语义记忆）-
+    Vector DB（如 Milvus、Pinecone）：\n\n- CAP 选择：AP（优先保证高可用性）\n\n- 一致性要求：低（向量检索允许短暂的不一致）\n\n-
+    可用性要求：高（向量库不可用时降级到关键词搜索）\n\n- 实现方案：\n\n- 工程实践：`javapublic class SemanticMemoryService
+    {public void addMemory(Memory memory) {// 1. 同步写入向量库（主节点）vectorDB.insert(memory);\n\n```text\n//
+    2. 异步更新索引（后台任务）\n      asyncIndexBuilder.updateIndex(memory);\n  }\n  \n  public
+    List<Memory> search(String query) {\n      // 从副本节点读取，允许索引更新延迟\n      return vectorDB.search(query,
+    ReadPreference.REPLICA);\n  }\n```\n\n} `\n\n- 降级策略：\n\n- Episodic Memory（情景记忆）-
+    Relational DB（如 MySQL）：\n\n- CAP 选择：CP（优先保证一致性）\n\n- 一致性要求：高（事件记录不能丢失或重复）\n\n-
+    可用性要求：中（事件记录失败不影响对话，但需要重试）\n\n- 实现方案：\n\n- 工程实践：`java@Transactionalpublic void
+    recordEvent(Event event) {// 1. 写入主库eventMapper.insert(event);\n\n```text\n//
+    2. 发送 MQ 消息，异步更新向量库\n  mqProducer.send(\"event-created\", event);\n```\n\n}\n\n//
+    读操作从从库读取 @Transactional(readOnly = true) public List<Event> getEvents(String sessionId)
+    {\n\n```text\nreturn eventMapper.selectBySessionId(sessionId);\n```\n\n} `\n\n-
+    Procedural Memory（程序记忆）- Knowledge Graph（如 Neo4j）：\n\n- CAP 选择：AP（优先保证高可用性）\n\n-
+    一致性要求：中（知识图谱允许短暂的不一致）\n\n- 可用性要求：高（知识图谱不可用时降级到规则引擎）\n\n- 实现方案：\n\n不同记忆类型的一致性要求对比：\n\n[嵌入表格未展开]\n\n工程实践总结：\n\n-
+    一致性监控：\n\n- 监控各层存储的数据延迟（主从复制延迟、索引更新延迟）\n\n- 告警机制：延迟超过阈值时告警\n\n- 数据对账：定期比对各层数据，修复不一致\n\n-
+    降级策略：\n\n- 向量库不可用 → 降级到 ES 关键词搜索\n\n- 关系库不可用 → 降级到本地文件存储\n\n- 缓存不可用 → 直接查询持久化存储\n\n-
+    一致性级别动态调整：\n\n- 根据业务场景动态调整一致性级别\n\n- 重要会话使用强一致性，普通会话使用最终一致性\n\n- 使用 Nacos 配置中心动态配置\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n分布式共识不是纸上谈兵，当一个 Agent 集群用 Etcd 扛起选主和配置同步时，你就真正把
+    Raft 的安全性承诺转化成了服务的可靠保障。理解算法是为了信任它，落地应用则是为了驾驭它。\n\n我的实践建议：一般中大型系统会采用 备用 workerId
+    + 逻辑时钟兜底 的组合策略。比如默认用历史最大时间，同时监控回拨次数，超过阈值就切换 workerId 并告警，这样在安全性和可用性之间取得平衡。\n\n-
+    使用 Redis 或 ZooKeeper 自动分配 workerId（避免手动配）。\n\n- 内部集成“逻辑时钟”应对回拨。\n\n- 最终 ID 如 T202606071430152B09F，其中
+    2B 是机器位，09F 是序列号。可读性略差，但胜在高性能。\n\n- 使用 Leaf-segment 思想，从数据库批量获取一段号段（如1000个），本地内存分配。\n\n-
+    日期前缀每天变化，可以定期重置号段起始点，避免位数无限增长。\n\n- 需要多活场景时，可以给不同实例分配不同的 业务码 段，如 AI、B1 等，既保持唯一又区分源头。\n\n针对
+    Agent 任务这个具体场景，我更倾向于 号段模式 + 日期前缀。既满足了全局唯一和趋势递增的技术硬指标，又让日志和监控中的 ID 自带时间戳和业务信息，排查问题事半功倍。\n\n技术选型永远是和业务形态强相关的——当你把
+    ID 设计从纯粹的“机器码”提升到“业务标识”时，你会发现它不仅是个主键，更是分布式追踪的第一块拼图。\n\n- 槽是离散单位：迁移时可以精确控制一次迁移几个槽，便于限流和回滚\n\n-
+    扩容可预测：16384 槽，新节点分几个槽、从哪个节点迁移，都能提前计算\n\n- 去中心化：用 Gossip 协议同步槽映射，不需要一致性 Hash 的元数据服务\n\n-
+    Agent 记忆分片：用一致性 Hash 将用户记忆分布到多个向量库实例，用户维度聚合\n\n- 任务路由：用哈希槽思想将任务类型映射到不同处理节点（如对话类/分析类/工具调用类）\n\n-
+    半消息用独立 Topic（RMQSYSTRANSHALFTOPIC）存储，对消费者透明\n\n- 提交/回滚是幂等的，网络抖动可重试\n\n- 半消息持久化：半消息和普通消息一样走同步刷盘
+    + 主从同步\n\n- 事务状态回查：超过阈值（默认 60s）未收到提交/回滚，主动回查事务表\n\n- 本地事务表：业务表 + 事务消息表放在同一本地事务，用定时任务兜底补偿\n\n-
+    本地事务执行前宕机：MQ 回查发现事务不存在，主动回滚半消息\n\n- 提交消息丢失：MQ 回查发现事务已成功，补发提交指令\n\n- 重复消费：事务消息的提交操作必须幂等（用唯一业务
+    ID 去重）\n\n- Agent 任务状态变更 + 记忆写入：用事务消息保证状态变更后一定触发记忆异步写入\n\n- 多 Agent 协作结果汇聚：子任务完成消息用事务消息发送，主任务订阅后聚合\n\n-
+    任务状态变更（DB）+ 发送通知消息（MQ）放在同一事务\n\n- 用 RocketMQ 事务消息或本地消息表 + 定时任务兜底\n\n- 消息结构带任务唯一
+    ID，下游按 ID 去重\n\n- MQ 层：同步刷盘 + 主从同步，消费者手动 ACK\n\n- 重试策略：指数退避（1s, 5s, 30s, 5min,
+    30min），避免瞬间压力\n\n- 死信队列：重试 16 次仍失败则转 DLQ，人工介入\n\n- 下游系统用 Redis 记录已处理的任务 ID（setnx，过期时间
+    7 天）\n\n- 数据库加唯一索引（如 task_id），重复插入自动失败\n\n- 关键通知（如计费）加对账任务，定时扫描遗漏\n\n- CPU 使用率：当前样本
+    CPU > 阈值（默认 70%）且 当前流入 QPS > 最小 QPS\n\n- 系统 Load：系统 Load1 > CPU 核心数（说明系统已过载）\n\n-
+    响应时间 RT：平均 RT 飙升说明系统处理能力下降\n\n- 不是简单的线性调整，而是根据指标变化率预测趋势\n\n- 避免阈值频繁抖动（加平滑窗口）\n\n-
+    LLM API 调用：用固定阈值（受限于供应商 RPM）\n\n- Agent 内部资源（如向量检索）：用自适应限流，根据 CPU/RT 动态调整\n\n-
+    混合部署场景：自适应限流 + 固定阈值双保险\n\n- 续期触发：加锁成功后启动看门狗线程，默认每 10 秒（lockWatchdogTimeout/3）检查一次\n\n-
+    续期条件：锁未被主动释放且持有者线程仍存活\n\n- 续期策略：每次续期延长 lockWatchdogTimeout（默认 30 秒），避免业务未完成锁过期\n\n-
+    线程终止：业务线程执行完毕或异常终止，看门狗线程自动停止，不再续期\n\n- 自动释放：客户端 Session 超时（默认 30 秒）或主动断开，临时节点立即删除\n\n-
+    Watch 通知：其他客户端监听节点删除事件，实时感知锁释放\n\n- 顺序性：用临时顺序节点，按序号获取锁，避免羊群效应\n\n- 工具调用资源锁：用 Redisson，并发高（如多个
+    Agent 同时调用同一限流工具）\n\n- 全局任务锁：用 ZooKeeper，任务执行时间长（如 Agent 工作流编排），需要强可靠性\n\n- 粗粒度（不推荐）：lock:tool:{toolId}，所有调用同一工具的
+    Agent 都互斥，并发度低\n\n- 例如：调用限流工具按用户 ID 加锁，调用数据库工具按表名加锁\n\n- 细粒度（推荐）：lock:tool:{toolId}:{resourceKey}，按资源维度加锁\n\n-
+    混合粒度：核心资源用细粒度，非核心资源用粗粒度\n\n- 工具执行时间预估：根据工具历史耗时 P99 设置超时（如 P99 = 3s，锁超时 = 5s）\n\n-
+    看门狗续期：执行时间不确定的工具用 Redisson 看门狗自动续期\n\n- 超时回滚：锁超时后触发工具调用回滚，避免部分执行导致资源不一致\n\n- 锁降级：高并发场景下，获取锁失败时排队或快速失败（如返回\"工具繁忙，稍后重试\"）\n\n-
+    分段锁：对高频工具用一致性 Hash 分段锁（如 lock:tool:{toolId}:{hash(resourceKey) % 16}）\n\n- 本地缓存：无状态工具（如计算类）用本地锁（ReentrantLock），减少分布式锁压力\n\n-
+    调度层去重：XXL-Job 的调度中心用数据库锁（INSERT IGNORE 或唯一索引），同一任务同一时间只调度一次\n\n- 执行层加锁：任务执行时用
+    Redis 分布式锁，lock:job:{jobId}:{scheduleTime}，避免重复消费\n\n- 状态机去重：任务表用状态字段（WAITING/RUNNING/SUCCESS/FAILED），状态流转用乐观锁（CAS
+    更新）\n\n- 重试次数：默认 3 次，超过转人工介入\n\n- 重试间隔：指数退避（1s, 5s, 30s），避免瞬间压力\n\n- 重试范围：只重试可恢复异常（网络超时、临时锁冲突），不可恢复异常（参数错误）直接失败\n\n-
+    补偿任务：定时扫描失败任务，人工确认后触发补偿执行\n\n- 记忆清理任务：按用户维度分片，用分布式锁保证同一用户不被重复清理\n\n- 工作流触发任务：用幂等表记录已触发的工作流
+    ID，避免重复触发\n\n- 记忆清理任务：按用户 ID 哈希分片（如 16 个分片），每个执行节点处理一部分用户\n\n- 工作流触发任务：按工作流类型分片，避免同一类型任务堆积在单一节点\n\n-
+    动态分片：ElasticJob 支持运行时动态调整分片数，根据任务量自动扩缩容\n\n- 线程池隔离：不同类型任务用独立线程池（如 memory-cleanup-pool、workflow-trigger-pool），避免互相影响\n\n-
+    限流保护：对高频任务（如每分钟触发）用 Sentinel 限流，保护下游系统（如向量库）\n\n- 优雅停机：任务执行中收到停机信号，等待当前批次完成后再退出\n\n-
+    临时失败（如网络超时）：自动重试 3 次\n\n- 业务失败（如用户不存在）：记录日志，跳过\n\n- 系统失败（如数据库宕机）：告警 + 人工介入\n\n-
+    失败分类：\n\n- 监控指标：任务执行耗时、成功率、失败原因分布、下游系统响应时间\n\n- 告警策略：连续 3 次失败触发告警，失败率超过 10% 触发升级告警\n\n-
+    水平扩容：任务堆积时增加执行节点，ElasticJob 自动重新分片\n\n- 垂直扩容：单节点任务量大时增加线程池线程数（注意不要超过 CPU 核心数 ×
+    2）\n\n- HTTP 传递：用 traceparent Header（OpenTelemetry 标准），格式：00-{traceId}-{spanId}-{flags}\n\n-
+    RPC 传递：Dubbo/HSF 用 Attachment 传递 TraceId 和 SpanId\n\n- 异步线程传递：用 TransmittableThreadLocal（TTL）或
+    MDC，确保子线程继承父线程的 Trace 上下文\n\n- Attributes：model.name、prompt.tokens、completion.tokens、latency.ms\n\n-
+    Events：prompt.start、prompt.end、completion.start、completion.end\n\n- LLM 调用埋点：\n\n-
+    Attributes：tool.name、tool.parameters、execution.status\n\n- Events：tool.invoke.start、tool.invoke.end、tool.result\n\n-
+    工具执行埋点：\n\n- 用 Span 的 thought Attribute 记录 Agent 的决策过程\n\n- 用 Span Link 关联相关的记忆检索
+    Span\n\n- Agent 思考链埋点：\n\n- 消息队列任务：消息体中携带 TraceId，消费者从消息中提取并创建 Child Span\n\n-
+    定时任务：用任务 ID 作为 TraceId，关联相关的操作 Span\n\n- 流式响应：用 Span Link 关联多个流式块，避免 Span 过长\n\n-
+    任务级 Trace：用 task:{taskId} 作为 TraceId，贯穿整个协作流程\n\n- Agent 级 Span：每个 Agent 的执行作为一个
+    Span，记录 Agent 类型、输入、输出\n\n- Agent A → Agent B：用 RPC 调用，传递 TraceId，创建 Child Span\n\n-
+    Agent A → 消息队列 → Agent B：消息体携带 TraceId，消费者创建新 Span 并用 Span Link 关联\n\n- 通信埋点：\n\n-
+    状态机埋点：任务表记录状态（PENDING/ASSIGNED/IN_PROGRESS/COMPLETED/FAILED），每次状态变更创建 Event Span\n\n-
+    Agent 分配埋点：记录任务分配给哪个 Agent（agent.id、agent.type），追踪任务流转路径\n\n- 超时告警：Agent 执行超时（如超过
+    5 分钟）触发告警，记录超时 Span\n\n- 时序图：按时间轴展示各 Agent 的执行顺序和耗时\n\n- 拓扑图：展示 Agent 之间的调用关系（如
+    Orchestrator → Planner → Executor）\n\n- 端到端耗时：从任务创建到完成的总时间\n\n- Agent 耗时分布：各 Agent
+    的平均耗时、P99 耗时\n\n- 瓶颈识别：耗时最长的 Agent 或步骤\n\n- 关键指标：\n\n- LLM 调用瓶颈：LLM 调用 Span 耗时占比高
+    → 优化 Prompt、切换更快模型\n\n- 工具执行瓶颈：工具调用 Span 耗时高 → 优化工具实现、增加缓存\n\n- Agent 协作瓶颈：Agent
+    间通信 Span 耗时高 → 优化消息传递、减少不必要的协作\n\n- 续期触发：加锁成功后启动看门狗线程，默认每 10 秒（lockWatchdogTimeout/3）检查一次\n\n-
+    续期条件：锁未被主动释放且持有者线程仍存活\n\n- 续期策略：每次续期延长 lockWatchdogTimeout（默认 30 秒），避免业务未完成锁过期\n\n-
+    线程终止：业务线程执行完毕或异常终止，看门狗线程自动停止，不再续期\n\n- 自动释放：客户端 Session 超时（默认 30 秒）或主动断开，临时节点立即删除\n\n-
+    Watch 通知：其他客户端监听节点删除事件，实时感知锁释放\n\n- 顺序性：用临时顺序节点，按序号获取锁，避免羊群效应\n\n- 工具调用资源锁：用 Redisson，并发高（如多个
+    Agent 同时调用同一限流工具）\n\n- 全局任务锁：用 ZooKeeper，任务执行时间长（如 Agent 工作流编排），需要强可靠性\n\n- 粗粒度（不推荐）：lock:tool:{toolId}，所有调用同一工具的
+    Agent 都互斥，并发度低\n\n- 例如：调用限流工具按用户 ID 加锁，调用数据库工具按表名加锁\n\n- 细粒度（推荐）：lock:tool:{toolId}:{resourceKey}，按资源维度加锁\n\n-
+    混合粒度：核心资源用细粒度，非核心资源用粗粒度\n\n- 工具执行时间预估：根据工具历史耗时 P99 设置超时（如 P99 = 3s，锁超时 = 5s）\n\n-
+    看门狗续期：执行时间不确定的工具用 Redisson 看门狗自动续期\n\n- 超时回滚：锁超时后触发工具调用回滚，避免部分执行导致资源不一致\n\n- 锁降级：高并发场景下，获取锁失败时排队或快速失败（如返回\"工具繁忙，稍后重试\"）\n\n-
+    分段锁：对高频工具用一致性 Hash 分段锁（如 lock:tool:{toolId}:{hash(resourceKey) % 16}）\n\n- 本地缓存：无状态工具（如计算类）用本地锁（ReentrantLock），减少分布式锁压力\n\n-
+    调度层去重：XXL-Job 的调度中心用数据库锁（INSERT IGNORE 或唯一索引），同一任务同一时间只调度一次\n\n- 执行层加锁：任务执行时用
+    Redis 分布式锁，lock:job:{jobId}:{scheduleTime}，避免重复消费\n\n- 状态机去重：任务表用状态字段（WAITING/RUNNING/SUCCESS/FAILED），状态流转用乐观锁（CAS
+    更新）\n\n- 重试次数：默认 3 次，超过转人工介入\n\n- 重试间隔：指数退避（1s, 5s, 30s），避免瞬间压力\n\n- 重试范围：只重试可恢复异常（网络超时、临时锁冲突），不可恢复异常（参数错误）直接失败\n\n-
+    补偿任务：定时扫描失败任务，人工确认后触发补偿执行\n\n- 记忆清理任务：按用户维度分片，用分布式锁保证同一用户不被重复清理\n\n- 工作流触发任务：用幂等表记录已触发的工作流
+    ID，避免重复触发\n\n- 记忆清理任务：按用户 ID 哈希分片（如 16 个分片），每个执行节点处理一部分用户\n\n- 工作流触发任务：按工作流类型分片，避免同一类型任务堆积在单一节点\n\n-
+    动态分片：ElasticJob 支持运行时动态调整分片数，根据任务量自动扩缩容\n\n- 线程池隔离：不同类型任务用独立线程池（如 memory-cleanup-pool、workflow-trigger-pool），避免互相影响\n\n-
+    限流保护：对高频任务（如每分钟触发）用 Sentinel 限流，保护下游系统（如向量库）\n\n- 优雅停机：任务执行中收到停机信号，等待当前批次完成后再退出\n\n-
+    临时失败（如网络超时）：自动重试 3 次\n\n- 业务失败（如用户不存在）：记录日志，跳过\n\n- 系统失败（如数据库宕机）：告警 + 人工介入\n\n-
+    失败分类：\n\n- 监控指标：任务执行耗时、成功率、失败原因分布、下游系统响应时间\n\n- 告警策略：连续 3 次失败触发告警，失败率超过 10% 触发升级告警\n\n-
+    水平扩容：任务堆积时增加执行节点，ElasticJob 自动重新分片\n\n- 垂直扩容：单节点任务量大时增加线程池线程数（注意不要超过 CPU 核心数 ×
+    2）\n\n- HTTP 传递：用 traceparent Header（OpenTelemetry 标准），格式：00-{traceId}-{spanId}-{flags}\n\n-
+    RPC 传递：Dubbo/HSF 用 Attachment 传递 TraceId 和 SpanId\n\n- 异步线程传递：用 TransmittableThreadLocal（TTL）或
+    MDC，确保子线程继承父线程的 Trace 上下文\n\n- Attributes：model.name、prompt.tokens、completion.tokens、latency.ms\n\n-
+    Events：prompt.start、prompt.end、completion.start、completion.end\n\n- LLM 调用埋点：\n\n-
+    Attributes：tool.name、tool.parameters、execution.status\n\n- Events：tool.invoke.start、tool.invoke.end、tool.result\n\n-
+    工具执行埋点：\n\n- 用 Span 的 thought Attribute 记录 Agent 的决策过程\n\n- 用 Span Link 关联相关的记忆检索
+    Span\n\n- Agent 思考链埋点：\n\n- 消息队列任务：消息体中携带 TraceId，消费者从消息中提取并创建 Child Span\n\n-
+    定时任务：用任务 ID 作为 TraceId，关联相关的操作 Span\n\n- 流式响应：用 Span Link 关联多个流式块，避免 Span 过长\n\n-
+    任务级 Trace：用 task:{taskId} 作为 TraceId，贯穿整个协作流程\n\n- Agent 级 Span：每个 Agent 的执行作为一个
+    Span，记录 Agent 类型、输入、输出\n\n- Agent A → Agent B：用 RPC 调用，传递 TraceId，创建 Child Span\n\n-
+    Agent A → 消息队列 → Agent B：消息体携带 TraceId，消费者创建新 Span 并用 Span Link 关联\n\n- 通信埋点：\n\n-
+    状态机埋点：任务表记录状态（PENDING/ASSIGNED/IN_PROGRESS/COMPLETED/FAILED），每次状态变更创建 Event Span\n\n-
+    Agent 分配埋点：记录任务分配给哪个 Agent（agent.id、agent.type），追踪任务流转路径\n\n- 超时告警：Agent 执行超时（如超过
+    5 分钟）触发告警，记录超时 Span\n\n- 时序图：按时间轴展示各 Agent 的执行顺序和耗时\n\n- 拓扑图：展示 Agent 之间的调用关系（如
+    Orchestrator → Planner → Executor）\n\n- 端到端耗时：从任务创建到完成的总时间\n\n- Agent 耗时分布：各 Agent
+    的平均耗时、P99 耗时\n\n- 瓶颈识别：耗时最长的 Agent 或步骤\n\n- 关键指标：\n\n- LLM 调用瓶颈：LLM 调用 Span 耗时占比高
+    → 优化 Prompt、切换更快模型\n\n- 工具执行瓶颈：工具调用 Span 耗时高 → 优化工具实现、增加缓存\n\n- Agent 协作瓶颈：Agent
+    间通信 Span 耗时高 → 优化消息传递、减少不必要的协作\n\n- 使用可靠消息队列（RocketMQ、Kafka）\n\n- 消息发送失败重试机制\n\n-
+    消息消费幂等性保证\n\n- 死信队列处理异常消息\n\n- 消息表和业务表在同一数据库，使用本地事务保证原子性\n\n- 定时任务轮询未发送的消息\n\n-
+    消息发送失败重试，超过次数转入死信队列\n\n- 使用 Redis Cluster 模式，支持自动故障转移\n\n- master：从主节点读取（强一致性）\n\n-
+    replica：从从节点读取（最终一致性）\n\n- 配置 replicate-reads 控制读取策略：\n\n- 会话记忆使用 master 模式，保证强一致性\n\n-
+    全局共享记忆使用 replica 模式，允许最终一致性\n\n- 使用分布式向量数据库，支持多副本\n\n- 向量索引更新采用异步模式（Write-Behind）\n\n-
+    新增记忆先写入缓冲区，异步构建向量索引\n\n- 允许索引更新延迟（通常几秒到几分钟）\n\n- 向量库不可用时，降级到关键词搜索（ES）\n\n- 检索超时时，返回缓存的历史结果\n\n-
+    使用主从复制 + 读写分离\n\n- 写操作路由到主节点，保证强一致性\n\n- 读操作路由到从节点，允许短暂延迟\n\n- 使用分布式事务（Seata）保证跨库一致性\n\n-
+    使用因果集群（Causal Cluster），支持读写分离\n\n- 写操作路由到 Leader 节点，保证一致性\n\n- 读操作路由到 Follower
+    节点，允许最终一致性\n\n- 使用异步复制，Leader 和 Follower 间存在延迟"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YhRxwgmAsiJbzZktG6wcNPNznyg
+  block_id: doxcnjGbezPxSbNsfIdvx5Flb7c
+  page_token: YhRxwgmAsiJbzZktG6wcNPNznyg
+  original_title: 3、场景题（⭐⭐⭐）
+  imported_at: '2026-09-21'

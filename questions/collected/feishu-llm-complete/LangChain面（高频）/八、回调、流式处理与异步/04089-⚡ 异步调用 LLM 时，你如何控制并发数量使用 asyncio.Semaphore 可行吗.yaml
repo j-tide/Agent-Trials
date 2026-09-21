@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dabf021129e0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚡ 异步调用 LLM 时，你如何控制并发数量？使用 asyncio.Semaphore 可行吗？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "⚡ 异步调用 LLM 时，你如何控制并发数量？使用 asyncio.Semaphore 可行吗？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    asyncio.Semaphore 是控制异步并发的标准工具，完全可行，且非常高效。
+
+    使用方法：
+
+    - 创建一个全局或请求级的 Semaphore，设置最大并发数。
+
+    - 在每次 LLM 调用前 async with semaphore:，超过限制的协程会挂起等待。
+
+    示例：
+
+    ```python
+    import asyncio
+    from langchain_openai import ChatOpenAI
+
+    sem = asyncio.Semaphore(10)  # 最多10个并发LLM调用
+
+    async def ask_llm(prompt):
+        async with sem:
+            llm = ChatOpenAI(model="gpt-3.5-turbo")
+            return await llm.ainvoke(prompt)
+
+    async def main():
+        tasks = [ask_llm(f"Question {i}") for i in range(100)]
+        results = await asyncio.gather(*tasks)
+    ```
+
+    为什么 Semaphore 可行？
+
+    - 它工作在协程层级，当达到上限时，新的协程会阻塞在 acquire 上，但不会阻塞事件循环，其他协程可继续运行。
+
+    - 相比线程池的 max_workers，Semaphore 更轻量，且不会引入线程切换开销。
+
+    额外考量：
+
+    - API 限流：如果你的 API 有 RPM (每分钟请求数) 限制，Semaphore 只能控制并发，不能精确控制频率，需要结合令牌桶或滑动窗口（见问题9）。
+
+    - 连接池限制：异步 HTTP 客户端（如 httpx）本身有连接池限制，需要配合调整 limits 参数，否则 Semaphore 形同虚设。
+
+    - 多实例：在分布式环境，Semaphore 只能限制单进程并发，全局限制需要借助 Redis 等集中式计数器。
+
+    实践技巧：我通常将 Semaphore 封装成一个上下文管理器，并集成到 langchain 的回调中，在 on_llm_start 申请，on_llm_end 释放，实现透明化限流。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XRv0wx736iBPPjk1VBdcvmwSnmb
+  block_id: BF5BdnfXmo9VMwxsZHeccHxcnog
+  page_token: XRv0wx736iBPPjk1VBdcvmwSnmb
+  original_title: "⚡ 异步调用 LLM 时，你如何控制并发数量？使用 asyncio.Semaphore 可行吗？"
+  imported_at: '2026-09-21'

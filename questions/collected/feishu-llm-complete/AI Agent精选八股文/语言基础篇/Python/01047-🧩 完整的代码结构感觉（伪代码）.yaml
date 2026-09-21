@@ -1,0 +1,92 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9853cb7f896e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 完整的代码结构感觉（伪代码）"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 语言基础篇 / Python
+tags: &1
+- AI Agent精选八股文
+- 语言基础篇
+- Python
+content:
+  prompt: "\U0001F9E9 完整的代码结构感觉（伪代码）"
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    async def doc_parser(files, queue_a, process_pool):
+        for f in files:
+            raw = await aiofiles.read(f)
+            chunks = await loop.run_in_executor(process_pool, parse, raw)
+            for c in chunks:
+                await queue_a.put(c)
+        await queue_a.put(None)  # 结束信号
+
+    async def embedder(queue_a, queue_b, sem, model, thread_pool):
+        batch = []
+        while True:
+            chunk = await queue_a.get()
+            if chunk is None:
+                break
+            batch.append(chunk)
+            if len(batch) >= 32:
+                vecs = await loop.run_in_executor(thread_pool, model.encode, batch)
+                for v in vecs:
+                    await queue_b.put(v)
+                batch = []
+        if batch:
+            # 剩余批次
+            vecs = await loop.run_in_executor(thread_pool, model.encode, batch)
+            for v in vecs:
+                await queue_b.put(v)
+        await queue_b.put(None)
+
+    async def vector_writer(queue_b, client, sem, batch_size=100):
+        buffer = []
+        while True:
+            vec = await queue_b.get()
+            if vec is None:
+                break
+            buffer.append(vec)
+            if len(buffer) >= batch_size:
+                async with sem:
+                    await client.upsert(buffer)
+                buffer = []
+        if buffer:
+            async with sem:
+                await client.upsert(buffer)
+    ```
+
+    主协程把这几个 asyncio.create_task 一起 gather，就跑出了一个全并行的流水线。
+
+    ---
+
+    这种三层解耦的设计，最大的好处是每个阶段的并发度和批处理策略都可以独立调优，不会互相拖累。比如向量库写入慢了，只要把 Queue_B 设大一点，嵌入阶段可以继续满速跑，不会因为一次慢写入卡住整个管道。实际测试中，同样的硬件，把原来串行 2000 篇文档的处理时间从 1 小时压缩到了 9 分钟左右，CPU 和 API 的利用率曲线几乎拉满。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Lo7AwMwnSijrhckvvM5czuXnnwf
+  block_id: doxcngIewYesoxBgykbahZ0FKde
+  page_token: Lo7AwMwnSijrhckvvM5czuXnnwf
+  original_title: "\U0001F9E9 完整的代码结构感觉（伪代码）"
+  imported_at: '2026-09-21'

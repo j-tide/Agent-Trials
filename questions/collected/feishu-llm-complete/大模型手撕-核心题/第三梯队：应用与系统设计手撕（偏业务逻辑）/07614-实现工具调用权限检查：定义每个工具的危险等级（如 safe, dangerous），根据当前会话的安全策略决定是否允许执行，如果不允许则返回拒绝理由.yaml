@@ -1,0 +1,87 @@
+---
+schema_version: 1
+id: feishu-llm-complete-321782824b87
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现工具调用权限检查：定义每个工具的危险等级（如 safe, dangerous），根据当前会话的安全策略决定是否允许执行，如果不允许则返回拒绝理由。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 实现工具调用权限检查：定义每个工具的危险等级（如 safe, dangerous），根据当前会话的安全策略决定是否允许执行，如果不允许则返回拒绝理由。
+answer:
+  mode: rubric
+  reference_answer: |-
+    实现
+
+    ```python
+    from enum import Enum
+
+    class RiskLevel(Enum):
+        SAFE = "safe"
+        DANGEROUS = "dangerous"
+
+    class ToolSecurityPolicy:
+        def __init__(self, risk_assignments: Dict[str, RiskLevel], default_allow_dangerous: bool = False):
+            self.risk = risk_assignments
+            self.allow_dangerous = default_allow_dangerous
+
+        def check(self, tool_name: str) -> Tuple[bool, str]:
+            """
+            检查工具是否允许执行。
+            Returns:
+                (allowed, reason)
+            """
+            level = self.risk.get(tool_name, RiskLevel.DANGEROUS)  # 默认危险
+            if level == RiskLevel.SAFE:
+                return True, ""
+            if self.allow_dangerous:
+                return True, "允许执行危险操作"
+            return False, f"工具 '{tool_name}' 被标记为危险操作，当前安全策略不允许执行"
+
+    # 示例
+    policy = ToolSecurityPolicy({
+        "search": RiskLevel.SAFE,
+        "delete_file": RiskLevel.DANGEROUS,
+        "send_email": RiskLevel.DANGEROUS
+    }, default_allow_dangerous=False)
+
+    print(policy.check("search"))       # (True, '')
+    print(policy.check("delete_file")) # (False, "工具 'delete_file' 被标记为危险操作...")
+    ```
+
+    扩展
+
+    - 可结合用户角色/认证信息动态调整策略。
+
+    - 危险操作可以要求用户二次确认（如通过回调函数）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  block_id: K8JHd5W4joGuKTx65yHcGIM1nRc
+  page_token: Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  original_title: 实现工具调用权限检查：定义每个工具的危险等级（如 safe, dangerous），根据当前会话的安全策略决定是否允许执行，如果不允许则返回拒绝理由。
+  imported_at: '2026-09-21'

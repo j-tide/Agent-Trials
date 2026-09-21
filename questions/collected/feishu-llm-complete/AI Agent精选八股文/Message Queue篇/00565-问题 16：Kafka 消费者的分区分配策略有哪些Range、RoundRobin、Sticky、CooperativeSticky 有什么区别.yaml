@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ccdb22646596
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 问题 16：Kafka 消费者的分区分配策略有哪些？Range、RoundRobin、Sticky、CooperativeSticky 有什么区别？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 问题 16：Kafka 消费者的分区分配策略有哪些？Range、RoundRobin、Sticky、CooperativeSticky 有什么区别？
+answer:
+  mode: rubric
+  reference_answer: "难度：⭐⭐⭐（分区分配策略、增量式重平衡、Cooperative Rebalance）\n\nCommon Answer\n\n嗯...Kafka
+    有几种分区分配策略，Range 和 RoundRobin 比较常用。Range 是按范围分配，RoundRobin 是轮询分配。Sticky 是粘性分配，尽量保持之前的分配。CooperativeSticky
+    是改进版，重平衡时不会停止所有消费者。\n\nImpressive Answer\n\n- 四种策略的分配逻辑和算法\n\n假设场景：3 个消费者（C0,
+    C1, C2）消费 7 个分区（P0-P6）\n\nRange 策略（默认）\n\n```text\n按 Topic 分配，每个 Topic 独立计算：\n7
+    个分区 / 3 个消费者 = 2 余 1\nC0: P0, P1, P2 (3个)  # 前 2 个 + 余数 1\nC1: P3, P4 (2个)\nC2:
+    P5, P6 (2个)\n```\n\nRoundRobin 策略\n\n```text\n所有 Topic 的分区混合后轮询分配：\nP0→C0, P1→C1,
+    P2→C2, P3→C0, P4→C1, P5→C2, P6→C0\nC0: P0, P3, P6 (3个)\nC1: P1, P4 (2个)\nC2: P2,
+    P5 (2个)\n```\n\nSticky 策略\n\n```text\n首次分配类似 RoundRobin，但重平衡时尽量保持原有分配：\n原则：最小化分区移动\n```\n\nCooperativeSticky
+    策略\n\n```text\n增量式重平衡，不再 Stop the World：\n- 只撤销需要重新分配的分区\n- 分两阶段：ON_JOIN → ON_SYNC\n```\n\n-
+    Range 的缺陷（多 Topic 时数据倾斜）\n\n场景：2 个消费者，2 个 Topic（T1 有 3 个分区，T2 有 2 个分区）\n\n```text\nT1
+    分配：\nC0: T1-P0, T1-P1 (2个)\nC1: T1-P2 (1个)\n\nT2 分配：\nC0: T2-P0 (1个)\nC1: T2-P1
+    (1个)\n\n总计：\nC0: 3 个分区\nC1: 2 个分区\n```\n\n数据倾斜导致：\n\n- C0 负载高，C1 负载低\n\n- 消费进度不一致\n\n-
+    RoundRobin 的改进和局限\n\n改进：\n\n- 解决了 Range 的数据倾斜问题\n\n- 多 Topic 下分配更均匀\n\n局限：\n\n-
+    重平衡时所有分区都会重新分配\n\n- 不考虑之前的分配结果，可能频繁移动分区\n\n- Sticky 的核心思想（最小化分区移动）\n\n原则：\n\n-
+    尽量保持消费者原有的分区分配\n\n- 只在必要时移动分区\n\n示例：\n\n```text\n初始分配：\nC0: P0, P3, P6\nC1: P1,
+    P4\nC2: P2, P5\n\nC2 宕机后重平衡（Sticky）：\nC0: P0, P3, P6, P2  # P2 从 C2 迁移过来\nC1:
+    P1, P4, P5      # P5 从 C2 迁移过来\n\n分区移动：2 个（比 RoundRobin 的 7 个少）\n```\n\n- CooperativeSticky（增量式重平衡）\n\n传统重平衡（Eager）：\n\n```text\n1.
+    停止所有消费者（Stop the World）\n2. 撤销所有分区\n3. 重新计算分配\n4. 恢复消费\n```\n\n增量式重平衡（Cooperative）：\n\n```text\n阶段
+    1（ON_JOIN）：\n- 新消费者加入，只撤销需要重新分配的分区\n- 其他消费者继续消费\n\n阶段 2（ON_SYNC）：\n- 完成剩余分区的迁移\n```\n\n优势：\n\n-
+    减少消费停顿时间\n\n- 降低重平衡对吞吐的影响\n\n- 配置方式代码示例和实战选择建议\n\n```text\nProperties props =
+    new Properties();\nprops.put(\"bootstrap.servers\", \"localhost:9092\");\nprops.put(\"group.id\",
+    \"test-group\");\n\n// 分区分配策略配置\nprops.put(\"partition.assignment.strategy\",
+    \n    \"org.apache.kafka.clients.consumer.StickyAssignor\");\n\n// 或者使用 CooperativeSticky（Kafka
+    2.4+）\nprops.put(\"partition.assignment.strategy\", \n    \"org.apache.kafka.clients.consumer.CooperativeStickyAssignor\");\n\nKafkaConsumer<String,
+    String> consumer = new KafkaConsumer<>(props);\n```\n\n实战选择建议：\n\n- 单 Topic、分区数能整除消费者数：Range（默认，简单）\n\n-
+    多 Topic、需要均匀分配：RoundRobin\n\n- 重平衡频繁、需要最小化分区移动：Sticky\n\n- Kafka 2.4+、高吞吐场景：CooperativeSticky（推荐）\n\nKey
+    Differences\n\n[嵌入表格未展开]\n\n---\n\n### 6.17 Kafka Exactly-Once 语义"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcnEohaM8BFprC07mfeCbUjOO
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: 问题 16：Kafka 消费者的分区分配策略有哪些？Range、RoundRobin、Sticky、CooperativeSticky
+    有什么区别？
+  imported_at: '2026-09-21'

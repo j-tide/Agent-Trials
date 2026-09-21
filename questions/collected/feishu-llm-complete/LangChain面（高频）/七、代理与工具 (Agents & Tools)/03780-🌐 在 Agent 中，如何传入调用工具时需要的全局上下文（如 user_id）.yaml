@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6c01bfcd3bb5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F310 在 Agent 中，如何传入调用工具时需要的全局上下文（如 user_id）？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "\U0001F310 在 Agent 中，如何传入调用工具时需要的全局上下文（如 user_id）？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    许多工具在执行时需要知道当前的用户身份、会话ID、请求来源等全局上下文。这些信息不应由 Agent 自己生成，而应可靠地从外部注入。
+
+    方法一：通过闭包（工厂函数）注入
+
+    在创建工具时，将上下文绑定到函数闭包中。这是最推荐的方式，因为它让工具函数保持纯净，上下文作为外部依赖显式传入。
+
+    ```python
+    def make_weather_tool(user_id):
+        @tool
+        def weather(city: str) -> str:
+            # 使用 user_id 记录日志、鉴权等
+            log_query(user_id, city)
+            return get_weather(city)
+        return weather
+
+    # 在请求处理中
+    user_tool = make_weather_tool(current_user.id)
+    agent_executor = AgentExecutor(agent=agent, tools=[user_tool])
+    ```
+
+    方法二：使用 partial 或 tool 的 args_schema 注入
+    不推荐让 Agent 自己传递 user_id，因为 LLM 可能会遗忘或出错。更好的方式是将 user_id 作为工具函数的非 LLM 可见参数，在调用时自动填充。这通常需要自定义 AgentExecutor 或使用 LangChain 的 RunnableConfig 来传递。
+
+    方法三：全局请求上下文（如 contextvars）
+    在异步 Web 框架（如 FastAPI）中，可以使用 Python 的 contextvars 将请求级上下文（如 user_id）存储在线程/协程本地变量中，工具函数内部直接读取。这避免了参数传递，但要注意协程安全。
+
+    ```python
+    import contextvars
+    current_user_id = contextvars.ContextVar("user_id")
+
+    @tool
+    def my_tool(query: str) -> str:
+        uid = current_user_id.get()
+        # 使用 uid
+    ```
+
+    方法四：通过 Agent 的 Memory 传递
+
+    将用户信息存储在 Memory 中，但这不适用于安全敏感信息，因为 LLM 可能会无意泄露。
+
+    ✅ 推荐方案：对于简单应用，用闭包注入最直接；对于复杂的 Web 应用，用 contextvars 可以极大简化代码。无论如何，绝不要让 LLM 自己生成或传递 user_id，这既不安全也不可靠。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZZIjwAYoMiY0VEk7JiDcIuK3nPb
+  block_id: Ot7KdpHcIoOTodxlf4NcPxb9nXm
+  page_token: ZZIjwAYoMiY0VEk7JiDcIuK3nPb
+  original_title: "\U0001F310 在 Agent 中，如何传入调用工具时需要的全局上下文（如 user_id）？"
+  imported_at: '2026-09-21'

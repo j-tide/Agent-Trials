@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-87f79ca02b88
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 大规模微调数据如何进行分片和流式加载？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 大规模微调数据如何进行分片和流式加载？
+answer:
+  mode: rubric
+  reference_answer: |-
+    当数据集大小超过单机内存（例如TB级），必须采用分片（Sharding） 和流式加载（Streaming），边训练边加载。
+
+    分片策略：
+
+    - 将整个数据集切分成多个小文件（shards），每个shard大小适中（如100MB~1GB），便于随机访问和并行加载。
+
+    - 分片可以基于文件命名规则（如data-00001.parquet），便于在训练时随机打乱分片顺序，实现全局混合。
+
+    流式加载方式：
+
+    - HuggingFace Datasets的Streaming模式：load_dataset(..., streaming=True)。它不会将整个数据集下载到内存，而是以可迭代的生成器逐片读取分片，实现即时处理。数据在管道中流动，不占用大量内存。
+
+    - WebDataset：基于tar分片的流式数据格式，支持高效的随机访问和分布式训练。它允许将多个样本打包成tar文件，并配合全局索引进行快速加载。适合超大规模的多模态数据。
+
+    - Mosaic StreamingDataset：支持从云存储直接流式加载，具备分布式混洗、断点续训、弹性训练等功能。它对Parquet等格式进行了深度优化，可实现接近本地磁盘的读取速度。
+
+    流式训练的要点：
+
+    - 全局混洗：不能仅在一个shard内混洗，必须对shard列表进行全局随机打乱，并在每个shard内进行缓冲区混洗，以保证数据的充分随机性。
+
+    - 预取与流水线：使用多线程/异步I/O在后台预取数据，确保GPU不会因等待数据而空闲。
+
+    - 断点续训：流式加载器需要记录当前的shard索引和内部偏移量，以便在恢复训练时精确续接，避免重复或遗漏数据。
+
+    通过分片和流式加载，可以在有限的硬件资源上，训练远超内存容量的庞大数据集。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DPSewakAfi4q7rkB8nQcmT0onob
+  block_id: DWDFd712aotptFx9HMRcdaZ1n2g
+  page_token: DPSewakAfi4q7rkB8nQcmT0onob
+  original_title: 大规模微调数据如何进行分片和流式加载？
+  imported_at: '2026-09-21'

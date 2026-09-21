@@ -1,0 +1,129 @@
+---
+schema_version: 1
+id: feishu-llm-complete-21a6c080917f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F527 4. 函数调用（function calling）SFT数据通常使用什么结构？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F527 4. 函数调用（function calling）SFT数据通常使用什么结构？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    函数调用SFT数据需要精确、无歧义地定义“何时调用”、“如何调用”以及“如何处理调用结果”。一种主流的、被广泛采纳的结构如下，通常基于对话模板（如ChatML）进行扩展。
+
+    一、完整的函数调用对话结构
+
+    一个典型的函数调用训练样本包含以下几个部分：
+
+    - 系统提示（System Prompt）中的工具定义
+    在对话的最开始，通过system角色提供可用工具（函数）的列表及其详细描述。这个定义通常是JSON Schema格式，使得模型能够理解每个函数的名称、用途、参数名、参数类型、参数描述以及必选/可选属性。
+
+    ```text
+    <|im_start|>system
+    You are a helpful assistant with access to the following functions. Use them if required.
+    {
+      "name": "get_weather",
+      "description": "Get the current weather for a city",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "city": {
+            "type": "string",
+            "description": "The city name, e.g. San Francisco"
+          }
+        },
+        "required": ["city"]
+      }
+    }
+    <|im_end|>
+    ```
+
+    - 用户指令
+
+    用户正常的自然语言输入。
+
+    ```text
+    <|im_start|>user
+    旧金山今天天气如何？
+    <|im_end|>
+    ```
+
+    - 助手的工具调用请求
+
+    模型决定调用函数，它生成的内容包含一个特殊标记块，里面是严格按照工具定义格式的函数名和参数JSON。
+
+    ```text
+    <|im_start|>assistant
+    好的，让我查询一下旧金山的天气。
+    <tool_call>
+    {"name": "get_weather", "arguments": {"city": "San Francisco"}}
+    </tool_call>
+    <|im_end|>
+    ```
+
+    注意：这里助手可以有一段自然语言前缀（“好的，让我查一下”），然后再跟上<tool_call>块。这使交互更自然。<tool_call>和</tool_call>是专门添加到词表中的特殊token，用于精确界定JSON的边界。
+
+    - 工具返回结果（Tool Response）
+    一个独立的tool角色消息，包含函数执行的返回结果。
+
+    ```text
+    <|im_start|>tool
+    {"temperature": 18, "condition": "雾霾"}
+    <|im_end|>
+    ```
+
+    - 基于结果的助手最终回复
+    模型在接收到tool消息后，继续生成，将工具返回的JSON数据转化为自然语言回答。
+
+    ```text
+    <|im_start|>assistant
+    根据查询结果，旧金山目前气温18°C，有雾霾。建议您出门携带薄外套和口罩。
+    <|im_end|>
+    ```
+
+    二、关键设计要素
+
+    - 特殊token隔离：<tool_call>和</tool_call>必须是独立token，这样模型在生成时才能精确地“开启”和“关闭”结构化生成模式，避免JSON语法错误污染后续对话。
+
+    - 对话历史的完整性：在多轮对话中，之前的<tool_call>和tool消息必须作为上下文的一部分原样保留，以便模型引用之前的查询结果。
+
+    - 错误处理：SFT数据中必须包含工具调用失败的案例。例如，tool返回{"error": "City not found"}。随后的助手回复应展示如何优雅地处理错误（例如，请求用户澄清城市名）。
+
+    - 并行调用：如果支持并行，可以在一个assistant消息中生成多个<tool_call>块，或在一个<tool_call>块中包含一个函数名列表。工具返回结果可以放在同一个tool消息中，用某种结构分隔。
+
+    三、为什么这种结构有效
+    它将函数调用无缝地融入了对话流。模型在预训练和SFT中，已经学会了根据对话历史和系统提示生成接下来的token。通过大量包含上述结构的训练数据，模型内化了“当用户需求匹配某个工具时，生成<tool_call>块”这一行为，并在看到tool角色的消息后，学会将其解读为“外部信息”，并基于它继续生成。这种结构解耦了“决策调用”和“结果整合”，使得整个过程高度可控且易于调试。
+
+    ✅ 总结：函数调用SFT数据的标准结构基于系统工具定义、用户指令、助手调用请求（含特殊token的JSON）、工具返回结果和助手最终回复的五步序列，确保了模型对调用时机、参数格式和结果处理的精确掌握。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QxC9wMhjZi9E20kUA1TcTNQTnSh
+  block_id: WyhodlOddoCmplxrIvTcB4aLnRe
+  page_token: QxC9wMhjZi9E20kUA1TcTNQTnSh
+  original_title: "\U0001F527 4. 函数调用（function calling）SFT数据通常使用什么结构？"
+  imported_at: '2026-09-21'

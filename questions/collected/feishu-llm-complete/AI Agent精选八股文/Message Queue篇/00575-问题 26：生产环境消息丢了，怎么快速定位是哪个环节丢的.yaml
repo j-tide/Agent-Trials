@@ -1,0 +1,157 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fd00f65eb1c6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 问题 26：生产环境消息丢了，怎么快速定位是哪个环节丢的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 问题 26：生产环境消息丢了，怎么快速定位是哪个环节丢的？
+answer:
+  mode: rubric
+  reference_answer: "难度：⭐⭐⭐（全链路消息对账、Producer 确认日志、Broker 存储校验、Consumer offset 比对）\n\n1️⃣
+    Common Answer\n\n嗯...消息丢失的话，先看生产端是不是发送成功了，看日志有没有发送成功的回调。然后看 Broker 端，消息是不是真的存进去了，有没有磁盘故障。最后看消费端，是不是消费了但是没提交
+    offset，或者 offset 提交时机不对。最好是做个全链路追踪，用 msgId 从生产到消费都记录下来，这样好排查。\n\n2️⃣ Impressive
+    Answer\n\n我会从这几个角度思考：\n\n- 消息丢失的三个环节\n\n```text\nProducer → Broker → Consumer\n
+    \  ↓         ↓          ↓\n 发送确认   持久化     消费提交\n```\n\n三个环节都可能丢失：\n\n- Producer
+    端：发送失败、网络抖动、重试不足\n\n- Broker 端：未落盘、副本未同步、磁盘故障\n\n- Consumer 端：消费失败、offset 提交过早、Rebalance
+    导致重复/丢失\n\n- Producer 端排查\n\n发送确认日志检查：\n\n```text\n// Producer 配置（确保可靠发送）\nProperties
+    props = new Properties();\nprops.put(\"acks\", \"all\"); // 等待所有副本确认\nprops.put(\"retries\",
+    3); // 重试 3 次\nprops.put(\"max.in.flight.requests.per.connection\", 1); // 顺序保证\nprops.put(\"enable.idempotence\",
+    true); // 幂等性\n\n// 发送回调记录日志\nKafkaProducer<String, String> producer = new KafkaProducer<>(props);\nproducer.send(new
+    ProducerRecord<>(\"order-topic\", \"key\", \"value\"), \n    new Callback() {\n
+    \       @Override\n        public void onCompletion(RecordMetadata metadata, Exception
+    exception) {\n            if (exception != null) {\n                // 发送失败，记录错误日志\n
+    \               log.error(\"Send failed: topic={}, partition={}, offset={}, error={}\",
+    \n                    metadata.topic(), metadata.partition(), \n                    metadata.offset(),
+    exception.getMessage());\n                // 触发告警\n                alertManager.sendAlert(\"Producer
+    send failed\");\n            } else {\n                // 发送成功，记录成功日志（包含 msgId）\n
+    \               log.info(\"Send success: topic={}, partition={}, offset={}, msgId={}\",
+    \n                    metadata.topic(), metadata.partition(), \n                    metadata.offset(),
+    metadata.toString());\n                // 记录到发送成功表\n                recordSendSuccess(msgId,
+    metadata.topic(), metadata.offset());\n            }\n        }\n    });\n\n//
+    排查 SQL\nSELECT * FROM send_success_log \nWHERE msg_id = 'xxx' \nAND send_time
+    BETWEEN '2024-01-01 00:00:00' AND '2024-01-01 01:00:00';\n```\n\n重试日志检查：\n\n```text\n//
+    自定义重试策略\npublic class CustomRetryPolicy {\n    private int maxRetries = 3;\n    private
+    long retryInterval = 1000; // 1 秒\n    \n    public void sendWithRetry(Message
+    message) {\n        int retryCount = 0;\n        while (retryCount <= maxRetries)
+    {\n            try {\n                SendResult result = producer.send(message);\n
+    \               log.info(\"Send success: msgId={}, retryCount={}\", \n                    result.getMsgId(),
+    retryCount);\n                return;\n            } catch (Exception e) {\n                retryCount++;\n
+    \               log.warn(\"Send failed, retrying: msgId={}, retryCount={}, error={}\",
+    \n                    message.getMsgId(), retryCount, e.getMessage());\n                \n
+    \               if (retryCount > maxRetries) {\n                    log.error(\"Send
+    failed after max retries: msgId={}\", message.getMsgId());\n                    //
+    记录到失败表\n                    recordSendFailure(message.getMsgId(), e.getMessage());\n
+    \                   throw e;\n                }\n                \n                Thread.sleep(retryInterval);\n
+    \           }\n        }\n    }\n}\n```\n\n- Broker 端排查\n\n消息落盘检查：\n\n```text\n#
+    检查 Broker 日志\ntail -f /data/kafka/logs/server.log | grep \"ERROR\"\n\n# 检查磁盘空间\ndf
+    -h /data/kafka-logs\n\n# 检查消息是否落盘\nls -lh /data/kafka-logs/order-topic-0/\n# 应该看到
+    .log 文件在增长\n\n# 检查消息内容\nkafka-run-class.sh kafka.tools.DumpLogSegments \\\n  --files
+    /data/kafka-logs/order-topic-0/00000000000000000000.log \\\n  --print-data-log
+    | grep \"msgId\"\n```\n\n副本同步状态检查：\n\n```text\n# 检查 Topic 分区状态\nkafka-topics.sh
+    --bootstrap-server broker1:9092 \\\n  --describe --topic order-topic\n\n# 输出示例：\n#
+    Topic: order-topic Partition: 0 Leader: 1 Replicas: 1,2,3 Isr: 1,2,3\n# 如果 Isr
+    少于 Replicas，说明有副本同步失败\n\n# 检查副本延迟\nkafka-replica-verifier.sh --broker-list broker1:9092,broker2:9092,broker3:9092
+    \\\n  --topic order-topic --report-interval-ms 10000\n\n# 检查磁盘故障\ndmesg | grep
+    -i error\nsmartctl -a /dev/sda\n```\n\n- Consumer 端排查\n\noffset 提交时机检查：\n\n```text\n//
+    错误示例：先提交 offset 再消费（可能导致丢失）\nconsumer.subscribe(Arrays.asList(\"order-topic\"));\nwhile
+    (true) {\n    ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));\n
+    \   consumer.commitSync(); // ❌ 先提交 offset\n    for (ConsumerRecord<String, String>
+    record : records) {\n        processMessage(record); // 如果这里抛异常，消息就丢了\n    }\n}\n\n//
+    正确示例：先消费再提交 offset\nconsumer.subscribe(Arrays.asList(\"order-topic\"));\nwhile
+    (true) {\n    ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));\n
+    \   for (ConsumerRecord<String, String> record : records) {\n        try {\n            processMessage(record);
+    // ✅ 先消费\n        } catch (Exception e) {\n            log.error(\"Consume failed:
+    offset={}\", record.offset(), e);\n            // 消费失败，不提交 offset，下次重试\n            continue;\n
+    \       }\n    }\n    consumer.commitSync(); // ✅ 消费成功后再提交\n}\n```\n\n消费日志检查：\n\n```text\n//
+    记录消费日志\npublic class MessageConsumer {\n    public void onMessage(ConsumerRecord<String,
+    String> record) {\n        String msgId = record.key();\n        long offset =
+    record.offset();\n        \n        log.info(\"Consume start: msgId={}, offset={}\",
+    msgId, offset);\n        \n        try {\n            // 处理消息\n            processMessage(record.value());\n
+    \           \n            // 记录消费成功\n            log.info(\"Consume success: msgId={},
+    offset={}\", msgId, offset);\n            recordConsumeSuccess(msgId, offset);\n
+    \           \n        } catch (Exception e) {\n            // 记录消费失败\n            log.error(\"Consume
+    failed: msgId={}, offset={}\", msgId, offset, e);\n            recordConsumeFailure(msgId,
+    offset, e.getMessage());\n        }\n    }\n}\n\n// 排查 SQL\nSELECT * FROM consume_success_log
+    \nWHERE msg_id = 'xxx' \nORDER BY consume_time DESC;\n```\n\nRebalance 导致的重复/丢失：\n\n```text\n//
+    监听 Rebalance 事件\nconsumer.subscribe(Arrays.asList(\"order-topic\"), new ConsumerRebalanceListener()
+    {\n    @Override\n    public void onPartitionsRevoked(Collection<TopicPartition>
+    partitions) {\n        // 分区被撤销前，提交当前 offset\n        log.info(\"Partitions revoked:
+    {}\", partitions);\n        consumer.commitSync();\n    }\n    \n    @Override\n
+    \   public void onPartitionsAssigned(Collection<TopicPartition> partitions) {\n
+    \       // 分区被分配后，记录日志\n        log.info(\"Partitions assigned: {}\", partitions);\n
+    \       // 可以在这里记录当前 offset，用于排查\n        partitions.forEach(tp -> {\n            long
+    offset = consumer.position(tp);\n            log.info(\"Current offset: topic={},
+    partition={}, offset={}\", \n                tp.topic(), tp.partition(), offset);\n
+    \       });\n    }\n});\n```\n\n- 全链路消息对账方案\n\nmsgId 追踪：\n\n```text\n// 生成全局唯一
+    msgId\npublic class MsgIdGenerator {\n    private static final AtomicLong counter
+    = new AtomicLong(0);\n    \n    public static String generate() {\n        long
+    timestamp = System.currentTimeMillis();\n        long machineId = getMachineId();
+    // 机器 ID\n        long sequence = counter.getAndIncrement();\n        return String.format(\"%d-%d-%d\",
+    timestamp, machineId, sequence);\n    }\n}\n\n// 生产端：设置 msgId\nMessage message
+    = new Message(\"order-topic\", \"key\", \"value\");\nmessage.setMsgId(MsgIdGenerator.generate());\n\n//
+    消费端：记录 msgId\npublic void onMessage(ConsumerRecord<String, String> record) {\n
+    \   String msgId = record.key();\n    log.info(\"Consume: msgId={}\", msgId);\n
+    \   // ... 处理消息\n}\n```\n\n生产-消费对账表：\n\n```text\n-- 发送记录表\nCREATE TABLE send_record
+    (\n    id BIGINT PRIMARY KEY AUTO_INCREMENT,\n    msg_id VARCHAR(64) NOT NULL,\n
+    \   topic VARCHAR(64) NOT NULL,\n    partition INT NOT NULL,\n    offset BIGINT
+    NOT NULL,\n    send_time DATETIME NOT NULL,\n    send_status VARCHAR(16) NOT NULL,
+    -- SUCCESS/FAILED\n    INDEX idx_msg_id (msg_id),\n    INDEX idx_send_time (send_time)\n);\n\n--
+    消费记录表\nCREATE TABLE consume_record (\n    id BIGINT PRIMARY KEY AUTO_INCREMENT,\n
+    \   msg_id VARCHAR(64) NOT NULL,\n    topic VARCHAR(64) NOT NULL,\n    partition
+    INT NOT NULL,\n    offset BIGINT NOT NULL,\n    consume_time DATETIME NOT NULL,\n
+    \   consume_status VARCHAR(16) NOT NULL, -- SUCCESS/FAILED\n    INDEX idx_msg_id
+    (msg_id),\n    INDEX idx_consume_time (consume_time)\n);\n\n-- 对账 SQL：找出已发送但未消费的消息\nSELECT
+    s.msg_id, s.topic, s.partition, s.offset, s.send_time\nFROM send_record s\nLEFT
+    JOIN consume_record c ON s.msg_id = c.msg_id\nWHERE s.send_time >= '2024-01-01
+    00:00:00'\n  AND s.send_time < '2024-01-01 01:00:00'\n  AND c.msg_id IS NULL;\n```\n\n-
+    实战：一次线上消息丢失的完整排查 SOP\n\n排查 SOP：\n\n```text\n【阶段一：发现问题】（T+0 分钟）\n1. 业务方反馈：订单数据缺失\n2.
+    确认时间范围：2024-01-01 10:00:00 - 10:30:00\n3. 涉及 Topic：order-topic\n\n【阶段二：生产端排查】（T+5
+    分钟）\n1. 查询发送成功日志\n   SELECT * FROM send_record \n   WHERE send_time BETWEEN '2024-01-01
+    10:00:00' AND '2024-01-01 10:30:00'\n   AND topic = 'order-topic';\n   \n2. 结果：1000
+    条消息发送成功\n3. 结论：生产端无问题\n\n【阶段三：Broker 端排查】（T+10 分钟）\n1. 检查 Broker 日志\n   grep -i
+    \"error\" /data/kafka/logs/server.log | grep \"2024-01-01 10:0\"\n   \n2. 检查磁盘空间\n
+    \  df -h /data/kafka-logs\n   \n3. 检查副本同步状态\n   kafka-topics.sh --describe --topic
+    order-topic\n   \n4. 结果：Broker 正常，副本同步正常\n5. 结论：Broker 端无问题\n\n【阶段四：Consumer 端排查】（T+15
+    分钟）\n1. 查询消费成功日志\n   SELECT * FROM consume_record \n   WHERE consume_time BETWEEN
+    '2024-01-01 10:00:00' AND '2024-01-01 10:30:00'\n   AND topic = 'order-topic';\n
+    \  \n2. 结果：只有 800 条消费成功\n3. 缺失 200 条消息\n\n4. 检查消费失败日志\n   SELECT * FROM consume_record
+    \n   WHERE consume_time BETWEEN '2024-01-01 10:00:00' AND '2024-01-01 10:30:00'\n
+    \  AND consume_status = 'FAILED';\n   \n5. 结果：200 条消费失败，错误原因：数据库连接超时\n6. 结论：Consumer
+    端消费失败，导致消息丢失\n\n【阶段五：定位根因】（T+20 分钟）\n1. 检查 Consumer 代码\n   发现：offset 提交时机错误（先提交再消费）\n
+    \  \n2. 检查数据库日志\n   发现：10:15:00 数据库连接池耗尽\n   \n3. 根因：数据库连接池耗尽 → 消费失败 → offset
+    已提交 → 消息丢失\n\n【阶段六：修复措施】（T+30 分钟）\n1. 修复 Consumer 代码：改为先消费再提交 offset\n2. 增加数据库连接池大小\n3.
+    增加消费失败告警\n4. 重放丢失的 200 条消息（从发送记录表获取）\n\n【阶段七：验证修复】（T+60 分钟）\n1. 观察消费日志，确认无消费失败\n2.
+    对账检查，确认无消息丢失\n3. 业务方确认订单数据完整\n```\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---\n\n###
+    6.27 消费倾斜与数据热点"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcnQBISlmVDVKIWv7kucBBQyf
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: 问题 26：生产环境消息丢了，怎么快速定位是哪个环节丢的？
+  imported_at: '2026-09-21'

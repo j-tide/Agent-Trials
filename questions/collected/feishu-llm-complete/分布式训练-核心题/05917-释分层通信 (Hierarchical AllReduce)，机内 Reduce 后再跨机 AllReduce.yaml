@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f5d103ce94d9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 33. 释“分层通信” (Hierarchical AllReduce)，机内 Reduce 后再跨机 AllReduce。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 33. 释“分层通信” (Hierarchical AllReduce)，机内 Reduce 后再跨机 AllReduce。
+answer:
+  mode: rubric
+  reference_answer: |-
+    如上一问所述，分层 AllReduce 充分利用了单机内部 NVLink 高带宽（通常 600 GB/s）和跨机 IB 较低带宽（25-50 GB/s）的不对称性。具体执行（以 AllReduce SUM 为例）：
+
+    假设有 2 个节点，每节点 4 块 GPU，待归约梯度为 G。
+
+    - 机内 Reduce：每节点内，4 块 GPU 通过 NVLink 执行一次 Reduce（例如使用 Ring 或 Tree），得到节点内和 _node0 和 G_node1。这个操作在节点内极快。
+
+    - 跨机 AllReduce：两个节点的代表（如 GPU0）通过 IB 执行 AllReduce，将 G_node0 和 G_node1 相加，得到全局和 G_total。由于只有两个节点，只需要一次 AllReduce（或简单的求和）。
+
+    - 机内 Broadcast：代表 GPU 将 G_total 广播给节点内其他 GPU。
+
+    这样，跨机通信只需传输一份完整梯度，而不是 4 份，节省了 75% 的跨机带宽。NCCL 可以通过 NCCL_ALGO=Tree 或 NCCL_ALGO=Ring 结合拓扑自动实现分层。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XxBHwhYPNiVrDYkSIHCccehWn72
+  block_id: Z6fEdcEacoV4Hhx0wR9ckdJUnKc
+  page_token: XxBHwhYPNiVrDYkSIHCccehWn72
+  original_title: 33. 释“分层通信” (Hierarchical AllReduce)，机内 Reduce 后再跨机 AllReduce。
+  imported_at: '2026-09-21'

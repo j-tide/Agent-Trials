@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bc8098cf64bb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F527 如何通过环境变量或配置文件来控制是否启用回调？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F527 如何通过环境变量或配置文件来控制是否启用回调？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    最灵活的方式是使用工厂模式结合配置中心。
+
+    示例：
+
+    import os
+    from langchain.callbacks import BaseCallbackHandler
+
+    def get_callbacks():
+        env = os.getenv("APP_ENV", "development")
+        handlers = []
+        # 基础回调：所有环境都启用成本统计
+        handlers.append(TokenMetricsCollector())
+        # 开发环境启用详细日志和 LangSmith
+        if env == "development":
+            handlers.append(LLMFileLogger())
+            # 可选：开启 LangSmith
+            os.environ["LANGCHAIN_TRACING_V2"] = "true"
+        # 生产环境只启用关键告警和采样追踪
+        elif env == "production":
+            handlers.append(ErrorAlertHandler())
+            # 采样：基于配置的比率决定是否启用详细追踪
+            if os.getenv("ENABLE_DETAILED_TRACE", "false").lower() == "true":
+                handlers.append(DetailedTraceHandler())
+        return handlers
+
+    # 创建链时
+    chain = MyChain(callbacks=get_callbacks())
+
+    更高级的控制：
+
+    - 使用 ConfigParser 读取 .ini 或 yaml 文件。
+
+    - 通过环境变量 LANGCHAIN_CALLBACKS 指定完全限定类名（需框架支持）。
+
+    - 在微服务中，通过配置中心（如 Apollo、Nacos）动态刷新，而不需要重启应用。此时可以用一个 DynamicCallbackManager 定期拉取最新配置。
+
+    核心原则：将“是否启用回调”与“如何实现回调”分离。生产环境的回调应极轻量且高可用，避免因回调本身的故障影响主业务。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  block_id: XKcWd6qpGodnBgxWGuhcPdc9ndh
+  page_token: LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  original_title: "\U0001F527 如何通过环境变量或配置文件来控制是否启用回调？"
+  imported_at: '2026-09-21'

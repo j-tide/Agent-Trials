@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7f40a4f818e5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚖️ 量化推理模型，INT4 权重 + FP16 KV Cache，总显存如何估算？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "⚖️ 量化推理模型，INT4 权重 + FP16 KV Cache，总显存如何估算？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    总显存 = 量化权重显存 + KV Cache 显存 + 激活及其他开销。
+
+    - 权重：INT4 权重，每参数 0.5 字节。对于 N 参数模型，占 N × 0.5 字节。加上量化参数（如每通道的缩放因子，通常可忽略，大约百分之几的权重）。可以简单算 N * 0.5。
+
+    - KV Cache：根据精度，KV Cache 可以是 FP16（2 字节），即使权重 INT4，KV Cache 通常仍保持 FP16 以保证精度（或使用 FP8）。计算公式同前：
+    KV_Cache_Bytes = 2 × 层数 × KV 头数 × 头维度 × 总序列长度 × 元素大小。如果 batch>1，再乘以 batch size。
+
+    - 激活内存：推理框架通常需要一些缓冲区，尤其 Prefill 时的中间结果。batch=1 时很小（几十到几百 MB），可预估为 0.5–2 GB。高批量时需根据模型尺寸估算，可用公式：激活 ≈ batch × 序列长度 × hidden_size × 层数 × 某种系数，但较复杂，实践中可简单预留 10-20% 的权重大小。
+
+    - 总显存：求和。例如 Llama-2-70B INT4：权重 35 GB。FP16 KV Cache（假设 GQA 8 组，序列 4096，batch=8）：
+    per_token_per_batch = 2 × 80 × 8 × 128 × 2 = 327,680 字节
+    total = 327,680 × 4096 × 8 = 327,680 × 32,768 ≈ 10.73 GB。
+    加上激活大约 3 GB。总 ≈ 35 + 10.73 + 3 = 48.73 GB。48GB 显存可能不够，需降低序列长度或 batch。
+
+    因此，总显存 = 权重(INT4) + KV(FP16) + 激活，重点优化 KV Cache（如 INT8 KV Cache 可减半）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/U2u9wFuzEiPu2okJIcFcYZkUnhc
+  block_id: MyFUdZ6WuotlJkxxDPxcnO5Hnhe
+  page_token: U2u9wFuzEiPu2okJIcFcYZkUnhc
+  original_title: "⚖️ 量化推理模型，INT4 权重 + FP16 KV Cache，总显存如何估算？"
+  imported_at: '2026-09-21'

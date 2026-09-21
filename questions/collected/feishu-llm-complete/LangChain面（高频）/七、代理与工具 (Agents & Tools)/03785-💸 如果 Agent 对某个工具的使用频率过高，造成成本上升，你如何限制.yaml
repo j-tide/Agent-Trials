@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-13ff6543a08c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4B8 如果 Agent 对某个工具的使用频率过高，造成成本上升，你如何限制？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "\U0001F4B8 如果 Agent 对某个工具的使用频率过高，造成成本上升，你如何限制？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    限制工具使用频率是控制成本和资源消耗的必要手段。可以采用多层防御：
+
+    - 工具内部实现速率限制（Rate Limiting）：使用令牌桶或滑动窗口算法，记录每次调用，当超过阈值时返回错误提示。例如：
+
+    ```python
+    from functools import wraps
+    import time
+
+    def rate_limited(max_calls, period):
+        calls = []
+        def decorator(func):
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                now = time.time()
+                calls[:] = [c for c in calls if c > now - period]
+                if len(calls) >= max_calls:
+                    return f"错误：该工具每分钟最多调用 {max_calls} 次，请稍后再试。"
+                calls.append(now)
+                return func(*args, **kwargs)
+            return wrapper
+        return decorator
+
+    @tool
+    @rate_limited(max_calls=5, period=60)
+    def expensive_search(query: str) -> str:
+        ...
+    ```
+
+    - 在 Agent 层面控制：设置 max_iterations 限制总步数，间接减少工具调用次数。
+
+    - 利用回调监控和告警：通过 on_tool_end 回调记录每个工具的调用次数，超过预设阈值时发送告警，或动态调整工具描述让 Agent 降低其使用优先级。
+
+    - 经济激励设计：在工具描述中加入“此工具调用成本较高，请谨慎使用”，引导 LLM 选择更便宜的替代工具。
+
+    - 运行时动态禁用：编写自定义 AgentExecutor，在工具调用次数超限后，临时从工具列表中移除该工具。
+
+    ✅ 实际应用：我有一个调用外部付费 API 的工具，通过装饰器实现了每分钟最多 10 次的限制，并在工具描述中明确写明“有调用频率限制”，Agent 会自发地减少不必要的调用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZZIjwAYoMiY0VEk7JiDcIuK3nPb
+  block_id: GuBndScu2o6KOOxvBoscrGrInLg
+  page_token: ZZIjwAYoMiY0VEk7JiDcIuK3nPb
+  original_title: "\U0001F4B8 如果 Agent 对某个工具的使用频率过高，造成成本上升，你如何限制？"
+  imported_at: '2026-09-21'

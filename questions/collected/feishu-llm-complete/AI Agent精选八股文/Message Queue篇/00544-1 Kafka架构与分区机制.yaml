@@ -1,0 +1,143 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3c0b5b5194c6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 2.1 Kafka架构与分区机制
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 2.1 Kafka架构与分区机制
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### Kafka的核心架构
+
+    1、基础题：Kafka的核心组件有哪些？
+
+    ⭐（Broker、Topic、Partition、Zookeeper）
+
+    Kafka的核心组件包括：
+
+    - Broker：Kafka服务器节点，负责存储和转发消息
+
+    - Topic：消息的逻辑分类
+
+    - Partition：Topic的物理分区，提高并发
+
+    - Zookeeper：管理集群元数据、选举Controller等（新版本KRaft模式已可不用ZK）
+
+    2、进阶题：请详细说明Kafka的分区机制和Leader/Follower架构
+
+    ⭐⭐（Partition副本、Leader选举、ISR机制）
+
+    1️⃣ Common Answer 每个Partition有多个副本，一个是Leader，其他是Follower。Leader负责读写，Follower同步Leader的数据。如果Leader挂了，从ISR里选一个新的Leader。
+
+    2️⃣ Impressive Answer Kafka的分区机制和Leader/Follower架构是其高可用和高性能的核心：
+
+    Partition副本机制： 每个Partition可以配置多个副本（Replica），副本数由replication-factor参数控制。副本分为Leader副本和Follower副本。Leader副本负责处理所有的读写请求，Follower副本只负责从Leader同步数据，不处理客户端请求。
+
+    Leader/Follower架构优势：
+
+    - 读写分离：只有Leader处理读写，Follower只同步，避免多副本写冲突
+
+    - 高可用：Leader故障时自动切换，服务不中断
+
+    - 负载均衡：不同Partition的Leader分布在不同的Broker上，避免单点压力
+
+    ISR（In-Sync Replicas）机制： ISR是Leader维护的一个与Leader保持同步的副本集合。只有ISR中的副本才有资格被选为新的Leader。Follower通过fetch请求从Leader拉取数据，如果Follower长时间（replica.lag.time.max.ms参数控制）未同步，会被踢出ISR。当Follower追上Leader的进度后，会重新加入ISR。
+
+    Leader选举机制： 当Leader故障时，Controller（由Zookeeper选举出的特殊Broker）会从ISR中选举新的Leader。选举原则是优先选择ISR中AR（Assigned Replicas）排在最前面的副本。这样可以保证Leader选举的快速和稳定。
+
+    数据同步过程：
+
+    - Producer发送消息到Leader
+
+    - Leader写入本地日志
+
+    - Follower异步从Leader拉取消息
+
+    - Leader根据acks配置决定何时返回成功
+
+    - Follower写入成功后更新LEO（Log End Offset）
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    3、场景题：你的Kafka集群某个Broker宕机了，会发生什么？
+
+    ⭐⭐⭐（Leader切换、ISR变化、影响分析）
+
+    1️⃣ Common Answer 那个Broker上的Leader会切换到其他Broker，ISR也会变。可能会有短暂的影响，但Kafka会自动恢复。生产者和消费者会重新连接。
+
+    2️⃣ Impressive Answer Broker宕机是Kafka的高可用场景，让我详细分析整个流程和影响：
+
+    宕机检测： Zookeeper会检测到Broker Session超时，触发Broker下线事件。Controller监听到该事件后，开始处理该Broker上的所有Partition Leader的重新选举。
+
+    Leader选举过程：
+
+    - Controller遍历宕机Broker上的所有Partition
+
+    - 对于每个Partition，从ISR列表中选举新的Leader
+
+    - 更新Zookeeper和内存中的元数据
+
+    - 通知所有Broker新的Leader信息
+
+    影响分析：
+
+    - 服务短暂中断：在Leader选举期间（通常是几秒），该Partition的读写会暂停，Producer和Consumer会收到错误，需要重试
+
+    - ISR变化：如果宕机的Broker是某些Partition的Follower，这些Partition的ISR会缩小；如果是Leader，ISR中的Follower会重新选举Leader
+
+    - 性能下降：如果宕机的Broker承载了很多Leader，新Leader分布不均衡，可能导致某些Broker压力增大
+
+    - 数据一致性：如果有未同步的消息，可能会丢失（取决于acks配置）
+
+    生产环境应对：
+
+    - 配置合理的acks=all和min.insync.replicas，保证数据不丢失
+
+    - 监控Broker健康状态，提前预警
+
+    - 设置合理的unclean.leader.election.enable=false，避免数据不一致的副本成为Leader
+
+    - Producer配置重试机制，自动处理短暂不可用
+
+    恢复后的行为： 宕机的Broker重启后，会重新加入集群，作为Follower同步数据，追上进度后重新加入ISR。此时不会立即切换Leader，除非有新的故障。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/OKxBw38EbiXvoAksf2jc1fn6nMh
+  block_id: doxcn32eG3q0L7vk5lY2cupHozc
+  page_token: OKxBw38EbiXvoAksf2jc1fn6nMh
+  original_title: 2.1 Kafka架构与分区机制
+  imported_at: '2026-09-21'

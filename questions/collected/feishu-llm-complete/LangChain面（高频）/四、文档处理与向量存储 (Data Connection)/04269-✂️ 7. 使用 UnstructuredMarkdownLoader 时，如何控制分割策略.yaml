@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-879c72b5f760
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "✂️ 7. 使用 UnstructuredMarkdownLoader 时，如何控制分割策略？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "✂️ 7. 使用 UnstructuredMarkdownLoader 时，如何控制分割策略？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    UnstructuredMarkdownLoader 本身并不直接做语义分割，它只是按 Markdown 元素（段落、标题等）拆分。如果我们需要更大的“块”而不是每个元素独立，需要结合 LangChain 的文本分割器 来控制粒度。但 UnstructuredMarkdownLoader 提供了一些参数来调整元素的聚合行为：
+
+    - mode 参数：
+
+    - strategy 参数：
+
+    - post_processors 参数：可以传入元素后处理函数，比如合并相邻的列表项、删除空元素等。
+
+    真正的分割策略控制是在后处理。加载得到小元素后，我用 RecursiveCharacterTextSplitter 或专门为 Markdown 设计的 MarkdownTextSplitter 进行重组，确保每个 chunk 不超过 token 限制。例如：
+
+    ```python
+    from langchain.text_splitter import MarkdownHeaderTextSplitter
+
+    headers_to_split_on = [
+        ("#", "Header 1"),
+        ("##", "Header 2"),
+        ("###", "Header 3"),
+    ]
+    splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
+    # 直接对 Markdown 文本进行分割
+    documents = splitter.split_text(markdown_text)
+    ```
+
+    这样生成的文档会自动把当前所属的所有标题层级作为 metadata（如 Header 1: 项目介绍, Header 2: 架构设计），这是一种非常有效的结构保持策略。你也可先用 UnstructuredMarkdownLoader 加载为元素，再根据需要合并、分割，完全自定义。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EY1lwce7uiXgPpklg8tcoBj6nNg
+  block_id: ZfmcdvZZoobVJkxXT91cEAGFnCk
+  page_token: EY1lwce7uiXgPpklg8tcoBj6nNg
+  original_title: "✂️ 7. 使用 UnstructuredMarkdownLoader 时，如何控制分割策略？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,119 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5cb7c9837429
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4A3 你有没有在生产环境中使用 LangServe 的经验？踩过哪些坑？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F4A3 你有没有在生产环境中使用 LangServe 的经验？踩过哪些坑？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    有，而且坑不少。LangServe 让部署变得极快，但生产环境要求高可用、可观测、安全，这些需要额外工作。
+
+    踩过的坑及教训：
+
+    - 流式端点内存泄漏
+
+    - Playground 暴露到公网被滥用
+
+    - add_routes 自动生成的 schema 不准确
+
+    - Gunicorn Worker 超时导致请求中断
+
+    - CORS 配置不当导致前端无法调用
+
+    - 依赖共享状态导致扩展失败
+
+    - 日志爆炸
+
+    总结：LangServe 是原型到产品的加速器，但生产化需要你补齐监控、安全、高可用、资源管理等方面的能力。它是一种“带着镣铐的便利”，理解其底层 FastAPI 的运作机制，是避免踩坑的关键。
+
+    - LLM API Key 和配置：通过环境变量或配置中心（如 Consul、Kubernetes ConfigMap）统一管理，各实例相同。
+
+    - 对话记忆：如果使用了需要持久化的 Memory，必须使用共享存储如 Redis 或 PostgreSQL。每个实例通过相同 session ID 访问共享的 ChatMessageHistory，保证用户对话连贯。
+
+    - 工具/缓存：如 Redis 用作 LLM 响应缓存、速率限制计数器，需要所有实例共享同一个 Redis 集群。
+
+    - 本地日志：每个实例可以输出到 stdout，由日志收集系统（如 Loki、ELK）统一采集。
+
+    - 回调处理器：如果回调中包含本地文件写入等有状态操作，需要改为网络输出或共享存储。
+
+    - 将 Agent 作为后台任务，客户端轮询或通过 WebSocket 获取进度。
+
+    - 使用 stream_log SSE 流式输出，即使执行很久，连接不断开。
+
+    - 调大 Gateway 和 Uvicorn 的超时时间（--timeout 600）。
+
+    - 严格限制 max_iterations。
+
+    - 在工具内部加入权限校验和人工确认（如删除操作）。
+
+    - 通过回调监控异常行为，必要时自动中断。
+
+    - 现象：服务运行数小时后，内存持续上涨，最终 OOMKilled。
+
+    - 原因：在 stream 回调中，我们将每个 token 写入一个全局列表用于后续审计，但流式连接断开时，该列表未被清理。
+
+    - 解决：永远不要为每个请求维护全局状态。改用异步队列，并在连接断开时清理。对于审计，改为异步写入消息队列。
+
+    - 教训：测试时把 Playground 开到了公网，几天后发现产生了巨额 API 账单。有人写脚本自动调用。
+
+    - 解决：Playground 必须放在认证后面，或者只在内部网络开放。生产环境默认关闭。
+
+    - 现象：客户端调用时报错 ValidationError，因为 LangServe 生成的 OpenAPI 中字段类型与实际不符。
+
+    - 原因：链没有显式定义 input_type 和 output_type，LangServe 靠推测，结果错误。
+
+    - 解决：务必为链使用 .with_types(input_type=MyModel, output_type=MyOutModel)，确保 Schema 正确。
+
+    - 现象：Agent 执行超过 30 秒就返回 502。
+
+    - 原因：Gunicorn 默认 timeout 是 30 秒，超时后强制杀死 Worker。
+
+    - 解决：将 Gunicorn 的 --timeout 设为 300 秒，同时为 Agent 设置 max_iterations 并优化工具调用。流式请求建议用 Uvicorn 而非 Gunicorn，因为 Uvicorn 本身没有强制 Worker 超时。
+
+    - 现象：浏览器报 Access-Control-Allow-Origin 错误。
+
+    - 原因：忘记添加 CORS 中间件，或者只允许了 GET 方法，而 LangServe 的 /invoke 是 POST。
+
+    - 解决：在 add_middleware 中允许所有来源（开发阶段），生产环境指定具体域名，并允许 Content-Type 和 Authorization 头。
+
+    - 现象：将聊天记忆存储在本地内存，扩展到多个实例后，用户对话经常丢失。
+
+    - 解决：将所有 Memory 改为 RedisChatMessageHistory，确保所有实例共享同一 Redis。
+
+    - 现象：开启了 verbose=True 并记录每个 token，磁盘迅速写满。
+
+    - 解决：生产环境关闭详细日志，只记录请求摘要和错误；使用日志采样和轮转。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K973wYln7iD4oCkYW2acmsT4nke
+  block_id: U3avdMRkHoBDD2xvX4Lc7lBVnDe
+  page_token: K973wYln7iD4oCkYW2acmsT4nke
+  original_title: "\U0001F4A3 你有没有在生产环境中使用 LangServe 的经验？踩过哪些坑？"
+  imported_at: '2026-09-21'

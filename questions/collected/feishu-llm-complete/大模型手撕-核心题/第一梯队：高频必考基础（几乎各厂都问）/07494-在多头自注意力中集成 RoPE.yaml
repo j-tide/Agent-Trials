@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dadf32a37c30
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在多头自注意力中集成 RoPE
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 在多头自注意力中集成 RoPE
+answer:
+  mode: rubric
+  reference_answer: |-
+    题目：修改标准注意力代码，在计算 Q、K 之后、计算注意力分数之前，对 Q、K 施加 RoPE，写出修改后的完整 attention_forward 函数。
+
+    7.1 实现代码
+
+    假设已有预计算好的 freqs_cis（形状 (max_seq_len, dim/2)）和 position_ids。
+
+    ```python
+    def attention_forward_rope(self, x, freqs_cis, position_ids, mask=None):
+        B, seq_len, _ = x.shape
+        # 投影 QKV
+        qkv = self.qkv_proj(x)
+        q, k, v = qkv.chunk(3, dim=-1)
+        # 分头
+        q = q.view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+        k = k.view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+        v = v.view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+
+        # 应用 RoPE
+        q, k = apply_rotary_pos_emb(q, k, freqs_cis, position_ids)  # 见第5题或复数版本
+
+        # 缩放点积注意力
+        scale = self.head_dim ** 0.5
+        attn_scores = torch.matmul(q, k.transpose(-2, -1)) / scale
+        if mask is not None:
+            attn_scores = attn_scores.masked_fill(mask == 0, float('-inf'))
+        attn_weights = F.softmax(attn_scores, dim=-1)
+        attn_output = torch.matmul(attn_weights, v)
+
+        # 合并多头
+        attn_output = attn_output.transpose(1, 2).contiguous().view(B, seq_len, -1)
+        return self.out_proj(attn_output)
+    ```
+
+    7.2 关键点
+
+    - RoPE 施加于分头之后，即形状 (B, num_heads, seq_len, head_dim)。
+
+    - apply_rotary_pos_emb 需要适配该形状（可内部处理）。
+
+    - 在推理时，freqs_cis 可根据实际序列长度截取。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VuccwPjSli6dm2kOTxJclpKdnhb
+  block_id: MHHCdLrr7oiS9RxPzJwcQ01NnPh
+  page_token: VuccwPjSli6dm2kOTxJclpKdnhb
+  original_title: 在多头自注意力中集成 RoPE
+  imported_at: '2026-09-21'

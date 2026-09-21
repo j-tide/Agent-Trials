@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ec3dee2e45c7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何调试分布式训练中的死锁或挂起问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块六：深度学习基础训练与推理部署
+tags: &1
+- 深度学习面（精选）
+- 模块六：深度学习基础训练与推理部署
+content:
+  prompt: 如何调试分布式训练中的死锁或挂起问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    分布式训练中的死锁通常是由于集合通信操作不匹配或某个进程因错误退出，导致其他进程一直等待。调试方法包括：
+
+    - 使用 NCCL_DEBUG 环境变量：设置 NCCL_DEBUG=INFO 或 WARN，输出 NCCL 的详细日志，查看哪个 rank 通信卡住。
+
+    - 检查进程存活：使用 torch.distributed.barrier() 前后添加日志，判断卡在哪个 barrier。也可以使用 gdb 附着到挂起的进程，查看调用栈。
+
+    - 添加超时：在初始化进程组时设置 timeout 参数（如 init_process_group(backend='nccl', timeout=datetime.timedelta(minutes=10))），超时会抛出异常，避免无限挂起。
+
+    - 确保所有 rank 执行相同的集合操作序列：死锁的常见原因是一个 rank 调用 all_reduce 而另一个没有，导致不匹配。检查条件分支，确保所有 rank 在相同位置调用相同的通信函数。
+
+    - 数据加载器不一致：如果某些 rank 的数据加载器抛出异常并退出，而其他 rank 还在等待通信，会导致挂起。可以捕获异常并在所有 rank 上同步。
+
+    - 使用 torch.distributed.monitored_barrier（PyTorch 1.10+）检测哪个 rank 未到达 barrier。
+
+    - 日志记录：在每个关键步骤打印 rank 和时间戳，定位到哪一步停止。
+
+    通过这些手段，一般可以定位到具体的死锁位置。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ChO2w20yAiZl9Zko9tUc2plKnwe
+  block_id: CU8VdkpTPoPLIYxeLYicZzTbnGt
+  page_token: ChO2w20yAiZl9Zko9tUc2plKnwe
+  original_title: 如何调试分布式训练中的死锁或挂起问题？
+  imported_at: '2026-09-21'

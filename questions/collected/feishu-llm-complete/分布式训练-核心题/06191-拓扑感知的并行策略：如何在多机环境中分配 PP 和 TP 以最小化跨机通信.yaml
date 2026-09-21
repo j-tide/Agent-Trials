@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-78d9c963fc14
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 拓扑感知的并行策略：如何在多机环境中分配 PP 和 TP 以最小化跨机通信？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 拓扑感知的并行策略：如何在多机环境中分配 PP 和 TP 以最小化跨机通信？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多机环境中，跨节点的通信带宽远低于节点内部。因此，拓扑感知的并行策略旨在将通信密集的并行组放置在节点内部，将通信稀疏的组放在跨节点链路中。
+
+    具体原则：
+
+    - TP 严格节点内：TP组的成员必须在同一物理节点内，利用NVLink高速互联。通常TP并行度等于节点内GPU数（如8），这样TP通信完全在节点内解决，不产生跨节点流量。
+
+    - PP 尽量相邻节点：流水线并行的通信模式是“相邻阶段”的点对点通信。如果将连续的流水线阶段分配到物理上相邻的节点（如同一交换机下的节点），可以减少跨交换机跳数，降低延迟。例如，PP的阶段0和阶段1放在同一机架的相邻节点，它们之间的通信只经过一个交换机，而不跨越整个网络。
+
+    - DP 跨节点自由分配：数据并行的通信模式是全局AllReduce，所有参与DP的卡都需要交换梯度。拓扑感知的DP可以利用环形AllReduce或分层AllReduce（节点内Reduce，节点间AllReduce）来优化。但DP的卡可以分布在任意节点，因为其通信模式是全连接的。
+
+    最小化跨机通信的策略：
+
+    - 为每个流水线阶段分配一个完整的节点，节点内部的TP组处理该阶段的层。这样，节点内部是TP通信，节点之间是PP通信。
+
+    - 如果PP阶段数超过节点数，可以将多个连续阶段放在同一节点内（共享节点内的GPU），它们之间的PP通信变为节点内传输。
+
+    - DP的AllReduce通过NCCL的跨节点通信进行，已经针对拓扑进行了优化（如使用RDMA和GPUDirect）。更激进地，可以配置NCCL使用多环拓扑来增加跨节点带宽利用率。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: IVJMdjO3PopAcdxwAEvcKGNWnVi
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: 拓扑感知的并行策略：如何在多机环境中分配 PP 和 TP 以最小化跨机通信？
+  imported_at: '2026-09-21'

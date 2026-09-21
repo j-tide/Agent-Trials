@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-934a8dc1bad2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4A3 stuff 模式下，如果检索到的文档总长度超过模型最大 token 限制，会怎样？如何解决？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "\U0001F4A3 stuff 模式下，如果检索到的文档总长度超过模型最大 token 限制，会怎样？如何解决？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A5 会发生什么？\n在 stuff 链中，LangChain 会试图将所有检索到的文档拼接到一个 Prompt
+    中。如果合并后的文本 token 数超过了 LLM 的最大上下文窗口（例如 gpt-3.5-turbo 的 4096 tokens），会直接触发 API 报错（InvalidRequestError:
+    maximum context length exceeded）。如果模型是本地部署的，可能出现截断、生成乱码或忽略超出部分。\n\n\U0001F6E0️
+    解决方案\n\n- 方案一：截断文档（Truncation）\n最简单粗暴。在拼接前，根据剩余的 token 预算，从第一个文档开始逐个追加，当达到上限时丢弃后续所有文档。LangChain
+    的 StuffDocumentsChain 不支持自动截断，需要自定义预处理，计算 token 数并截断。但会丢失关键信息。\n\n- 方案二：切换到其他链类型\n改用
+    map_reduce 或 refine 链。它们专为超长文档设计，通过分块并行处理或迭代精炼来突破窗口限制。这是最推荐的工程方案。\n\n- 方案三：文档过滤与重排序\n在检索阶段就严格控制返回的文档数量。使用
+    Retriever 的 k 参数限制返回 top-k，并结合 SimilarityScoreThreshold 只保留相关性高于阈值的文档。也可以先用一个轻量级模型（如
+    BM25）粗筛，再用向量检索精排。\n\n- 方案四：动态 Token 预算管理\n自己实现一个 DocumentCompressor，在链执行前计算 token
+    数，如果超限，则使用 LLM 对每个文档进行压缩（例如“请用一句话总结该文档”），或使用 ContextualCompressionRetriever 对文档进行有损压缩，直到总长度合适。\n\n-
+    方案五：智能切分与滑动窗口\n将超长文本按句子或段落切块，然后用 map_rerank 对每个块打分，只保留得分最高的几个块拼接回答。\n\n\U0001F4A1
+    实战建议：永远不要在生产环境依赖 stuff 处理不确定数量的文档。应在检索阶段就做好长度控制，或默认使用 refine/map_reduce 并设置 token_max
+    参数。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Jb18witLXiiZV0kzYmccDNKDntb
+  block_id: LwuOdZPTWoDVfqxjNWgcFF1lnJe
+  page_token: Jb18witLXiiZV0kzYmccDNKDntb
+  original_title: "\U0001F4A3 stuff 模式下，如果检索到的文档总长度超过模型最大 token 限制，会怎样？如何解决？"
+  imported_at: '2026-09-21'

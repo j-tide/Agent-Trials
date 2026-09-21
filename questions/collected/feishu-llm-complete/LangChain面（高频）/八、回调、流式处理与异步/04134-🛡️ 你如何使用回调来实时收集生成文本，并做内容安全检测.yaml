@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-506372537429
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E1️ 你如何使用回调来实时收集生成文本，并做内容安全检测？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F6E1️ 你如何使用回调来实时收集生成文本，并做内容安全检测？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    你可以利用 on_llm_new_token 回调实时收集 LLM 生成的文本片段，并在收集到一定长度或遇到特定分隔符时，触发内容安全检测。
+
+    示例实现：
+
+    from langchain.callbacks import BaseCallbackHandler
+    import re
+
+    class SafetyCheckHandler(BaseCallbackHandler):
+        def __init__(self, block_words=None):
+            self.buffer = ""
+            self.block_words = block_words or ["暴力", "色情"]
+            self.blocked = False
+
+        def on_llm_new_token(self, token: str, **kwargs) -> None:
+            if self.blocked:
+                return  # 已经检测到违规，不再处理
+            self.buffer += token
+            # 每累积一定长度检查一次
+            if len(self.buffer) >= 20 or '\n' in self.buffer:
+                for word in self.block_words:
+                    if word in self.buffer:
+                        print(f"警告：检测到敏感词 '{word}'，生成内容被阻止。")
+                        self.blocked = True
+                        # 这里可以抛出异常来中断生成，但需要小心
+                        raise StopIteration("安全检测中断")
+                self.buffer = ""  # 清空缓存，继续检测下一段
+
+        def on_llm_end(self, response, **kwargs):
+            if self.buffer and not self.blocked:
+                # 处理剩余未检测的内容
+                for word in self.block_words:
+                    if word in self.buffer:
+                        print(f"警告：生成内容包含敏感词 '{word}'。")
+
+    使用：将该处理器传入 LLM 的 callbacks，并启用流式模式。
+
+    注意：
+
+    - 敏感词检测只是最简单的方式。生产环境应使用专门的内容安全 API（如 OpenAI Moderation API）或更复杂的 NLP 模型。
+
+    - 如果你希望在检测到违规时立即中断生成，可以在回调中抛出异常。但需要外层链路捕获该异常并返回错误提示。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  block_id: Py7adBaZqo7nIVxM5focBQV4nue
+  page_token: LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  original_title: "\U0001F6E1️ 你如何使用回调来实时收集生成文本，并做内容安全检测？"
+  imported_at: '2026-09-21'

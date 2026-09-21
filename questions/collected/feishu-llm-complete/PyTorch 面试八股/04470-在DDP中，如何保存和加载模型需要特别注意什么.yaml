@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-57547a1e5fee
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在DDP中，如何保存和加载模型？需要特别注意什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 在DDP中，如何保存和加载模型？需要特别注意什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    保存模型：
+    由于DDP中每个进程的模型参数是一致的，因此通常只在rank 0（主进程）上保存即可，避免多进程同时写入造成冲突。保存的是model.module.state_dict()（因为DDP将模型包裹了一层），以获取原始模型的参数。
+
+    ```python
+    if dist.get_rank() == 0:
+        torch.save(model.module.state_dict(), 'model.pt')
+    ```
+
+    加载模型：
+    通常在训练开始时，由rank 0加载权重，然后通过dist.broadcast广播给其他进程；或者所有进程各自加载同一文件（如果使用共享文件系统）。
+
+    ```python
+    state_dict = torch.load('model.pt', map_location=torch.device(f'cuda:{local_rank}'))
+    model.module.load_state_dict(state_dict)
+    ```
+
+    特别注意：
+
+    - 必须使用model.module访问原始模型：因为DDP包装了模型，model.state_dict()的键会多出module.前缀，而保存和加载通常期望原始键。
+
+    - 保存检查点需包含优化器状态：若要从断点恢复，必须同时保存optimizer.state_dict()和epoch等信息，且通常每个进程都需要保存自己的优化器状态（因为各进程的优化器状态可能略有不同，尤其在混合精度训练中）。
+
+    - 多卡写入冲突：非rank 0进程不应保存模型权重，但优化器状态可以各存各的。
+
+    - map_location：加载时需明确指定设备，以避免所有参数加载到rank 0的GPU上导致显存溢出。
+
+    完整保存恢复示例：
+
+    ```python
+    # 保存
+    if dist.get_rank() == 0:
+        torch.save({
+            'model': model.module.state_dict(),
+            'optimizer': optimizer.state_dict(),
+            'epoch': epoch,
+        }, 'checkpoint.pt')
+
+    # 恢复
+    checkpoint = torch.load('checkpoint.pt', map_location=torch.device(f'cuda:{local_rank}'))
+    model.module.load_state_dict(checkpoint['model'])
+    optimizer.load_state_dict(checkpoint['optimizer'])
+    start_epoch = checkpoint['epoch']
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KwdbwAt6ziL8zKkU7VMcVNEin8d
+  block_id: SnN7dCqxgoAN4OxnVh6cNIXUnrh
+  page_token: KwdbwAt6ziL8zKkU7VMcVNEin8d
+  original_title: 在DDP中，如何保存和加载模型？需要特别注意什么？
+  imported_at: '2026-09-21'

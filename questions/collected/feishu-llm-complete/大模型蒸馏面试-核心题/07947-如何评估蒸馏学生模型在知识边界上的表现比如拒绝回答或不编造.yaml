@@ -1,0 +1,93 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e3d5197765e7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何评估蒸馏学生模型在知识边界上的表现？比如拒绝回答或不编造。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型蒸馏面试-核心题
+derived_topic: 
+tags: &1
+- 大模型蒸馏面试-核心题
+content:
+  prompt: 如何评估蒸馏学生模型在知识边界上的表现？比如拒绝回答或不编造。
+answer:
+  mode: rubric
+  reference_answer: |-
+    评估学生在知识边界上的表现，本质上是检验其自知之明和诚实度。一个在知识边界表现好的模型，应该具备以下能力：知道什么时候该回答，什么时候该拒绝；在不确定时，能诚实地表达不确定性，而不是自信地编造（幻觉）。这不仅仅是一个准确率问题，而是一个涉及校准度（Calibration）、不确定性估计和安全行为的综合评估。
+
+    一、构建专门的“知识边界”测试集
+
+    这是评估的基石。我们需要构造一个能与模型“已知知识”形成鲜明对比的测试集：
+
+    - 已知-未知混合集：混合模型确定知道的问题（来自训练数据分布内）和模型确定不知道的问题。未知问题可以包括：虚构实体（“请介绍火星上的独角兽”）、未来事件（“2050年奥运会在哪举办”）、极冷门知识（需要专家级检索才能回答的问题）。关键在于，我们需要为每个问题打上is_known的标签，以便后续分类评估。
+
+    - 反事实问题集：构造前提错误的问题，如“为什么月球是由奶酪构成的？”。正确的回应是“你的前提是错误的，月球不是由奶酪构成的”，而不是顺着错误前提去编造。
+
+    - 对抗性问题集：包含隐含诱导性的问题，试图引导模型做出超出其知识范围的判断。
+
+    二、关键评估指标
+
+    不能只看准确率，必须使用一套专门的指标体系：
+
+    - 拒绝率：在不可回答问题上的拒绝回答比例。这衡量了模型的“自知之明”。但必须警惕过度拒绝——即将知道的问题也拒绝。因此，需要同时监控已知问题上的准确率，绘制“拒绝-准确率”曲线，找到最佳平衡点。
+
+    - 幻觉率：在不可回答问题上，模型给出明确但错误答案的比例。这是最危险的指标，直接衡量了模型的“编造”倾向。
+
+    - 不确定性表达准确率：模型在回答中表达不确定性的概率，是否与其实际出错的概率一致？例如，模型说“我不确定”的样本中，实际错误的概率是否接近100%？这可以使用期望校准误差（ECE） 来衡量，但需要专门针对知识边界样本进行计算。
+
+    - 过度自信度：在错误回答上，模型输出的置信度有多高？一个好的模型在犯错时应该给出较低的置信度。
+
+    三、与教师的行为对比分析
+
+    评估的最终目标是确保学生是教师的“可信赖缩影”：
+
+    - 行为一致性：计算学生在不可回答问题上的拒绝/回答模式与教师的一致性（例如Cohen's Kappa）。我们不希望学生在教师拒绝的问题上自信回答，反之亦然。
+
+    - 能力退化率：计算学生在已知问题上的准确率/教师在已知问题上的准确率。确保学生没有因为学会“拒绝”而过度泛化，导致在知道的问题上也变得“胆小”。
+
+    评估框架示例：
+
+    def evaluate_boundary(student, teacher, dataset):
+        # dataset 包含 (prompt, label, is_known) 三元组
+        known_acc, unknown_rej, unknown_hallu = [], [], []
+        for prompt, label, is_known in dataset:
+            student_out, teacher_out = student(prompt), teacher(prompt)
+            if is_known:
+                known_acc.append(student_out == label)
+            else:
+                # 定义拒绝的规则，比如输出包含"不知道"、"无法提供"等关键词
+                student_reject = any(kw in student_out for kw in ["不知道", "无法提供", "不确定"])
+                unknown_rej.append(student_reject)
+                # 如果未拒绝且与教师答案不一致，则视为幻觉
+                unknown_hallu.append(not student_reject and student_out != teacher_out)
+        return {
+            "已知准确率": mean(known_acc),
+            "未知拒绝率": mean(unknown_rej),
+            "未知幻觉率": mean(unknown_hallu)
+        }
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M1CpweEIOiIE8FkxjTvcpAQ7nof
+  block_id: Xy2Gd0YpBovahFx2WNTcAFfCnnh
+  page_token: M1CpweEIOiIE8FkxjTvcpAQ7nof
+  original_title: 如何评估蒸馏学生模型在知识边界上的表现？比如拒绝回答或不编造。
+  imported_at: '2026-09-21'

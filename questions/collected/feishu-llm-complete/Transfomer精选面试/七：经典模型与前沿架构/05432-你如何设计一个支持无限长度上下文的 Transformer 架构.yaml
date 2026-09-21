@@ -1,0 +1,107 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9abdd920b91d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 你如何设计一个支持无限长度上下文的 Transformer 架构？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 七：经典模型与前沿架构
+tags: &1
+- Transfomer精选面试
+- 七：经典模型与前沿架构
+content:
+  prompt: 你如何设计一个支持无限长度上下文的 Transformer 架构？
+answer:
+  mode: rubric
+  reference_answer: |-
+    设计“无限”上下文需要从多个层面结合现有技术，核心是打破序列长度的限制，使计算、内存与长度解耦。
+
+    架构设计蓝图：
+
+    - 分层注意力与记忆：
+
+    - 递归/分块处理：
+
+    - 自适应稀疏 + 检索：
+
+    - 动态位置编码：
+
+    - 推理引擎的无限性支持：
+
+    综合方案：一种可行的设计是 Mamba + 窗口注意力 + 记忆 token 检索 的混合体。局部由 Mamba 或窗口注意力处理，全局交互通过将压缩后的记忆 token 存入外部向量库，并在每层通过交叉注意力从检索到的相关记忆 token 中获取远距离信息。这种架构的复杂度与总长度呈线性或更优，理论上可支持无限上下文。
+
+    - 分阶段逐步增加序列长度。例如，先在原长度（4K）微调一定步数，然后切换到混合长度（8K→32K→128K），每个阶段逐步提升最长长度。
+
+    - 动态 batch 序列长度：在一个 batch 内包含不同长度的序列，通过 packed sequence 方法组合，最小化 padding。实现时可用 Ragged Batch / 变长序列支持。
+
+    - 使用特殊的位置标识（如 token type ids）或直接依赖位置编码，使得模型学习区分长度。
+
+    - 若使用 PI 等插值，可只在长序列数据上微调，短序列仍使用原位置编码，或者统一使用插值后位置。
+
+    - 多跳问答：如 HotpotQA（分散多篇文档），要求模型跨越长间隔链接证据。
+
+    - 叙事问答：如 NarrativeQA，基于整本书的内容回答问题。
+
+    - Passkey 检索：大海捞针的变体，检索随机数字串。
+
+    - KV 检索：输入中给出多个键值对，提问某个键的值。
+
+    - 代码理解与补全：超长代码库的理解。
+
+    - H2O：通过累加注意力分数，保留“重击者”（Heavy Hitters）token 的 KV，驱逐轻量 token。
+
+    - Scissorhands：基于注意力的累积重要性分数，结合滑动窗口，仅保留最重要的部分历史。
+
+    - LongLoRA 发现，在长序列微调时，直接使用全注意力成本高，而普通窗口注意力会限制远距离交互。
+
+    - S²-Attn 将输入序列按头分组，不同注意力头分配不同的偏移量。例如，头 1 负责常规窗口（0 偏移），头 2 将窗口右移一半，头 3 再右移等。
+
+    - 每个 token 在其所在头的“偏移窗口”内计算注意力。通过多层积累和多个头的不同偏移组合，相当于用稀疏方式覆盖了远距离 token 的交互，成本仅为全注意力的一个很小的分数。
+
+    - 引入外部记忆模块，使用全局记忆 token 定期压缩历史信息。记忆 token 通过交叉注意力从近期上下文中读取、写入。
+
+    - 类似于 Memformer 或 Infini-attention，将长期记忆表示为固定大小的压缩向量或记忆块，通过线性注意力或滑动窗口注意力的方式来更新和读取。
+
+    - 使用压缩 Transformer：以较高分辨率保持局部窗口，以低分辨率保存远期摘要。
+
+    - 将超长序列分段，应用递归 Transformer（如 Transformer-XL 的段级递归），段与段之间传递隐状态或记忆 token，保持记忆连续性。
+
+    - 或采用状态空间模型（Mamba, RWKV），其状态更新与序列长度无关，天然支持无限长度。
+
+    - 结合检索增强：不在显存中保留所有 KV 缓存，而是将历史 token 的 K/V 存入可检索数据库（通过 KNN 索引）。在生成时，动态检索相关的历史 KV 参与注意力计算（类似于 Memorizing Transformers）。
+
+    - 同时保留局部滑动窗口，保证局部流利度。
+
+    - 使用 ALiBi 或 xPos 等可无限外推的位置偏置，不依赖固定长度。
+
+    - 或干脆不使用位置编码，完全依靠记忆 token 传递顺序信息。
+
+    - 显存管理采用流式处理：KV 缓存自动换入换出到 CPU/SSD，结合重要性驱逐和异步预取，使显存占用恒定。
+
+    - 使用 PagedAttention 分配虚拟内存，通过页面错误处理透明地从外部存储加载历史块。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IMtTwhtZ7iRFrUk5yyncECbLnph
+  block_id: GXQ7dflBno1cuQxoogicmCE4nwb
+  page_token: IMtTwhtZ7iRFrUk5yyncECbLnph
+  original_title: 你如何设计一个支持无限长度上下文的 Transformer 架构？
+  imported_at: '2026-09-21'

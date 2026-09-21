@@ -1,0 +1,97 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0bc7420c36da
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F575️ 你如何在 Agent 中集成高级检索器，让 Agent 自主决定何时检索、检索什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F575️ 你如何在 Agent 中集成高级检索器，让 Agent 自主决定何时检索、检索什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Agent 是赋予 LLM 工具使用能力的最佳载体。将高级检索器封装为 Agent 的工具，LLM 就可以像使用搜索引擎一样，自主决定“现在我需要查资料了”，然后调用检索工具，并基于检索结果继续思考和回答。
+
+    集成步骤：
+
+    - 封装检索器为 Tool
+    使用 LangChain 的 Tool 接口，将你的高级检索器包装成一个具有名称和描述的工具。描述要足够清晰，让 LLM 知道何时该用。
+
+    from langchain.tools import Tool
+
+    advanced_retriever = ...  # 你的混合检索器、Self-RAG、或其他自定义检索器
+
+    def retrieve_info(query: str) -> str:
+        docs = advanced_retriever.get_relevant_documents(query)
+        return "\n\n".join([f"文档{i+1}: {doc.page_content}" for i, doc in enumerate(docs)])
+
+    retrieval_tool = Tool(
+        name="知识库检索",
+        func=retrieve_info,
+        description="当你需要查找具体的、事实性的信息，或者需要引用专业知识来回答用户问题时，使用此工具。输入应该是一个明确的搜索查询。"
+    )
+
+    - 创建 Agent
+    使用 create_openai_functions_agent 或 create_react_agent，将上述工具与其他可能需要的工具（如计算器、天气API）一起提供给 LLM。
+
+    from langchain.agents import create_openai_functions_agent, AgentExecutor
+    from langchain import hub
+    from langchain.chat_models import ChatOpenAI
+
+    llm = ChatOpenAI(model="gpt-4", temperature=0)
+    prompt = hub.pull("hwchase17/openai-functions-agent")
+    agent = create_openai_functions_agent(llm, [retrieval_tool], prompt)
+    agent_executor = AgentExecutor(agent=agent, tools=[retrieval_tool], verbose=True)
+
+    - Agent 的自主决策过程
+    当用户提问后，LLM 分析问题，如果它判断需要外部知识，就会生成一个函数调用消息，LangChain 框架拦截并执行你的 retrieve_info 函数，将返回的文档注入到对话上下文中。然后 LLM 继续基于这些文档生成最终答案。整个过程对用户透明，看起来就像模型自己“思考”后去查了资料。
+
+    高级技巧：
+
+    - 多工具组合：可以提供多个不同用途的检索器。例如，一个用于精确匹配的 “CodeSearch” 工具，一个用于概念理解的 “WikiSearch” 工具。Agent 可以自己决定用哪个。
+
+    - 动态参数：工具函数可以接收更复杂的参数，例如 retrieve(query, time_range, doc_type)。Agent 可以通过函数调用来指定这些参数。
+
+    - 限制调用次数：通过 AgentExecutor 的 max_iterations 参数防止无限检索，或者在 Prompt 中要求 LLM 最多检索两次。
+
+    - 上下文压缩：在工具函数内部，可以先调用粗排再调用重排序，甚至压缩，确保返回给 LLM 的上下文是最相关的，节约 token。
+
+    优势：
+
+    - 解耦：检索逻辑完全独立于 Agent 的推理逻辑，修改检索器无需改动 Agent。
+
+    - 灵活性：LLM 可以完全自主决策，应对各种未知问题。
+
+    - 可扩展：可以随时添加新的检索工具。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HEY1ws44PidEGlkYttccK5AenXe
+  block_id: W9rhdUKniom06qxFYmJcPLcsnVB
+  page_token: HEY1ws44PidEGlkYttccK5AenXe
+  original_title: "\U0001F575️ 你如何在 Agent 中集成高级检索器，让 Agent 自主决定何时检索、检索什么？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,91 @@
+---
+schema_version: 1
+id: feishu-llm-complete-78f872baaee3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 服务需要实现 SSE 流式输出 LLM 响应，如何用 WebFlux 实现？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 服务需要实现 SSE 流式输出 LLM 响应，如何用 WebFlux 实现？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（SSE、Flux 流式处理、异常处理）\n\n1️⃣ Common Answer\n\n可以用 WebFlux
+    的 Flux 返回 SSE 事件。在 Controller 里返回 Flux<String>，用 MediaType.TEXTEVENTSTREAM_VALUE。LLM
+    调用返回流，然后转成 Flux。\n\n2️⃣ Impressive Answer\n\n- Controller 实现：\n\n```text\n@RestController\n@RequestMapping(\"/api/agent\")\npublic
+    class AgentController {\n    \n    @Autowired\n    private LLMService llmService;\n
+    \   \n    @GetMapping(value = \"/chat/stream\", produces = MediaType.TEXT_EVENT_STREAM_VALUE)\n
+    \   public Flux<ServerSentEvent<String>> chatStream(@RequestParam String prompt)
+    {\n        return llmService.streamChat(prompt)\n            .map(token -> ServerSentEvent.<String>builder()\n
+    \               .data(token)\n                .build())\n            .doOnComplete(()
+    -> log.info(\"Stream completed\"))\n            .doOnError(e -> log.error(\"Stream
+    error\", e));\n    }\n}\n```\n\n- LLM Service 实现：\n\n```text\n@Service\npublic
+    class LLMService {\n    \n    public Flux<String> streamChat(String prompt) {\n
+    \       return Flux.create(sink -> {\n            try {\n                // 调用
+    LLM API 流式接口\n                CompletionStreamRequest request = CompletionStreamRequest.builder()\n
+    \                   .model(\"gpt-4\")\n                    .messages(List.of(Message.user(prompt)))\n
+    \                   .build();\n                \n                client.stream(request)\n
+    \                   .onErrorResume(e -> {\n                        sink.error(e);\n
+    \                       return Mono.empty();\n                    })\n                    .subscribe(token
+    -> sink.next(token),\n                        e -> sink.error(e),\n                        ()
+    -> sink.complete());\n                \n            } catch (Exception e) {\n
+    \               sink.error(e);\n            }\n        });\n    }\n}\n```\n\n-
+    异常处理和重试：\n\n```text\npublic Flux<String> streamChatWithRetry(String prompt) {\n
+    \   return streamChat(prompt)\n        .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))\n
+    \           .filter(e -> e instanceof TimeoutException)\n            .doBeforeRetry(signal
+    -> log.warn(\"Retrying...\")))\n        .onErrorResume(e -> {\n            log.error(\"All
+    retries failed\", e);\n            return Flux.just(\"[ERROR: \" + e.getMessage()
+    + \"]\");\n        });\n}\n```\n\n- 前端连接：\n\n```text\nconst eventSource = new
+    EventSource('/api/agent/chat/stream?prompt=hello');\neventSource.onmessage = (event)
+    => {\n    console.log(event.data);\n};\neventSource.onerror = (error) => {\n    console.error('SSE
+    error:', error);\n};\n```\n\n- 优势：WebFlux 的非阻塞模型可以同时处理大量 SSE 连接，不会因为长连接占满线程池。\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n---\n\n- 版本号放在 URL 路径中（如 /api/v1/）\n\n- 新版本并行发布，旧版本设置废弃时间\n\n-
+    Nginx 根据路径路由到不同服务\n\n- SSE 模式需要异步处理，避免阻塞线程池\n\n- REST 模式可以同步返回，响应更快\n\n- 超时设置：SSE
+    设置较长超时（如 2 分钟），REST 设置较短超时（如 30 秒）\n\n- 监控指标：分别统计两种模式的 QPS、延迟、错误率\n\n- 外层请求：用
+    Bean Validation（@Valid），校验通用参数（如 agentId、sessionId）\n\n- 工具参数：用 JSON Schema，根据
+    Function Definition 动态校验\n\n- Spring Security 本质是一组 Servlet Filter\n\n- DelegatingFilterProxy
+    作为 Servlet Filter 的代理，将请求委托给 Spring 容器中的 springSecurityFilterChain Bean\n\n- FilterChainProxy
+    管理多个 SecurityFilterChain，根据 URL 匹配不同的安全策略\n\n- Security Filter 在 DispatcherServlet
+    之前执行\n\n- 先鉴权，鉴权失败直接返回，不进入 Spring MVC 流程\n\n- 鉴权成功后才路由到 Controller\n\n- 公开接口：无需认证\n\n-
+    Agent 调用接口：API Key 认证\n\n- 用户操作接口：JWT Token 认证\n\n- 灰度发布：新版本逐步放量，通过请求头控制流量\n\n-
+    A/B 测试：不同用户群体使用不同版本\n\n- 回滚机制：遇到问题时快速切换回旧版本\n\n- 性能优化：Protobuf 比 JSON 小 30-50%，序列化快
+    5-10 倍\n\n- 兼容性：内部服务用 Protobuf，外部 API 用 JSON\n\n- 渐进式迁移：逐步将关键接口迁移到 Protobuf\n\n-
+    作用：启用 Spring MVC 的 Java Config 模式\n\n- 副作用：禁用 WebMvcAutoConfiguration 的默认配置\n\n-
+    结果：需要手动配置所有组件（拦截器、转换器等）\n\n- 编程模型：WebFlux 基于 Reactor（Mono/Flux），异步非阻塞；MVC 基于 Servlet
+    API，同步阻塞。\n\n- 线程模型：WebFlux 少量线程（事件循环）处理大量连接；MVC 线程池模型，每个请求占用一个线程。\n\n- 容器支持：WebFlux
+    支持 Netty、Undertow、Servlet 3.1+；MVC 仅支持 Servlet 容器。\n\n- 生态成熟度：MVC 生态成熟，WebFlux
+    相对较新。\n\n- WebFlux：高并发 I/O 密集型（SSE、WebSocket、API 网关）、流式处理、低延迟要求。\n\n- Spring MVC：传统
+    CRUD、业务逻辑复杂、阻塞操作多（JDBC、文件上传）。\n\n- WebFlux：高并发下吞吐量高，内存占用低，但编程复杂度高。\n\n- Spring
+    MVC：简单场景性能足够，开发效率高，生态丰富。\n\n- Mono：Mono<T> 表示 0 或 1 个元素的异步序列，类似 Optional<T> +
+    异步。\n\n- Flux：Flux<T> 表示 0 到 N 个元素的异步序列，类似 Stream<T> + 异步。\n\n- 操作符：map（转换）、filter（过滤）、flatMap（异步转换）、zip（组合）、buffer（批处理）。\n\n-
+    问题：生产者产生数据速度快于消费者处理速度，导致 OOM。\n\n- 解决：消费者主动告诉生产者需要多少数据（request(n)）。\n\n- 策略：BUFFER（缓冲）、DROP（丢弃）、LATEST（最新）、ERROR（抛异常）、IGNORE（忽略）。\n\n-
+    Mono：LLM 单次调用返回结果。\n\n- Flux：SSE 流式输出 LLM Token。\n\n- 背压：控制 SSE 推送速度，避免客户端处理不过来。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EvyJwQ60XiC313kQqbUcyFhEnAh
+  block_id: doxcnsKz4Xd7GIfTVGJl3q4fC4d
+  page_token: EvyJwQ60XiC313kQqbUcyFhEnAh
+  original_title: 3、场景题：Agent 服务需要实现 SSE 流式输出 LLM 响应，如何用 WebFlux 实现？
+  imported_at: '2026-09-21'

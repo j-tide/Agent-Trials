@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f08a9b97fe1d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 训练时 GPU 利用率低但显存占满，是什么原因？可能发生在什么阶段？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "\U0001F4CA 训练时 GPU 利用率低但显存占满，是什么原因？可能发生在什么阶段？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 原因：显存虽然被占满，但其中大部分是静态分配（如模型权重、优化器状态），真正用于计算的活跃数据少，导致
+    GPU 空闲。\n\n\U0001F50E 详细原因和阶段：\n\n- 原因一：小 batch + 大模型，激活太少\n显存被模型权重、优化器状态撑满，但每次迭代的
+    batch 很小，GPU 计算单元“吃不饱”，大部分时间在空闲等待数据搬运或下一批次。常见于显存受限的微调场景。\n\n- 原因二：梯度累积或小 batch
+    推理\n训练中使用梯度累积时，每个 micro-batch 的计算量不足，两次计算间有延迟。推理时如果并发请求少，显存虽占满（KV Cache 池预留），但
+    GPU 执行稀疏，利用率低。\n\n- 原因三：数据加载或 CPU 预处理成为瓶颈\n显存满了，但数据还没有准备好，GPU 在等待。这可能是 I/O 瓶颈，发生在训练开始的数据预取阶段，也可能持续发生如果
+    DataLoader 太慢。\n\n- 原因四：频繁的梯度检查点重计算\n为了节省显存而开启梯度检查点（gradient checkpointing），会导致额外的重计算，但这些重计算本身是计算密集的，通常会提高利用率。但若模型过大，重计算引起内核开销和同步，偶尔也可能利用率低（较少见）。\n\n\U0001F552
+    可能发生阶段：\n\n- 训练启动初期：模型加载后立即占满权重+优化器，但刚开始取数据，GPU 空闲。\n\n- 小 batch 训练全过程：如果受限于显存只能用很小的
+    batch，GPU 利用率持续低迷。\n\n- 推理服务空闲期：虽然模型和 KV Cache 池长期驻留显存，但请求少，GPU 闲。\n\n✅ 解决方案：\n\n-
+    若可能，增大 batch size（或使用梯度累积等效）。\n\n- 优化数据管道（使用更多 worker、预处理缓存、pin_memory）。\n\n-
+    使用模型并行，减少单卡权重/优化器占用，从而增大可用的 batch 空间。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C7vaw6NlnicTRUkFemecRp3jnLd
+  block_id: G1HLdmwESo14dkxeY70c2ot2nSP
+  page_token: C7vaw6NlnicTRUkFemecRp3jnLd
+  original_title: "\U0001F4CA 训练时 GPU 利用率低但显存占满，是什么原因？可能发生在什么阶段？"
+  imported_at: '2026-09-21'

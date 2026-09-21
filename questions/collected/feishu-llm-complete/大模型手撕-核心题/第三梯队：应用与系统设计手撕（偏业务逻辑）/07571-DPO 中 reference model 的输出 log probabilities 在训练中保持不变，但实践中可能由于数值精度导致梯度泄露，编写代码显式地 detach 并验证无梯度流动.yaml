@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-924fc8ac4356
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: DPO 中 reference model 的输出 log probabilities 在训练中保持不变，但实践中可能由于数值精度导致梯度泄露，编写代码显式地
+  detach 并验证无梯度流动。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: DPO 中 reference model 的输出 log probabilities 在训练中保持不变，但实践中可能由于数值精度导致梯度泄露，编写代码显式地
+    detach 并验证无梯度流动。
+answer:
+  mode: rubric
+  reference_answer: "问题分析\n\n虽然我们在计算参考模型的 log probabilities 时使用了 torch.no_grad()，该上下文中的张量不会有梯度。但如果在损失计算时，这些张量与策略模型的参数有某种间接联系（例如，参考模型和策略模型共享了部分
+    buffer 或由于 in-place 操作），可能会导致梯度意外泄露。为了绝对安全，最佳实践是：\n\n- 参考模型在 eval 模式下运行，且其所有参数的
+    requires_grad 设置为 False。\n\n- 在获得参考模型的 logits 后，显式调用 .detach() 再计算 log probabilities。\n\n-
+    编写单元测试验证参考模型参数在反向传播后是否保持不变。\n\n代码实现（包含验证）\n\n```python\ndef compute_ref_logps_with_detach(ref_model,
+    input_ids, attention_mask, labels):\n    \"\"\"安全地计算参考模型的平均对数概率，确保完全切断梯度\"\"\"\n
+    \   ref_model.eval()\n    # 确保参考模型参数不参与梯度\n    for param in ref_model.parameters():\n
+    \       param.requires_grad = False\n\n    with torch.no_grad():\n        logits
+    = ref_model(input_ids=input_ids, attention_mask=attention_mask).logits\n        #
+    显式 detach，虽然 no_grad 已足够，但这里是双保险\n        logits = logits.detach()\n\n    # 计算平均对数概率（这里需要梯度吗？不需要，但计算本身可能不需要detach）\n
+    \   # average_log_prob 内部使用 cross_entropy，它不会产生对 logits 的梯度因为我们已经 detach\n    mean_logp
+    = average_log_prob(logits, labels, attention_mask)\n    # 再次 detach，确保返回的张量没有梯度\n
+    \   return mean_logp.detach()\n\ndef verify_no_gradient_leak(ref_model, policy_model):\n
+    \   \"\"\"验证 DPO 损失不会对参考模型产生梯度\"\"\"\n    # 保存参考模型参数初始值\n    initial_params =
+    [p.clone() for p in ref_model.parameters()]\n    \n    # 执行一个模拟训练步（需要 batch 数据）\n
+    \   # ... 计算 loss 并 backward()\n    \n    # 检查参考模型参数是否变化\n    for i, param in
+    enumerate(ref_model.parameters()):\n        if not torch.equal(param, initial_params[i]):\n
+    \           print(f\"Reference model parameter {i} changed! Gradient leak detected.\")\n
+    \           return False\n    print(\"No gradient leak. Reference model parameters
+    unchanged.\")\n    return True\n```\n\n解释\n\n- torch.no_grad() 已经阻止了梯度计算，但为了绝对安全，我们对
+    logits 调用 .detach()，并在返回 logps 时再次 .detach()，这样即使在后续的计算中误操作，也不会意外地将梯度传播回参考模型。\n\n-
+    单元测试验证是工程中的好习惯，可以放在 CI 流程中。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  block_id: Q9zrd23OTo1qmXx6vmwcP0C0nyh
+  page_token: Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  original_title: DPO 中 reference model 的输出 log probabilities 在训练中保持不变，但实践中可能由于数值精度导致梯度泄露，编写代码显式地
+    detach 并验证无梯度流动。
+  imported_at: '2026-09-21'

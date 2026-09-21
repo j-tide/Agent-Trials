@@ -1,0 +1,99 @@
+---
+schema_version: 1
+id: feishu-llm-complete-622167cb0aaf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 给出一个使用预训练ResNet进行图像分类微调的完整流程。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 给出一个使用预训练ResNet进行图像分类微调的完整流程。
+answer:
+  mode: rubric
+  reference_answer: |-
+    以下是一个涵盖数据加载、模型准备、训练和评估的完整骨架代码。
+
+    ```python
+    import torch
+    import torch.nn as nn
+    import torch.optim as optim
+    from torch.utils.data import DataLoader
+    from torchvision import datasets, models, transforms
+
+    # 1. 数据预处理
+    data_transforms = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+
+    train_dataset = datasets.ImageFolder('path/to/train', data_transforms)
+    val_dataset   = datasets.ImageFolder('path/to/val', data_transforms)
+
+    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+    val_loader   = DataLoader(val_dataset, batch_size=32, shuffle=False)
+
+    # 2. 构建模型
+    model = models.resnet50(pretrained=True)
+    for param in model.parameters():
+        param.requires_grad = False
+    model.fc = nn.Linear(model.fc.in_features, len(train_dataset.classes))
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+
+    # 3. 训练配置
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.fc.parameters(), lr=1e-3)
+
+    # 4. 训练循环
+    for epoch in range(10):
+        model.train()
+        for inputs, labels in train_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+        # 验证
+        model.eval()
+        correct, total = 0, 0
+        with torch.no_grad():
+            for inputs, labels in val_loader:
+                outputs = model(inputs.to(device))
+                _, preds = torch.max(outputs, 1)
+                correct += (preds == labels.to(device)).sum().item()
+                total += labels.size(0)
+        print(f'Epoch {epoch}: Val Acc {100 * correct / total:.2f}%')
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  block_id: E8SfdV403o722SxQZKDcNVyCn3g
+  page_token: AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  original_title: 给出一个使用预训练ResNet进行图像分类微调的完整流程。
+  imported_at: '2026-09-21'

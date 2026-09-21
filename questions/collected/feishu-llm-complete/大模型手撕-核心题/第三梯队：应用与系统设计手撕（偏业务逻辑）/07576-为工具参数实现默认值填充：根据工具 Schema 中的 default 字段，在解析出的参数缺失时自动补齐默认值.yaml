@@ -1,0 +1,97 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b8a0b14c3bb1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为工具参数实现默认值填充：根据工具 Schema 中的 default 字段，在解析出的参数缺失时自动补齐默认值。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 为工具参数实现默认值填充：根据工具 Schema 中的 default 字段，在解析出的参数缺失时自动补齐默认值。
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    在工具定义中，可以为参数指定 default 值。当 LLM 返回的 arguments 缺少某些参数时，系统自动使用 Schema 中的默认值进行填充，确保工具调用不会因参数缺失而失败。Schema 格式如：
+
+    ```json
+    {
+      "parameters": {
+        "query": {"type": "str", "required": true},
+        "max_results": {"type": "int", "default": 10}
+      }
+    }
+    ```
+
+    实现
+
+    ```python
+    def fill_default_arguments(arguments: Dict[str, Any], schema: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        根据 Schema 自动填充缺失参数的默认值。
+        Args:
+            arguments: 解析出的参数字典
+            schema: 工具 Schema，包含 parameters 字段
+        Returns:
+            填充后的参数字典
+        """
+        filled = arguments.copy()
+        params_schema = schema.get("parameters", {})
+        for param_name, param_info in params_schema.items():
+            if param_name not in filled and "default" in param_info:
+                filled[param_name] = param_info["default"]
+        return filled
+
+    # 示例 Schema
+    schema = {
+        "name": "search",
+        "parameters": {
+            "query": {"type": "str", "required": True},
+            "max_results": {"type": "int", "default": 10},
+            "safe_search": {"type": "bool", "default": True}
+        }
+    }
+
+    # 用户只提供了 query
+    parsed_args = {"query": "天气"}
+    filled_args = fill_default_arguments(parsed_args, schema)
+    print(filled_args)  # {'query': '天气', 'max_results': 10, 'safe_search': True}
+    ```
+
+    扩展
+
+    - 可以结合参数类型校验（参见第3题），在填充默认值后再次验证。
+
+    - 支持嵌套 Schema 中的默认值填充（递归处理）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  block_id: RKiJdgYYfo6pZ0x2rGHcSOpdngb
+  page_token: Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  original_title: 为工具参数实现默认值填充：根据工具 Schema 中的 default 字段，在解析出的参数缺失时自动补齐默认值。
+  imported_at: '2026-09-21'

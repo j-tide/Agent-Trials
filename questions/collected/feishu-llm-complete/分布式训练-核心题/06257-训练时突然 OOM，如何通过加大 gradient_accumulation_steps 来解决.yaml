@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-be481450130f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练时突然 OOM，如何通过加大 gradient_accumulation_steps 来解决？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 训练时突然 OOM，如何通过加大 gradient_accumulation_steps 来解决？
+answer:
+  mode: rubric
+  reference_answer: |-
+    OOM的根本原因是当前配置下，单张GPU在一次前向+反向传播过程中，所需的总显存超过了可用容量。总显存需求主要由两部分组成：模型状态（参数、梯度、优化器状态）和激活值。激活值的大小与单次送入模型的样本数（即micro batch size）和序列长度直接相关。
+
+    加大gradient_accumulation_steps（梯度累积步数）解决OOM的逻辑链条如下：
+
+    - 首先，我们减小每张GPU一次前向传播所处理的样本数，即micro batch size。例如从4降到1。micro batch size减小，激活值显存基本等比例下降，这是最直接的显存释放。
+
+    - 但减小micro batch size会导致全局批次大小（global batch size = micro_batch_size × num_gpus × accumulation_steps）下降，过小的全局批次会导致训练不稳定、收敛变慢。
+
+    - 为了保持全局批次大小不变，我们同步增大gradient_accumulation_steps。例如原本micro batch size=4, accumulation_steps=1，现在改为micro batch size=1, accumulation_steps=4。模型每处理完一个micro batch就计算梯度并累加到梯度缓冲区中，直到累积了4步的梯度后，才执行一次优化器更新。
+
+    - 这种操作的好处是：激活值只在当前micro batch存在时占用显存，处理完立即释放，下一个micro batch复用显存空间。因此，激活值峰值由micro batch size决定，而不是全局批次大小。通过减小micro batch size，我们压低了激活峰值，从而避免OOM。模型状态（参数、梯度、优化器状态）的显存占用不受梯度累积的影响，因为它们需要在整个累积周期内持久存在。
+
+    需要注意的是，加大梯度累积步数会增加训练时间，因为前向和反向的计算总量不变，但参数更新的频率降低了，通信次数也可能增加（取决于框架优化）。此外，对于使用了BatchNorm的模型，微批次过小会导致BN统计不准，但Transformer中普遍使用LayerNorm，避开了这一问题。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: IoXWdRqg2ojhYqxznzRcpiiznAc
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 训练时突然 OOM，如何通过加大 gradient_accumulation_steps 来解决？
+  imported_at: '2026-09-21'

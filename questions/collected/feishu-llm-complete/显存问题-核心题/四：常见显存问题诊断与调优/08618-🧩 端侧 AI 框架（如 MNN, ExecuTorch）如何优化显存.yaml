@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-577e7984fec1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 端侧 AI 框架（如 MNN, ExecuTorch）如何优化显存？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F9E9 端侧 AI 框架（如 MNN, ExecuTorch）如何优化显存？"
+answer:
+  mode: rubric
+  reference_answer: "端侧 AI 框架面对的是内存极度受限、无独立显存的统一内存环境，因此优化策略必须贯穿模型加载、运行时调度、计算图执行的全流程。核心思想是以时间换空间，极致复用内存，避免碎片。\n\n\U0001F527
+    主要优化手段：\n\n- \U0001F5FA️ 计算图级内存复用\n框架在编译或初始化阶段会分析整个计算图，计算出每个张量的生命周期。通过内存规划（memory
+    planning），让两个没有重叠生命周期的张量共享同一块内存区域。例如，上一层的输出张量释放后，其内存立刻被下一层的临时缓冲复用，将理论所需的总内存大幅压降至峰值所需。\nMNN
+    的 Session 创建时会自动执行内存规划；ExecuTorch 通过 MemoryPlanner 实现类似功能。\n\n- \U0001F4E6 算子级就地计算（In-place
+    Ops）\n对于激活函数（ReLU、GELU）、归一化（LayerNorm）、残差连接等，框架会尽量使用就地操作，直接在输入张量的内存上写入输出，消除额外的内存分配。\n\n-
+    \U0001F4BE 权重延迟加载与分页\n模型权重常驻磁盘，通过内存映射（mmap）或分段加载，只将当前计算所需的层权重保留在物理内存中，其余被系统换出或从未加载。MNN
+    支持将权重文件直接映射，避免一次性解压到内存；ExecuTorch 的 Runtime 可配合委托（Delegate）实现权重驻留在专用硬件侧。\n\n-
+    ⚖️ 异构硬件协同与委托\n框架将算子委托给专门的硬件（如 NPU、DSP、GPU）执行。在分配内存时，会为不同硬件分配专用的内存池，并通过高效的跨硬件内存共享（如
+    Android 的 AHardwareBuffer）减少拷贝和冗余存储。例如，MNN 对 GPU 采用 VulkanMemoryPool 预分配并复用；ExecuTorch
+    利用 Qualcomm 的 QNN Delegate 将模型完全托管，内存由硬件抽象层管理。\n\n- \U0001F9F7 固定大小的内存池（Memory
+    Pool）\n预先分配一大块内存，内部切割为不同大小的块供各类分配请求使用，避免频繁的 malloc/free 造成的碎片和开销。MNN 的 Backend
+    会创建各自的 buffer pool；ExecuTorch 通过 MemoryManager 提供池化分配接口。\n\n- ✂️ KV Cache 量化与压缩\n端侧框架通常会为
+    Transformer 推理提供 KV Cache 的 INT8/FP8 量化选项，将 Cache 容量减半，间接优化“显存”。例如 MNN 的 LLM 插件支持
+    KV Cache 量化。\n\n- \U0001F4C9 模型量化与蒸馏\n框架在编译工具链中集成了多种量化方案（静态/动态量化、4-bit/8-bit），从根源上降低模型权重内存占用。\n\n\U0001F4CA
+    效果：通过组合使用上述技术，框架可在几 GB 的内存中运行 7B 级模型，并使峰值内存接近理论最小值。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HjvUw864Ri1DrqkwVgbcfnR8n6d
+  block_id: WHOddA8OBox32UxElzjcaqbinKf
+  page_token: HjvUw864Ri1DrqkwVgbcfnR8n6d
+  original_title: "\U0001F9E9 端侧 AI 框架（如 MNN, ExecuTorch）如何优化显存？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b92271ab865b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“动态图”与“静态图”？torch.compile 如何将动态图转为静态图？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 什么是“动态图”与“静态图”？torch.compile 如何将动态图转为静态图？
+answer:
+  mode: rubric
+  reference_answer: |-
+    动态图（Dynamic Graph） 是PyTorch默认的执行模式。每次前向传播时，框架都会即时构建一张计算图，执行完就丢弃。这给了我们极大的灵活性：你可以在forward里写if-else、for循环、动态形状变化等，就像写普通Python代码一样自然。但代价是运行时开销大——每次都要重新建图、调度算子、调用CUDA kernel，这些“框架开销”在大规模训练中累积起来相当可观。举个例子，如果模型有几百个小算子，每次前向传播都要为每个算子单独启动一个CUDA kernel，每个kernel启动都有几微秒到几十微秒的延迟，加起来就可能达到毫秒级，对于计算量本身只有几毫秒的操作来说，框架开销占比甚至超过50%。
+
+    静态图（Static Graph） 则是在运行前先定义好完整的计算图，编译优化后再执行。TensorFlow 1.x就是这个路数。优点是执行效率高，可以做全局图优化（算子融合、内存规划、常量折叠等），缺点是不灵活，调试困难。比如你想在forward里根据某个中间结果的大小动态决定后续操作，在静态图里就很别扭。
+
+    torch.compile 的魔法就是在这两者之间架桥。它使用TorchDynamo在运行时捕获Python字节码。具体来说，TorchDynamo会拦截Python解释器的frame执行，把PyTorch的算子调用记录成一张FX计算图。这个过程对用户透明——你依然可以随意写动态逻辑，但TorchDynamo会智能地识别出哪些部分是可以“静态化”的。
+
+    捕获到的图会被交给Inductor后端。Inductor对图进行大量优化：比如把相邻的逐元素操作（GELU、Dropout、残差加法）融合成单个CUDA kernel，消除中间张量的显存读写；比如把Q、K、V三个投影矩阵拼成一个大矩阵，做一次大矩阵乘而不是三次小矩阵乘；再比如自动为矩阵乘法选择最优的tiling策略和线程块大小。这些优化之后，Inductor生成高效的Triton或CUDA代码，编译结果被缓存，下次直接加载。
+
+    对于图中无法静态化的部分（比如依赖Python控制流的动态分支），torch.compile会将其保留为“图断点”（graph break），恢复为eager模式执行。这样既保留了动态图的灵活性，又在大部分计算密集区域获得了静态图的性能。最终效果是，我们无需修改任何代码，就能让训练速度提升20%-50%。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HfoZwdjz1iRNmPkiI3icQQafnve
+  block_id: XWKAdtsVHohCkDxR7iEcmBO3nWd
+  page_token: HfoZwdjz1iRNmPkiI3icQQafnve
+  original_title: 什么是“动态图”与“静态图”？torch.compile 如何将动态图转为静态图？
+  imported_at: '2026-09-21'

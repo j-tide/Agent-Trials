@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1833de3742ae
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Critic 网络在 RLHF 中是否有必要？能否不用 Critic，而只使用蒙特卡洛回报？有什么代价？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: Critic 网络在 RLHF 中是否有必要？能否不用 Critic，而只使用蒙特卡洛回报？有什么代价？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Critic 网络在 RLHF 中是强烈建议保留的，放弃它将付出重大的代价。 我们可以完全不用 Critic，直接用序列的完整蒙特卡洛（MC）回报 Gt 减去一个基线来估计优势，例如 REINFORCE 算法。
+
+    代价一：方差爆炸
+
+    RLHF 的动作空间巨大，同样一个 prompt，模型可能生成完全不同质量的回答。最终回报的波动性非常大。如果我们使用 MC 回报，那么优势估计的方差就等于整个轨迹回报的方差。这意味着，在训练中，优势信号会极其嘈杂。模型可能会因为一次偶然采到的高分而被过度奖励，下一次又因为一次偶然的低分而被过度惩罚。这将导致训练震荡剧烈，收敛极其缓慢，甚至无法收敛。
+
+    代价二：无法进行逐 token 的信用分配
+
+    MC 回报是序列结束后才计算的，它在所有中间步骤上给的都是同一个回报值。这意味着，Critic 所起到的“预测未来”能力完全丧失。Actor 无法得知在生成第 5 个 token 时，它的决策是让后续走向了更好还是更差的境地。它只能盲目地根据最终结果的好坏来整体调整所有 token 的概率。这种粗粒度的信用分配会严重拖慢学习进度，特别是对于长序列生成。
+
+    代价三：无法利用 TD 学习的 bootstrap 能力
+
+    Critic 的引入使得 GAE 可以利用后续状态的估计来“截断”优势的传播，这就是 bootstrap。不使用 Critic，就完全失去了这种能力，GAE 的优势也退化为单纯的 MC 估计，失去了其在偏差-方差之间灵活权衡的优势。
+
+    因此，虽然理论上可以去掉 Critic，但在 RLHF 这种高方差、长序列的任务中，Critic 是保证训练稳定和高效的核心组件。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ShXzw5qhYiJep9kS2mYcaT57nZc
+  block_id: Ts8bdeeuVo3ZOXxQUi7coqdxnOf
+  page_token: ShXzw5qhYiJep9kS2mYcaT57nZc
+  original_title: Critic 网络在 RLHF 中是否有必要？能否不用 Critic，而只使用蒙特卡洛回报？有什么代价？
+  imported_at: '2026-09-21'

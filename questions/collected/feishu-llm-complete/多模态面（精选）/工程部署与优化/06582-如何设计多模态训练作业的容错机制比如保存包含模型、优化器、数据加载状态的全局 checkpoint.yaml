@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1f15eab02ec6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何设计多模态训练作业的容错机制？比如保存包含模型、优化器、数据加载状态的全局 checkpoint。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 如何设计多模态训练作业的容错机制？比如保存包含模型、优化器、数据加载状态的全局 checkpoint。
+answer:
+  mode: rubric
+  reference_answer: |-
+    大模型训练持续数周，故障不可避免。容错机制的核心是可恢复性和最小化损失。
+
+    Checkpoint内容：
+
+    [嵌入表格未展开]
+
+    保存与恢复流程：
+
+    - 使用分布式原子保存，所有GPU同时将状态写入共享存储（如NFS、HDFS）。可采用torch.distributed.checkpoint或DeepSpeed的save_checkpoint。
+
+    - 设置定时保存（如每1000步）和事件触发保存（如检测到节点异常前）。
+
+    - 恢复时，加载最新checkpoint，验证数据迭代位置的一致性。
+
+    多模态特殊考量：视觉编码器和LLM可能使用不同学习率和优化器，需分别保存和恢复。若视觉编码器冻结，其状态可不保存，以减小checkpoint体积。
+
+    故障检测与自动恢复：使用Kubernetes的存活探针和作业控制器，检测到GPU错误或节点宕机后，自动重新调度作业，从最新checkpoint恢复。Elastic Training允许动态增减节点，节点变更后重新分布数据并继续训练。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  block_id: Vw72dzgpEo2k3NxgbwXcaHfTn4f
+  page_token: KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  original_title: 如何设计多模态训练作业的容错机制？比如保存包含模型、优化器、数据加载状态的全局 checkpoint。
+  imported_at: '2026-09-21'

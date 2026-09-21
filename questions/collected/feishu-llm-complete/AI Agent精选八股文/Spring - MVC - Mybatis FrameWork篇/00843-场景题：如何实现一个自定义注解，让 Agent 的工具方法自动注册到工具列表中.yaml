@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2531a7a77b76
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 7、场景题：如何实现一个自定义注解，让 Agent 的工具方法自动注册到工具列表中？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 7、场景题：如何实现一个自定义注解，让 Agent 的工具方法自动注册到工具列表中？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐⭐（自定义 BeanPostProcessor + 注解扫描 + 注册表模式）
+
+    1️⃣ Common Answer
+
+    可以自定义一个注解比如 @AgentTool，然后写一个 BeanPostProcessor，在 Bean 初始化后扫描方法上有没有这个注解，有的话就注册到一个 Map 里面。调用的时候从 Map 里取就行。
+
+    2️⃣ Impressive Answer
+
+    - 定义工具注解：@AgentTool(name="search", description="搜索工具")，标注在方法上，携带工具名称和描述信息，用于生成 Function Definition 给模型。
+
+    - BeanPostProcessor 自动扫描：
+
+    @Component
+    public class AgentToolRegistrar implements BeanPostProcessor {
+        private final ToolRegistry registry;@
+        Overridepublic Object postProcessAfterInitialization(Object bean, String beanName) {
+            for(Method method: bean.getClass().getDeclaredMethods()) {
+                AgentTool annotation = method.getAnnotation(AgentTool.class);
+                if(annotation != null) {
+                    ToolDefinition definition = ToolDefinition.builder().name(annotation.name()).description(annotation.description()).parameters(extractParameters(method)).executor((args) - > ReflectionUtils.invokeMethod(method, bean, args)).build();
+                    registry.register(definition);
+                }
+            }
+            return bean;
+        }
+    }
+
+    - 参数自动提取：通过反射读取方法参数的类型和 @Param 注解，自动生成 JSON Schema，减少手动维护成本。
+
+    - 生产级考虑：加 @Order(Ordered.LOWEST_PRECEDENCE) 确保在 AOP 代理之后执行（扫描的是代理后的 Bean）；工具注册表支持热更新，配合配置中心动态启停工具。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    ### 2.3 Spring 事务管理
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcncaGGJz4UaQT1tf1UJI7wgf
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 7、场景题：如何实现一个自定义注解，让 Agent 的工具方法自动注册到工具列表中？
+  imported_at: '2026-09-21'

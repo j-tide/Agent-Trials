@@ -1,0 +1,100 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e7b1439b6c77
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DD 写一个 SelfQueryRetriever 的使用示例：从“找出去年关于气候变化的报告”中提取过滤条件。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F4DD 写一个 SelfQueryRetriever 的使用示例：从“找出去年关于气候变化的报告”中提取过滤条件。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    首先，定义你的文档元数据结构，然后创建 SelfQueryRetriever。
+
+    from langchain.retrievers.self_query.base import SelfQueryRetriever
+    from langchain.chains.query_constructor.base import AttributeInfo
+    from langchain.llms import OpenAI
+    from langchain.vectorstores import Chroma
+
+    # 1. 定义元数据字段信息
+    metadata_field_info = [
+        AttributeInfo(
+            name="year",
+            description="文档的发布年份",
+            type="integer",
+        ),
+        AttributeInfo(
+            name="author",
+            description="文档的作者",
+            type="string",
+        ),
+        AttributeInfo(
+            name="category",
+            description="文档的类别，如'报告'、'论文'、'新闻'",
+            type="string",
+        ),
+    ]
+
+    # 2. 描述文档内容（帮助 LLM 理解）
+    document_content_description = "文档集合包含关于气候变化、环境政策等研究报告和新闻"
+
+    # 3. 初始化 LLM 和 VectorStore
+    llm = OpenAI(temperature=0)
+    vectorstore = Chroma(...)  # 你的向量数据库
+
+    # 4. 创建 SelfQueryRetriever
+    retriever = SelfQueryRetriever.from_llm(
+        llm=llm,
+        vectorstore=vectorstore,
+        document_contents=document_content_description,
+        metadata_field_info=metadata_field_info,
+        verbose=True,
+    )
+
+    # 5. 使用
+    query = "找出去年关于气候变化的报告"
+    docs = retriever.get_relevant_documents(query)
+    # LLM 内部会解析：
+    # query -> "气候变化 报告"
+    # filter -> {"year": 2023, "category": "报告"}   # 假设今年是2024
+
+    说明：SelfQueryRetriever 会使用 LLM 解析自然语言，结合元数据字段信息，生成一个结构化的查询。它首先会确定 year 应该是“去年”（假设当前年份减一），category 应该是“报告”。然后，将这些过滤条件连同语义查询一起发送给向量数据库。
+
+    局限性：
+
+    - 依赖 LLM 对日期和字段的理解，对于模糊查询可能出错。
+
+    - 必须预先定义好元数据结构，且字段描述要足够清晰。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TYm8wI1HmiQSuPkpe81c9XYanHb
+  block_id: UflgdqfVcoOnaOxIrJ7c0MR9nwe
+  page_token: TYm8wI1HmiQSuPkpe81c9XYanHb
+  original_title: "\U0001F4DD 写一个 SelfQueryRetriever 的使用示例：从“找出去年关于气候变化的报告”中提取过滤条件。"
+  imported_at: '2026-09-21'

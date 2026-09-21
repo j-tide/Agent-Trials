@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5aea169794ca
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 画图说明ZeRO-3的前向和反向传播中参数如何收集和释放。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 画图说明ZeRO-3的前向和反向传播中参数如何收集和释放。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO-3通过逐层收集、逐层释放来让单卡活下去。以下是某一层（如第i个Transformer Block）的前向和反向流程。
+
+    前向传播（Forward）
+
+    GPU0 (持有第i层参数分片 W0)
+       GPU1 (持有第i层参数分片 W1)
+         |                        |
+         |----[All-Gather]--------|  # 1. 通信：收集完整参数W
+         |                        |
+       [计算该层输出 Y = WX]  [计算该层输出 Y = WX]  # 2. 计算
+         |                        |
+       [释放非本地分片，仅保留W0]   [释放非本地分片，仅保留W1]  # 3. 显存释放
+         |                        |
+         v                        v
+       (进入下一层)
+
+    - 通信量：一次All-Gather，大小等于该层参数量 ΦΦ。
+
+    - 关键点：计算完成后，除自己本地分片外的其他参数立即丢弃，不占显存。
+
+    反向传播（Backward）
+
+    (需要计算该层梯度)
+       GPU0 (持有W0分片)         GPU1 (持有W1分片)
+         |                        |
+         |----[All-Gather]--------|  # 1. 再次All-Gather完整参数W (通信量Φ)
+         |                        |
+       [计算梯度 dW]             [计算梯度 dW]          # 2. 计算
+         |                        |
+         |----[Reduce-Scatter]----|  # 3. 通信：聚合梯度，各卡只拿到自己分片的梯度 (通信量Φ)
+         |                        |
+       [得到 dW0]               [得到 dW1]
+         |                        |
+       [用dW0更新本地W0]       [用dW1更新本地W1]      # 4. 本地更新，无需通信
+
+    - 通信量：一次All-Gather + 一次Reduce-Scatter，大小各为 ΦΦ，总通信量 2Φ2Φ。
+
+    - 关键点：参数的All-Gather和梯度的Reduce-Scatter是解耦的，各卡最终只持有自己负责更新的那部分梯度，并用它更新自己的参数分片。
+
+    总结：ZeRO-3的通信总量（前向ΦΦ + 反向2Φ2Φ = 3Φ3Φ）是标准DP梯度All-Reduce（2Φ2Φ）的1.5倍。它用这额外的0.5倍通信量，换来了参数显存的线性缩减（1/N），是“以通信换显存”的典范。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: XvE5dSP3ZoOnjRxz5QRc8g68nOh
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 画图说明ZeRO-3的前向和反向传播中参数如何收集和释放。
+  imported_at: '2026-09-21'

@@ -1,0 +1,93 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e8365f12f488
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50D 13. 你如何处理“小块与大块结合”的检索策略？即用小粒度检索，返回大粒度上下文。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F50D 13. 你如何处理“小块与大块结合”的检索策略？即用小粒度检索，返回大粒度上下文。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这就是 RAG 进阶技巧中的父文档检索（Parent Document Retrieval），它的核心思想是：索引时拆得越细越好（追求高精度匹配），但发给 LLM 时信息越完整越好（追求完整上下文）。
+
+    实现策略：
+
+    - 分块阶段生成“父子”关系
+    先将文档切成较大的块（父文档，如 1000 token），再对每个父文档进行细粒度切分（子文档，如 200 token）。每个子文档记录其父文档的 ID 和所在偏移量。
+
+    - 索引子文档
+    只对子文档进行 embedding 并存入向量数据库。检索时，查询与子文档匹配，获得最相关的子文档列表。
+
+    - 映射回父文档并去重
+    通过子文档的 metadata（parent_id）找到对应的父文档，对多个子文档可能指向同一个父文档的情况进行去重。最终返回一个或多个完整的父文档（或根据子文档位置扩展出前后缓冲区）作为 LLM 的上下文。
+
+    LangChain 现成工具：ParentDocumentRetriever
+
+    ```python
+    from langchain.retrievers import ParentDocumentRetriever
+    from langchain.storage import InMemoryStore
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+    # 父分割器（大块）
+    parent_splitter = RecursiveCharacterTextSplitter(chunk_size=1000)
+    # 子分割器（小块）
+    child_splitter = RecursiveCharacterTextSplitter(chunk_size=200)
+
+    vectorstore = ...  # 向量库
+    docstore = InMemoryStore()  # 存储原始大块文档
+
+    retriever = ParentDocumentRetriever(
+        vectorstore=vectorstore,
+        docstore=docstore,
+        parent_splitter=parent_splitter,
+        child_splitter=child_splitter,
+    )
+    retriever.add_documents(documents)
+    relevant_docs = retriever.get_relevant_documents("查询")
+    ```
+
+    这个 retriever 会自动完成：将文档按 parent_splitter 切片存入 docstore，再按 child_splitter 切细并存入 vectorstore，检索时返回父文档。
+
+    应用场景：
+
+    - 法律文书：索引按条款小段检索，返回整个条款段落甚至整节。
+
+    - 技术手册：检索具体函数描述，返回完整的函数文档块。
+
+    - 学术论文：检索一句话，返回其所在段落或小节的全文。
+
+    效果：这种策略能大幅提升答案的完整性和准确性，同时保持检索的高精度。在我参与的一个医疗问答项目中，将 chunk_size 从 800 降到 200 做索引，配合父文档返回 800 字符的上下文，最终答案的忠实度从 78% 提升到 91%。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/O97CwA74Ji4ZHWkDTIRcb7OanUg
+  block_id: F88MdzgTXoRXx0xF0pOctD3yn2d
+  page_token: O97CwA74Ji4ZHWkDTIRcb7OanUg
+  original_title: "\U0001F50D 13. 你如何处理“小块与大块结合”的检索策略？即用小粒度检索，返回大粒度上下文。"
+  imported_at: '2026-09-21'

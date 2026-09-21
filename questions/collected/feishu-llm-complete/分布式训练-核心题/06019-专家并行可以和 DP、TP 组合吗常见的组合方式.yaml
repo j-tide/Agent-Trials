@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-12cf0aff193a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 专家并行可以和 DP、TP 组合吗？常见的组合方式。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 专家并行可以和 DP、TP 组合吗？常见的组合方式。
+answer:
+  mode: rubric
+  reference_answer: |-
+    专家并行 (EP) 可以与数据并行 (DP) 和张量并行 (TP) 灵活组合，形成多维度并行策略，以训练更大的 MoE 模型。
+
+    EP + DP：这是最基础的组合。专家被分布到 EP 组内各 GPU 上，而不同 EP 组之间构成数据并行。即：多个模型副本，每个副本内部使用 EP 放置专家，副本间通过 DP 同步非专家参数（如注意力权重）。DeepSpeed-MoE 默认采用此方案。
+
+    EP + TP：将单层专家内部的权重矩阵沿隐藏维度切分到多卡（TP），同时专家被分布到不同卡（EP）。TP 切分专家计算，EP 分布专家存储。Megatron-LM 的 MoE 实现支持在 EP 基础上叠加 TP，通常 TP 组限制在节点内（利用 NVLink），EP 可跨节点。
+
+    EP + TP + DP：三维并行。例如：TP=2（单节点内切分专家内部），EP=8（专家分布在 8 个节点），DP=16（16 个模型副本）。这是训练超大规模 MoE（如千亿参数）的标准配置。
+
+    通信考量：EP 依赖 All-to-All 通信，TP 依赖 AllReduce。组合时需要避免两种通信相互阻塞，通常将 EP 和 TP 组解耦，或者利用 NCCL 的并发通信能力自动调度。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQczwN8cliZ2XSkOI26ckCcPnuf
+  block_id: LCjZdWn6DoezwQxFLMgcwx9en1d
+  page_token: GQczwN8cliZ2XSkOI26ckCcPnuf
+  original_title: 专家并行可以和 DP、TP 组合吗？常见的组合方式。
+  imported_at: '2026-09-21'

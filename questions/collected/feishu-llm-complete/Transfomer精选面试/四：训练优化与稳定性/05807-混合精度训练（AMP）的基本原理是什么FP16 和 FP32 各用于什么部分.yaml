@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f13675d38293
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 混合精度训练（AMP）的基本原理是什么？FP16 和 FP32 各用于什么部分？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 四：训练优化与稳定性
+tags: &1
+- Transfomer精选面试
+- 四：训练优化与稳定性
+content:
+  prompt: 混合精度训练（AMP）的基本原理是什么？FP16 和 FP32 各用于什么部分？
+answer:
+  mode: rubric
+  reference_answer: |-
+    混合精度训练（Automatic Mixed Precision, AMP）的核心思想是在训练过程中同时使用半精度（FP16）和单精度（FP32）浮点数，以在保持模型精度的前提下大幅减少显存占用和加速计算。现代 GPU（如 NVIDIA Volta、Turing、Ampere、Hopper 架构）配备了专门的 Tensor Core，可以在 FP16 下进行极高效的矩阵乘加运算，吞吐量是 FP32 的数倍。
+
+    AMP 的运作方式是：将大多数前向和反向传播中的激活值、权重和梯度存储在 FP16 中，利用 Tensor Core 加速计算；同时，保持一份 FP32 的主副本权重（master weights）用于参数更新，以避免 FP16 的有限数值范围造成的精度损失。具体来说：
+
+    - FP16 用于：前向传播的矩阵乘法（QKV 投影、FFN 线性层、注意力分数计算等）、反向传播的梯度计算。这些操作在 FP16 下通过 Tensor Core 可以获得数倍的吞吐量提升，且显存占用减半。
+
+    - FP32 用于：权重的主副本（master weights），优化器状态（Adam 的动量 m 和方差 v），以及需要高精度的归约操作（如 BatchNorm 的统计量，但 Transformer 多用 LayerNorm，此处影响较小）。主副本在 FP32 下更新后，再转换为 FP16 用于下一轮前向传播。
+
+    此外，AMP 会动态地将一些对数值范围敏感的操作（如 softmax、LayerNorm、损失计算）提升到 FP32，以避免溢出。这些操作虽然计算量不大，但对精度至关重要。通过这种方式，AMP 在几乎不损失模型最终精度的情况下，实现了接近 2 倍的训练加速和约 25-40% 的显存节省。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/E82jwDMh9ihtDhkHbRYcE2JCnNe
+  block_id: RRnrdTsE7oWegsxceUDcRuOPnMd
+  page_token: E82jwDMh9ihtDhkHbRYcE2JCnNe
+  original_title: 混合精度训练（AMP）的基本原理是什么？FP16 和 FP32 各用于什么部分？
+  imported_at: '2026-09-21'

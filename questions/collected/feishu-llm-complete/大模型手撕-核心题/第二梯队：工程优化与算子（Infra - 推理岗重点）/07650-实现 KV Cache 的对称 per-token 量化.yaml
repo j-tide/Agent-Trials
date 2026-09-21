@@ -1,0 +1,115 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fe83c58b4477
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 KV Cache 的对称 per-token 量化
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现 KV Cache 的对称 per-token 量化
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+    在推理时对 KV Cache 进行低精度（如 INT8）存储可以大幅降低显存占用。per-token 量化对每个新生成的 token 的 Key 和 Value 向量（形状 [num_heads, head_dim]）在线计算 scale，量化为 INT8，并存入缓存，同时保存每个 token 的 scale。注意力计算时，先反量化缓存的 K、V 回浮点，再进行点积。
+
+    ```python
+    class QuantizedKVCache:
+        def __init__(self, num_layers, num_heads, head_dim, max_seq_len, bits=8):
+            self.num_layers = num_layers
+            self.num_heads = num_heads
+            self.head_dim = head_dim
+            self.max_seq_len = max_seq_len
+            self.bits = bits
+            self.qmax = 2 ** (bits - 1) - 1
+
+            # 存储量化后的 K 和 V，以及每 token 的 scale
+            # 形状：[num_layers][2] -> key/value，每个为 [num_heads, max_seq_len, head_dim] int8
+            self.k_cache = [torch.zeros(num_heads, max_seq_len, head_dim, dtype=torch.int8) for _ in range(num_layers)]
+            self.v_cache = [torch.zeros(num_heads, max_seq_len, head_dim, dtype=torch.int8) for _ in range(num_layers)]
+            # scale 存储：[num_layers][2] -> [num_heads, max_seq_len] FP32
+            self.k_scales = [torch.zeros(num_heads, max_seq_len, dtype=torch.float32) for _ in range(num_layers)]
+            self.v_scales = [torch.zeros(num_heads, max_seq_len, dtype=torch.float32) for _ in range(num_layers)]
+            self.seq_len = 0
+
+        def append_token(self, k_new, v_new, layer_idx):
+            """
+            k_new, v_new: [num_heads, head_dim] 单个 token 的 K/V
+            将新 token 量化为 int8 并存储到缓存的 seq_len 位置。
+            """
+            idx = self.seq_len
+            # 计算 per-token scale (对称)
+            k_scale = torch.max(torch.abs(k_new)) / self.qmax
+            v_scale = torch.max(torch.abs(v_new)) / self.qmax
+            # 避免除零
+            if k_scale == 0: k_scale = 1.0
+            if v_scale == 0: v_scale = 1.0
+            # 量化
+            k_int = torch.round(k_new / k_scale).clamp(-self.qmax, self.qmax).to(torch.int8)
+            v_int = torch.round(v_new / v_scale).clamp(-self.qmax, self.qmax).to(torch.int8)
+            # 存储
+            self.k_cache[layer_idx][:, idx, :] = k_int
+            self.v_cache[layer_idx][:, idx, :] = v_int
+            self.k_scales[layer_idx][:, idx] = k_scale
+            self.v_scales[layer_idx][:, idx] = v_scale
+
+        def get_all_kv(self, layer_idx, seq_len=None):
+            """
+            获取反量化后的完整 K 和 V。
+            """
+            if seq_len is None:
+                seq_len = self.seq_len
+            # 取出 int8 张量并反量化
+            k_int = self.k_cache[layer_idx][:, :seq_len, :].float()
+            v_int = self.v_cache[layer_idx][:, :seq_len, :].float()
+            k_scales = self.k_scales[layer_idx][:, :seq_len].unsqueeze(-1)  # [H, L, 1]
+            v_scales = self.v_scales[layer_idx][:, :seq_len].unsqueeze(-1)
+            k_fp = k_int * k_scales
+            v_fp = v_int * v_scales
+            return k_fp, v_fp
+    ```
+
+    使用示例
+
+    ```python
+    num_layers=1; H=2; D=4; max_len=10
+    cache = QuantizedKVCache(num_layers, H, D, max_len)
+    k_tok = torch.randn(H, D)
+    v_tok = torch.randn(H, D)
+    cache.append_token(k_tok, v_tok, 0)
+    cache.seq_len = 1
+    k_all, v_all = cache.get_all_kv(0)
+    print(k_all.shape)  # [2,1,4]
+    ```
+
+    该实现展示了 KV Cache 量化的核心思路：在线计算 scale、量化存储、按需反量化。实际引擎中为提升性能，反量化通常融合在注意力 kernel 内。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: NiYLdgNeyoJ2oJxzMfvc35hZnZb
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 实现 KV Cache 的对称 per-token 量化
+  imported_at: '2026-09-21'

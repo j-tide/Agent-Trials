@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-98e07dd16613
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用torch.autograd.profiler分析训练过程中的CPU/GPU时间？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何使用torch.autograd.profiler分析训练过程中的CPU/GPU时间？
+answer:
+  mode: rubric
+  reference_answer: |-
+    torch.autograd.profiler 提供低级别的性能分析，可以统计每个操作的执行时间、显存分配等。
+
+    基本用法：
+
+    ```python
+    import torch
+
+    with torch.autograd.profiler.profile(use_cuda=True) as prof:
+        # 训练或推理代码
+        output = model(input)
+        loss = loss_fn(output, target)
+        loss.backward()
+        optimizer.step()
+
+    print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
+    ```
+
+    关键参数：
+
+    - use_cuda=True：记录 CUDA 内核时间。
+
+    - record_shapes=True：记录输入张量的形状。
+
+    - with_stack=True：记录 Python 调用栈，帮助定位具体代码位置（会增加开销）。
+
+    输出分析：
+
+    - key_averages() 返回每个操作的平均统计。
+
+    - .table() 打印为表格，可排序。
+
+    - .export_chrome_trace("trace.json") 导出 Chrome trace 文件，然后在 chrome://tracing 中打开，查看详细时间线。这是最直观的方式。
+
+    更现代的工具：PyTorch 2.0 推荐使用 torch.profiler 新 API：
+
+    ```python
+    with torch.profiler.profile(
+        activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
+        record_shapes=True,
+        with_stack=True,
+        on_trace_ready=torch.profiler.tensorboard_trace_handler('./log')
+    ) as prof:
+        # 训练代码
+    ```
+
+    然后通过 TensorBoard 查看。
+
+    实践：分析时可以定位到最耗时的操作（如 aten::mm、aten::conv2d），以及是否有过多的 cudaMemcpy（通常表明 CPU/GPU 数据搬运瓶颈）。根据结果优化模型结构、启用算子融合、调整 batch size 等。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  block_id: VS46dos63oOYEExzLWjcZldKnBe
+  page_token: Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  original_title: 如何使用torch.autograd.profiler分析训练过程中的CPU/GPU时间？
+  imported_at: '2026-09-21'

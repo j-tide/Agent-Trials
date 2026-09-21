@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-22a1547de50e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练时如何设置 Epoch、Step、数据采样策略？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 训练时如何设置 Epoch、Step、数据采样策略？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### Epoch vs Step
+
+    - Epoch：完整遍历一次训练数据。在数据量极大（TB级）的预训练中，通常不会完成一个Epoch，因此更多使用Step（优化器更新次数）来控制训练进度。
+
+    - 总训练步数：由目标总token数和全局批次大小决定。例如，计划训练1T tokens，全局批次大小为4M tokens，则总步数 = 1T / 4M = 250,000步。
+
+    ### 数据采样策略
+
+    预训练数据通常来自多个异构数据源（网页、书籍、论文、代码等），质量与规模差异巨大。合理的采样策略能够显著提升模型性能：
+
+    (1) 加权采样 (Weighted Sampling)
+
+    - 根据经验或下游任务表现为每个数据源分配采样权重。
+
+    - 高质量数据源（如维基百科、书籍）权重更高，低质量但海量的数据源（如CommonCrawl）权重较低，避免模型被噪声淹没。
+
+    - 实际实现时，通过构造一个概率分布来从不同数据集中抽取样本，概率与权重成正比。
+
+    (2) 课程学习 (Curriculum Learning)
+
+    - 初始阶段：使用结构清晰、难度较低的数据（如维基百科、简短的新闻报道），帮助模型快速建立基础语言能力。
+
+    - 后续阶段：逐步引入更复杂、噪声更多的数据（如网页、论坛对话），甚至增加代码、数学等内容，扩展模型的能力边界。
+
+    - 这种平滑过渡能避免模型在初期陷入混乱，提升最终收敛质量。
+
+    (3) 动态调整 (Dynamic Resampling)
+
+    - 训练过程中，定期评估模型在不同数据源上的损失变化。
+
+    - 对损失下降缓慢的源增加采样频率，对损失已经极低的源适当降低频率，使训练资源聚焦于“难学”的数据。
+
+    (4) 确保每个Batch的多样性
+
+    - 即使在小批次内，也应混合多个数据源，而不是一个batch全是同类型数据。
+
+    - 这能稳定梯度更新方向，避免优化器被单一分布带偏。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Yto8wfa8ti5TgZktU1YczVp7nme
+  block_id: ZxscdHnKCo8xeXxG6tscONwLnsc
+  page_token: Yto8wfa8ti5TgZktU1YczVp7nme
+  original_title: 训练时如何设置 Epoch、Step、数据采样策略？
+  imported_at: '2026-09-21'

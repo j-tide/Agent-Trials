@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ed1283737fc5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F680 8 张 80GB A100，能全量微调多大的模型？列出计算。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "\U0001F680 8 张 80GB A100，能全量微调多大的模型？列出计算。"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 结论：可全量微调高达约 30B-40B 参数的模型（根据序列长度、batch 等），若用 FSDP/TP
+    可更高。\n\n\U0001F4D0 全量微调显存占用组成（每卡）：\n\n- 模型权重 (FP16)\n\n- 梯度 (FP16)\n\n- 优化器状态（Adam：动量
+    + 方差，均为 FP32，共 8 字节/参数）\n\n- 激活（与 batch size、序列长度、模型大小有关）\n\n基础计算（不考虑并行，单卡所需显存）：\n\n对于
+    N 参数模型，训练时总需求 ≈ 权重(2N) + 梯度(2N) + 优化器(8N) + 激活 ≈ 12N + 激活。激活通常为权重的几倍。\n\n若使用 8
+    卡数据并行（DDP），每卡仍需要完整模型，总显存需求不减，所以单卡显存依然要能放下上述总和，否则无法用 DDP。因此 DDP 要求单卡能装下。如果单卡装不下，必须使用模型分片（FSDP/ZeRO
+    阶段 3）将参数、梯度、优化器状态分布到多卡。\n\n全量微调最大模型估算（使用 FSDP/ZeRO-3）：\n\n总显存池 = 8 × 80 GB = 640
+    GB。但 ZeRO-3 将参数、梯度、优化器状态分片，每卡只需存储 1/8。权重+梯度+优化器总字节 = 12N，分片后每卡存储 12N/8 = 1.5N
+    字节。激活与每卡的模型分片大小相关，因为前向/反向计算需要收集完整层，激活与分片前的模型大小和 batch 有关。通常 ZeRO-3 下，激活显存成为瓶颈。粗略估算，训练时每卡显存
+    ≈ 1.5N + (激活显存)。\n\n激活显存取决于 micro batch size (bs)、序列长度 L、隐藏维度 h、层数等。近似公式：激活 ≈
+    bs × L × h × 层数 × (34~40) 字节（系数源于注意力中间结果等）。\n\n以 LLaMA 系列为例：13B 模型 h=5120, 层数=40。假设
+    bs=1, L=4096，激活 ≈ 1 × 4096 × 5120 × 40 × 40 ≈ 33.5 GB（粗略）。若 L=2048，则约 16.8 GB。则每卡总显存
+    ≈ 1.5N + 激活。N=13B，1.5N ≈ 19.5 GB，激活 16.8 GB，总计约 36.3 GB，单卡 80GB 非常轻松。若模型扩大到 N=30B
+    (h=6656, 层数=60)，bs=1, L=2048：1.5N=45 GB，激活 ≈ 1 × 2048 × 6656 × 60 × 40 ≈ 32.7
+    GB，合计 77.7 GB，仍在 80GB 内。若 N=40B，则 1.5N=60 GB，加上激活可能超出 80GB。因此，8 张 80GB A100 使用
+    ZeRO-3 可全量微调大约 30B-40B 参数的模型，取决于序列长度和 batch 调整。\n\n如果进一步使用张量并行 (TP) 或流水线并行，可以支持更大模型，但计算变得复杂。通常可微调
+    70B 模型（如 Llama 2 70B）采用 INT8 或 4-bit 量化训练（QLoRA），全量微调 70B 需要更多内存，8x80GB 勉强可以，但需极端优化（如
+    FlashAttention, activation checkpointing, sequence parallelism 等）。实际已有案例用 8x80G
+    A100 全量微调 65B 模型，但序列长度受限。\n\n所以，保守来说，8 张 A100 80G 可以全量微调 30B-40B 稠密模型，序列长度可达 2048；若使用更积极的优化，可触达
+    65B-70B。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CkFiwxOtOi6QRJkPIPKcLENfndb
+  block_id: O4W2d1NPSo9EnPxekv5cpGOVn40
+  page_token: CkFiwxOtOi6QRJkPIPKcLENfndb
+  original_title: "\U0001F680 8 张 80GB A100，能全量微调多大的模型？列出计算。"
+  imported_at: '2026-09-21'

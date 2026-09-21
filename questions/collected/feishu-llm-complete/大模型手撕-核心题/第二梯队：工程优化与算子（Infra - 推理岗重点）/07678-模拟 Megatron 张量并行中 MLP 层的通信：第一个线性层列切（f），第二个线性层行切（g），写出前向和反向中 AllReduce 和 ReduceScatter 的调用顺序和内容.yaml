@@ -1,0 +1,100 @@
+---
+schema_version: 1
+id: feishu-llm-complete-98b4952a1182
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 模拟 Megatron 张量并行中 MLP 层的通信：第一个线性层列切（f），第二个线性层行切（g），写出前向和反向中 AllReduce 和 ReduceScatter
+  的调用顺序和内容。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 模拟 Megatron 张量并行中 MLP 层的通信：第一个线性层列切（f），第二个线性层行切（g），写出前向和反向中 AllReduce 和
+    ReduceScatter 的调用顺序和内容。
+answer:
+  mode: rubric
+  reference_answer: |-
+    10.1 Megatron 张量并行 MLP 架构
+
+    [图片内容未导入]
+
+    输入 x 对所有设备相同（来自上一个 AllReduce 或 Identity）。中间激活需要经过 GeLU，而 GeLU 是非线性，需要完整数据，所以第一个线性层的输出在进入 GeLU 前是列切分的，恰好可以直接独立应用 GeLU（因为 GeLU 是元素级操作，不改变分片）。之后第二个线性层行切分，局部输出需 AllReduce 求和得到最终输出。
+
+    10.2 前向通信
+
+    ```python
+    # 假设 x 已经在所有 TP 设备上相同（例如，从上一层 AllReduce 得到）
+    def mlp_forward(x, A_parts, B_parts):
+        # x: [batch, seq_len, d]（假设每个设备都有完整副本）
+        # A_parts[i], B_parts[i] 是设备 i 的权重分片
+        # 每个设备独立计算：
+        # 第一步：x @ A_i -> shape [batch, seq_len, 4d/N]
+        h_local = x @ A_parts[rank]        # 本地矩阵乘，无通信
+        # 应用 GeLU（元素级）
+        h_act = gelu(h_local)             # 无通信
+        # 第二步：h_act @ B_i -> shape [batch, seq_len, d]
+        y_local = h_act @ B_parts[rank]   # 本地矩阵乘，无通信
+        # AllReduce 求和得到完整输出 y
+        y = allreduce(y_local, op=SUM)    # 每个设备都得到相同的 y
+        return y
+    ```
+
+    通信：仅一次 AllReduce（求和），在每个设备上将 y_local 求和得到 y。注意 y_local 是部分和，因为行切分的输出在特征维上是完整维度，但在设备间是部分和。
+
+    10.3 反向通信
+
+    ```python
+    def mlp_backward(x, A_parts, B_parts, dy):
+        # dy: 上游梯度，与 y 同形状，所有设备相同（因为前向 AllReduce 后，每个设备都有 y，反向时 dy 自然相同）
+        # 每个设备独立计算对 B 的梯度和对 h_act 的局部梯度
+        # h_act 是前向时本地的激活（形状 [batch, seq_len, 4d/N]）
+        # 计算 dB_local = h_act^T @ dy   (本地)
+        dB_i = h_act.T @ dy              # [4d/N, d]
+        # 计算对 h_act 的局部梯度 dh_local = dy @ B_i^T  (形状 [batch, seq_len, 4d/N])
+        dh_local = dy @ B_parts[rank].T  # 本地
+        # dh_local 此时是列切分的（对应完整的 h_act 被列切分），而完整的 dh 需要沿着列拼接
+        # 但是在 Megatron 中，由于 A 是列切，完整的 dh 应该被看作列切，每个设备持有对应列的部分，这样可以直接用于 A 的梯度计算。
+        # 实际上不需要通信：dh_local 可以直接用于计算 dA_i。
+        # 计算 dA_i = x^T @ dh_local  (本地)
+        dA_i = x.T @ dh_local            # [d, 4d/N]
+        # 现在需要计算 dx：完整 dx = sum_i (dh_local_i @ A_i^T)  这里 dh_local_i 是上面的 dh_local，形状 [batch, seq_len, 4d/N]，A_i^T 形状 [4d/N, d]
+        dx_local = dh_local @ A_parts[rank].T  # [batch, seq_len, d] 本地部分贡献
+        # AllReduce 求和得到完整 dx
+        dx = allreduce(dx_local, op=SUM)  # 每个设备得到相同的 dx
+        return dx, dA_i, dB_i
+    ```
+
+    通信：一次 AllReduce (dx_local 求和)。
+
+    总结：MLP 前向一次 AllReduce（y），反向一次 AllReduce（dx）。激活函数 GeLU 因为是独立元素操作，不需要通信。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: JyCidWESHofF0fxiUhucjzs4nbe
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 模拟 Megatron 张量并行中 MLP 层的通信：第一个线性层列切（f），第二个线性层行切（g），写出前向和反向中 AllReduce
+    和 ReduceScatter 的调用顺序和内容。
+  imported_at: '2026-09-21'

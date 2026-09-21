@@ -1,0 +1,126 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d0e3bc59700d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F30A 3. MongoDB 的 Change Stream 是什么？在 Agent 场景如何应用？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F30A 3. MongoDB 的 Change Stream 是什么？在 Agent 场景如何应用？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Change Stream 就像数据库的“事件流”，它允许应用监听集合或数据库级别的实时数据变更，而无需轮询或解析 oplog。 它基于副本集的 oplog 实现，提供了安全、可恢复的变更数据捕获（CDC）能力。
+
+    [图片内容未导入]
+
+    在 Agent 场景下的典型应用：
+
+    ① 实时任务状态驱动
+    在一个多 Agent 协作系统中，Orchestrator 将任务写入 MongoDB 的 tasks 集合，Worker Agent 通过 Change Stream 监听分配给自己的任务，实现事件驱动的任务调度，无需轮询。
+
+    ```python
+    import pymongo
+
+    client = pymongo.MongoClient("mongodb://localhost:27017/?replicaSet=rs0")
+    collection = client.agent_db.tasks
+
+    # 监听分配给当前 Worker 的新任务
+    pipeline = [
+        {'$match': {
+            'operationType': 'insert',
+            'fullDocument.assigned_to': 'worker_1',
+            'fullDocument.status': 'pending'
+        }}
+    ]
+
+    with collection.watch(pipeline) as stream:
+        for change in stream:
+            task = change['fullDocument']
+            print(f"收到新任务: {task['_id']}")
+            # 执行任务并更新状态
+            collection.update_one(
+                {'_id': task['_id']},
+                {'$set': {'status': 'processing'}}
+            )
+            result = execute_task(task)
+            collection.update_one(
+                {'_id': task['_id']},
+                {'$set': {'status': 'completed', 'result': result}}
+            )
+    ```
+
+    ② 知识库文档变更与 Embedding 更新
+
+    当运营人员在知识库中新增或修改文档时，Agent 需要立即感知并重新生成 Embedding，以保证 RAG 系统的检索结果总是基于最新内容。
+
+    ```python
+    # 监听 knowledge 集合的插入和更新事件
+    pipeline = [{'$match': {'operationType': {'$in': ['insert', 'update', 'replace']}}}]
+
+    with client.agent_db.knowledge.watch(pipeline) as stream:
+        for change in stream:
+            doc = change['fullDocument']
+            # 重新生成 Embedding
+            embedding = generate_embedding(doc['content'])
+            # 更新文档中的向量字段
+            client.agent_db.knowledge.update_one(
+                {'_id': doc['_id']},
+                {'$set': {'embedding': embedding}}
+            )
+    ```
+
+    ③ 审计与监控
+
+    Change Stream 可用于实时监控敏感操作的变更（如用户权限修改、系统配置变更），并将事件推送到告警系统或审计日志。
+
+    Change Stream 的可靠性保障：
+
+    - 断点续传：每个 Change Event 都带有一个 _id，它基于 oplog 的时间戳和序号。如果连接断开，可以从上次记录的 resumeToken 继续监听，不会丢失事件。
+
+    - 持久化消费点：将 resumeToken 保存在外部存储（如 Redis 或数据库）中，即使应用重启也能精确续接。
+
+    ```python
+    resume_token = load_resume_token_from_redis()  # 从 Redis 读取上次保存的位置
+    stream = collection.watch(resume_after=resume_token)
+
+    for change in stream:
+        process(change)
+        save_resume_token_to_redis(change['_id'])  # 每处理一条，更新游标
+    ```
+
+    收束：
+
+    Change Stream 让 MongoDB 从一个被动响应的数据库，变成了一个能主动“推”消息的实时数据中枢。在 Agent 系统中，它扮演着事件总线的角色——把任务、文档、状态的变化实时分发给各个 AI Worker，让整个多 Agent 集群的协作变得丝滑且可追溯。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BXVdwSFoCiy4apkiMglchiTGnmh
+  block_id: doxcnEXWRtobBmC69qIAQDmLUJf
+  page_token: BXVdwSFoCiy4apkiMglchiTGnmh
+  original_title: "\U0001F30A 3. MongoDB 的 Change Stream 是什么？在 Agent 场景如何应用？"
+  imported_at: '2026-09-21'

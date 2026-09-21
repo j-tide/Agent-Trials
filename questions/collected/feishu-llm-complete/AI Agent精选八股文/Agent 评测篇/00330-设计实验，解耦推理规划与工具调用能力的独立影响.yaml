@@ -1,0 +1,113 @@
+---
+schema_version: 1
+id: feishu-llm-complete-02883c595693
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 设计实验，解耦推理规划与工具调用能力的独立影响
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 评测篇
+tags: &1
+- AI Agent精选八股文
+- Agent 评测篇
+content:
+  prompt: 设计实验，解耦推理规划与工具调用能力的独立影响
+answer:
+  mode: rubric
+  reference_answer: |-
+    当 Agent 任务失败，问题可能出在“脑子”（推理规划）也可能出在“手脚”（工具调用）。要分别衡量它们各自的贡献，得用受控变量法，像解方程一样把这两个因子拆开。
+
+    ▎实验框架：正交化测试
+
+    我通常会设计一个 2×2 的实验矩阵：
+
+    但“Oracle”怎么造？我们需要对推理和工具分别注入“完美信息”。
+
+    ▎核心方法：注入理想输出，隔离子系统
+
+    - 隔离推理能力：给 Agent 装上“完美的工具”
+
+    把真实工具调用结果，替换为人工标注或规则生成的完美结果。即，不管 Agent 调用工具时参数是否正确、是否选对了工具，我们都返回标准答案。这样，Agent 的成败就只取决于它的推理链路——拿到完美信息后，能否正确决策、回答。
+
+    实验步骤：
+
+    - 准备 50 个需要多步推理的任务，并手动为每步工具调用生成标准响应。
+
+    - 在测试框架中，mock 掉真实工具，根据 Agent 调用的工具名和意图，返回完美响应（甚至可以容忍 Agent 传错参数也返回正确答案，只看推理链）。
+
+    - 运行这些 case，统计成功率，得到 推理能力得分。
+
+    代码示例（用 LangChain Agent 做 mock）：
+
+    ```python
+    from unittest.mock import MagicMock
+    from my_agent import create_agent
+
+    def perfect_tool_executor(tool_name, *args, **kwargs):
+        # 返回预先定义的完美答案
+        oracle_responses = {
+            "search": "今天北京天气晴朗，25°C。",
+            "calculator": "计算结果：42",
+        }
+        return oracle_responses.get(tool_name, "未知")
+
+    # 创建一个完美工具代理
+    agent = create_agent()
+    for tool in agent.tools:
+        tool._run = MagicMock(side_effect=perfect_tool_executor)
+
+    # 在数据集上运行
+    success_count = 0
+    for case in dataset:
+        result = agent.invoke(case["input"])
+        if evaluate_success(result, case["expected"]):
+            success_count += 1
+    reasoning_score = success_count / len(dataset)
+    ```
+
+    - 隔离工具调用能力：给 Agent 装上“完美的推理”
+
+    这次反过来，我们把 Agent 在关键节点的推理输出，替换为人工写的正确思考链。比如直接告诉它：“下一步你应该调用 X 工具，参数为 Y。”然后看 Agent 的工具调用是否真的能拿到正确结果并完成最终输出。这能测出工具本身的鲁棒性、容错能力和 API 的健壮性。
+
+    实验方法：
+
+    - 同样的任务集，这次改为在每一步推理后，手动喂给 Agent 一个正确的 Action 指令，跳过模型自己规划。
+
+    - 执行真实工具，记录工具是否返回正确结果、Agent 能否妥善处理工具结果并合成答案。成功率即为 工具能力得分。
+
+    - 结果解耦分析
+
+    用基线（真实推理+真实工具）成功率、仅推理得分、仅工具得分，可以算出各自的影响：
+
+    - 推理贡献 = 仅推理得分 - 基线（如果仅推理得分远高于基线，说明目前工具拖了后腿）
+
+    - 工具贡献 = 仅工具得分 - 基线
+
+    - 如果两者都接近基线，则问题在于二者之间的交互协调（例如工具输出格式让推理更难）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SEdiwaoGBiWMFYk0pl3c9iW4n7c
+  block_id: doxcn8R4OXLsJzyZcfyFzezJ2Ze
+  page_token: SEdiwaoGBiWMFYk0pl3c9iW4n7c
+  original_title: 设计实验，解耦推理规划与工具调用能力的独立影响
+  imported_at: '2026-09-21'

@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-170445303fca
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分层学习率（discriminative learning rates）在全参数微调中如何设置？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 分层学习率（discriminative learning rates）在全参数微调中如何设置？
+answer:
+  mode: rubric
+  reference_answer: |-
+    分层学习率（Discriminative Learning Rates） 是对模型的不同层或模块使用不同的学习率，底层使用更小的学习率以保护通用知识，顶层使用较大的学习率以快速适应新任务。
+
+    设置原则与步骤：
+
+    - 确定顶层学习率（Top‑Layer LR）：首先通过常规手段（如学习率范围测试）确定一个适合于整个模型微调的学习率，例如 lr = 1e-5。这将是顶层的学习率。
+
+    - 设计衰减策略：
+
+    - 在优化器中实现：在 PyTorch 中，你需要构造一个参数列表，为不同组指定不同的 'lr'。
+
+    optimizer = AdamW([
+        {'params': model.layers[-4:].parameters(), 'lr': 1e-5},
+        {'params': model.layers[4:-4].parameters(), 'lr': 5e-6},
+        {'params': model.embed_tokens.parameters(), 'lr': 1e-6},
+        {'params': model.lm_head.parameters(), 'lr': 1e-6},
+    ])
+
+    为什么有效？
+
+    - 预训练模型的底层学习到的是更通用的、基础的语言特征（语法、词性），这些知识是跨领域通用的，应该被强力保护。顶层学习到的是更抽象、更任务相关的语义组合，需要更大的灵活性来适应新任务。
+
+    - 这种策略在迁移学习中是一种强正则化，迫使模型在“不破坏根基”的前提下进行“上层重构”，从而有效平衡新任务学习和旧知识保持。
+
+    实践中的调整：衰减因子和分层粒度通常需要通过实验确定。可以先从温和的分组策略开始（如顶层 1x，底层 0.5x），观察验证集损失和通用基准的变化，再逐步拉大或缩小差距。注意，使用分层学习率后，总的训练动态会改变，Warmup 和衰减策略可能需要相应微调。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: OziVddOkUoAwYoxJmnZcPENsnZA
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 分层学习率（discriminative learning rates）在全参数微调中如何设置？
+  imported_at: '2026-09-21'

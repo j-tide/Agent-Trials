@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f210d47170d9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 推理时是否可以使用 CPU 与 GPU 混合执行？哪些层适合放 CPU？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 五：推理部署与高效化
+tags: &1
+- Transfomer精选面试
+- 五：推理部署与高效化
+content:
+  prompt: 推理时是否可以使用 CPU 与 GPU 混合执行？哪些层适合放 CPU？
+answer:
+  mode: rubric
+  reference_answer: |-
+    可以。混合执行也称异构推理，在 LLM 场景下可将部分计算卸载到 CPU/内存，以弥补 GPU 显存不足或利用 CPU 的特定优势。
+
+    哪些层适合放在 CPU 执行：
+
+    - Embedding 层：输入 token 的嵌入查找通常是对权重矩阵的单纯查表，计算量小，显存占用巨大（vocab_size × hidden_dim），且可以高效运行在 CPU 上，并利用 CPU 的大容量内存。将 Embedding 权重放在 CPU 可节省数 GB 显存。
+
+    - 输出层（LM Head）：最后一层的线性投影 + 采样，权重形状也为 vocab_size × hidden_dim，同样占显存较大，可放在 CPU 计算 logits 并采样，将结果 token id 传回 GPU。这在 llama.cpp 等框架中是常用策略。
+
+    - LayerNorm / RMSNorm：这些逐元素操作计算量极低，但需要显存带宽；放在 CPU 无速度优势，通常还是放 GPU。但对于某些极端显存不足情况，也可卸载。
+
+    - 低活跃度的子层（MoE 共享部分或某个注意力头）：若采用 MoE 架构，可将某些 expert 放在 CPU 内存，在需要时通过 PCIe 传输激活值，实现 CPU-GPU 协同（例如 DeepSpeed-Inference 的 ZeRO-Inference 特性）。
+
+    - KV Cache 的交换：当 GPU 显存不够时，可将部分层或部分序列的 KV cache 卸载到 CPU 内存（swap out），只在注意力计算时异步拷贝回 GPU。这是 PagedAttention swap 机制的物理基础。
+
+    实现框架：
+
+    - DeepSpeed-Inference / ZeRO-Inference：提供高效的 CPU/GPU 内存池管理，可自动将权重和 KV cache 分布到不同存储，并进行最小化数据传输的调度。
+
+    - llama.cpp：在 GPU 后端下，可配置 -ngl 参数指定多少层放到 GPU，剩余层留在 CPU 运行，实现逐层混合执行。
+
+    - 手工定制推理引擎：通过 CUDA 的 cudaMallocManaged 或显式拷贝，在自定义推理循环中指定每个算子的执行设备，实现流水线掩盖传输延迟。将 embedding 和 LM head 永久置于 CPU，在预填阶段预取 embedding 到 GPU，后处理阶段从 GPU 取 hidden state 到 CPU 计算 logits。
+
+    混合执行的关键是隐藏 PCIe 延迟：通过异步拷贝与计算重叠，例如在 GPU 执行第 N 层时，CPU 侧可预计算下一迭代所需的 embedding 或执行 logits 采样，使得传输开销几乎不可见。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/L2bpwgVV1iZoZnkrvgac88LjnCc
+  block_id: NX58dxMIHoFdbfxFlNscxRVrnOb
+  page_token: L2bpwgVV1iZoZnkrvgac88LjnCc
+  original_title: 推理时是否可以使用 CPU 与 GPU 混合执行？哪些层适合放 CPU？
+  imported_at: '2026-09-21'

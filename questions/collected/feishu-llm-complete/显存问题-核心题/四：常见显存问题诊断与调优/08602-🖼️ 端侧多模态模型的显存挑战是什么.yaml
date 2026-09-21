@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ee7a65080c12
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F5BC️ 端侧多模态模型的显存挑战是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F5BC️ 端侧多模态模型的显存挑战是什么？"
+answer:
+  mode: rubric
+  reference_answer: "端侧多模态大模型（如 LLaVA、Qwen-VL）同时处理文本和图像，显存挑战来自多源头数据叠加，尤其图像输入的转换会带来巨大的临时张量和隐性的
+    KV Cache 膨胀。\n\n\U0001F50D 主要挑战：\n\n- \U0001F3DE️ 视觉编码器权重与激活\n视觉编码器（如 ViT-L）本身有数百万到数亿参数，需常驻内存；在图像编码时还会产生高分辨率的中间激活图，单张图片就可能占用数百
+    MB 内存。\n\n- \U0001F9EE 图像 token 数量膨胀\n视觉特征通常被投影为成百上千个“图像 token”（例如 LLaVA-1.5 每张图
+    576 token）。多张图片意味着文本序列被大幅延长，KV Cache 占用量与图片数量成正比。若一次对话传入 5 张图，仅图像 token 就达到近 3000，KV
+    Cache 轻松突破 1 GB。\n\n- ⏳ 多模态融合的瞬时峰值\n预填充阶段，所有图像 token 与文本 token 一起输入 LLM，产生巨大的注意力矩阵和中间缓冲。即使使用
+    FlashAttention，仍会产生临时的工作区张量，造成瞬时的内存尖峰。这在内存紧张的手机上极易触发 OOM。\n\n- \U0001F504 编码器与
+    LLM 的独立内存域\n视觉编码器和 LLM 往往由不同的硬件加速（如 NPU 跑视觉、GPU/CPU 跑 LLM）。管理跨硬件的内存共享和同步拷贝会带来冗余副本，进一步增加总内存占用。\n\n-
+    \U0001F4A7 多轮对话中的图像残留\n用户可能在多轮对话中不断插入新图片，历史图像 token 的 KV Cache 会累积，如不及时清理，内存将线性增长直至溢出。\n\n\U0001F6E1️
+    应对策略：\n\n- 视觉编码器使用低精度 (INT8/FP16) 并立即卸载到 CPU/NPU，不常驻主内存。\n\n- 图像 token 压缩技术（如
+    TokenPacker、Resampler）减少每张图生成的 token 数。\n\n- 采用滑动窗口或主动淘汰策略，只保留最近几张图的 KV Cache。\n\n-
+    预填充阶段分块处理，避免一次性加载所有 token。\n\n✅ 因此，端侧多模态显存挑战的核心是“图文叠加的序列长度”和“编码器-解码器内存分离”，需要从压缩
+    token 数和精细调度上做文章。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HjvUw864Ri1DrqkwVgbcfnR8n6d
+  block_id: Q9lbdiq9pomkrixlmLRcOBZGnyc
+  page_token: HjvUw864Ri1DrqkwVgbcfnR8n6d
+  original_title: "\U0001F5BC️ 端侧多模态模型的显存挑战是什么？"
+  imported_at: '2026-09-21'

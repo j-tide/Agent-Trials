@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ac2d6366869c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 有没有办法在推理时动态合并相似的注意力头，以降低计算量？这需要哪些条件？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 基础理论与核心组件
+tags: &1
+- Transfomer精选面试
+- 基础理论与核心组件
+content:
+  prompt: 有没有办法在推理时动态合并相似的注意力头，以降低计算量？这需要哪些条件？
+answer:
+  mode: rubric
+  reference_answer: |-
+    动态合并的方法：
+
+    是的，可以在推理时对相似的头进行合并，类似于模型压缩中的“头融合”（Head Fusion）。动态合并指在推理过程中，基于输入或基于预先分析的冗余度，实时地将多个注意力头合并为一个，从而减少总计算量。
+
+    具体技术：
+
+    - 基于权重的线性合并：如果两个头的 QKV 投影矩阵以及输出投影矩阵高度相似，可以计算一个合并后的投影矩阵（例如加权平均），在运行时使用合并后的矩阵替代。这需要预先计算头的相似性。
+
+    - 运行时投票/门控：设计一个小型门控网络，输入当前层的特征，动态选择激活哪些头。不重要的头可以跳过计算，或者用平均值替代。
+
+    - 低秩近似合并：将多个头对应的输出权重矩阵视作一组基，用低秩分解得到一个共享的核心矩阵和头特定的小扰动，推理时优先用核心矩阵，头扰动可以忽略或合并。
+
+    需要的条件：
+
+    - 预先分析冗余度：离线阶段需要量化头之间的相似性（如使用第1问的方法），识别出哪些头可以安全合并。这要求开发集与推理分布一致，以确保合并后不会损害新数据的性能。
+
+    - 模型架构支持：模型需要设计成易于合并的形式，例如头之间输出投影独立（标准 Transformer 中输出投影是拼接后一次性做的，需要先分离再合并），或者采用分组查询那样的结构。
+
+    - 精度-效率权衡机制：合并可能导致精度损失，需要设定一个可接受的损失阈值，根据实际场景决定合并力度。通常需要微调来恢复精度。
+
+    - 动态性要求：如果合并是输入依赖的（动态），则需要额外的网络或规则来实时决定合并方案，这本身会增加一些开销，必须确保净收益为正。
+
+    在工业部署中，更常见的做法是离线剪枝或合并后重新微调，因为动态合并带来的计算图条件分支会增加延迟和复杂度。但是，随着自适应推理的发展，动态合并头部的研究正在增加。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaALw5OrYiyYN8kFNvGcq0bxnSc
+  block_id: XRJgdhDFDou0hRxbjSAcZ1KPnch
+  page_token: NaALw5OrYiyYN8kFNvGcq0bxnSc
+  original_title: 有没有办法在推理时动态合并相似的注意力头，以降低计算量？这需要哪些条件？
+  imported_at: '2026-09-21'

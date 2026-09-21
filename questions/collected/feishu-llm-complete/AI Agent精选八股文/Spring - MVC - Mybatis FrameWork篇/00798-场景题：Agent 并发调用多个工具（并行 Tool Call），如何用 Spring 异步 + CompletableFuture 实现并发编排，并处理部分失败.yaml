@@ -1,0 +1,99 @@
+---
+schema_version: 1
+id: feishu-llm-complete-34385bc4c1ad
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 并发调用多个工具（并行 Tool Call），如何用 Spring 异步 + CompletableFuture 实现并发编排，并处理部分失败？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 并发调用多个工具（并行 Tool Call），如何用 Spring 异步 + CompletableFuture 实现并发编排，并处理部分失败？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（并发编排、部分失败、超时控制）\n\n1️⃣ Common Answer\n\n用 @Async 标注工具调用方法，然后用
+    CompletableFuture.allOf() 等待所有任务完成。如果某个失败，可以捕获异常处理。\n\n2️⃣ Impressive Answer\n\n-
+    工具调用服务：\n\n@Service\npublic class ToolService {\n       \n    @Autowired\n    private
+    TaskExecutor toolExecutor;\n       \n    @Async(\"toolExecutor\")\n    public
+    CompletableFuture<ToolResult> callTool(ToolRequest request) {\n        try {\n
+    \           // 调用工具\n            ToolResult result = doCallTool(request);\n            return
+    CompletableFuture.completedFuture(result);\n        } catch (Exception e) {\n
+    \           return CompletableFuture.failedFuture(e);\n        }\n    }\n       \n
+    \   private ToolResult doCallTool(ToolRequest request) {\n        // 实际工具调用逻辑\n
+    \       return ToolResult.builder()\n            .name(request.getName())\n            .data(\"result\")\n
+    \           .build();\n    }\n}\n\n- 并发编排：\n\n@Service\npublic class AgentOrchestrator
+    {\n       \n    @Autowired\n    private ToolService toolService;\n       \n    public
+    CompletableFuture<AgentResponse> orchestrateTools(List<ToolRequest> requests)
+    {\n        // 并发调用所有工具\n        List<CompletableFuture<ToolResult>> futures =
+    requests.stream()\n            .map(toolService::callTool)\n            .collect(Collectors.toList());\n
+    \          \n        // 等待所有任务完成（包括失败的任务）\n        CompletableFuture<Void> allFutures
+    = CompletableFuture.allOf(\n            futures.toArray(new CompletableFuture[0])\n
+    \       );\n           \n        // 处理结果\n        return allFutures.thenApply(v
+    -> {\n            List<ToolResult> results = futures.stream()\n                .map(future
+    -> {\n                    try {\n                        return future.get();\n
+    \                   } catch (Exception e) {\n                        return ToolResult.builder()\n
+    \                           .name(\"failed\")\n                            .error(e.getMessage())\n
+    \                           .build();\n                    }\n                })\n
+    \               .collect(Collectors.toList());\n               \n            return
+    AgentResponse.builder()\n                .results(results)\n                .build();\n
+    \       });\n    }\n}\n\n- 超时控制：\n\npublic CompletableFuture<AgentResponse> orchestrateToolsWithTimeout(\n
+    \       List<ToolRequest> requests, long timeout, TimeUnit unit) {\n       \n
+    \   List<CompletableFuture<ToolResult>> futures = requests.stream()\n        .map(request
+    -> toolService.callTool(request)\n            .orTimeout(timeout, unit)  // 单个工具超时\n
+    \           .exceptionally(e -> ToolResult.builder()\n                .name(request.getName())\n
+    \               .error(\"Timeout\")\n                .build()))\n        .collect(Collectors.toList());\n
+    \      \n    // 整体超时\n    CompletableFuture<Void> allFutures = CompletableFuture.allOf(\n
+    \       futures.toArray(new CompletableFuture[0])\n    ).orTimeout(timeout * futures.size(),
+    unit);\n       \n    return allFutures.thenApply(v -> {\n        List<ToolResult>
+    results = futures.stream()\n            .map(future -> future.join())\n            .collect(Collectors.toList());\n
+    \          \n        return AgentResponse.builder()\n            .results(results)\n
+    \           .build();\n    });\n}\n\n- 部分失败处理：\n\npublic CompletableFuture<AgentResponse>
+    orchestrateToolsWithPartialFailure(\n        List<ToolRequest> requests) {\n       \n
+    \   List<CompletableFuture<ToolResult>> futures = requests.stream()\n        .map(request
+    -> toolService.callTool(request)\n            .handle((result, e) -> {\n                if
+    (e != null) {\n                    return ToolResult.builder()\n                        .name(request.getName())\n
+    \                       .error(e.getMessage())\n                        .build();\n
+    \               }\n                return result;\n            }))\n        .collect(Collectors.toList());\n
+    \      \n    return CompletableFuture.allOf(\n        futures.toArray(new CompletableFuture[0])\n
+    \   ).thenApply(v -> {\n        List<ToolResult> results = futures.stream()\n
+    \           .map(CompletableFuture::join)\n            .collect(Collectors.toList());\n
+    \          \n        // 检查是否有失败的工具\n        boolean hasFailure = results.stream()\n
+    \           .anyMatch(r -> r.getError() != null);\n           \n        return
+    AgentResponse.builder()\n            .results(results)\n            .hasFailure(hasFailure)\n
+    \           .build();\n    });\n}\n\n- 线程池配置：\n\n@Configuration\n@EnableAsync\npublic
+    class AsyncConfig {\n       \n    @Bean(\"toolExecutor\")\n    public TaskExecutor
+    toolExecutor() {\n        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();\n
+    \       executor.setCorePoolSize(10);\n        executor.setMaxPoolSize(50);\n
+    \       executor.setQueueCapacity(100);\n        executor.setThreadNamePrefix(\"tool-\");\n
+    \       executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());\n
+    \       executor.initialize();\n        return executor;\n    }\n}\n\n- 实践优化：\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcnxhSQM3XqPUjzIJWlquK0vf
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 3、场景题：Agent 并发调用多个工具（并行 Tool Call），如何用 Spring 异步 + CompletableFuture
+    实现并发编排，并处理部分失败？
+  imported_at: '2026-09-21'

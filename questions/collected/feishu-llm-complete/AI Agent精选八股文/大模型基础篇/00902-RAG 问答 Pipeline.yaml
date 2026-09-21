@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-560ea1941ea9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: RAG 问答 Pipeline
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: RAG 问答 Pipeline
+answer:
+  mode: rubric
+  reference_answer: |-
+    使用 LangChain 实现：
+
+    ```python
+    from langchain.document_loaders import TextLoader
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
+    from langchain.embeddings import HuggingFaceEmbeddings
+    from langchain.vectorstores import Chroma
+    from langchain.llms import HuggingFacePipeline
+    from langchain.chains import RetrievalQA
+
+    # 1. 加载文档
+    loader = TextLoader("knowledge.txt")
+    documents = loader.load()
+    # 2. 文本切分
+    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+    docs = splitter.split_documents(documents)
+    # 3. 向量化并存储
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    vectorstore = Chroma.from_documents(docs, embeddings)
+    # 4. 构建 QA chain
+    llm = HuggingFacePipeline.from_model_id(model_id="gpt2", task="text-generation")
+    qa = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=vectorstore.as_retriever())
+    result = qa.run("What is the capital of France?")
+    ```
+
+    关键点：chain_type 可选 "stuff"（直接拼接）、"map_reduce"等；检索器可设定 top_k。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AxkEwVG8kibSjokIPVEc6aggnjo
+  block_id: doxcnGPWseASKtr4BYE310Dvgqc
+  page_token: AxkEwVG8kibSjokIPVEc6aggnjo
+  original_title: RAG 问答 Pipeline
+  imported_at: '2026-09-21'

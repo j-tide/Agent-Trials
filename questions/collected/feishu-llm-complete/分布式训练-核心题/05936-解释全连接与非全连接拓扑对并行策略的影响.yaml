@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a45204790cb9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 50.解释“全连接”与“非全连接”拓扑对并行策略的影响。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 50.解释“全连接”与“非全连接”拓扑对并行策略的影响。
+answer:
+  mode: rubric
+  reference_answer: |-
+    全连接拓扑：所有 GPU 之间可以直接通信，不需要经过中间节点转发。例如，通过 NVSwitch 连接的 8 卡 A100 节点，任意两卡带宽一致（600 GB/s）。这为并行策略提供了最大灵活性：TP 大小可以灵活设置，DP 的梯度同步可以使用高效的 Ring 或 Tree 算法，无需考虑层级。
+
+    非全连接拓扑：GPU 之间可能通过 PCIe 交换机或混合连接，部分 GPU 对之间的带宽低于其他对。例如，一些消费级或老旧服务器，GPU 间需要通过 CPU 和 PCIe 进行通信，带宽受限且不一致。这迫使并行策略必须考虑拓扑：
+
+    - TP 必须限制在带宽高的 GPU 组内（如连接到同一 CPU 的 2 卡），否则频繁的 AllReduce 会严重受限于低速链路。
+
+    - DP 可以使用所有 GPU，但 AllReduce 性能会受最慢链路影响，可能需要分层 AllReduce 来优化。
+
+    - PP 的层分配也要考虑通信瓶颈，尽量将紧耦合层放在高速链路上。
+
+    在非全连接拓扑下，拓扑感知的并行策略、进程绑定（CPU affinity）和 NCCL 调优（如设置 NCCL_P2P_LEVEL）至关重要，否则训练效率会大打折扣。现代高端训练集群普遍采用全连接 NVSwitch 拓扑，极大简化了并行设计。
+
+    - 压缩阶段：每个 worker 用同样的随机种子生成一个初始 Q（或 P），然后执行几轮幂迭代，本地计算出 P 和 Q。
+
+    - 通信：只传输 P 和 Q（而不是完整 G）。总通信量从 mn 降为 r(m+n)。
+
+    - 解压阶段：接收方收到所有 worker 的 P 和 Q 后，通过求和或平均得到全局的 P 和 Q，然后用它们重构近似的全局梯度，用于模型更新。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XxBHwhYPNiVrDYkSIHCccehWn72
+  block_id: E2HMdWa4FoiHxSxTVTTctYfCnuf
+  page_token: XxBHwhYPNiVrDYkSIHCccehWn72
+  original_title: 50.解释“全连接”与“非全连接”拓扑对并行策略的影响。
+  imported_at: '2026-09-21'

@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ee1ef0e90cdb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F527 LangServe 如何与 FastAPI 中间件集成？比如 CORS、日志等。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F527 LangServe 如何与 FastAPI 中间件集成？比如 CORS、日志等。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangServe 本质上是一个 FastAPI 应用（或其子应用），因此它可以无缝集成任何 FastAPI 兼容的中间件。添加中间件的方式与普通 FastAPI 应用完全一致：在创建 app 后，通过 app.add_middleware() 注册。
+
+    CORS 中间件：如果前端与 LangServe 不同源，必须配置 CORS。使用 fastapi.middleware.cors.CORSMiddleware。
+
+    ```python
+    from fastapi import FastAPI
+    from fastapi.middleware.cors import CORSMiddleware
+    from langserve import add_routes
+
+    app = FastAPI()
+
+    # 配置CORS
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["https://your-frontend.com"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # 添加LangServe路由
+    add_routes(app, chain, path="/chat")
+    ```
+
+    日志中间件：可以使用 starlette.middleware.base.BaseHTTPMiddleware 来自定义日志记录，或者集成第三方如 loguru、structlog。但要注意，HTTP 中间件会阻塞请求体读取，可能影响流式端点。更好的做法是使用 FastAPI 的依赖注入（Depends）或自定义路由来处理日志，而不是全局中间件。
+
+    认证中间件：前面问题中已有详述，同样通过 FastAPI 的依赖或中间件实现。
+
+    关键点：如果你的中间件需要访问请求体，务必注意流式端点（/stream）依赖请求体的流式传输，中间件消费了请求体会导致流式失败。因此，对于流式端点，应避免读取或修改 request.body()。
+
+    集成示例：我曾在一个项目中使用 slowapi（基于 limits 库）作为中间件来限制访问频率，将其直接挂载到 app 上，对所有路由（包括 LangServe 的）生效。配置起来与纯 FastAPI 项目没有区别。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K973wYln7iD4oCkYW2acmsT4nke
+  block_id: SJpzdFdxholh8IxjhUXc0qSZnNb
+  page_token: K973wYln7iD4oCkYW2acmsT4nke
+  original_title: "\U0001F527 LangServe 如何与 FastAPI 中间件集成？比如 CORS、日志等。"
+  imported_at: '2026-09-21'

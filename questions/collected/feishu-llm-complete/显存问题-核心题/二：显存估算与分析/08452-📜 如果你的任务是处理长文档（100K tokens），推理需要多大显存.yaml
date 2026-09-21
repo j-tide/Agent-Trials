@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f3b2ef1c67e6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DC 如果你的任务是处理长文档（100K tokens），推理需要多大显存？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "\U0001F4DC 如果你的任务是处理长文档（100K tokens），推理需要多大显存？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 需要的大显存主要由 KV Cache 决定，可能达到几十 GB 甚至上百 GB，通常需要多卡或大显存单卡（80GB+），并需量化/优化。\n\n\U0001F50E
+    以 13B 模型为例计算（假设无 GQA，40 头，头维度 128）：\n\n- 每 token KV Cache = 2 × 40 × 40 × 128
+    × 2 = 819,200 字节 ≈ 0.78 MB。\n\n- 100K tokens KV Cache = 0.78 MB × 100,000 = 78
+    GB！仅 KV Cache 就 78 GB。\n\n- 加上权重（若 FP16 26 GB，需量化）和激活，总显存将超过 100 GB。\n\n- 若使用
+    GQA（4 组），每 token KV Cache = 2 × 40 × 4 × 128 × 2 = 81,920 字节 ≈ 0.078 MB，100K tokens
+    KV Cache ≈ 7.8 GB。这是一个巨大的差异！所以GQA 几乎是长文本推理的必备。\n\n对于 7B 模型（32 层，32 头，头维度 128，无
+    GQA）：\n\n- 每 token KV Cache = 2 × 32 × 32 × 128 × 2 = 524,288 字节 ≈ 0.5 MB。\n\n-
+    100K tokens = 50 GB。依然很大。\n\n- 若使用 MQA（1 个 KV 头），每 token 仅 2 × 32 × 1 × 128 ×
+    2 = 16,384 字节 ≈ 0.0156 MB，100K tokens ≈ 1.56 GB。所以 MQA 对于超长上下文极其有用。\n\n考虑权重和激活：\n\n-
+    即使 KV Cache 变小，权重仍是大头。7B FP16 权重 14 GB，加上 KV Cache 1.5 GB (MQA) 或 7.8 GB (GQA)，总显存约
+    15.5–22 GB。所以一张 24GB 显卡用 7B MQA 模型可处理 100K 长文本。对于 13B 模型，权重 26 GB，必须量化 (INT4 6.5
+    GB)，GQA KV 7.8 GB，总约 14.3 GB，24GB 卡也可行。\n\n- 在实际推理引擎中，通常使用 PagedAttention 管理 KV
+    Cache 块，可提高利用率，且 FlashAttention 减小激活峰值。因此，处理 100K tokens 并不一定需要超大显存，关键是模型架构（GQA/MQA）和量化。\n\n实例估算：\n\n-
+    最坏情况：FP16 13B 无 GQA，需要 78 GB + 26 GB ≈ 104 GB，必须双卡 80GB 或单卡 H100 80GB 可能不够。\n\n-
+    最佳情况：INT4 7B + MQA，需要 3.5 GB (权重) + 1.5 GB (KV) ≈ 5 GB，非常轻松。\n\n因此，长文档推理的显存需求高度依赖模型设计，现代模型普遍使用
+    GQA，可大幅降低 KV Cache。通常单张 24GB 显卡即可用 7B INT4 模型推理 100K 文本，若需更大模型，则需要更多显存或多卡并行。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CkFiwxOtOi6QRJkPIPKcLENfndb
+  block_id: LGRZdoRj5ozl0jxLznCckPZ2nlb
+  page_token: CkFiwxOtOi6QRJkPIPKcLENfndb
+  original_title: "\U0001F4DC 如果你的任务是处理长文档（100K tokens），推理需要多大显存？"
+  imported_at: '2026-09-21'

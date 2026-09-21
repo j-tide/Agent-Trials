@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9712cc9a2385
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CF 3. 写出 RecursiveCharacterTextSplitter 的常用参数：chunk_size, chunk_overlap，并解释它们的作用。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F4CF 3. 写出 RecursiveCharacterTextSplitter 的常用参数：chunk_size, chunk_overlap，并解释它们的作用。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=200,
+        separators=["\n\n", "\n", "。", "，", " ", ""],
+        length_function=len,
+        keep_separator=True,
+    )
+    ```
+
+    下面重点解释最核心的两个：
+
+    chunk_size
+
+    - 作用：规定每个文本块（chunk）的最大长度。注意是“最大”，不是“固定”。Splitter 会尽量填满到这个值但不超。
+
+    - 度量方式：默认按字符数，但你可以通过 length_function 换成 token 计数函数（例如用 tiktoken），这样就能精确控制送给 LLM 的 token 数，避免超出上下文窗口。
+
+    - 选择策略：一般取 embedding 模型的 max input length 的 50%–80%，给 overlap 和 prompt 留出空间。常用值在 256–1024 token 之间。太小会丢失上下文，太大则检索精度下降。
+
+    chunk_overlap
+
+    - 作用：相邻两个 chunk 之间共享的内容长度。比如 overlap=200，则 chunk2 的开头 200 个字符就是 chunk1 结尾的 200 个字符。
+
+    - 目的：防止关键信息恰好落在两个 chunk 的边界上，导致任何一个 chunk 都无法单独回答相关问题。重叠相当于给每个切分点加了“缓冲带”，让跨边界的实体或语义得以完整保留在一个 chunk 内。
+
+    - 典型设置：通常取 chunk_size 的 10%–20%。太小效果不明显，太大则会产生过多冗余，加重索引和检索负担。
+
+    其他重要参数：
+
+    - separators：刚才说的分隔符列表，中文务必加上中文标点。
+
+    - keep_separator：是否在 chunk 中保留分隔符。默认保留，有助于 LLM 理解结构。
+
+    - length_function：如果你拿不准 token 数，用 tiktoken 包一层精准计数，比字符数更贴近模型限制。
+
+    - is_separator_regex：允许将分隔符写成正则表达式，处理更复杂的分割逻辑。
+
+    这些参数组合直接决定了 RAG 系统的“天花板”——切得好，检索才能找到对的东西；切得烂，后面再牛的模型也是巧妇难为无米之炊。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/O97CwA74Ji4ZHWkDTIRcb7OanUg
+  block_id: CumdduKVdoiovaxrpIOcLasSnbh
+  page_token: O97CwA74Ji4ZHWkDTIRcb7OanUg
+  original_title: "\U0001F4CF 3. 写出 RecursiveCharacterTextSplitter 的常用参数：chunk_size,
+    chunk_overlap，并解释它们的作用。"
+  imported_at: '2026-09-21'

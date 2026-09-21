@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ac59499b67f3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 MSE 校准计算最优 scale：对每个通道的权重，在 MinMax 范围内搜索 scale，使得量化-反量化后的 MSE 最小，实现一维网格搜索
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 使用 MSE 校准计算最优 scale：对每个通道的权重，在 MinMax 范围内搜索 scale，使得量化-反量化后的 MSE 最小，实现一维网格搜索
+answer:
+  mode: rubric
+  reference_answer: "MSE 校准 通过最小化量化误差来寻找最佳 scale。对于权重张量，我们希望找到一个 scale，使得 W 与 quantize_dequantize(W,
+    scale) 之间的 MSE 最小。搜索范围可以从 MinMax scale 出发，在一定区间内线性搜索。\n\n对于对称量化，量化-反量化过程为：clamp(round(W/s),
+    -128,127) * s。MSE = mean((W - W_hat)^2)。可以通过在 [alpha * s_minmax, beta * s_minmax]
+    范围内采样 s，计算 MSE，选择 MSE 最小的 s。常见做法：设置搜索步数（如 100），在 [0.5*s_minmax, 1.5*s_minmax]
+    或 [s_minmax/2, s_minmax*2] 之间线性搜索。\n\n代码实现（针对 per-channel 权重）：\n\n```python\ndef
+    mse_calibration_per_channel(w: torch.Tensor, bits=8, search_steps=100, alpha=0.5,
+    beta=1.5):\n    \"\"\"\n    w: [OC, IC] 权重\n    Returns:\n        best_scale:
+    [OC] 最优 scale\n    \"\"\"\n    OC, IC = w.shape\n    qmax = 2 ** (bits - 1) -
+    1\n    qmin = -qmax - 1\n\n    # 先计算 per-channel 的 minmax scale\n    max_abs_per_ch
+    = torch.max(torch.abs(w), dim=1).values  # [OC]\n    base_scale = max_abs_per_ch
+    / qmax  # [OC]\n    \n    best_scales = torch.empty_like(base_scale)\n    # 为每个通道搜索\n
+    \   for c in range(OC):\n        w_c = w[c]  # [IC]\n        base_s = base_scale[c].item()\n
+    \       best_s = base_s\n        best_mse = float('inf')\n        # 在 [alpha*base_s,
+    beta*base_s] 范围线性搜索\n        for step in range(search_steps):\n            s =
+    base_s * (alpha + (beta - alpha) * step / (search_steps - 1))\n            # 量化反量化\n
+    \           w_q = torch.clamp(torch.round(w_c / s), qmin, qmax)\n            w_hat
+    = w_q * s\n            mse = torch.mean((w_c - w_hat) ** 2).item()\n            if
+    mse < best_mse:\n                best_mse = mse\n                best_s = s\n
+    \       best_scales[c] = best_s\n    return best_scales\n```\n\n对于大型权重矩阵，逐个通道搜索较慢，可向量化部分操作或减小搜索范围。这种方法能找到比
+    MinMax 更好的 scale，提升量化精度。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: XNoWd06HtoHYbAx3PSVcqOhfnWd
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 使用 MSE 校准计算最优 scale：对每个通道的权重，在 MinMax 范围内搜索 scale，使得量化-反量化后的 MSE
+    最小，实现一维网格搜索
+  imported_at: '2026-09-21'

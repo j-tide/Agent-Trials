@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1a057560d08e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 'Q7: 什么是 AI Agent 的记忆架构？如何设计一个高效的长期记忆系统？'
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: AI 最前线 (Harness|沙箱部署|K8s)篇
+tags: &1
+- AI Agent精选八股文
+- AI 最前线 (Harness|沙箱部署|K8s)篇
+content:
+  prompt: 'Q7: 什么是 AI Agent 的记忆架构？如何设计一个高效的长期记忆系统？'
+answer:
+  mode: rubric
+  reference_answer: "1️⃣ Common Answer\n\nAI Agent 的记忆系统通常分为几个层次：\n\n- 工作记忆（Working
+    Memory）：当前对话的上下文窗口，容量有限（受模型上下文长度限制）\n\n- 短期记忆（Short-term Memory）：最近几轮对话的历史，通常存储在内存中\n\n-
+    长期记忆（Long-term Memory）：持久化存储的历史信息，通常使用向量数据库\n\n- 程序性记忆（Procedural Memory）：Agent
+    学到的技能和策略，编码在 Prompt 或代码中\n\n实现方式：\n\n- 短期记忆：对话历史列表，FIFO 或滑动窗口\n\n- 长期记忆：向量数据库（如
+    Milvus、Chroma），通过 Embedding 检索相关记忆\n\n- 记忆整合：定期将短期记忆中的重要信息提取并存入长期记忆\n\n2️⃣ Impressive
+    Answer\n\nAgent 的记忆系统设计是一个被严重低估的技术挑战。大多数 Agent 框架只提供了简单的对话历史管理，但真正的生产级 Agent 需要一个类人的记忆架构。\n\n类人记忆架构设计：\n\n```text\n┌─────────────────────────────────────────────┐\n│
+    \             感知输入                         │\n│    用户消息 / 工具输出 / 环境观察              │\n└──────────────────┬──────────────────────────┘\n
+    \                  ▼\n┌─────────────────────────────────────────────┐\n│           工作记忆（Working
+    Memory）           │\n│   当前上下文窗口，容量 ≈ 模型 Context Length   │\n│   ┌─────────┐ ┌──────────┐
+    ┌─────────────┐  │\n│   │系统指令  │ │对话历史   │ │检索结果      │  │\n│   └─────────┘ └──────────┘
+    └─────────────┘  │\n└──────────────────┬──────────────────────────┘\n          ┌────────┴────────┐\n
+    \         ▼                 ▼\n┌──────────────┐   ┌──────────────────┐\n│  短期记忆
+    \    │   │  长期记忆          │\n│  (Redis)     │   │  (Vector DB)      │\n│  最近 N
+    轮   │   │  ┌──────────────┐ │\n│  完整对话    │   │  │ 情景记忆      │ │\n│  TTL: 24h
+    \  │   │  │ (经历和事件)  │ │\n└──────┬───────┘   │  ├──────────────┤ │\n       │           │
+    \ │ 语义记忆      │ │\n       │  整合      │  │ (知识和事实)  │ │\n       └──────────→│  ├──────────────┤
+    │\n                   │  │ 程序性记忆    │ │\n                   │  │ (技能和策略)  │ │\n
+    \                  │  └──────────────┘ │\n                   └──────────────────┘\n```\n\n三种长期记忆的设计：\n\n-
+    情景记忆 ——\"发生过什么\"\n\n```text\npublic class EpisodicMemory {\n    // 存储完整的交互事件\n
+    \   public void store(Episode episode) {\n        EpisodeEmbedding embedding =
+    embedder.embed(episode.getSummary());\n        vectorStore.upsert(\n            embedding,\n
+    \           Map.of(\n                \"timestamp\", episode.getTimestamp(),\n
+    \               \"userId\", episode.getUserId(),\n                \"outcome\",
+    episode.getOutcome(),  // success/failure\n                \"importance\", episode.getImportanceScore()\n
+    \           )\n        );\n    }\n    \n    // 检索相关经历\n    public List<Episode>
+    recall(String currentSituation, int topK) {\n        return vectorStore.similaritySearch(currentSituation,
+    topK)\n            .stream()\n            .filter(e -> e.getImportanceScore()
+    > THRESHOLD)\n            .sorted(Comparator.comparing(Episode::getRecency)\n
+    \               .thenComparing(Episode::getImportance))\n            .collect(Collectors.toList());\n
+    \   }\n}\n```\n\n- 语义记忆（Semantic Memory）——\"知道什么\"存储从交互中提取的事实和知识，如用户偏好、业务规则等。\n\n-
+    程序性记忆（Procedural Memory）——\"会做什么\"存储 Agent 学到的技能和策略，如\"处理退款投诉的最佳流程\"。\n\n记忆管理的关键机制：\n\n-
+    重要性评分：不是所有信息都值得记住，用 LLM 评估每条记忆的重要性\n\n- 记忆衰减：模拟人类遗忘曲线，长期未被检索的记忆权重降低\n\n- 记忆整合：定期将碎片化的短期记忆整合为结构化的长期记忆\n\n-
+    记忆冲突解决：当新信息与旧记忆矛盾时，需要更新机制\n\n实际案例：在一个个人助理 Agent 中，我设计了三层记忆系统。Agent 能记住用户的偏好（\"用户喜欢简洁的回答\"）、历史事件（\"上周用户问过关于
+    React 的问题\"）和学到的技能（\"处理日程冲突时，优先保留标记为重要的事件\"）。经过 3 个月的运行，用户满意度从 3.2 分提升到 4.5 分（5
+    分制），主要提升来自 Agent 能\"记住\"用户的个性化需求。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M0n4w1EKwiQwxKkHxMvc4LZUn7p
+  block_id: doxcnzlN2JosK913wOVzdQmtKOc
+  page_token: M0n4w1EKwiQwxKkHxMvc4LZUn7p
+  original_title: 'Q7: 什么是 AI Agent 的记忆架构？如何设计一个高效的长期记忆系统？'
+  imported_at: '2026-09-21'

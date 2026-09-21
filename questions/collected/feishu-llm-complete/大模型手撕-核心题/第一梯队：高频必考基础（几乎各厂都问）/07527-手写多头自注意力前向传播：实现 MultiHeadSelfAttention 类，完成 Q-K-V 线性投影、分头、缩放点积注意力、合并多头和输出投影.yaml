@@ -1,0 +1,137 @@
+---
+schema_version: 1
+id: feishu-llm-complete-11d7466d0155
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 手写多头自注意力前向传播：实现 MultiHeadSelfAttention 类，完成 Q/K/V 线性投影、分头、缩放点积注意力、合并多头和输出投影。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 手写多头自注意力前向传播：实现 MultiHeadSelfAttention 类，完成 Q/K/V 线性投影、分头、缩放点积注意力、合并多头和输出投影。
+answer:
+  mode: rubric
+  reference_answer: |-
+    1.1 原理概述
+
+    多头自注意力是 Transformer 的核心组件。它通过将输入投影到多个不同的子空间，并行计算注意力，再从不同角度捕捉序列中的依赖关系。最终将所有头的输出拼接起来，通过一个线性投影层融合信息。
+
+    1.2 实现步骤
+
+    - 线性投影：使用三个独立的线性层（或一个合并的大线性层）将输入 X 投影为 Query、Key、Value。
+
+    - 分头：将投影后的张量从形状 (batch, seq_len, hidden_dim) 转换为 (batch, num_heads, seq_len, head_dim)。这一步涉及 view 和 transpose 操作，需要谨慎处理维度顺序以避免数据错位。
+
+    - 缩放点积注意力：计算注意力分数 scores = (Q * K^T) / sqrt(d_k)，应用 softmax 得到权重，再与 V 相乘。整个过程需要正确处理掩码（如 padding mask、causal mask）。
+
+    - 合并多头：将所有头的输出转置回 (batch, seq_len, hidden_dim) 形状，再通过最终的输出投影层。
+
+    1.3 完整代码实现
+
+    ```python
+    import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
+    import math
+
+    class MultiHeadSelfAttention(nn.Module):
+        def __init__(self, hidden_dim, num_heads, dropout=0.1):
+            super().__init__()
+            assert hidden_dim % num_heads == 0, "hidden_dim must be divisible by num_heads"
+            self.hidden_dim = hidden_dim
+            self.num_heads = num_heads
+            self.head_dim = hidden_dim // num_heads
+
+            # 使用一个合并的线性层进行 Q、K、V 投影，提高计算效率
+            self.qkv_proj = nn.Linear(hidden_dim, 3 * hidden_dim, bias=False)
+            self.out_proj = nn.Linear(hidden_dim, hidden_dim, bias=False)
+            self.dropout = nn.Dropout(dropout)
+
+        def forward(self, x, key_padding_mask=None, attn_mask=None):
+            """
+            x: (batch, seq_len, hidden_dim)
+            key_padding_mask: (batch, seq_len) 布尔张量，True 表示需要忽略的位置（如 padding）
+            attn_mask: 可选的注意力掩码，形状可为 (seq_len, seq_len) 或 (batch, seq_len, seq_len)
+            """
+            B, seq_len, _ = x.shape
+
+            # 1. 线性投影并分割 Q、K、V
+            qkv = self.qkv_proj(x)  # (B, seq_len, 3 * hidden_dim)
+            q, k, v = qkv.chunk(3, dim=-1)  # 每个 (B, seq_len, hidden_dim)
+
+            # 2. 分头：reshape + transpose
+            # 错误做法：q.view(B, self.num_heads, seq_len, self.head_dim)
+            # 正确做法：先 reshape 成 (B, seq_len, num_heads, head_dim) 再 transpose
+            q = q.view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+            k = k.view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+            v = v.view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+            # 现在形状均为 (B, num_heads, seq_len, head_dim)
+
+            # 3. 缩放点积注意力
+            scale = math.sqrt(self.head_dim)
+            attn_scores = torch.matmul(q, k.transpose(-2, -1)) / scale  # (B, n_heads, L_q, L_k)
+
+            # 4. 掩码处理
+            # key_padding_mask: (B, L_k) -> (B, 1, 1, L_k)
+            if key_padding_mask is not None:
+                attn_scores = attn_scores.masked_fill(
+                    key_padding_mask.unsqueeze(1).unsqueeze(2), float('-inf')
+                )
+            # attn_mask 通常形状兼容，可直接应用
+            if attn_mask is not None:
+                attn_scores = attn_scores.masked_fill(attn_mask == 0, float('-inf'))
+
+            # 5. Softmax 与 Dropout
+            attn_weights = F.softmax(attn_scores, dim=-1)
+            attn_weights = self.dropout(attn_weights)
+
+            # 6. 加权求和
+            attn_output = torch.matmul(attn_weights, v)  # (B, n_heads, L_q, head_dim)
+
+            # 7. 合并多头
+            # 转置为 (B, L_q, n_heads, head_dim) 再合并最后两个维度
+            attn_output = attn_output.transpose(1, 2).contiguous()
+            attn_output = attn_output.view(B, seq_len, self.hidden_dim)
+
+            # 8. 输出投影
+            output = self.out_proj(attn_output)
+            return output
+    ```
+
+    1.4 设计要点
+
+    - 合并 QKV 投影：将三个线性层合并为一个可以提升并行度，是现代实现的标准做法。
+
+    - 掩码的顺序：先应用 key_padding_mask，再应用 attn_mask，两者都是通过将对应位置设为 -inf 来实现屏蔽。
+
+    - 头合并时的 contiguous()：transpose 后张量在内存中不连续，需调用 .contiguous() 后才能使用 .view()，否则会报错。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTpnwxWMsiVDwIkIoX0c1TU4ned
+  block_id: L2NTdwQXSo7cncxMvP4c4oVMnUc
+  page_token: QTpnwxWMsiVDwIkIoX0c1TU4ned
+  original_title: 手写多头自注意力前向传播：实现 MultiHeadSelfAttention 类，完成 Q/K/V 线性投影、分头、缩放点积注意力、合并多头和输出投影。
+  imported_at: '2026-09-21'

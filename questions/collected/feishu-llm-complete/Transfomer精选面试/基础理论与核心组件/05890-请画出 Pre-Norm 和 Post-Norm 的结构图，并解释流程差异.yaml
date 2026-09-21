@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7fea5384b2e5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 请画出 Pre-Norm 和 Post-Norm 的结构图，并解释流程差异。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 基础理论与核心组件
+tags: &1
+- Transfomer精选面试
+- 基础理论与核心组件
+content:
+  prompt: 请画出 Pre-Norm 和 Post-Norm 的结构图，并解释流程差异。
+answer:
+  mode: rubric
+  reference_answer: |-
+    Post-Norm（原始Transformer）：
+
+    ```text
+    输入 x
+      └→ [Multi-Head Attention] → 输出 attn_out
+           └→ x + attn_out → LayerNorm → 输出 h1
+      └→ [Feed-Forward Network] → 输出 ff_out
+           └→ h1 + ff_out → LayerNorm → 输出 h2
+    ```
+
+    归一化放在残差相加之后。子层输出先与输入相加，再通过LayerNorm。
+
+    Pre-Norm（现代标准）：
+
+    ```text
+    输入 x
+      └→ LayerNorm → [Multi-Head Attention] → 输出 attn_out
+           └→ x + attn_out → 输出 h1
+      └→ LayerNorm → [Feed-Forward Network] → 输出 ff_out
+           └→ h1 + ff_out → 输出 h2
+    ```
+
+    归一化放在子层之前。输入先经过LayerNorm，再进入注意力或FFN，然后与原始输入残差相加。相加后不再做归一化（或者仅在最后输出层做一次）。
+
+    流程差异的本质：
+
+    - Post-Norm中，残差路径上的信号（x）会与经过变换的噪声（子层输出）混合后一起被归一化，归一化会重新缩放整个混合信号。这导致残差旁路的“纯净”梯度信号在归一化中被稀释，每一层都可能对梯度产生缩放效应，加深网络时梯度容易消失或爆炸。
+
+    - Pre-Norm中，残差路径完全绕过了归一化，梯度可以通过残差连接直接从深层传到浅层而不受任何缩放。归一化只作用于进入子层的输入，控制子层的输入分布，但不影响残差梯度的流动。这使得深层网络的训练稳定性大幅提升，成为现在几乎所有大模型的标准。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LjGNwy8u0iSQdqk9gtcc6jeFnVc
+  block_id: JsG7dmirroNdNHxUMAYc7DsxnBf
+  page_token: LjGNwy8u0iSQdqk9gtcc6jeFnVc
+  original_title: 请画出 Pre-Norm 和 Post-Norm 的结构图，并解释流程差异。
+  imported_at: '2026-09-21'

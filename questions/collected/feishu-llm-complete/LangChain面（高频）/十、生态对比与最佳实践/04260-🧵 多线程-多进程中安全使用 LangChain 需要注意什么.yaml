@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5b0aedd9ab8c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9F5 多线程/多进程中安全使用 LangChain 需要注意什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 十、生态对比与最佳实践
+tags: &1
+- LangChain面（高频）
+- 十、生态对比与最佳实践
+content:
+  prompt: "\U0001F9F5 多线程/多进程中安全使用 LangChain 需要注意什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangChain 的大多数组件在设计上不是线程安全的。在多线程或多进程环境中，如果不加处理，会出现状态污染、数据竞争、回调混乱等问题。
+
+    需要注意的组件和场景：
+
+    - 全局回调管理器（set_global_callback_manager）：这是进程级别的单例。如果你在多线程环境下修改了全局回调，会影响所有线程的链调用。做法：永远不要在多线程服务中设置全局回调。改为在每个请求中通过 callbacks 参数传入局部回调。
+
+    - InMemoryCache 和 SQLiteCache：内存缓存是进程内的，但多线程同时写入 dict 可能导致数据竞争（虽然 Python GIL 保护了单个操作，但复合操作不是原子的）。SQLiteCache 在多线程下需要设置 check_same_thread=False，并且最好使用 WAL 模式。做法：在多线程场景下，直接使用 RedisCache 或 GPTCache，它们是线程安全的。
+
+    - ConversationBufferMemory 和 ChatMessageHistory：Memory 内部维护了一个消息列表。如果同一个 session_id 的多个请求被分发到不同线程（或进程），并且它们共享同一个 Memory 实例，消息就会互相覆盖。做法：确保每次请求都根据 session_id 从存储后端（如 Redis）加载独立的 ChatMessageHistory 实例，而不是复用内存中的实例。LangChain 的 RunnableWithMessageHistory 可以很好地处理这一点。
+
+    - FAISS 等本地向量库：FAISS 的索引对象通常不是线程安全的，多线程并发写入或搜索可能导致崩溃。做法：对索引对象的访问加锁，或者为每个进程加载独立的索引副本。使用远程向量库（如 Pinecone、Qdrant）是最简单的解决方案。
+
+    - 工具函数中的全局状态：如果你在工具函数中使用了全局变量或类变量来维护状态，多线程同时修改会导致不可预期的结果。做法：工具函数应该是无状态的，如果需要状态，通过外部的 Redis 或数据库管理，并且使用原子操作。
+
+    实践案例：我们曾将一个 LangChain 服务从单进程改为 Gunicorn 多进程模式，结果发现用户的对话历史经常串扰。原因是 ConversationBufferMemory 使用的 InMemoryStore 在进程间不共享，但 Nginx 的负载均衡将同一用户的不同请求分发到了不同进程，导致每个进程的 Memory 都是独立的，用户看到的历史不完整。后来我们将 Memory 后端切换为 Redis，问题解决。
+
+    反思：不要把 LangChain 组件当作有状态的“服务”来用，而是当作“工具库”。在 Web 服务中，每个请求都应该独立构建自己的链和上下文，避免共享可变状态。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JnXtweizdiLAPukHzMGcNKZHn5M
+  block_id: MNlkda9zQoEEqqxUT8JcDTeInbe
+  page_token: JnXtweizdiLAPukHzMGcNKZHn5M
+  original_title: "\U0001F9F5 多线程/多进程中安全使用 LangChain 需要注意什么？"
+  imported_at: '2026-09-21'

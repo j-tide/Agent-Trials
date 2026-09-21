@@ -1,0 +1,148 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a16587e8b6de
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 4.3 索引失效
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 4.3 索引失效
+answer:
+  mode: rubric
+  reference_answer: "### 索引失效的常见场景\n\n1、基础题：哪些场景会导致索引失效？\n\n⭐（隐式转换、函数、前缀匹配、OR、NOT
+    IN）\n\n索引失效的常见场景包括：\n\n- 隐式转换：字段类型不匹配，如字符串字段使用数字查询\n\n- 函数操作：对索引字段使用函数，如 DATE(create_time)\n\n-
+    前缀模糊查询：LIKE '%xxx'，前缀模糊查询无法使用索引\n\n- OR 条件：OR 两边的字段都有索引才能使用索引\n\n- NOT IN：NOT
+    IN 通常无法使用索引\n\n2、进阶题：详细说明索引失效的原因和解决方案\n\n⭐⭐（隐式转换、函数、前缀匹配、OR、NOT IN、解决方案）\n\n1️⃣
+    Common Answer 索引失效就是没用上索引。比如字段类型不对，或者用了函数。还有 LIKE '%xxx' 这种前缀模糊查询也用不上索引。解决办法就是改
+    SQL，让索引能用上。\n\n2️⃣ Impressive Answer 索引失效是 SQL 优化的核心问题，需要深入理解失效原因和解决方案。我将从隐式转换、函数操作、前缀匹配、OR
+    条件、NOT IN 五个场景详细说明。\n\n场景一：隐式转换\n\n问题 SQL：\n\nSELECT * FROM users WHERE phone
+    = 13800138000;\n\n表结构：\n\nCREATE TABLE users (\n    id INT PRIMARY KEY,\n    phone
+    VARCHAR(20),\n    INDEX idx_phone (phone)\n);\n\nEXPLAIN 分析：\n\ntype=ALL, key=NULL,
+    rows=100000\n\n失效原因： phone 字段是 VARCHAR 类型，但查询时使用了数字 13800138000，MySQL 会进行隐式类型转换，将
+    phone 字段转换为数字，导致索引失效。\n\n解决方案：\n\n- 使用字符串查询：\n\nSELECT * FROM users WHERE phone
+    = '13800138000';\n\n- 优化后的 EXPLAIN：\n\ntype=ref, key=idx_phone, rows=1\n\n场景二：函数操作\n\n问题
+    SQL：\n\nSELECT * FROM orders WHERE DATE(create_time) = '2024-01-01';\n\n表结构：\n\nCREATE
+    TABLE orders (\n    id INT PRIMARY KEY,\n    create_time DATETIME,\n    INDEX
+    idx_create_time (create_time)\n);\n\nEXPLAIN 分析：\n\ntype=ALL, key=NULL, rows=100000\n\n失效原因：
+    对索引字段 createtime 使用了 DATE() 函数，MySQL 无法使用索引，必须先计算 DATE(createtime)，导致索引失效。\n\n解决方案：\n\n-
+    改写 SQL，避免使用函数：\n\nSELECT * FROM orders \nWHERE create_time >= '2024-01-01 00:00:00'
+    \n  AND create_time < '2024-01-02 00:00:00';\n\n- 优化后的 EXPLAIN：\n\ntype=range,
+    key=idx_create_time, rows=1000\n\n场景三：前缀模糊查询\n\n问题 SQL：\n\nSELECT * FROM users
+    WHERE name LIKE '%张%';\n\n表结构：\n\nCREATE TABLE users (\n    id INT PRIMARY KEY,\n
+    \   name VARCHAR(50),\n    INDEX idx_name (name)\n);\n\nEXPLAIN 分析：\n\ntype=ALL,
+    key=NULL, rows=100000\n\n失效原因： LIKE '%张%' 是前缀模糊查询，MySQL 无法使用索引，必须扫描所有行。\n\n解决方案：\n\n-
+    使用后缀模糊查询：\n\nSELECT * FROM users WHERE name LIKE '张%';\n\n- 优化后的 EXPLAIN：\n\ntype=range,
+    key=idx_name, rows=1000\n\n- 如果必须使用前缀模糊查询，可以考虑使用全文索引：\n\nCREATE FULLTEXT INDEX
+    ft_name ON users(name);\n\nSELECT * FROM users WHERE MATCH(name) AGAINST('张' IN
+    BOOLEAN MODE);\n\n场景四：OR 条件\n\n问题 SQL：\n\nSELECT * FROM orders WHERE user_id =
+    123456 OR status = 'PAID';\n\n表结构：\n\nCREATE TABLE orders (\n    id INT PRIMARY
+    KEY,\n    user_id INT,\n    status VARCHAR(20),\n    INDEX idx_user_id (user_id),\n
+    \   INDEX idx_status (status)\n);\n\nEXPLAIN 分析：\n\ntype=ALL, key=NULL, rows=100000\n\n失效原因：
+    OR 条件中，user_id 和 status 都有索引，但 MySQL 无法同时使用两个索引，只能全表扫描。\n\n解决方案：\n\n- 使用 UNION
+    替代 OR：\n\nSELECT * FROM orders WHERE user_id = 123456\nUNION\nSELECT * FROM orders
+    WHERE status = 'PAID';\n\n- 优化后的 EXPLAIN：\n\ntype=ref, key=idx_user_id, rows=10\ntype=ref,
+    key=idx_status, rows=1000\n\n- 或者使用复合索引：\n\nCREATE INDEX idx_user_status ON orders(user_id,
+    status);\n\n- 优化后的 EXPLAIN：\n\ntype=ref, key=idx_user_status, rows=10\n\n场景五：NOT
+    IN\n\n问题 SQL：\n\nSELECT * FROM users WHERE id NOT IN (SELECT user_id FROM orders);\n\n表结构：\n\nCREATE
+    TABLE users (\n    id INT PRIMARY KEY,\n    name VARCHAR(50)\n);\n\nCREATE TABLE
+    orders (\n    id INT PRIMARY KEY,\n    user_id INT,\n    INDEX idx_user_id (user_id)\n);\n\nEXPLAIN
+    分析：\n\ntype=ALL, key=NULL, rows=100000\n\n失效原因： NOT IN 通常无法使用索引，必须扫描所有行。\n\n解决方案：\n\n-
+    使用 LEFT JOIN 替代 NOT IN：\n\nSELECT u.* \nFROM users u \nLEFT JOIN orders o ON u.id
+    = o.user_id \nWHERE o.user_id IS NULL;\n\n- 优化后的 EXPLAIN：\n\ntype=ref, key=idx_user_id,
+    rows=1\n\n- 或者使用 NOT EXISTS：\n\nSELECT u.* \nFROM users u \nWHERE NOT EXISTS (\n
+    \   SELECT 1 FROM orders o WHERE o.user_id = u.id\n);\n\n实战案例：\n\n某电商系统慢 SQL 优化：\n\n问题
+    SQL：\n\nSELECT * FROM orders WHERE DATE(create_time) = '2024-01-01' AND status
+    = 'PAID';\n\nEXPLAIN 分析：\n\ntype=ALL, key=NULL, rows=100000\n\n全表扫描，未使用索引。\n\n优化方案：\n\n-
+    改写 SQL，避免使用函数：\n\nSELECT * FROM orders \nWHERE create_time >= '2024-01-01 00:00:00'
+    \n  AND create_time < '2024-01-02 00:00:00' \n  AND status = 'PAID';\n\n- 添加复合索引：\n\nCREATE
+    INDEX idx_create_status ON orders(create_time, status);\n\n- 优化后的 EXPLAIN：\n\ntype=range,
+    key=idx_create_status, rows=100\n\n优化效果：\n\n- SQL 执行时间从 5 秒降低到 0.02 秒\n\n- 性能提升
+    250 倍\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n3、场景题：如何排查和解决索引失效问题？\n\n⭐⭐⭐（EXPLAIN
+    分析、失效定位、解决方案、预防措施）\n\n1️⃣ Common Answer 用 EXPLAIN 看一下，如果 key=NULL 就是索引失效了。然后看
+    SQL 语句，是不是有函数或者类型不对。改一下 SQL 就行了。\n\n2️⃣ Impressive Answer 排查和解决索引失效问题需要系统化方法，包括
+    EXPLAIN 分析、失效定位、解决方案和预防措施四个步骤。我将详细说明每个步骤的具体操作。\n\nEXPLAIN 分析：\n\n第一步：获取 EXPLAIN
+    输出\n\nEXPLAIN SELECT * FROM orders WHERE DATE(create_time) = '2024-01-01';\n\n第二步：分析
+    EXPLAIN 输出\n\n+----+-------------+-------+------+---------------+------+---------+------+--------+-------------+\n\n|
+    id | select_type | table | type | possible_keys | key  | key_len | ref  | rows
+    \  | Extra       |\n+----+-------------+-------+------+---------------+------+---------+------+--------+-------------+\n\n|
+    \ 1 | SIMPLE      | orders| ALL  | idx_create_time| NULL | NULL    | NULL | 100000
+    | Using where |\n+----+-------------+-------+------+---------------+------+---------+------+--------+-------------+\n\n第三步：判断索引失效\n\n根据
+    EXPLAIN 输出判断索引失效：\n\n- possible_keys 不为空，但 key=NULL：索引失效\n\n- type=ALL：全表扫描，索引失效\n\n失效定位：\n\n场景一：隐式转换\n\n问题
+    SQL：\n\nSELECT * FROM users WHERE phone = 13800138000;\n\nEXPLAIN 输出：\n\npossible_keys=idx_phone,
+    key=NULL\n\n失效定位：\n\n- phone 字段是 VARCHAR 类型\n\n- 查询时使用了数字 13800138000\n\n- MySQL
+    进行隐式类型转换，导致索引失效\n\n场景二：函数操作\n\n问题 SQL：\n\nSELECT * FROM orders WHERE DATE(create_time)
+    = '2024-01-01';\n\nEXPLAIN 输出：\n\npossible_keys=idx_create_time, key=NULL\n\n失效定位：\n\n-
+    对索引字段 create_time 使用了 DATE() 函数\n\n- MySQL 无法使用索引，必须先计算 DATE(create_time)\n\n场景三：前缀模糊查询\n\n问题
+    SQL：\n\nSELECT * FROM users WHERE name LIKE '%张%';\n\nEXPLAIN 输出：\n\npossible_keys=idx_name,
+    key=NULL\n\n失效定位：\n\n- LIKE '%张%' 是前缀模糊查询\n\n- MySQL 无法使用索引\n\n场景四：OR 条件\n\n问题
+    SQL：\n\nSELECT * FROM orders WHERE user_id = 123456 OR status = 'PAID';\n\nEXPLAIN
+    输出：\n\npossible_keys=idx_user_id,idx_status, key=NULL\n\n失效定位：\n\n- OR 条件中，user_id
+    和 status 都有索引\n\n- MySQL 无法同时使用两个索引\n\n场景五：NOT IN\n\n问题 SQL：\n\nSELECT * FROM
+    users WHERE id NOT IN (SELECT user_id FROM orders);\n\nEXPLAIN 输出：\n\npossible_keys=PRIMARY,
+    key=NULL\n\n失效定位：\n\n- NOT IN 通常无法使用索引\n\n解决方案：\n\n场景一：隐式转换\n\n解决方案：\n\n- 使用字符串查询：\n\nSELECT
+    * FROM users WHERE phone = '13800138000';\n\n- 优化后的 EXPLAIN：\n\nkey=idx_phone,
+    type=ref, rows=1\n\n场景二：函数操作\n\n解决方案：\n\n- 改写 SQL，避免使用函数：\n\nSELECT * FROM orders
+    \nWHERE create_time >= '2024-01-01 00:00:00' \n  AND create_time < '2024-01-02
+    00:00:00';\n\n- 优化后的 EXPLAIN：\n\nkey=idx_create_time, type=range, rows=1000\n\n场景三：前缀模糊查询\n\n解决方案：\n\n-
+    使用后缀模糊查询：\n\nSELECT * FROM users WHERE name LIKE '张%';\n\n- 优化后的 EXPLAIN：\n\nkey=idx_name,
+    type=range, rows=1000\n\n- 如果必须使用前缀模糊查询，使用全文索引：\n\nCREATE FULLTEXT INDEX ft_name
+    ON users(name);\n\nSELECT * FROM users WHERE MATCH(name) AGAINST('张' IN BOOLEAN
+    MODE);\n\n场景四：OR 条件\n\n解决方案：\n\n- 使用 UNION 替代 OR：\n\nSELECT * FROM orders WHERE
+    user_id = 123456\nUNION\nSELECT * FROM orders WHERE status = 'PAID';\n\n- 优化后的
+    EXPLAIN：\n\nkey=idx_user_id, type=ref, rows=10\nkey=idx_status, type=ref, rows=1000\n\n-
+    或者使用复合索引：\n\nCREATE INDEX idx_user_status ON orders(user_id, status);\n\n- 优化后的
+    EXPLAIN：\n\nkey=idx_user_status, type=ref, rows=10\n\n场景五：NOT IN\n\n解决方案：\n\n-
+    使用 LEFT JOIN 替代 NOT IN：\n\nSELECT u.* \nFROM users u \nLEFT JOIN orders o ON u.id
+    = o.user_id \nWHERE o.user_id IS NULL;\n\n- 优化后的 EXPLAIN：\n\nkey=idx_user_id,
+    type=ref, rows=1\n\n- 或者使用 NOT EXISTS：\n\nSELECT u.* \nFROM users u \nWHERE NOT
+    EXISTS (\n    SELECT 1 FROM orders o WHERE o.user_id = u.id\n);\n\n预防措施：\n\n-
+    代码规范\n\n制定 SQL 编写规范，避免索引失效：\n\n- 避免对索引字段使用函数\n\n- 避免隐式类型转换\n\n- 避免前缀模糊查询\n\n-
+    避免使用 OR 条件\n\n- 避免使用 NOT IN\n\n- 代码审查\n\n在 Code Review 时重点关注：\n\n- 是否对索引字段使用函数\n\n-
+    是否存在隐式类型转换\n\n- 是否使用前缀模糊查询\n\n- 是否使用 OR 条件\n\n- 是否使用 NOT IN\n\n- 单元测试\n\n编写单元测试验证
+    SQL 性能：\n\n@Test\npublic void testSQLPerformance() {\n    long startTime = System.currentTimeMillis();\n
+    \   \n    // 执行 SQL\n    List<Order> orders = orderService.findByUserId(123456);\n
+    \   \n    long endTime = System.currentTimeMillis();\n    long executionTime =
+    endTime - startTime;\n    \n    // 验证执行时间\n    assertTrue(executionTime < 100,
+    \"SQL execution time too long: \" + executionTime + \"ms\");\n}\n\n- 监控告警\n\n配置慢查询监控告警：\n\n#
+    Prometheus 告警规则\ngroups:\n  - name: slow_query_alerts\n    rules:\n      - alert:
+    SlowQueryDetected\n        expr: mysql_global_status_slow_queries > 10\n        for:
+    5m\n        labels:\n          severity: warning\n        annotations:\n          summary:
+    \"Slow query detected\"\n          description: \"Slow query count: {{ $value
+    }}\"\n\n实战案例：\n\n某电商系统慢 SQL 优化：\n\n问题 SQL：\n\nSELECT * FROM orders WHERE DATE(create_time)
+    = '2024-01-01' AND status = 'PAID';\n\nEXPLAIN 分析：\n\npossible_keys=idx_create_time,idx_status,
+    key=NULL, type=ALL\n\n索引失效，全表扫描。\n\n优化方案：\n\n- 改写 SQL，避免使用函数：\n\nSELECT * FROM
+    orders \nWHERE create_time >= '2024-01-01 00:00:00' \n  AND create_time < '2024-01-02
+    00:00:00' \n  AND status = 'PAID';\n\n- 添加复合索引：\n\nCREATE INDEX idx_create_status
+    ON orders(create_time, status);\n\n- 优化后的 EXPLAIN：\n\nkey=idx_create_status, type=range,
+    rows=100\n\n优化效果：\n\n- SQL 执行时间从 5 秒降低到 0.02 秒\n\n- 性能提升 250 倍\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n4、容易一起考的题\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PruYwWzfSiDw2dkgSMrcuononnf
+  block_id: doxcnZoCgwUYI8jVUpdjMz3ASsh
+  page_token: PruYwWzfSiDw2dkgSMrcuononnf
+  original_title: 4.3 索引失效
+  imported_at: '2026-09-21'

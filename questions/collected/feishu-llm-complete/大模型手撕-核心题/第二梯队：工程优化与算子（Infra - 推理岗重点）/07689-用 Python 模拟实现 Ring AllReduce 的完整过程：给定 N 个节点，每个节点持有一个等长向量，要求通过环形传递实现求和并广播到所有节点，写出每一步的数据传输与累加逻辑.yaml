@@ -1,0 +1,127 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d3a51c58f8f7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 用 Python 模拟实现 Ring AllReduce 的完整过程：给定 N 个节点，每个节点持有一个等长向量，要求通过环形传递实现求和并广播到所有节点，写出每一步的数据传输与累加逻辑。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 用 Python 模拟实现 Ring AllReduce 的完整过程：给定 N 个节点，每个节点持有一个等长向量，要求通过环形传递实现求和并广播到所有节点，写出每一步的数据传输与累加逻辑。
+answer:
+  mode: rubric
+  reference_answer: |-
+    1.1 Ring AllReduce 原理
+
+    Ring AllReduce 是一种高效的分布式规约算法，它将所有节点排列成一个逻辑环。整个操作分为两个阶段：
+
+    - Scatter-Reduce（分散-规约）：将每个节点的完整向量切分成 N 个分块（N 为节点数）。执行 N−1 步，每步每个节点向它的下游邻居发送一个分块，并从上游邻居接收一个分块，然后将接收到的分块累加到自己的对应分块上。经过 N−1 步后，每个节点上都有一个分块包含了所有节点的贡献，即该分块的全局和。但不同节点持有不同的分块。
+
+    - AllGather（全收集）：再经过 N−1 步，每个节点将已经规约好的分块向下游发送，同时从上游接收新的已规约分块并替换自己的对应分块（不再累加）。最终所有节点都获得所有分块的全局和，即每个节点都拥有完整的规约结果。
+
+    1.2 模拟实现
+
+    假设每个节点是一个 Python 进程（这里用对象模拟），节点之间通过点对点 send/recv 通信。为了简化，我们用消息队列或直接函数调用模拟。
+
+    ```python
+    import numpy as np
+
+    class RingAllReduceSimulator:
+        def __init__(self, num_nodes, vector_length):
+            self.num_nodes = num_nodes
+            self.vec_len = vector_length
+            # 每个节点持有自己的本地向量
+            self.vectors = [np.random.randn(vector_length) for _ in range(num_nodes)]
+            # 分块大小（假设均匀分割）
+            assert vector_length % num_nodes == 0
+            self.chunk_size = vector_length // num_nodes
+
+        def run(self):
+            # 初始状态：每个节点将向量切成 num_nodes 块
+            # 使用缓冲区存储当前各节点的数据块
+            local_chunks = []
+            for r in range(self.num_nodes):
+                chunks = []
+                for i in range(self.num_nodes):
+                    start = i * self.chunk_size
+                    end = start + self.chunk_size
+                    chunks.append(self.vectors[r][start:end].copy())
+                local_chunks.append(chunks)  # local_chunks[rank][i] 是节点 rank 的第 i 块
+
+            # ========= Scatter-Reduce 阶段 =========
+            for step in range(self.num_nodes - 1):
+                # 每个节点计算本轮要发送给下游的分块索引
+                send_chunk_idx = (rank - step) % self.num_nodes  # 常见公式
+                recv_chunk_idx = (rank - step - 1) % self.num_nodes
+                # 模拟通信：每个节点将 send_chunk_idx 块发送给下游邻居
+                # 下游邻居收到后累加到自己的 recv_chunk_idx 块上
+                # 注意：所有节点同时进行，这里用临时存储来避免先写后读问题
+                new_chunks = [chunks.copy() for chunks in local_chunks]
+                for rank in range(self.num_nodes):
+                    downstream = (rank + 1) % self.num_nodes
+                    upstream = (rank - 1) % self.num_nodes
+                    # 发送本节点的 send_chunk_idx 块给下游
+                    data_to_send = local_chunks[rank][send_chunk_idx].copy()
+                    # 下游接收并累加到自己的 recv_chunk_idx
+                    new_chunks[downstream][recv_chunk_idx] += data_to_send
+                local_chunks = new_chunks
+
+            # ========= AllGather 阶段 =========
+            for step in range(self.num_nodes - 1):
+                send_chunk_idx = (rank - step) % self.num_nodes
+                recv_chunk_idx = (rank - step - 1) % self.num_nodes
+                new_chunks = [chunks.copy() for chunks in local_chunks]
+                for rank in range(self.num_nodes):
+                    downstream = (rank + 1) % self.num_nodes
+                    # 发送本节点已规约的 send_chunk_idx 块给下游
+                    data_to_send = local_chunks[rank][send_chunk_idx].copy()
+                    # 下游接收到后直接替换对应的块（不累加）
+                    new_chunks[downstream][recv_chunk_idx] = data_to_send
+                local_chunks = new_chunks
+
+            # 最终每个节点将分块拼接成完整向量
+            final_vectors = []
+            for rank in range(self.num_nodes):
+                final_vec = np.concatenate(local_chunks[rank])
+                final_vectors.append(final_vec)
+            return final_vectors
+    ```
+
+    1.3 关键细节
+
+    - 发送/接收索引：在 Scatter-Reduce 阶段，第 step 步时，节点 rank 发送的块索引为 (rank - step) % N，接收的块索引为 (rank - step - 1) % N。这样确保了环上数据流动的正确性，每个节点逐渐将不同块的贡献分发出去。
+
+    - 累加与替换：Scatter-Reduce 阶段是累加，AllGather 阶段是直接替换。
+
+    - 通信同步：真实环境中所有节点同时通信，模拟时通过循环和临时拷贝保证逻辑正确。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: CgAxdyFWdosx3xxFtsQcRkW9nAh
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 用 Python 模拟实现 Ring AllReduce 的完整过程：给定 N 个节点，每个节点持有一个等长向量，要求通过环形传递实现求和并广播到所有节点，写出每一步的数据传输与累加逻辑。
+  imported_at: '2026-09-21'

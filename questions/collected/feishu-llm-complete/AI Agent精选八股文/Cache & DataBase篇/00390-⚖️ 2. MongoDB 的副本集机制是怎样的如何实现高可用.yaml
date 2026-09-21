@@ -1,0 +1,121 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bbd459c3d717
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚖️ 2. MongoDB 的副本集机制是怎样的？如何实现高可用？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "⚖️ 2. MongoDB 的副本集机制是怎样的？如何实现高可用？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    副本集是 MongoDB 高可用的基石。它通过一主多从 + 自动故障转移的架构，确保在单台服务器宕机时，系统仍能正常提供服务。
+
+    [图片内容未导入]
+
+    三大核心组件：
+
+    - 主节点：唯一接受写入的节点。所有写操作记录到 oplog（操作日志）。
+
+    - 从节点：异步从主节点拉取 oplog，重放操作以保持数据一致。默认不可写入，但可配置读取。
+
+    - 仲裁者：不存储数据，只在选举时投票，帮助打破平局。资源消耗极小。
+
+    自动故障转移流程：
+
+    ```text
+    1. 心跳检测：所有节点每 2 秒互发心跳。如果从节点在 10 秒内未收到主节点心跳，
+       则判定主节点失联。
+
+    2. 选举触发：满足选举条件的从节点发起选举，向其他节点请求投票。
+
+    3. 投票规则：
+       · 节点的 priority 值（0-1000，0 表示永不成为主）
+       · optime（数据最新程度）：oplog 时间戳越新，越容易当选
+       · 多数派原则：必须获得超过半数节点的投票
+
+    4. 新主诞生：得票最多的从节点晋升为新主，其他从节点自动指向它同步。
+
+    5. 旧主恢复：旧主重新加入后，发现自己已不是主，自动降级为从节点。
+    ```
+
+    高可用的具体实现手段：
+
+    ① Write Concern（写关注）
+
+    控制写入数据被复制到多少个节点后才返回成功。值越高，数据安全性越强，但写入延迟越大。
+
+    ```javascript
+    // w: 1 默认，只要主节点写入即返回
+    db.accounts.insertOne({ _id: "C", balance: 500 });
+
+    // w: "majority" 必须复制到多数节点才返回，强一致性
+    db.accounts.insertOne(
+        { _id: "D", balance: 1000 },
+        { writeConcern: { w: "majority", wtimeout: 5000 } }
+    );
+    ```
+
+    ② Read Concern（读关注）
+    控制读取数据的隔离级别。"majority" 保证只读已被多数节点确认的数据，防止读到之后可能被回滚的“脏数据”。
+
+    ③ Read Preference（读偏好）
+    控制客户端从哪种节点读取数据。primary 默认只从主节点读；secondaryPreferred 优先从从节点读以分担负载。
+
+    ④ 副本集配置示例
+
+    ```javascript
+    rs.initiate({
+        _id: "rs0",
+        members: [
+            { _id: 0, host: "mongo1:27017", priority: 10 },
+            { _id: 1, host: "mongo2:27017", priority: 5 },
+            { _id: 2, host: "mongo3:27017", arbiterOnly: true }  // 仲裁者
+        ]
+    });
+    ```
+
+    ⑤ 客户端高可用连接
+
+    ```python
+    from pymongo import MongoClient
+
+    # 连接字符串中列出所有副本集成员，驱动会自动发现主节点
+    client = MongoClient(
+        "mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=rs0",
+        w="majority",
+        readPreference="secondaryPreferred"
+    )
+    # 当主节点故障，驱动会自动重连到新选举的主节点
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BXVdwSFoCiy4apkiMglchiTGnmh
+  block_id: doxcndPbKpCmkIIwEQfydBiQVme
+  page_token: BXVdwSFoCiy4apkiMglchiTGnmh
+  original_title: "⚖️ 2. MongoDB 的副本集机制是怎样的？如何实现高可用？"
+  imported_at: '2026-09-21'

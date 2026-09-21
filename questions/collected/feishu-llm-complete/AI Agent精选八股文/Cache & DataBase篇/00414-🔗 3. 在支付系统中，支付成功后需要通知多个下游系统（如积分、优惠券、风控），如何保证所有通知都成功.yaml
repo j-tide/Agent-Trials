@@ -1,0 +1,120 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7a7a277828f1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F517 3. 在支付系统中，支付成功后需要通知多个下游系统（如积分、优惠券、风控），如何保证所有通知都成功？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F517 3. 在支付系统中，支付成功后需要通知多个下游系统（如积分、优惠券、风控），如何保证所有通知都成功？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是一个典型的“一对多可靠通知”问题。核心挑战：一个支付成功事件，必须可靠地送达积分、优惠券、风控三个系统，且不能丢失、不能重复、不能部分成功。
+
+    推荐方案：本地消息表 + 订阅者模式 + 幂等消费
+
+    ```text
+    支付服务 (支付成功后)
+        │
+        └─ 本地事务: 更新支付单 + 插入一条 outbox 记录
+                              │
+                              ▼
+                      ┌───────────────┐
+                      │  本地消息表    │
+                      │  topic: payment_paid
+                      │  body: {"orderId":123,"amount":100}
+                      └───────┬───────┘
+                              │ 定时任务投递
+                              ▼
+                      ┌───────────────┐
+                      │   消息队列     │
+                      └───────┬───────┘
+               ┌──────────────┼──────────────┐
+               ▼              ▼              ▼
+          积分服务        优惠券服务       风控服务
+       (消费 + 幂等)    (消费 + 幂等)    (消费 + 幂等)
+    ```
+
+    关键设计点：
+
+    ① 主服务只发一条消息，多系统订阅
+
+    支付服务不关心下游有几个系统，它只负责发出一个“支付成功”的领域事件。积分、优惠券、风控各自订阅同一个 Topic，各自消费。这样支付服务完全解耦，未来新增下游（如消息推送）只需要增加一个新的消费者，不影响支付逻辑。
+
+    ② 每个消费者独立 ACK 和重试
+
+    消息队列支持多个消费者组。每个下游系统属于不同的消费者组，各自独立地消费同一条消息。积分服务消费失败不会影响优惠券服务的消费。消息队列会为每个消费者组分别重试失败的消息。
+
+    ③ 每个消费者必须实现幂等
+
+    以积分服务为例：
+
+    ```java
+    @RocketMQMessageListener(topic = "payment_paid", consumerGroup = "points_group")
+    public class PointsConsumer implements RocketMQListener<String> {
+        @Autowired
+        private PointsService pointsService;
+
+        @Override
+        public void onMessage(String message) {
+            PaymentEvent event = JSON.parseObject(message, PaymentEvent.class);
+            String orderId = event.getOrderId();
+            // 幂等判断
+            if (pointsService.isAlreadyAwarded(orderId)) {
+                log.info("积分已发放，忽略重复消息");
+                return;
+            }
+            // 发放积分 + 记录发放流水 (同一本地事务)
+            pointsService.awardAndRecord(orderId, event.getAmount());
+        }
+    }
+    ```
+
+    每个下游系统都基于 orderId（或支付流水号）做幂等校验，保证多次重试不会重复发积分/扣券。
+
+    ④ 本地消息表的轮询任务保证“至少一次投递”
+
+    支付服务通过本地消息表保证消息一定到达 MQ。MQ 通过消费者组重试保证消息一定被每个下游系统消费成功。这样即使积分服务挂了半小时，重启后仍然能继续消费积压的消息。
+
+    ⑤ 死信队列与人工兜底
+
+    对于多次重试（如 16 次）仍然消费失败的消息，RocketMQ 会将其转入死信队列。运维人员可以监控死信队列，分析失败原因后，修正数据并重新投递，或手动补偿。
+
+    ⑥ 最终一致性核对
+
+    可以建立一个每日对账任务，分别查询支付单状态、积分流水、优惠券使用记录、风控记录，对比是否存在“支付成功但某系统未处理”的差异，生成日报并告警。
+
+    总结：
+
+    通过 本地消息表保证事件不丢 + MQ 多消费者组独立投递 + 各系统幂等消费 + 死信队列兜底，我们就能在一个不太可靠的分布式环境里，实现“支付成功事件最终通知到所有下游”的目标。这套架构不追求强一致性，但追求最终一致、绝对可靠、异常可追溯，是电商支付场景的经典实践。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PKVIw2nCRi0Na6kOoiocSSfonrb
+  block_id: doxcnjPGKHoQcI1ljEJ6599ZbVe
+  page_token: PKVIw2nCRi0Na6kOoiocSSfonrb
+  original_title: "\U0001F517 3. 在支付系统中，支付成功后需要通知多个下游系统（如积分、优惠券、风控），如何保证所有通知都成功？"
+  imported_at: '2026-09-21'

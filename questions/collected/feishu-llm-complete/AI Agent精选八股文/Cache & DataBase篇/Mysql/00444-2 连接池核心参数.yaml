@@ -1,0 +1,222 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b8ca60b52efd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 1.2 连接池核心参数
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 1.2 连接池核心参数
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### 连接池核心参数详解
+
+    1、基础题：连接池的核心参数有哪些？
+
+    ⭐（最小连接数、最大连接数、超时时间、空闲检测）
+
+    核心参数包括：
+
+    - initialSize/minIdle：初始连接数/最小空闲连接数，连接池启动时创建的连接数量
+
+    - maxActive/maxTotal：最大活跃连接数，连接池能同时提供的最大连接数
+
+    - maxWait：获取连接的最大等待时间，超时后抛出异常
+
+    - validationQuery：校验连接有效性的 SQL 语句，如 SELECT 1
+
+    - testWhileIdle：是否在空闲时校验连接有效性
+
+    - timeBetweenEvictionRunsMillis：空闲连接检测的间隔时间
+
+    - minEvictableIdleTimeMillis：连接空闲多久后被回收
+
+    2、进阶题：详细说明连接池各参数的作用和调优建议
+
+    ⭐⭐（参数含义、相互关系、调优策略、典型配置）
+
+    1️⃣ Common Answer 这些参数就是控制连接池大小和行为的。maxTotal 要设大一点，minIdle 也要合理。超时时间不要太长，否则会卡住。校验查询用 SELECT 1 就行。一般按照经验值设置，比如 maxTotal=100，minIdle=10。
+
+    2️⃣ Impressive Answer 连接池参数调优是一个系统工程，需要根据业务特性、数据库性能和系统资源进行综合考虑。我将从参数含义、调优原则和典型配置三个方面详细说明。
+
+    参数详解：
+
+    initialSize/minIdle：初始连接数和最小空闲连接数。initialSize 是连接池启动时创建的连接数，minIdle 是连接池维护的最小空闲连接数。这两个参数的作用是保证系统空闲时仍有足够连接应对突发流量，避免冷启动延迟。建议 minIdle 设置为 maxTotal 的 30-50%，对于电商等流量波动大的系统可设置为 50-70%。
+
+    maxActive/maxTotal：最大活跃连接数，控制连接池能同时提供的最大连接数。这个参数需要根据数据库服务器的 maxconnections、应用实例数量、业务 QPS 进行计算。使用公式：maxTotal = (数据库 maxconnections / 应用实例数) × 0.8。假设数据库 max_connections=500，应用实例数=4，则每个实例的 maxTotal=100。
+
+    maxWait：获取连接的最大等待时间。当连接池中没有可用连接时，应用会等待 maxWait 毫秒。建议设置为 3000-10000ms，太短会导致频繁超时，太长会导致应用阻塞。对于核心接口可以设置较长（10000ms），非核心接口设置较短（3000ms）。
+
+    validationQuery：校验连接有效性的 SQL 语句。MySQL 推荐使用 SELECT 1，Oracle 推荐使用 SELECT 1 FROM DUAL。这个 SQL 必须执行速度快，否则会增加连接获取延迟。
+
+    testWhileIdle：是否在空闲时校验连接有效性。建议设置为 true，配合 timeBetweenEvictionRunsMillis 和 minEvictableIdleTimeMillis 使用，可以自动剔除失效连接，避免应用获取到失效连接导致异常。
+
+    timeBetweenEvictionRunsMillis：空闲连接检测的间隔时间。建议设置为 60000ms（1分钟），检测频率过高会增加 CPU 开销，过低会导致失效连接未被及时发现。
+
+    minEvictableIdleTimeMillis：连接空闲多久后被回收。建议设置为 300000ms（5分钟），避免连接长时间占用数据库资源，但也不能设置过短导致频繁创建连接。
+
+    调优原则：
+
+    渐进式调优：先设置一个保守的初始值，通过监控指标逐步调整。重点关注活跃连接数、获取连接等待时间、连接失败率。
+
+    分环境调优：开发环境 maxTotal=10，minIdle=2；测试环境 maxTotal=20，minIdle=5；生产环境根据实际流量计算。
+
+    差异化配置：核心业务接口使用独立的连接池配置，非核心业务使用共享连接池，避免相互影响。
+
+    典型配置：
+
+    # 核心业务连接池
+    core-pool:
+      initialSize: 20
+      minIdle: 30
+      maxTotal: 100
+      maxWait: 10000
+      validationQuery: SELECT 1
+      testWhileIdle: true
+      timeBetweenEvictionRunsMillis: 60000
+      minEvictableIdleTimeMillis: 300000
+
+    # 非核心业务连接池
+    common-pool:
+      initialSize: 5
+      minIdle: 10
+      maxTotal: 50
+      maxWait: 3000
+      validationQuery: SELECT 1
+      testWhileIdle: true
+      timeBetweenEvictionRunsMillis: 60000
+      minEvictableIdleTimeMillis: 300000
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    3、场景题：某系统出现"获取连接超时"异常，如何排查和解决？
+
+    ⭐⭐⭐（异常分析、排查步骤、参数调优、根本原因）
+
+    1️⃣ Common Answer 获取连接超时就是连接数不够了，把 maxTotal 调大一点就行。也可能是数据库太慢了，检查一下慢 SQL。如果还不行，就增加 maxWait 时间。
+
+    2️⃣ Impressive Answer "获取连接超时"异常通常由连接数不足、SQL 执行过慢、连接泄漏三种原因导致，需要系统化排查才能找到根本原因。
+
+    排查步骤：
+
+    第一步：检查连接池状态 使用 Druid 的 stat-view-servlet 查看连接池指标：
+
+    - 活跃连接数（activeCount）：如果持续接近 maxTotal，说明连接数不足
+
+    - 等待获取连接的线程数（notEmptyWaitThreadCount）：如果持续大于 0，说明有线程在等待
+
+    - 获取连接失败次数（acquireFailCount）：如果持续增加，说明连接池无法满足需求
+
+    第二步：分析 SQL 执行时间 查看 slowquerylog，找出执行时间超过阈值的 SQL。重点关注：
+
+    - 全表扫描的 SQL（type=ALL）
+
+    - 未使用索引的查询（key=NULL）
+
+    - 返回大量数据的查询（rows 很大）
+
+    第三步：检查连接泄漏 查看 removeAbandonedCount，如果持续增加，说明存在连接泄漏。排查代码中：
+
+    - 是否在 try-catch 中未调用 close()
+
+    - 是否在异常分支中未关闭连接
+
+    - 是否使用 try-with-resources 语句
+
+    第四步：评估数据库压力 使用 SHOW PROCESSLIST 查看数据库当前连接数和状态：
+
+    - 当前连接数是否接近 max_connections
+
+    - 是否有大量 Sleep 状态的连接
+
+    - 是否有长时间运行的查询（Time 很大）
+
+    解决方案：
+
+    场景一：连接数不足 如果 activeCount 持续接近 maxTotal，且 acquireFailCount 增加：
+
+    - 临时方案：增加 maxTotal，但需要确保数据库 max_connections 足够
+
+    - 根本方案：优化 SQL 性能，减少单次查询时间，从而降低连接占用时间
+
+    - 长期方案：进行读写分离，将读操作分散到从库
+
+    场景二：SQL 执行过慢 如果 slowquerylog 中有大量慢 SQL：
+
+    - 使用 EXPLAIN 分析执行计划，找出索引失效的原因
+
+    - 优化 SQL 语句，避免全表扫描
+
+    - 添加合适的索引，提高查询效率
+
+    场景三：连接泄漏 如果 removeAbandonedCount 持续增加：
+
+    - 启用 removeAbandoned 配置，强制回收超时未关闭的连接
+
+    - 使用 try-with-resources 确保连接自动关闭
+
+    - 代码审查，找出未关闭连接的地方
+
+    实战案例： 某订单系统在大促期间出现大量"获取连接超时"异常。排查发现：
+
+    - 活跃连接数持续在 95-100（maxTotal=100）
+
+    - slowquerylog 显示某查询订单详情的 SQL 平均执行时间为 500ms
+
+    - 该 SQL 未使用索引，导致全表扫描
+
+    解决方案：
+
+    - 临时将 maxTotal 从 100 调整到 150
+
+    - 为订单表添加联合索引（userid, orderid, status）
+
+    - 优化 SQL 语句，减少返回字段
+
+    - 将订单查询接口的缓存时间从 1 分钟延长到 5 分钟
+
+    优化后，SQL 执行时间从 500ms 降低到 20ms，活跃连接数降低到 30-40，获取连接超时异常消失。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PruYwWzfSiDw2dkgSMrcuononnf
+  block_id: doxcnXBnG0kwf2SLJciGz8urvYb
+  page_token: PruYwWzfSiDw2dkgSMrcuononnf
+  original_title: 1.2 连接池核心参数
+  imported_at: '2026-09-21'

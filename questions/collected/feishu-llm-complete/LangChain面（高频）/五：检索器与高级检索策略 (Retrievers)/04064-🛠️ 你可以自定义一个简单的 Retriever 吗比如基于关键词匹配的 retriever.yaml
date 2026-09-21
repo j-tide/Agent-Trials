@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7761e8bfb197
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E0️ 你可以自定义一个简单的 Retriever 吗？比如基于关键词匹配的 retriever。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F6E0️ 你可以自定义一个简单的 Retriever 吗？比如基于关键词匹配的 retriever。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    自定义 Retriever 非常简单，只需继承 BaseRetriever 并实现 _get_relevant_documents 方法。以下是一个基于 TF-IDF 关键词匹配的 Retriever 示例：
+
+    ```python
+    from langchain.schema import BaseRetriever, Document
+    from typing import List
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics.pairwise import cosine_similarity
+
+    class TFIDFRetriever(BaseRetriever):
+        documents: List[Document]
+        k: int = 4
+        vectorizer: TfidfVectorizer = None
+        tfidf_matrix: any = None
+
+        def __init__(self, documents: List[Document], k=4):
+            super().__init__(documents=documents, k=k)
+            self.vectorizer = TfidfVectorizer()
+            corpus = [doc.page_content for doc in documents]
+            self.tfidf_matrix = self.vectorizer.fit_transform(corpus)
+
+        def _get_relevant_documents(self, query: str) -> List[Document]:
+            query_vec = self.vectorizer.transform([query])
+            scores = cosine_similarity(query_vec, self.tfidf_matrix).flatten()
+            # 获取分数最高的k个索引
+            top_indices = scores.argsort()[-self.k:][::-1]
+            return [self.documents[i] for i in top_indices]
+    ```
+
+    使用方式：
+
+    ```python
+    docs = [Document(page_content="量子计算是一种..."), ...]
+    tfidf_retriever = TFIDFRetriever(documents=docs, k=5)
+    results = tfidf_retriever.get_relevant_documents("什么是量子计算？")
+    ```
+
+    你也可以用 BM25（通过 rank_bm25 库）来实现，效果通常更好。只要遵循 BaseRetriever 的接口，就可以和 LangChain 的其他组件无缝集成。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YrNHwdqUUiHr0JkXRNrc4c0kn5d
+  block_id: BPm2dY5NQoB41WxLpqDcnzpYnUh
+  page_token: YrNHwdqUUiHr0JkXRNrc4c0kn5d
+  original_title: "\U0001F6E0️ 你可以自定义一个简单的 Retriever 吗？比如基于关键词匹配的 retriever。"
+  imported_at: '2026-09-21'

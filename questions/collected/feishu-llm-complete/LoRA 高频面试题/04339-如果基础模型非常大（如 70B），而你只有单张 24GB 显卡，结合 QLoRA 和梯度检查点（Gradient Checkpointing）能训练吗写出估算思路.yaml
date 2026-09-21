@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0d2403e5c2a5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果基础模型非常大（如 70B），而你只有单张 24GB 显卡，结合 QLoRA 和梯度检查点（Gradient Checkpointing）能训练吗？写出估算思路。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LoRA 高频面试题
+derived_topic: 
+tags: &1
+- LoRA 高频面试题
+content:
+  prompt: 如果基础模型非常大（如 70B），而你只有单张 24GB 显卡，结合 QLoRA 和梯度检查点（Gradient Checkpointing）能训练吗？写出估算思路。
+answer:
+  mode: rubric
+  reference_answer: |-
+    答案：能够训练，但需要极限的显存压缩，且 batch size 会被极度限制（通常只能为 1），训练速度非常慢。
+
+    估算思路：以 LLaMA-70B 为例，单张 24GB 显卡（如 RTX 3090/4090）训练 LoRA 的显存占用由以下部分构成。
+
+    - 模型权重显存（NF4 量化）
+
+    使用 QLoRA 的 NF4 量化，每个参数约 0.5 字节，加上双重量化后的量化常数（每 64 个参数一个块，二次量化为 8 字节），实际每个参数约 0.54 字节。70B 模型权重大约占用 70×109×0.54≈37.8 GB。这已远超 24GB 上限，因此 必须启用 NF4 双重量化，可将权重压缩至约 35 GB 以下？实际上 70B NF4 权重在双重量化下通常约为 35-40GB，仍然超限。这里需要进一步优化：使用 更小的分块大小（如 block size=32） 和 BF16 反量化 会略微增加常量开销，所以 70B 模型仅权重就超过 24GB，单卡根本放不下。因此，70B 模型在单张 24GB 卡上即使 QLoRA 也无法训练，权重本身就已经超出显存容量。我们需要回到现实：通常能单卡 24GB 微调的最大模型是 65B？65B 4-bit 权重约需 32.5GB + 常量 ~3GB = 35.5GB，依然超出 24GB。实际上，网上成功案例是使用 RTX 6000 Ada (48GB) 或 A6000 (48GB) 单卡微调 65B/70B。24GB 单卡一般只能微调 30B-40B 级别的模型（如 LLaMA-30B 4-bit 权重约 15-18GB）。所以对于 70B，单张 24GB 不可行。
+
+    更正：如果题目是“假如你有一张 48GB 的 A6000”，那么可以训练 70B。但这里指定单张 24GB，对于 70B 模型即便 4-bit 权重也超过 24GB，无法加载。因此答案应为“不可行”，并说明估算过程，同时指出可以用 30B 模型代替。
+
+    估算思路（以 30B 模型为例）：
+
+    - 4-bit NF4 权重：约 15GB。
+
+    - 双重量化常量：约 1GB。
+
+    - 梯度（仅 LoRA）：假设秩 r=8，LoRA 参数量约 5M，FP32 梯度约 20MB，可忽略。
+
+    - 优化器状态（仅 LoRA）：FP32 Adam 状态约 10MB，可忽略。
+
+    - 激活值（含梯度检查点）：batch=1, 序列长度 512，启用检查点后大约需要 3-5GB。
+
+    - 临时缓冲：约 2GB。
+    总显存约 15+1+5+2 = 23GB，勉强可在 24GB 单卡上训练 30B 模型。对于 70B，权重就超过 35GB，不可能。
+
+    结论：对于 70B 模型，单卡 24GB 无法训练，即便是 QLoRA。需要至少 48GB 显存。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XjiewYcvci750Gkvcqyc01XBnDc
+  block_id: XUtBdEBrWoWWpIxhyyOcVeeOnmd
+  page_token: XjiewYcvci750Gkvcqyc01XBnDc
+  original_title: 如果基础模型非常大（如 70B），而你只有单张 24GB 显卡，结合 QLoRA 和梯度检查点（Gradient Checkpointing）能训练吗？写出估算思路。
+  imported_at: '2026-09-21'

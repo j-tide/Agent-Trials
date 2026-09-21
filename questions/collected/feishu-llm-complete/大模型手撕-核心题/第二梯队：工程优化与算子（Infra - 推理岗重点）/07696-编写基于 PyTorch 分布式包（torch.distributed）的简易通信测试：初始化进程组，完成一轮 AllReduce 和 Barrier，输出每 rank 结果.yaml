@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7946e93c68df
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写基于 PyTorch 分布式包（torch.distributed）的简易通信测试：初始化进程组，完成一轮 AllReduce 和 Barrier，输出每
+  rank 结果。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 编写基于 PyTorch 分布式包（torch.distributed）的简易通信测试：初始化进程组，完成一轮 AllReduce 和 Barrier，输出每
+    rank 结果。
+answer:
+  mode: rubric
+  reference_answer: |-
+    13.1 实现
+
+    ```python
+    import torch
+    import torch.distributed as dist
+    import os
+
+    def init_process(rank, world_size, func):
+        """ 初始化分布式环境并执行 func """
+        os.environ['MASTER_ADDR'] = '127.0.0.1'
+        os.environ['MASTER_PORT'] = '29500'
+        dist.init_process_group('nccl', rank=rank, world_size=world_size)
+        func(rank, world_size)
+        dist.destroy_process_group()
+
+    def test_allreduce(rank, world_size):
+        tensor = torch.tensor([rank + 1.0]).cuda(rank)
+        print(f"Rank {rank} before AllReduce: {tensor}")
+        dist.all_reduce(tensor, op=dist.ReduceOp.SUM)
+        print(f"Rank {rank} after AllReduce: {tensor}")
+        dist.barrier()
+        if rank == 0:
+            print("AllReduce test passed.")
+
+    if __name__ == "__main__":
+        world_size = 4
+        import torch.multiprocessing as mp
+        mp.spawn(init_process, args=(world_size, test_allreduce), nprocs=world_size)
+    ```
+
+    此代码演示了基本的 AllReduce 和 Barrier。每个 rank 的本地数值被求和，结果在所有 rank 上相同（SUM 的结果）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: XVEIdY2ozobzWQxa6HPcQbI6nAc
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 编写基于 PyTorch 分布式包（torch.distributed）的简易通信测试：初始化进程组，完成一轮 AllReduce
+    和 Barrier，输出每 rank 结果。
+  imported_at: '2026-09-21'

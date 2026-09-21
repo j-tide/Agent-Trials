@@ -1,0 +1,93 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3711674be471
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 9. 你如何加载 CSV 或 Excel 文件，并将每一行转化为一个 Document 对象？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F4CA 9. 你如何加载 CSV 或 Excel 文件，并将每一行转化为一个 Document 对象？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    CSV 文件：使用 CSVLoader，可以配置将哪一列作为主要内容，其余列放入 metadata。
+
+    ```python
+    from langchain_community.document_loaders import CSVLoader
+
+    loader = CSVLoader(
+        file_path="data.csv",
+        source_column="context",    # 指定作为 page_content 的列
+        metadata_columns=["title", "date"],  # 这些列会成为 metadata
+        csv_args={"delimiter": ",", "quotechar": '"'},
+        encoding="utf-8",
+    )
+    docs = loader.load()
+    # 结果是一个 Document 列表，每行一个 Document
+    ```
+
+    如果不想指定单一内容列，也可以不设 source_column，此时整个行会被转换为 page_content（通常为所有列的值拼接）。我个人更倾向于显式指定 source_column，让内容清晰。
+
+    Excel 文件：UnstructuredExcelLoader 支持 .xlsx 和 .xls。
+
+    ```python
+    from langchain_community.document_loaders import UnstructuredExcelLoader
+
+    loader = UnstructuredExcelLoader(
+        "data.xlsx",
+        mode="elements",   # "single" 整个文件一个doc
+    )
+    docs = loader.load()
+    # 在 mode="elements" 下，每个 sheet 里的每一行可能作为一个元素，
+    # 但具体行为依赖 Unstructured 的解析逻辑。
+    ```
+
+    注意，Excel 的结构更复杂，包含多个 sheet、合并单元格等。如果我们需要精确控制“每行一个 Document”，我常会用 pandas 先读取 Excel，再手动构建：
+
+    ```python
+    import pandas as pd
+    from langchain_core.documents import Document
+
+    df = pd.read_excel("data.xlsx", sheet_name=None)  # 读取所有sheet
+    documents = []
+    for sheet_name, sheet_df in df.items():
+        for idx, row in sheet_df.iterrows():
+            # 将整行转为字符串作为 page_content
+            content = ", ".join([f"{col}: {val}" for col, val in row.items()])
+            metadata = {"source": "data.xlsx", "sheet": sheet_name, "row": idx}
+            documents.append(Document(page_content=content, metadata=metadata))
+    ```
+
+    这样做可以灵活控制内容和元数据，且不依赖 Unstructured 的较重依赖。对于数据量特别大的 Excel，注意 iterrows() 的性能，可用 to_dict(orient="records") 替代。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EY1lwce7uiXgPpklg8tcoBj6nNg
+  block_id: EBFpdD2Kjor6o3xSu6Scb1s3nwf
+  page_token: EY1lwce7uiXgPpklg8tcoBj6nNg
+  original_title: "\U0001F4CA 9. 你如何加载 CSV 或 Excel 文件，并将每一行转化为一个 Document 对象？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,122 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2f7febe077a5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6B0 3. Redis Stream 如何实现消息队列？和 Kafka 有什么区别？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F6B0 3. Redis Stream 如何实现消息队列？和 Kafka 有什么区别？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Redis Stream 是 Redis 5.0 引入的一种持久化、可回溯、支持消费者组的日志型数据结构。它彻底弥补了旧有 Pub/Sub 不能持久化和重复消费的短板，成为轻量级、高性能消息队列的极佳选择。
+
+    Stream 的核心概念：
+
+    - 消息：包含 ID 和键值对。ID 自动生成，格式为 时间戳-序列号。
+
+    - 消费者组：多个消费者共享一个组，同一条消息组内只投递给一个消费者，实现负载均衡。
+
+    - 游标：每个消费者维护自己的消费位置，崩溃重启不会丢消息。
+
+    - ACK 机制：消费者处理完消息后显式确认，保证至少一次投递。
+
+    代码示例：实现 Agent 的任务队列
+
+    import redis
+
+    r = redis.Redis(host='localhost', port=6379)
+
+    # 1. 生产者：Agent 接收用户任务，写入 Stream
+    def create_task(user_id, task_description):
+        task_id = r.xadd("agent_tasks", {
+            "user_id": user_id,
+            "description": task_description,
+            "timestamp": time.time()
+        })
+        return task_id
+
+    # 2. 消费者组初始化（只执行一次）
+    try:
+        r.xgroup_create("agent_tasks", "worker_group", id="0", mkstream=True)
+    except redis.exceptions.ResponseError as e:
+        if "already exists" not in str(e):
+            raise
+
+    # 3. 消费者：Worker Agent 监听并处理任务
+    def process_tasks(worker_name):
+        while True:
+            # 一次读取 5 条未消费的消息，阻塞 2 秒
+            tasks = r.xreadgroup(
+                groupname="worker_group",
+                consumername=worker_name,
+                streams={"agent_tasks": ">"},
+                count=5,
+                block=2000
+            )
+            if not tasks:
+                continue
+            for msg_id, msg_data in tasks[0][1]:
+                try:
+                    # 实际调用 Agent 处理任务
+                    result = agent_process(msg_data)
+                    # 处理成功，ACK 确认
+                    r.xack("agent_tasks", "worker_group", msg_id)
+                except Exception as e:
+                    # 失败不 ACK，消息会被重新投递
+                    print(f"任务 {msg_id} 失败: {e}")
+
+    为什么 Redis Stream 适合 Agent 场景？
+
+    - 任务分发：Orchestrator Agent 将复杂任务拆解后放入 Stream，多个 Worker Agent 通过消费者组自动抢占执行，天然支持并发和负载均衡。
+
+    - 状态持久：任务处理中断不丢消息，重启 Worker 后可以继续消费。
+
+    - 轻量级：无需像 Kafka 那样部署重型集群，对于日均十万到百万级消息的 Agent 系统，Redis Stream 足够稳定且运维成本极低。
+
+    Redis Stream 与 Kafka 的核心区别：
+
+    [嵌入表格未展开]
+
+    选择判断树：
+
+    你需要严格的消息顺序和百万级消息保留？
+      ├─ 是，还需要多团队共享？ → Kafka
+      └─ 否 → 你的团队正在用 Redis，且消息量 < 百万 QPS？
+              ├─ 是 → Redis Stream (开箱即用，零运维负担)
+              └─ 否 → 需要超大规模分析？ → Kafka。需要简单任务队列？ → Redis Stream / BullMQ
+
+    在 Agent 微服务里，Redis Stream 往往是那个“刚刚好”的选择——它不要求你精通复杂的分布式理论，也能让多个 Agent Worker 井然有序地协同工作。而一旦数据量跨入每秒数十万、需要对消息做持久化分析，Kafka 则是不可替代的工业级标准。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Q9QMw2nf7ixgxGkQ9NUcjdpZno0
+  block_id: doxcngMuDgyabzXH62JsPyArl2d
+  page_token: Q9QMw2nf7ixgxGkQ9NUcjdpZno0
+  original_title: "\U0001F6B0 3. Redis Stream 如何实现消息队列？和 Kafka 有什么区别？"
+  imported_at: '2026-09-21'

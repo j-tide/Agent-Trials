@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c8d60f465530
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Critic 模型在 PPO 中是如何初始化的？是否可以从 Reward Model 加载权重？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 1-基础认知与流程全景
+tags: &1
+- RLHF面试高频考点
+- 1-基础认知与流程全景
+content:
+  prompt: Critic 模型在 PPO 中是如何初始化的？是否可以从 Reward Model 加载权重？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Critic 的初始化：
+
+    Critic 通常也从 SFT 模型（或与 Actor 相同的初始化权重）进行初始化，但修改输出头：将 LM Head 替换为与 RM 类似的标量输出头（隐藏维度 → 1）。它也需要具备对语言序列的深层理解，因此复用 SFT 的预训练权重是非常自然的选择。
+
+    是否可以从 Reward Model 加载权重？
+
+    理论上可以，实践中不推荐，但在某些简化版本中有尝试。
+
+    从 RM 加载的潜在优势：
+
+    - RM 已经专门训练过如何评估文本质量，它的内部表征可能比 SFT 模型更能捕捉“好坏”的细微差异。用于初始化 Critic 也许能加速价值函数的学习，因为 RM 输出的标量 r 和 Critic 需要预测的回报 V 具有高度相关性。
+
+    不推荐的原因（更常见）：
+
+    - 评估的语义范畴不同
+
+    [图片内容未导入]
+
+    - 引入偏差与过拟合风险
+    RM 已经在偏好数据上过拟合了一定的模式，如果用它初始化 Critic，Critic 可能继承了 RM 的偏见（如对冗长回答的偏爱），并将这种偏见带入价值估计，从而误导 Actor 的优势函数计算。
+
+    - 独立评估系统的工程考量
+    保持 Critic 与 Actor 同源（均来自 SFT），而 RM 单独训练，形成了两个相对独立的评估体系：RM 来自人类偏好，Critic 来自环境交互。这种解耦有利于调试和分析问题。如果 Critic 与 RM 共享初始化，一旦 RM 有问题（如对某类回答打分偏差），该偏差会通过 Critic 放大，更难定位。
+
+    - 实践中的常见做法
+    DeepSpeed-Chat 等主流实现中，Critic 直接从 SFT 模型初始化，与 Actor 同源但独立演化。RLHF 的早期论文中，Critic 甚至可能直接复用 RM 的权重，但现在的趋势是分开初始化，以获得更灵活的训练和控制。
+
+    结论：Critic 从 SFT 初始化是安全且高效的标准做法。从 RM 加载权重属于一种探索性技巧，可能带来轻微的初始加速，但需要仔细评估其引入的偏差和稳定性风险，在大规模生产中较少采用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TopFwyc4Si1SxFkkfQlc4kXxnJd
+  block_id: E5JKdfZuzoFkmkxtwdLc3axfnHc
+  page_token: TopFwyc4Si1SxFkkfQlc4kXxnJd
+  original_title: Critic 模型在 PPO 中是如何初始化的？是否可以从 Reward Model 加载权重？
+  imported_at: '2026-09-21'

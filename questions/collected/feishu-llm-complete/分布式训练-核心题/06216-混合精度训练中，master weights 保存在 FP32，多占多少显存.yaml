@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dc5f484ca2ea
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 混合精度训练中，master weights 保存在 FP32，多占多少显存？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 混合精度训练中，master weights 保存在 FP32，多占多少显存？
+answer:
+  mode: rubric
+  reference_answer: |-
+    混合精度训练的标准流程是：前向传播和反向传播使用FP16的权重和激活值，以利用Tensor Core加速；但在优化器更新时，需要一个FP32的高精度权重副本来累积微小的梯度更新。这个FP32副本就是master weights。
+
+    它的显存开销非常直接：每个参数需要额外存储4字节的FP32副本。对于10B参数的模型，就是 10×10⁹ × 4 bytes = 40GB。对于7B模型，约28GB。这部分显存是混合精度训练为数值稳定性付出的代价。
+
+    为什么必须要FP32？FP16的尾数只有10位，能表示的精度约3位有效数字。当梯度很小（训练后期常见）时，FP16可能无法表示梯度和权重的比值，导致更新被截断为零，训练停滞。FP32的23位尾数提供了足够的精度来累积这些微小更新，保证训练的持续进行。
+
+    在ZeRO优化中，master weights同样被分片。使用ZeRO-2且8张卡时，这40GB被均分到每张卡，单卡仅需5GB，不再是瓶颈。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: QyGrdH2uToF1LExEge0cKfBBnPe
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 混合精度训练中，master weights 保存在 FP32，多占多少显存？
+  imported_at: '2026-09-21'

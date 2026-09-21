@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8516d4df3847
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F527 你如何为给定的模型和硬件配置选择最优并行度？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F527 你如何为给定的模型和硬件配置选择最优并行度？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 采用“先满足显存约束，再最大化吞吐”的决策流程：通过估算或工具确定能装下模型的最小并行度，然后调整
+    DP/TP/PP 组合以最大化训练速度或推理吞吐。\n\n\U0001F4D0 步骤：\n\n- 估算单卡最小显存需求\n计算模型总权重、优化器、梯度、激活（针对目标
+    batch 和序列长度），用公式或内存估算工具（如 DeepSpeed 的 mem_estimator）得到单卡所需显存。\n\n- 确定必需的模型并行度\n单卡显存不足时，引入模型并行。根据卡间带宽，优先选择
+    ZeRO-3（需要高速网络）或 TP（需要 NVLink）。一般原则：节点内用 TP，跨节点用 ZeRO-3 或 PP。计算最小 TP × PP 或 ZeRO
+    度 使得每卡权重+优化器 < 显存容量。\n\n- 考虑激活瓶颈，加入序列并行/梯度检查点\n若序列很长，激活可能成为主要瓶颈。启用梯度检查点和序列并行，重新评估所需并行度。\n\n-
+    分配总卡数\n总卡数 N = DP × TP × PP。在满足显存约束后，剩余卡全部用作 DP 以提升吞吐。DP 度越高，吞吐扩展性越好。但要确保通信不成为瓶颈（DP
+    的 All-Reduce 对带宽需求高）。\n\n- 性能建模或自动调优\n使用 DeepSpeed Autotuning、Megatron-LM 的性能模型，或者手动小规模实验，测量不同组合的
+    tokens/sec。选择吞吐最高的配置。\n\n- 验证均衡性\n检查各卡显存占用是否均衡，避免单卡瓶颈。\n\n\U0001F4CC 实例： 对于 70B
+    模型，单卡 80GB A100。目标序列长度 4096，batch=128。\n\n- 纯数据并行单卡无法容纳，需模型并行。\n\n- 尝试 ZeRO-3
+    + TP=2，DP 度 = 总卡数/(TP) 等。最终通常选用 TP=2~4, PP=1~2, ZeRO-3。\n\n✅ 核心思想：显存约束下的最大 DP，才是最高效的并行配置。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WSBEwNJCni9q3ok7cN6cISL3nwe
+  block_id: T0HqdCF0GoQgALxa8vJc2qTcn2f
+  page_token: WSBEwNJCni9q3ok7cN6cISL3nwe
+  original_title: "\U0001F527 你如何为给定的模型和硬件配置选择最优并行度？"
+  imported_at: '2026-09-21'

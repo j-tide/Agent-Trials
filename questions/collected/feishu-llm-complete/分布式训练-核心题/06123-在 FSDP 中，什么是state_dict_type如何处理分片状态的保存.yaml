@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-880ff4370eee
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 FSDP 中，什么是“state_dict_type”？如何处理分片状态的保存。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 在 FSDP 中，什么是“state_dict_type”？如何处理分片状态的保存。
+answer:
+  mode: rubric
+  reference_answer: |-
+    state_dict_type是FSDP中控制如何保存和加载模型状态（state_dict）的配置。它决定了保存的state_dict是分片的还是完整的，以及如何在各rank间协调。
+
+    常见选项：
+
+    - StateDictType.FULL_STATE_DICT：将所有rank的参数聚合，保存为一个完整的state_dict文件（通常只在rank 0保存）。这需要一次全局通信，但生成的文件可以直接用于推理或调优。
+
+    - StateDictType.SHARDED_STATE_DICT：每个rank保存自己持有的参数分片，通信最少，保存速度最快。恢复时每个rank加载自己的分片。需要所有rank的目录都存在且一致。
+
+    - StateDictType.LOCAL_STATE_DICT：只保存本地的参数（包括当前未分片的完整参数），用于节点内断点续训等特殊场景。
+
+    使用示例：
+
+    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP, StateDictType
+    save_policy = {StateDictType.SHARDED_STATE_DICT}
+    with FSDP.state_dict_type(model, StateDictType.SHARDED_STATE_DICT):
+        state = model.state_dict()
+        # state 现在包含各rank的分片，需要每个rank保存
+        torch.save(state, f"checkpoint_rank_{rank}.pt")
+
+    恢复时：
+
+    with FSDP.state_dict_type(model, StateDictType.SHARDED_STATE_DICT):
+        state = torch.load(f"checkpoint_rank_{rank}.pt")
+        model.load_state_dict(state)
+
+    如果要将分片状态合并为完整权重，可使用FULL_STATE_DICT或在保存后使用FSDP.summon_full_params手动合并。
+
+    FSDP通过这套灵活的state_dict_type机制，让开发者能根据场景（断点续训 vs 模型发布）自由选择高效的保存方式。
+
+    - GPU 持有完整的 FP16 参数。前向计算使用这些参数，产生激活值。
+
+    - 反向传播逐层计算 FP16 梯度。梯度暂时驻留在 GPU 显存中。
+
+    - 每一层（或一组层）的梯度计算完成后，立即异步拷贝到 CPU 内存（通过 PCIe）。GPU 并不等待 CPU 完成，而是继续反向传播下一层。
+
+    - CPU 上维护着 FP32 主权重和优化器状态（m, v）。
+
+    - CPU 接收梯度后，将其从 FP16 转换为 FP32，然后执行标准的 Adam 更新公式：更新 m 和 v，再更新主权重。
+
+    - 更新完成后，CPU 得到新的 FP32 主权重，再将其转换为 FP16。
+
+    - 新的 FP16 权重通过 PCIe 异步拷贝回 GPU，覆盖原来的旧权重。
+
+    - 这个过程同样不需要 GPU 等待，可以与后续层的反向传播或下一轮前向传播重叠。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: MXrudzq6DogdXbxt2ERcwGfmn4e
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: 在 FSDP 中，什么是“state_dict_type”？如何处理分片状态的保存。
+  imported_at: '2026-09-21'

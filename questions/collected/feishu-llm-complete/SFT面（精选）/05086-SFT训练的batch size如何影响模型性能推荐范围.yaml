@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2d10dba08ae9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: SFT训练的batch size如何影响模型性能？推荐范围？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: SFT训练的batch size如何影响模型性能？推荐范围？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Batch size在SFT中是一个容易被忽视但影响深远的参数。它不仅影响训练速度和显存占用，还直接决定了模型泛化能力的好坏。
+
+    [图片内容未导入]
+
+    Batch size的影响机制：
+
+    - 小batch size（微批次）：引入更大的梯度噪声。这种噪声在优化过程中起到了隐式正则化的作用，能帮助模型逃离尖锐的局部极小点，找到更宽缓的解。宽缓的极小点泛化能力通常更好。因此，SFT中使用小batch size往往能让模型面对未见过的指令时表现更鲁棒，输出也更多样。
+
+    - 大batch size：梯度估计更准确，训练过程更稳定，损失曲线更平滑，也能更好地利用GPU的并行性。但在SFT这种数据量有限的任务上，大batch size容易让模型快速收敛到训练数据的尖锐极小点，导致过拟合和泛化能力下降。此外，大batch size可能会让模型忽视数据中的细节模式，导致“平均化”的回答。
+
+    推荐范围：
+
+    对于7B-13B模型，单卡micro batch size我通常设为4到8（受限于24GB显存），然后通过梯度累积达到全局batch size 32到128。很多人会问：全局128是不是太大了？我的经验是，如果SFT数据量比较大（几万条以上），全局128可以稳定训练且收敛较快；如果数据量很小（几千条），全局batch size应该降到16-32，否则会过拟合。对于小模型（<1B），batch size要更小，比如8-16。
+
+    一个实用的调参思路：如果发现模型输出开始变得千篇一律、丧失多样性，而训练损失还在下降，很可能就是batch size偏大或者训练过度的信号。此时可以尝试减小batch size并早停。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZYXSwaWATimyqQkmZm5cAPJHnoc
+  block_id: E5Zidtf3fo2jJAxijfPc558gn5a
+  page_token: ZYXSwaWATimyqQkmZm5cAPJHnoc
+  original_title: SFT训练的batch size如何影响模型性能？推荐范围？
+  imported_at: '2026-09-21'

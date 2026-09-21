@@ -1,0 +1,116 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bbeabf15de37
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F91D 2. 在 Agent 知识库场景，ES 和向量数据库如何配合做混合检索？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F91D 2. 在 Agent 知识库场景，ES 和向量数据库如何配合做混合检索？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 Agent 知识库中，纯粹的关键词检索或纯粹的语义检索都有盲区。混合检索将 ES 的精确匹配和向量数据库的语义理解结合起来，取长补短。
+
+    ES 与向量数据库的分工
+
+    - ES：擅长 BM25 关键词匹配，对专有名词、产品型号、缩写非常敏感。同时提供元数据过滤（如按时间、类别、权限）。
+
+    - 向量数据库：擅长语义相似度搜索，理解同义词、口语化表达，能“读懂”用户问题背后的意图。
+
+    两种常见的混合检索架构
+
+    架构一：向量库 + ES 作为元数据过滤器
+    流程：先用向量库检索语义相似的 Top-K 候选，然后在 ES 中根据这些候选的 ID 加上元数据条件（如 department = "HR"）进行过滤，或者在 ES 中做第二次关键词相关性打分。
+
+    ```text
+    用户查询 → 向量库语义检索 → Top-100 候选 ID → ES 按条件过滤/BM25 二次打分 → 最终 Top-K
+    ```
+
+    架构二：ES 自身提供 KNN + BM25，融合打分
+    如果你用的是 ES 8.0+，它原生支持 dense_vector 字段和近似 KNN 搜索。这样可以在同一个 ES 集群内同时获得 BM25 分和向量相似度分，再用 RRF（倒数排名融合） 合并结果。
+
+    ```text
+    用户查询 → ES 同时执行：BM25 查询 + KNN 向量查询 → RRF 融合两路排名 → 最终 Top-K
+    ```
+
+    示例代码：用 ES 的 KNN + BM25 做混合检索（Python）
+
+    ```python
+    from elasticsearch import Elasticsearch
+    es = Elasticsearch("http://localhost:9200")
+
+    query_text = "Agent 任务失败怎么排查"
+    query_vector = get_embedding(query_text)  # 调用 embedding 模型
+
+    response = es.search(
+        index="knowledge_base",
+        body={
+            "knn": {
+                "field": "content_vector",
+                "query_vector": query_vector,
+                "k": 10,
+                "num_candidates": 100
+            },
+            "query": {
+                "bool": {
+                    "must": [
+                        {"match": {"content": query_text}}   # BM25 关键词匹配
+                    ],
+                    "filter": [
+                        {"term": {"department": "engineering"}}  # 元数据过滤
+                    ]
+                }
+            },
+            "rank": {
+                "rrf": {}   # 使用 RRF 融合 KNN 和 BM25 的排名
+            },
+            "size": 5
+        }
+    )
+
+    for hit in response['hits']['hits']:
+        print(f"Score: {hit['_score']}, Content: {hit['_source']['content'][:100]}")
+    ```
+
+    这里，knn 部分负责语义搜索，query 部分负责关键词和过滤，rrf 将两种不同的相关性分数按排名融合，避免了直接加权带来的分数不可比问题。
+
+    选型建议：
+
+    - 如果你的团队已经深度使用 ES，且数据量不是天文数字，直接用 ES 8.0+ 的 KNN 功能，简化架构。
+
+    - 如果你需要极致的向量检索性能（如十亿级向量），或已经单独部署了 Milvus/Qdrant，则采用“向量库检索 + ES 过滤”的模式，两者通过 gRPC/HTTP 交互。
+
+    收束：混合检索的核心理念在于“承认单一检索模式的局限”，通过架构手段让精确匹配和语义理解各展所长。在 Agent 场景下，这意味着用户无论用行话、缩写还是模糊描述，系统都能准确地从知识库中找到答案。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MjSawrHIci2PTTktAdVc2UF3nQb
+  block_id: doxcnrnhW2OHj2uwKkV0658hP3b
+  page_token: MjSawrHIci2PTTktAdVc2UF3nQb
+  original_title: "\U0001F91D 2. 在 Agent 知识库场景，ES 和向量数据库如何配合做混合检索？"
+  imported_at: '2026-09-21'

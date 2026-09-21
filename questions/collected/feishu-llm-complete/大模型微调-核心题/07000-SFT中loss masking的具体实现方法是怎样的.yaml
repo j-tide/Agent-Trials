@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ee866cc2ae1f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: SFT中loss masking的具体实现方法是怎样的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: SFT中loss masking的具体实现方法是怎样的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在代码实现中，loss masking 通常是在数据预处理阶段完成的，其核心是构造一个与 input_ids 等长的 labels 序列，并将不需要计算损失的位置填充为 -100。
+
+    以一个使用 ChatML 模板的单轮对话为例：
+
+    ```text
+    <|im_start|>system
+    You are a helpful assistant.<|im_end|>
+    <|im_start|>user
+    What is the capital of France?<|im_end|>
+    <|im_start|>assistant
+    The capital of France is Paris.<|im_end|>
+    ```
+
+    在 tokenization 后，我们会得到一整个 input_ids 列表。为了生成 labels，我们通常先复制 input_ids，然后执行以下操作：
+
+    - 找出序列中每个角色的起始和结束位置（通过定位特殊 token 如 <|im_start|> 和 <|im_end|>）。
+
+    - 将所有非 assistant 角色对应的 token（包括特殊标记本身）的 labels 设置为 -100。
+
+    - 对 assistant 部分，保留其原始 token ID 作为监督信号。有些实现还会将 assistant 的起始标记 <|im_start|>assistant 也掩码掉，因为它不是需要生成的内容，而只是格式标记；但保留它也无妨，因为模型很快就能学会生成这个固定短语。
+
+    对于多轮对话，需要对每一轮的 assistant 回复分别保留标签，其他部分全部掩码。这意味着 labels 中会有多个不连续的“可训练”片段，其余全是 -100。这种掩码方式使得模型只在生成回答的每一个 token 时接受监督，而在“阅读”用户输入时不产生任何学习信号。
+
+    需要注意的是，labels 与 input_ids 在 padding 位置也需要对齐。当 batch 内样本长度不一致时，短的样本被 padding 到最长长度，对应的 labels 也要填充 -100，以确保 padding 部分不参与损失计算。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PMU2wL6MLiKo4yk5L39cu6vqnIc
+  block_id: NQfldMioWolJJExcHAyc30qWnW0
+  page_token: PMU2wL6MLiKo4yk5L39cu6vqnIc
+  original_title: SFT中loss masking的具体实现方法是怎样的？
+  imported_at: '2026-09-21'

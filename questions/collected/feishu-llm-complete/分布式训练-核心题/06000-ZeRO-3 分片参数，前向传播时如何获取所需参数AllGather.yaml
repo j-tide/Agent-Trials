@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-614b46722dfe
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ZeRO-3 分片参数，前向传播时如何获取所需参数？AllGather。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: ZeRO-3 分片参数，前向传播时如何获取所需参数？AllGather。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO-3是分片最彻底的阶段，连模型参数本身也被切分到各卡。每张卡不再持久存储完整的模型，只持有1/N的参数分片。当需要计算某一层时，必须临时从其他卡获取该层的完整参数。
+
+    前向传播的参数获取流程：
+
+    设模型有L层，DP组有N张卡。每张卡持久存储的参数量为P/N。
+
+    步骤一：参数收集（AllGather）。当计算进行到第i层时，该层的完整参数分布在所有N张卡上。此时发起一次AllGather——每张卡贡献自己持有的该层参数分片，同时从其他N-1张卡接收它们持有的分片。AllGather完成后，每张卡都拥有了该层的完整权重。
+
+    步骤二：计算前向传播。使用刚刚AllGather得到的完整参数，结合输入激活值（来自上一层的输出），执行该层的前向计算，产生输出激活值。
+
+    步骤三：参数释放。该层计算完成后，输出激活值已经产生并保留（用于反向传播）。此时该层的完整参数不再被需要，因此立即释放AllGather的临时权重，只保留自己原本负责的参数分片。释放的显存可以被下一层的AllGather复用。
+
+    这个过程在每一层重复：AllGather→计算→释放→下一层。前向传播的总通信量等于完整模型参数的总大小（因为每一层都被AllGather了一次），但这部分显存占用只是临时的，每层计算完后立即归还，不同层之间可以复用同一块显存缓冲区。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: HVpMdsJKdo6BUlxvj1YcqijcnNb
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: ZeRO-3 分片参数，前向传播时如何获取所需参数？AllGather。
+  imported_at: '2026-09-21'

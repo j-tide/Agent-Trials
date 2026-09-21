@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dbb2c6aff8e8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EA 9. 如何测试自定义链？你有什么策略来 mock 内部的 LLM 调用？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "\U0001F9EA 9. 如何测试自定义链？你有什么策略来 mock 内部的 LLM 调用？"
+answer:
+  mode: rubric
+  reference_answer: "自定义链的测试可以分为三层：单元测试、集成测试和端到端测试。对于有 LLM 调用的链，单元测试的核心就是 mock 掉 LLM，保证你的逻辑逻辑（prompt
+    拼接、条件分支、输出组装等）正确。\n\n我最常用的策略是使用 unittest.mock 或者 pytest-mock 来 mock 底层 LLM 的 invoke
+    和 ainvoke 方法。比如：\n\n```python\ndef test_translate_and_sentiment():\n    mock_llm
+    = MagicMock()\n    mock_llm.invoke.side_effect = [\n        \"Hello, how are you?\",
+    \  # 第一次调用：翻译结果\n        \"positive\"               # 第二次调用：情感分析结果\n    ]\n    chain
+    = TranslateAndSentimentChain(llm=mock_llm)\n    result = chain.invoke({\"text\":
+    \"你好，你怎么样？\"})\n    assert result[\"english_translation\"] == \"Hello, how are
+    you?\"\n    assert result[\"sentiment\"] == \"positive\"\n    assert mock_llm.invoke.call_count
+    == 2\n```\n\n如果链内部用了多个 LLM 实例，就分别 mock。side_effect 的顺序要和调用顺序严格一致，这个在编写测试时要注意。\n\n对于更复杂的链，我会使用
+    FakeLLM（LangChain 提供的测试用假模型）或者自己实现一个 FakeChatModel，它根据输入 prompt 中的某个标志返回预定输出，这样链的复杂分支也能测到。\n\n测试异步链时，记得把
+    mock_llm.ainvoke 设成 AsyncMock，然后用 pytest.mark.asyncio 来跑。\n\n集成测试方面，我会搭一个本地的小型服务，比如用
+    vcrpy 录制真实的 LLM API 响应，然后回放，这样能测到 prompt 是否真的符合模型预期格式，而又不浪费调用额度。还有一种做法是部署一个本地
+    LLM（如 Ollama 或 LocalAI）做集成测试，缺点是慢一点，但能发现很多网络层面或解析层面的问题。\n\n测试 Schema 验证：写一个测试用例，故意传入不符合
+    schema 的输入，预期抛出 ValidationError；输出也可以用 chain.output_schema 来校验返回的 dict。\n\n测试异常处理：mock
+    LLM 让 invoke 抛出 TimeoutError，检查是否返回了 fallback 结果并记录了日志。\n\n我的经验是，链的测试重点在于逻辑编排，而不是模型效果，所以
+    mock 越轻量越好。同时，每一个自定义链都必须有一条“快乐路径”测试和至少两条“失败路径”测试，这样重构时才不会胆战心惊。\n\n---\n\n\U0001F4A1
+    10. 你如何看待 LangChain 中“一切皆链”的思想？它会不会导致滥用？\n\n我先亮观点：“一切皆链”在早期确实降低了编排大模型工作流的门槛，但现在看来，它也有被滥用的风险，需要辩证看待。\n\n积极的方面：\n链的抽象统一了接口，把
+    LLM 调用、工具使用、数据处理都变成可组合的单元。比如 prompt | llm | output_parser 这种管道，读起来就像流水线，非常符合直觉。对于快速原型和简单流程，链确实极大提高了开发效率。而且，这种“一切皆链”的思想让追踪、回调、批处理、流式输出等能力可以无差别地应用到每个组件上，这是非常优雅的设计。\n\n滥用的风险：\n\n-
+    过度封装：很多人把一段简单的 if-else 逻辑也写成一个自定义 Chain，本来几行 Python 函数就能搞定的事，硬是套了一层 Chain 的壳，引入了大量隐式行为和
+    Pydantic 校验开销，代码反而难读、难调试。\n\n- 性能陷阱：链在内部有很多字典拆包、键映射、回调传播等隐式操作，如果不了解这些开销，把大量细粒度操作都封成
+    Chain，可能导致不必要的序列化、反序列化和字典拷贝，在高吞吐场景下问题会暴露。\n\n- 调试心智负担：一个过于复杂的链（尤其是嵌套了很多层的 SequentialChain
+    或 RouterChain），出错时你需要在脑海中还原整套链的拓扑，单步调试也异常困难，因为调用栈里全是框架代码。\n\n- 过早抽象：在业务逻辑没有稳定之前，用链强行统一所有流程，后期一旦需求变化（比如从顺序变成并行，或者条件分支变多），修改成本很高，还不如用普通函数组合。\n\n我现在的实践是：\n\n-
+    简单的、独立的功能直接用 RunnableLambda 包装一个普通 Python 函数，不刻意去继承 Chain。\n\n- 多个步骤需要组合，并且需要追踪、并发控制、错误边界时，用
+    LCEL 的 RunnableParallel、RunnableBranch 等构建 DAG，而不是用旧式 Chain 的子类。\n\n- 自定义链（继承
+    Chain）只用在需要复杂内部状态、生命周期管理（如资源初始化）或者需要暴露特殊配置的场景。\n\n- 无论用什么形式，都保持组件职责单一，链的嵌套深度不超过
+    2 层。\n\n总之，不要把“一切皆链”当成信仰。它是一个工具，当它让你的代码更清晰、更容易测试和维护时，它就是好的；当它开始掩盖逻辑、制造混乱时，就应该果断用最朴素的
+    Python 类或函数替代。这个思想本身没错，关键是使用者的工程判断力。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QpN4wGGTGiz4zzkOhzqc7iipn1e
+  block_id: BRr3dURtHo4wOIxtuHFcG1Ten9c
+  page_token: QpN4wGGTGiz4zzkOhzqc7iipn1e
+  original_title: "\U0001F9EA 9. 如何测试自定义链？你有什么策略来 mock 内部的 LLM 调用？"
+  imported_at: '2026-09-21'

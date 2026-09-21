@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0a3f587c1c09
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F310 推理服务中，多用户并发导致 OOM，如何动态管理 KV Cache？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F310 推理服务中，多用户并发导致 OOM，如何动态管理 KV Cache？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 多用户并发时，OOM 往往因为同时活跃的请求过多，KV Cache 总量超出预留池。解决思路：限制并发数、抢占与交换、前缀共享、动态伸缩池大小。\n\n\U0001F527
+    vLLM 中的动态管理策略：\n\n- 限制最大并发序列数 (--max-num-seqs)\n直接控制同时处理的请求数。超过的请求排队等待。这从源头上避免了
+    KV Cache 池耗尽。\n\n- 抢占式调度与交换 (Swapping)\n当新请求到来且 GPU 块不足时，可将某些低优先级或等待较久的请求的 KV
+    Cache 块交换到 CPU 内存，释放 GPU 块给新请求，待 GPU 有空闲时再换回。vLLM 支持自动 swap，通过 --swap-space 设定
+    CPU 交换空间大小。这是动态平衡的关键。\n\n- KV 块共享（前缀缓存）\n若多个请求共用相同的 system prompt，PagedAttention
+    可使它们映射到同一物理块，只需存一份。显著降低并发时前缀重复存储开销。\n\n- 动态调整块池（通过 gpu_memory_utilization）\n虽然这个参数是启动时固定，但可以在启动时设置为略小值，留一些显存给波动。运行时，vLLM
+    的调度器会根据当前活跃请求和空闲块数决定是否接受新请求。\n\n- 请求级超时与回收\n设置最大生成 token 数或超时时间，防止个别请求占据块过久。强制终止超长生成，立即回收
+    KV Cache 块。\n\n- 自适应批次大小\n推理引擎动态决定每个 step 执行多少请求，避免一次性接受太多请求造成峰值。\n\n\U0001F4CA
+    效果：在没有 swap 时，并发上限受总 KV 块数卡死；加入 swap 后，可允许短时超载，通过 CPU 内存缓冲，吞吐提升且不 OOM。\n\n✅ 因此，动态管理
+    KV Cache 的核心是抢占调度、交换和前缀共享，实现显存的弹性利用。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BbCrwkO3wiWmAikFy0zc2OK6nPg
+  block_id: YvFEdw8EyoHLFpxLx9GcRMe3nbg
+  page_token: BbCrwkO3wiWmAikFy0zc2OK6nPg
+  original_title: "\U0001F310 推理服务中，多用户并发导致 OOM，如何动态管理 KV Cache？"
+  imported_at: '2026-09-21'

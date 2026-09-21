@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-66e8e8ad9914
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F39B️ 如何在端侧实现多 LoRA 适配器的显存复用？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F39B️ 如何在端侧实现多 LoRA 适配器的显存复用？"
+answer:
+  mode: rubric
+  reference_answer: "端侧需要支持多种任务（如翻译、摘要、风格改写）时，可为每个任务训练一个 LoRA 适配器。显存复用旨在让所有适配器共享基础模型的权重，仅动态加载所需的
+    LoRA 矩阵，且 GPU/NPU 显存池中常驻的 LoRA 总量恒定，不随适配器数量线性增长。\n\n\U0001F527 实现方案：\n\n- \U0001F9F1
+    基础模型常驻，LoRA 外挂\n基础模型权重（4-bit 量化，约 3.5 GB）作为只读内存常驻。所有 LoRA 适配器存储于闪存，每个适配器大小通常 10–50
+    MB（取决于 rank 和应用层范围）。\n\n- \U0001F501 LoRA 权重动态换入换出\n维护一个小的 GPU/CPU 内存池（例如 100
+    MB），用于缓存当前活跃的 LoRA 矩阵。当任务切换时，若所需的 LoRA 不在池中，从闪存异步加载；若池满，则淘汰最近最少使用的（LRU）LoRA。\n类似思想已被
+    ExecuTorch 的 LoRA 支持（通过 LoraRunner）和 MNN 的 LoRA 插件采用。\n\n- \U0001F4E6 LoRA 分块管理\n将每个
+    LoRA 的 A、B 矩阵按层切分为固定大小的块，内存池按块分配。不同适配器的块可以在内存中交织复用，消除外部碎片。\n\n- \U0001F517 与底层硬件内存池集成\n在
+    iOS 上利用 Metal 的 MTLHeap，安卓上利用 Vulkan 的 VkDeviceMemory 池化分配器，确保 LoRA 块的分配和释放极其廉价，且不破坏显存连续性。\n\n-
+    \U0001F9E0 预取与合并计算\n应用层可预判用户可能使用的下一个适配器（如根据当前输入意图），在后台预加载。当批量推理时，将相同适配器的请求分组，一次性加载其
+    LoRA 块，避免频繁切换。\n\n\U0001F4CA 效果示例：\n\n在 iPhone 15 上运行 7B Q4 基础模型，加载 100 个 LoRA（每个
+    30 MB），总闪存占用 3 GB，但 GPU 内存池仅需 120 MB，切换任务时延迟 <50 ms，实现“零额外显存开销”的多任务体验。\n\n✅ 端侧多
+    LoRA 复用核心：基础权重共享 + 小容量缓存池 + 分块动态加载。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HjvUw864Ri1DrqkwVgbcfnR8n6d
+  block_id: RcZFdbDoTopAqzx7NLYcBFrinhb
+  page_token: HjvUw864Ri1DrqkwVgbcfnR8n6d
+  original_title: "\U0001F39B️ 如何在端侧实现多 LoRA 适配器的显存复用？"
+  imported_at: '2026-09-21'

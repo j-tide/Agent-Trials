@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-835232788f29
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何利用云厂商的 Spot 实例降低多模态训练成本，同时保证训练稳定性？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 如何利用云厂商的 Spot 实例降低多模态训练成本，同时保证训练稳定性？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Spot实例价格通常为按需的1/3至1/10，但随时可能被回收。多模态训练需设计弹性容错架构来利用Spot实例。
+
+    核心策略：
+
+    - 混合实例组：训练集群中，一部分为按需实例（保证基本训练），其余为Spot实例（加速训练）。按需实例作为“锚点”，保存最新的checkpoint和关键状态；Spot实例仅参与计算，不持有持久状态。
+
+    - 频繁保存checkpoint：每N步（如100步）全局保存一次checkpoint到对象存储。Spot实例被回收时，从最新checkpoint恢复，重新分配任务。
+
+    - 监控与主动撤离：通过云厂商的Spot中断通知（提前2分钟警告），主动保存当前状态，优雅退出，避免硬中断导致数据丢失。
+
+    - 动态扩缩：使用Kubernetes的Cluster Autoscaler或弹性任务调度器，当Spot实例被回收后自动申请新的Spot实例加入集群，重平衡数据并行组。
+
+    - 训练重放与断点续训：确保数据加载器可精确恢复到中断前的迭代位置，不重复也不遗漏数据。
+
+    实践：DeepSpeed的Elastic Training和TorchElastic支持动态节点变化，适合与Spot实例结合。成本可降低50%-70%，但训练总时间可能增加10%-20%（因中断恢复开销）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  block_id: BRukdfoOxoNZTxxwYMScyMdJnxg
+  page_token: KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  original_title: 如何利用云厂商的 Spot 实例降低多模态训练成本，同时保证训练稳定性？
+  imported_at: '2026-09-21'

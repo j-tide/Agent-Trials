@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-711233c1ac76
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3.2 代码实现
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 3.2 代码实现
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    import math
+
+    def compute_idf(N: int, nt: int) -> float:
+        """计算IDF，nt为包含该词的文档数"""
+        if nt == 0:
+            return 0.0
+        return math.log((N - nt + 0.5) / (nt + 0.5))
+
+    def bm25_score_single(tf: int, doc_len: int, avgdl: float,
+                          k1: float = 1.5, b: float = 0.75) -> float:
+        """计算单个查询词对单个文档的BM25贡献（不含IDF）"""
+        numerator = tf * (k1 + 1)
+        denominator = tf + k1 * (1 - b + b * (doc_len / avgdl))
+        return numerator / denominator
+
+    def bm25_score(query_terms: list, tf_map: dict, doc_len: int, avgdl: float,
+                   idf_dict: dict, k1=1.5, b=0.75) -> float:
+        """
+        计算一个文档对查询的BM25分数
+        Args:
+            query_terms: 查询的词项列表
+            tf_map: 该文档的词频字典 {term: tf}
+            doc_len: 文档长度
+            avgdl: 平均文档长度
+            idf_dict: 每个词的IDF值字典
+        """
+        score = 0.0
+        for t in query_terms:
+            tf = tf_map.get(t, 0)
+            if tf == 0:
+                continue
+            idf = idf_dict.get(t, 0.0)
+            if idf == 0.0:
+                continue
+            score += idf * bm25_score_single(tf, doc_len, avgdl, k1, b)
+        return score
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/B7NGwDRMJiFVD6kB1QPckL5enLg
+  block_id: EXkVdAJlToFFO3xmYqHciPs9nqc
+  page_token: B7NGwDRMJiFVD6kB1QPckL5enLg
+  original_title: 3.2 代码实现
+  imported_at: '2026-09-21'

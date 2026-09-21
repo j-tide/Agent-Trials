@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-be839717f56e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何针对 MoE 设计专门的初始化方法？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 如何针对 MoE 设计专门的初始化方法？
+answer:
+  mode: rubric
+  reference_answer: |-
+    MoE 的初始化需要特殊照顾，核心目标是让所有专家在训练初期获得均等的训练机会，避免一开局就坍塌。
+
+    - 门控网络初始化：通常采用均值为 0、标准差较小的正态分布（如 N(0, 1/d_model)）。这样可以确保初始 logits 值很小，经过 softmax 后接近于均匀分布，每个专家被选中的概率大致相等。例如，Megatron-LM 中会使用 --init-method-std 0.02 之类的参数来控制。
+
+    - 专家 FFN 初始化：与稠密 Transformer 中 FFN 的初始化保持一致（如 Xavier、He 初始化）。通常不需要特殊处理，但有些工作会略微缩小专家权重的初始方差，以减小专家间的初始差异。
+
+    - 路由权重零初始化：有时会将门控网络的输出权重（W_gate）初始化为 0，确保初始概率完全均等。不过随着训练进行，模型会迅速打破对称性。
+
+    - Switch Transformer 的技巧：使用均值为 0、标准差为 1/num_experts 的高斯分布初始化门控，辅助以 Gumbel noise 和较高的 dropout 率，增强早期探索。
+
+    - 学习率缩放：由于门控网络更新的有效样本数远小于专家（每个 token 只更新被激活的专家路径），门控参数的学习率可以适当降低，避免剧烈波动。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQczwN8cliZ2XSkOI26ckCcPnuf
+  block_id: M9NIdOVTNoQBE5xep1lcKaAUnpf
+  page_token: GQczwN8cliZ2XSkOI26ckCcPnuf
+  original_title: 如何针对 MoE 设计专门的初始化方法？
+  imported_at: '2026-09-21'

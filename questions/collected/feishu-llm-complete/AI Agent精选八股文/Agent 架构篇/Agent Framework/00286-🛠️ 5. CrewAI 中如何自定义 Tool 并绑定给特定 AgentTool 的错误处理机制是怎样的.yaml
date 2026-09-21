@@ -1,0 +1,110 @@
+---
+schema_version: 1
+id: feishu-llm-complete-18e96b9cb87f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E0️ 5. CrewAI 中如何自定义 Tool 并绑定给特定 Agent？Tool 的错误处理机制是怎样的？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F6E0️ 5. CrewAI 中如何自定义 Tool 并绑定给特定 Agent？Tool 的错误处理机制是怎样的？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    CrewAI 的工具体系基于 LangChain 的 BaseTool，可以轻松扩展。自定义工具只需继承 BaseTool，实现 _run 方法，并在 Agent 定义时传入。
+
+    自定义工具步骤：
+
+    from crewai.tools import BaseTool
+    from typing import Type, Optional
+    from pydantic import BaseModel, Field
+    import requests
+
+    # 1. 定义工具的输入 Schema
+    class CodeAnalyzerInput(BaseModel):
+        code_snippet: str = Field(description="需要分析的代码片段")
+        language: Optional[str] = Field(default="python", description="编程语言")
+
+    # 2. 实现工具类
+    class CodeAnalyzerTool(BaseTool):
+        name: str = "代码静态分析器"
+        description: str = "分析给定的代码片段，返回潜在的代码异味、复杂度警告和改进建议。"
+        args_schema: Type[BaseModel] = CodeAnalyzerInput
+
+        def _run(self, code_snippet: str, language: str = "python") -> str:
+            # 实际可以调用 Pylint、SonarQube 或 LLM 进行分析
+            try:
+                # 模拟分析过程
+                issues = self._analyze(code_snippet, language)
+                return f"分析结果：\n{issues}"
+            except Exception as e:
+                return f"工具执行出错：{str(e)}"
+
+        def _analyze(self, code, lang):
+            # 这里放入真实的分析逻辑
+            if "eval(" in code:
+                return "⚠️ 安全风险：发现 eval() 调用，可能导致代码注入。"
+            if len(code) > 200:
+                return "ℹ️ 代码较长，建议拆分为更小的函数。"
+            return "✅ 未发现明显问题。"
+
+    # 3. 绑定给特定 Agent
+    code_agent = Agent(
+        role="代码分析专家",
+        goal="审查代码质量并给出改进建议",
+        backstory="你是一位资深的代码审查者，能够快速发现代码中的坏味道。",
+        tools=[CodeAnalyzerTool()],
+        verbose=True
+    )
+
+    工具的错误处理机制：
+
+    CrewAI 对工具调用有一套内置的容错逻辑：
+
+    - 工具内部抛出异常时，CrewAI 捕获异常并将错误消息（如 "工具执行出错：...") 作为 Observation 返回给 Agent。
+
+    - Agent 看到错误后，可以尝试修正参数并再次调用，或者在推理中放弃该工具并改用其他方式。
+
+    - 如果启用了 verbose=True，你会在日志中看到工具调用失败的具体原因。
+
+    - 对于连续失败，Agent 会在达到最大重试次数（默认通常为 3）后放弃该工具，继续下一步推理。
+
+    自定义错误处理的最佳实践：
+
+    - 在 _run 中捕获所有异常，返回结构化的错误信息，而不是让异常直接抛出。这样 Agent 能理解错误并调整行为。
+
+    - 对于有副作用的工具（如写文件），使用事务或补偿逻辑，避免部分成功导致脏数据。
+
+    - 可以结合 CrewAI 的 max_iter 限制全局重试，防止无限循环。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/URfRwgIyEi3zoQk8qc5cj7yPnfb
+  block_id: doxcnuOKZUeR13bcUx5x0iHhWMh
+  page_token: URfRwgIyEi3zoQk8qc5cj7yPnfb
+  original_title: "\U0001F6E0️ 5. CrewAI 中如何自定义 Tool 并绑定给特定 Agent？Tool 的错误处理机制是怎样的？"
+  imported_at: '2026-09-21'

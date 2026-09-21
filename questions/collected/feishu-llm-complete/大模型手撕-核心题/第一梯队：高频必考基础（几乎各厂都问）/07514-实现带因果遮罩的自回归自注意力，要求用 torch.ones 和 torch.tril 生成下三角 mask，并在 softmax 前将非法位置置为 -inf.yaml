@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f7821ebc8757
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现带因果遮罩的自回归自注意力，要求用 torch.ones 和 torch.tril 生成下三角 mask，并在 softmax 前将非法位置置为
+  -inf。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 实现带因果遮罩的自回归自注意力，要求用 torch.ones 和 torch.tril 生成下三角 mask，并在 softmax 前将非法位置置为
+    -inf。
+answer:
+  mode: rubric
+  reference_answer: |-
+    3.1 因果掩码原理
+
+    在自回归解码中，位置 i 只能关注到位置 j (j ≤ i)，以防止信息从未来位置泄露。这通过一个下三角矩阵实现：对 attn_scores 中 j > i 的位置设为负无穷，使得 softmax 后权重为 0。
+
+    3.2 实现代码
+
+    ```python
+    def generate_causal_mask(seq_len, device):
+        # 生成 (seq_len, seq_len) 的下三角矩阵，1 表示保留，0 表示屏蔽
+        mask = torch.tril(torch.ones(seq_len, seq_len, device=device))
+        return mask
+
+    # 在 MultiHeadSelfAttention 的 forward 中应用
+    causal_mask = generate_causal_mask(seq_len, x.device)
+    attn_scores = attn_scores.masked_fill(causal_mask == 0, float('-inf'))
+    ```
+
+    如果需要支持 batch 维度，可以将因果掩码扩展为 (1, 1, seq_len, seq_len)，自动广播到 (B, num_heads, seq_len, seq_len)。
+
+    3.3 与 key_padding_mask 的组合
+
+    通常先应用 key_padding_mask，再应用 causal_mask。两者互不影响，因为 causal_mask 只限制位置关系，而 key_padding_mask 屏蔽特定位置的任何交互。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTpnwxWMsiVDwIkIoX0c1TU4ned
+  block_id: H3oCdMXQCogyJ2xwfNWcjHhxnvm
+  page_token: QTpnwxWMsiVDwIkIoX0c1TU4ned
+  original_title: 实现带因果遮罩的自回归自注意力，要求用 torch.ones 和 torch.tril 生成下三角 mask，并在 softmax
+    前将非法位置置为 -inf。
+  imported_at: '2026-09-21'

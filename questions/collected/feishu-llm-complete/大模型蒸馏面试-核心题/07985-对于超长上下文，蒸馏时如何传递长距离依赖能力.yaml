@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7d6be5bd7f4f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对于超长上下文，蒸馏时如何传递长距离依赖能力？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型蒸馏面试-核心题
+derived_topic: 
+tags: &1
+- 大模型蒸馏面试-核心题
+content:
+  prompt: 对于超长上下文，蒸馏时如何传递长距离依赖能力？
+answer:
+  mode: rubric
+  reference_answer: |-
+    将大模型处理超长上下文（如128K、1M tokens）的能力蒸馏到小模型，需传递其在长文中定位、关联、摘要、推理的机制。
+
+    挑战：
+
+    - 长距离依赖需要注意力机制跨越大段无关文本，小模型往往由于层数、头数、隐藏维度限制，难以模拟。
+
+    - 教师可能用内部检索或记忆式操作，这些隐式过程仅靠输出蒸馏无法迁移。
+
+    传递方法：
+
+    （1）长上下文数据构造
+
+    - 用教师处理长文档，生成相关的问答对、摘要、翻译、检索定位等数据，让小模型直接学习在长上下文上的输出。数据需涵盖不同的依赖跨度（近距、中距、长距），并包含需要跨证据融合的任务。
+
+    - 合成“大海捞针”式数据：在长文档中随机放置关键事实，提问需引用这些事实，强迫模型学习远距离注意力。
+
+    （2）注意力蒸馏
+
+    - 将教师模型中不同头在不同位置对远距离 token 的注意力分布提取出来，让学生模仿这些注意力模式。例如，对于长文档问答，教师会强烈关注到远处包含答案的句子，学生匹配该注意力分布。
+
+    - 可采用分块注意力对齐：将长序列切块，对每个块的关键 token 进行注意力转移蒸馏，减少计算量。
+
+    （3）层次化蒸馏
+
+    - 大模型通常在内部隐式地构建层次表示（句子 -> 段落 -> 文档）。让学生也显式或隐式地学习这种层次聚合。可通过蒸馏中间层对长距离片段的汇聚表示来实现。
+
+    - 训练学生使用全局记忆 token（如 register tokens）来捕获全局上下文，并蒸馏教师在这些 token 上的特征。
+
+    （4）利用循环或记忆增强架构
+
+    - 如果学生采用线性注意力、状态空间模型或外部记忆模块，可将教师的跨块信息总结为记忆状态，然后蒸馏这些记忆状态的内容。
+
+    - 对于 Transformer 小模型，通过蒸馏促使其学会利用位置编码进行远距离检索，可使用旋转位置编码蒸馏或相对位置偏好的迁移。
+
+    （5）过程监督的思维链蒸馏
+
+    - 让教师展示其处理长文的步骤：先找到相关段落，再推理，最后回答。将此思维链条完整蒸馏，学生学会分步定位，减小对一次性全局注意力的依赖。
+
+    （6）多阶段课程学习
+
+    - 先在中长上下文（如8K）进行蒸馏，逐渐扩展至更长，使学生逐步构建长距离编码能力。
+
+    通过这些组合，小模型可以在有限容量内习得有效的长距离依赖处理策略，性能逼近大模型。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QL86wYWUwi6Ho0kQFiacbXeSnqE
+  block_id: IR7NdUDSMowq3VxoIaScvbQHnlD
+  page_token: QL86wYWUwi6Ho0kQFiacbXeSnqE
+  original_title: 对于超长上下文，蒸馏时如何传递长距离依赖能力？
+  imported_at: '2026-09-21'

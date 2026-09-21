@@ -1,0 +1,104 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2ab5427200c9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F501 2. Oplog 的幂等性设计是怎样的？固定集合大小如何影响复制？Oplog 窗口与复制延迟有什么关系？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F501 2. Oplog 的幂等性设计是怎样的？固定集合大小如何影响复制？Oplog 窗口与复制延迟有什么关系？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    2.1 幂等性设计
+
+    幂等性意味着：同一条操作在从库上执行一次和执行多次，最终的数据结果完全相同。 这是保证从库安全重放 Oplog 的基石。MongoDB 通过以下设计保证幂等性：
+
+    - insert 转换为 upsert：对于插入操作，从库在执行时会将其视为“如果 _id 已存在则不做任何事”。这样即使因为网络波动导致 Oplog 重复发送，也不会插入重复文档。
+
+    - update 使用操作符，而非覆盖值：Oplog 中记录的 update 通常使用 $set、$inc 等操作符（如上例中的 { "$set": { "qty": 5 } }），这些操作符执行多次的效果和执行一次一样，不会因为重复执行而把字段加成意外值。如果无法使用操作符（例如用户执行的更新是直接替换整个文档），Oplog 会记录替换后的完整文档，这样重放多次也只是反复写入同一个文档。
+
+    - delete 变为条件删除：删除操作被记录为 { op: "d", o: { _id: ... } }，从库只根据 _id 删除。即使文档已经被删过一次，再次执行也不会报错或产生副作用。
+
+    ```javascript
+    // 主库执行：db.orders.updateOne({ _id: 1 }, { $inc: { qty: 1 } })
+    // Oplog 记录为：{ op: "u", o2: { _id: 1 }, o: { "$inc": { "qty": 1 } } }
+    // 从库无论执行多少次，最终 qty 都只增加 1
+    ```
+
+    2.2 固定集合大小与 Oplog 窗口
+
+    Oplog 固定集合的大小直接决定了 Oplog 窗口——即主库能“记住”多长时间的写操作历史。
+
+    ```text
+    Oplog 容量 (oplogSizeMB)
+             ↕
+    Oplog 窗口 (时间)
+             ↕
+    从库能容忍的最大离线时间
+    ```
+
+    计算公式（经验值）：
+
+    ```text
+    Oplog 窗口 (秒) ≈ Oplog 容量 (MB) / 平均写入速率 (MB/s)
+    ```
+
+    例如，Oplog 容量为 5 GB，主库平均写入速率为 1 MB/s，那么 Oplog 窗口大约就是 5000 秒（约 83 分钟）。如果某个从库因为网络中断、维护重启等原因离线超过 83 分钟，它重新连接后会发现，自己上次同步到的那个 ts 时间戳对应的 Oplog 记录已经被新写入覆盖了。此时，从库就无法通过增量 Oplog 追上主库，而是会进入 RECOVERING 状态，需要执行一次全量同步（Initial Sync）来重建数据。
+
+    2.3 复制延迟与 Oplog 的关系
+
+    复制延迟（Replication Lag）是指从库重放 Oplog 的速度慢于主库写入速度的程度。Oplog 窗口决定了从库能承受的最大复制延迟，而不是复制延迟本身。
+
+    - Oplog 窗口大：即使复制延迟偶尔飙高，只要不超出窗口，从库依然可以慢慢追上。
+
+    - Oplog 窗口小：稍有网络抖动或从库负载升高，复制延迟就很容易超过窗口，导致从库被迫全量同步，这又会反过来加剧主库的 IO 和网络压力，形成恶性循环。
+
+    监控命令：
+
+    ```javascript
+    // 查看主库的 Oplog 状态
+    rs.printReplicationInfo()
+    // 输出示例：
+    // configured oplog size:   5120 MB
+    // log length start to end: 4500 secs (1.25 hrs)
+    // oplog first event time:  Mon Jul 05 2026 10:00:00 GMT+0800
+    // oplog last event time:   Mon Jul 05 2026 11:15:00 GMT+0800
+
+    // 查看从库的复制延迟
+    rs.printSecondaryReplicationInfo()
+    // 输出示例：
+    // source: mongo2:27017
+    //     syncedTo: Mon Jul 05 2026 11:14:00 GMT+0800
+    //     replLag: 60 secs
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BXVdwSFoCiy4apkiMglchiTGnmh
+  block_id: doxcnbGKAKpDbhl1oNxUxz5DfAj
+  page_token: BXVdwSFoCiy4apkiMglchiTGnmh
+  original_title: "\U0001F501 2. Oplog 的幂等性设计是怎样的？固定集合大小如何影响复制？Oplog 窗口与复制延迟有什么关系？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1118967791e4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么不能直接用 SFT 数据的生成概率差异来构造偏好对？（即模型生成的 vs 人类写的）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 2-偏好数据与奖励建模
+tags: &1
+- RLHF面试高频考点
+- 2-偏好数据与奖励建模
+content:
+  prompt: 为什么不能直接用 SFT 数据的生成概率差异来构造偏好对？（即模型生成的 vs 人类写的）
+answer:
+  mode: rubric
+  reference_answer: |-
+    这似乎很诱人：既然 SFT 模型给人类写的高质量回答的概率（loss）低，给模型自己生成的回答的概率高，那概率差不就直接反映了偏好吗？但这一直觉在理论与实践中都存在严重缺陷。
+
+    - 概率高低不等于偏好排序
+    语言模型的条件概率 P(y∣x)P(y∣x) 衡量的是“在训练语料中，这段文本出现的可能性”。人类标注的偏好衡量的是“这段文本作为回答，对用户的价值”。两者有本质区别。
+
+    - 一个极度安全、有礼貌、但信息量为零的回答（“感谢您的提问，这个问题非常有趣，我需要仔细思考”）可能被标注为低质量，但由于它在互联网文本中频繁出现，SFT 模型会给它极高的概率。
+
+    - 一个信息极度浓缩、专业术语多、在互联网上罕见的精彩回答，SFT 模型给的概率可能很低，但人类标注会给予极高偏好。
+
+    - 因此，概率差无法作为偏好信号的可靠代理。
+
+    - SFT 模型本身的偏向性
+
+    SFT 模型在训练时，被优化去模仿训练数据。如果 SFT 数据本身有偏见（如过多详细回答），那么模型就会系统性地给这类回答更高的概率，即使它们在某些场景下是冗余的。此时，概率差的排名实际上反映的是“训练数据的分布偏差”，而非“人类真实的偏好”。
+
+    - 概率空间的不对齐
+
+    人类偏好往往是多维度的（有用、诚实、无害），而 SFT 模型的条件概率是一个一维的标量。我们无法从概率差中解耦出哪些是因为更有用而概率高，哪些是因为更符合语言风格而概率高。用这种混淆的信号训练 RM，RM 学到的将是“SFT数据分布的内插”，而非“人类价值观”。
+
+    - 分布外问题
+
+    如果候选回答是来自一个从未在 SFT 数据中出现过的更强大模型，SFT 模型对其评估的概率可能极不可靠。它会因为“没见过”而给予极低的概率，但这并不代表它质量差。
+
+    所以，偏好数据必须通过显式的比较和标注来获取，而不能从 SFT 概率中自动挖掘。虽然最近一些工作（如利用 DPO 可以直接从偏好对学习，而不需要显式 RM）看似接近，但 DPO 所需的偏好对仍然必须来自人类或 AI 的真实比较判断，而非概率差。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AujZwyYTLivSSOk0ZOdccL5Mnyg
+  block_id: Cum6diSDLotjMSxQftyciWQznuh
+  page_token: AujZwyYTLivSSOk0ZOdccL5Mnyg
+  original_title: 为什么不能直接用 SFT 数据的生成概率差异来构造偏好对？（即模型生成的 vs 人类写的）
+  imported_at: '2026-09-21'

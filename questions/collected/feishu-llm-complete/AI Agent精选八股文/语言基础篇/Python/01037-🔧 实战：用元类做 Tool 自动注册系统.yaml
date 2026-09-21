@@ -1,0 +1,96 @@
+---
+schema_version: 1
+id: feishu-llm-complete-64c6605ada12
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F527 实战：用元类做 Tool 自动注册系统"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 语言基础篇 / Python
+tags: &1
+- AI Agent精选八股文
+- 语言基础篇
+- Python
+content:
+  prompt: "\U0001F527 实战：用元类做 Tool 自动注册系统"
+answer:
+  mode: rubric
+  reference_answer: |-
+    假设咱们在写一个 AI Agent 框架，开发者只要写一个类继承 BaseTool，就自动注册到工具库，不用手动调用任何 register 函数。
+
+    先看元类的实现：
+
+    ```python
+    # tool_registry.py
+    class ToolRegistryMeta(type):
+        registry = {}  # 全局工具库
+
+        def __new__(mcs, name, bases, namespace):
+            # 跳过基类 BaseTool 本身，不注册
+            cls = super().__new__(mcs, name, bases, namespace)
+            if name != 'BaseTool':
+                # 约定：必须有 name 属性和 execute 方法
+                if 'execute' not in namespace or not callable(namespace['execute']):
+                    raise TypeError(f"Tool {name} must implement 'execute' method")
+                tool_name = namespace.get('name', name.lower())
+                mcs.registry[tool_name] = cls
+            return cls
+
+    # 基类用这个元类
+    class BaseTool(metaclass=ToolRegistryMeta):
+        def execute(self, **kwargs):
+            raise NotImplementedError
+
+    # 使用：开发者只管写子类，自动注册
+    class SearchTool(BaseTool):
+        name = "search"
+        description = "Search the web"
+        def execute(self, query, **kwargs):
+            return f"Searching for {query}..."
+
+    class CalculatorTool(BaseTool):
+        name = "calc"
+        def execute(self, expression, **kwargs):
+            return eval(expression)
+
+    # 查看自动注册结果
+    print(ToolRegistryMeta.registry)
+    # {'search': <class 'SearchTool'>, 'calc': <class 'CalculatorTool'>}
+    ```
+
+    这样，任何新写的 Tool 子类，只要被定义，就立即进入 registry。不用维护额外的注册表，不会因为忘记手动注册而漏掉工具。
+
+    元类这里做对了三件事：
+
+    - 在类创建时强制检查必须实现 execute，把错误提前。
+
+    - 自动化注册，开发者零感知。
+
+    - 注册中心挂在元类上，单一数据源，不会散落各处。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BX9xwAT3ei9befksFqDcL4rgnuc
+  block_id: doxcnXaWeqdZ2MR49l4mlI253Bd
+  page_token: BX9xwAT3ei9befksFqDcL4rgnuc
+  original_title: "\U0001F527 实战：用元类做 Tool 自动注册系统"
+  imported_at: '2026-09-21'

@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-768707f666f5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 四个模型是否可以放在不同的 GPU 上？这会引入什么通信开销？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: 四个模型是否可以放在不同的 GPU 上？这会引入什么通信开销？
+answer:
+  mode: rubric
+  reference_answer: |-
+    完全可以，并且这是大规模 RLHF 训练的标准配置，即所谓的“模型并行”和“流水线并行”。 尤其在千亿参数模型下，单个 GPU 根本放不下四个模型。
+
+    典型的放置策略：
+
+    - Actor 和 Critic：由于它们需要频繁地进行梯度同步，且是训练的计算核心，通常被放置在多个 GPU 上，使用张量并行或流水线并行。
+
+    - Reference 模型和 Reward Model：它们是冻结的推理模型，计算量相对小。常常被单独放置在 1-2 个 GPU 上，或者与 Actor/Critic 共享部分 GPU 但逻辑隔离。
+
+    通信开销分析：
+
+    主要的通信瓶颈发生在从采样 GPU 到推理 GPU 的数据传输，以及分布式训练时模型间的梯度同步。
+
+    - 序列数据传输：Actor 生成完一批回复后，需要将这些文本序列（及其 token IDs）发送给 Reference 和 RM 所在的 GPU。这部分传输的原始数据量（通常是 token IDs 和 attention masks）相对模型参数来说较小，但 batch size 大或序列极长时，也可能成为不可忽视的延迟。通常通过 NCCL 高速互联进行。
+
+    - 奖励与 KL 结果回传：RM 和 Reference 计算出奖励分数和 token 级对数概率后，需要将这些小规模张量（标量或与序列长度相当的小张量）传回 Actor 的训练 GPU。这部分通信开销极小。
+
+    - 分布式训练同步：Actor 和 Critic 在各自的多 GPU 组内进行前向和反向传播时，需要进行梯度的 AllReduce 通信。这才是真正的通信大头。RM 和 Reference 不参与训练，因此不产生这部分开销。
+
+    优化策略：
+
+    - 异步流水线：Actor 采样完一批数据后，立刻开始下一批的采样，同时将当前批数据异步发送给 RM/Ref 进行计算。当下一批采样完成时，上一批的奖励和 KL 已经计算完毕，可以几乎无延迟地开始训练。这完全隐藏了推理模型的通信和计算延迟。
+
+    - 本地化部署：尽可能让 Reference 和 RM 模型与 Actor 共享一个节点内的 GPU，利用 NVLink 等高速互联降低传输延迟。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UCjewCVubi1tThkQzKzczCP2nyc
+  block_id: FuqQd3lCtodCMIxYcUpcUFsPnD2
+  page_token: UCjewCVubi1tThkQzKzczCP2nyc
+  original_title: 四个模型是否可以放在不同的 GPU 上？这会引入什么通信开销？
+  imported_at: '2026-09-21'

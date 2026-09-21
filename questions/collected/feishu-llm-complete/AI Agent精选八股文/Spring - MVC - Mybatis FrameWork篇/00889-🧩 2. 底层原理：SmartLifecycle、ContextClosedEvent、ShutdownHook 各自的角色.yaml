@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2d602cffe65d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 2. 底层原理：SmartLifecycle、ContextClosedEvent、ShutdownHook 各自的角色"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: "\U0001F9E9 2. 底层原理：SmartLifecycle、ContextClosedEvent、ShutdownHook 各自的角色"
+answer:
+  mode: rubric
+  reference_answer: "我习惯把优雅停机的底层协作比作一场交响乐，有三个主角：\n\n2.1 触发源头：ShutdownHook（JVM 关门前的最后哨兵）\n\n当进程收到
+    SIGTERM 或正常结束时，JVM 会启动 ShutdownHook 线程。Spring Boot 启动时，通过 ApplicationContext 注册了一个钩子，里面只做一件事：\n关闭
+    Spring 容器，即调用 context.close()。\n\n- 角色：操作系统和 Spring 之间的桥梁，把 JVM 退出事件转化成 Spring
+    容器关闭动作。\n\n- 注意：kill -9 或系统崩溃不会触发它，所以优雅停机只对“礼貌退出”有效。\n\n2.2 事件广播：ContextClosedEvent（内部信号塔）\n\ncontext.close()
+    执行时，Spring 会按顺序：\n\n- 发布 ContextClosedEvent 事件 —— 这让所有监听该事件的 Bean 能执行清理逻辑。\n\n-
+    销毁所有单例 Bean（先执行 DisposableBean.destroy()）。\n\n- 触发 LifecycleProcessor.onClose()，开始执行
+    SmartLifecycle 的 stop 方法。\n\n角色：生命周期事件的发布中心，让开发者可以解耦地感知关闭动作，比如记录日志、释放连接池、停止定时任务。\n\n2.3
+    有序关闭的执行官：SmartLifecycle（优雅停机的骨架）\n\nSmartLifecycle 继承自 Lifecycle，最关键的是增加了 阶段（phase）和是否自动启动/停止
+    的控制。在关闭时，所有 SmartLifecycle 的 stop() 方法会按照 phase 从大到小的逆序 调用。\n\n举个例子：\n\n- 内嵌 Web
+    服务器的生命周期实现，phase 一般设为 Integer.MAX_VALUE - ... 很高的值，这样它会在 最后才停止，保证在它停止前，其他业务 Bean（如处理请求的控制器）还在。\n\n-
+    而我们自定义的 SmartLifecycle，可以设置 phase 值，确保 先于 Web 服务器停止执行。\n\n角色：提供了可控的关闭顺序。比如你的 Agent
+    服务可以在 stop() 中：\n\n- 向所有活跃 SSE 客户端发送“服务即将重启”的最后一条消息，并关闭连接。\n\n- 等待队列中的 LLM 调用结果返回或超时。\n\n\U0001F4A1
+    这三者配合的精妙之处在于：ShutdownHook 负责“喊停”，ContextClosedEvent 负责“广播”，SmartLifecycle 负责“有序撤军”。
+    理解了这层关系，你就能任意定制任何复杂关闭逻辑了。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NHwYwCwRDiPz1OkM3b9cXNBinUd
+  block_id: doxcnzk04yuZTgSfwkdlXcWJtZb
+  page_token: NHwYwCwRDiPz1OkM3b9cXNBinUd
+  original_title: "\U0001F9E9 2. 底层原理：SmartLifecycle、ContextClosedEvent、ShutdownHook
+    各自的角色"
+  imported_at: '2026-09-21'

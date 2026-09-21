@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-85b2d12b3cb6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E1️ 2. 在 Agent 高并发场景下，如何系统性防护缓存穿透、击穿和雪崩？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F6E1️ 2. 在 Agent 高并发场景下，如何系统性防护缓存穿透、击穿和雪崩？"
+answer:
+  mode: rubric
+  reference_answer: "在 Agent 系统里，缓存穿透可能发生在“恶意高频查询不存在的知识库条目”；击穿可能发生在“某个爆款 Agent 工具的调用结果频繁过期”；雪崩则容易出现在“所有会话状态
+    Key 使用了同一个过期时间”。\n\n我们需要建立一套主动防御 + 被动容错的立体防护体系。\n\n2.1 缓存穿透防护\n\n策略一：布隆过滤器\n\n在缓存和数据库之前，加一个布隆过滤器。它可以用极小的内存判断“一个
+    key 一定不存在或可能存在”。将所有合法的 Key 预先加入过滤器。当请求到来时，先问过滤器：这个 Key 在集合里吗？如果返回“不在”，直接拒绝，根本不走到缓存和数据库层。这能拦截
+    99% 的非法 Key 穿透。\n\nimport redis\nfrom pybloom_live import BloomFilter\n\nr = redis.Redis()\n#
+    创建布隆过滤器，假设有 100 万个合法 Key\nbf = BloomFilter(capacity=1000000, error_rate=0.001)\n\n#
+    初始化：将数据库中所有合法 Key 加入过滤器（定时任务同步）\nfor key in fetch_all_valid_keys_from_db():\n
+    \   bf.add(key)\n\ndef get_data(key):\n    # 1. 布隆过滤器拦截\n    if key not in bf:\n
+    \       return None  # 直接拒绝，不走缓存和DB\n    # 2. 查缓存\n    data = r.get(key)\n    if
+    data:\n        return data\n    # 3. 查数据库\n    data = db.query(key)\n    if data:\n
+    \       r.setex(key, 3600, data)\n        return data\n    # 4. 如果数据库也没有，缓存空对象防止短时间重复穿透\n
+    \   r.setex(key, 60, \"null\")\n    return None\n\n策略二：缓存空对象\n\n如果布隆过滤器漏过了一些请求，且数据库确实也没有这个
+    Key，我们可以将这个 Key 缓存一个“空对象”（或特殊标记），并设置较短的过期时间（如 30 秒）。这样后续同一 Key 的请求就能被缓存拦截，不会持续打到数据库。\n\n策略三：请求入口校验\n在业务层直接过滤掉非法参数。例如对于
+    id 参数，必须是正整数，长度不超过限制等。这是最简单也是最有效的第一道防线。\n\n2.2 缓存击穿防护\n\n策略一：互斥锁\n当缓存失效时，只允许第一个线程去加载数据库并重建缓存，其他线程等待锁释放。这能保证数据库不会被同一
+    Key 的并发请求打垮。在 Redis 中可以用 SETNX 实现。\n\nimport redis, time\n\nr = redis.Redis()\n\ndef
+    get_data_with_lock(key):\n    data = r.get(key)\n    if data:\n        return
+    data\n    \n    lock_key = f\"lock:{key}\"\n    # 尝试获取锁，设置过期时间 10 秒防止死锁\n    if
+    r.setnx(lock_key, \"1\"):\n        r.expire(lock_key, 10)\n        try:\n            #
+    双重检查，防止锁内重复查库\n            data = r.get(key)\n            if data:\n                return
+    data\n            data = db.query(key)\n            if data:\n                r.setex(key,
+    3600, data)\n            else:\n                r.setex(key, 60, \"null\")\n            return
+    data\n        finally:\n            r.delete(lock_key)\n    else:\n        # 没抢到锁，等一会儿重试\n
+    \       time.sleep(0.1)\n        return get_data_with_lock(key)  # 递归重试\n\n策略二：永不过期
+    + 异步刷新\n\n对极端热点的 Key，我们不设置过期时间，而是在逻辑上设计“逻辑过期”。启动一个后台线程，定期检查这些热点 Key 的逻辑过期时间，一旦过期，用后台线程去更新缓存，而主线程直接返回旧值（物理上永不过期）。这样热点
+    Key 永远不会真正失效，也就不会有击穿。\n\n# 逻辑过期时间存 hash\nr.hset(\"hotkey\", \"data\", \"value123\")\nr.hset(\"hotkey\",
+    \"expire_at\", time.time() + 60)  # 逻辑过期时间\n\ndef get_hot_data(key):\n    meta
+    = r.hgetall(key)\n    if not meta:\n        return None\n    if time.time() <
+    float(meta[b'expire_at']):\n        return meta[b'data']\n    # 已逻辑过期：异步刷新缓存，仍返回旧值\n
+    \   asyncio.create_task(refresh_cache(key))\n    return meta[b'data']\n\n2.3 缓存雪崩防护\n\n策略一：过期时间加随机偏移\n\n避免大量
+    Key 在同一时刻过期。为每个 Key 的过期时间增加一个随机值，将集中失效的风险打散。\n\nimport random\n# 基础过期时间 1 小时，随机偏移
+    0-600 秒\nttl = 3600 + random.randint(0, 600)\nr.setex(key, ttl, value)\n\n策略二：多级缓存
+    + 降级熔断\n\n构建 Redis 主从/哨兵/集群架构，避免单点故障。同时，在应用层引入断路器。当 Redis 不可用时，自动降级为读取本地内存缓存、或直接返回友好提示，避免流量全部打到数据库。Sentinel
+    会自动进行故障转移。\n\n策略三：流量削峰与限流\n\n在网关层或 Agent 入口处进行流量整形（令牌桶/漏桶），保证到达 Redis 的请求量不会瞬间爆发。这能显著降低雪崩的冲击力。\n\n策略四：服务降级\n\n当数据库压力过大时，有选择地关闭非核心功能，例如暂时关闭复杂的
+    Agent 推理功能，只返回预设的友好提示，优先保证核心链路存活。\n\n在 Agent 场景中的针对性设计：\n\n- Embedding 缓存：计算 Embedding
+    非常昂贵，属于典型的热点数据。使用“永不过期 + 异步刷新”策略，并在 Key 过期时间上打散。\n\n- LLM 调用结果缓存：对高频 Query 的最终回答进行缓存，使用“互斥锁”防止击穿。\n\n-
+    会话状态缓存：使用 Redis Cluster 分散存储，避免单点压力；并设置合理的过期时间，过期后引导用户重新开始会话。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Q9QMw2nf7ixgxGkQ9NUcjdpZno0
+  block_id: doxcn5hGZe3Q8EXR2m8mnDGDoqc
+  page_token: Q9QMw2nf7ixgxGkQ9NUcjdpZno0
+  original_title: "\U0001F6E1️ 2. 在 Agent 高并发场景下，如何系统性防护缓存穿透、击穿和雪崩？"
+  imported_at: '2026-09-21'

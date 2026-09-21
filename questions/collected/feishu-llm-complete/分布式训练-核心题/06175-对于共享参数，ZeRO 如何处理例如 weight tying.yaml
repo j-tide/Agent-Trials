@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-40725c611f49
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对于共享参数，ZeRO 如何处理？例如 weight tying。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 对于共享参数，ZeRO 如何处理？例如 weight tying。
+answer:
+  mode: rubric
+  reference_answer: |-
+    Weight tying（如输入嵌入和输出嵌入共享权重）让模型的两个不同层引用同一个参数张量。在分片存储时，必须保证这个共享参数只被存储一次，并且在更新和通信时保持一致。
+
+    DeepSpeed的处理机制：
+
+    - 在模型初始化时，识别出所有共享参数（通过Python的id()或is判断）。
+
+    - 为共享参数分配唯一的参数ID，并在ZeRO分片中只保留一份优化器状态和分片。
+
+    - 前向和反向传播时，所有引用该参数的位置都使用同一个参数分片，通过AllGather获取完整参数时，只会产生一次通信。
+
+    - 保存checkpoint时，DeepSpeed会记录共享关系，合并权重时确保只生成一个张量，不会重复保存。
+
+    如果处理不当，会导致训练时梯度更新重复应用，或者checkpoint中权重不一致。DeepSpeed内部对常见共享模式（如HuggingFace的tie_weights()）有良好支持，用户通常无需干预。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: ISUMdN4LMoWNiwx0KrEcgucHnyg
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: 对于共享参数，ZeRO 如何处理？例如 weight tying。
+  imported_at: '2026-09-21'

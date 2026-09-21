@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-663868e485cd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 LangChain 中，如何实现多租户的模型调用（每个租户用不同的 API key）？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 一、基础认知与核心设计
+tags: &1
+- LangChain面（高频）
+- 一、基础认知与核心设计
+content:
+  prompt: 在 LangChain 中，如何实现多租户的模型调用（每个租户用不同的 API key）？
+answer:
+  mode: rubric
+  reference_answer: "\U0001F3E2 多租户架构要求不同租户使用独立的 API Key，以实现计费隔离、速率限制和数据隐私。LangChain
+    本身没有内置多租户机制，但可以通过灵活的组件封装实现。\n\n\U0001F527 实现方案：\n\n- 动态创建 ChatModel 实例\n在每次请求时，根据租户
+    ID 从租户配置服务中获取对应的 API Key，然后用该 Key 初始化 ChatOpenAI（或 ChatAnthropic 等）。示例：\n\nfrom
+    langchain_openai import ChatOpenAI\ndef get_model_for_tenant(tenant_id: str) ->
+    ChatOpenAI:\n    tenant_config = tenant_service.get_config(tenant_id)\n    return
+    ChatOpenAI(\n        model=tenant_config[\"model\"],\n        openai_api_key=tenant_config[\"api_key\"],\n
+    \       temperature=tenant_config.get(\"temperature\", 0.7),\n    )\n\n- 在链中动态注入模型\n由于
+    LCEL 的链是不可变的，每次请求需要重新构建链或使用可动态绑定的组件。推荐使用 RunnableLambda 或 RunnablePassthrough
+    动态选择模型：\n\nfrom langchain_core.runnables import RunnableLambda\n\ndef tenant_chain(tenant_id:
+    str):\n    model = get_model_for_tenant(tenant_id)\n    return prompt | model
+    | parser\n\n# 在请求处理中\nchain = tenant_chain(request.tenant_id)\nresult = chain.invoke({\"question\":
+    \"...\"})\n\n- 缓存模型实例以提高性能\n为每个租户缓存模型实例（使用 functools.lru_cache 或 Redis），避免每个请求都创建新的模型对象（初始化开销包括网络连接、Token
+    加载等）。\n\n- 速率限制与成本控制\n在模型调用外层包装一个限流器，根据租户的配额限制请求速率。可以使用 asyncio.Semaphore 或专业的速率限制库。\n\n-
+    审计与监控\n在回调中记录每次调用的租户 ID、模型名称、Token 用量、API Key 的哈希值（绝不记录明文 Key），便于成本分析和安全审计。\n\n⚠️
+    安全提醒：API Key 属于敏感信息，应使用专门的秘密管理服务（如 HashiCorp Vault、AWS Secrets Manager）存储和获取，不可明文写入代码或配置文件。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/USKKwi5KSi2ZMjkmlvGcAON4nag
+  block_id: CEZSdzfs5o6eegxUlRecWnX5nPc
+  page_token: USKKwi5KSi2ZMjkmlvGcAON4nag
+  original_title: 在 LangChain 中，如何实现多租户的模型调用（每个租户用不同的 API key）？
+  imported_at: '2026-09-21'

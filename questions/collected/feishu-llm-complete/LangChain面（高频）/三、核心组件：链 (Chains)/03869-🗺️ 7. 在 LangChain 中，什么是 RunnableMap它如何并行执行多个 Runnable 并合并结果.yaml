@@ -1,0 +1,92 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5881c279ec1b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F5FA️ 7. 在 LangChain 中，什么是 RunnableMap？它如何并行执行多个 Runnable 并合并结果？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "\U0001F5FA️ 7. 在 LangChain 中，什么是 RunnableMap？它如何并行执行多个 Runnable 并合并结果？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    RunnableMap 是 LCEL 里实现并行编排的核心原语之一，它实际上就是 RunnableParallel 的别名（从源码看，RunnableMap 直接指向 RunnableParallel）。它的作用很纯粹：接收一个字典，键是输出字段名，值是对应的 Runnable；执行时，所有 Runnable 并发运行，最后将所有结果合并成一个字典输出。
+
+    并行执行机制：
+    当你调用 RunnableMap 时，它会为每个值启动一个独立的执行任务。如果是同步调用，默认使用线程池让这些任务并发跑；如果是异步调用，则通过 asyncio.gather 在事件循环中并行跑。最终输出结果的字典结构和定义时的键保持完全一致，不会因并发完成顺序而错乱。
+
+    举个实际例子：我们要分析一段文本，同时获取它的英文翻译、情感分析和关键词提取，这三件事互不依赖，可以并行：
+
+    ```python
+    from langchain_core.runnables import RunnableMap, RunnableLambda
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_openai import ChatOpenAI
+
+    model = ChatOpenAI(model="gpt-4o")
+
+    translate_chain = ChatPromptTemplate.from_template("Translate to English: {text}") | model
+    sentiment_chain = ChatPromptTemplate.from_template("Sentiment of: {text}") | model
+    keywords_chain  = ChatPromptTemplate.from_template("Extract keywords: {text}") | model
+
+    parallel_chain = RunnableMap({
+        "translation": translate_chain,
+        "sentiment": sentiment_chain,
+        "keywords": keywords_chain,
+    })
+
+    result = parallel_chain.invoke({"text": "人工智能正在改变世界"})
+    # result = {"translation": "AI is changing the world", "sentiment": "positive", "keywords": "AI, world"}
+    ```
+
+    背后的并行细节：
+
+    - 同步 invoke：使用 ThreadPoolExecutor，默认线程数和 CPU 核数相关。由于 LLM 调用是 IO 密集型，Python 的 GIL 影响不大。
+
+    - 异步 ainvoke：使用 asyncio.gather，真正在同一线程内并发执行，效率更高，适合高并发服务。
+
+    - 它也遵守 max_concurrency 配置，如果设置了并发上限，那么即使 map 里有 100 个 key，也只会同时跑那么多。
+
+    合并结果：当所有分支都成功后，框架将各分支返回的 dict 或值按 key 合并。如果某一分支返回的也是一个 dict，它的内容不会被自动展开，而是作为一个整体值赋给那个 key。这很符合直觉。如果你想要将多个分支的结果打平成一个 dict，需要自己后续用 RunnableLambda 处理。
+
+    使用场景：
+
+    - 同时调用多个独立的 LLM 服务（如翻译、摘要、分类）。
+
+    - 同时从多个数据源获取信息（向量库 + API + 数据库），然后汇总。
+
+    - 并行预处理输入的多个字段。
+
+    总之，RunnableMap 是 LCEL 走向真正复杂工作流编排的基石，它把并行从“高级特性”降级为“一个普通操作符”，极大降低了编写并发安全的 LLM 应用的门槛。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GVyNwmUlOitEZBkWqxUchfRtnfh
+  block_id: L707dB1VQoc4xlxS155cQvLCnnb
+  page_token: GVyNwmUlOitEZBkWqxUchfRtnfh
+  original_title: "\U0001F5FA️ 7. 在 LangChain 中，什么是 RunnableMap？它如何并行执行多个 Runnable
+    并合并结果？"
+  imported_at: '2026-09-21'

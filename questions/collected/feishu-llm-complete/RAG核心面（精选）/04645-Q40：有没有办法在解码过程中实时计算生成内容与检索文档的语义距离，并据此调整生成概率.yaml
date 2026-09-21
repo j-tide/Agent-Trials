@@ -1,0 +1,49 @@
+---
+schema_version: 1
+id: feishu-llm-complete-743fab6cc7bd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Q40：有没有办法在解码过程中实时计算生成内容与检索文档的语义距离，并据此调整生成概率？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RAG核心面（精选）
+derived_topic: 
+tags: &1
+- RAG核心面（精选）
+content:
+  prompt: Q40：有没有办法在解码过程中实时计算生成内容与检索文档的语义距离，并据此调整生成概率？
+answer:
+  mode: rubric
+  reference_answer: "\U0001F504 这涉及解码时的可控生成，核心是在 beam search 或采样过程中注入一个“忠实度奖励”，实时引导模型更贴近检索内容。\n\n\U0001F52C
+    具体方案：\n\n- 实时语义距离计算：在每生成一个 token（或每生成一个短语）时，将当前已生成的部分序列与检索到的文档集合拼接，用一个轻量级的交叉编码器（或
+    sentence-embedding 模型）计算生成部分与文档集的语义相似度或蕴含分数。这个模型必须极度轻量（比如 DistilBERT-tiny），否则解码速度无法接受。\n\n-
+    调整 logits：将语义相似度转化为奖励信号，加到当前待选 token 的 logits 上。公式：logits = logits_original +
+    λ * gradient_of_similarity，或更简单，取上一步的相似度分数，对 top-k 候选中那些能引导到更忠实的序列给予加权。具体可以使用
+    FUDGE（Future Discriminators for Generation）范式：训练一个预测器，在部分生成序列的基础上判断最终完成时是否会忠实于文档，然后根据该预测器得分调整
+    logits。\n\n- Lookahead 策略：更激进的做法是，对每个候选 next token，都先通过一个小模型快速“幻想”出后续若干个 token，评估完整短句的忠实度，再选择。这需要工程优化，比如批量推理。\n\n⚠️
+    挑战：解码时的每一步都调模型会极大增加延迟。折中方案是每生成一个完整句子后评估一次，若发现偏离，就回溯删除该句并重新生成（结合流式输出的回退策略，见第8题）。这比逐
+    token 调整更实际。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JEjawzoMziwMa3k2gCAcqTTHnVg
+  block_id: WGzVdInR0ofI5px52hfcRMdtndh
+  page_token: JEjawzoMziwMa3k2gCAcqTTHnVg
+  original_title: Q40：有没有办法在解码过程中实时计算生成内容与检索文档的语义距离，并据此调整生成概率？
+  imported_at: '2026-09-21'

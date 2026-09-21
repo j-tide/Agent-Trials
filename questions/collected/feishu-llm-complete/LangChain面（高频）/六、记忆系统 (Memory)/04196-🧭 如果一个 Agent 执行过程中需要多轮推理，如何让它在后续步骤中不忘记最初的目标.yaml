@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-08769d5ddcfa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9ED 如果一个 Agent 执行过程中需要多轮推理，如何让它在后续步骤中不忘记最初的目标？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F9ED 如果一个 Agent 执行过程中需要多轮推理，如何让它在后续步骤中不忘记最初的目标？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Agent “忘记目标”是长链推理中的经典问题。根本原因是 LLM 的注意力随着 Prompt 增长而衰减，或者 scratchpad 中的中间步骤噪声过大，淹没了原始指令。
+
+    防御策略：
+
+    - 在 Prompt 中固化目标：在构建 Agent Prompt 时，将用户原始问题放在一个显眼的位置，并使用 SystemMessage 强调“你的最终目标是{original_question}”。每次循环，这个目标都会出现在上下文中，不会被后续的 observation 淹没。
+
+    - 利用 Memory 保持目标：将用户初始问题存入 Memory，并在每次 Agent 推理时，将 Memory 中的目标摘要作为额外上下文注入。例如，在 ConversationSummaryMemory 的摘要中，明确包含“用户希望完成X任务”。
+
+    - 显式追踪子目标完成状态：要求 Agent 在每一步思考时，先回顾最终目标，再列出已完成和未完成的子目标。这可以通过 Prompt 工程设计实现：
+
+    ```text
+    Thought: 我的最终目标是安排一次从北京到上海的旅行。目前我已经查了航班，还没有预订酒店。接下来我应该搜索上海的酒店。
+    ```
+
+    - 限制推理步数并设置检查点：当步数超过阈值时，强制 Agent 暂停并总结已完成的工作，然后重新明确下一步计划。这相当于在 scratchpad 中插入一个人工检查点。
+
+    - 利用长期记忆存储任务状态：对于需要跨会话的复杂任务，可将任务状态（如 JSON 格式的已完成列表）存储在向量库或 Redis 中。每次 Agent 启动时，先检索当前任务状态，然后基于此继续工作。
+
+    实践反思：单纯依赖 LLM 的注意力来记住初始目标并不靠谱。应该在 Prompt 结构上下功夫，把目标做成“固定背景板”，每次推理都强制 LLM 先看目标，再看历史。这就像给人一份任务清单，每完成一项就划掉，始终知道终点在哪。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PGF2wlLMeiiO4SkG7iycSQbwnNf
+  block_id: Wh7Od3CcToO8D5xBZNocfMeGnKd
+  page_token: PGF2wlLMeiiO4SkG7iycSQbwnNf
+  original_title: "\U0001F9ED 如果一个 Agent 执行过程中需要多轮推理，如何让它在后续步骤中不忘记最初的目标？"
+  imported_at: '2026-09-21'

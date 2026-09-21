@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-544ae140c2f0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6A6 当显存不足时，推理服务如何优雅降级？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F6A6 当显存不足时，推理服务如何优雅降级？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    目标：避免服务崩溃，尽可能响应更多请求，或以降级方式继续服务。
+
+    策略：
+
+    - 请求排队与限流：当空闲 block 数低于安全阈值，拒绝接受新的请求，放入等待队列，返回重试信号（HTTP 429）。
+
+    - 抢占与交换：暂停执行中的低优先级请求，将其 KV Cache 换出到 CPU 内存，腾出 GPU 块给新请求或继续执行高优请求。完成后可选择换回。
+
+    - 缩短生成长度：动态减少 max_new_tokens，限制请求的最终 KV Cache 尺寸。
+
+    - 早期截断与摘要：对于超长 prompt，只保留其摘要或后半部分，牺牲质量换取空间。
+
+    - 卸载模型副本：如果启用多 LoRA 或多模型，卸载不活跃的适配器或模型到 CPU。
+
+    - 返回部分结果：若某请求生成中被抢占，可选择将已生成的内容返回，标记未完成。
+
+    实现：vLLM 具有自动 swap 和抢占机制；配合调度器，可在显存紧张时保持可用性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tr76wMZZwibI1ikxqpEcjhJtnZc
+  block_id: GdcEdU1xqo7r1Gxv2mPcvbLdnIh
+  page_token: Tr76wMZZwibI1ikxqpEcjhJtnZc
+  original_title: "\U0001F6A6 当显存不足时，推理服务如何优雅降级？"
+  imported_at: '2026-09-21'

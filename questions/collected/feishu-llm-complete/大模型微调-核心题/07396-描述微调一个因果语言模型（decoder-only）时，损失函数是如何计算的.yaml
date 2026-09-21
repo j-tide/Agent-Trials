@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9bd03bd41c94
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 描述微调一个因果语言模型（decoder-only）时，损失函数是如何计算的。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 描述微调一个因果语言模型（decoder-only）时，损失函数是如何计算的。
+answer:
+  mode: rubric
+  reference_answer: |-
+    微调一个因果语言模型（如GPT、LLaMA等Decoder-only架构）时，其损失函数本质上是在给定指令上下文的情况下，最大化目标回答的似然概率。这一过程在工程上通过交叉熵损失实现，并辅以精准的损失掩码（Loss Masking）来确保模型只学习“回答”而不学习“提问”。
+
+    核心计算流程：
+
+    - 序列构造：将指令（Prompt）和目标回答（Response）拼接成一个完整的输入序列。例如：<|im_start|>user\n{指令}<|im_end|>\n<|im_start|>assistant\n{回答}<|im_end|>
+
+    - Tokenization与Input IDs：整个序列被分词并转换为Token ID序列。同时，我们创建一个与之等长的labels序列。
+
+    - 损失掩码的设置：labels序列中，指令部分（包括所有系统提示、用户输入和对话模板的特殊Token）对应的位置被设置为-100，而目标回答部分（即助手应该生成的内容）对应的位置保留真实的Token ID。-100是PyTorch中CrossEntropyLoss的默认忽略索引。
+
+    - 前向传播：模型接收整个input_ids序列，并通过自回归方式为每个位置预测下一个Token的概率分布。由于是因果模型，每个位置只能看到它之前的信息。
+
+    - 损失计算：模型输出的Logits与labels一起送入交叉熵损失函数。在计算时，损失函数会自动跳过labels == -100的位置，只对助手回答部分的Token计算损失。
+
+    [图片内容未导入]
+
+    - 其中，N 是回答部分的Token总数。
+
+    为什么必须进行损失掩码？
+
+    - 聚焦学习目标：如果不进行掩码，模型会被要求同时“预测指令”和“预测回答”。这会导致模型角色认知混乱——它可能在推理时无意义地生成用户指令或系统提示，而不是仅生成助手回答。
+
+    - 避免浪费算力：指令部分通常占序列长度的30%-70%，若不掩码，大量梯度更新会浪费在学习“如何提问”上，稀释了真正有用的学习信号。
+
+    - 维持对话一致性：掩码确保模型只优化条件概率 P(回答∣指令)P(回答∣指令)，从而将指令严格视为条件而非生成目标。这是模型学会遵循指令的数学基础。
+
+    实际代码示例（简化）：
+
+    # 假设我们已经将 instruction 和 response 拼接，并得到 input_ids
+    labels = input_ids.clone()
+    # 找到 assistant 回复的起始位置，将之前的部分设为 -100
+    response_start = ... # 通过查找特殊token得到
+    labels[:, :response_start] = -100
+    # 模型的 forward 计算
+    outputs = model(input_ids=input_ids, labels=labels)
+    loss = outputs.loss  # 内部自动忽略 labels=-100 的位置
+
+    这种计算方式使得微调能够高效、精确地将预训练模型转化为指令遵循助手，是SFT中最基本也最关键的实现细节。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/W8ymwxsGKimT6Fk1YIOcORI9nLe
+  block_id: M8RldHaJ6ojJm6x9zqmcP1Tcnmh
+  page_token: W8ymwxsGKimT6Fk1YIOcORI9nLe
+  original_title: 描述微调一个因果语言模型（decoder-only）时，损失函数是如何计算的。
+  imported_at: '2026-09-21'

@@ -1,0 +1,141 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d2ec34277122
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 问题 25：消息队列如何做到不停机平滑迁移和集群扩容？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 问题 25：消息队列如何做到不停机平滑迁移和集群扩容？
+answer:
+  mode: rubric
+  reference_answer: "难度：⭐⭐⭐⭐（Kafka 分区迁移、RocketMQ Topic 迁移、双写双读、数据一致性校验）\n\n1️⃣ Common
+    Answer\n\n嗯...迁移的话，Kafka 可以用 reassign-partitions 工具，把分区从旧 Broker 迁到新 Broker。RocketMQ
+    的话，一般用双写双读，新旧集群都写，慢慢切读。扩容的话，就是加新机器，然后重新分配分区。关键是不能停机，要保证数据不丢。迁移的时候最好限速，避免影响性能。最后要做数据校验，确保两边一致。\n\n2️⃣
+    Impressive Answer\n\n我会从这几个角度思考：\n\n- Kafka 分区迁移\n\n使用 kafka-reassign-partitions
+    工具：\n\n```text\n# 步骤 1：生成迁移计划（json 文件）\ncat > move-partitions.json <<EOF\n{\n
+    \ \"version\": 1,\n  \"partitions\": [\n    {\n      \"topic\": \"order-events\",\n
+    \     \"partition\": 0,\n      \"replicas\": [1, 2, 3],\n      \"log_dirs\": [\"any\",
+    \"any\", \"any\"]\n    },\n    {\n      \"topic\": \"order-events\", \n      \"partition\":
+    1,\n      \"replicas\": [4, 5, 6],\n      \"log_dirs\": [\"any\", \"any\", \"any\"]\n
+    \   }\n  ]\n}\nEOF\n\n# 步骤 2：执行迁移（限速 50MB/s）\nkafka-reassign-partitions.sh --bootstrap-server
+    broker1:9092 \\\n  --reassignment-json-file move-partitions.json \\\n  --execute
+    \\\n  --throttle 52428800\n\n# 步骤 3：验证迁移进度\nkafka-reassign-partitions.sh --bootstrap-server
+    broker1:9092 \\\n  --reassignment-json-file move-partitions.json \\\n  --verify\n\n#
+    步骤 4：移除限速\nkafka-configs.sh --bootstrap-server broker1:9092 \\\n  --alter --delete-config
+    leader.replication.throttled.rate \\\n  --entity-type brokers --entity-name 1,2,3,4,5,6\n```\n\n-
+    Kafka 集群扩容\n\n完整扩容流程：\n\n```text\n# 步骤 1：新增 Broker（配置 broker.id=7）\nserver.properties:\n
+    \ broker.id=7\n  listeners=PLAINTEXT://broker7:9092\n  log.dirs=/data/kafka-logs\n\n#
+    步骤 2：启动新 Broker\nbin/kafka-server-start.sh config/server.properties &\n\n# 步骤
+    3：分区重分配（自动生成计划）\nkafka-reassign-partitions.sh --bootstrap-server broker1:9092
+    \\\n  --topics-to-move-json-file topics-to-move.json \\\n  --broker-list \"0,1,2,3,4,5,6,7\"
+    \\\n  --generate > expand-plan.json\n\n# topics-to-move.json\n{\n  \"version\":
+    1,\n  \"topics\": [\n    {\"topic\": \"order-events\"},\n    {\"topic\": \"payment-events\"}\n
+    \ ]\n}\n\n# 步骤 4：执行重分配（限速）\nkafka-reassign-partitions.sh --bootstrap-server broker1:9092
+    \\\n  --reassignment-json-file expand-plan.json \\\n  --execute \\\n  --throttle
+    104857600\n\n# 步骤 5：验证负载均衡\nkafka-topics.sh --bootstrap-server broker1:9092 \\\n
+    \ --describe --topic order-events\n```\n\n- RocketMQ Topic 迁移\n\n双写双读方案完整流程：\n\n```text\n//
+    步骤 1：生产端双写\npublic class DualWriteProducer {\n    private DefaultMQProducer oldProducer;\n
+    \   private DefaultMQProducer newProducer;\n    \n    public void send(Message
+    msg) throws Exception {\n        // 旧集群写入（同步）\n        SendResult oldResult =
+    oldProducer.send(msg);\n        \n        // 新集群写入（异步）\n        newProducer.send(msg,
+    new SendCallback() {\n            @Override\n            public void onSuccess(SendResult
+    sendResult) {\n                // 记录双写成功\n                log.info(\"Dual write
+    success: msgId={}\", sendResult.getMsgId());\n            }\n            \n            @Override\n
+    \           public void onException(Throwable e) {\n                // 新集群写入失败，降级到旧集群\n
+    \               log.error(\"New cluster write failed, fallback to old\", e);\n
+    \           }\n        });\n    }\n}\n\n// 步骤 2：消费端双读（新优先）\npublic class DualReadConsumer
+    {\n    private DefaultMQPushConsumer oldConsumer;\n    private DefaultMQPushConsumer
+    newConsumer;\n    private Set<String> processedMsgIds = new ConcurrentHashMap<>();\n
+    \   \n    public void init() {\n        // 新集群消费（主）\n        newConsumer.subscribe(\"order-topic\",
+    \"*\");\n        newConsumer.registerMessageListener((MessageListenerConcurrently)
+    (msgs, context) -> {\n            for (MessageExt msg : msgs) {\n                if
+    (!processedMsgIds.contains(msg.getMsgId())) {\n                    processMessage(msg);\n
+    \                   processedMsgIds.add(msg.getMsgId());\n                }\n
+    \           }\n            return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;\n
+    \       });\n        \n        // 旧集群消费（兜底）\n        oldConsumer.subscribe(\"order-topic\",
+    \"*\");\n        oldConsumer.registerMessageListener((MessageListenerConcurrently)
+    (msgs, context) -> {\n            for (MessageExt msg : msgs) {\n                if
+    (!processedMsgIds.contains(msg.getMsgId())) {\n                    processMessage(msg);\n
+    \                   processedMsgIds.add(msg.getMsgId());\n                }\n
+    \           }\n            return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;\n
+    \       });\n    }\n}\n\n// 步骤 3：灰度切流（配置中心控制）\npublic class TrafficSwitcher {\n
+    \   private double newClusterRatio; // 0.0 -> 1.0\n    \n    public boolean shouldUseNewCluster(String
+    businessKey) {\n        // 根据业务 key 哈希 + 灰度比例决定\n        int hash = Math.abs(businessKey.hashCode());\n
+    \       return (hash % 100) < (newClusterRatio * 100);\n    }\n}\n\n// 步骤 4：完成迁移\n//
+    1. 灰度比例 0% -> 100%\n// 2. 观察新集群消费 lag，确认无积压\n// 3. 停止旧集群生产端\n// 4. 等待旧集群消费完成\n//
+    5. 停止旧集群消费端\n```\n\n- 数据一致性校验\n\n消息对账方案：\n\n```text\n// 对账任务\npublic class MessageReconciliationJob
+    {\n    public void reconcile() {\n        // 步骤 1：获取旧集群消息列表\n        List<MessageExt>
+    oldMessages = queryMessagesFromOldCluster(\n            \"order-topic\", \n            startTime,
+    \n            endTime\n        );\n        \n        // 步骤 2：获取新集群消息列表\n        List<MessageExt>
+    newMessages = queryMessagesFromNewCluster(\n            \"order-topic\", \n            startTime,
+    \n            endTime\n        );\n        \n        // 步骤 3：比对消息 ID\n        Set<String>
+    oldMsgIds = oldMessages.stream()\n            .map(MessageExt::getMsgId)\n            .collect(Collectors.toSet());\n
+    \       \n        Set<String> newMsgIds = newMessages.stream()\n            .map(MessageExt::getMsgId)\n
+    \           .collect(Collectors.toSet());\n        \n        // 步骤 4：找出差异\n        Set<String>
+    missingInNew = Sets.difference(oldMsgIds, newMsgIds);\n        Set<String> missingInOld
+    = Sets.difference(newMsgIds, oldMsgIds);\n        \n        // 步骤 5：处理差异消息\n        if
+    (!missingInNew.isEmpty()) {\n            log.error(\"Missing messages in new cluster:
+    {}\", missingInNew);\n            // 补发到新集群\n            republishToNewCluster(missingInNew);\n
+    \       }\n    }\n}\n\n// offset 校验\npublic class OffsetValidator {\n    public
+    void validateOffsets() {\n        // 获取旧集群消费 offset\n        Map<TopicPartition,
+    Long> oldOffsets = getConsumerOffsets(\n            oldConsumerGroup, \n            \"order-topic\"\n
+    \       );\n        \n        // 获取新集群消费 offset\n        Map<TopicPartition, Long>
+    newOffsets = getConsumerOffsets(\n            newConsumerGroup, \n            \"order-topic\"\n
+    \       );\n        \n        // 比对进度\n        oldOffsets.forEach((tp, oldOffset)
+    -> {\n            Long newOffset = newOffsets.get(tp);\n            if (newOffset
+    != null && Math.abs(oldOffset - newOffset) > 1000) {\n                log.warn(\"Offset
+    mismatch: topic={}, partition={}, old={}, new={}\", \n                    tp.topic(),
+    tp.partition(), oldOffset, newOffset);\n            }\n        });\n    }\n}\n```\n\n-
+    迁移过程中的风险控制\n\n风险控制措施：\n\n```text\n// 限速控制\npublic class RateLimiter {\n    private
+    final RateLimiter rateLimiter = RateLimiter.create(1000); // 1000 条/秒\n    \n
+    \   public void acquire() {\n        rateLimiter.acquire();\n    }\n}\n\n// 监控告警\npublic
+    class MigrationMonitor {\n    private void monitor() {\n        // 监控指标\n        metrics.gauge(\"migration.old_cluster.lag\",
+    this::getOldClusterLag);\n        metrics.gauge(\"migration.new_cluster.lag\",
+    this::getNewClusterLag);\n        metrics.gauge(\"migration.dual_write.success_rate\",
+    this::getDualWriteSuccessRate);\n        metrics.gauge(\"migration.dual_read.duplicate_rate\",
+    this::getDuplicateRate);\n        \n        // 告警规则\n        if (getOldClusterLag()
+    > 100000) {\n            alertManager.sendAlert(\"Old cluster lag too high\");\n
+    \       }\n        \n        if (getDualWriteSuccessRate() < 0.99) {\n            alertManager.sendAlert(\"Dual
+    write success rate low\");\n        }\n    }\n}\n\n// 回滚方案\npublic class RollbackPlan
+    {\n    public void rollback() {\n        // 1. 立即切换生产端回旧集群\n        producerConfig.setUseNewCluster(false);\n
+    \       \n        // 2. 停止新集群消费\n        newConsumer.shutdown();\n        \n        //
+    3. 确认旧集群消费正常\n        waitForOldClusterCatchUp();\n        \n        // 4. 通知相关方\n
+    \       notifyStakeholders(\"Rollback completed\");\n    }\n}\n```\n\n- 实战：从旧集群迁移到新集群的完整
+    SOP\n\n迁移 SOP：\n\n```text\n【阶段一：准备阶段】（T-7 天）\n1. 新集群部署完成，容量规划确认\n2. 双写双读代码开发、测试\n3.
+    对账工具开发、测试\n4. 监控告警配置完成\n5. 回滚方案评审通过\n\n【阶段二：双写阶段】（T-3 天）\n1. 生产端开启双写（新集群异步写入）\n2.
+    观察新集群写入成功率（目标 >99.9%）\n3. 监控新集群存储增长\n4. 确认无性能影响\n\n【阶段三：双读阶段】（T-1 天）\n1. 消费端开启双读（新集群优先）\n2.
+    灰度 10% 流量到新集群\n3. 观察消费 lag、重复率\n4. 逐步提升灰度比例：10% -> 30% -> 50% -> 100%\n\n【阶段四：切流阶段】（T
+    日）\n1. 100% 流量切换到新集群\n2. 确认新集群消费正常\n3. 停止旧集群生产端\n4. 等待旧集群消费完成\n\n【阶段五：清理阶段】（T+7
+    天）\n1. 对账任务持续运行 7 天\n2. 确认数据一致性\n3. 停止旧集群消费端\n4. 下线旧集群\n```\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---\n\n###
+    6.26 消息丢失排查"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcnvHYBxamYyWj6CISCFQzIzg
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: 问题 25：消息队列如何做到不停机平滑迁移和集群扩容？
+  imported_at: '2026-09-21'

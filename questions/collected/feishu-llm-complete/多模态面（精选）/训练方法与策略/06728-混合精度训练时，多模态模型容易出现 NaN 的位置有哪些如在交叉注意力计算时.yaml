@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ad6b08342cb8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 混合精度训练时，多模态模型容易出现 NaN 的位置有哪些？如在交叉注意力计算时。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 训练方法与策略
+tags: &1
+- 多模态面（精选）
+- 训练方法与策略
+content:
+  prompt: 混合精度训练时，多模态模型容易出现 NaN 的位置有哪些？如在交叉注意力计算时。
+answer:
+  mode: rubric
+  reference_answer: |-
+    混合精度下NaN通常源于数值溢出或无效运算。多模态模型中，以下几个位置是NaN高发区：
+
+    - 交叉注意力层：这是最危险的区域。当视觉特征与文本特征的点积（QK^T）数值过大（尤其是维度d较大时，点积方差为d，FP16范围只有65504），softmax输出变成0或1，反向传播时涉及log(0)或除以零，产生NaN。使用BF16可大幅缓解，但仍需注意对QK进行缩放（除以√d），且初始化时避免过大的方差。
+
+    - 自注意力层：处理拼接后的长序列时（文本+视觉token），自注意力的序列长度N很大，点积爆炸风险增加。
+
+    - 跨模态投影层：将视觉特征从高维投影到LLM嵌入空间时，若投影矩阵的初始权重过大或学习率太高，激活值可能快速溢出。
+
+    - 归一化层（LayerNorm/RMSNorm）：在FP16下，计算方差或标准差时可能因中间值过大而溢出。BF16好很多。
+
+    - 嵌入层：大规模词表（如多语言LLM）的嵌入矩阵，在更新梯度时，某些词的嵌入向量可能变得极大，导致后续计算NaN。
+
+    - 损失计算：InfoNCE损失中的指数运算 exp⁡(s/τ)exp(s/τ) 若s过大，极易溢出。对比学习的温度τ较小（如0.07），使得相似度小幅度增加就可能导致指数爆炸。需要监控logits的值范围，必要时进行裁剪。
+
+    防御方法：
+
+    - 优先使用BF16，它极大减少了NaN。
+
+    - 梯度裁剪：对全局梯度的L2范数进行裁剪（如max_norm=1.0）。
+
+    - 在关键层保持FP32：将易出问题的交叉注意力softmax、归一化层、损失计算设置为FP32精度（在PyTorch中可通过torch.cuda.amp.autocast的enabled=False局部关闭）。
+
+    - 数值稳定性改进的注意力：使用PyTorch 2.0+的scaled_dot_product_attention，内部有更好的数值处理。
+
+    - 梯度缩放：FP16下使用GradScaler动态调整缩放因子，遇到NaN时跳过更新并缩小缩放因子。
+
+    - 定期保存和回滚：结合断点续训，当检测到NaN时，自动回滚到上一个安全checkpoint，并跳过导致NaN的batch或降低学习率继续。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VC80wRxL0i553WkSOuIcjkHenRp
+  block_id: NJHndbZVUowxupxwuHpcEHqTntb
+  page_token: VC80wRxL0i553WkSOuIcjkHenRp
+  original_title: 混合精度训练时，多模态模型容易出现 NaN 的位置有哪些？如在交叉注意力计算时。
+  imported_at: '2026-09-21'

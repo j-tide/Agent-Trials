@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-799245a0d672
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 负载均衡损失的权重如何设置？对训练的影响
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 负载均衡损失的权重如何设置？对训练的影响
+answer:
+  mode: rubric
+  reference_answer: |-
+    负载均衡损失权重 α 是 MoE 训练中最敏感的超参数之一。它控制着专家间 token 分配的均匀程度：过大导致专家丧失特化能力，过小则无法阻止路由坍塌。
+
+    权重设置经验：
+
+    - α 通常取值在 0.01 ~ 0.1 之间，最常见的是 0.01。Switch Transformer 使用 0.01，GShard 使用 0.001~0.01。
+
+    - 专家数量越多，token 分配越容易不均衡，可适当增大 α（如 0.05）。
+
+    - 全局批次越大，统计上越均匀，α 可适当减小。
+
+    - 容量因子越小（溢出风险高），需要更强的负载均衡来防止溢出，可增大 α。
+
+    辅助损失的计算：该损失仅作用于门控网络参数，不影响主任务损失的梯度流向。公式为：
+
+    [图片内容未导入]
+
+    对训练的影响：
+
+    - α 过大：路由权重趋于均匀分布，所有专家处理相近数量的 token，专家特化能力被抑制，模型最终效果下降。此时每个专家都变成“通才”，失去了 MoE 结构带来的容量提升。
+
+    - α 过小：门控网络缺乏约束，正反馈导致 token 迅速集中到少数专家，其他专家“饿死”。模型有效参数量骤减，退化回稠密模型，且由于溢出丢弃大量 token，训练损失震荡甚至发散。
+
+    - 调试时可监控专家接收 token 数量的直方图。若某专家长期无 token，需增大 α；若所有专家负载完全均匀但下游指标不佳，可减小 α 给特化留出空间。理想状态是大部分专家负载大致均衡，但允许最忙专家接收量是最闲专家的 2~3 倍。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQczwN8cliZ2XSkOI26ckCcPnuf
+  block_id: X3nZdwW2Doqy3JxQhmhchrksnfc
+  page_token: GQczwN8cliZ2XSkOI26ckCcPnuf
+  original_title: 负载均衡损失的权重如何设置？对训练的影响
+  imported_at: '2026-09-21'

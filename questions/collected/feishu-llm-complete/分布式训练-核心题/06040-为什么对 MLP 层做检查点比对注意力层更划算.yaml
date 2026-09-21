@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fd72ed0f2e17
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么对 MLP 层做检查点比对注意力层更划算？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 为什么对 MLP 层做检查点比对注意力层更划算？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这里的“划算”指的是用更少的额外计算换取更大的显存节省。
+
+    - 显存节省：MLP层的中间激活尺寸通常是 [batch, L, 4*hidden]，而注意力层的中间激活除了QKV（[batch, L, hidden]），还有注意力矩阵（[batch, heads, L, L]）。对于长序列（L很大），注意力矩阵显存占主导。但对于短序列或使用了FlashAttention（不保存注意力矩阵），MLP中间激活的显存占比可能更大。所以在不同场景下，两者都可能成为显存大户。
+
+    - 计算开销：MLP层的计算主要是两个巨大的矩阵乘法（升维和降维），其计算量（FLOPs）通常远大于注意力层（在序列较短时）。重计算MLP层的代价更高。而注意力层除了QKV投影外，还有QK^T和PV的矩阵乘，在长序列时计算量也很大。
+
+    因此，更划算的做法通常是优先对MLP层做检查点，或者对注意力层和MLP层都做检查点。单独对注意力层做检查点的情况较少，因为注意力矩阵可以通过FlashAttention避免存储，此时注意力层的激活值已经很小，无需检查点。在FlashAttention普及前，注意力矩阵是最大瓶颈，因此那时也会对注意力层做检查点。现在有了FlashAttention，很多框架默认只对FFN做检查点，因为FFN的中间激活依然很大（如LLaMA的SwiGLU FFN），而且重计算FFN的代价相对于其节省的显存来说是可接受的。
+
+    总结：在现代大模型训练中，我们通常结合FlashAttention和FFN的梯度检查点，将注意力矩阵的存储消除，并将FFN的中间激活以较小的计算代价压缩。这样在不显著增加计算的前提下，最大化了显存节省。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HfoZwdjz1iRNmPkiI3icQQafnve
+  block_id: IwcNd1vE6oGZ3vxPeCTcMTUIn7d
+  page_token: HfoZwdjz1iRNmPkiI3icQQafnve
+  original_title: 为什么对 MLP 层做检查点比对注意力层更划算？
+  imported_at: '2026-09-21'

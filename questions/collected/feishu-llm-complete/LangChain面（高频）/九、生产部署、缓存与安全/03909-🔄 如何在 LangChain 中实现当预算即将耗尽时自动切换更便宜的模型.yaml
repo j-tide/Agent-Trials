@@ -1,0 +1,92 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c094d5d6e30e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F504 如何在 LangChain 中实现“当预算即将耗尽时自动切换更便宜的模型”？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F504 如何在 LangChain 中实现“当预算即将耗尽时自动切换更便宜的模型”？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这本质上是一个带条件的模型路由。你可以在 LangChain 的链或 Agent 中，根据当前的成本状态，动态选择使用哪个 LLM 实例。
+
+    核心思路：
+
+    - 维护一个全局的“预算状态”，例如本月剩余额度、今日成本、当前并发数等。这些数据可以存在 Redis 中。
+
+    - 在每次调用 LLM 前，查询当前预算状态。如果剩余预算充足，使用默认的高性能模型（如 GPT-4）；如果预算紧张或已耗尽，则切换到更便宜的模型（如 GPT-4o 或 GPT-3.5）。
+
+    - 这个判断逻辑可以封装在自定义的 RunnableLambda 或 RouterChain 中，也可以放在自定义 LLM 包装器里。
+
+    实现方式一：自定义 RunnableLambda 作为路由
+
+    ```python
+    from langchain_core.runnables import RunnableLambda
+    from langchain_openai import ChatOpenAI
+
+    gpt4 = ChatOpenAI(model="gpt-4")
+    gpt35 = ChatOpenAI(model="gpt-3.5-turbo")
+
+    async def budget_aware_llm(prompt, config):
+        # 从config或全局获取预算状态
+        budget_left = await get_remaining_budget(config["user_id"])
+        if budget_left > 10:  # 剩余超过10美元
+            return await gpt4.ainvoke(prompt)
+        else:
+            return await gpt35.ainvoke(prompt)
+
+    dynamic_llm = RunnableLambda(budget_aware_llm)
+    chain = prompt | dynamic_llm | StrOutputParser()
+    ```
+
+    实现方式二：基于 RouterChain 的模型选择
+    LangChain 的 RouterChain 可以根据输入动态选择目标链。你可以定义一个“预算路由器”，当判断用户预算低时，路由到使用便宜模型的链。
+
+    实现方式三：在回调或工具中拦截并替换
+    利用 on_llm_start 回调，在调用 LLM 前修改 serialized 参数或直接替换 LLM 实例。但这相对 hack，不如路由方式清晰。
+
+    预算感知的其他要点：
+
+    - 成本计算需要实时更新，不能有太大延迟。
+
+    - 当切换到便宜模型后，可以同时调整 Prompt（例如添加“请用更简洁的语言回答”），进一步节省 token。
+
+    - 对于 VIP 用户，可以设置单独的预算策略，不参与降级。
+
+    - 降级发生时，最好在 Response Header 或日志中标记，方便追溯。
+
+    实践：我们在一个 API 产品中实现了类似功能。用户在注册时分配免费额度，额度用完后，自动从 GPT-4 降级到 GPT-3.5，并在返回的 JSON 中加入 "model_used": "gpt-3.5-turbo" 和 "downgraded": true。用户也能在前端看到提示，引导他们充值。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WzEDwedwxiXAD4kdXdjcKjdQnCe
+  block_id: JwEFdC3INoLTWFxCZRicTEHUn4g
+  page_token: WzEDwedwxiXAD4kdXdjcKjdQnCe
+  original_title: "\U0001F504 如何在 LangChain 中实现“当预算即将耗尽时自动切换更便宜的模型”？"
+  imported_at: '2026-09-21'

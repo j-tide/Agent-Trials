@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-be964f06fd72
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果教师模型是收费 API，如何以最小成本生成高质量蒸馏数据集？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型蒸馏面试-核心题
+derived_topic: 
+tags: &1
+- 大模型蒸馏面试-核心题
+content:
+  prompt: 如果教师模型是收费 API，如何以最小成本生成高质量蒸馏数据集？
+answer:
+  mode: rubric
+  reference_answer: |-
+    核心思路是用最小的调用量，换取最高质量、最多样化的数据。
+
+    - 指令复用与精心设计：不要为每一份数据生成一个唯一的指令。而是精心设计少量（如几百条）覆盖核心能力、风格各异的“种子指令”，然后调用API为这些种子指令生成高质量的示范回答。这些回答将作为后续本地模型进行数据增强的“黄金种子”。
+
+    - Self-Instruct与Evol-Instruct的本地化：将昂贵的API调用仅用于指令的生成和进化（即Self-Instruct和Evol-Instruct中的“进化”步骤），而不是用于生成大量回答。将API生成的、高质量的新指令保存下来。然后，使用一个成本较低的开源大模型（如LLaMA-70B）作为“本地教师”，对这些指令生成回答。这样，只有一小部分关键步骤使用了昂贵API，大部分工作由本地模型完成。
+
+    - 重用与变体生成：对于API生成的一条高质量（指令A，回答A）对，可以用本地模型对指令A进行大量同义改写、风格迁移等，生成指令A1, A2...。然后，将这些变体指令再次提交给本地教师模型生成回答。这样，API的一次高质量输出被“放大”成了数十倍的训练数据。
+
+    - 拒绝采样（Rejection Sampling）的本地化：使用本地教师模型以较高温度生成多个候选回答，然后仅调用一次API或一个更便宜的本地奖励模型，对这些候选回答进行打分和排序。只保留得分最高的回答作为最终蒸馏数据。这样，API调用仅用于“裁判”，而非“运动员”。
+
+    - 缓存机制：对于任何调用API的请求，将其结果进行缓存。如果后续的数据生成过程中出现了完全相同或高度相似的指令，直接使用缓存结果，避免重复调用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LjfGwN95livJFZkv1WJcPZvun4e
+  block_id: JlzGdrh5movzoFxTeyNcJP1Vnfh
+  page_token: LjfGwN95livJFZkv1WJcPZvun4e
+  original_title: 如果教师模型是收费 API，如何以最小成本生成高质量蒸馏数据集？
+  imported_at: '2026-09-21'

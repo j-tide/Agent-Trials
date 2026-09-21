@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2f122158ae30
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 设计一个基于 AllReduce 的同步 SGD 模拟器：每个节点持有模型梯度，调用 AllReduce 求平均梯度并更新参数，用函数封装通信步骤。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 设计一个基于 AllReduce 的同步 SGD 模拟器：每个节点持有模型梯度，调用 AllReduce 求平均梯度并更新参数，用函数封装通信步骤。
+answer:
+  mode: rubric
+  reference_answer: |-
+    6.1 同步 SGD 流程
+
+    在数据并行训练中，每个 worker 在本地计算出一个 mini-batch 的梯度，然后所有 worker 通过 AllReduce 对这些梯度求平均（或求和后除以 world_size），最后每个 worker 用平均梯度更新模型参数。此过程保证所有 worker 上的模型参数始终保持一致。
+
+    6.2 模拟器实现
+
+    ```python
+    import numpy as np
+
+    class SyncSGDSimulator:
+        def __init__(self, num_workers, param_shape):
+            self.num_workers = num_workers
+            # 所有worker共享相同的初始参数（这里简化：每个worker持有一份副本）
+            self.params = [np.random.randn(*param_shape) for _ in range(num_workers)]
+            # 模拟AllReduce函数
+            self.allreduce = RingAllReduceSimulator(num_workers, np.prod(param_shape)).run  # 略
+
+        def compute_gradients(self, worker_id):
+            # 模拟计算随机梯度
+            return np.random.randn(*self.params[0].shape)
+
+        def step(self):
+            # 每个worker计算本地梯度
+            grads = [self.compute_gradients(i) for i in range(self.num_workers)]
+            # 对梯度做 AllReduce 求平均
+            # 简单实现：直接求和再除以 N（假设有高效的AllReduce实现）
+            avg_grad = sum(grads) / self.num_workers
+            # 每个worker更新参数（这里统一更新，实际每worker各自更新自己的副本）
+            for i in range(self.num_workers):
+                self.params[i] -= 0.01 * avg_grad  # 学习率0.01
+    ```
+
+    我们也可以将上一题的 RingAllReduce 用于梯度平均：
+
+    ```python
+    def allreduce_gradients(grads):
+        # 假设 grads 是长度相同的向量列表
+        summed = ring_allreduce(grads)  # 返回每个节点得到的总和（完整向量）
+        avg = [g / len(grads) for g in summed]
+        return avg
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: IBlDdGnCnosslfxXiQHcApX1nZf
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 设计一个基于 AllReduce 的同步 SGD 模拟器：每个节点持有模型梯度，调用 AllReduce 求平均梯度并更新参数，用函数封装通信步骤。
+  imported_at: '2026-09-21'

@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-54c2ca58e994
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多模态大语言模型在连接视觉编码器和 LLM 时，常用哪些视觉特征压缩或重采样技术？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 核心模型架构
+tags: &1
+- 多模态面（精选）
+- 核心模型架构
+content:
+  prompt: 多模态大语言模型在连接视觉编码器和 LLM 时，常用哪些视觉特征压缩或重采样技术？
+answer:
+  mode: rubric
+  reference_answer: |-
+    视觉编码器（如 ViT）输出的特征往往是高数量 token（例如 CLIP-ViT-L/14 为 256 个 token），直接输入 LLM 会带来巨大的计算和内存压力，因为 LLM 的自注意力复杂度与 token 数量的平方成正比。因此，几乎所有 MLLM 都需要在视觉编码器和 LLM 之间插入视觉特征压缩或重采样模块，将可变长或固定但过多的视觉 token 压缩为少量 token，同时尽可能保留关键语义。
+
+    [图片内容未导入]
+
+    常用技术：
+
+    - 基于交叉注意力的压缩器（Q-Former 风格）
+    这是 BLIP-2 引入的方案。使用一组可学习的查询向量（通常 32 个）与视觉编码器的输出进行交叉注意力。查询向量作为 query，冻结的视觉特征作为 key 和 value，通过多个 Transformer 层反复交互，最终输出固定数量的视觉 token。其核心思想是让这些查询向量自适应地从所有视觉 token 中提取与语言最相关的信息，形成一个紧凑的“视觉摘要”。由于交叉注意力层只学习查询向量和投影矩阵，视觉编码器和 LLM 都可以冻结。它本质上是一种数据相关的软注意力压缩。
+
+    - 感知器重采样器（Perceiver Resampler）
+    与 Q-Former 类似，也使用固定数量的可学习潜在向量，通过交叉注意力从变长的视觉特征序列中聚合信息。Flamingo 中使用此项技术处理视频帧，将任意数量的帧压缩为固定 64 个 token。它通常更轻量，只包含交叉注意力层，而不像 Q-Former 那样内部还融合文本做多任务训练。
+
+    - 基于卷积或池化的空间降采样
+    由于视觉特征保留了空间结构（如 16×16 的 grid），可以直接使用 2D 卷积或池化进行空间下采样。例如，用步长 2 的卷积将特征图从 16×16 变为 8×8，token 数量减少为四分之一。这种方法极其简单，计算开销极小，但缺乏内容自适应性。
+
+    - 基于重要性的 token 剪枝
+    对视觉 token 计算一个重要性分数（可以是注意力分数、与 [CLS] token 的相似度，或一个轻量级预测头的输出），然后只保留得分最高的前 k 个 token。这种方法可以动态调整保留 token 的数量，对简单图像保留少，复杂图像保留多。部分工作还会将剪除的 token 信息通过某种方式“蒸馏”到保留的 token 中，避免信息丢失。
+
+    - Token 合并
+    类似 ToMe，根据相似度将冗余的视觉 token 逐步合并，形成更少的代表性 token。合并后 token 的特征是其子 token 的加权平均，位置编码也可以相应插值。
+
+    - 直接线性/MLP 投影而不压缩
+    某些模型（如 LLaVA）完全不做压缩，直接将所有视觉 token 通过一个线性层投影到 LLM 词嵌入空间。这保留了最大的信息量，但对 LLM 的序列长度处理能力要求较高，也会显著增加计算负担。LLaVA-1.5 使用 256 个视觉 token，在 7B/13B 模型上仍可承受。
+
+    选择哪种技术取决于对信息保留度、计算效率、训练难度和模型灵活性的综合权衡。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YRX9wk77WiOH3KkAnedcnJEanwc
+  block_id: GKDVdiMw7oChCUxYXFRccINfneb
+  page_token: YRX9wk77WiOH3KkAnedcnJEanwc
+  original_title: 多模态大语言模型在连接视觉编码器和 LLM 时，常用哪些视觉特征压缩或重采样技术？
+  imported_at: '2026-09-21'

@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-696467288b87
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E0️ 在 LangChain 中，如何实现向量检索 + BM25 的混合检索？写出核心思路和用到的组件。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F6E0️ 在 LangChain 中，如何实现向量检索 + BM25 的混合检索？写出核心思路和用到的组件。"
+answer:
+  mode: rubric
+  reference_answer: "在 LangChain 中，没有现成的“HybridRetriever”类，但可以通过组合现有组件和少量自定义代码轻松实现。\n\n核心思路：\n\n-
+    构建两个独立的检索器：一个 VectorStoreRetriever（基于向量），一个自定义的 BM25Retriever（基于关键词）。\n\n- 使用
+    EnsembleRetriever 将它们组合，并指定融合算法（默认 RRF）。\n\n- （可选）在融合之后，加入重排序步骤，进一步提升相关性。\n\n涉及的核心组件：\n\n-
+    langchain_community.retrievers.BM25Retriever：LangChain 社区版已经提供了 BM25 的实现，可以直接使用。\n\n-
+    langchain.vectorstores 中的任意 VectorStore，如 Chroma，通过 as_retriever() 获取检索器。\n\n-
+    langchain.retrievers.EnsembleRetriever：用于合并多个检索器的结果。\n\n完整代码示例：\n\nfrom langchain.retrievers
+    import EnsembleRetriever\nfrom langchain_community.retrievers import BM25Retriever\nfrom
+    langchain.vectorstores import Chroma\nfrom langchain.embeddings import OpenAIEmbeddings\n\n#
+    1. 准备文档列表（原始文档对象）\ndocuments = [ ... ]  # LangChain Document 列表\n\n# 2. 创建 BM25
+    检索器\nbm25_retriever = BM25Retriever.from_documents(documents)\nbm25_retriever.k
+    = 5   # 返回 top-5\n\n# 3. 创建向量检索器\nembeddings = OpenAIEmbeddings()\nvectorstore
+    = Chroma.from_documents(documents, embeddings, collection_name=\"my_kb\")\nvector_retriever
+    = vectorstore.as_retriever(search_kwargs={\"k\": 5})\n\n# 4. 组合成混合检索器\nhybrid_retriever
+    = EnsembleRetriever(\n    retrievers=[bm25_retriever, vector_retriever],\n    weights=[0.5,
+    0.5]  # 权重各半（在 RRF 中体现为加权）\n)\n\n当调用 hybrid_retriever.get_relevant_documents(query)
+    时，它会并行调用 BM25 和向量检索器，各取 5 个结果，然后用 RRF 算法融合排序，返回最终列表。\n\n\U0001F4A1 优化点：\n\n- 可以调整各自返回的数量
+    k，向量检索可以稍多（比如10），以发挥其覆盖广的优势，然后通过融合缩小。\n\n- 可以自定义 EnsembleRetriever 的融合逻辑，比如当用户查询包含明确数字或专有名词时，动态增加
+    BM25 的权重。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TYm8wI1HmiQSuPkpe81c9XYanHb
+  block_id: QwrrdkPcioYHQ5xxaJfcNfa0nrc
+  page_token: TYm8wI1HmiQSuPkpe81c9XYanHb
+  original_title: "\U0001F6E0️ 在 LangChain 中，如何实现向量检索 + BM25 的混合检索？写出核心思路和用到的组件。"
+  imported_at: '2026-09-21'

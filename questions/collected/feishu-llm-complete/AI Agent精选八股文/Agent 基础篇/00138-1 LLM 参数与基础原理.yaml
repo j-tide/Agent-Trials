@@ -1,0 +1,95 @@
+---
+schema_version: 1
+id: feishu-llm-complete-00395f69b350
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 1 LLM 参数与基础原理
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: 1 LLM 参数与基础原理
+answer:
+  mode: rubric
+  reference_answer: "### Temperature 与 Top-P 参数\n\n### \U0001F539 1. Temperature 和
+    Top-P 分别控制什么？\n\n两者都是在模型输出 logits（未归一化概率）之后，对采样过程施加约束的参数。简单说：\n\n- Temperature
+    控制“分布的陡峭程度”——影响所有候选 token 的相对概率。\n\n- Top-P 控制“候选集的大小”——只从累积概率超过 P 的最可能词中挑。\n\n[图片内容未导入]\n\nTemperature
+    的效果：\n\n- T=1：保持原始分布，不改变模型对各个词的偏好。\n\n- T<1（如 0.3）：分布变得更尖锐，高概率词的机会更大，输出确定性高、重复多。\n\n-
+    T>1（如 1.2）：分布变平缓，低概率词获得更多机会，输出更多样但可能跑偏。\n\nTop-P（Nucleus Sampling）的效果：\n\n- 比如
+    Top-P = 0.9：模型将词按概率从高到低排序，只保留累积概率刚好超过 0.9 的最小集合，其余词概率置零后重新归一化。这样动态截断，防止选到特别离谱的词，同时又能适应分布的宽窄。\n\n-
+    Top-P 小（如 0.3）→ 候选集极小，非常保守；Top-P 大（如 0.95）→ 候选集大，更自由。\n\n一图对比它们的作用域：\n\n[图片内容未导入]\n\n在实际调用中，这两个参数常联合使用：先用温度调“口味”，再用
+    Top-P 切掉“怪味尾巴”。\n\n---\n\n### \U0001F4D0 2. Temperature 和 Top-P 的数学本质是什么？在 Agent
+    工程实践中如何按任务类型选参？\n\n数学本质\n\n给定最后一层 logits 向量 zz，标准 softmax 为：\n\n[图片内容未导入]\n\n引入温度
+    TT 后变为：\n\n[图片内容未导入]\n\n这相当于在指数函数里对 logits 进行缩放。当 T→0 时，分布趋于 one-hot（argmax）；当
+    T→∞ 时，趋于均匀分布。\n\nTop-P 则是对这个 p(T)p(T) 进行后处理：设排序后概率递减序列为 p(1),p(2),…，找到最小的 k 使得
+    ∑i=1kp(i)≥P，然后保留前 k 个，其余概率置零并重新归一化。数学上就是截断再归一化，保证采样集中来自“核”内。\n\nAgent 工程中的选参策略\n\nAgent
+    的行为需要根据不同子任务切换参数。一个实用的决策表：\n\n[嵌入表格未展开]\n\nAgent 工程中的核心原则：\n\n对于需要精确格式和执行的操作（如生成工具调用的
+    JSON），把温度降到极低（0.0–0.1），甚至可以关闭 Top-P 或设 Top-P=1.0，因为低温度已经保证了足够的确定性。对于需要探索和多样性的步骤（如头脑风暴可能的解决方案），升高温度并配合适中的
+    Top-P。\n\n一个通用做法是：先固定 Top-P=0.9，只调 Temperature 来找手感，因为 0.9 已经能滤除绝大部分垃圾 token。如果出现重复太多，可以微调频率惩罚或稍加
+    Top-P 压缩。\n\n### \U0001F3AF 3. 一个 Agent 负责拆解子任务并生成 JSON 工具调用参数，同时也需要做头脑风暴生成多样化方案，应该怎么配置参数？\n\n这是典型的“同体双模”需求：解构思维（收敛）+
+    发散思维。解决方案是按步骤动态切换采样参数，而不是整个 Agent 使用一套固定配置。\n\n架构设计：\n\n[图片内容未导入]\n\n在代码实现里，我们在
+    Agent 循环的不同阶段调用 LLM 时显式传入不同的参数对象。\n\n代码示例（LangChain 风格的 Agent 内部）：\n\nclass HybridAgent:\n
+    \   def __init__(self, llm):\n        self.llm = llm  # 基础模型，参数动态覆盖\n\n    def
+    run(self, task):\n        # 第一阶段：头脑风暴 —— 高温度 + 较大 Top-P\n        brainstorm_prompt
+    = f\"针对任务“{task}”，请列出 5 种完全不同的解决方案，要求有创意。\"\n        ideas_raw = self.llm.invoke(\n
+    \           brainstorm_prompt,\n            temperature=0.9,\n            top_p=0.95,\n
+    \           max_tokens=500\n        )\n        ideas = self.parse_ideas(ideas_raw)\n\n
+    \       # 第二阶段：选择最优方案并拆解为工具调用 —— 极低温度，确保 JSON 正确\n        plan_prompt = f\"\"\"\n从以下方案中选择最可行的一个，并把它拆解为一系列工具调用步骤。\n以
+    JSON 格式输出，每步包含 \"tool\" 和 \"args\"。\n方案列表：{ideas}\n\"\"\"\n        plan_json =
+    self.llm.invoke(\n            plan_prompt,\n            temperature=0.0,       #
+    贪婪解码\n            top_p=1.0,             # 无截断\n            response_format=\"json\"
+    # 强制 JSON\n        )\n        steps = json.loads(plan_json)\n\n        # 执行步骤\n
+    \       for step in steps:\n            result = execute_tool(step[\"tool\"],
+    step[\"args\"])\n            # ...\n\n为什么这样配置有效？\n\n- 头脑风暴阶段：高温度（0.8-1.0）让模型敢于跳出最常见的想法，而
+    Top-P=0.95 滤掉真的胡言乱语。如果你希望更多样，甚至可以加入少量频率惩罚（frequency_penalty=0.1），抑制它老在同一句话上打转。\n\n-
+    拆解与 JSON 生成阶段：温度设为 0，直接就是 greedy decoding，保证每次面对相同的 prompt 都输出一致的、可预测的结构。这里用 Top-P
+    截断反而可能截掉正确的闭合括号或引号，所以设 Top-P=1.0 保留全部候选。\n\n进阶：在同一阶段内切换 —— “结构化创意”\n\n有时你需要一次调用同时产出“带约束的创意”，比如“生成
+    3 个产品文案，每个必须包含指定关键词”。这时可以用中等温度 + 低 Top-P 的组合：\n\n- 温度 0.6-0.7 提供足够的变化，让三条文案不重样。\n\n-
+    Top-P 0.9 保证每个候选都是通顺合理的。\n\n- 最后再用后处理校验关键词是否齐全，不齐就重试。\n\nAgent 的生存法则：没有一套参数能通吃所有任务，但你可以让
+    Agent 根据自己的“当前意图”来切换模式。 这正是工程设计的魅力所在。\n\n---\n\n### LLM 的幻觉（Hallucination）成因与分类\n\n1、基础题：什么是
+    LLM 幻觉？\n\n难度级别：⭐（幻觉定义、基本成因）\n\nLLM 幻觉是指模型生成了与事实不符或与上下文矛盾的内容。根本原因有两类：一是训练数据本身有错误或过时信息；二是
+    RLHF 阶段奖励模型偏向流畅自信的回答而非准确性，导致模型学会了\"自信地说错话\"。\n\n---\n\n2、进阶题：LLM 幻觉的成因和分类是什么？在
+    AI Agent 系统中有哪些有效的缓解策略？\n\n难度级别：⭐⭐（内在/外在幻觉分类、RLHF 偏置、Agent 幻觉雪球效应、缓解策略体系）\n\n1️⃣
+    Common Answer\n\n幻觉就是模型说了假话。原因是训练数据有错误，或者模型对不熟悉的问题猜了一个听起来合理的答案。可以用 RAG 提供真实知识，或者降低
+    Temperature 让输出保守一点，还可以在 Prompt 里告诉模型不确定就说不知道。\n\n2️⃣ Impressive Answer\n\n我会从成因分类、Agent
+    场景特殊性、缓解策略三个层次来回答。\n\n- 幻觉的两类成因。内在幻觉（Intrinsic Hallucination）根源在模型本身：训练语料里有错误或过时信息；RLHF
+    的奖励模型偏向\"流畅自信\"而非\"准确\"，模型学会了用自信语气说错误的话；以及参数记忆的压缩损失导致事实失真。外在幻觉（Extrinsic Hallucination）是模型无法正确利用上下文中已有的信息——提供了参考文档但回答与文档矛盾，或者指令太复杂导致遵循失败，本质是上下文理解和指令遵循的问题。\n\n-
+    Agent 场景的特殊性。在多步 Agent 里，幻觉的危害被放大了——一次幻觉会导致后续多步工具调用都基于错误前提，形成\"幻觉雪球\"。这是单轮问答里不存在的风险。\n\n-
+    缓解策略。我按层次来做：RAG 提供事实锚点，针对外在幻觉效果最直接，Prompt 里明确要求\"只基于提供的文档回答\"；Self-Consistency
+    多路径投票，用较高 Temperature 采样 5-10 次再做多数投票，TruthfulQA 的实验证明在事实性问题上有可观提升；工具调用后加 Grounding
+    验证，让模型检查\"我的结论和工具结果是否一致\"，不一致就触发重规划；置信度提示，要求模型给出置信度等级并明确\"不确定比猜测更有价值\"。\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n---\n\n3、场景题：你的 Agent 在做多步推理时，第二步工具调用返回了正确结果，但第三步的回答却和工具结果矛盾，你怎么排查和处理？\n\n难度级别：⭐⭐（外在幻觉定位、Grounding
+    验证、Agent 重规划机制）\n\n1️⃣ Common Answer\n\n这应该是幻觉问题，模型没有正确使用工具返回的结果。可以降低 Temperature，或者在
+    Prompt 里强调要用工具结果回答。\n\n2️⃣ Impressive Answer\n\n这是典型的外在幻觉——工具结果在上下文里，但模型没有正确利用它。我会这样处理：\n\n-
+    先排查根因。检查工具返回结果在上下文中的位置，如果被放在了很前面而当前步骤的指令在后面，可能是 Lost in the Middle 的问题——关键数据被\"淹没\"在中间位置。同时检查工具返回格式是否解析正常，排除结构化数据解析错误的可能。\n\n-
+    短期修复。在第三步的 Prompt 里，把工具返回结果显式重申一遍，紧放在\"现在请基于以上信息\"这句话之前，利用近因效应强制模型关注这个数据。\n\n-
+    系统性解决。加入 Grounding 验证节点：每次工具调用后，让 LLM 做一次\"我的下一步推断是否和工具结果一致\"的自我校验，不一致就记录 conflict
+    并触发重规划，而不是继续往下走。这样把幻觉消灭在扩散之前。\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MtcJwOeh8il1EhkIooccEEwBntb
+  block_id: doxcntmcyFdFAO2iKFds6spf2Kb
+  page_token: MtcJwOeh8il1EhkIooccEEwBntb
+  original_title: 1 LLM 参数与基础原理
+  imported_at: '2026-09-21'

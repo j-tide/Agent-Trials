@@ -1,0 +1,100 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e9b7b73b001a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50D 2. ES 查询性能如何优化？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F50D 2. ES 查询性能如何优化？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    查询优化的核心是：尽量减少扫表范围，充分使用缓存，精简返回内容。
+
+    ① 索引设计要贴合查询模式
+
+    - 字段映射：对不需要全文搜索的字段，设置为 "type": "keyword"，ES 会直接使用它们做精确匹配、排序、聚合，而不需要分词，性能更高。
+
+    - 禁用不必要的字段：如果字段不需要被搜索，设置 "index": false。如果不需要存储原始值，设置 "store": false。
+
+    - 最左前缀原则：过滤条件的顺序尽量和索引的顺序一致，ES 的 BKD 树能更快定位。
+
+    ② 使用 Filter Context 避免打分
+    对纯过滤条件（如时间范围、状态），用 filter 而不是 must。Filter 只返回“是否匹配”，不计算相关性分数，而且可以被 ES 自动缓存。
+
+    ```json
+    {
+      "query": {
+        "bool": {
+          "filter": [
+            { "term": { "status": "active" } },
+            { "range": { "date": { "gte": "2026-07-01" } } }
+          ]
+        }
+      }
+    }
+    ```
+
+    ③ 利用缓存体系
+
+    - 节点查询缓存：对 filter 结果进行缓存，对重复查询很有效。
+
+    - Shard 请求缓存：缓存整个分片的搜索结果，对聚合和分页特别有用。
+
+    - 字段数据缓存：用于排序和聚合，预热后避免磁盘读取。
+
+    可以用 ?request_cache=true 开启请求缓存。
+
+    ④ 精简返回和分页
+
+    - 用 _source 过滤返回字段，减少网络传输和解压开销。
+
+    - 深度分页用 search_after 代替 from/size，避免全量扫描后丢弃大量数据。
+
+    ```json
+    {
+      "size": 20,
+      "_source": ["message", "timestamp"],
+      "query": { "match_all": {} },
+      "sort": [{"timestamp": "asc"}, {"_id": "asc"}],
+      "search_after": [1625350000000, "doc_id_123"]
+    }
+    ```
+
+    ⑤ 监控慢查询并针对性建索引
+    开启慢查询日志：index.search.slowlog.threshold.query.warn: 1s。用 explain API 检查查询计划，看是否出现 CANNED（缓存命中）或 SCAN（全表扫描）。确保查询能用到索引。
+
+    收束：查询优化是一场“舍”的学问——舍去不必要的字段、舍去不必要的打分、舍去不必要的精确匹配，换取极致的速度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MjSawrHIci2PTTktAdVc2UF3nQb
+  block_id: doxcn1ziXkOFWPGLF6RVzDruKHd
+  page_token: MjSawrHIci2PTTktAdVc2UF3nQb
+  original_title: "\U0001F50D 2. ES 查询性能如何优化？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c6f2c7c9e2a6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4C2 你如何在 LangServe 中处理文件上传？（例如用户上传 PDF）"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F4C2 你如何在 LangServe 中处理文件上传？（例如用户上传 PDF）"
+answer:
+  mode: rubric
+  reference_answer: "LangServe 默认的 add_routes 不支持文件上传，因为它期望的输入是 JSON 格式。但你可以通过自定义
+    FastAPI 端点来扩展 LangServe 应用，处理文件上传，然后将文件内容传递给链。\n\n实现步骤：\n\n- 创建自定义上传端点：在你的 FastAPI
+    应用中，使用标准的 UploadFile 处理文件。\n\n- 读取文件内容：例如对于 PDF，使用 PyPDF2 或 langchain_community.document_loaders.PyPDFLoader
+    加载文本。\n\n- 调用你的 LCEL 链：将提取的文本作为输入的一部分，调用链的 ainvoke 或其他方法，返回结果。\n\n示例代码：\n\n```python\nfrom
+    fastapi import FastAPI, File, UploadFile, HTTPException\nfrom langserve import
+    add_routes\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.prompts
+    import ChatPromptTemplate\nimport tempfile, os\n\napp = FastAPI()\n\n# 标准LCEL链\nprompt
+    = ChatPromptTemplate.from_template(\"请总结以下文档：{text}\")\nllm = ChatOpenAI(model=\"gpt-3.5-turbo\")\nchain
+    = prompt | llm\n\n# 添加常规链路由\nadd_routes(app, chain, path=\"/summarize\")\n\n#
+    自定义文件上传和调用链的端点\n@app.post(\"/upload-summarize\")\nasync def upload_summarize(file:
+    UploadFile = File(...)):\n    if not file.filename.endswith(\".pdf\"):\n        raise
+    HTTPException(400, \"仅支持PDF文件\")\n    \n    # 保存临时文件\n    with tempfile.NamedTemporaryFile(delete=False,
+    suffix=\".pdf\") as tmp:\n        content = await file.read()\n        tmp.write(content)\n
+    \       tmp_path = tmp.name\n    \n    try:\n        # 使用LangChain的PyPDFLoader加载文本\n
+    \       from langchain_community.document_loaders import PyPDFLoader\n        loader
+    = PyPDFLoader(tmp_path)\n        docs = loader.load()\n        text = \"\\n\".join([doc.page_content
+    for doc in docs])\n    finally:\n        os.unlink(tmp_path)\n    \n    # 调用链\n
+    \   result = await chain.ainvoke({\"text\": text})\n    return {\"summary\": result}\n```\n\n这样，你就可以通过
+    POST /upload-summarize 上传文件并获取摘要。如果你希望这个自定义端点也能享受 LangServe 的自动文档生成，可以使用 FastAPI
+    的 response_model 和 Pydantic 模型来清晰定义输出结构。\n\n进阶方案：如果你有一个更复杂的链，它本身期望的输入包含文件路径或文本，你可以将文件上传处理逻辑封装为一个自定义工具或Runnable，然后在
+    add_routes 时使用 per_req_config_modifier 来预处理请求，但通常直接自定义端点更简单直接。\n\n注意：上传的文件应做大小限制、类型检查，并尽快清理临时文件，避免资源泄漏和安全隐患。在生产环境中，你可以将文件上传至对象存储（如
+    S3），然后传递 URL 给链，避免直接处理大文件。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K973wYln7iD4oCkYW2acmsT4nke
+  block_id: OmoidYfSSoRaGnxq61Acjbrbn4i
+  page_token: K973wYln7iD4oCkYW2acmsT4nke
+  original_title: "\U0001F4C2 你如何在 LangServe 中处理文件上传？（例如用户上传 PDF）"
+  imported_at: '2026-09-21'

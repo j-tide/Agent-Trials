@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-66612b5cb654
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在分布式训练中，如何保证不同 GPU 上的 Batch Normalization 同步？（SyncBN）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块六：深度学习基础训练与推理部署
+tags: &1
+- 深度学习面（精选）
+- 模块六：深度学习基础训练与推理部署
+content:
+  prompt: 在分布式训练中，如何保证不同 GPU 上的 Batch Normalization 同步？（SyncBN）
+answer:
+  mode: rubric
+  reference_answer: |-
+    标准的 BN 层在每个设备上独立计算当前 micro-batch 的均值和方差。当数据并行时，每个 GPU 上的 mini-batch 较小，统计量估计不准确，导致模型精度下降。SyncBN（Synchronized Batch Normalization） 跨 GPU 同步 BN 的统计量，使得每层的均值和方差是基于整个 global batch 计算的。
+
+    实现方式：
+
+    - 在各设备完成前向传播经过 BN 层时，收集各设备上该层的局部均值和局部方差（以及样本数）。
+
+    - 使用 AllReduce 或其他通信操作，计算全局均值和方差：
+
+    - 然后每个设备用全局统计量对该设备上的特征进行归一化，并继续前向传播。
+
+    - 反向传播时，梯度同样需要同步，确保每台设备上的 BN 参数（γ,β）梯度一致。
+
+    PyTorch 支持：torch.nn.SyncBatchNorm 封装了上述逻辑，可无缝替换普通 BN。在使用 DDP 时，只需将模型中的 BN 层转换为 SyncBN，然后 DDP 会自动处理所需的 AllReduce 通信，而不需额外代码。注意 SyncBN 会增加通信开销，但能有效提升小 batch size 分布式训练的精度。
+
+    注意事项：SyncBN 在所有设备上必须统一，确保每个进程输入相同的统计量计算；对于小 batch size 场景尤其重要；在混合精度训练中，SyncBN 一般在 FP32 下执行以保持精度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ChO2w20yAiZl9Zko9tUc2plKnwe
+  block_id: F1zCdGDfooCgBLxQoWjczzjanob
+  page_token: ChO2w20yAiZl9Zko9tUc2plKnwe
+  original_title: 在分布式训练中，如何保证不同 GPU 上的 Batch Normalization 同步？（SyncBN）
+  imported_at: '2026-09-21'

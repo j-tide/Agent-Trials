@@ -1,0 +1,93 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e7b1e973c59b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 调用 LLM 超时、工具执行失败、参数校验失败，如何统一封装错误响应格式？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 调用 LLM 超时、工具执行失败、参数校验失败，如何统一封装错误响应格式？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（异常分类、统一响应、错误码设计）\n\n1️⃣ Common Answer\n\n创建一个全局异常处理器，用
+    @ExceptionHandler 捕获不同异常，返回统一的错误响应格式。可以用枚举定义错误码。\n\n2️⃣ Impressive Answer\n\n-
+    定义错误码枚举：\n\npublic enum ErrorCode {\n    SUCCESS(0, \"Success\"),\n    BAD_REQUEST(400,
+    \"Bad Request\"),\n    UNAUTHORIZED(401, \"Unauthorized\"),\n    LLM_TIMEOUT(1001,
+    \"LLM call timeout\"),\n    TOOL_EXECUTION_FAILED(1002, \"Tool execution failed\"),\n
+    \   VALIDATION_FAILED(1003, \"Parameter validation failed\"),\n    INTERNAL_ERROR(500,
+    \"Internal server error\");\n       \n    private final int code;\n    private
+    final String message;\n       \n    ErrorCode(int code, String message) {\n        this.code
+    = code;\n        this.message = message;\n    }\n       \n    public int getCode()
+    { return code; }\n    public String getMessage() { return message; }\n}\n\n- 自定义异常类：\n\npublic
+    class AgentException extends RuntimeException {\n    private final ErrorCode errorCode;\n
+    \      \n    public AgentException(ErrorCode errorCode, String message) {\n        super(message);\n
+    \       this.errorCode = errorCode;\n    }\n       \n    public ErrorCode getErrorCode()
+    { return errorCode; }\n}\n   \npublic class LlmTimeoutException extends AgentException
+    {\n    public LlmTimeoutException(String message) {\n        super(ErrorCode.LLM_TIMEOUT,
+    message);\n    }\n}\n   \npublic class ToolExecutionException extends AgentException
+    {\n    public ToolExecutionException(String message) {\n        super(ErrorCode.TOOL_EXECUTION_FAILED,
+    message);\n    }\n}\n\n- 统一响应格式：\n\n@Data\n@Builder\npublic class ApiResponse<T>
+    {\n    private int code;\n    private String message;\n    private T data;\n       \n
+    \   public static <T> ApiResponse<T> success(T data) {\n        return ApiResponse.<T>builder()\n
+    \           .code(ErrorCode.SUCCESS.getCode())\n            .message(ErrorCode.SUCCESS.getMessage())\n
+    \           .data(data)\n            .build();\n    }\n       \n    public static
+    <T> ApiResponse<T> error(ErrorCode errorCode, String message) {\n        return
+    ApiResponse.<T>builder()\n            .code(errorCode.getCode())\n            .message(message)\n
+    \           .build();\n    }\n}\n\n- 全局异常处理器：\n\n@RestControllerAdvice\npublic
+    class GlobalExceptionHandler {\n       \n    @ExceptionHandler(LlmTimeoutException.class)\n
+    \   public ApiResponse<Void> handleLlmTimeout(LlmTimeoutException e) {\n        log.error(\"LLM
+    timeout: {}\", e.getMessage());\n        return ApiResponse.error(e.getErrorCode(),
+    e.getMessage());\n    }\n       \n    @ExceptionHandler(ToolExecutionException.class)\n
+    \   public ApiResponse<Void> handleToolExecution(ToolExecutionException e) {\n
+    \       log.error(\"Tool execution failed: {}\", e.getMessage());\n        return
+    ApiResponse.error(e.getErrorCode(), e.getMessage());\n    }\n       \n    @ExceptionHandler(MethodArgumentNotValidException.class)\n
+    \   public ApiResponse<Void> handleValidation(MethodArgumentNotValidException
+    e) {\n        String message = e.getBindingResult().getFieldErrors().stream()\n
+    \           .map(FieldError::getDefaultMessage)\n            .collect(Collectors.joining(\",
+    \"));\n        log.error(\"Validation failed: {}\", message);\n        return
+    ApiResponse.error(ErrorCode.VALIDATION_FAILED, message);\n    }\n       \n    @ExceptionHandler(Exception.class)\n
+    \   public ApiResponse<Void> handleException(Exception e) {\n        log.error(\"Unexpected
+    error\", e);\n        return ApiResponse.error(ErrorCode.INTERNAL_ERROR, \"Internal
+    server error\");\n    }\n}\n\n- Controller 使用示例：\n\n@RestController\n@RequestMapping(\"/api/agent\")\npublic
+    class AgentController {\n       \n    @Autowired\n    private LlmService llmService;\n
+    \      \n    @Autowired\n    private ToolService toolService;\n       \n    @PostMapping(\"/chat\")\n
+    \   public ApiResponse<ChatResponse> chat(@Valid @RequestBody ChatRequest request)
+    {\n        try {\n            // 调用 LLM\n            ChatResponse response = llmService.chat(request);\n
+    \           return ApiResponse.success(response);\n        } catch (TimeoutException
+    e) {\n            throw new LlmTimeoutException(\"LLM call timeout: \" + e.getMessage());\n
+    \       }\n    }\n       \n    @PostMapping(\"/tool\")\n    public ApiResponse<ToolResponse>
+    executeTool(@Valid @RequestBody ToolRequest request) {\n        try {\n            ToolResponse
+    response = toolService.execute(request);\n            return ApiResponse.success(response);\n
+    \       } catch (Exception e) {\n            throw new ToolExecutionException(\"Tool
+    execution failed: \" + e.getMessage());\n        }\n    }\n}\n\n- 实践优化：\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcnQWIry79tr0Id7BnWyRhrTg
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 3、场景题：Agent 调用 LLM 超时、工具执行失败、参数校验失败，如何统一封装错误响应格式？
+  imported_at: '2026-09-21'

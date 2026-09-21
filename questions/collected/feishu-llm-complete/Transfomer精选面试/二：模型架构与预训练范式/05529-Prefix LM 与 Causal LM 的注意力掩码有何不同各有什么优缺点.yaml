@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ef261a6ce377
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Prefix LM 与 Causal LM 的注意力掩码有何不同？各有什么优缺点？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 二：模型架构与预训练范式
+tags: &1
+- Transfomer精选面试
+- 二：模型架构与预训练范式
+content:
+  prompt: Prefix LM 与 Causal LM 的注意力掩码有何不同？各有什么优缺点？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Prefix LM 和 Causal LM 都是 Decoder-only 或类 Decoder 架构中常用的两种注意力模式，主要区别在于对输入前缀的处理上。
+
+    Causal LM（因果语言模型）：
+
+    标准的自回归掩码，所有 token 都只能看到自己及其左边的 token。整个序列（无论是条件还是目标）都遵循严格的从左到右的因果约束。
+
+    Prefix LM（前缀语言模型）：
+
+    将序列分为“前缀（prefix）”和“目标（target）”两部分。前缀部分的 token 之间使用双向注意力（可以互相看到），前缀也可以看到目标的前文？不，通常 target 部分只能看到前缀和自己左边的 target token（因果）。但前缀内部是双向的。即：前缀 token 之间可以互看，目标 token 可以看到前缀的所有 token 和目标的前文，但前缀 token 不能看到目标 token（因为未来）。
+
+    掩码差异：
+
+    - Causal LM：一个标准的上三角掩码矩阵（包括前缀部分），全序列一律单向。
+
+    - Prefix LM：掩码矩阵被分割为两块。左上角（前缀×前缀）是全零（双向可见）；左下角（目标×前缀）是全零（目标可见前缀）；右上角（前缀×目标）是 -∞（前缀看不到目标）；右下角（目标×目标）是上三角掩码（目标内部因果）。这种设计使得前缀能充分双向交互，形成更好的全局表示，而目标保持自回归。
+
+    优缺点：
+
+    - Prefix LM 优点：前缀部分的双向注意力可以产生更高质量的上下文表示，尤其当条件信息较长时（如长文档摘要、多轮对话历史），双向处理能更好地融合前缀中的信息，提升目标生成的相关性和准确性。它更适合条件生成任务，因为生成质量更依赖于对条件的深刻理解。
+
+    - Prefix LM 缺点：前缀的双向注意力使得训练时无法用标准的因果掩码一次计算所有位置的损失（因为前缀 token 需要预测吗？通常前缀不计算损失，只有目标计算）。在推理时，前缀表示可以一次性编码完成，但训练时需要为前缀和目标使用不同的掩码，实现比纯 Causal LM 复杂。此外，由于前缀使用了双向注意力，无法像纯 Causal LM 那样简单地将整个序列视为统一的语言模型，导致预训练数据格式要求更细致。
+
+    - Causal LM 优点：掩码统一、实现简单、扩展性好，且能与标准的下一 token 预测完美契合，训练和推理范式完全一致。在超大规模预训练中，这种简洁性非常重要。
+
+    - Causal LM 缺点：前缀部分（条件）只能单向理解，可能无法很好地利用全局上下文信息，对于长条件任务可能不如 Prefix LM。
+
+    目前，很多大模型（如 PaLM、GLM）在特定任务微调或预训练中结合了 Prefix LM 的思想，而在通用预训练中仍以 Causal LM 为主。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C2UwwXTHii7yZ1kf0spcZbdlnbe
+  block_id: Io4ndjWKio8fxrxkHs0clMJ9nZJ
+  page_token: C2UwwXTHii7yZ1kf0spcZbdlnbe
+  original_title: Prefix LM 与 Causal LM 的注意力掩码有何不同？各有什么优缺点？
+  imported_at: '2026-09-21'

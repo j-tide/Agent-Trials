@@ -1,0 +1,117 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d591ca4c8693
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现对称线性量化的量化和反量化函数，输入 FP32 张量 x，比特数 bits=8，输出量化后的整数张量、scale，并验证反量化后的误差
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现对称线性量化的量化和反量化函数，输入 FP32 张量 x，比特数 bits=8，输出量化后的整数张量、scale，并验证反量化后的误差
+answer:
+  mode: rubric
+  reference_answer: |-
+    对称线性量化 将浮点张量映射到有符号整数范围（比如 int8），其核心假设是张量的数值分布关于零点对称。公式如下：
+
+    [图片内容未导入]
+
+    - 其中 b 是比特数，max(|x|) 是张量绝对值的最大值。对于 b=8，2^{b-1} - 1 = 127。
+
+    - 量化：xq=round(x/s)，结果应限制在 [-128, 127] 范围内（若使用 int8，但通常对称量化使用有符号整数，范围为 [-(2^{b-1}), 2^{b-1}-1]，对于 b=8 是 [-128, 127]；也有实现限制在 [-127, 127] 以对称，这里采用完整范围 [-128, 127]，但 scale 用 127 是为了保证最大值映射到 127，而最小值映射到 -128 会略有不对称，但常见实现在对称量化时用 127 作为分母，并限制范围到 [-128,127] 或 [-127,127]，这里采用 [-128,127]，scale = max(|x|)/127）。
+
+    [图片内容未导入]
+
+    实现细节：
+
+    - 需要处理 max(|x|)==0 的边界情况，此时 scale 设为 1.0 或 0 以避免除零。
+
+    - 量化时，将浮点值除以 scale 后四舍五入，再 clamp 到整数范围。
+
+    - 反量化时直接乘 scale 得到近似浮点值。
+
+    - 误差可用均方误差 (MSE) 或平均绝对误差 (MAE) 衡量。
+
+    PyTorch 代码示例：
+
+    ```python
+    import torch
+
+    def symmetric_quantize(x: torch.Tensor, bits=8):
+        """
+        对称线性量化
+        Args:
+            x: FP32 张量
+            bits: 量化位宽 (默认8)
+        Returns:
+            x_q: 量化后的整数张量 (torch.int8)
+            scale: 浮点 scale
+        """
+        qmax = 2 ** (bits - 1) - 1   # 127 for 8-bit
+        qmin = -qmax - 1             # -128 for 8-bit
+        # 计算最大绝对值
+        max_val = torch.max(torch.abs(x))
+        if max_val == 0:
+            scale = torch.tensor(1.0)
+        else:
+            scale = max_val / qmax
+        # 量化
+        x_q = torch.round(x / scale)
+        x_q = torch.clamp(x_q, qmin, qmax)
+        x_q = x_q.to(torch.int8)
+        return x_q, scale
+
+    def symmetric_dequantize(x_q: torch.Tensor, scale: torch.Tensor):
+        """
+        对称反量化
+        Args:
+            x_q: int8 量化张量
+            scale: 量化时使用的 scale
+        Returns:
+            x_fp: 反量化后的 FP32 张量
+        """
+        return x_q.float() * scale
+
+    # 验证
+    x = torch.randn(1000) * 0.5  # FP32 张量
+    x_q, scale = symmetric_quantize(x, bits=8)
+    x_recon = symmetric_dequantize(x_q, scale)
+
+    mse = torch.mean((x - x_recon) ** 2).item()
+    print(f"Scale: {scale.item():.6f}, MSE: {mse:.8f}")
+    print(f"Original max: {x.max().item():.4f}, min: {x.min().item():.4f}")
+    print(f"Quantized max: {x_q.max().item()}, min: {x_q.min().item()}")
+    ```
+
+    误差验证：
+    由于对称量化将最大值映射到 ±127，量化误差主要由四舍五入产生，误差范围约为 ±0.5 * scale。MSE 大致为 (scale^2)/12（在均匀分布假设下）。实际测试中 MSE 会很小。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: MI1Md47KxopL7JxVALScm52HnTb
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 实现对称线性量化的量化和反量化函数，输入 FP32 张量 x，比特数 bits=8，输出量化后的整数张量、scale，并验证反量化后的误差
+  imported_at: '2026-09-21'

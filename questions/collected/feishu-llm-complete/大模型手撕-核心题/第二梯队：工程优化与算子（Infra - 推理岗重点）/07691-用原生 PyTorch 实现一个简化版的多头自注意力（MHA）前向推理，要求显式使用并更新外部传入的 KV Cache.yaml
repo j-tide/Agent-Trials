@@ -1,0 +1,127 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a6eb0bf9fc3c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 用原生 PyTorch 实现一个简化版的多头自注意力（MHA）前向推理，要求显式使用并更新外部传入的 KV Cache。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 用原生 PyTorch 实现一个简化版的多头自注意力（MHA）前向推理，要求显式使用并更新外部传入的 KV Cache。
+answer:
+  mode: rubric
+  reference_answer: |-
+    6.1 实现要点
+
+    - 需要传入一个 KV Cache 对象，并支持 prefill 和 decode 两种模式。
+
+    - prefill 时，将整个序列的 K、V 存入缓存。
+
+    - decode 时，从缓存读取历史 K、V，并追加新 token 的 K、V。
+
+    6.2 代码实现
+
+    ```python
+    import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
+    import math
+
+    class MHAWithCache(nn.Module):
+        def __init__(self, d_model, num_heads):
+            super().__init__()
+            self.d_model = d_model
+            self.num_heads = num_heads
+            self.head_dim = d_model // num_heads
+            self.q_proj = nn.Linear(d_model, d_model)
+            self.k_proj = nn.Linear(d_model, d_model)
+            self.v_proj = nn.Linear(d_model, d_model)
+            self.out_proj = nn.Linear(d_model, d_model)
+
+        def forward(self, x, cache: VariableLengthKVCache, layer_idx: int, seq_ids: list, is_prefill: bool):
+            """
+            x: [B, S, d_model] 当前输入（prefill 时 S>1，decode 时 S=1）
+            cache: 外部缓存
+            layer_idx: 当前层索引
+            seq_ids: 长度为 B 的序列ID列表
+            """
+            B, S, _ = x.shape
+            # 投影并分头
+            q = self.q_proj(x).view(B, S, self.num_heads, self.head_dim).transpose(1, 2)  # [B, H, S, D]
+            k = self.k_proj(x).view(B, S, self.num_heads, self.head_dim).transpose(1, 2)
+            v = self.v_proj(x).view(B, S, self.num_heads, self.head_dim).transpose(1, 2)
+
+            if is_prefill:
+                # 将整个序列的 K/V 存入缓存
+                for i, sid in enumerate(seq_ids):
+                    # 拆分 batch，逐个序列存入
+                    # 注意：实际 prefill 可能批量写入，这里简化为逐序列
+                    for t in range(S):
+                        k_t = k[i:i+1, :, t:t+1, :]  # [1, H, 1, D]
+                        v_t = v[i:i+1, :, t:t+1, :]
+                        cache.update(layer_idx, sid, k_t[0], v_t[0])
+                # prefill 模式下不需要从缓存读取，直接计算自注意力（带因果mask）
+                # 但为了统一，也可以从缓存读取（等同于刚写入的）
+                # 这里仍使用输入x自己计算注意力作为演示
+                scale = self.head_dim ** 0.5
+                causal_mask = torch.tril(torch.ones(S, S, device=x.device)).view(1, 1, S, S)
+                scores = torch.matmul(q, k.transpose(-2, -1)) / scale
+                scores = scores.masked_fill(causal_mask == 0, float('-inf'))
+                attn = torch.softmax(scores, dim=-1)
+                out = torch.matmul(attn, v)
+            else:
+                # decode 模式：S=1
+                # 1. 将当前 token 的 K/V 追加到缓存
+                for i, sid in enumerate(seq_ids):
+                    cache.update(layer_idx, sid, k[i:i+1, :, 0:1, :][0], v[i:i+1, :, 0:1, :][0])
+                # 2. 从缓存读取历史 K/V
+                hist_k, hist_v, mask = cache.get_batch(layer_idx, seq_ids)
+                # 3. 注意力计算（Q 仅当前 token）
+                scale = self.head_dim ** 0.5
+                scores = torch.matmul(q, hist_k.transpose(-2, -1)) / scale
+                # 应用 mask（屏蔽 padding 位置）
+                scores = scores.masked_fill(~mask.unsqueeze(1).unsqueeze(2), float('-inf'))
+                attn = torch.softmax(scores, dim=-1)
+                out = torch.matmul(attn, hist_v)
+
+            # 合并多头并输出
+            out = out.transpose(1, 2).contiguous().view(B, S, self.d_model)
+            return self.out_proj(out)
+    ```
+
+    6.3 注意事项
+
+    - 上述 prefill 模式中我们既写入了缓存又用输入自己计算了注意力，这是为了与 decode 统一接口。实际上 prefill 时可以直接从模型输出获取 KV，不必再单独存储一步（但为了后续 decode 需要存下来）。
+
+    - 在真实场景中，prefill 和 decode 通常分开为两个函数，以提高效率和清晰度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IhgfwCPtoif3TWkyezuc4sW9nbg
+  block_id: JOEbdpo69oR7gsxvhROc5qDNnbe
+  page_token: IhgfwCPtoif3TWkyezuc4sW9nbg
+  original_title: 用原生 PyTorch 实现一个简化版的多头自注意力（MHA）前向推理，要求显式使用并更新外部传入的 KV Cache。
+  imported_at: '2026-09-21'

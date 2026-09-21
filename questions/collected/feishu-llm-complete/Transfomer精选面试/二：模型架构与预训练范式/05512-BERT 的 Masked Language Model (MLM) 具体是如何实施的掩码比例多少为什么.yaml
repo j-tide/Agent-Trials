@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1f5cb2314baf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: BERT 的 Masked Language Model (MLM) 具体是如何实施的？掩码比例多少？为什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 二：模型架构与预训练范式
+tags: &1
+- Transfomer精选面试
+- 二：模型架构与预训练范式
+content:
+  prompt: BERT 的 Masked Language Model (MLM) 具体是如何实施的？掩码比例多少？为什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    BERT的MLM并不是简单粗暴地把所有选中的词都替换成[MASK]。如果那样做，预训练阶段模型只会遇到[MASK]这个特殊符号，而微调阶段真实任务中根本没有这个标记，就会出现严重的“预训练-微调不一致”问题。
+
+    BERT的实际做法分两层：先选词，再决定怎么处理。
+
+    第一层：选择掩码位置
+
+    对于每条输入序列，BERT随机挑选其中15%的token作为“掩码候选”。注意，是15%的token，而不是15%的句子。这个比例的选择经过了实验权衡：比例太低（比如5%），模型学到的上下文依赖太弱，而且训练效率低，因为大部分token都是直接可见的，预测任务太简单；比例太高（比如25%），上下文被破坏得太严重，模型缺乏足够的信息来做出合理预测，学到的表示质量也会下降。15%是BERT论文通过实验找到的平衡点——既提供了足够强的学习信号，又不至于让文本变得面目全非。
+
+    此外，BERT并不是每次只掩码一个词然后反复预测。它一次性掩码15%的词，然后让模型同时预测所有这些位置。这样做的好处是让模型一次性学习多个位置的上下文依赖关系，而不是孤立地预测每个位置。实际上，每个batch中的输入序列都会重新随机选择掩码位置，所以模型在整个预训练过程中会看到同一句话的各种不同掩码版本。
+
+    第二层：处理被选中的词
+
+    选中的15% token并不是全部替换为[MASK]。BERT将它们进一步分成三组，按不同比例处理：
+
+    - 80%替换为[MASK]：这是模型主要学习“完形填空”的信号来源。模型看到[MASK]就知道这个位置需要预测，然后根据上下文推断最可能的原词。
+
+    - 10%替换为随机词：比如“今天天气很好”中的“天气”被选中，可能被替换为“苹果”。这一步的目的是给模型注入“噪声”，让它不能盲目信任每一个输入词——即使看到的是一个奇怪的不相关词，也要靠上下文来判断它是否合理。这有助于模型学习更强的纠错和推理能力。
+
+    - 10%保持不变：被选中的词原封不动地保留。这有两个作用：一是让模型知道并非所有“重要的位置”都需要预测，避免过度关注[MASK]标记；二是保持模型对真实词汇分布的敏感度，让输出表示也适应正常的词汇，而不是只适应[MASK]。
+
+    所以最终，真正被替换为[MASK]的只占全部token的15%×80%=12%。这个精巧的设计既保证了充足的训练信号，又缓解了预训练和微调之间的不一致。
+
+    训练时，模型只在被掩码的这些位置上计算交叉熵损失，其他未被掩码的位置不产生损失。这意味着每条序列中约12%的token产生有效梯度，虽然看起来稀疏，但由于语料规模巨大，累积的学习信号足够丰富。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IvhswLbEUiXCsXkJOiNcgAn0n1x
+  block_id: VdFidyafpoh4BQx6oCqc9TUYnzg
+  page_token: IvhswLbEUiXCsXkJOiNcgAn0n1x
+  original_title: BERT 的 Masked Language Model (MLM) 具体是如何实施的？掩码比例多少？为什么？
+  imported_at: '2026-09-21'

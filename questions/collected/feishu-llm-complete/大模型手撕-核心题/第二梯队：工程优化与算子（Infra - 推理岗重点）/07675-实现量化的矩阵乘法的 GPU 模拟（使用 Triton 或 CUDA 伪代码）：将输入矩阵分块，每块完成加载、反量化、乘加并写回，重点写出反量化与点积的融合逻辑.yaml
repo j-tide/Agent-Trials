@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-637d0f31a794
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现量化的矩阵乘法的 GPU 模拟（使用 Triton 或 CUDA 伪代码）：将输入矩阵分块，每块完成加载、反量化、乘加并写回，重点写出反量化与点积的融合逻辑。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现量化的矩阵乘法的 GPU 模拟（使用 Triton 或 CUDA 伪代码）：将输入矩阵分块，每块完成加载、反量化、乘加并写回，重点写出反量化与点积的融合逻辑。
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    在 GPU 上实现量化矩阵乘法时，通常采用 Block-wise 计算，融合反量化。这里给出 Triton 伪代码（简化），展示如何在每个线程块内加载一个 BLOCK_M x BLOCK_K 的激活块和 BLOCK_K x BLOCK_N 的权重块，然后对每个元素反量化并累加到输出。
+
+    ```python
+    # Triton 伪代码（不可直接运行，仅示意）
+    @triton.jit
+    def int8_matmul_kernel(
+        A_ptr, B_ptr, C_ptr,
+        scale_A, scale_B,
+        M, N, K,
+        stride_am, stride_ak, ...
+        BLOCK_M: tl.constexpr, BLOCK_N: tl.constexpr, BLOCK_K: tl.constexpr
+    ):
+        pid = tl.program_id(0)
+        # 计算当前块在 M/N 维度的起始位置
+        # 加载 A 块 [BLOCK_M, BLOCK_K] int8
+        # 加载 B 块 [BLOCK_K, BLOCK_N] int8
+        # 反量化与乘加：
+        acc = tl.zeros([BLOCK_M, BLOCK_N], dtype=tl.float32)
+        for k in range(0, K, BLOCK_K):
+            a = tl.load(A_ptr + offsets, mask=...)  # int8
+            b = tl.load(B_ptr + offsets, mask=...)  # int8
+            # 反量化到 FP32（融合）
+            a_fp = a.to(tl.float32) * scale_A  # scale_A 可以是一个标量或向量
+            b_fp = b.to(tl.float32) * scale_B
+            # 点积累加
+            acc += tl.dot(a_fp, b_fp)
+        # 写回 C
+    ```
+
+    实际实现中，为了高效利用 Tensor Core，权重可能以 INT4/INT8 直接参与矩阵乘指令（如 mma.sync），反量化由硬件或指令自动处理，无需手动转为 FP32。但上述伪代码清晰展示了反量化与点积的融合思想。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: HwG7d9yoaoa3Skx2YHkcslbunZf
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 实现量化的矩阵乘法的 GPU 模拟（使用 Triton 或 CUDA 伪代码）：将输入矩阵分块，每块完成加载、反量化、乘加并写回，重点写出反量化与点积的融合逻辑。
+  imported_at: '2026-09-21'

@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-029eca65258c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50D 1. Self-Refine 是什么？它和 Reflexion 最大的区别是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F50D 1. Self-Refine 是什么？它和 Reflexion 最大的区别是什么？"
+answer:
+  mode: rubric
+  reference_answer: "Self-Refine 本质上是让 LLM “看着自己刚说的话”来改进。\n\n它的流程非常直觉化：\n\n- 模型先生成一个初始回答。\n\n-
+    同一个模型切换成“批评者”角色，指出这个回答哪里有问题、可以怎么优化。\n\n- 模型再根据这些反馈，把回答重新写一遍。\n\n- 如果需要，可以重复第2、3步多次。\n\n输入
+    ──→ 初始生成 ──→ 自我反馈 ──→ 改进生成 ──→ 输出\n          │                         ↑\n          └──────────
+    迭代 ──────────┘\n\n一切都在模型自身的“脑内”完成，不需要外界提供任何客观对错信号。这就像你写完一封邮件，自己再读一遍，发现措辞不妥、换了个说法。\n\n而
+    Reflexion 的思路要更“硬核”一些——它要求外界给模型一个“对还是错”的信号。\n\nReflexion 通常用在代码生成、数学证明这类有明确正确答案的任务里。它的流程是：\n\n-
+    Actor（执行者）：基于当前策略和外部记忆生成一个动作（例如写一段代码）。\n\n- Environment（环境）：执行这个动作，并返回结果（例如单元测试通过/失败，或计算器返回数值）。\n\n-
+    Evaluator（评估者）：把环境的客观反馈转化成语言化的“反思”，比如“上个版本因为忽略了空指针异常而失败”。\n\n- Memory（记忆）：把这个反思存起来，下次Actor在类似场景下就能主动避开这个坑。\n\nActor
+    (生成) → Environment (执行/返回结果) → Evaluator (生成反思) → Memory (存储经验)\n    ↑                                                                    │\n
+    \   └────────────────────────── 影响未来决策 ←────────────────────────────┘\n\n\U0001F539
+    最大区别：反馈来源的本质不同\n\n- Self-Refine 的反馈来自模型内部的自我评估，是软性的、主观的，质量完全取决于模型自己的品味和能力。\n\n-
+    Reflexion 的反馈来自外部环境的硬信号，是客观的、真切的，能纠正模型的盲目自信。\n\n\U0001F539 示例代码对比\n\n先看 Self-Refine
+    的极简实现：\n\ndef self_refine(prompt, llm, iterations=1):\n    response = llm.generate(prompt)\n
+    \   for _ in range(iterations):\n        feedback = llm.generate(f\"请指出以下回答的不足并给出改进建议：\\n{response}\")\n
+    \       response = llm.generate(f\"根据反馈改进回答：\\n原回答：{response}\\n反馈：{feedback}\\n改进后的回答：\")\n
+    \   return response\n\n再看 Reflexion 的核心循环（以代码生成为例）：\n\ndef reflexion_task(prompt,
+    actor, environment, evaluator, memory, max_trials=3):\n    for trial in range(max_trials):\n
+    \       # 结合经验生成代码\n        code = actor.generate(prompt + memory.get_reflections())\n
+    \       # 环境执行，返回执行结果和是否成功\n        exec_result, is_success = environment.execute(code)\n
+    \       if is_success:\n            return code\n        # 评估失败，生成反思文本\n        reflection
+    = evaluator.analyze(prompt, code, exec_result)\n        # 存入记忆\n        memory.add(reflection)\n
+    \   return \"Failed after all trials.\"\n\n收尾： 可以这样记，Self-Refine 是自己当自己的老师，Reflexion
+    是让现实世界当老师。后者能从根本上修正模型的幻觉，但前提是你必须有一个能给出明确对错判断的“环境”。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcnhOk3j6MFTuz6vRpGv1I5wb
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: "\U0001F50D 1. Self-Refine 是什么？它和 Reflexion 最大的区别是什么？"
+  imported_at: '2026-09-21'

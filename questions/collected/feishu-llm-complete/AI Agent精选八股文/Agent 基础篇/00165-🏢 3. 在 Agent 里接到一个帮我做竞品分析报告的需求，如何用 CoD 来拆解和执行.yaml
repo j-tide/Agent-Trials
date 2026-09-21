@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f1ee099c17c4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3E2 3. 在 Agent 里接到一个“帮我做竞品分析报告”的需求，如何用 CoD 来拆解和执行？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F3E2 3. 在 Agent 里接到一个“帮我做竞品分析报告”的需求，如何用 CoD 来拆解和执行？"
+answer:
+  mode: rubric
+  reference_answer: "现在我们把 CoD 放到真实 Agent 环境中，走一遍完整流程。假设 Agent 拥有搜索引擎、网页抓取、文档编辑等工具。\n\n3.1
+    第一层：阶段拆解（Planner 节点）\n\nAgent 收到需求后，先用 CoD 生成一个阶段计划：\n\n{\n  \"task\": \"帮我做一份关于智能手表行业的竞品分析报告\",\n
+    \ \"phases\": [\n    {\n      \"id\": 1,\n      \"name\": \"需求澄清\",\n      \"goal\":
+    \"明确分析范围、竞品名单、报告深度\",\n      \"actions\": [\"询问用户目标市场\", \"确认竞品数量\"]\n    },\n
+    \   {\n      \"id\": 2,\n      \"name\": \"数据收集\",\n      \"goal\": \"获取各竞品的关键信息\",\n
+    \     \"tools\": [\"web_search\", \"web_scraper\"]\n    },\n    {\n      \"id\":
+    3,\n      \"name\": \"对比分析\",\n      \"goal\": \"进行功能、价格、市场策略的横向比较\",\n      \"tools\":
+    [\"llm_analyze\", \"chart_generator\"]\n    },\n    {\n      \"id\": 4,\n      \"name\":
+    \"报告生成\",\n      \"goal\": \"整合分析结果，输出结构化报告\",\n      \"tools\": [\"doc_writer\"]\n
+    \   }\n  ]\n}\n\n3.2 第二层：每个阶段的步骤拆解（Executor 节点）\n\n以“数据收集”阶段为例，进一步拆成可执行的步骤：\n\ndef
+    data_collection_plan(competitors: List[str]) -> List[dict]:\n    steps = []\n
+    \   for comp in competitors:\n        steps.append({\n            \"action\":
+    \"web_search\",\n            \"query\": f\"{comp} 产品功能 特性\",\n            \"save_as\":
+    f\"{comp}_features\"\n        })\n        steps.append({\n            \"action\":
+    \"web_search\",\n            \"query\": f\"{comp} 价格 订阅模型\",\n            \"save_as\":
+    f\"{comp}_pricing\"\n        })\n        steps.append({\n            \"action\":
+    \"web_search\",\n            \"query\": f\"{comp} 市场策略 营销\",\n            \"save_as\":
+    f\"{comp}_strategy\"\n        })\n    return steps\n\n这些步骤会被送入执行循环，逐个调用工具，并将结果存入内存。\n\n3.3
+    动态调整：当某一步失败时\n\n假设搜索“某竞品价格”时返回空或反爬，CoD 的分解允许我们局部重新规划，而不影响其他步骤。执行器会触发一个“微分解”：\n\ndef
+    replan_if_failed(step: dict, error: str) -> List[dict]:\n    prompt = f\"\"\"\n步骤失败：{step}\n错误：{error}\n请提供
+    2 个替代方案来获取相同信息。\n\"\"\"\n    alternatives = call_llm(prompt).split(\"\\n\")\n
+    \   return [{\"action\": alt.strip()} for alt in alternatives if alt.strip()]\n\n例如替代方案可能为：“尝试用竞品名称
+    + ‘review’ 在视频网站搜索”或“查找行业报告间接获取”。\n\n3.4 完整 Agent 代码骨架（简化版）\n\nclass CoDAgent:\n
+    \   def __init__(self, llm, tools):\n        self.llm = llm\n        self.tools
+    = tools\n        self.memory = {}  # 存储中间结果\n\n    def run(self, user_request:
+    str):\n        # 1. 用 CoD 生成阶段计划\n        phases = self.plan_phases(user_request)\n
+    \       \n        final_report_sections = []\n        for phase in phases:\n            if
+    phase[\"name\"] == \"需求澄清\":\n                self.clarify_requirements()\n            else:\n
+    \               # 2. 对每个阶段进一步分解\n                steps = self.decompose_phase(phase)\n
+    \               # 3. 执行步骤\n                for step in steps:\n                    try:\n
+    \                       result = self.execute_step(step)\n                        self.memory[step.get(\"save_as\")]
+    = result\n                    except Exception as e:\n                        #
+    动态调整\n                        new_steps = replan_if_failed(step, str(e))\n                        for
+    ns in new_steps:\n                            result = self.execute_step(ns)\n
+    \                           self.memory[ns.get(\"save_as\")] = result\n                #
+    4. 阶段汇总，交给 LLM 分析\n                phase_summary = self.summarize_phase(phase,
+    self.memory)\n                final_report_sections.append(phase_summary)\n        \n
+    \       # 5. 最终报告整合\n        return self.generate_report(final_report_sections)\n\n
+    \   def plan_phases(self, task):\n        prompt = f\"用 CoD 将任务分解为 4~5 个阶段，输出
+    JSON 数组。任务：{task}\"\n        return json.loads(self.llm(prompt))\n\n    def decompose_phase(self,
+    phase):\n        prompt = f\"将阶段 '{phase['name']}' 分解为具体的执行步骤，每步包含 tool 和 query。\"\n
+    \       return json.loads(self.llm(prompt))\n\n3.5 效果与价值\n\n通过 CoD，Agent 把模糊的大需求变成了一个透明的、可监督、可中断、可恢复的执行流水线。在生成最终报告前，用户甚至可以预览阶段计划并调整（比如增减竞品），这大大提升了可信度和协作感。\n\n---\n\n如果把
+    CoT 比作一位心算高手，那 CoD 就是一位项目经理。前者擅长解构逻辑题，后者擅长把模糊的指令变成清晰的行军地图。在 Agent 设计里，两者常常配合使用——项目经理（CoD）把任务拆好，心算高手（CoT）在具体步骤中推理出最准确的答案。这种组合，正是让
+    Agent 从“会聊天”进化到“能办事”的关键一步。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcnwJLBgfADtuRWLbNIRZK2hb
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: "\U0001F3E2 3. 在 Agent 里接到一个“帮我做竞品分析报告”的需求，如何用 CoD 来拆解和执行？"
+  imported_at: '2026-09-21'

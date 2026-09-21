@@ -1,0 +1,91 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c6534345e8d6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 2.3 各组件设计细节
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 系统设计篇
+tags: &1
+- AI Agent精选八股文
+- Agent 系统设计篇
+content:
+  prompt: 2.3 各组件设计细节
+answer:
+  mode: rubric
+  reference_answer: |-
+    ① 规划器（Planner）
+
+    - 输入：研究主题 + 用户要求（字数、风格、领域）
+
+    - 输出：多级大纲树，每个叶子节点是一个待研究的子问题
+
+    - 技术：用 GPT-4o 或 Claude 的结构化输出能力，生成 JSON 大纲。示例：
+
+    ```json
+    {
+      "title": "量子计算在药物研发中的应用前景",
+      "sections": [
+        {"heading": "背景", "sub_questions": ["量子计算基本原理", "传统药物研发痛点"]},
+        {"heading": "应用场景", "sub_questions": ["分子模拟", "蛋白质折叠", "药物筛选"]}
+      ]
+    }
+    ```
+
+    - 可人工干预修改大纲，然后确认执行。
+
+    ② 执行器（Executor）— 最复杂的部分
+
+    每个子问题执行流程：
+
+    - 搜索：调用 Tavily / Google Search API，同时查询学术数据库（Semantic Scholar、arXiv），获取 URL 列表。
+
+    - 浏览与提取：用 Playwright 或 Jina Reader 获取网页正文，LLM 提取关键信息和数据点，形成结构化笔记（包含来源 URL、引用片段）。
+
+    - 工具扩展：涉及数据计算时，可调用 Python REPL 执行分析；涉及实体关系，可查询知识图谱（如 Wikidata）。
+
+    - 并行控制：无依赖的子问题可并发执行，但需限制并发数（防止 API 限流和成本爆炸）。使用任务队列（如 Celery）管理。
+
+    ③ 反思器（Reflector）
+
+    - 检查每个子问题是否已收集到“足够高质量”的信息。标准：至少 N 个独立来源，信息一致性高，无重大空白。
+
+    - 若不足，生成补充搜索查询，返回执行器再次搜索，设置最大重试次数（如 2 次） 避免死循环。
+
+    - 反思过程中 LLM 还会标记“信息冲突”，提醒撰写器注意。
+
+    ④ 撰写器（Writer）
+
+    - 按大纲顺序，将每个部分的笔记草稿整理成连贯段落，并插入引用标记（如 [1]、[2]）。
+
+    - 采用分层撰写：先生成各小节，再合成大节，最后写引言和总结，保证整体连贯。
+
+    - 引用链接自动附在文末，来源有效性可追溯。
+
+    - 可选的“批判性检查”：让另一个 LLM 角色对报告草稿进行质疑，修正夸大或错误陈述。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Sc5Rwxen4iFA63kDg0WcGjqInvd
+  block_id: doxcnQMj7iFVTjkxWjiBz027yOc
+  page_token: Sc5Rwxen4iFA63kDg0WcGjqInvd
+  original_title: 2.3 各组件设计细节
+  imported_at: '2026-09-21'

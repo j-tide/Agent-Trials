@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6c6e64ccc311
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果训练不收敛，你从数据、模型、优化器三方面如何排查？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 如果训练不收敛，你从数据、模型、优化器三方面如何排查？
+answer:
+  mode: rubric
+  reference_answer: |-
+    训练不收敛（loss居高不下，或震荡，或NaN）是大模型训练中常见且令人头疼的问题。系统性地从数据、模型、优化器三个维度排查，可以快速定位根因。
+
+    数据方面：
+
+    - 数据质量：检查输入文本是否包含大量乱码、特殊字符或空文本。异常数据可能导致极端梯度，破坏训练稳定性。可通过采样一批数据人工检查，或统计文本长度分布、字符频率等发现异常。
+
+    - 数据预处理一致性：确认训练和验证的 tokenization、截断、padding 策略完全一致。如果训练用了动态 padding 而验证没有，或 tokenizer 版本不同，会导致验证时模型看到完全不同的分布。
+
+    - 标签正确性：如果是监督任务，检查标签是否正确编码，是否存在标签偏移或全部为同一类别。对于语言模型，确保 targets 是输入错位一位，没有偏移错误。
+
+    - 数据分布：验证数据是否充分打乱。如果连续多个batch都是同类或同领域的样本，优化器可能发生剧烈震荡。检查数据加载器的 shuffle 是否开启，以及是否有数据重复或缺失。
+
+    - 数据归一化：对于数值特征，确保已经做了标准化或归一化。对于图像，检查像素值是否在合理范围（如0-1或归一化后）。对于文本，检查 input_ids 是否在词表范围内。
+
+    模型方面：
+
+    - 模型结构：检查模型定义是否正确，尤其是层数、隐藏维度、注意力头数等超参数是否符合预期。确认残差连接、LayerNorm 的位置是否正确。使用print(model)或torchinfo可视化。
+
+    - 初始化：不当的初始化是常见原因。如果所有权重初始化为0或过大，网络无法学习。对于 Transformer，通常使用 Xavier/Glorot 初始化（或 He 初始化），且残差分支常用0初始化或极小初始化。检查初始化代码，确保使用了正确的初始化和种子。
+
+    - 激活函数：确认激活函数选择合理，且没有在需要概率输出的地方误用 ReLU 等。对于分类，输出层是否正确使用了 Softmax 或 Sigmoid。
+
+    - 梯度流：检查是否存在梯度消失或爆炸。通过打印各层梯度的 L2 范数，看哪些层梯度极小或极大。梯度消失可能源于激活函数饱和（如 Sigmoid）或初始化不当；梯度爆炸可能源于学习率过大或模型结构问题。
+
+    - BatchNorm/LayerNorm：对于 Transformer，LayerNorm 通常放在子层前面（Pre-Norm）有助于训练稳定。如果是 Post-Norm，深层网络可能更难训练。
+
+    优化器方面：
+
+    - 学习率：学习率过高会导致 loss 震荡或 NaN，过低会导致收敛极慢。使用 LR Finder 确定合适的学习率范围。检查学习率预热（warmup）是否开启，预热步数是否足够。
+
+    - 优化器类型：对于大模型，AdamW 是标配。SGD 可能需要更精细的调参。检查优化器参数：betas、epsilon、weight_decay 是否合理。
+
+    - 梯度裁剪：是否开启了梯度裁剪？对于 Transformer，通常将梯度范数裁剪到1.0左右。如果没有裁剪，梯度爆炸风险高。
+
+    - 混合精度：如果使用 FP16，是否开启了 loss scaling？动态 loss scaling 是否正常工作？scale 是否一直下降？可以尝试切换 BF16 或 FP32 排查是否是精度问题。
+
+    - 批量大小：批量过小会导致梯度噪声大、训练不稳定。可尝试增大 batch size 或增加梯度累积步数。
+
+    - 优化器状态：如果从 checkpoint 恢复训练，确认优化器状态加载正确。不同框架的优化器状态可能不兼容。
+
+    排查顺序建议：先过一遍数据，确保没有明显错误；然后用一个极小的数据子集测试模型能否过拟合（应该能），若不能则是模型或优化器问题；接着检查初始化、学习率和梯度。通常能较快锁定问题。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: BvhrdYi9So46jSxXcGjcW19pnGd
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: 如果训练不收敛，你从数据、模型、优化器三方面如何排查？
+  imported_at: '2026-09-21'

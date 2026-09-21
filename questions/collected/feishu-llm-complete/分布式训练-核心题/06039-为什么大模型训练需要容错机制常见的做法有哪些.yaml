@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-79ba76f0815f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么大模型训练需要容错机制？常见的做法有哪些？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 为什么大模型训练需要容错机制？常见的做法有哪些？
+answer:
+  mode: rubric
+  reference_answer: |-
+    大模型训练通常需要成百上千张GPU连续运行数周，在如此长的时间窗口内，硬件故障是必然事件。GPU可能因为显存错误、过热、电源问题挂掉；InfiniBand网络可能链路中断；存储节点也可能出问题。如果没有容错机制，任何一个微小的硬件故障都会导致整个训练任务崩溃，浪费大量已投入的算力和时间。
+
+    ### 常见的容错做法
+
+    - 基于Checkpoint的自动恢复：最基础的方案。训练框架定期保存checkpoint，监控进程发现节点故障后，自动终止当前任务，然后利用集群调度器（如Kubernetes或Slurm）重新申请健康节点，从最近的checkpoint恢复训练。这要求训练脚本支持断点续训。
+
+    - 弹性训练 (Elastic Training)：允许训练过程中动态增减GPU数量。当某个节点故障时，框架自动剔除故障节点，利用剩余的GPU继续训练，而不是重启整个任务。如果有备用节点加入，还能自动扩展。DeepSpeed和PyTorch Elastic都支持这种模式。
+
+    - 慢节点检测与自动剔除：在大规模集群中，常有部分节点因硬件老化而计算速度明显偏慢，拖累整个集群。框架监控每张卡的迭代耗时，若某卡持续慢于平均水平，可将其上的工作负载迁移至其他卡，或主动将其从训练组中剔除。
+
+    - 网络冗余与通信容错：多机训练通常使用InfiniBand网络，配置多路径路由。当某条链路中断时，自动切换到备用路径。NCCL通信库内置了超时和重试机制，能在一定时间内恢复连接。
+
+    - 电源与散热冗余：数据中心层面的容错，如双路供电、N+1风扇冗余等，从物理环境上减少故障概率。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Yto8wfa8ti5TgZktU1YczVp7nme
+  block_id: SWJldxJlkoKE72xBP2bcQXIUnth
+  page_token: Yto8wfa8ti5TgZktU1YczVp7nme
+  original_title: 为什么大模型训练需要容错机制？常见的做法有哪些？
+  imported_at: '2026-09-21'

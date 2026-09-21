@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-89c1ec89deb2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Top-P (Nucleus) 采样
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: Top-P (Nucleus) 采样
+answer:
+  mode: rubric
+  reference_answer: |-
+    算法：
+
+    - 将 logits 转换为概率（softmax）。
+
+    - 按概率降序排序，累加概率直到超过阈值 p。
+
+    - 将剩余 token 的概率置零，重新归一化，然后多项式采样。
+    代码：
+
+    ```python
+    def top_p_sampling(logits, p):
+        probs = F.softmax(logits, dim=-1)
+        sorted_probs, sorted_indices = torch.sort(probs, descending=True)
+        cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+        # 保留累积概率<=p的token，但至少保留一个
+        cutoff_idx = (cumulative_probs > p).nonzero(as_tuple=True)
+        if len(cutoff_idx[0]) > 0:
+            last_included = cutoff_idx[0][0]
+        else:
+            last_included = sorted_probs.size(-1) - 1
+        sorted_probs[last_included+1:] = 0
+        sorted_probs /= sorted_probs.sum(dim=-1, keepdim=True)
+        sampled_idx = torch.multinomial(sorted_probs, 1)
+        return sorted_indices.gather(-1, sampled_idx).item()
+    ```
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AxkEwVG8kibSjokIPVEc6aggnjo
+  block_id: doxcnsAamGfQ7eORzOEjrGlUNm7
+  page_token: AxkEwVG8kibSjokIPVEc6aggnjo
+  original_title: Top-P (Nucleus) 采样
+  imported_at: '2026-09-21'

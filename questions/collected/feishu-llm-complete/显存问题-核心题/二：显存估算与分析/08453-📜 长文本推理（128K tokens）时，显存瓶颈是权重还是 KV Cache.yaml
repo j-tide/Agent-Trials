@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-366901338c2d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DC 长文本推理（128K tokens）时，显存瓶颈是权重还是 KV Cache？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "\U0001F4DC 长文本推理（128K tokens）时，显存瓶颈是权重还是 KV Cache？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    对于现代大模型，128K tokens 的超长序列推理，显存瓶颈无疑是 KV Cache。权重通常是固定的，比如一个 13B FP16 模型权重 26 GB，加上 INT4 量化的 70B 模型权重 35 GB，而 KV Cache 随序列长度线性增长。
+
+    计算 13B 模型（40 层，40 头，头维度 128，无 GQA）在 128K token 时的 KV Cache：
+
+    per_token_kv_bytes = 2 × 40 × 40 × 128 × 2 = 819,200 字节 ≈ 0.78125 MiB。
+
+    128K tokens 的 KV Cache = 128 × 1024 × 0.78125 MiB ≈ 102,400 MiB = 100 GiB。这远超权重！即使使用 GQA 8 组，KV 头数变为 8，占用也达 100 × (8/40) = 20 GiB，对于大权重模型仍然可能成为瓶颈。对于 70B GQA 模型，权重 35GB (INT4)，但 128K KV Cache 按 8 组、80 层、头维度 128 计算：
+
+    per_token = 2 × 80 × 8 × 128 × 2 = 327,680 字节 ≈ 0.3125 MiB。
+
+    128K → 128 × 1024 × 0.3125 = 40,960 MiB = 40 GiB。权重 35 GB + KV Cache 40 GB = 75 GB，超过单卡 80GB（如 A100 80G）？ 75 GB < 80 GB，勉强可以。但如果有任何额外开销就会 OOM。所以长序列下，KV Cache 变得比权重更大或相当，成为主要瓶颈。
+
+    因此，长文本推理的显存瓶颈通常是 KV Cache，而非权重。解决方案包括：GQA、MQA、KV Cache 量化（INT8/FP8）、PagedAttention 优化内存碎片、以及 offload 到 CPU 等。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/U2u9wFuzEiPu2okJIcFcYZkUnhc
+  block_id: CiFAd2V91odB6Exg5fGc17a8naf
+  page_token: U2u9wFuzEiPu2okJIcFcYZkUnhc
+  original_title: "\U0001F4DC 长文本推理（128K tokens）时，显存瓶颈是权重还是 KV Cache？"
+  imported_at: '2026-09-21'

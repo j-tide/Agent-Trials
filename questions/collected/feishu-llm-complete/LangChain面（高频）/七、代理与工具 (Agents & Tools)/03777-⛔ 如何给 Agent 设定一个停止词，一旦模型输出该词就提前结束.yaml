@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0fe3f4c625bd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⛔ 如何给 Agent 设定一个“停止词”，一旦模型输出该词就提前结束？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "⛔ 如何给 Agent 设定一个“停止词”，一旦模型输出该词就提前结束？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    停止词（Stop Token）可以让 LLM 在生成过程中遇到特定字符串时立即停止。在 Agent 场景中，可以用来实现自定义的终止逻辑。
+
+    方法：在 LLM 初始化时设置 stop 参数
+
+    LangChain 的大多数 LLM 包装器都支持传入 stop 序列。例如：
+
+    from langchain.chat_models import ChatOpenAI
+
+    llm = ChatOpenAI(
+        model="gpt-4",
+        temperature=0,
+        stop=["\nObservation:", "Final Answer:"]  # 提前停止点
+    )
+
+    但是，对于 Agent，我们需要的是控制推理循环的停止，而不是在单次生成中截断。更有效的方法是使用 Agent 的自定义输出解析器 或 Prompt 指令。
+
+    实际应用
+
+    - 利用 Agent 自身的格式
+    在 ReAct Agent 中，Final Answer: 就是天然的停止词。你可以自定义这个标记。例如，让 Agent 在遇到特殊条件时输出 STOP，然后在 AgentOutputParser 中识别这个标记并抛出 AgentFinish 异常，从而跳出循环。
+
+    - 在 Prompt 中预设提前终止规则
+
+    在 Agent 的 Prompt 中加入：
+
+    如果你认为用户的问题无法回答，或者你已经收集了足够信息，请输出 "Final Answer: 抱歉，我无法回答这个问题。"
+
+    这样 Agent 自然会在合适的时候终止。
+
+    - 使用 LangChain 的 EarlyStopping 机制
+    AgentExecutor 的 early_stopping_method 可以配合 max_iterations 使用，但这并非基于内容。
+
+    - 自定义回调中断
+    在 on_agent_action 或 on_llm_new_token 回调中，检查 LLM 的输出是否包含自定义停止词，如果包含则抛出异常提前结束。
+
+    ✅ 实践：我很少直接设置 stop 参数来终止 Agent，因为这可能会在 LLM 生成过程中截断关键的 Action Input。更稳妥的方式是通过 Prompt 设计让 Agent 自己输出 Final Answer，或者用回调在检测到异常时主动终止。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/L6pCw9CICiNRXDkqTmbcNMZ5nzh
+  block_id: JNImdOwVNoRHlfxDmeKcusHcnId
+  page_token: L6pCw9CICiNRXDkqTmbcNMZ5nzh
+  original_title: "⛔ 如何给 Agent 设定一个“停止词”，一旦模型输出该词就提前结束？"
+  imported_at: '2026-09-21'

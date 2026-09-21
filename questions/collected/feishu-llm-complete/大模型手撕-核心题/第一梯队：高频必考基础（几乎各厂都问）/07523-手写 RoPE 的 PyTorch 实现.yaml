@@ -1,0 +1,88 @@
+---
+schema_version: 1
+id: feishu-llm-complete-db098810ad18
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 手写 RoPE 的 PyTorch 实现
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 手写 RoPE 的 PyTorch 实现
+answer:
+  mode: rubric
+  reference_answer: |-
+    题目：实现函数 apply_rotary_pos_emb(q, k, cos, sin, position_ids)，要求支持 batching，且 cos/sin 为预先计算的固定频率表。
+
+    5.1 实现代码
+
+    ```python
+    import torch
+
+    def apply_rotary_pos_emb(q, k, cos, sin, position_ids):
+        """
+        q, k: (batch, num_heads, seq_len, head_dim)
+        cos, sin: (max_seq_len, head_dim)  预计算的旋转因子
+        position_ids: (batch, seq_len) 或 (seq_len,)
+        """
+        # 根据 position_ids 取出对应位置的 cos, sin
+        cos = cos[position_ids].unsqueeze(0).unsqueeze(2)  # (1, batch, 1, seq_len, head_dim)
+        sin = sin[position_ids].unsqueeze(0).unsqueeze(2)
+        # 如果 q,k 是 (batch, heads, seq, dim)，则 cos/sin 形状需适配
+        cos = cos.unsqueeze(1)  # (1, 1, 1, seq_len, dim) -> 广播
+        sin = sin.unsqueeze(1)
+
+        # 将 q,k 拆分为两半
+        q_rot = q.reshape(*q.shape[:-1], -1, 2)
+        k_rot = k.reshape(*k.shape[:-1], -1, 2)
+        # 应用旋转
+        q_embed = torch.stack([
+            q_rot[..., 0] * cos - q_rot[..., 1] * sin,
+            q_rot[..., 0] * sin + q_rot[..., 1] * cos
+        ], dim=-1).flatten(-2)
+        k_embed = torch.stack([
+            k_rot[..., 0] * cos - k_rot[..., 1] * sin,
+            k_rot[..., 0] * sin + k_rot[..., 1] * cos
+        ], dim=-1).flatten(-2)
+        return q_embed, k_embed
+    ```
+
+    更简洁的实现（利用复数）见后面第10题。这里的实现采用实数方式，将 head_dim 两两分组，直接相乘累加。
+
+    5.2 注意事项
+
+    - cos 和 sin 应当预计算好全部位置的频率表，避免每次重复计算。
+
+    - 支持 batch 和 multi-head 时，确保广播维度正确。常见输入形状是 (batch, num_heads, seq_len, head_dim)，position_ids 形状 (batch, seq_len)。
+
+    - RoPE 通常只应用于 Q 和 K，不用于 V。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VuccwPjSli6dm2kOTxJclpKdnhb
+  block_id: RUTgdSgXKobfyexSf4ZcBoSCn6f
+  page_token: VuccwPjSli6dm2kOTxJclpKdnhb
+  original_title: 手写 RoPE 的 PyTorch 实现
+  imported_at: '2026-09-21'

@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-eb6be3800d67
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 2. 如何处理一个同时包含表格和文字段落的 PDF？用哪个加载器比较好？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F9E9 2. 如何处理一个同时包含表格和文字段落的 PDF？用哪个加载器比较好？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是一个经典难题。普通的 PyPDFLoader 提取文本时会把表格拆成残破的段落，丢失结构。专门提取表格可以用 camelot 或 tabula，但会把文字段落丢掉。LangChain 并没有一个开箱即用的“表格+文字”一体化加载器，所以我们要自己做组合。
+
+    推荐方案：UnstructuredPDFLoader + 自定义后处理
+
+    Unstructured 库（partition_pdf）可以识别出文档中的 Table 元素，并将其内容提取为文本或 HTML 表格。你可以利用这个特性：
+
+    ```python
+    from langchain_community.document_loaders import UnstructuredPDFLoader
+
+    loader = UnstructuredPDFLoader(
+        "report.pdf",
+        mode="elements",          # 返回元素粒度的文档
+        strategy="hi_res",        # 高分辨率策略，准确度高但慢
+    )
+    docs = loader.load()
+    # 此时每个 docs[i] 是一个元素，其 metadata 包含 "category" 字段：
+    # 可能的类别：Title, NarrativeText, Table, ListItem, etc.
+    ```
+
+    之后，你可以遍历 docs，对于 category == "Table" 的元素，可以保留其 page_content（已经是表格文本表示）或者进一步用 camelot 在该页上精确提取。对于 NarrativeText 等元素，直接使用其文本。
+
+    如果表格特别复杂，我更倾向于双引擎处理：
+
+    - 用 PyPDFLoader 先提取纯文本，用作全文搜索的语料。
+
+    - 再用 camelot-py 或 tabula-py 提取所有页面上的表格，将表格转换为 Markdown 或 JSON 字符串，单独存入向量库，并附加 page_number 等 metadata。查询时，从两路召回后合并排序。
+
+    这种方法虽然麻烦，但能保证表格信息和文字信息都不丢失，特别适合财报、科研论文等场景。别指望一个加载器解决所有问题，针对不同模态数据用不同的工具，然后统一到 Document 对象，是最务实的工程策略。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EY1lwce7uiXgPpklg8tcoBj6nNg
+  block_id: Am3xdysK3o7xNWxO96dc2uxwnmg
+  page_token: EY1lwce7uiXgPpklg8tcoBj6nNg
+  original_title: "\U0001F9E9 2. 如何处理一个同时包含表格和文字段落的 PDF？用哪个加载器比较好？"
+  imported_at: '2026-09-21'

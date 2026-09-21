@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-90c0932f804b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 张量并行（TP）是如何切分模型权重以减少单卡显存的？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F9E9 张量并行（TP）是如何切分模型权重以减少单卡显存的？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 张量并行将层内的权重矩阵沿列或行切分，每张卡只存储权重的一部分，前向/反向时通过通信来合成完整结果，从而直接将单卡权重显存降至
+    1/TP 度。\n\n\U0001F527 具体切分方式（以 Megatron-LM 风格为例）：\n\n- 列切分（Column Parallel）\n\n-
+    以线性层 Y = XA 为例，权重矩阵 A 的形状为 [hidden_in, hidden_out]。TP 将 A 按列切成 [hidden_in, hidden_out/TP]
+    的多个子块，每张卡存放一个子块 A_i。输入 X 复制到所有卡。\n\n- 每张卡独立计算 Y_i = X A_i，得到形状 [batch, seq, hidden_out/TP]
+    的部分结果。然后通过 All-Gather 将所有 Y_i 合并成完整输出 Y。单卡权重显存降为 1/TP。\n\n- 行切分（Row Parallel）\n\n-
+    通常与前一个列并行层配对。权重矩阵 B 按行切分：[hidden_out/TP, hidden_in]。此时每张卡处理输入的一部分（来自上一层的部分输出），计算
+    Z_i = Y_i B_i，形状 [batch, seq, hidden_in]。\n\n- 最后通过 All-Reduce 将所有卡的 Z_i 相加得到完整结果。单卡权重显存同样降为
+    1/TP。\n\n- 注意力层切分\n\n- 将 Q、K、V 的头数按 TP 切分，每张卡只计算部分注意力头，然后 All-Reduce 输出。多头注意力的权重自然被分片。\n\n✅
+    效果：\n\n若 TP=4，每张卡的模型权重（包括 MLP 和注意力）显存大约变为原来的 1/4，立竿见影。代价是每层都需要 All-Gather 或 All-Reduce，通信量巨大，因此
+    TP 通常只在高带宽的节点内（NVLink）使用。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WSBEwNJCni9q3ok7cN6cISL3nwe
+  block_id: ADnhdLNUQoqV9sxetadcE4pWnEd
+  page_token: WSBEwNJCni9q3ok7cN6cISL3nwe
+  original_title: "\U0001F9E9 张量并行（TP）是如何切分模型权重以减少单卡显存的？"
+  imported_at: '2026-09-21'

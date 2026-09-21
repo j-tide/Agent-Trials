@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bbf6646dbda3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50D 2. 如何为多 Agent 系统设计 Trace 和日志体系？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 部署 观测篇
+tags: &1
+- AI Agent精选八股文
+- Agent 部署 观测篇
+content:
+  prompt: "\U0001F50D 2. 如何为多 Agent 系统设计 Trace 和日志体系？"
+answer:
+  mode: rubric
+  reference_answer: "针对上面的挑战，Trace 和日志不只是“记录发生了什么”，更是我们理解多 Agent 思维过程的唯一窗口。我习惯用“一次对话，一个
+    Trace；每个 Agent，一个 Span；每次工具调用，一个子 Span”的模式。\n\n整体架构图\n\n[图片内容未导入]\n\n设计方案：OpenTelemetry
+    + 自定义日志上下文\n\n我们使用 OpenTelemetry 作为 Trace 标准，并在每个 Agent 的“边界”手动创建 Span。同时，日志里必须携带
+    trace_id 和 span_id，这样在 ELK 或 Grafana 里能把一次对话的所有日志瞬间串起来。\n\n示例代码：为 Agent 调用包装一个带
+    Trace 的上下文管理器\n\n```python\nfrom opentelemetry import trace\nfrom opentelemetry.sdk.trace
+    import TracerProvider\nfrom opentelemetry.exporter.otlp.proto.grpc.trace_exporter
+    import OTLPSpanExporter\nfrom opentelemetry.sdk.trace.export import BatchSpanProcessor\nimport
+    uuid, logging, json, time\n\n# 初始化 Tracer\ntrace.set_tracer_provider(TracerProvider())\ntrace.get_tracer_provider().add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))\ntracer
+    = trace.get_tracer(__name__)\n\nclass TracedAgent:\n    def __init__(self, name,
+    llm, tools):\n        self.name = name\n        self.llm = llm\n        self.tools
+    = tools\n\n    async def run(self, task_input, parent_context=None):\n        #
+    为当前 Agent 创建一个 Span\n        with tracer.start_as_current_span(\n            f\"Agent.{self.name}\",
+    \n            context=parent_context,\n            attributes={\"agent_name\":
+    self.name}\n        ) as span:\n            # 将 trace_id 注入日志\n            trace_id
+    = span.get_span_context().trace_id\n            logger = logging.LoggerAdapter(\n
+    \               logging.getLogger(), \n                {\"trace_id\": f\"{trace_id:032x}\",
+    \"agent\": self.name}\n            )\n            logger.info(f\"开始执行任务: {task_input[:100]}...\")\n\n
+    \           # 在这里执行 Agent 的逻辑，并给工具调用单独创建 Span\n            with tracer.start_as_current_span(\"LLM_Call\")
+    as llm_span:\n                start = time.time()\n                response =
+    await self.llm.generate(task_input)\n                llm_span.set_attribute(\"model\",
+    response.model)\n                llm_span.set_attribute(\"tokens\", response.usage.total_tokens)\n
+    \               llm_span.set_attribute(\"latency_ms\", (time.time() - start) *
+    1000)\n                logger.info(f\"LLM 调用完成，消耗 Token: {response.usage.total_tokens}\")\n\n
+    \           # 模拟工具调用\n            if \"需要搜索\" in response.content:\n                with
+    tracer.start_as_current_span(\"Tool.search\") as tool_span:\n                    result
+    = await self.tools[\"search\"](task_input)\n                    tool_span.set_attribute(\"result_count\",
+    len(result))\n                    logger.info(f\"搜索完成，找到 {len(result)} 条结果\")\n
+    \                   # 返回结果给大脑...\n```\n\n为什么这样设计？\n\n- 每个 Agent 是一个 Span：在 Jaeger
+    或 Tempo 里，你能看到整条 Trace 下，各个 Agent 是并行还是串行，哪个 Agent 耗时最长，一目了然。\n\n- 每次 LLM 调用和工具调用都是子
+    Span：这样你能精确统计每个步骤的耗时和 Token 开销。\n\n- 日志带 Trace ID：当用户投诉“第三轮回答错了”，你在 ELK 里输入 trace_id:abc123，这个请求的全部“思考过程”就完整呈现，不再需要靠猜。\n\n日志级别与内容的特殊设计：\n\n-
+    INFO：记录每个 Agent 的启动、结束，关键决策（如“决定调用搜索工具”）。\n\n- DEBUG：记录 Agent 内部完整的 Prompt 和 LLM
+    原始回复（要注意 PII 脱敏）。\n\n- ERROR：工具调用失败、LLM 返回格式解析失败等。\n\n- AUDIT：任何触及敏感数据或重要决策的操作，单独记录，不可删除。\n\n调试多
+    Agent 的一个核心习惯：把每一次对话的 Trace 都保存下来，做成“可回放的录像带”。你可以在开发环境里把线上 Trace 的每一步重新喂给 Agent，精确复现当时的状态，这比任何日志都更接近真相。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YRlmwa5uTigqcrk9KUrccccrnmh
+  block_id: doxcnHsBRy7WaSpqRoIN4PYMwuc
+  page_token: YRlmwa5uTigqcrk9KUrccccrnmh
+  original_title: "\U0001F50D 2. 如何为多 Agent 系统设计 Trace 和日志体系？"
+  imported_at: '2026-09-21'

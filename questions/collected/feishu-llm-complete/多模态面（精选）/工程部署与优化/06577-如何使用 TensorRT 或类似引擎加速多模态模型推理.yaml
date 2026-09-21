@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fee3c4f26ce0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用 TensorRT 或类似引擎加速多模态模型推理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 如何使用 TensorRT 或类似引擎加速多模态模型推理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    TensorRT是NVIDIA的高性能推理优化器，通过图优化、层融合、精度量化、内存优化等手段将训练好的模型转化为最优推理引擎。
+
+    加速多模态模型的一般步骤：
+
+    - 模型导出
+
+    将PyTorch模型导出为ONNX格式。对于多模态模型，通常需要分别导出视觉编码器和LLM（因为架构不同），或者使用HuggingFace的Optimum库自动完成。
+
+    - TensorRT引擎构建
+    使用trtexec或Python API，将ONNX模型转换为TensorRT Engine。构建时可指定：
+
+    - 精度：FP32 / FP16 / INT8（需校准）/ FP8（H100）。
+
+    - 最大batch size、序列长度等动态维度范围。
+
+    - 针对特定GPU的自动调优（kernel auto-tuning）。
+
+    - 量化校准（INT8）
+
+    对于INT8推理，需要准备代表性校准数据集，通过TensorRT的校准流程确定各层的量化参数。对于扩散模型U-Net，校准数据是不同时间步的带噪图像和对应文本特征。对于LLM，校准数据是典型输入序列。
+
+    - 多模态特有的集成挑战
+
+    - 视觉编码器和LLM可能分别构建为两个TensorRT Engine，需要在应用层串联。
+
+    - 视觉token的输出（FP16 Tensor）需作为LLM Engine的输入，注意显存复用，避免不必要的拷贝。
+
+    - 对于使用FlashAttention的模型，需确保TensorRT版本支持或回退到标准注意力实现。
+
+    - 现有生态支持
+
+    - TensorRT-LLM：专门优化LLM的TensorRT后端，原生支持Continuous Batching、PagedAttention、量化等。对于LLaVA等多模态LLM，社区提供了转换脚本。
+
+    - Stable Diffusion TensorRT：NVIDIA官方提供了SD的TensorRT优化版，性能提升显著。
+
+    - torch.compile + TensorRT backend：PyTorch 2.0的torch.compile可以调用TensorRT后端（需额外配置），提供更便捷的加速体验。
+
+    性能收益：相比原生PyTorch，TensorRT在相同精度下可提速1.5-3倍，结合INT8量化可再提升30-50%。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RRQVwfGDQiejs6kBW04ch16ynHe
+  block_id: T0N6dwyVfoEsmXxTPYTc6A37nbh
+  page_token: RRQVwfGDQiejs6kBW04ch16ynHe
+  original_title: 如何使用 TensorRT 或类似引擎加速多模态模型推理？
+  imported_at: '2026-09-21'

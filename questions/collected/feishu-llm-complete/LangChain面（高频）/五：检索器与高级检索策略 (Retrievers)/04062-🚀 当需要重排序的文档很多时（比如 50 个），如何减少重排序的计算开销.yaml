@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-82aa67633173
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F680 当需要重排序的文档很多时（比如 50 个），如何减少重排序的计算开销？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F680 当需要重排序的文档很多时（比如 50 个），如何减少重排序的计算开销？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    50 个文档对于交叉编码器来说可能耗时较长（例如，bge-reranker-base 在 CPU 上可能需要几秒钟）。优化策略如下：
+
+    - 分阶段缩减（Cascade）
+    先使用快速、轻量的过滤方法将 50 个减少到 15 个，再用昂贵的交叉编码器重排序。比如：
+
+    - 使用更轻量级的重排序模型作为初排
+    例如，先用一个基于嵌入向量的 Cosine 相似度排序（双塔模型），取 top-15，再用交叉编码器精细排序。这其实是一个三阶段管道：检索 → 融合 → 轻量级排序 → 重量级排序。
+
+    - 批量推理与并行化
+    交叉编码器可以接收一个 batch 的 pairs 进行预测，这比逐对预测快得多。确保你的实现使用了 model.predict(pairs, batch_size=32)，并利用 GPU 加速。
+
+    - 使用模型量化或更小的模型
+    将交叉编码器转换为 ONNX 并使用 INT8 量化推理，可以显著提升速度。或者选择更小版本的模型（如 bge-reranker-small）。
+
+    - 缓存
+    对于重复的 (query, doc) 组合，缓存重排序分数。如果文档库不常变，可以预先离线计算热门查询的分数。
+
+    - 文档摘要预过滤
+    不是对全文重排序，而是先让轻量模型对长文档生成摘要或标题，然后只对摘要进行重排序。如果摘要得分高，再使用全文。这进一步减少输入长度。
+
+    - 启发式截断
+    如果 50 个文档中，前面的若干个已经在之前阶段有很高的分数，可以直接取前 10 个，不需要全部重排，但可能牺牲召回。
+
+    在实践中，通常结合分阶段缩减和批量推理，可以在保持检索质量的同时将延迟控制在百毫秒以内。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TYm8wI1HmiQSuPkpe81c9XYanHb
+  block_id: CuLJd6WBVoTPJ2x3yyecdoWNnxh
+  page_token: TYm8wI1HmiQSuPkpe81c9XYanHb
+  original_title: "\U0001F680 当需要重排序的文档很多时（比如 50 个），如何减少重排序的计算开销？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-95b48aeb7ca9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多个LoRA模块如何切换？能否实现热插拔？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 多个LoRA模块如何切换？能否实现热插拔？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在推理服务中，可能同时需要为不同用户或不同任务提供不同的LoRA适配器。多LoRA切换有两种主流方式：静态切换（冷插拔） 和动态热插拔。
+
+    静态切换（不合并）：
+
+    - 基座模型常驻GPU显存，不同LoRA的权重（A、B矩阵）存放在CPU内存或磁盘上。
+
+    - 当需要切换任务时，将当前LoRA卸载（释放GPU显存），然后加载目标LoRA到GPU，绑定到模型上。
+
+    - 由于LoRA权重很小（每个适配器几十MB），加载速度极快（毫秒级），对用户几乎无感。
+
+    - 这可以在应用层实现一个LoRA管理器，根据请求参数动态加载。
+
+    动态热插拔（如S-LoRA、Punica）：
+
+    - 多个LoRA适配器同时驻留在GPU显存中，由统一的LoRA块池管理，类似于PagedAttention的思想。
+
+    - 不同请求到达时，调度器根据所需的LoRA ID，从池中取出对应的LoRA权重块，与基座模型权重组合执行计算。
+
+    - 关键：GPU显存只保留活跃请求所需的LoRA块，而非全部适配器。这实现了高并发下的细粒度复用。
+
+    - 例如，vLLM和S-LoRA支持在生成每个token时，动态地为不同请求切换或组合LoRA模块，真正做到了“热插拔”，在几乎不增加额外显存的情况下支持成百上千个LoRA。
+
+    能否热插拔：完全可以，且是现代推理引擎的必备特性。单卡24GB的GPU可以同时服务上千个不同的LoRA适配器，因为LoRA块池所占显存恒定，只与并发请求使用的总LoRA参数量有关。切换由框架在底层自动完成，对用户透明。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZYXSwaWATimyqQkmZm5cAPJHnoc
+  block_id: AYcHdkRElorqO2xui1Wcq4nQnbh
+  page_token: ZYXSwaWATimyqQkmZm5cAPJHnoc
+  original_title: 多个LoRA模块如何切换？能否实现热插拔？
+  imported_at: '2026-09-21'

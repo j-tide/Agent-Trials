@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1f7e1c25907c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3F7️ 持久化记忆时，如何同时存储用户 ID、会话 ID 等元信息？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F3F7️ 持久化记忆时，如何同时存储用户 ID、会话 ID 等元信息？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在很多场景下，你不仅需要存储对话内容，还需要关联用户 ID、租户 ID、会话标题等元数据，以便进行筛选、审计或个性化。
+
+    方案一：扩展数据库表，增加元数据列
+    在创建 chat_history 表时，增加 user_id、tenant_id、session_title 等字段。然后在每次插入消息时，手动设置这些列的值。
+    LangChain 原生的 PostgresChatMessageHistory 不支持传入额外元数据，因此你需要自定义一个子类，重写 add_message 方法。
+
+    ```python
+    from langchain_community.chat_message_histories import PostgresChatMessageHistory
+
+    class ExtendedPostgresHistory(PostgresChatMessageHistory):
+        def __init__(self, user_id: str, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.user_id = user_id
+
+        def add_message(self, message):
+            # 先调用父类方法，但需要额外插入 user_id
+            # 父类实现是执行 INSERT，我们可以覆盖整个方法
+            import json
+            from psycopg2 import sql
+            msg_json = json.dumps(message.dict())
+            with self.engine.connect() as conn:
+                conn.execute(
+                    sql.SQL("INSERT INTO {} (session_id, message, user_id) VALUES (%s, %s, %s)").format(sql.Identifier(self.table_name)),
+                    (self.session_id, msg_json, self.user_id)
+                )
+    ```
+
+    使用时，你就可以为不同用户创建不同的 ExtendedPostgresHistory 实例。
+
+    方案二：将元数据编码到 session_id 中
+    一种更简单但不太规范的方法是把元数据（如 user_id）嵌入 session_id 本身。例如，采用 user_123:session_456 作为 session ID。这样你可以通过字符串解析来提取用户 ID，但缺点是无法利用数据库索引高效查询某个用户的所有会话。
+
+    方案三：使用支持元数据的 BaseChatMessageHistory 实现
+    LangChain 的 BaseChatMessageHistory 是一个非常灵活的基类。你可以从头实现一个，使用 SQLAlchemy 模型，包含你所需要的所有元数据字段。这能获得最大的控制权，但需要编写更多代码。
+
+    推荐做法：在大多数项目中，扩展数据库表并自定义历史记录类是最佳平衡点。它保持了与 LangChain 生态的兼容性，又提供了所需的元数据存储能力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Dajiw8ewCiTjamklohBcMVI0nre
+  block_id: NnSkde99foShtTxJjddcU8GRnJc
+  page_token: Dajiw8ewCiTjamklohBcMVI0nre
+  original_title: "\U0001F3F7️ 持久化记忆时，如何同时存储用户 ID、会话 ID 等元信息？"
+  imported_at: '2026-09-21'

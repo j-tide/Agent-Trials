@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8a88207350ba
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9D1‍\U0001F4BB 推理服务中，如何预估多用户并发时的显存需求？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "\U0001F9D1‍\U0001F4BB 推理服务中，如何预估多用户并发时的显存需求？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    预估并发显存需求，核心是计算最大同时活跃请求下的资源占用。步骤如下：
+
+    - 确定模型权重：固定值，不论并发数。
+
+    - 单请求 KV Cache 最大占用：假设系统允许的最大输入+输出长度（max_total_tokens），计算单请求 KV Cache 大小（per_req_kv）。
+
+    - 并发请求数（batch size）上限：根据目标并发数（如同时处理 20 个请求）设置最大 batch size。
+
+    - KV Cache 总量 = per_req_kv × max_batch_size × 一个调整因子（由于 PagedAttention 等可能允许共享和碎片节省，可设为 0.9-1.0）。
+
+    - 激活内存：要支持最大 batch size 的 Prefill 阶段峰值。激活量与 batch size 成正比，可粗略按 batch × seq_len × hidden_size × 一些层倍数 估算，或使用经验值（如 LLM 推理框架通常报告的 batch size 对显存的影响）。无实测时，可按权重的 20-30% 作为激活预留。
+
+    - 其他开销：框架内核、CUDA context 等，保留 1-2 GB。
+
+    - 总显存需求 = 权重 + KV Cache 总量 + 激活内存 + 其他。
+
+    - 如果总需求超过可用显存，可采取：降低 max_total_tokens，减小 max_batch_size，使用量化 KV Cache，或采用 PagedAttention 提高利用率。
+
+    举例：用 13B FP16 权重 26 GB，单请求最大 4096 token，KV Cache 约 1 GB/请求，并发 16 请求，KV Cache 共 16 GB，激活预留 5 GB，总 26+16+5=47 GB，接近 48 GB 卡极限。若启用 PagedAttention，实际可能节省 20% KV Cache，变成 12.8 GB，则总 43.8 GB，更安全。
+
+    因此，预估并发显存就是权重 + 最大并发数 × 单请求最大 KV Cache + Prefill 激活峰值。这是容量规划的关键。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/U2u9wFuzEiPu2okJIcFcYZkUnhc
+  block_id: CPuidrYWuoCa9dxJOF0cCjPxnWc
+  page_token: U2u9wFuzEiPu2okJIcFcYZkUnhc
+  original_title: "\U0001F9D1‍\U0001F4BB 推理服务中，如何预估多用户并发时的显存需求？"
+  imported_at: '2026-09-21'

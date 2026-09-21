@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-84ed4997b741
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50D SelfQueryRetriever 的底层是如何把自然语言转为结构化查询的？依赖 LLM 吗？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F50D SelfQueryRetriever 的底层是如何把自然语言转为结构化查询的？依赖 LLM 吗？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    是的，完全依赖 LLM。 SelfQueryRetriever 底层使用了一个精心设计的提示词（Prompt）和输出解析器（Output Parser），让 LLM 充当“自然语言转结构化查询”的翻译器。
+
+    工作流程：
+
+    - 构造提示词：将用户问题、所有可用元数据字段的定义（名称、类型、描述）、以及文档内容描述，填充到一个模板中。
+
+    - LLM 推理：LLM 根据提示词，生成一个结构化的 JSON 或特定格式的字符串，包含两个部分：
+
+    - 解析输出：LangChain 使用自定义的解析器（如 StructuredQueryOutputParser）将 LLM 的输出转换为一个内部的 StructuredQuery 对象。
+
+    - 翻译为数据库特定过滤：不同向量数据库的过滤语法不同。LangChain 提供了 VectorStoreQueryTranslator，将通用的 StructuredQuery 翻译成特定数据库（如 Chroma、Weaviate、Pinecone）的过滤格式。
+
+    - 执行检索：最终，使用解析出的 query 和翻译后的 filter 调用 VectorStore 的 search 或 similarity_search 方法。
+
+    关键源码位置：
+
+    - langchain/chains/query_constructor/base.py：构造提示词和解析。
+
+    - langchain/chains/query_constructor/ir.py：定义中间表示（StructuredQuery）。
+
+    - langchain/retrievers/self_query/：针对不同数据库的翻译器。
+
+    依赖 LLM 的强与弱：
+
+    - 强：能够理解复杂的自然语言和隐式约束（如“去年”、“最新的”）。
+
+    - 弱：可能产生幻觉或错误解析，对模糊查询不鲁棒。因此，通常建议使用功能更强的 LLM（如 GPT-4），并提供详细的字段描述和示例。
+
+    自定义提示词：SelfQueryRetriever 允许传入自定义的 prompt 参数，可以优化解析准确性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TYm8wI1HmiQSuPkpe81c9XYanHb
+  block_id: Lahgd7JswoANi5xT8tUc7Hn3nKG
+  page_token: TYm8wI1HmiQSuPkpe81c9XYanHb
+  original_title: "\U0001F50D SelfQueryRetriever 的底层是如何把自然语言转为结构化查询的？依赖 LLM 吗？"
+  imported_at: '2026-09-21'

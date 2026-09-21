@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bf2d57dccaa7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 假设单卡 80GB，训练 13B 模型，FP16，AdamW，batch size=1，序列长度 2048，是否可行？用计算说明。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 假设单卡 80GB，训练 13B 模型，FP16，AdamW，batch size=1，序列长度 2048，是否可行？用计算说明。
+answer:
+  mode: rubric
+  reference_answer: |-
+    我们逐步估算所需的显存，假设使用最基础的配置（无任何显存优化，如 ZeRO、Gradient Checkpointing 等）。
+
+    模型参数：
+
+    - 13B 参数，FP16 存储：13 × 10^9 × 2 bytes = 26 GB
+
+    梯度：
+
+    - FP16 梯度：26 GB（与参数相同）
+
+    优化器状态：
+
+    - Adam 的 m 和 v (FP32)：2 × 13 × 10^9 × 4 bytes = 104 GB
+
+    - 主权重 (master weights) (FP32)：13 × 10^9 × 4 bytes = 52 GB
+
+    - 优化器状态合计：104 + 52 = 156 GB
+
+    以上三项合计：26 + 26 + 156 = 208 GB。显然已远超 80GB 单卡容量。
+
+    激活值估算：
+
+    对于 Transformer 模型，激活值主要受 batch size、序列长度、隐藏维度、层数影响。13B 模型的典型配置可能是：hidden_dim≈5120, num_layers≈40, intermediate_dim≈13824, num_heads≈40。
+
+    - 序列长度 L=2048，batch=1。
+
+    - 注意力矩阵 (per layer)：每个注意力头的注意力得分矩阵大小为 L×L=4M 元素，共 40 头，FP16 下约 40 × 4M × 2 bytes ≈ 320 MB。40 层累计约 12.8 GB。
+
+    - Q/K/V 矩阵：每层大小约为 batch×L×hidden_dim×3 × 2 bytes ≈ 1×2048×5120×3×2 ≈ 62 MB，40 层约 2.5 GB。
+
+    - FFN 中间激活：每层 batch×L×intermediate_dim × 2 bytes ≈ 1×2048×13824×2 ≈ 56 MB，40 层约 2.2 GB。
+
+    - 其他（LayerNorm、残差等）大约 1~2 GB。
+
+    - 总激活值估算：约 12.8 + 2.5 + 2.2 + 2 ≈ 19.5 GB。
+
+    即使只算模型参数、梯度、优化器状态就已经 208 GB，远远超过 80 GB。因此，不采用任何显存优化时，完全不可行。
+
+    如果使用 ZeRO 和 Gradient Checkpointing 呢？假设使用 ZeRO-2 (分片优化器状态和梯度) 并使用 Gradient Checkpointing 来减少激活显存：
+
+    - 参数：26 GB（若用 ZeRO-3 可分片，ZeRO-2 下参数仍需全量 26 GB）
+
+    - 梯度：分片后假设 8 GPUs，每卡 26/8 ≈ 3.25 GB（但单卡仍需存储，因为是单卡训练，分片无效。单卡无法使用 ZeRO 分片，因为分片需要在多卡间分担。所以单卡训练无法利用 ZeRO 节省显存。）
+
+    因此，对于单卡训练，必须依赖模型并行（如张量并行）或使用 ZeRO-Offload 将优化器状态卸载到 CPU 内存。单卡 80GB 训练 13B 模型非常困难，通常需要至少 2~4 张 GPU 并配合 ZeRO-2/3 和 Gradient Checkpointing 等技术。结论：单卡 80GB 不可行。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: Ra7CdxwcOomNLlxl6IvcmlQKnBf
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 假设单卡 80GB，训练 13B 模型，FP16，AdamW，batch size=1，序列长度 2048，是否可行？用计算说明。
+  imported_at: '2026-09-21'

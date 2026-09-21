@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-28346c0b9c01
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 Transformer 的线性层上添加 LoRA 时，如何正确挂载适配器？写出 forward 中合并计算或分支计算的代码。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 在 Transformer 的线性层上添加 LoRA 时，如何正确挂载适配器？写出 forward 中合并计算或分支计算的代码。
+answer:
+  mode: rubric
+  reference_answer: |-
+    5.1 挂载适配器的方式
+
+    我们使用装饰器模式：用 LoRALinear 包装原始的 nn.Linear，在 forward 中同时计算原始输出和低秩增量，然后相加。这是“分支计算”方式，不需要修改原始权重。
+
+    5.2 分支计算的代码
+
+    已在第 2 题中展示。核心是：
+
+    ```python
+    def forward(self, x):
+        result = self.original_linear(x)   # 原始分支
+        lora_x = self.lora_B(self.lora_A(self.dropout(x)))  # 低秩分支
+        result = result + self.scaling * lora_x
+        return result
+    ```
+
+    5.3 合并计算（推理优化）
+
+    在推理时，可将低秩矩阵与原始权重合并，形成单一的线性层，消除额外计算分支。
+
+    ```python
+    def merge_weights(self):
+        # 合并后 W = W0 + (α/r) * (B @ A)
+        delta = (self.alpha / self.r) * (self.lora_B.data @ self.lora_A.data)
+        self.original_linear.weight.data += delta
+        # 可选：清空 lora 参数
+        self.lora_A = None
+        self.lora_B = None
+    ```
+
+    合并后模型前向变为普通的线性层，推理速度更快。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LZxww5JuBif3JAkuCoIcuqRenuf
+  block_id: CF3cdKh5Lor2C1xyUq1cNO7Cn5F
+  page_token: LZxww5JuBif3JAkuCoIcuqRenuf
+  original_title: 在 Transformer 的线性层上添加 LoRA 时，如何正确挂载适配器？写出 forward 中合并计算或分支计算的代码。
+  imported_at: '2026-09-21'

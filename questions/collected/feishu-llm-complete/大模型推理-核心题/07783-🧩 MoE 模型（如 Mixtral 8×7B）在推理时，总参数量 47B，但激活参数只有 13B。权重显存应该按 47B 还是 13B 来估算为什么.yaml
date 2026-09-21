@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9ff76cb70d6b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 MoE 模型（如 Mixtral 8×7B）在推理时，总参数量 47B，但激活参数只有 13B。权重显存应该按 47B 还是
+  13B 来估算？为什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: "\U0001F9E9 MoE 模型（如 Mixtral 8×7B）在推理时，总参数量 47B，但激活参数只有 13B。权重显存应该按 47B
+    还是 13B 来估算？为什么？"
+answer:
+  mode: rubric
+  reference_answer: "必须按总参数量 47B 来估算权重显存，尽管每次推理只激活 13B 参数。\n\n\U0001F50D 原因\n\nMoE
+    模型将 FFN 层替换为多个“专家”，每个专家是一个独立的 FFN 子网络。在 Mixtral 8×7B 中，有 8 个专家，每次 token 只激活 top‑2
+    专家。因此计算时仅需执行这 2 个专家的前向传播，激活参数量约为 13B。\n\n但是，所有 8 个专家的权重都必须常驻在显存（或至少可被快速访问的存储器）中。因为不同的
+    token 可能激活不同的专家，推理引擎无法预知哪个 token 会激活哪个专家。如果每次需要时才从 CPU 或磁盘加载专家权重，会产生巨大的延迟（数百微秒到毫秒级），完全破坏推理的实时性。因此，完整的
+    47B 参数必须全部放在显存中。\n\n\U0001F4A1 激活参数仅影响计算量，不影响显存\n\n- 计算量（FLOPs）由激活参数 13B 决定，因此
+    MoE 模型的推理速度远快于同等总参数量的稠密模型。\n\n- 显存占用由总参数量 47B 决定。在 FP16 下，仅权重就需要约 94 GB 显存，远超过单张
+    80 GB A100 的容量，因此必须使用多卡并行（如 TP=2 或 TP=4）。\n\n\U0001F4CC 简单记：MoE 是“用显存放全部专家，用计算激活部分专家”。显存看总量，速度看激活量。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C0pNwQLAmiNN2tkVnWGccLYLns0
+  block_id: Cg1xdCIj3ou7Nfxm6DEcEUTrn1d
+  page_token: C0pNwQLAmiNN2tkVnWGccLYLns0
+  original_title: "\U0001F9E9 MoE 模型（如 Mixtral 8×7B）在推理时，总参数量 47B，但激活参数只有 13B。权重显存应该按
+    47B 还是 13B 来估算？为什么？"
+  imported_at: '2026-09-21'

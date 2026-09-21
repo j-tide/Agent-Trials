@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5934e50da974
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对比一下 Prefix LM 和 Causal LM，在推理效率和上下文使用上的差异。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 二：模型架构与预训练范式
+tags: &1
+- Transfomer精选面试
+- 二：模型架构与预训练范式
+content:
+  prompt: 对比一下 Prefix LM 和 Causal LM，在推理效率和上下文使用上的差异。
+answer:
+  mode: rubric
+  reference_answer: |-
+    推理效率：
+
+    - Causal LM：每次生成一个 token 时，需要为整个前缀（所有历史 token）重新计算注意力？实际上，在自回归生成中使用了 KV 缓存：每个 token 的 Key 和 Value 在生成时会被缓存，计算下一个 token 时，只需要为新的 token 计算 Q，并与所有缓存的 K、V 做注意力。由于所有 token（包括前缀）都按因果顺序排列，KV 缓存的序列是天然对齐的，实现非常直接。
+
+    - Prefix LM：前缀部分使用了双向注意力，因此在前缀内部 token 之间，计算自注意力时 Q 和 K、V 互相可见。在生成时，前缀的表示（KV 缓存）可以一次性计算并缓存，因为前缀不参与自回归生成——它们是固定的。目标部分则使用因果注意力，与 Causal LM 一样使用 KV 缓存逐步生成。Prefix LM 的推理效率在长前缀时更高，因为前缀部分只需编码一次，且双向注意力使前缀表示更优，可能用更短的上下文达到同样的效果。但在实现上，Prefix LM 需要处理前缀双向和目标因果的混合缓存，比纯 Causal LM 复杂一些。
+
+    上下文使用：
+
+    - Causal LM：前缀中的每个 token 只能看到它左边的 token，无法利用其右侧的前缀信息。这意味着对于一篇长文档，即使它全部作为前缀输入，模型在理解文档开头时无法参考结尾，理解结尾时可以看到开头。这可能导致对文档整体语义的把握不如双向模型。
+
+    - Prefix LM：前缀中的 token 可以互相看到，因此对前缀（条件）的理解是双向完整的。例如在翻译任务中，源语言句子作为前缀，模型可以一次性充分理解整个句子再生成。这种全局理解对于需要综合全文信息的任务（如摘要、长文档问答）显著更优。生成目标时的质量往往更高，因为条件表示更精确。
+
+    总结：
+
+    - 推理效率：Causal LM 的缓存机制非常成熟，工程优化更多；Prefix LM 的前缀编码可以一次完成，对于输入很长而输出较短的任务（如摘要），推理延迟可能更低。
+
+    - 上下文使用：Prefix LM 在理解长条件时具有优势，因为它可以利用双向注意力捕获全局信息；Causal LM 则可能因单向性而丢失部分上下文关联。
+
+    在实践中，Prefix LM 常用于需要强条件理解的任务（如 PaLM、T5 的 Encoder-Decoder 实际上也是前缀双向）；而 Causal LM 因其极致的简洁性和扩展性成为通用基座模型的默认选择。两者正逐渐融合：现代 Decoder-only 模型通过大规模预训练，用“输入反复思考”的方式在单向框架中隐性学会了双向推理，缩小了与 Prefix LM 的差距。
+
+    - 每层参数：注意力部分 4 × d_model² = 4 × 768² ≈ 2.36M；FFN 部分 2 × d_model × d_ff = 2 × 768 × 3072 ≈ 4.72M；两个 LayerNorm 可忽略。每层约 7.08M。
+
+    - 12 层总计约 85M。加上词表嵌入（假设 50k 词表 × 768 ≈ 38M）和位置编码，总参数量约 120M-130M，符合小型模型预期。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C2UwwXTHii7yZ1kf0spcZbdlnbe
+  block_id: CV3Td7WyjoXxMOxfxdOcGVTbnhf
+  page_token: C2UwwXTHii7yZ1kf0spcZbdlnbe
+  original_title: 对比一下 Prefix LM 和 Causal LM，在推理效率和上下文使用上的差异。
+  imported_at: '2026-09-21'

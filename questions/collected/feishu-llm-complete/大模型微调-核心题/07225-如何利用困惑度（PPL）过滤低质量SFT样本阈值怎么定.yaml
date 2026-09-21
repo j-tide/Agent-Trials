@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d07388de3802
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何利用困惑度（PPL）过滤低质量SFT样本？阈值怎么定？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如何利用困惑度（PPL）过滤低质量SFT样本？阈值怎么定？
+answer:
+  mode: rubric
+  reference_answer: |-
+    基于困惑度的过滤，核心假设是：高质量文本能被一个强大的语言模型以较低困惑度预测，而混乱、不通顺、逻辑断裂的文本则会呈现出异常高的困惑度。
+
+    实现方法：
+
+    - 选择一个与SFT基座模型独立的预训练语言模型作为评估模型（如LLaMA-7B基座，而非经过指令微调的版本），避免“自己考自己”的偏差。
+
+    - 对SFT数据中需要评估的部分（通常是assistant回复），逐token计算交叉熵并求平均，得到该条回复的PPL。
+
+    - 设定一个困惑度阈值，将PPL高于该阈值的样本视为低质量并丢弃。
+
+    阈值怎么定？ 不能一刀切，因为不同任务、语言、领域的合理PPL分布不同。通常采用百分位法：
+
+    - 计算所有样本的PPL，从小到大排序。
+
+    - 丢弃处于最高1%~5%的样本（如PPL位于99分位以上的样本）。这是假设数据集中绝大多数样本是正常质量，只有少数极端离群值。如果数据整体质量较低（如大量合成数据），可以适当提高丢弃比例（如10%）。
+
+    - 也可以结合人工抽检来校准阈值：抽取不同PPL区间的样本进行人工评分，找到质量与PPL的对应关系，设定一个绝对阈值。但绝对阈值会因模型而异，不如百分位法通用。
+
+    注意事项：
+
+    - PPL低不等于质量高：过度简单的回复（如“谢谢”、“好的”）PPL极低，但训练价值低。通常需要结合长度过滤（如丢弃少于10个token的回复）。
+
+    - PPL高不等于质量差：包含复杂推理、罕见专业术语的高质量回复，PPL可能天然偏高。不应使用过激进的阈值（如丢弃10%以上），以免误杀高价值样本。
+
+    - 分块PPL：对于长回复，整体PPL可能掩盖局部问题。可将回复按句子分块，分别计算PPL，如果某块PPL异常飙升，说明该处可能存在逻辑断裂或语法错误，可针对性丢弃或修正。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PMU2wL6MLiKo4yk5L39cu6vqnIc
+  block_id: LLb1d7KwgokS3TxJ89ycIsHEn8d
+  page_token: PMU2wL6MLiKo4yk5L39cu6vqnIc
+  original_title: 如何利用困惑度（PPL）过滤低质量SFT样本？阈值怎么定？
+  imported_at: '2026-09-21'

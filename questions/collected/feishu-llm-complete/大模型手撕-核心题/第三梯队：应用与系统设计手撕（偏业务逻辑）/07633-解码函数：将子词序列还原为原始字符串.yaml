@@ -1,0 +1,92 @@
+---
+schema_version: 1
+id: feishu-llm-complete-70c0e6813f17
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解码函数：将子词序列还原为原始字符串
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 解码函数：将子词序列还原为原始字符串
+answer:
+  mode: rubric
+  reference_answer: |-
+    目标：给定子词列表（即编码后的 token 序列）和合并规则（或词汇表），将其拼接成完整的原始文本。关键点在于正确处理结束符 </w>，它表示一个单词的结束，在还原后应当在对应位置添加空格（除了文本末尾的最后一个词）。
+
+    解码逻辑：
+
+    - 直接将所有子词符号拼接成一个长字符串。
+
+    - 然后将所有的 </w> 替换为空格（或直接删除 </w> 并视作词边界）。
+
+    - 最后处理首尾多余的空格。对于文本最后一个单词，若其末尾有 </w>，替换后会多出一个尾部空格，通常可以去除末尾空格。
+
+    如果编码时是一整个单词的序列（即多个单词），解码时需要将子词拼接并还原出单词之间的空格。通常是整个文本的 token 列表，每个 token 可能是 'low', '</w>', 'er', '</w>' 等。解码时直接拼接得到 "low</w>er</w>"，然后将 </w> 替换为空格得到 "low er "，再去掉首尾空格。注意 </w> 之前可能直接是子词，替换后单词间自然有空格。
+
+    实现：
+
+    ```python
+    def decode(tokens: list) -> str:
+        """
+        将子词 token 列表解码为原始字符串。
+        参数：
+            tokens: 子词列表，包含 '</w>' 表示词尾
+        返回：
+            原始文本字符串
+        """
+        # 拼接所有 token
+        text = ''.join(tokens)
+        # 将结束符替换为空格
+        text = text.replace('</w>', ' ')
+        # 去除首尾多余空格并规范化中间空格（多个空格变成一个，但一般不会出现）
+        text = ' '.join(text.split())
+        return text
+    ```
+
+    说明：
+
+    - 如果 tokens 中不含 </w>，则意味着单词未结束，但正常编码会在每个单词末尾加上 </w>，解码后能得到正确的空格分隔。
+
+    - 对于某些 BPE 实现，结束符可能是其他符号（如 _ 或特殊 token），处理方式类似：将结束符替换为空格。
+
+    - 如果解码的序列是整个文档的 token 序列，经过上述替换后就能完美复原原始文本（除了大小写等预处理保留的情况）。
+
+    示例：
+    tokens = ['low', '</w>', 'low', 'er', '</w>']
+    拼接 -> "low</w>lower</w>"
+    替换 </w> 为空格 -> "low lower "
+    规范化 -> "low lower"
+
+    扩展：
+    在真实的 NLP 流程中，</w> 只是一个特殊的词尾标记，解码时直接去除并添加空格即可。有些分词器会使用不同的策略，如将词首标记为 Ġ（GPT-2 中的空格符），解码时将 Ġ 转换为空格。但原理类似，都是通过特殊符号恢复原始空格边界。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XDqKw0GPGi6JvkkfpwUcqpdAndd
+  block_id: HncRdxYWnobG5WxPq0DcBcawnyb
+  page_token: XDqKw0GPGi6JvkkfpwUcqpdAndd
+  original_title: 解码函数：将子词序列还原为原始字符串
+  imported_at: '2026-09-21'

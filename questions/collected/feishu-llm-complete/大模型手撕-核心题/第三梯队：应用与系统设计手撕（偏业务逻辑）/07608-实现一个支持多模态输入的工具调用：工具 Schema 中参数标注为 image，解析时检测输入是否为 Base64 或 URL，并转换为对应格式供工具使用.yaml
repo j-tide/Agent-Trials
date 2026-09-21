@@ -1,0 +1,115 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0b91c1232211
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个支持多模态输入的工具调用：工具 Schema 中参数标注为 image，解析时检测输入是否为 Base64 或 URL，并转换为对应格式供工具使用。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 实现一个支持多模态输入的工具调用：工具 Schema 中参数标注为 image，解析时检测输入是否为 Base64 或 URL，并转换为对应格式供工具使用。
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    某些工具可能需要图像输入（如视觉问答、图像生成）。工具 Schema 中可定义参数类型为 image，并指定期望格式（如 base64 或 url）。在调用前，系统自动检测参数是 Base64 字符串还是 HTTP URL，并进行相应转换（如将 URL 下载为 Base64，或将 Base64 上传并获得 URL），使工具能正确接收。
+
+    实现
+
+    ```python
+    import base64
+    import re
+    from typing import Dict, Any
+
+    def preprocess_image_arguments(args: Dict[str, Any], schema: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        处理工具调用中的图像参数：根据期望格式进行转换。
+        schema 中的参数可指定 "format": "base64" 或 "url"。
+        支持 Base64 自动检测（data:image/...;base64,... 或直接 Base64）和 URL 检测。
+        """
+        processed = args.copy()
+        params_schema = schema.get("parameters", {})
+        for param_name, param_info in params_schema.items():
+            if param_info.get("type") != "image":
+                continue
+            value = processed.get(param_name)
+            if not value:
+                continue
+            target_format = param_info.get("format", "base64")
+            current_format = detect_image_format(value)
+            if current_format == target_format:
+                continue
+            # 转换
+            if target_format == "base64" and current_format == "url":
+                processed[param_name] = url_to_base64(value)
+            elif target_format == "url" and current_format == "base64":
+                processed[param_name] = base64_to_url(value)  # 实际需上传到存储，这里模拟
+            # 其他情况保持原样
+        return processed
+
+    def detect_image_format(value: str) -> str:
+        """检测字符串是 base64 还是 url"""
+        if value.startswith("http://") or value.startswith("https://"):
+            return "url"
+        if re.match(r'^[A-Za-z0-9+/=]+$', value) or value.startswith("data:image"):
+            return "base64"
+        return "unknown"
+
+    def url_to_base64(url: str) -> str:
+        # 模拟下载图片并转为 base64（实际需使用 requests）
+        return f"base64_of({url})"
+
+    def base64_to_url(b64: str) -> str:
+        # 模拟上传 base64 到临时存储并返回 URL
+        return f"https://tmp.store/{hash(b64)}.png"
+
+    # 示例
+    schema = {
+        "name": "analyze_image",
+        "parameters": {
+            "image": {"type": "image", "format": "base64"},
+            "prompt": {"type": "str"}
+        }
+    }
+    args = {"image": "https://example.com/photo.jpg", "prompt": "描述图片"}
+    processed = preprocess_image_arguments(args, schema)
+    print(processed)  # image 已转换为 base64
+    ```
+
+    说明
+
+    - 自动检测格式，根据期望格式进行转换，简化工具实现。
+
+    - 实际转换需引入网络请求（下载/上传），此处用模拟函数示意。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  block_id: A6Tjd8PrqodZquxJIFJcTcyZnDb
+  page_token: Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  original_title: 实现一个支持多模态输入的工具调用：工具 Schema 中参数标注为 image，解析时检测输入是否为 Base64 或 URL，并转换为对应格式供工具使用。
+  imported_at: '2026-09-21'

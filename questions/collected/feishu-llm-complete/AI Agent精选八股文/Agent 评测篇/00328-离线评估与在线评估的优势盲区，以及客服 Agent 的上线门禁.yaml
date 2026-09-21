@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-886798f919a6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 离线评估与在线评估的优势盲区，以及客服 Agent 的上线门禁
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 评测篇
+tags: &1
+- AI Agent精选八股文
+- Agent 评测篇
+content:
+  prompt: 离线评估与在线评估的优势盲区，以及客服 Agent 的上线门禁
+answer:
+  mode: rubric
+  reference_answer: "离线评估就像实验室里的碰撞测试，在线评估则是真实道路上的行车记录仪。两者缺一不可，但各自都有坑。\n\n▎离线评估：优势与盲区\n\n✅
+    优势：\n\n- 可复现、可对比，适合做 A/B 实验和回归测试。\n\n- 能穷举边界 case，测试安全等极端情况。\n\n- 速度快，不打扰用户，适合
+    CI/CD 流水线。\n\n❌ 盲区：\n\n- 分布漂移：离线数据集往往过时，跟不上真实用户的最新问法。\n\n- 评估指标失真：离线指标（如 BLEU、Ragas）和真实用户满意度相关性可能很低。\n\n-
+    无法捕捉动态行为：用户与 Agent 的多轮互动、中途打断、情绪变化，离线模拟不了。\n\n▎在线评估：优势与盲区\n\n✅ 优势：\n\n- 反映真实用户行为和满意度（如点赞、完成率、工单转人工率）。\n\n-
+    能捕获长尾和意外输入。\n\n- 可做实时监控和告警。\n\n❌ 盲区：\n\n- 反馈信号稀疏、有偏：大部分用户不评分，负面反馈往往更积极，导致数据片面。\n\n-
+    影响真实用户：实验有风险，糟糕的 Agent 会导致投诉。\n\n- 归因困难：用户转化率下降，到底是因为 Agent 回答不好，还是促销活动到期了？\n\n▎客服
+    Agent 上线门禁流程：四阶段递进\n\n我设计了一个结合离线+在线、逐级放量的安全上线流程，像过安检一样层层把关。\n\n```text\n\U0001F4E6
+    代码提交\n     ↓\n\U0001F9EA 阶段1：离线门禁 (CI)\n  - 运行基准数据集评估（任务完成度、忠实度、安全）\n  - 与线上基线版本对比，所有关键指标不得退步\n
+    \ - 新增 case 必须通过\n     ↓ 通过\n\U0001F47B 阶段2：影子模式 (Shadow Deploy)\n  - 新版 Agent
+    并行运行但不面向真实用户\n  - 输入来自线上真实流量拷贝\n  - 对比新旧版输出，收集在线指标（延迟、成本）\n  - 人工抽查 N=200 差异，确认无风险\n
+    \    ↓ 通过\n\U0001F9EA 阶段3：小流量灰度 (Canary 5%)\n  - 5% 真实流量切到新版，实时监控：\n    - 业务指标：转人工率、用户满意度\n
+    \   - 技术指标：异常率、P95延迟、Token消耗\n  - 设置自动回滚条件：转人工率上升2%或负面反馈增加50%\n     ↓ 观察 24 小时无异常\n\U0001F680
+    阶段4：全量上线\n  - 逐步提升到 100%，继续监控一周\n```\n\n示例代码：离线门禁脚本（可用在 GitHub Actions）\n\n```python\nimport
+    json\nfrom my_eval import evaluate_agent\n\nTHRESHOLDS = {\n    \"task_success\":
+    0.85,\n    \"faithfulness\": 0.90,\n    \"safety_violation\": 0,  # 必须为零\n}\n\nnew_score
+    = evaluate_agent(\"agent_v2\", \"prod_test_set\")\nbaseline_score = evaluate_agent(\"agent_v1\",
+    \"prod_test_set\")\n\nreport = {\"new\": new_score, \"baseline\": baseline_score}\nfails
+    = []\nfor metric, threshold in THRESHOLDS.items():\n    if new_score[metric] <
+    threshold:\n        fails.append(f\"{metric} 低于阈值 {threshold}\")\n    if new_score[metric]
+    < baseline_score[metric]:\n        fails.append(f\"{metric} 较基线退步\")\n\nif fails:\n
+    \   print(\"❌ 门禁未通过：\")\n    for f in fails:\n        print(f\" - {f}\")\n    exit(1)\nelse:\n
+    \   print(\"✅ 离线门禁通过，进入影子部署阶段\")\n```\n\n影子模式下的实时对比代码思路：\n\n```python\ndef shadow_handler(user_query):\n
+    \   # 生产用旧版\n    prod_response = agent_v1.invoke(user_query)\n    # 异步运行新版，不影响用户\n
+    \   background_tasks.add(agent_v2.invoke, user_query, callback=log_to_comparison_db)\n
+    \   return prod_response\n```\n\n然后定期拉取对比数据库，人工或自动比较差异。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SEdiwaoGBiWMFYk0pl3c9iW4n7c
+  block_id: doxcnUqTzBqoIYtYBlxAO7qbxsf
+  page_token: SEdiwaoGBiWMFYk0pl3c9iW4n7c
+  original_title: 离线评估与在线评估的优势盲区，以及客服 Agent 的上线门禁
+  imported_at: '2026-09-21'

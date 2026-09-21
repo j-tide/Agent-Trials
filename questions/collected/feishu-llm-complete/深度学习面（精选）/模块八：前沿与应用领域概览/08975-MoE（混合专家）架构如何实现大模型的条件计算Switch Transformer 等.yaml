@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1c8e19753c57
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: MoE（混合专家）架构如何实现大模型的条件计算？Switch Transformer 等。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块八：前沿与应用领域概览
+tags: &1
+- 深度学习面（精选）
+- 模块八：前沿与应用领域概览
+content:
+  prompt: MoE（混合专家）架构如何实现大模型的条件计算？Switch Transformer 等。
+answer:
+  mode: rubric
+  reference_answer: |-
+    MoE (Mixture of Experts) 是一种神经网络架构，它通过条件计算来大幅增加模型总参数量，而每次前向传播只激活其中一小部分参数，从而在保持计算开销可控的同时提升模型容量。
+
+    基本工作原理：
+
+    - 多个专家：将传统Transformer中的FFN层替换为多个并行的“专家”子网络（通常也是FFN，但不同专家学习不同模式）。每个专家都是独立的参数。
+
+    - 门控网络 (Router/Gating)：一个可训练的门控模块，根据输入token的表示，输出每个专家的得分，选择其中最合适的少数专家（如Top-2）来处理该token。
+
+    [图片内容未导入]
+
+    - 稀疏激活：每个token只路由给少量专家（如2个），因此虽然模型总参数极大（如MoE版本的Switch Transformer有上万亿参数），但每个输入token实际使用的计算量（有效参数量）与一个Dense模型相当。
+
+    - 负载均衡损失：为了防止门控总选择少数几个专家导致负载不均和训练崩溃，需要添加辅助损失，鼓励token均匀分配到所有专家。
+
+    Switch Transformer (Fedus et al., 2021)：
+
+    - 在MoE基础上进行了简化：每个token只路由给单个专家（Top-1），进一步减少计算。
+
+    - 设计了高效的负载均衡损失，以及在大规模分布式训练中的专家并行策略。
+
+    - Switch-C模型拥有1.6万亿参数，在训练速度和下游任务上相比传统T5模型有显著提升，证明MoE在大规模训练中的有效性。
+
+    MoE的优势：
+
+    - 用相同的计算预算获得更大模型容量，性能更强。
+
+    - 由于不同专家倾向于学习不同领域或模式，可以实现一定程度上的知识专门化。
+
+    - 有利于终身学习和多任务学习，增加新知识时可添加新专家而不破坏旧专家。
+
+    挑战：
+
+    - 负载均衡困难，部分专家可能“死掉”。
+
+    - 分布式训练中跨设备通信开销大（需要将token路由到可能位于不同设备上的专家）。
+
+    - 推理时显存占用大（需存储所有专家参数）。
+
+    MoE架构是实现万亿参数级大模型的关键技术，广泛应用于GPT-4（据传）、GLaM、Mixtral等模型。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CJfrwNOhFip8O6kTe57cTXq7n8e
+  block_id: UDcad6ROdoQNQgxjNNRcmWiHngf
+  page_token: CJfrwNOhFip8O6kTe57cTXq7n8e
+  original_title: MoE（混合专家）架构如何实现大模型的条件计算？Switch Transformer 等。
+  imported_at: '2026-09-21'

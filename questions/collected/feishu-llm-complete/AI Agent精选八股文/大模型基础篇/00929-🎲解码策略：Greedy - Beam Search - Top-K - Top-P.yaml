@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d5570c50a6d9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3B2解码策略：Greedy / Beam Search / Top-K / Top-P"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F3B2解码策略：Greedy / Beam Search / Top-K / Top-P"
+answer:
+  mode: rubric
+  reference_answer: "解码策略控制模型如何在每个时间步从词表中选择下一个 token，直接决定输出的确定性、多样性和质量。\n\n\U0001F539
+    Greedy Decoding（贪心）\n\n- 做法：每步直接选概率最高的 token。\n\n- 优点：最快，确定性强。\n\n- 缺点：容易陷入重复循环，缺乏多样性；一旦选错，无法回头。\n\ndef
+    greedy_decode(logits):\n    return torch.argmax(logits, dim=-1)\n\n\U0001F539
+    Beam Search（束搜索）\n\n- 做法：维护 k 条候选序列（beam width），每步扩展所有可能的下一个 token，保留总概率最高的 k
+    条。\n\n- 优点：比贪心更能找到全局高概率序列，适合翻译、摘要等确定性任务。\n\n- 缺点：计算量 k 倍于贪心；在开放式生成中可能产生重复和过于“安全”的句子。\n\ndef
+    beam_search_step(beam_seqs, beam_scores, logits, k=4):\n    # beam_seqs: 当前 beam
+    序列列表\n    # 对每条 beam 取 top-k 候选，合并后保留总分数最高的 k 条\n    candidates = []\n    for
+    i, seq in enumerate(beam_seqs):\n        topk_scores, topk_ids = torch.topk(logits[i],
+    k)\n        for score, token in zip(topk_scores, topk_ids):\n            candidates.append((seq
+    + [token], beam_scores[i] + score))\n    candidates.sort(key=lambda x: x[1], reverse=True)\n
+    \   return candidates[:k]\n\n\U0001F539 Top-K Sampling\n\n- 做法：只从概率最高的 K 个 token
+    中随机采样，其余概率置零。\n\n- 优点：避免选到极低概率的无关词，增加可控多样性。\n\n- 缺点：K 是固定值，不适应分布变化——如果概率集中在 3
+    个词，Top-K=10 仍会引入噪音；如果分布平坦，K=10 可能截断合理选择。\n\n\U0001F539 Top-P (Nucleus Sampling)\n\n-
+    做法：对概率从高到低排序，选取累积概率达到 p 的最小 token 集合，从中采样。\n\n- 优点：动态适应分布——分布尖锐时集合小，分布平坦时集合大，灵活得多。\n\n-
+    缺点：p 值需要根据任务调优。\n\n采样组合典型配置：\n\ndef sample_token(logits, temperature=0.7, top_p=0.9,
+    top_k=0):\n    # 温度缩放\n    logits = logits / temperature\n    # Top-K 过滤\n    if
+    top_k > 0:\n        indices_to_remove = logits < torch.topk(logits, top_k)[0][...,
+    -1, None]\n        logits[indices_to_remove] = -float('Inf')\n    # Top-P 过滤\n
+    \   if 0 < top_p < 1:\n        sorted_logits, sorted_indices = torch.sort(logits,
+    descending=True)\n        cumulative_probs = torch.cumsum(F.softmax(sorted_logits,
+    dim=-1), dim=-1)\n        # 移除累积概率超过 p 的 token\n        sorted_indices_to_remove
+    = cumulative_probs > top_p\n        sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[...,
+    :-1].clone()\n        sorted_indices_to_remove[..., 0] = 0\n        indices_to_remove
+    = sorted_indices[sorted_indices_to_remove]\n        logits[:, indices_to_remove]
+    = -float('Inf')\n    # 采样\n    probs = F.softmax(logits, dim=-1)\n    return torch.multinomial(probs,
+    1)\n\n场景与策略速查：\n\n[嵌入表格未展开]\n\n收束：\n\n选择解码策略，本质上是控制“探索与利用”的平衡。温度调“大胆程度”，Top-K/Top-P
+    划“安全边界”，而 Beam Search 在需要全局最优时是利器。用好它们，同样的模型能产出风格迥异、恰如其分的回答。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VZ8HwGCqEiUGiRkSmGfcRuNdnCg
+  block_id: doxcngfx6DzIUKjJgCpPB8yYHBf
+  page_token: VZ8HwGCqEiUGiRkSmGfcRuNdnCg
+  original_title: "\U0001F3B2解码策略：Greedy / Beam Search / Top-K / Top-P"
+  imported_at: '2026-09-21'

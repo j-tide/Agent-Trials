@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b35b167efa83
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6A8 训练过程中突然 OOM，你应该从哪些地方开始排查？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F6A8 训练过程中突然 OOM，你应该从哪些地方开始排查？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 面对突然的 OOM，不要慌，沿着“数据 → 配置 → 代码 → 框架”的脉络逐一排查，通常能在几分钟内定位元凶。
+    我习惯按以下顺序执行：\n\n- 检查是否某个 batch 的数据异常\n突然 OOM 最常见的原因是数据集中出现了超长样本。若未对文本进行截断或 padding
+    策略不当，个别样本长度可能是平均的 3-5 倍，导致激活值瞬间暴涨。\n\n- 排查方法：在 DataLoader 中打印当前 batch 的最大序列长度，或在
+    collate_fn 中记录统计。如果是语音或图像，检查是否有超高分辨率输入。\n\n- 临时方案：开启动态 padding 或强制截断，确保所有样本不超过预设的最大长度。\n\n-
+    确认是否开启验证（eval）阶段\n训练每隔若干步会进行验证。验证时通常会关闭梯度计算（torch.no_grad()），但可能因为使用了更大的 batch
+    size 或缓存了所有验证结果而导致显存超出。\n\n- 特征：OOM 发生在第一个 eval batch 或 eval 结束时。\n\n- 解决：减小 eval
+    batch size，或在 eval 中只保留必要的指标而不缓存所有 logits。\n\n- 检查是否开启了不必要的缓存或日志\n\n- 某些调试钩子（如记录每层梯度范数）可能意外保留了张量引用，导致显存泄漏。\n\n-
+    使用 torch.cuda.memory_summary() 或 torch.cuda.memory_snapshot() 检查是否有大量张量未释放。\n\n-
+    如果使用了 WandB/TensorBoard 记录直方图或嵌入，可能占用额外显存。\n\n- 查看显存碎片情况\n即使总空闲显存足够，但若缺乏连续大块，cudaMalloc
+    仍然可能失败。这种情况在长时间训练后容易出现。\n\n- 指标：nvidia-smi 显示 Memory-Usage 接近 100%，而 torch.cuda.memory_allocated()
+    显示已分配却远小于总显存，说明碎片严重。\n\n- 缓解：设置环境变量 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+    或定期调用 torch.cuda.empty_cache()（谨慎使用，可能影响性能）。\n\n- 排查模型/优化器状态是否意外膨胀\n\n- 如果使用了混合精度训练，检查
+    loss scaler 是否产生了 NaN/Inf，导致梯度更新异常，优化器状态可能积累非法值。\n\n- 某些优化器（如 LAMB）可能在内部维护额外的缓冲区。\n\n-
+    是否无意中解冻了一些原本冻结的参数（例如在 LoRA 中误把基础模型设为可训练）。\n\n- 审视并行策略与通信缓冲区\n\n- DeepSpeed ZeRO
+    或 FSDP 在通信时可能临时需要额外缓冲区。如果同时使用多个并行策略，检查是否开启了 overlap_comm 等，其缓冲区可能超出预期。\n\n- 在多卡训练中，OOM
+    可能只发生在某一张卡上，用 pdsh 或监控查看各卡显存使用是否均衡。\n\n- 回退最近的代码/配置变更\n突然 OOM 往往和最近的修改有关。对比上一次稳定训练的配置（学习率、batch
+    size、序列长度、模型结构、是否开启新优化等）。\n\n✅ 总结排查流程\n\n数据 → 评估阶段 → 缓存/日志泄漏 → 碎片 → 模型状态 → 并行配置。遵循这个顺序，80%
+    的突然 OOM 能找到直接原因，并能快速给出应对措施。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BbCrwkO3wiWmAikFy0zc2OK6nPg
+  block_id: H88xdfb5loB8lcxyDqZc07Gmn1q
+  page_token: BbCrwkO3wiWmAikFy0zc2OK6nPg
+  original_title: "\U0001F6A8 训练过程中突然 OOM，你应该从哪些地方开始排查？"
+  imported_at: '2026-09-21'

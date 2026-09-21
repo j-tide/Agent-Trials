@@ -1,0 +1,113 @@
+---
+schema_version: 1
+id: feishu-llm-complete-408ba338fe49
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F529 3. Agent 的任务分解粒度如何控制？粒度太粗或太细有什么问题？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F529 3. Agent 的任务分解粒度如何控制？粒度太粗或太细有什么问题？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    粒度的本质：一个“计划步骤”对应多大的原子操作。
+
+    太粗： "分析销售数据并写报告"  （一步完成所有事）
+    合适： "1.读取CSV  2.清洗空值  3.按地区汇总  4.画趋势图  5.写摘要"
+    太细： "1.打开文件  2.读取第一行  3.读取第二行 ..."
+
+    3.1 粒度太粗的问题
+
+    - 计划失去意义，退化成单步任务，无法跟踪进度。
+
+    - 执行器内部必须自己做子任务分解，容易乱。
+
+    - 失败时很难定位哪一步出错。
+
+    3.2 粒度太细的问题
+
+    - 计划过长，生成计划本身的 Token 成本高，且 LLM 容易在中间步骤产生幻觉。
+
+    - 执行开销巨大，每个微小步骤都要一个完整的 LLM 调用和工具回合，慢且贵。
+
+    - 缺乏灵活性：环境稍有变化，整个精细计划作废，重规划成本高。
+
+    3.3 控制粒度的实践经验
+
+    原则：每一步都应该是“一个可独立完成的、有明确输入输出的子任务，且通常只需要调用一个或两个工具”。
+
+    具体策略：
+
+    - 用 LLM 初步分解，再人工/规则校验
+    让 LLM 用 few-shot 学习范例，输出步骤列表。然后在代码层检查：每步是否包含明确的动词+对象？是否超过 2 个工具调用？若是则要求重新分解。
+
+    # 用于分解粒度的 Few-shot 提示词
+    decompose_template = """
+    将任务分解为单一步骤，每步只做一件事。例如：
+    任务：分析销售数据并总结
+    计划：
+    1. 使用 load_csv 读取 sales.csv
+    2. 使用 clean_data 清洗空值
+    3. 使用 aggregate 按地区汇总销售额
+    4. 使用 plot 生成趋势图
+    5. 使用 summarize 生成报告摘要
+
+    现在分解任务：{user_task}
+    """
+
+    - 设置步骤数的软约束
+    在 prompt 里告诉规划器“将任务分解为 3~7 个步骤”，这个范围通常比较合适。如果任务确实复杂，可以先粗分成几个阶段，每个阶段再细分（双层规划）。
+
+    - 动态粒度调整（Adaptive Granularity）
+    在执行过程中，如果发现某个步骤内部依赖关系复杂，可以让执行器对该步骤进行“再规划”，形成局部的子计划。这需要 Agent 具备递归规划能力（LangGraph 很容易支持嵌套子图）。
+
+    - 评估粒度是否合适的标准
+
+    示例：自适应粒度的简单实现
+
+    def plan_with_granularity(task, max_steps=5):
+        plan = llm.generate_plan(task, max_steps=max_steps)
+        # 如果某一步的描述过长，可能粒度过粗，尝试再细分
+        for i, step in enumerate(plan):
+            if len(step["description"]) > 80 or "和" in step["description"]:
+                sub_plan = llm.generate_plan(step["description"], max_steps=3)
+                plan[i] = sub_plan  # 替代原步骤
+        return plan
+
+    一句话收束：
+
+    粒度控制就是在“执行可控性”和“规划成本”之间找平衡。把它调好，Agent 就能像一个经验丰富的项目经理，既不会事必躬亲到令你厌烦，也不会粗枝大叶到把事情搞砸。
+
+    ---
+
+    Plan-and-Execute 给了 Agent 一种“蓝图思维”，ReAct 则给了它“临场反应”；两者不是对立而是互补。理解了它们的差异和粒度控制的艺术，你就真正进入了 Agent 架构设计的深水区，开始为不同任务量身打造最合适的大脑结构。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcnOZdtLvaDHt8Aw4zmECL8Kh
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: "\U0001F529 3. Agent 的任务分解粒度如何控制？粒度太粗或太细有什么问题？"
+  imported_at: '2026-09-21'

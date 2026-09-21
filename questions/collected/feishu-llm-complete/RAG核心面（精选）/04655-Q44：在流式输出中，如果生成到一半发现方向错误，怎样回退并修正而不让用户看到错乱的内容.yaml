@@ -1,0 +1,47 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5f7bd0343b7f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Q44：在流式输出中，如果生成到一半发现方向错误，怎样回退并修正而不让用户看到错乱的内容？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RAG核心面（精选）
+derived_topic: 
+tags: &1
+- RAG核心面（精选）
+content:
+  prompt: Q44：在流式输出中，如果生成到一半发现方向错误，怎样回退并修正而不让用户看到错乱的内容？
+answer:
+  mode: rubric
+  reference_answer: "\U0001F300 流式输出的纠错是一个棘手的 UI/UX 与算法结合的问题，目标是“表面无感知修正”。\n\n\U0001F4A1
+    核心思路：本地缓存 + 撤回指令 + 重新生成\n\n- 缓冲区机制：前端接收到后端的 token 流，并不立即渲染，而是保留一个可配置的延迟缓冲区（例如
+    3-5 个词）。后端生成到某个位置时，若配套的忠实度监控器（如实时 NLI 检测）发出警报，则后端发送一个特殊的 [撤销] 控制信号，告知前端：“请删除当前句子，并等待重新生成”。前端立即用平滑的删除动画移除已显示的半句话（或根本不显示），然后无缝接上修正后的新内容。\n\n-
+    句子级原子性：更稳妥的是以完整句子为原子单位。模型生成完一个句子（遇到句号等）后，先在服务端进行幻觉、方向性检查。检查通过，才把整个句子推送给前端；如果未通过，则服务端丢弃该句，静默重试，直到产出合格句子才推送。前端始终只看到干净正确的句子，只是偶尔等待稍长。这牺牲了部分流式的即时感，换来了正确性。\n\n-
+    预处理回退：如果发现方向错误（如模型开始回答无关话题），可以强制注入一个修正指令，比如 [系统: 你刚才的回应偏离了要求，请忽略并重新开始，严格根据文档回答]，然后继续生成，并利用上文提到的撤销信号抹去前文。\n\n\U0001F6E0️
+    技术实现：可选用 WebSocket 协议，自定义消息类型 {\"type\": \"token\", \"data\": \"...\"} 和 {\"type\":
+    \"retract\", \"count\": 5}，前端解释执行。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JEjawzoMziwMa3k2gCAcqTTHnVg
+  block_id: CK71dpa1koCB9Ox5tlwccBQrn9l
+  page_token: JEjawzoMziwMa3k2gCAcqTTHnVg
+  original_title: Q44：在流式输出中，如果生成到一半发现方向错误，怎样回退并修正而不让用户看到错乱的内容？
+  imported_at: '2026-09-21'

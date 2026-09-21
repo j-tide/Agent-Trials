@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-68f4a825afa5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BE 训练时，激活值 (Activations) 为什么要保存？它占用显存的量级大概是多少？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: "\U0001F4BE 训练时，激活值 (Activations) 为什么要保存？它占用显存的量级大概是多少？"
+answer:
+  mode: rubric
+  reference_answer: "激活值是指神经网络在前向传播过程中，每层计算产生的中间输出张量。例如，线性层的输出（在激活函数之前）、ReLU的输出、注意力得分矩阵等。\n\n\U0001F50D
+    为什么要保存？\n\n反向传播需要它们来计算梯度。\n\n反向传播的目的是计算损失对于每个可学习参数的梯度。参数的梯度公式通常包含了前向传播时的输入或输出。例如：\n\n[图片内容未导入]\n\n如果没有保存这些中间激活值，反向传播时就必须重新计算它们，这就是激活重计算技术的核心。但在标准训练中，为了节省时间，通常会直接保留这些激活值在显存中，直到反向传播完成后再释放。\n\n\U0001F4CA
+    显存量级\n\n激活值显存占用与批量大小（batch size）、序列长度（seq_len）、模型隐藏维度（hidden_dim）、层数成正比，是训练时最主要的显存消耗者之一，尤其是对于长序列任务。\n\n-
+    对于Transformer，最大的激活值通常是注意力得分矩阵，形状为 [batch, heads, S, S]。如果 S=4096S=4096，heads=32，batch=1，一个单层的FP16得分矩阵就占用
+    1×32×4096×4096×2≈1 GB。如果层数多，或者采用标准实现（未用FlashAttention），激活值占用可轻易超过模型参数本身。\n\n-
+    通用估算：在大模型训练中，激活值显存通常占模型参数显存的 0.5~3倍，具体取决于序列长度和并行策略。FlashAttention等优化通过分块计算避免了存储完整的平方级矩阵，能极大缩减激活值。\n\n\U0001F4A1
+    应对策略：\n\n- 激活重计算 (Gradient Checkpointing)：选择性地不保存部分激活，反向时临时重算，以时间换空间，可节省50%以上的激活显存。\n\n-
+    FlashAttention-2：融合算子，避免保存完整的注意力矩阵，显著降低激活显存。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Yto8wfa8ti5TgZktU1YczVp7nme
+  block_id: Enn3dRUNtoztl6x795Pc1valn1f
+  page_token: Yto8wfa8ti5TgZktU1YczVp7nme
+  original_title: "\U0001F4BE 训练时，激活值 (Activations) 为什么要保存？它占用显存的量级大概是多少？"
+  imported_at: '2026-09-21'

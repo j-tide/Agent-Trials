@@ -1,0 +1,125 @@
+---
+schema_version: 1
+id: feishu-llm-complete-322e29fcd0f9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3D7️  如何设计一个面向业务场景的 LLM 评估体系？自动评估和人工评估如何结合？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F3D7️  如何设计一个面向业务场景的 LLM 评估体系？自动评估和人工评估如何结合？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    业务评估体系要回答的不是“模型有多强”，而是“在具体任务上，它能给用户/企业带来多少价值，且风险可控”。
+
+    设计框架：从离线到在线，分层把关
+
+    Layer 1: 单元评估（离线自动）    → 快速筛选模型版本
+    Layer 2: 场景评估（离线自动+人工）→ 确认核心体验
+    Layer 3: 线上评估（指标+人工抽检）→ 最终质量守门员
+
+    1 构建业务驱动的测试集
+
+    不能只靠公开数据集，必须从真实业务日志中蒸馏：
+
+    - 提取高频用户问题，覆盖长尾异常 case。
+
+    - 标注维度：任务完成度、准确性、安全性、语气、格式合规。
+
+    - 分层难度：简单（单步查询）、中等（多步推理）、困难（需拒绝/澄清）。
+
+    2 自动评估的三板斧
+
+    - 规则引擎：正则匹配、关键信息抽取、JSON 格式校验。适合格式要求严格的任务，零幻觉。
+
+    - 模型裁判：用 GPT-4 等强模型按预设量规打分。例如评估客服回答是否“同理心且准确”。
+
+    - 嵌入相似度：将理想回答与生成回答转向量，计算余弦相似度，适合摘要、翻译类任务。
+
+    自动评估的 Python 骨架：
+
+    class AutoEvaluator:
+        def __init__(self, judge_model="gpt-4o-mini"):
+            self.judge_model = judge_model
+
+        def rule_based_check(self, response, expected_json_keys):
+            try:
+                data = json.loads(response)
+                return all(k in data for k in expected_json_keys)
+            except:
+                return False
+
+        def llm_judge(self, prompt, response, rubric):
+            judge_prompt = f"""
+            根据以下量规对回答打分(1-5)，并给出理由。
+            量规：{rubric}
+            用户问题：{prompt}
+            模型回答：{response}
+            """
+            return call_llm(judge_prompt, model=self.judge_model)
+
+        def evaluate_all(self, test_cases):
+            results = []
+            for case in test_cases:
+                auto_score = self.rule_based_check(case.response, case.expected_keys)
+                llm_score = self.llm_judge(case.prompt, case.response, case.rubric)
+                results.append({"id": case.id, "auto": auto_score, "llm_judge": llm_score})
+            return results
+
+    3 人工评估的精准介入
+
+    自动评估覆盖率再高，也无法完全替代人的判断，尤其在以下场景：
+
+    - 安全红线：涉黄、涉政、暴力内容，自动审核易漏。
+
+    - 微妙表达：讽刺、幽默、语气是否得体。
+
+    - 长尾知识：模型是否“编造”了看似合理但错误的信息。
+
+    人工评估 SOP 建议：
+
+    - 双盲评审，每份回答至少 2 人标注，用 Cohen's Kappa 测量一致性。
+
+    - 建立错题本：把人工判错的 case 提炼成新的自动评估规则或对抗样本。
+
+    - 按周抽样，线上 1%-5% 的流量进行人工复盘，形成闭环。
+
+    自动和人工的结合策略：
+
+    - 自动初筛，把明确通过和明确失败的 case 分流，人工只评审“灰色地带”和低置信度样本。
+
+    - 主动学习式迭代：将人工标注的高分和低分案例加入训练集/评估集，不断提高自动评委的准确率。
+
+    - 分层升级：单元评估通过 → 自动场景评估 → 少量人工抽检 → 全量上线；一旦线上指标波动，立即冻结并人工介入。
+
+    最终，一套好的评估体系的标志是： 它能让你在凌晨三点收到告警时，不用打电话叫醒任何人，就能确信是模型出了偏差，还是仅仅是流量抖动。这是把 LLM 当作真正的产品来做的必经之路。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcn3RIvQG3LQfzO8MyGzalbHe
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "\U0001F3D7️  如何设计一个面向业务场景的 LLM 评估体系？自动评估和人工评估如何结合？"
+  imported_at: '2026-09-21'

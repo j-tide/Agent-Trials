@@ -1,0 +1,107 @@
+---
+schema_version: 1
+id: feishu-llm-complete-08eae1950322
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 长时间运行的任务（如深度搜索、多步推理）如何用 DeferredResult 实现异步响应，避免 Tomcat 线程耗尽？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 长时间运行的任务（如深度搜索、多步推理）如何用 DeferredResult 实现异步响应，避免 Tomcat 线程耗尽？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐⭐（异步架构、线程池优化、Agent 场景）\n\n1️⃣ Common Answer\n\n用 DeferredResult
+    就可以，或者用 @Async。线程池配置大一点，避免线程不够用。\n\n2️⃣ Impressive Answer\n\n我给出完整的异步架构方案：\n\n-
+    异步线程池配置：\n\n```text\n@Configuration\n@EnableAsync\npublic class AsyncConfig {\n
+    \   \n    @Bean(\"agentTaskExecutor\")\n    public Executor agentTaskExecutor()
+    {\n        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();\n        executor.setCorePoolSize(10);\n
+    \       executor.setMaxPoolSize(50);\n        executor.setQueueCapacity(100);\n
+    \       executor.setThreadNamePrefix(\"agent-task-\");\n        executor.setRejectedExecutionHandler(new
+    ThreadPoolExecutor.CallerRunsPolicy());\n        executor.initialize();\n        return
+    executor;\n    }\n    \n    @Bean(\"agentCallbackExecutor\")\n    public Executor
+    agentCallbackExecutor() {\n        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();\n
+    \       executor.setCorePoolSize(5);\n        executor.setMaxPoolSize(20);\n        executor.setQueueCapacity(50);\n
+    \       executor.setThreadNamePrefix(\"agent-callback-\");\n        executor.setRejectedExecutionHandler(new
+    ThreadPoolExecutor.AbortPolicy());\n        executor.initialize();\n        return
+    executor;\n    }\n}\n```\n\n- Agent 任务服务：\n\n```text\n@Service\npublic class AgentTaskService
+    {\n    \n    @Autowired\n    @Qualifier(\"agentTaskExecutor\")\n    private Executor
+    taskExecutor;\n    \n    // 深度搜索任务\n    public CompletableFuture<SearchResult>
+    deepSearch(String query) {\n        return CompletableFuture.supplyAsync(() ->
+    {\n            // 1. 向量检索\n            List<Document> docs = vectorSearch(query);\n
+    \           \n            // 2. 多步推理\n            String reasoning = multiStepReasoning(query,
+    docs);\n            \n            // 3. 结果汇总\n            return SearchResult.builder()\n
+    \               .query(query)\n                .documents(docs)\n                .reasoning(reasoning)\n
+    \               .build();\n        }, taskExecutor);\n    }\n    \n    // 多步推理任务\n
+    \   public CompletableFuture<ReasoningResult> multiStepReasoning(String query,
+    List<Document> docs) {\n        return CompletableFuture.supplyAsync(() -> {\n
+    \           // Step 1: 理解问题\n            String understanding = llmService.understand(query);\n
+    \           \n            // Step 2: 规划步骤\n            List<String> steps = llmService.plan(understanding);\n
+    \           \n            // Step 3: 执行步骤\n            List<String> results =
+    new ArrayList<>();\n            for (String step : steps) {\n                String
+    result = executeStep(step, docs);\n                results.add(result);\n            }\n
+    \           \n            // Step 4: 综合答案\n            String answer = llmService.synthesize(results);\n
+    \           \n            return ReasoningResult.builder()\n                .steps(steps)\n
+    \               .results(results)\n                .answer(answer)\n                .build();\n
+    \       }, taskExecutor);\n    }\n}\n```\n\n- 异步 Controller：\n\n```text\n@RestController\n@RequestMapping(\"/api/agent\")\npublic
+    class AgentAsyncController {\n    \n    @Autowired\n    private AgentTaskService
+    agentTaskService;\n    \n    // 深度搜索（异步）\n    @PostMapping(\"/search/deep\")\n
+    \   public DeferredResult<SearchResult> deepSearch(@RequestBody SearchRequest
+    request) {\n        DeferredResult<SearchResult> result = new DeferredResult<>(60000L);
+    // 60秒超时\n        \n        // 超时处理\n        result.onTimeout(() -> {\n            result.setErrorResult(SearchResult.error(\"Search
+    timeout\"));\n        });\n        \n        // 错误处理\n        result.onError(ex
+    -> {\n            result.setErrorResult(SearchResult.error(ex.getMessage()));\n
+    \       });\n        \n        // 异步执行\n        agentTaskService.deepSearch(request.getQuery())\n
+    \           .thenAccept(result::setResult)\n            .exceptionally(ex -> {\n
+    \               result.setErrorResult(SearchResult.error(ex.getMessage()));\n
+    \               return null;\n            });\n        \n        return result;\n
+    \   }\n    \n    // 多步推理（异步）\n    @PostMapping(\"/reasoning\")\n    public DeferredResult<ReasoningResult>
+    reasoning(@RequestBody ReasoningRequest request) {\n        DeferredResult<ReasoningResult>
+    result = new DeferredResult<>(90000L); // 90秒超时\n        \n        result.onTimeout(()
+    -> {\n            result.setErrorResult(ReasoningResult.error(\"Reasoning timeout\"));\n
+    \       });\n        \n        agentTaskService.multiStepReasoning(request.getQuery(),
+    request.getDocs())\n            .thenAccept(result::setResult)\n            .exceptionally(ex
+    -> {\n                result.setErrorResult(ReasoningResult.error(ex.getMessage()));\n
+    \               return null;\n            });\n        \n        return result;\n
+    \   }\n    \n    // 任务状态查询（轮询）\n    @GetMapping(\"/task/{taskId}/status\")\n    public
+    TaskStatus getTaskStatus(@PathVariable String taskId) {\n        return agentTaskService.getTaskStatus(taskId);\n
+    \   }\n}\n```\n\n- 任务状态管理：\n\n```text\n@Service\npublic class AgentTaskService
+    {\n    \n    private final Map<String, TaskStatus> taskStatusMap = new ConcurrentHashMap<>();\n
+    \   \n    public String createTaskId() {\n        return UUID.randomUUID().toString();\n
+    \   }\n    \n    public void updateTaskStatus(String taskId, String status, int
+    progress) {\n        taskStatusMap.put(taskId, TaskStatus.builder()\n            .taskId(taskId)\n
+    \           .status(status)\n            .progress(progress)\n            .timestamp(System.currentTimeMillis())\n
+    \           .build());\n    }\n    \n    public TaskStatus getTaskStatus(String
+    taskId) {\n        return taskStatusMap.get(taskId);\n    }\n}\n```\n\n- Tomcat
+    线程池优化：\n\n```text\n# application.yml\nserver:\n  tomcat:\n    threads:\n      max:
+    200\n      min-spare: 20\n    accept-count: 100\n    connection-timeout: 30000\n```\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EvyJwQ60XiC313kQqbUcyFhEnAh
+  block_id: doxcn6xtP02Ua5qOLdVPSk4g2Wg
+  page_token: EvyJwQ60XiC313kQqbUcyFhEnAh
+  original_title: 3、场景题：Agent 长时间运行的任务（如深度搜索、多步推理）如何用 DeferredResult 实现异步响应，避免 Tomcat
+    线程耗尽？
+  imported_at: '2026-09-21'

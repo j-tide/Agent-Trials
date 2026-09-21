@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0f5635cbecb4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 续期策略：少写 Redis，但要精准
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Redis / 分布式锁
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Redis
+- 分布式锁
+content:
+  prompt: 续期策略：少写 Redis，但要精准
+answer:
+  mode: rubric
+  reference_answer: |-
+    最简单的做法：每次请求都刷新 TTL。
+    流程是：收到消息 → 读会话 → 处理 → 更新会话 → EXPIRE key 1800。
+
+    但有个小问题：如果高并发下，频繁 EXPIRE 虽然开销小，但积少成多，而且很多时候没必要，比如用户才过了 2 秒又发一条。
+
+    所以我惯用的优化是 “门槛续期”：
+
+    - 每次处理完请求，不立即 EXPIRE。
+
+    - 先检查 last_active 字段，距现在超过 TTL 的一半（例如 900 秒）才执行 EXPIRE。
+
+    - 这样一个用户密集对话时不会反复续期，长时间静默后的第一条消息又能准确重置倒计时。
+
+    伪代码逻辑：
+
+    ```text
+    if now - last_active > TTL / 2:
+        redis.expire(key, TTL)
+    ```
+
+    另一种更保守的做法：只在写入成功后续期，读操作不续期，因为读可能是心跳或重复请求。这样 TTL 真正反映的是“有意义的活动”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KURhwPKP5irrxjkQpTQcE3xxnTY
+  block_id: doxcnIw1oyB4UrKjzGTjKKC3Cdf
+  page_token: KURhwPKP5irrxjkQpTQcE3xxnTY
+  original_title: 续期策略：少写 Redis，但要精准
+  imported_at: '2026-09-21'

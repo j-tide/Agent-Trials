@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-959af5d706c9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现同时支持 key_padding_mask 和 attn_mask 的注意力函数，正确处理布尔填充掩码与附加掩码的广播。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 实现同时支持 key_padding_mask 和 attn_mask 的注意力函数，正确处理布尔填充掩码与附加掩码的广播。
+answer:
+  mode: rubric
+  reference_answer: |-
+    4.1 掩码的类型与作用
+
+    - key_padding_mask：形状 (B, L_k)，布尔张量，True 表示该位置是填充 token，需要被完全忽略（在注意力计算中对所有 query 位置均屏蔽）。这通常用于变长序列。
+
+    - attn_mask：形状灵活，可以是 (L_q, L_k)、(B, L_q, L_k) 等，用于实现因果掩码或其他自定义的注意力模式（如局部注意力、特定 token 间的交互控制）。
+
+    4.2 广播与处理
+
+    - key_padding_mask 需要从 (B, L_k) 广播到 (B, 1, 1, L_k)，这样它可以应用到所有头和所有查询位置。
+
+    - attn_mask 需要能广播到 (B, num_heads, L_q, L_k)。常见的做法是传入形状为 (L_q, L_k) 的因果掩码，利用 PyTorch 的广播机制自动匹配。
+
+    4.3 实现代码
+
+    ```python
+    def apply_masks(attn_scores, key_padding_mask=None, attn_mask=None):
+        """
+        attn_scores: (B, num_heads, L_q, L_k)
+        key_padding_mask: (B, L_k) bool, True = pad
+        attn_mask: 可以是 (L_q, L_k) 或 (B, L_q, L_k)，0 表示屏蔽
+        """
+        if key_padding_mask is not None:
+            # 扩展维度以便广播
+            attn_scores = attn_scores.masked_fill(
+                key_padding_mask.unsqueeze(1).unsqueeze(2), float('-inf')
+            )
+        if attn_mask is not None:
+            # attn_mask 可能含有 0 或 False 表示屏蔽，也支持 True/1 保留
+            attn_scores = attn_scores.masked_fill(attn_mask == 0, float('-inf'))
+        return attn_scores
+    ```
+
+    4.4 注意事项
+
+    - masked_fill 要求掩码张量与被填充张量形状兼容（可广播）。在实际调用时，可以将 attn_mask 扩展为 (1, 1, L_q, L_k) 再传入，以避免形状不匹配。
+
+    - 当同时使用两种掩码时，先应用 key_padding_mask 再应用 attn_mask 是合理的顺序，因为前者是“必须屏蔽”，后者是“额外模式”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTpnwxWMsiVDwIkIoX0c1TU4ned
+  block_id: Zbv0dBeJnoJ2GWx6bCccYb3XnEc
+  page_token: QTpnwxWMsiVDwIkIoX0c1TU4ned
+  original_title: 实现同时支持 key_padding_mask 和 attn_mask 的注意力函数，正确处理布尔填充掩码与附加掩码的广播。
+  imported_at: '2026-09-21'

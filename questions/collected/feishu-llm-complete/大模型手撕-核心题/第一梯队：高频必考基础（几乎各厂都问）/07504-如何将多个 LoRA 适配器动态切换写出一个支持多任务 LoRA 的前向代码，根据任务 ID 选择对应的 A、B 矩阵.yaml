@@ -1,0 +1,97 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a937230d971f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何将多个 LoRA 适配器动态切换？写出一个支持多任务 LoRA 的前向代码，根据任务 ID 选择对应的 A、B 矩阵。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 如何将多个 LoRA 适配器动态切换？写出一个支持多任务 LoRA 的前向代码，根据任务 ID 选择对应的 A、B 矩阵。
+answer:
+  mode: rubric
+  reference_answer: |-
+    7.1 原理
+
+    多任务 LoRA 为每个任务单独训练一组 A、B 矩阵（或者仅训练 B，A 共享），在推理时根据任务 ID 动态选择对应的低秩权重。我们可以维护一个字典 self.lora_adapters = {task_id: (A, B)}，在前向时根据传入的 task_id 选取对应的 A、B。
+
+    7.2 实现
+
+    ```python
+    class MultiTaskLoRALinear(nn.Module):
+        def __init__(self, in_features, out_features, r, alpha, task_ids, dropout=0.0,
+                     base_linear=None):
+            super().__init__()
+            if base_linear:
+                self.linear = base_linear
+            else:
+                self.linear = nn.Linear(in_features, out_features)
+            self.r = r
+            self.alpha = alpha
+            self.scaling = alpha / r
+            self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
+
+            # 为每个任务创建独立的 A 和 B
+            self.lora_A = nn.ParameterDict({
+                task: nn.Parameter(torch.randn(r, in_features) * 0.02) for task in task_ids
+            })
+            self.lora_B = nn.ParameterDict({
+                task: nn.Parameter(torch.zeros(out_features, r)) for task in task_ids
+            })
+            # 冻结原始权重
+            for p in self.linear.parameters():
+                p.requires_grad = False
+
+        def forward(self, x, task_id):
+            out = self.linear(x)
+            A = self.lora_A[task_id]
+            B = self.lora_B[task_id]
+            lora_out = B(A(self.dropout(x)))
+            return out + self.scaling * lora_out
+    ```
+
+    使用时：
+
+    ```python
+    # 假设有两个任务: 'task1', 'task2'
+    adapter = MultiTaskLoRALinear(768, 768, r=8, alpha=16, task_ids=['task1','task2'])
+    out1 = adapter(x1, task_id='task1')
+    out2 = adapter(x2, task_id='task2')
+    ```
+
+    7.3 优化
+
+    - 如果任务数量多，可考虑仅切换 B（A 共享）以节省参数。
+
+    - 切换开销极小，只是选取不同的参数张量。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LZxww5JuBif3JAkuCoIcuqRenuf
+  block_id: Tf67d68nSoLy4Wx6ytFcsi0ingb
+  page_token: LZxww5JuBif3JAkuCoIcuqRenuf
+  original_title: 如何将多个 LoRA 适配器动态切换？写出一个支持多任务 LoRA 的前向代码，根据任务 ID 选择对应的 A、B 矩阵。
+  imported_at: '2026-09-21'

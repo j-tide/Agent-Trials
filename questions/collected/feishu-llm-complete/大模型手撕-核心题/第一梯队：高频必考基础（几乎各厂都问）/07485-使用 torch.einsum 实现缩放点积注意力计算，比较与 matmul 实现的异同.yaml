@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7d5484e12579
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 torch.einsum 实现缩放点积注意力计算，比较与 matmul 实现的异同。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 使用 torch.einsum 实现缩放点积注意力计算，比较与 matmul 实现的异同。
+answer:
+  mode: rubric
+  reference_answer: |-
+    6.1 einsum 实现
+
+    torch.einsum 使用爱因斯坦求和约定，通过下标字符串明确指定运算的维度，免去显式的转置和形状记忆。
+
+    ```python
+    def scaled_dot_product_einsum(query, key, value, scale=None, mask=None):
+        """
+        query: (B, n_heads, L_q, head_dim)
+        key:   (B, n_heads, L_k, head_dim)
+        value: (B, n_heads, L_k, head_dim)
+        """
+        if scale is None:
+            scale = math.sqrt(query.size(-1))
+        # 计算注意力分数: 'b h q d, b h k d -> b h q k'
+        scores = torch.einsum('b h q d, b h k d -> b h q k', query, key) / scale
+        if mask is not None:
+            scores = scores.masked_fill(mask == 0, float('-inf'))
+        weights = F.softmax(scores, dim=-1)
+        # 加权求和: 'b h q k, b h k d -> b h q d'
+        output = torch.einsum('b h q k, b h k d -> b h q d', weights, value)
+        return output
+    ```
+
+    6.2 与 matmul 的比较
+
+    - 可读性：einsum 直观地表达了张量缩并的语义，尤其适合需要非标准缩并的场景（如批量矩阵乘法中的特定维度对齐）。matmul 则较为隐式，但它是标准的批量矩阵乘法，对于 (B, M, K) @ (B, K, N) 非常高效。
+
+    - 性能：matmul 被底层库（cuBLAS）高度优化，通常比 einsum 快，尤其是大张量。einsum 在某些情况下可能导致临时内存分配和未优化的计算路径。在追求极致性能的生产代码中，推荐使用 matmul 或 F.scaled_dot_product_attention。
+
+    - 灵活性：einsum 支持更复杂的张量操作，如可以同时进行转置和缩并，而 matmul 要求输入符合特定形状，必要时需先 transpose。
+
+    6.3 实践建议
+
+    - 在快速原型开发或教学场景，使用 einsum 可提升代码清晰度。
+
+    - 在模型训练和推理部署中，优先使用 matmul 或 PyTorch 2.0+ 的 scaled_dot_product_attention，后者会自动选择最优实现（包括 Flash Attention）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTpnwxWMsiVDwIkIoX0c1TU4ned
+  block_id: MXjTdOJnJoZMpaxdDpncpf5InfM
+  page_token: QTpnwxWMsiVDwIkIoX0c1TU4ned
+  original_title: 使用 torch.einsum 实现缩放点积注意力计算，比较与 matmul 实现的异同。
+  imported_at: '2026-09-21'

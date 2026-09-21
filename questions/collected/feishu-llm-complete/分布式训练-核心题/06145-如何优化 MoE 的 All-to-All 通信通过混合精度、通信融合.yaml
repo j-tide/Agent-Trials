@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-59154943c32d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何优化 MoE 的 All-to-All 通信？通过混合精度、通信融合。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 如何优化 MoE 的 All-to-All 通信？通过混合精度、通信融合。
+answer:
+  mode: rubric
+  reference_answer: |-
+    通信量化：将待传输的 token 数据量化为 INT8 甚至 INT4，反量化后再计算。ZeRO++ 和 DeepSpeed-MoE 中使用了类似技术，将 All-to-All 通信量压缩到 1/2 或 1/4。
+
+    分层 All-to-All：利用节点内 NVLink 高带宽和节点间 IB 低带宽的层级结构。先在节点内各 GPU 间做一次 All-to-All 聚合，减少节点间通信的数据量，再由代表 GPU 跨节点通信。
+
+    融合通信与计算：将 All-to-All 通信与专家计算流水线化。在等待 token 到达时，先处理已到达的 token；在发送结果时，继续处理剩余 token。通过 CUDA Stream 异步执行，隐藏通信延迟。
+
+    增大容量因子：可以减少溢出丢弃的 token 数，从而降低无效通信（被丢弃的 token 仍会经历通信但无计算产出）。
+
+    拓扑感知的专家放置：将经常被共同激活的专家放在同一节点内，减少跨节点 All-to-All 的通信量。
+
+    使用高速网络：InfiniBand NDR/HDR 配合 GPUDirect RDMA，最大化 All-to-All 的带宽利用率。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQczwN8cliZ2XSkOI26ckCcPnuf
+  block_id: ZGopdWlzwos6tjxCl1ycEMr2nkh
+  page_token: GQczwN8cliZ2XSkOI26ckCcPnuf
+  original_title: 如何优化 MoE 的 All-to-All 通信？通过混合精度、通信融合。
+  imported_at: '2026-09-21'

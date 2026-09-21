@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9215aa2617c5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6A8 3. Agent 在生产环境偶发性输出异常，如何用 LangSmith 系统性排查？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F6A8 3. Agent 在生产环境偶发性输出异常，如何用 LangSmith 系统性排查？"
+answer:
+  mode: rubric
+  reference_answer: "生产环境的偶发 bug 最让人头疼，但 LangSmith 给了你一套“从粗到细”的排查方法论，配合定制化元数据，能快速圈定病灶。\n\n###
+    ▎\U0001F575️ 第一步：快速检索，圈定异常样本\n\n生产环境每天可能有上万个 Trace，你不可能手动翻。必须靠过滤和搜索。\n\n- 如果你在代码里为每个请求注入了
+    metadata（比如 {\"environment\": \"prod\", \"session_id\": \"abc123\", \"feature\":
+    \"order_agent\"}），就可以在 UI 里用类似 metadata.environment = prod AND feedback.score
+    < 0.5 的条件快速筛选。\n\n- 也可以用 Python SDK 编程筛选：\n\n```python\nruns = client.list_runs(\n
+    \   project_name=\"prod\",\n    filter='eq(metadata.environment, \"prod\")',\n
+    \   is_root=True, \n    error=None  # 可以先拉所有 root run\n)\n```\n\n### \U0001F52C
+    第二步：给 Trace 增加“诊断信息”\n\n偶发问题往往和特定输入、特定上下文有关。靠裸 trace 有时不够，你需要在应用代码里主动挂载更多信息到 Run。\n\n-
+    利用 langsmith.run_helpers 的 @traceable 装饰器，自定义子 run，把关键中间变量暴露出来。\n\n- 对异步调用或特殊分支，手动添加
+    run.add_metadata({\"user_region\": region, \"prompt_version\": \"v3\"})。\n\n```python\nfrom
+    langsmith import traceable\n\n@traceable(run_type=\"tool\")\ndef my_custom_tool(query:
+    str):\n    # 工具逻辑\n    result = ...\n    return result\n```\n\n这样一旦某类地区用户的请求出了问题，你就能直接从
+    metadata 里定位。\n\n### ▎\U0001F50D 第三步：深度解剖一个异常 Trace\n\n找到典型异常 Trace 后，从根节点往下一层层看：\n\n-
+    看最终的输出异常：是格式错误，还是内容胡言乱语？\n\n- 回溯 LLM 调用：检查模型接收的完整 prompt。特别留意 RAG 检索来的上下文，可能混入了脏数据或与问题完全无关的文档。\n\n-
+    检查工具调用序列：Agent 是否陷入了错误工具的死循环？是否某次工具调用返回了异常（如超时、权限错误），而 Agent 没有做异常处理，直接当成正常信息继续推理？\n\n-
+    对比正常 Trace：找一条同类请求的成功 Trace，对比每一步输入输出的差异。很多时候你会发现，异常 trace 的某个检索步骤少返回了一条关键信息，或者工具调用的参数顺序错了。\n\n###
+    ▎\U0001F9EA 第四步：将异常案例固化为回归测试\n\n找到根因后，别修复了就完了。把这次出错的输入输出保存成数据集中的一个示例。\n\n```python\nfrom
+    langsmith import Client\n\nclient = Client()\ndataset = client.create_dataset(\"agent-regression-tests\")\nclient.create_example(\n
+    \   inputs={\"input\": \"导致异常的原始用户问题\"},\n    outputs={\"expected_output\": \"期望的正确答案或行为\"},\n
+    \   dataset_id=dataset.id,\n)\n```\n\n之后每次修改 Agent（比如更新 prompt 或工具），都跑一遍这个回归测试集，确保旧问题不再复现。还能结合
+    CI/CD 流水线，把评估设为部署门禁。\n\n### ▎⚙️ 第五步：设置在线监控与预警\n\n被动排查永远慢半拍，LangSmith 允许你添加在线评估器，实时给每个
+    Run 打分。比如，用一个规则引擎检查输出是否包含特定错误关键词，或者用一个轻量模型判断是否拒绝回答。一旦某条 Run 分数低于阈值，LangSmith 可以触发
+    Webhook 发送告警到你的 Slack 或钉钉。\n\n---\n\n最后总结一句：LangSmith 不只是一个 trace 查看器，它本质上是一套
+    LLM 应用的全生命周期可观测性和质量保障平台。面试中你能把“用 Trace 排查问题”升维到“用 LangSmith 构建质量闭环”，基本就锁定了高评价。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DvQ6wSwdqibPdgkOaG3c8vI7nVb
+  block_id: doxcnVHJL4ZTx05mvNK53W81Ojf
+  page_token: DvQ6wSwdqibPdgkOaG3c8vI7nVb
+  original_title: "\U0001F6A8 3. Agent 在生产环境偶发性输出异常，如何用 LangSmith 系统性排查？"
+  imported_at: '2026-09-21'

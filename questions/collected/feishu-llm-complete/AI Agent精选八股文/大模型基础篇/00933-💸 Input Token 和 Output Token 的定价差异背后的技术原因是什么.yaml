@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f317fb62451b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4B8 Input Token 和 Output Token 的定价差异背后的技术原因是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F4B8 Input Token 和 Output Token 的定价差异背后的技术原因是什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    绝大多数 LLM API（OpenAI, Claude, Gemini 等）的输出单价都是输入的 2~5 倍。这不是商业噱头，而是底层计算硬约束的直接体现。
+
+    [图片内容未导入]
+
+    技术根源：注意力机制的计算形态完全不同
+
+    - 处理 Input Token（Prefill 阶段）
+    所有输入 token 一次性进入模型，每一层的自注意力可以并行计算。GPU 上数以千计的计算核心可以同时干活，矩阵乘法接近硬件理论峰值效率。这时瓶颈在 FLOPS，一张 A100 轻松跑满 312 TFLOPS。
+
+    - 生成 Output Token（Decode 阶段）
+    每生成一个 token，都要和所有历史 token 做注意力交互。虽然每次只算一个新 token 的 Q/K/V，但必须从显存中读取整个 KV Cache 与它相乘。显存带宽成为瓶颈，GPU 计算单元大量闲置。目前主流硬件的显存带宽（HBM）在 2 TB/s 左右，这决定了生成速度的上限。
+
+    一图对比两种阶段的硬件效率：
+
+    [图片内容未导入]
+
+    进一步推演到服务成本：
+
+    - 生成 Output Token 时，为了维持高并发，服务端需要给每个请求的整个序列保留完整 KV Cache，显存占用极大。这限制了单卡能同时服务的用户数。
+
+    - Input Token 处理则可以在一次前向中消化大量 prompt，然后立即释放中间激活，显存效率高得多。
+
+    商业化定价就直接映射了这些物理成本： Output Token 单价更高，因为你买的是“卡住 GPU 的时间”和“挤占并发上限的显存”。这也解释了为什么带有缓存前缀的共享 System Prompt 会被计费更少——它节省了最昂贵的重复 Prefill 算力。
+
+    一个微型模拟，帮你感受 Prefill 和 Decode 的资源差异：
+
+    # 简化模型下的成本权重示意
+    def estimate_cost(prompt_tokens, completion_tokens):
+        # Prefill: 算力单价 (GPU 时间) 较低，因为完全并行
+        prefill_cost = prompt_tokens * 0.01  # 每1k tokens 极低
+        # Decode: 内存带宽占用高，串行，代价高
+        decode_cost = completion_tokens * 0.05
+        return prefill_cost + decode_cost
+
+    # 1k input + 1k output
+    print(estimate_cost(1000, 1000))  # 10 + 50 = 60 单位，输出占比 83%
+
+    本质一句话： Output Token 是“内存带宽定价”，Input Token 是“算力定价”，而硬件市场上内存带宽的稀缺性远高于算力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcnRZy2VCUI22DYszuK4hxd4b
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "\U0001F4B8 Input Token 和 Output Token 的定价差异背后的技术原因是什么？"
+  imported_at: '2026-09-21'

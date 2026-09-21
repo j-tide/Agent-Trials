@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7bbf93830fec
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“显存碎片” (Memory Fragmentation)？如何影响训练？PyTorch 的分配器如何缓解？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 什么是“显存碎片” (Memory Fragmentation)？如何影响训练？PyTorch 的分配器如何缓解？
+answer:
+  mode: rubric
+  reference_answer: |-
+    显存碎片指的是显存中存在大量小的、不连续的空闲块。这些碎片的总容量可能足够分配一个新的大张量，但因为它们不连续，无法被一次性使用，最终导致分配失败。
+
+    在大模型训练中，激活值张量的形状频繁变化（不同层的输出维度不同，FFN中间层扩展4倍再收缩）。每次分配和释放都会在显存中留下形状各异的“空洞”。长期训练后，碎片累积，可能出现这样的诡异现象：监控显示显存还有20GB空闲，但尝试分配一个10GB的连续张量却报错OOM。
+
+    PyTorch的缓存分配器通过预申请和复用机制来缓解碎片。它不会在张量释放时立即将显存归还给CUDA驱动，而是将空闲置入自己的缓存池。下次需要相似大小的张量时，直接从池中分配，避免了频繁的系统调用和碎片产生。
+
+    然而，如果训练中频繁出现大小交替的张量（比如动态序列长度），缓存池的效果会打折扣。PyTorch 2.0引入的expandable_segments特性更进一步：允许分配器在物理显存允许时，动态扩大已分配的显存段，将原本分散的空闲块“拼接”起来，极大地缓解了碎片问题。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: SjvNdwRdZosRwMxEnkccioehnse
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 什么是“显存碎片” (Memory Fragmentation)？如何影响训练？PyTorch 的分配器如何缓解？
+  imported_at: '2026-09-21'

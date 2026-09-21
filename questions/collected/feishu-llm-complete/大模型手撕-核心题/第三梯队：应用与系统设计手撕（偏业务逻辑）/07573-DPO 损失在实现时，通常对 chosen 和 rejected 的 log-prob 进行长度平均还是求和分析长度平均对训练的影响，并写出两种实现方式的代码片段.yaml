@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1f881aee9b7c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: DPO 损失在实现时，通常对 chosen 和 rejected 的 log-prob 进行长度平均还是求和？分析长度平均对训练的影响，并写出两种实现方式的代码片段。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: DPO 损失在实现时，通常对 chosen 和 rejected 的 log-prob 进行长度平均还是求和？分析长度平均对训练的影响，并写出两种实现方式的代码片段。
+answer:
+  mode: rubric
+  reference_answer: |-
+    两种方式：
+
+    - 求和：total_log_prob = sum(token_log_probs)，不除以长度。
+
+    - 平均：mean_log_prob = total_log_prob / num_valid_tokens。
+
+    对训练的影响：
+
+    - 求和：长序列的总对数概率数值更大（更负），在损失中的贡献权重也更大。这会导致模型更关注长序列的优化，可能忽略短序列的偏好信号。此外，长序列的梯度方差可能更大。
+
+    - 平均：将每个序列的对数概率归一化到 token 级别，使得不同长度的序列在损失函数中具有可比性。这更公平，因为偏好通常不是由长度决定的。目前主流 DPO 实现（如 HuggingFace TRL）采用平均 log probability。
+
+    代码片段：
+
+    求和方式：
+
+    ```python
+    total_logp = (log_probs * attention_mask).sum(dim=1)  # (B,)
+    ```
+
+    平均方式：
+
+    ```python
+    num_tokens = attention_mask.sum(dim=1)
+    mean_logp = (log_probs * attention_mask).sum(dim=1) / num_tokens
+    ```
+
+    建议：使用平均方式，并确保在计算时排除 padding token 的影响。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  block_id: GNkmdB8plo6Cb9xf7fbch1ctnlg
+  page_token: Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  original_title: DPO 损失在实现时，通常对 chosen 和 rejected 的 log-prob 进行长度平均还是求和？分析长度平均对训练的影响，并写出两种实现方式的代码片段。
+  imported_at: '2026-09-21'

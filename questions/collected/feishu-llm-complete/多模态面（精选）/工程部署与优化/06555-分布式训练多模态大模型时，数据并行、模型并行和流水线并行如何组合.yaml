@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e5e4999179b2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分布式训练多模态大模型时，数据并行、模型并行和流水线并行如何组合？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 分布式训练多模态大模型时，数据并行、模型并行和流水线并行如何组合？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多模态大模型通常包含三个参数量差异巨大的组件：视觉编码器（数亿参数）、跨模态投影层（千万级）、LLM（数十亿到千亿）。单一并行策略无法高效覆盖，必须采用混合并行策略。
+
+    典型组合方案：
+
+    [嵌入表格未展开]
+
+    组合方式：
+
+    首先按流水线并行将LLM的层切分到多个GPU（例如每4层一组），然后在每个流水线阶段内，对单层使用张量并行（如切分注意力头）。对于视觉编码器，由于其参数少但输入图像分辨率高，可单独分配一组GPU做数据并行，这组GPU不参与LLM的流水线。视觉token产出后，通过AllGather或点对点通信发送到LLM所在的各流水线首个阶段。投影层通常放在视觉编码器之后、LLM之前，可随视觉编码器一起数据并行，或随LLM首个流水线阶段。
+
+    通信优化：视觉token从视觉GPU传输到LLM GPU时，应尽量利用节点内NVLink高速通道，避免跨节点传输。可通过调度器将视觉编码器与LLM的首阶段放在同一物理节点上。
+
+    [图片内容未导入]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  block_id: L4rfdypUxoUfy0x6IDlcx0YQnMe
+  page_token: KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  original_title: 分布式训练多模态大模型时，数据并行、模型并行和流水线并行如何组合？
+  imported_at: '2026-09-21'

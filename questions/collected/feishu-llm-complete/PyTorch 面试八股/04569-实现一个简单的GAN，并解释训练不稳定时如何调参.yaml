@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5fe0a498cf63
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个简单的GAN，并解释训练不稳定时如何调参。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 实现一个简单的GAN，并解释训练不稳定时如何调参。
+answer:
+  mode: rubric
+  reference_answer: |-
+    简单GAN实现（生成手写数字）：
+
+    ```python
+    import torch
+    import torch.nn as nn
+
+    # 生成器
+    class Generator(nn.Module):
+        def __init__(self, latent_dim, img_shape):
+            super().__init__()
+            self.model = nn.Sequential(
+                nn.Linear(latent_dim, 256), nn.ReLU(),
+                nn.Linear(256, 512), nn.ReLU(),
+                nn.Linear(512, int(torch.prod(torch.tensor(img_shape)))), nn.Tanh()
+            )
+        def forward(self, z):
+            return self.model(z).view(-1, *img_shape)
+
+    # 判别器
+    class Discriminator(nn.Module):
+        def __init__(self, img_shape):
+            super().__init__()
+            self.model = nn.Sequential(
+                nn.Linear(int(torch.prod(torch.tensor(img_shape))), 512), nn.LeakyReLU(0.2),
+                nn.Linear(512, 256), nn.LeakyReLU(0.2),
+                nn.Linear(256, 1), nn.Sigmoid()
+            )
+        def forward(self, img):
+            return self.model(img.view(img.size(0), -1))
+    ```
+
+    训练不稳定时调参：
+
+    - 学习率：降低两倍或使用Adam优化器（betas=(0.5, 0.999)是常用配置）。
+
+    - 加入噪声：向判别器的输入或标签添加微弱的高斯噪声，可以平滑分布。
+
+    - 使用标签平滑：将真实标签从1.0替换为0.9~1.0，虚假标签从0.0替换为0.0~0.1。
+
+    - 使用Wasserstein GAN (WGAN)：将判别器改为评论家，使用Wasserstein距离和梯度惩罚，训练更稳定。
+
+    - 平衡生成器和判别器的训练频率：如果一方过强，减少其更新次数。
+
+    - 使用BatchNorm：在生成器和判别器中（除最后一层）使用BN有助于稳定。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  block_id: GHY7d6lvtoQ00OxHowicrh6SnUc
+  page_token: AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  original_title: 实现一个简单的GAN，并解释训练不稳定时如何调参。
+  imported_at: '2026-09-21'

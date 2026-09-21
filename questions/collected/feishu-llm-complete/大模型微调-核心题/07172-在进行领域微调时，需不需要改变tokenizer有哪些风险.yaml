@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1da4202406ca
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在进行领域微调时，需不需要改变tokenizer？有哪些风险？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 在进行领域微调时，需不需要改变tokenizer？有哪些风险？
+answer:
+  mode: rubric
+  reference_answer: |-
+    一般不需要，且强烈不建议轻易改动Tokenizer。 改动的风险远大于潜在收益。
+
+    风险：
+
+    - 词表不匹配导致灾难：若新增领域词汇，但基座模型的Embedding矩阵和LM Head权重是固定的，新Token的Embedding是随机初始化的。在微调的少量数据下，这些新Embedding难以被充分训练，会导致模型对这些新词的语义理解几乎为零，反而破坏了原有的语言表征。
+
+    - 特殊Token冲突：若自定义的特殊Token与原有词表中的某些Token ID冲突，会彻底扰乱模型的输出。
+
+    - 预训练知识断裂：Tokenizer是模型理解语言的最底层接口。改变Tokenizer等于改变了模型的“感官”，会使所有预训练阶段积累的知识无法被正确激活，导致模型行为完全不可预测，效果一落千丈。
+
+    正确的做法：
+
+    - 利用现有词表组合：多数领域术语可以用现有词表组合表示，无需新增Token。例如，“阿莫西林”可能被拆分为“阿”、“莫”、“西”、“林”，模型依旧能通过学习上下文理解其整体含义。
+
+    - 若必须新增（如全新的编程语言关键字），应同时进行大规模的继续预训练（例如数十亿Token的领域文本），而不仅仅是在微调数据中使用。这能让新Token的Embedding得到充分训练，并在参数空间中稳固下来。
+
+    - 在微调时，可以保持Embedding层冻结或使用极小的学习率，以防止对已训练好的词表表征造成破坏。
+
+    总之，领域微调应当依赖于模型在预训练中已获得的、通过现有词表表达的泛化能力，并通过继续预训练来“解释”领域词汇，而不是贸然改造Tokenizer。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/W8ymwxsGKimT6Fk1YIOcORI9nLe
+  block_id: TeZsdCeNlocmS0xTt3Dczj7InAd
+  page_token: W8ymwxsGKimT6Fk1YIOcORI9nLe
+  original_title: 在进行领域微调时，需不需要改变tokenizer？有哪些风险？
+  imported_at: '2026-09-21'

@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d12bde1d7e4f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F504 4. 当自定义链内部调用了其他链或模型，如何把 callback 和配置正确地传递下去？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "\U0001F504 4. 当自定义链内部调用了其他链或模型，如何把 callback 和配置正确地传递下去？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是一个老生常谈但非常容易出错的点。很多初学者在自定义链里直接 self.llm("some prompt")，结果发现 LangSmith 追踪里断掉了，或者回调函数根本没触发。原因就是 callback 和配置（如 tags、metadata）不会自动向下渗透，你需要显式传递。
+
+    在 _call 方法中，框架会把一个 CallbackManager 对象放到 inputs 旁边的运行上下文中，你可以通过 self.callback_manager 拿到，它内部有 on_llm_start 等方法。当你在链里调用子链或模型时，需要手动把 callback 传过去：
+
+    ```python
+    def _call(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        # 获取回调管理器
+        cb = self.callback_manager
+        text = inputs["text"]
+
+        # 翻译时传入回调
+        translate_input = self.translate_prompt.format(text=text)
+        translation = self.llm.invoke(
+            translate_input,
+            config={"callbacks": cb}  # 关键点
+        ).strip()
+
+        # 情感分析同理
+        sentiment_input = self.sentiment_prompt.format(english_text=translation)
+        sentiment = self.llm.invoke(
+            sentiment_input,
+            config={"callbacks": cb}
+        ).strip().lower()
+
+        return {...}
+    ```
+
+    但是！如果你的自定义链还接收了 run_name、tags、metadata 这些运行时配置，你也应该一并往下传，不然你在大链路里加了全局 tag “production”，结果内嵌的 LLM 调用却没有带上这个 tag，出问题时你就没法按标签过滤日志了。我通常的做法是直接从 self 提取所有运行时配置，构造成 RunnableConfig 字典传入：
+
+    ```python
+    config = {
+        "callbacks": self.callback_manager,
+        "tags": self.tags,
+        "metadata": self.metadata,
+        "run_name": self.run_name,  # 有时给子调用单独命名
+    }
+    ```
+
+    另一个容易被忽略的是 异步调用 时的传递：_acall 里一样要手动传，否则异步链路追踪也会断。我习惯封装一个 _get_runtime_config() 的私有方法，在同步和异步里复用，保持一致性。
+
+    另外，如果你的子组件是 LangChain Expression Language (LCEL) 构建的 Runnable 对象，它的 invoke 方法本身就接受 config，这时候直接把上面拼好的 config 字典传进去就行，回调就会在整个 Runnable 拓扑中自动传播——这才是 LCEL 的优雅之处。所以现在新项目里，我更倾向于把内部逻辑也用 LCEL 写，传一次 config 就一劳永逸。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QpN4wGGTGiz4zzkOhzqc7iipn1e
+  block_id: IZqDdkgJdoECfRxfSoPcvnoanrg
+  page_token: QpN4wGGTGiz4zzkOhzqc7iipn1e
+  original_title: "\U0001F504 4. 当自定义链内部调用了其他链或模型，如何把 callback 和配置正确地传递下去？"
+  imported_at: '2026-09-21'

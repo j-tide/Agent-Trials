@@ -1,0 +1,87 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7b0247e41e1e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DD 方案一：XML 动态标签（最安全、推荐）"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: "\U0001F4DD 方案一：XML 动态标签（最安全、推荐）"
+answer:
+  mode: rubric
+  reference_answer: |-
+    利用 <if>, <where>, <foreach> 等标签，把运行时条件映射为参数。
+
+    示例：根据多个可选条件查询用户
+
+    ```xml
+    <select id="queryUsers" resultType="User">
+        SELECT * FROM users
+        <where>
+            <if test="name != null and name != ''">
+                AND name LIKE CONCAT('%', #{name}, '%')
+            </if>
+            <if test="minAmount != null">
+                AND total_amount >= #{minAmount}
+            </if>
+            <if test="vip != null and vip == true">
+                AND is_vip = 1
+            </if>
+        </where>
+        <if test="orderBy != null">
+            ORDER BY ${orderBy}   <!-- 这里必须白名单校验 -->
+        </if>
+    </select>
+    ```
+
+    对应的 Mapper 接口：
+
+    ```java
+    List<User> queryUsers(@Param("name") String name,
+                          @Param("minAmount") BigDecimal minAmount,
+                          @Param("vip") Boolean vip,
+                          @Param("orderBy") String orderBy);
+    ```
+
+    对于 orderBy 这种必须用 ${} 的地方，要在服务层做白名单过滤：
+
+    ```java
+    private static final Set<String> ALLOWED_COLUMNS = Set.of("id", "name", "create_time", "total_amount");
+
+    public List<User> safeQuery(String name, BigDecimal minAmount, Boolean vip, String orderBy) {
+        if (orderBy != null && !ALLOWED_COLUMNS.contains(orderBy)) {
+            throw new IllegalArgumentException("Invalid column: " + orderBy);
+        }
+        return mapper.queryUsers(name, minAmount, vip, orderBy);
+    }
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VU1MwcbuKiIco5kkmQCc1W0lnFc
+  block_id: doxcnnlgZFZe0OKiirQYU6N2Sjb
+  page_token: VU1MwcbuKiIco5kkmQCc1W0lnFc
+  original_title: "\U0001F4DD 方案一：XML 动态标签（最安全、推荐）"
+  imported_at: '2026-09-21'

@@ -1,0 +1,111 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4a58f5ce7bc6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: LangGraph 子图（Subgraph）组合与模块化设计
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: LangGraph 子图（Subgraph）组合与模块化设计
+answer:
+  mode: rubric
+  reference_answer: |-
+    ---
+
+    1、LangGraph 子图是什么？
+
+    难度级别：⭐（子图基本概念、作为节点嵌入父图）
+
+    子图（Subgraph）是把一个已编译的 CompiledGraph 作为节点嵌入到父图中，让复杂系统可以分解成独立的模块。每个子图有自己的 State，父图和子图通过同名字段自动同步数据，子图的私有字段对父图完全不可见，实现真正的封装隔离。子图可以独立编译和测试，也可以被多个父图复用。
+
+    ---
+
+    2、LangGraph 子图如何实现父子 State 的隔离与通信？它解决了什么工程问题？
+
+    难度级别：⭐⭐⭐（字段名匹配的同步机制、私有字段隔离、独立编译测试、复用场景、Checkpointing 注意事项）
+
+    1️⃣ Common Answer
+
+    子图就是把一个图嵌到另一个图里，父图和子图通过相同的字段名来传递数据。子图的好处是可以单独测试，也可以复用。父子图各有各的 State，但相同字段名的内容会自动同步。
+
+    2️⃣ Impressive Answer
+
+    我会从通信机制、工程优势和注意事项三个层面来讲：
+
+    - State 通信：字段名匹配的自动同步 + 私有字段完全隔离。父图传入子图时，同名字段的值复制进子图 State；子图执行完毕后，同名字段的值写回父图。子图的私有字段（如内部中间状态 retrieved_docs、query_embedding）对父图完全不可见，实现了真正的封装。这意味着子图的内部实现可以随意重构，只要保持同名字段的接口约定不变，父图就不受影响。
+
+    - 工程优势：模块化开发和独立测试。子图可以独立编译后单独测试，不需要启动整个父图。不同团队可以并行开发不同子图，各自写单测，集成时只验证 State 字段的接口约定。同一个子图还可以用 with_config 绑定不同配置，在父图中多次使用——比如同一套 RAG 子图逻辑，分别绑定金融知识库和法律知识库，并行执行两路检索。
+
+    - 注意事项：子图的 Checkpointing 有一个坑。子图的内部状态默认不单独保存 Checkpoint，只有父图 State 中同步回来的字段被持久化。如果需要保留子图完整执行历史，必须给子图单独配置 Checkpointer。调试复杂系统时这个细节容易被忽视，Time Travel 回放时只能看到父图视角的历史，看不到子图内部的步骤。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、一个 Agent 系统需要同时查金融知识库和法律知识库，如何用子图实现并行双路 RAG？
+
+    难度级别：⭐⭐⭐（子图复用 + with_config、并行边、结果汇总）
+
+    1️⃣ Common Answer
+
+    建两个 RAG 子图，一个查金融库，一个查法律库，然后并行执行，最后把结果合并。可以复用同一套 RAG 子图逻辑，用不同配置区分知识库。
+
+    2️⃣ Impressive Answer
+
+    关键思路是"一套子图逻辑，两份配置实例化"：
+
+    # 同一个 RAG 子图，用 with_config 绑定不同知识库
+    rag_subgraph = build_rag_graph().compile()
+    finance_rag = rag_subgraph.with_config({"configurable": {"kb": "finance"}})
+    legal_rag   = rag_subgraph.with_config({"configurable": {"kb": "legal"}})
+
+    # 父图中作为两个独立节点
+    parent.add_node("finance_rag", finance_rag)
+    parent.add_node("legal_rag", legal_rag)
+
+    # 并行执行：router 同时触发两个子图
+    parent.add_edge("router", ["finance_rag", "legal_rag"])
+    parent.add_edge(["finance_rag", "legal_rag"], "merge_node")  # 等两个都完成后汇总
+
+    merge_node 收到来自两个子图的 messages（通过 add_messages reducer 追加），把两路检索结果拼接后交给 LLM 生成最终回答。
+
+    子图的私有字段（如 retrieved_docs）不向父图暴露，父图 merge_node 只看 messages，接口干净。如果将来要加第三个知识库，只需再加一个 with_config 实例和一条并行边，不需要修改任何子图内部逻辑。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BGoPwvMLhic7wKkrioacP0oynIh
+  block_id: doxcnnXa0oQTXlhnijhAVtzy6Sd
+  page_token: BGoPwvMLhic7wKkrioacP0oynIh
+  original_title: LangGraph 子图（Subgraph）组合与模块化设计
+  imported_at: '2026-09-21'

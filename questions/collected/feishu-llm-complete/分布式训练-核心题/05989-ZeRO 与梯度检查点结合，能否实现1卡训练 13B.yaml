@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3164c4a7cea4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ZeRO 与梯度检查点结合，能否实现“1卡训练 13B”？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: ZeRO 与梯度检查点结合，能否实现“1卡训练 13B”？
+answer:
+  mode: rubric
+  reference_answer: |-
+    理论上可以，但需要借助CPU Offload，且速度极慢。
+
+    分析13B模型单卡训练显存：
+
+    - FP16参数：26 GB
+
+    - FP16梯度：26 GB（反向传播后暂存）
+
+    - 优化器状态（FP32 m, v, master）：156 GB
+
+    - 激活值（通过梯度检查点压缩后）：约15~25 GB
+
+    单卡80GB A100，仅模型状态（未分片）就达到26+26+156=208GB，远超显存。必须将优化器状态卸载到CPU（ZeRO-Offload），此时GPU只需承担参数26GB + 梯度26GB + 激活值15~25GB，总计67~77GB，勉强在80GB以内。如果再加上一些临时缓冲区和框架开销，极可能OOM，因此实际中往往需要更激进的激活值压缩（如FlashAttention）或降低batch size。
+
+    但即使能跑起来，由于优化器更新需要频繁通过PCIe与CPU交换数据，单步训练时间将延长数倍，整体训练时间可能比多卡ZeRO-3方案慢5~10倍。因此，“1卡训练13B”虽然技术上可行，但通常不推荐，除非资源极度受限且对时间不敏感。相较之下，8卡ZeRO-3训练13B就非常舒适，单卡显存仅约30~40GB。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: Ddhid0LmTodFuuxDBbQcV1nGn0f
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: ZeRO 与梯度检查点结合，能否实现“1卡训练 13B”？
+  imported_at: '2026-09-21'

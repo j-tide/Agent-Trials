@@ -1,0 +1,112 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5fd8f61a10ce
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出一个简单的 DDP 训练脚本伪代码。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 写出一个简单的 DDP 训练脚本伪代码。
+answer:
+  mode: rubric
+  reference_answer: |-
+    下面是一个带有必要组件注释的 DDP 训练脚本框架，涵盖了从初始化、数据加载、模型包装、训练循环到清理的完整流程。
+
+    ```python
+    import os
+    import torch
+    import torch.distributed as dist
+    from torch.nn.parallel import DistributedDataParallel as DDP
+    from torch.utils.data import DataLoader, DistributedSampler
+
+    # 1. 初始化进程组（自动读取 torchrun 设置的环境变量）
+    def setup():
+        dist.init_process_group(backend='nccl')
+        torch.cuda.set_device(int(os.environ['LOCAL_RANK']))
+
+    # 2. 清理进程组
+    def cleanup():
+        dist.destroy_process_group()
+
+    # 3. 构建模型并包装为 DDP
+    def build_model():
+        model = MyTransformerModel().cuda()
+        # 使用 DDP 包装，device_ids 指定当前 GPU
+        model = DDP(model, device_ids=[int(os.environ['LOCAL_RANK'])])
+        return model
+
+    # 4. 构建数据加载器（使用 DistributedSampler 分片数据）
+    def get_dataloader(dataset, batch_size):
+        sampler = DistributedSampler(dataset, shuffle=True)
+        dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=8, pin_memory=True)
+        return dataloader
+
+    # 5. 训练主函数
+    def main():
+        setup()
+        rank = dist.get_rank()
+        world_size = dist.get_world_size()
+
+        model = build_model()
+        optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+        criterion = torch.nn.CrossEntropyLoss()
+        dataset = MyDataset()
+        dataloader = get_dataloader(dataset, batch_size=32)
+
+        for epoch in range(num_epochs):
+            dataloader.sampler.set_epoch(epoch)  # 确保每个 epoch 的 shuffle 不同
+            for batch in dataloader:
+                inputs, targets = batch[0].cuda(), batch[1].cuda()
+                outputs = model(inputs)
+                loss = criterion(outputs, targets)
+                optimizer.zero_grad()
+                loss.backward()
+                # DDP 自动在 backward 中完成梯度 AllReduce
+                optimizer.step()
+                if rank == 0 and step % 100 == 0:
+                    print(f"Epoch {epoch}, Step {step}, Loss {loss.item()}")
+
+        cleanup()
+
+    if __name__ == "__main__":
+        main()
+    ```
+
+    关键说明：
+
+    - DistributedSampler 保证不同进程处理的数据不重叠，set_epoch(epoch) 确保每轮 shuffle 不同。
+
+    - DDP 在 loss.backward() 时自动触发梯度 AllReduce，无需手动调用通信。
+
+    - 只有 rank 0 打印日志，避免日志风暴。
+
+    - pin_memory=True 加速主机到设备的数据传输。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GSO0wLgvGi8yaCktRbBc92Dbnhh
+  block_id: R3QEdWEN2oMigXxVgD8c5tuEnih
+  page_token: GSO0wLgvGi8yaCktRbBc92Dbnhh
+  original_title: 写出一个简单的 DDP 训练脚本伪代码。
+  imported_at: '2026-09-21'

@@ -1,0 +1,192 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9a015681e476
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 31.在处理一个需要多步工具调用的复杂任务（例如“调研三篇关于RAG+RL的论文并输出中文总结”）时，如何设计一个鲁棒的规划机制来应对中间步骤的失败（如某个API调用超时或返回数据格式错误）？请描述具体的重试、回滚或重规划策略。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 
+tags: &1
+- AI Agent精选八股文
+content:
+  prompt: 31.在处理一个需要多步工具调用的复杂任务（例如“调研三篇关于RAG+RL的论文并输出中文总结”）时，如何设计一个鲁棒的规划机制来应对中间步骤的失败（如某个API调用超时或返回数据格式错误）？请描述具体的重试、回滚或重规划策略。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### 一、任务分解示例
+
+    以“调研三篇关于RAG+RL的论文并输出中文总结”为例，典型规划如下：
+
+    - 搜索论文：使用学术搜索引擎（如Google Scholar、Semantic Scholar）查询关键词“RAG+RL”，获取论文ID或URL列表。
+
+    - 获取详细信息：对每篇论文，调用API获取元数据（标题、作者、摘要、发表年份）。
+
+    - 下载全文（可选）：若有权限，下载PDF。
+
+    - 提取核心内容：调用文本摘要或信息提取工具。
+
+    - 翻译与总结：将英文摘要翻译为中文，并整合成结构化的总结报告。
+
+    每一步都可能失败：API超时、返回格式错误、缺少字段、网络中断、权限不足等。
+
+    ---
+
+    ### 二、整体机制：三层防护
+
+    第一层：局部重试（针对瞬时故障）
+
+    ↓ 失败
+
+    第二层：回滚到安全状态 + 替代路径
+
+    ↓ 仍失败
+
+    第三层：全局重规划（修改任务子目标或降级）
+
+    ---
+
+    ### 三、具体策略
+
+    重试策略（Retry）
+
+    适用场景：超时、临时网络错误、服务端限流等可恢复故障。
+
+    设计要点：
+
+    - 指数退避：第1次重试延迟1s，第2次2s，第3次4s，最大3次。
+
+    - 幂等性保证：重试的API调用需幂等（如GET请求，或使用请求ID去重）。
+
+    - 差异化重试：对于超时，可延长超时时间后重试；对于格式错误（如JSON解析失败），不重试，直接进入回滚。
+
+    - 异步重试队列：将失败任务放入后台队列，不阻塞主流程（适用于非实时场景）。
+
+    示例：搜索API调用超时 → 等待1s后重试，若仍超时，再等待2s，第三次失败则转入回滚。
+
+    回滚策略（Rollback）
+
+    适用场景：重试无效，或错误表明当前子任务不可完成（如权限不足、数据不存在）。
+
+    设计要点：
+
+    - 状态检查点：在每个关键步骤前保存当前已完成的中间结果。例如，已经成功获取了第一篇论文的摘要，第二篇失败，则回滚到“已完成第一篇”的状态。
+
+    - 补偿动作：若某步骤修改了外部状态（如已写入数据库），需执行补偿操作（如删除临时记录）。
+
+    - 降级替代：不彻底回滚，而是尝试替代工具。例如，Semantic Scholar API失败，则切换到Crossref或手动爬取。
+
+    示例：获取论文元数据的API返回“403 Forbidden”（无权限）。则回滚到搜索步骤，改用另一个学术API（如arXiv）重新搜索该论文的替代标识符。
+
+    重规划策略（Replanning）
+
+    适用场景：回滚后仍无法完成当前子任务，或子任务失败导致后续步骤完全不可行。
+
+    设计要点：
+
+    - 局部重规划：仅重新规划失败子任务及其依赖项。例如，“下载PDF”失败，则重新规划为“只使用摘要信息，不下载全文”。
+
+    - 全局重规划：修改任务目标或步骤顺序。例如，所有搜索API都不可用，则通知用户“无法获取论文列表，请提供DOI列表”，或改为使用本地知识库中的已有论文。
+
+    - 基于失败原因的重规划：
+
+    - 用户介入：当自动重规划无法解决时，暂停并向用户请求指导（如“请确认论文标题”）。
+
+    示例：三篇论文中第二篇的元数据始终获取不到，但第一篇和第三篇成功。则重规划为：输出两篇论文的总结，并注明第三篇因技术原因缺失，建议用户手动补充。
+
+    ---
+
+    ### 四、实现架构：带状态监测的规划执行器
+
+    规划器 → 生成DAG（有向无环图）
+
+    ↓
+
+    执行器（带状态机）:
+
+    - 维护每个节点的状态：pending, running, succeeded, failed, retrying, rolled_back
+
+    - 为每个节点配置重试策略（超时、次数）
+
+    - 定义回滚动作（补偿函数）
+
+    - 定义重规划触发器（失败节点集合）
+
+    ↓
+
+    监控器: 检测失败，根据规则触发重试/回滚/重规划
+
+    ↓
+
+    执行器重新执行修改后的子图
+
+    伪代码：
+
+    def execute_plan(dag):
+        for node in topological_order(dag):
+            retries = 0
+            while retries <= node.max_retries:
+                try:
+                    result = call_tool(node.tool, node.params)
+                    save_checkpoint(node, result)
+                    break
+                except Exception as e:
+                    retries += 1
+                    if retries > node.max_retries:
+                        # 重试失败，尝试回滚
+                        rollback_to_last_checkpoint(node)
+                        # 尝试替代工具
+                        alt_result = try_alternative(node)
+                        if alt_result is not None:
+                            save_checkpoint(node, alt_result)
+                            break
+                        else:
+                            # 触发重规划
+                            replan(dag, node, e)
+                            # 重新执行整个DAG（或从失败点开始）
+                            return execute_plan(modified_dag)
+
+    ---
+
+    ### 五、针对示例任务的失败场景演练
+
+    [嵌入表格未展开]
+
+    ---
+
+    ### 六、总结
+
+    鲁棒的规划机制应具备：
+
+    - 局部重试处理瞬时故障。
+
+    - 回滚与替代应对可预见的不可恢复错误。
+
+    - 动态重规划适应任务环境的变化，甚至修改子目标。
+
+    通过状态检查点、补偿动作和替代路径库，Agent能在复杂任务中保持高成功率，即使在部分工具失效时也能输出有意义的结果。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M526wldNTiQFB3kmM2mcFsoaneh
+  block_id: DliydT4ghoKDkjxUGfPcrxcjnDk
+  page_token: M526wldNTiQFB3kmM2mcFsoaneh
+  original_title: 31.在处理一个需要多步工具调用的复杂任务（例如“调研三篇关于RAG+RL的论文并输出中文总结”）时，如何设计一个鲁棒的规划机制来应对中间步骤的失败（如某个API调用超时或返回数据格式错误）？请描述具体的重试、回滚或重规划策略。
+  imported_at: '2026-09-21'

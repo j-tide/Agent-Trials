@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-196db14e38e4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F504 2. RecursiveCharacterTextSplitter 的“递归”体现在哪里？它按什么顺序尝试分割符？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F504 2. RecursiveCharacterTextSplitter 的“递归”体现在哪里？它按什么顺序尝试分割符？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    “递归”这个词用在这里非常贴切，它指的并不是函数自己调用自己，而是不断地用更细粒度的分隔符去“降级”处理那些仍然太长的段落，就像剥洋葱一样一层一层往里切。
+
+    递归过程具体是这样的：
+
+    - 拿到一整段文本。
+
+    - 用分隔符列表里的第一个（最粗的）分隔符，比如 "\n\n"（段落分隔），把文本拆成片段。
+
+    - 遍历这些片段，尝试将它们合并成不超过 chunk_size 的块。
+
+    - 对于合并后仍然超长的那个片段（可能是一段特别长的段落），Splitter 不会直接硬砍，而是递归地换用下一个分隔符，比如 "\n"（换行），对这个超长片段再次拆分。
+
+    - 如果还有超长片段，继续换下一个，比如 " "（空格），再不行就 ""（空字符串，即逐字符切分）。
+
+    - 直到所有片段都小于 chunk_size，或者用完所有分隔符后才被迫硬截断。
+
+    默认的分隔符顺序（非常重要，值得背下来）：
+
+    ```python
+    ["\n\n", "\n", " ", ""]
+    ```
+
+    这个顺序是精心设计的：
+
+    - 先尽量按段落切（\n\n），保持段落完整性。
+
+    - 段落还是太长就按行切（\n）。
+
+    - 行还是太长就按单词切（空格），至少不把单词中间断开。
+
+    - 最后才逐字符切，这是绝望情况下的保底策略。
+
+    对于中文文本，这个默认分隔符列表不太合适，因为中文没有空格分词。我通常会自定义分隔符列表，比如 ["\n\n", "\n", "。", "，", " ", ""]，把中文标点加进去，让模型尽可能在句号、逗号处断开，保持语义完整。这是一个很容易被忽视但效果提升明显的调优点。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/O97CwA74Ji4ZHWkDTIRcb7OanUg
+  block_id: UiuYdGHubomWXTxd8bscmIhknQf
+  page_token: O97CwA74Ji4ZHWkDTIRcb7OanUg
+  original_title: "\U0001F504 2. RecursiveCharacterTextSplitter 的“递归”体现在哪里？它按什么顺序尝试分割符？"
+  imported_at: '2026-09-21'

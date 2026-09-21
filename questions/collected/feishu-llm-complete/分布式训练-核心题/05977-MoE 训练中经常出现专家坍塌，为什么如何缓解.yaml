@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2d08fef86319
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: MoE 训练中经常出现“专家坍塌”，为什么？如何缓解？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: MoE 训练中经常出现“专家坍塌”，为什么？如何缓解？
+answer:
+  mode: rubric
+  reference_answer: |-
+    专家坍塌（Expert Collapse）是MoE模型训练中最常见、也最致命的故障模式。它表现为门控网络（router）逐渐或突然地将几乎所有token都分配给极少数几个专家（甚至仅1个），而其他专家接收不到任何token，梯度为零，参数停止更新，彻底沦为“死专家”。这导致模型退化为一个普通稠密模型，完全浪费了MoE的参数量和计算优势。
+
+    坍塌的根源在于门控的正反馈循环：初始时，门控权重随机，某个专家碰巧对大部分token给出略高的分数，于是它被选中更多；更多的token意味着更多的训练数据，该专家学得更快，分数变得更高，下一轮又会被选中更多……如此循环，富者愈富。同时，其他专家由于缺乏训练样本，无法提升，被永久边缘化。此外，门控通常使用softmax产生概率分布，一旦某个专家的logit占据主导，梯度就会变得极小而无法改变路由。
+
+    缓解手段：
+
+    - 负载均衡损失（Load Balance Loss）：这是最基础的防线。在训练损失中加入一个辅助项，惩罚专家之间的token分配不均。例如，计算每个专家处理的token比例，与理想的均匀分布之间的KL散度或平方差。权重要调得恰到好处：太小不起作用，太大会削弱模型性能（强制均匀分配违背了专家特化的初衷）。通常从0.01开始尝试。
+
+    - 容量因子（Capacity Factor）：为每个专家设置一个token处理上限。当某个专家收到的token超过容量时，多余的token被“溢出”到下一个专家，或者直接丢弃。这能防止单个专家过载，强制token分配到其他专家。容量因子通常设为1.0~1.5，即允许专家处理略高于平均数的token。
+
+    - Top-k路由中的随机性：在选取Top-k专家时，不是直接选分数最高的k个，而是根据分数进行多项式采样，让低分专家也有机会被选中。这种“探索”机制能打破早期正反馈循环。
+
+    - 辅助损失中的z-loss：有些实现中会加入z-loss，惩罚门控logits的绝对值，防止logits变得过大，从而避免softmax过度尖锐。
+
+    - 梯度裁剪：限制门控参数的梯度范数，防止某次更新将门控推向极端。
+
+    在训练初期，我通常会先运行几百步观察专家负载分布（用wandb或TensorBoard绘制每个专家接收token数量的直方图）。如果发现分布极度不均衡，立刻增大负载均衡损失权重或开启容量限制。这是一个需要持续监控的指标。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: HT9ud7YO2o3CiZxeSCVc1e6onEf
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: MoE 训练中经常出现“专家坍塌”，为什么？如何缓解？
+  imported_at: '2026-09-21'

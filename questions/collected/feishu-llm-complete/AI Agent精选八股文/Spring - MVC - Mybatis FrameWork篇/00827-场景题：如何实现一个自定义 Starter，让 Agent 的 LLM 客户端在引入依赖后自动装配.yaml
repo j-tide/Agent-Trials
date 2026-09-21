@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-805a16c43994
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：如何实现一个自定义 Starter，让 Agent 的 LLM 客户端在引入依赖后自动装配？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：如何实现一个自定义 Starter，让 Agent 的 LLM 客户端在引入依赖后自动装配？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（自定义Starter、自动配置、spring.factories、条件装配）\n\n1️⃣ Common
+    Answer\n\n创建一个 Spring Boot 项目，写配置类，在 spring.factories 里注册配置类。然后打包成 jar，其他项目引入这个依赖就能自动配置了。\n\n2️⃣
+    Impressive Answer\n\n- 场景分析：\n\n- 实现步骤： 步骤 1：创建 Starter 项目结构\n\nagent-llm-starter/\n├──
+    pom.xml\n└── src/main/java/\n    └── com/example/agent/llm/\n        ├── autoconfigure/\n
+    \       │   ├── LlmAutoConfiguration.java\n        │   └── LlmProperties.java\n
+    \       ├── client/\n        │   ├── LlmClient.java\n        │   ├── OpenAiLlmClient.java\n
+    \       │   └── QwenLlmClient.java\n        └── META-INF/\n            └── spring.factories\n\n**步骤
+    2：定义配置属性**\n\n@ConfigurationProperties(prefix = \"agent.llm\")\npublic class LlmProperties
+    {\n    private String provider = \"openai\";  // 默认 OpenAI\n    private String
+    apiKey;\n    private String model = \"gpt-3.5-turbo\";\n    private Integer timeout
+    = 30000;\n    private Integer maxRetries = 3;\n        \n    // getters and setters...\n}\n\n**步骤
+    3：实现 LLM 客户端**\n\npublic interface LlmClient {\n    String chat(String prompt);\n}\n
+    \   \npublic class OpenAiLlmClient implements LlmClient {\n    private final String
+    apiKey;\n    private final String model;\n        \n    public OpenAiLlmClient(String
+    apiKey, String model) {\n        this.apiKey = apiKey;\n        this.model = model;\n
+    \   }\n        \n    @Override\n    public String chat(String prompt) {\n        //
+    调用 OpenAI API\n        return \"Response from OpenAI\";\n    }\n}\n    \npublic
+    class QwenLlmClient implements LlmClient {\n    private final String apiKey;\n
+    \   private final String model;\n        \n    public QwenLlmClient(String apiKey,
+    String model) {\n        this.apiKey = apiKey;\n        this.model = model;\n
+    \   }\n        \n    @Override\n    public String chat(String prompt) {\n        //
+    调用通义千问 API\n        return \"Response from Qwen\";\n    }\n}\n\n**步骤 4：创建自动配置类**\n\n@Configuration\n@EnableConfigurationProperties(LlmProperties.class)\n@ConditionalOnClass(LlmClient.class)
+    \ // classpath 中有 LlmClient 类\n@ConditionalOnProperty(prefix = \"agent.llm\",
+    name = \"enabled\", havingValue = \"true\", matchIfMissing = true)\npublic class
+    LlmAutoConfiguration {\n        \n    @Bean\n    @ConditionalOnMissingBean(LlmClient.class)
+    \ // 容器中没有 LlmClient Bean\n    public LlmClient llmClient(LlmProperties properties)
+    {\n        switch (properties.getProvider().toLowerCase()) {\n            case
+    \"openai\":\n                return new OpenAiLlmClient(properties.getApiKey(),
+    properties.getModel());\n            case \"qwen\":\n                return new
+    QwenLlmClient(properties.getApiKey(), properties.getModel());\n            default:\n
+    \               throw new IllegalArgumentException(\"Unsupported provider: \"
+    + properties.getProvider());\n        }\n    }\n        \n    @Bean\n    @ConditionalOnProperty(prefix
+    = \"agent.llm\", name = \"async\", havingValue = \"true\")\n    public LlmClient
+    asyncLlmClient(LlmClient llmClient) {\n        return new AsyncLlmClient(llmClient);\n
+    \   }\n}\n\n**步骤 5：注册自动配置类**\n\n# META-INF/spring.factories\norg.springframework.boot.autoconfigure.EnableAutoConfiguration=\\\ncom.example.agent.llm.autoconfigure.LlmAutoConfiguration\n\n**步骤
+    6：使用 Starter**\n\n<!-- pom.xml -->\n<dependency>\n    <groupId>com.example</groupId>\n
+    \   <artifactId>agent-llm-starter</artifactId>\n    <version>1.0.0</version>\n</dependency>\n\n#
+    application.yml\nagent:\n  llm:\n    enabled: true\n    provider: openai\n    api-key:
+    ${LLM_API_KEY}\n    model: gpt-4\n    timeout: 30000\n    async: true\n\n@Service\npublic
+    class AgentService {\n    @Autowired\n    private LlmClient llmClient;  // 自动注入\n
+    \       \n    public String chat(String prompt) {\n        return llmClient.chat(prompt);\n
+    \   }\n}\n\n- 最佳实践：\n\n- 实践注意：\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcnWzshDtZPwhIHFIi3dmSujc
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 3、场景题：如何实现一个自定义 Starter，让 Agent 的 LLM 客户端在引入依赖后自动装配？
+  imported_at: '2026-09-21'

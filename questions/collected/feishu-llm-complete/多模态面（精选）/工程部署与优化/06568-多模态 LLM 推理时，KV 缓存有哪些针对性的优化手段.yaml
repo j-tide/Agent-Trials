@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-11e823d0d4e4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多模态 LLM 推理时，KV 缓存有哪些针对性的优化手段？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 多模态 LLM 推理时，KV 缓存有哪些针对性的优化手段？
+answer:
+  mode: rubric
+  reference_answer: |-
+    KV缓存存储所有已计算token的Key和Value，供后续生成时避免重复计算。多模态LLM的KV缓存有特殊性：视觉token数量大且在整个生成过程中固定。
+
+    优化手段：
+
+    - 视觉Token的KV缓存共享与淘汰
+
+    在多轮对话或同批次请求中，如果多个请求使用了完全相同的图像，它们的视觉token的KV缓存可以共享。系统可以维护一个全局视觉KV缓存池，按图像哈希索引。新请求到来时，先查缓存池，命中则直接引用，省去视觉编码和prefill。当缓存池满时，使用LFU或LRU淘汰冷门图像。
+
+    - KV缓存量化
+
+    将KV缓存从FP16量化为INT8甚至4-bit，显存占用降至1/4以下。LMDeploy的KV8量化已验证在LLaVA模型上精度损失很小。量化可在prefill阶段完成，后续生成直接使用低精度缓存。
+
+    - 视觉Token的KV缓存压缩
+
+    对于非常高分辨率的图像（产生上千个视觉token），可以动态地合并或剪枝不重要的视觉token的KV缓存。例如，根据注意力权重，在生成前几个token后，分析哪些视觉token从未被关注或关注度极低，从KV缓存中移除。或者使用Token Merging在KV缓存层面合并冗余token。这属于有损压缩，需要精度监控。
+
+    - 层次化KV缓存卸载
+
+    将历史对话中的旧轮次KV缓存卸载到CPU内存（或NVMe SSD），当用户回溯时重新加载。对于多模态对话，视觉token的KV缓存也需要卸载。vLLM等框架已支持自动swap。
+
+    - 基于RadixAttention的前缀缓存
+
+    SGLang的RadixAttention自动识别请求间相同的前缀（如系统提示、同一张图的视觉token），并在显存中以树状结构管理KV缓存，共享前缀只存储一份。这对具有相同系统提示和相同图片的大规模多模态服务极为有效，可节省大量显存。
+
+    - 注意力头剪枝
+
+    研究发现，LLM的部分注意力头对视觉token的注意力权重始终很低。可以在推理时永久性屏蔽这些头对视觉token的关注，甚至删除对应的KV缓存条目，节省计算和显存。这需要在离线阶段对模型进行头重要性分析。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RRQVwfGDQiejs6kBW04ch16ynHe
+  block_id: Kx4pdnRjAosuhAxN7TWcudrtnLe
+  page_token: RRQVwfGDQiejs6kBW04ch16ynHe
+  original_title: 多模态 LLM 推理时，KV 缓存有哪些针对性的优化手段？
+  imported_at: '2026-09-21'

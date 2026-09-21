@@ -1,0 +1,233 @@
+---
+schema_version: 1
+id: feishu-llm-complete-410919fd1a0b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3.3 上下文工程
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: 3.3 上下文工程
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### Context Engineering 与 Prompt Engineering 的本质区别
+
+    1、基础题：什么是 Context Engineering？
+
+    难度级别：⭐（CE 基本定义、与 PE 的基本区分）
+
+    Context Engineering 是指对 LLM 整个上下文窗口中所有信息进行动态编排和管理的工程能力，包括 System Prompt、对话历史、RAG 检索结果、工具调用返回、当前任务状态等。区别于 Prompt Engineering 只关注单次调用的指令设计，CE 关注的是"在有限的上下文窗口里，给模型看什么、不看什么、按什么顺序看"。
+
+    ---
+
+    2、进阶题：Context Engineering 和 Prompt Engineering 的本质区别是什么？为什么说 CE 是 Agent 时代更重要的能力？
+
+    难度级别：⭐⭐⭐（工作单元差异、信息密度管理、动态编排、跨步推理一致性、瓶颈转移）
+
+    1️⃣ Common Answer
+
+    Prompt Engineering 是设计和优化输入给 LLM 的提示词。Context Engineering 是更高级的概念，不只是单个 Prompt，而是管理整个上下文窗口里的所有内容。在 Agent 系统里，上下文里有工具返回结果、对话历史、检索到的知识，怎么把这些组织好让模型更好地推理，这就是 CE 要解决的问题。
+
+    2️⃣ Impressive Answer
+
+    我会从工作单元的本质差异、CE 的核心问题、以及为什么 Agent 时代瓶颈在 CE 三个角度来回答。
+
+    - 工作单元和优化目标的本质差异。PE 的工作单元是单次 LLM 调用，优化目标是这次调用的输出质量，核心问题是"怎么措辞、怎么提供示例、怎么引导推理链"。CE 的视角完全不同——它把整个上下文窗口看作一个有限的、需要精心编排的资源，工作单元是整个 Agent 的运行生命周期。
+
+    - CE 要解决的三个核心问题。
+
+    - 瓶颈转移的本质。当 LLM 的智能已经足够强的时候，瓶颈往往不在于"怎么说"，而在于"给模型看什么"。一个上下文编排做得好的 Agent，在相同模型能力下可以比编排混乱的 Agent 有显著更好的表现。这就是为什么 CE 是 Agent 时代更核心的能力。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：你的 Agent 在执行 10 步任务时，到第 8 步时上下文窗口快满了，但早期步骤的工具调用结果还要用，怎么设计上下文管理策略？
+
+    难度级别：⭐⭐⭐（上下文窗口管理、关键信息保留、历史压缩策略、跨步推理一致性）
+
+    1️⃣ Common Answer
+
+    上下文窗口快满了就要压缩，可以对早期的对话历史做摘要，把长内容变短，这样就能腾出空间给新内容。
+
+    2️⃣ Impressive Answer
+
+    这是 CE 的核心场景，我会用分层管理策略来解决：
+
+    - 关键信息固化，不参与压缩。在 Agent 开始执行时，把任务目标、核心约束、关键中间结论单独维护在一个"状态摘要"结构里，每步执行后更新这个结构，而不是依赖原始的工具返回文本。这部分内容始终保留，不压缩。
+
+    - 工具调用历史分级处理。对早期步骤的工具返回，区分"结论已被后续步骤引用"和"原始数据还需要直接查阅"两类。前者可以压缩为一句结论（"第 3 步确认了用户权限为 admin"），后者如果后续还要用，保留完整内容但做精简格式化。
+
+    - 动态注入而不是堆积。当某一步需要用到早期数据时，从状态摘要里提取相关部分，临时注入到当前步骤的上下文末尾，而不是让所有历史数据一直留在窗口里。这样每一步的上下文都是"当前步骤最需要的信息"的精选。
+
+    - 在第 6-7 步时提前触发压缩，不要等到快满了才处理，留出余量给最后几步可能更长的工具返回。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+
+    ### Lost in the Middle 问题与上下文内容排列策略
+
+    1、基础题：什么是 "Lost in the Middle" 现象？
+
+    难度级别：⭐（LLM 注意力分布、长上下文处理）
+
+    LLM 在处理长上下文时，对开头和结尾的信息利用率显著高于中间部分。即使关键信息完整地出现在上下文窗口内，只要它位于中间位置，模型的准确率就会明显下降。这一现象来自 Stanford 2023 年的同名论文，是 Transformer 自回归训练带来的结构性偏置，并非 bug。
+
+    ---
+
+    2、进阶题：在 RAG 系统和 Agent 工程实践中，如何通过内容排列策略缓解 Lost in the Middle 问题？
+
+    难度级别：⭐⭐⭐（Reranker 流程、首尾夹击排列法、动态上下文压缩、Agent 多步推理中的近因效应利用）
+
+    1️⃣ Common Answer
+
+    Lost in the Middle 是说 LLM 对中间内容关注少，所以把重要内容放开头或结尾就行了。RAG 里把检索出来的文档按相关性排序，最相关的放前面。Agent 里的话也差不多，重要信息别放中间就好了。效果不好就多检索几个文档试试。
+
+    2️⃣ Impressive Answer
+
+    我会从三个层面来回答这个问题：
+
+    - 首先，理解现象的根因。Lost in the Middle 本质上是 Transformer 注意力分布不均匀的体现——头尾 token 在自回归训练中接收了更多梯度信号，形成类似"首因效应"和"近因效应"的结构性偏置。这不是偶发问题，是训练方式决定的，需要在工程层面主动应对。
+
+    - 其次，RAG 场景用"首尾夹击"排列法。在 Reranker 精排之后，不是直接按分数顺序拼接，而是：相关性最高的文档放首位，次高的放末尾，中间的夹在里面。这样即使模型对中间注意力不足，最关键的信息在两个高注意力位置都有覆盖。如果检索结果太多，还可以用 LLMLingua 等工具对每个片段做压缩摘要，从根本上缩短上下文长度，降低丢失风险。
+
+    - 最后，Agent 多步推理中主动利用近因效应。Agent 上下文随步骤增加，早期的关键任务目标会被推到中间而被模型忽略。我的做法是在每一步推理前，把当前任务目标和关键约束重新放置到上下文末尾——紧邻模型即将生成的位置，持续利用近因效应保证核心指令始终在高注意力区域。效果可以用专项测试集（故意把关键信息放中间）来量化验证，把排列策略当工程参数来优化。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：Agent 在多步推理中，随着对话轮次增加，早期的任务目标被"推到中间"导致模型偏离，怎么处理？
+
+    难度级别：⭐⭐（Agent 上下文管理、近因效应、Prompt 重置策略）
+
+    1️⃣ Common Answer
+
+    可以把任务目标写在 System Prompt 里，这样每次都能看到。或者对话太长了就截断一下，删掉一些早期的对话记录，保留最新的内容。
+
+    2️⃣ Impressive Answer
+
+    问题的本质是 Lost in the Middle——System Prompt 里的任务目标在对话历史不断增长后，在整体上下文中的位置被"推向中间"，注意力权重下降。
+
+    核心应对策略是动态近因锚定：在每一步工具调用或推理之前，把当前任务目标和关键约束以 User 消息的形式追加到上下文末尾（而不是只依赖开头的 System Prompt）。这样任务目标始终在近因效应覆盖的区域。
+
+    同时配合上下文滑动窗口：保留完整的 System Prompt + 最近 N 轮对话 + 当前步骤的目标重申，中间过于久远的工具调用结果可以压缩成摘要。这两个策略结合，既保证任务不漂移，又控制了 Token 消耗。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+
+    ### KV Cache 友好的 Prompt 设计策略
+
+    ---
+
+    1、基础题：什么是 KV Cache 前缀缓存？
+
+    难度级别：⭐（Transformer 推理优化、KV Cache 原理）
+
+    KV Cache 是将 Transformer Self-Attention 计算产生的 Key 和 Value 矩阵缓存起来，避免重复计算。前缀缓存是其进一步延伸：如果多次请求的输入前缀完全相同，就可以直接复用已缓存的 KV 矩阵，跳过这部分计算，显著降低首 token 延迟和推理成本。
+
+    ---
+
+    2、进阶题：如何在 Prompt 设计中充分利用 KV Cache 前缀缓存机制来降低延迟和成本？
+
+    难度级别：⭐⭐⭐（KV Cache block 级匹配原理、Prompt 五层结构布局、反模式识别、平台缓存定价）
+
+    1️⃣ Common Answer
+
+    KV Cache 就是缓存计算结果，前缀一样就能复用。所以 System Prompt 要保持不变，放在最前面，这样就能命中缓存。动态的用户输入放后面。Anthropic 和 OpenAI 对命中缓存的 token 有价格优惠，能省钱。
+
+    2️⃣ Impressive Answer
+
+    我会从原理、结构设计和反模式三个角度来回答：
+
+    - 首先，理解缓存命中的严格条件。KV Cache 前缀缓存以 block（通常 128 或 256 个 token）为单位匹配，要求前缀逐字节完全相同才能命中。哪怕只改动一个字符、一个空格，从那个位置开始的所有 block 都会 cache miss。这解释了为什么在 System Prompt 里插入动态时间戳或用户 ID 会彻底破坏缓存——即使插值位置在末尾，后续所有 block 都失效。
+
+    - 其次，按"稳定在前、动态在后"原则设计五层 Prompt 结构：[完全固定的 System Prompt] → [固定 Few-shot 示例] → [固定长文档/知识库] → [随对话增长的历史] → [当前用户输入]。越靠前越稳定，缓存命中率越高；越靠后允许越动态。在高并发场景下，前两层几乎可以持续命中缓存，收益最显著。平台侧，Anthropic 对命中缓存的 input token 收费是原价 10%，OpenAI 是 50% 折扣；Anthropic 还支持手动设置 cache_control: {"type": "ephemeral"} 精确控制缓存边界，对 RAG 固定文档场景很有用。
+
+    - 最后，识别并避免常见的破坏缓存反模式：在 System Prompt 里插入动态时间戳或请求 ID；每次请求随机 shuffle 工具列表顺序；把用户姓名、权限注入 System Prompt 开头或中间；使用模板引擎每次生成略有差异的格式。解决方法统一：把所有动态信息移到 User 消息部分。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：团队的 Agent 系统在高并发下推理成本居高不下，排查发现 KV Cache 命中率很低，可能的原因有哪些，怎么排查和修复？
+
+    难度级别：⭐⭐（KV Cache 命中率排查、Prompt 结构问题定位）
+
+    1️⃣ Common Answer
+
+    可能是 System Prompt 每次都不一样，或者并发请求太多缓存被挤掉了。可以检查一下 System Prompt 是不是固定的，把动态内容移到后面去。
+
+    2️⃣ Impressive Answer
+
+    排查思路分两步：先定位是"前缀不匹配"还是"缓存容量不足"。
+
+    前缀不匹配是最常见原因。具体排查：打印每次请求的 System Prompt，diff 相邻两次是否完全一致（包括空格、换行）。常见元凶：模板引擎每次渲染出略有差异的格式、注入了动态时间戳或请求 ID、工具列表顺序随机化。修复方法：把所有动态字段移到 User 消息，System Prompt 做成纯静态字符串常量，用单元测试断言它在任意参数下渲染结果不变。
+
+    缓存容量不足（服务端 LRU 驱逐）一般出现在前缀长度差异很大的场景。可以通过平台的 cache hit token 指标来确认——如果命中率随并发增加而下降，大概率是容量问题，需要联系平台或自建推理服务时调大 KV Cache 分配比例。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MtcJwOeh8il1EhkIooccEEwBntb
+  block_id: doxcnmrqDnXMbvFmf5YgqE5ry7b
+  page_token: MtcJwOeh8il1EhkIooccEEwBntb
+  original_title: 3.3 上下文工程
+  imported_at: '2026-09-21'

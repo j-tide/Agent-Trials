@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b3d22947c2ff
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E0 vLLM 的 PagedAttention 在内存管理上具体是如何实现“分页”的？页表的作用是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: "\U0001F9E0 vLLM 的 PagedAttention 在内存管理上具体是如何实现“分页”的？页表的作用是什么？"
+answer:
+  mode: rubric
+  reference_answer: "vLLM 的 PagedAttention 借鉴了操作系统中虚拟内存管理的思想，将 KV Cache 的存储从传统的连续内存分配转变为分页式、动态分配，从而解决了显存碎片化和利用率低下的顽疾。\n\n\U0001F4C4
+    分页的具体实现\n\n在 PagedAttention 中，每个请求的 KV Cache 不再被要求存储在物理上连续的显存空间中，而是被划分为固定大小的页（Page）。每一页可以存储一个请求中固定数量（例如
+    16 或 32 个）token 的 Key 和 Value 向量。\n\n- 物理页：在 GPU 显存中预先分配好一大块内存池，并将其均匀切分为大小相同的物理页。所有请求共享这个页池。\n\n-
+    逻辑页：每个请求拥有自己的虚拟地址空间——逻辑页序列。当请求的序列长度增长时（生成新的 token），系统从物理页池中按需分配空闲的物理页，并将其映射到请求的逻辑页上。逻辑页与物理页之间的映射关系由页表来维护。\n\n例如，一个请求生成了第
+    1 到第 16 个 token，它们被存放在物理页 P1 中；当生成了第 17 个 token 时，需要一个新的物理页 P2 来存储第 17 到 32 个
+    token，页表便将逻辑页 2 映射到物理页 P2。整个分配过程中，P1 和 P2 在物理上可以完全不相邻。\n\n\U0001F4CA 页表的作用\n\n页表是
+    PagedAttention 的“大脑”，它是一个数据结构，记录了每个请求的逻辑页到物理页的映射关系。每个请求都维护着独立的页表。页表的关键作用如下：\n\n-
+    地址转换：在计算注意力时，GPU kernel 需要根据逻辑 token 位置（序列中的第几个 token）去读取对应的 KV Cache。kernel 通过页表，将逻辑位置转换为实际的物理页地址和页内偏移，从而精准地访问数据。这就像
+    CPU 的 MMU 将虚拟地址转换为物理地址一样。\n\n- 动态内存管理：\n\n- 高效的前缀共享：多个请求如果拥有相同的 Prompt 前缀（例如相同的
+    system prompt），PagedAttention 可以让它们的页表直接指向同一块物理页。这实现了零拷贝共享，无需为每个请求重复生成和存储相同的 KV
+    Cache，极大节省了显存和 Prefill 时间。这种共享是页级的，自然高效。\n\n- 灵活的序列管理：对于束搜索（Beam Search）或需要分支的场景，不同的候选序列可以共享相同的祖先页，只需在分叉处分配新页即可。页表让这种复杂的树状内存管理变得异常简单。\n\n\U0001F4A1
+    直观对比\n\n- 传统静态分配：像是一个停车场，为每辆车预先画好固定大小的车位（无论车多大），来了一辆车可能占不满车位（内部碎片），车位大小不一导致停放大车后留下无法使用的空隙（外部碎片）。\n\n-
+    PagedAttention：像是一个智能立体停车库，所有车位被设计成统一大小的“篮子”，车被拆分成零件放在篮子里。每辆车（请求）可以用任意数量的篮子，彼此不连续，完全填满，共享也轻松实现。\n\n正是凭借
+    PagedAttention，vLLM 的显存利用率可以从传统方法的 30%~40% 大幅提升到 90% 以上，从而在相同的硬件上支撑起数倍的并发量。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTNrwT2t1iCzbMkI7FZc3sj5nBb
+  block_id: FrEPdNO4WobahLxDvCNcjg45nJv
+  page_token: QTNrwT2t1iCzbMkI7FZc3sj5nBb
+  original_title: "\U0001F9E0 vLLM 的 PagedAttention 在内存管理上具体是如何实现“分页”的？页表的作用是什么？"
+  imported_at: '2026-09-21'

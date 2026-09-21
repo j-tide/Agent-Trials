@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-117a6a57a8e1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 流水线并行（Pipeline Parallelism）如何划分模型层次？1F1B 调度策略是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 四：训练优化与稳定性
+tags: &1
+- Transfomer精选面试
+- 四：训练优化与稳定性
+content:
+  prompt: 流水线并行（Pipeline Parallelism）如何划分模型层次？1F1B 调度策略是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    流水线并行将模型的不同层分配到不同 GPU 上。例如，一个 12 层的 Transformer，GPU0 负责第 1-4 层，GPU1 负责第 5-8 层，GPU2 负责第 9-12 层。
+
+    朴素流水线：将批次拆分为多个微批次（micro-batches）。GPU0 处理完第一个微批次后，将激活值传给 GPU1，然后立即处理第二个微批次，同时 GPU1 处理第一个微批次的剩余层。这样可以形成流水线，但存在“气泡”（bubble），即 GPU 空闲等待时间。
+
+    1F1B（one forward one backward）调度：这是 GPipe 的改进方案，用于减少气泡。其思想是：在稳态下，每个设备交替执行一个前向和一个反向（微批次），保持计算连续性。具体步骤：
+
+    - 预热阶段：每个设备按顺序接收微批次并执行前向计算，直到最后一个设备开始接收到第一个微批次。
+
+    - 稳态阶段：每个设备每完成一个微批次的前向，就紧接着执行一个微批次的反向，形成“前向-反向-前向-反向”的循环。
+
+    - 收尾阶段：不再有新的前向任务，各设备完成剩余的反向传播。
+
+    1F1B 通过将前向和反向交错执行，减少了设备的空闲时间，提高了硬件利用率。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JQ7Ewcu5vi3kzPkkXV2cvczhnyh
+  block_id: SnUydBwvlo2LGsxLacOcUdJ1nuu
+  page_token: JQ7Ewcu5vi3kzPkkXV2cvczhnyh
+  original_title: 流水线并行（Pipeline Parallelism）如何划分模型层次？1F1B 调度策略是什么？
+  imported_at: '2026-09-21'

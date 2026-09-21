@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-37e45b1b0bf5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在微调数据中如何引入“思维链”以提升推理能力？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 在微调数据中如何引入“思维链”以提升推理能力？
+answer:
+  mode: rubric
+  reference_answer: |-
+    引入思维链（Chain-of-Thought, CoT）的核心，是将模型内部的隐式思考过程外化为训练数据中的显式文本，从而教会模型“如何一步步思考并解决问题”。这远比只给最终答案的“结果监督”更有效。
+
+    具体构造方法：
+
+    - 显式推导过程
+    对于需要多步推理的任务（数学、逻辑、复杂问答），在回答中强制包含完整的逐步推导过程。例如：
+
+    指令：小明有5个苹果，吃了2个，又买了3个，现在有几个？
+    回答：小明最初有5个苹果。他吃了2个，所以剩下5 - 2 = 3个。然后他又买了3个，总数变为3 + 3 = 6个。所以，最终答案是6个。
+
+    通过海量这种数据，模型学会了在给出最终答案前，先进行分步推理和计算。
+
+    - 多种推理路径的覆盖
+    同一个问题，在数据中可以展示多种不同的解题方法。例如，一道数学题既可以用代数方法，也可以用几何方法。这能防止模型死记硬背某一条路径，并学会策略选择。
+
+    - 自我反思与纠错链（Reflection Chain）
+    在数据中加入“犯典型错误 → 自我发现 → 纠正错误”的示例。例如：
+
+    助手：苹果总价是3*2=5元。
+    助手：等等，我犯了一个计算错误。3乘以2应该是6，而不是5。让我重新计算。
+    助手：苹果总价3*2=6元，橘子总价5*3=15元，合计21元。
+
+    训练要点：在计算损失时，需要对“错误回答”部分进行损失掩码（设为-100），只对“自我纠正”和“正确答案”部分计算损失。这样模型学的是“如何从错误中恢复”，而不是“如何犯错”。
+
+    - 元认知提示
+    在指令或系统提示中加入引导，如“让我们一步一步思考”、“请展示你的推理过程”。这能让模型学会根据指令动态决定是否开启“思考模式”。
+
+    数据配比：CoT数据不能占100%，否则模型会在所有问题上都过度啰嗦。通常，CoT数据占SFT数据总量的15%-30%，主要集中于数学、逻辑、代码和复杂的知识问答上。在通用闲聊和简单任务上，依然使用直接回答。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DPSewakAfi4q7rkB8nQcmT0onob
+  block_id: NWZgdHWq7o0CFFx7k8RcaJVGnvc
+  page_token: DPSewakAfi4q7rkB8nQcmT0onob
+  original_title: 在微调数据中如何引入“思维链”以提升推理能力？
+  imported_at: '2026-09-21'

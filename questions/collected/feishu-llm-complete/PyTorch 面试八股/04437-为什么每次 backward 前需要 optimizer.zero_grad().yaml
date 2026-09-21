@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1159c862dce6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么每次 backward 前需要 optimizer.zero_grad()？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 为什么每次 backward 前需要 optimizer.zero_grad()？
+answer:
+  mode: rubric
+  reference_answer: |-
+    PyTorch 的梯度累积机制决定了，如果不手动清零，每次 backward() 计算的梯度会累加到已有的 .grad 中。
+
+    - 在训练循环的每一次迭代中，我们处理一个新的 mini-batch。如果不清零，当前 batch 的梯度会与之前所有 batch 的梯度叠加，导致模型参数更新使用了错误的方向和大小。
+
+    - 这会导致模型无法收敛，甚至梯度爆炸。
+
+    optimizer.zero_grad() 实际上遍历了优化器中的所有参数组，将每个参数的 .grad 设置为 None 或填充零。将梯度设为 None 比填充零更高效，因为它避免了显式归零操作，PyTorch 的自动求导系统在下次赋值时会直接分配新内存。
+
+    使用技巧：
+
+    - 如果希望进行梯度累积，应在累积期间不调用 zero_grad()，而是在累积完成后、optimizer.step() 更新参数之前才清零。
+
+    - 务必确保 zero_grad() 在 backward() 之前调用，而不是在 step() 之前调用；否则上一次迭代的梯度会污染本次迭代。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BR8jwpyRCirUwbkqDCzc7IufnKc
+  block_id: Fv8KdovOZobS20xu6hJc8PSxnod
+  page_token: BR8jwpyRCirUwbkqDCzc7IufnKc
+  original_title: 为什么每次 backward 前需要 optimizer.zero_grad()？
+  imported_at: '2026-09-21'

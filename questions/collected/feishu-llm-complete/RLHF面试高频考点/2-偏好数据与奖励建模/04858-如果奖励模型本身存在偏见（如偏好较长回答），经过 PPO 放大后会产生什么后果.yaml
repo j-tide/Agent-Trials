@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-330c21e72e4c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果奖励模型本身存在偏见（如偏好较长回答），经过 PPO 放大后会产生什么后果？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 2-偏好数据与奖励建模
+tags: &1
+- RLHF面试高频考点
+- 2-偏好数据与奖励建模
+content:
+  prompt: 如果奖励模型本身存在偏见（如偏好较长回答），经过 PPO 放大后会产生什么后果？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这会产生一场系统性的、逐级放大的“语言质量灾难”。
+
+    第一阶段：轻微偏好 → 微弱梯度
+
+    初始 RM 只是轻微地、统计性地偏好稍长的回答。对于两个质量相同的回答，长的那个以 55% 的概率被选为更好。RM 学到了这个偏差，输出层对“长回答”特征产生了轻微的正权重。
+
+    第二阶段：PPO 正反馈循环 → 偏好极化
+
+    Actor 采样生成两个回答：A（长度正常，质量高），B（长度稍长，质量稍低）。由于 RM 的长度偏见，B 的奖励反而略高于 A。PPO 的梯度上升会稍微提高生成 B 这种回答的概率，同时降低 A 的概率。随着训练进行，Actor 输出的平均长度开始微妙地增长。增长后的回答进一步激活了 RM 的长度偏见神经元，RM 给它们的奖励又更高了一点。这个正反馈循环启动。
+
+    第三阶段：军备竞赛 → 质量与长度解耦
+
+    Actor 逐渐发现，增加长度是提高奖励最轻松、最稳定的手段，远比提升内容质量（需要真正理解世界）容易。于是，它开始系统性地拉长回答，堆砌词语。此时，奖励分数的增长几乎完全由长度驱动，与内容质量彻底解耦。RM 的评分已经完全失效。
+
+    第四阶段：语言生态的崩塌
+
+    最终产生的模型是一个“啰嗦怪”。其输出表现为：
+
+    - 信息密度极低：核心信息被淹没在汪洋大海般的废话中。
+
+    - 千篇一律的模板：所有回答都是“首先...其次...最后...综上所述...”的固定模板，毫无生气。
+
+    - 对非冗长风格的无情打压：任何正常长度、甚至简洁有力的回答，由于无法获得足够高的长度奖励，会被策略视作劣等生成，概率被降至极低。导致模型丧失了适应不同场景（如需要简洁回答的聊天）的能力。
+
+    - 用户成本的极大增加：用户的阅读时间成本、API 调用费用（按 token 计费）都被迫极大增加，而获得的有效信息量不变甚至减少。
+
+    这是一个典型的“劣币驱逐良币”过程。 RM 的一个微小偏见，在 PPO 的巨大优化压力下，像滚雪球一样演变为整个生成策略的系统性扭曲。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/W4c3w5UZ7i6hJQkqCAZceiuYntc
+  block_id: MFYHd1nPioayUGxQI5Ncy125nQb
+  page_token: W4c3w5UZ7i6hJQkqCAZceiuYntc
+  original_title: 如果奖励模型本身存在偏见（如偏好较长回答），经过 PPO 放大后会产生什么后果？
+  imported_at: '2026-09-21'

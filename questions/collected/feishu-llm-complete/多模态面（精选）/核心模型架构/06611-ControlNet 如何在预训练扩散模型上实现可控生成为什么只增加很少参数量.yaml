@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3d1aadc2ef60
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ControlNet 如何在预训练扩散模型上实现可控生成？为什么只增加很少参数量？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 核心模型架构
+tags: &1
+- 多模态面（精选）
+- 核心模型架构
+content:
+  prompt: ControlNet 如何在预训练扩散模型上实现可控生成？为什么只增加很少参数量？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ControlNet 通过一种精巧的“复制+零卷积”微调策略，在不破坏原有预训练模型能力的前提下，为其添加了任意的空间控制信号（如边缘图、姿态图、深度图等），从而实现了精细化可控生成。
+
+    实现可控生成的机制：
+
+    - 网络复制与锁定：ControlNet 首先将预训练好的 Stable Diffusion U-Net 的编码器部分（下采样块）的权重复制一份，形成一个“可训练副本”。原始的 U-Net 权重被完全冻结，保持不变。可训练副本接收额外的控制信号（如 Canny 边缘图、语义分割图等）作为输入。
+
+    - 零卷积连接：可训练副本的输出并不是直接注入到冻结的 U-Net 中，而是通过一组特殊的 1×1 卷积层，这组卷积层的权重和偏置被初始化为零（称为“零卷积”）。这些零卷积层再连接到冻结 U-Net 对应层级的输出上（通常是相加）。
+
+    - 训练过程：在训练开始时，由于零卷积输出为零，可训练副本的注入对原始 U-Net 没有任何影响，模型等同于原生的 Stable Diffusion。随着训练进行，反向传播梯度会逐渐更新可训练副本和零卷积的参数，使它们学会从控制信号中提取有用的修正信息，调整冻结主干生成的特征，从而让输出符合控制信号的约束。
+
+    - 多尺度注入：ControlNet 拷贝了整个编码器路径（通常包含多个下采样块），因此控制信号可以在多个分辨率级别上对生成过程进行干预。这保证了粗粒度的结构（如人体位置）和细粒度的细节（如边缘对齐）都能得到控制。
+
+    为什么只增加很少参数量？
+
+    - 可训练副本只占一部分：虽然复制了 U-Net 编码器的结构，但 U-Net 的权重本身参数量并不算极大（尤其是编码器部分），而且 ControlNet 通常只复制编码器，不包括解码器部分。相比整个 UNet 的参数量，可训练副本加上零卷积层增加的参数比例相当小。
+
+    - 零卷积的设计精妙：零卷积层本身只有极少量的参数（1×1 卷积核），几乎不计入参数开销。更重要的是，零初始化确保了微调初期的稳定性，允许使用较少的迭代步数和数据就能完成训练，间接降低了算力需求。
+
+    - 无需重训主干：最大的优势在于完全不需要修改或重新训练庞大的冻结主干网络。这意味着你可以在已有的、经过大量数据预训练的模型上，仅用少量算力和领域数据就为其添加一种全新的控制能力。
+
+    ControlNet 这种“寄生虫式”的可控微调策略，凭借其稳定性和高效性，迅速成为扩散模型可控生成的基石技术。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MxkKw28Vhifwx1kXK2tcufpanqf
+  block_id: JD2ydhnmMoGR1mx6fLjciqOrnZf
+  page_token: MxkKw28Vhifwx1kXK2tcufpanqf
+  original_title: ControlNet 如何在预训练扩散模型上实现可控生成？为什么只增加很少参数量？
+  imported_at: '2026-09-21'

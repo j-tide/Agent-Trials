@@ -1,0 +1,184 @@
+---
+schema_version: 1
+id: feishu-llm-complete-19a4c7fe6372
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 5.1 连接池调优
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 5.1 连接池调优
+answer:
+  mode: rubric
+  reference_answer: "### 高并发场景下的连接池调优\n\n1、基础题：高并发场景下如何调优连接池？\n\n⭐（增加连接数、优化 SQL、读写分离）\n\n高并发场景下调优连接池的方法包括：\n\n-
+    增加连接数：根据 QPS 和响应时间计算连接池大小\n\n- 优化 SQL：减少 SQL 执行时间，降低连接占用时间\n\n- 读写分离：将读操作分散到从库，降低主库压力\n\n2、进阶题：详细说明高并发场景下的连接池调优策略\n\n⭐⭐（连接数计算、SQL
+    优化、读写分离、缓存优化）\n\n1️⃣ Common Answer 高并发就把连接数调大一点，比如 maxTotal 调到 100 或 200。然后优化一下慢
+    SQL，让查询快一点。还可以做读写分离，把读请求分散到从库。\n\n2️⃣ Impressive Answer 高并发场景下的连接池调优需要系统化策略，包括连接数计算、SQL
+    优化、读写分离和缓存优化四个方面。我将详细说明每个方面的具体操作。\n\n连接数计算：\n\n第一步：评估流量需求\n\n使用 Little's Law 计算连接数：\n\n连接数
+    = QPS × 平均响应时间\n\n假设某电商系统：\n\n- 目标 QPS：5000\n\n- 平均响应时间：20ms（0.02秒）\n\n计算：\n\nmaxPoolSize
+    = (5000 × 0.02) × 1.2 = 120\n\n考虑 20% 缓冲，maxPoolSize 设置为 120。\n\n第二步：验证数据库连接数限制\n\nSHOW
+    VARIABLES LIKE 'max_connections';\n\n假设数据库 max_connections=500，则需要确保所有应用实例的连接数总和不超过
+    500。\n\n假设部署 4 个应用实例，每个实例的 maxPoolSize=120，总连接数=480，在数据库承受范围内。\n\n第三步：配置连接池\n\nspring:\n
+    \ datasource:\n    hikari:\n      maximum-pool-size: 120\n      minimum-idle:
+    60\n      connection-timeout: 10000\n      max-lifetime: 1800000\n      idle-timeout:
+    600000\n\nSQL 优化：\n\n第一步：定位慢 SQL\n\n使用 Druid 监控页面，按执行时间排序，找出执行时间最长的 SQL。\n\n第二步：优化慢
+    SQL\n\n场景一：全表扫描\n\n问题 SQL：\n\nSELECT * FROM orders WHERE user_id = 123456 AND
+    status = 'PAID';\n\nEXPLAIN 分析：\n\ntype=ALL, key=NULL, rows=100000\n\n优化方案：\n\n-
+    添加联合索引：\n\nCREATE INDEX idx_user_status ON orders(user_id, status);\n\n- 优化后的
+    EXPLAIN：\n\ntype=ref, key=idx_user_status, rows=10\n\n场景二：索引失效\n\n问题 SQL：\n\nSELECT
+    * FROM orders WHERE DATE(create_time) = '2024-01-01';\n\nEXPLAIN 分析：\n\ntype=ALL,
+    key=NULL, rows=100000\n\n优化方案：\n\n- 改写 SQL，避免使用函数：\n\nSELECT * FROM orders \nWHERE
+    create_time >= '2024-01-01 00:00:00' \n  AND create_time < '2024-01-02 00:00:00';\n\n-
+    优化后的 EXPLAIN：\n\ntype=range, key=idx_create_time, rows=1000\n\n场景三：返回数据过多\n\n问题
+    SQL：\n\nSELECT * FROM orders WHERE user_id = 123456;\n\nEXPLAIN 分析：\n\ntype=ref,
+    key=idx_user_id, rows=5000\n\n优化方案：\n\n- 添加分页：\n\nSELECT * FROM orders WHERE user_id
+    = 123456 LIMIT 0, 20;\n\n- 只查询需要的字段：\n\nSELECT id, order_no, amount, status \nFROM
+    orders WHERE user_id = 123456 LIMIT 0, 20;\n\n读写分离：\n\n第一步：配置主从数据源\n\nspring:\n
+    \ datasource:\n    master:\n      url: jdbc:mysql://master-db:3306/ecommerce\n
+    \     username: root\n      password: password\n      hikari:\n        maximum-pool-size:
+    120\n        minimum-idle: 60\n    slave:\n      url: jdbc:mysql://slave-db:3306/ecommerce\n
+    \     username: root\n      password: password\n      hikari:\n        maximum-pool-size:
+    240\n        minimum-idle: 120\n\n第二步：配置读写分离路由\n\n@Configuration\npublic class
+    DataSourceConfig {\n    \n    @Bean\n    @Primary\n    public DataSource routingDataSource(\n
+    \           @Qualifier(\"masterDataSource\") DataSource masterDataSource,\n            @Qualifier(\"slaveDataSource\")
+    DataSource slaveDataSource) {\n        \n        Map<Object, Object> targetDataSources
+    = new HashMap<>();\n        targetDataSources.put(\"master\", masterDataSource);\n
+    \       targetDataSources.put(\"slave\", slaveDataSource);\n        \n        RoutingDataSource
+    routingDataSource = new RoutingDataSource();\n        routingDataSource.setTargetDataSources(targetDataSources);\n
+    \       routingDataSource.setDefaultTargetDataSource(masterDataSource);\n        \n
+    \       return routingDataSource;\n    }\n}\n\npublic class RoutingDataSource
+    extends AbstractRoutingDataSource {\n    @Override\n    protected Object determineCurrentLookupKey()
+    {\n        return DataSourceContextHolder.getDataSourceType();\n    }\n}\n\npublic
+    class DataSourceContextHolder {\n    private static final ThreadLocal<String>
+    contextHolder = new ThreadLocal<>();\n    \n    public static void setDataSourceType(String
+    dataSourceType) {\n        contextHolder.set(dataSourceType);\n    }\n    \n    public
+    static String getDataSourceType() {\n        return contextHolder.get();\n    }\n
+    \   \n    public static void clearDataSourceType() {\n        contextHolder.remove();\n
+    \   }\n}\n\n第三步：使用读写分离\n\n@Service\npublic class OrderService {\n    \n    @Autowired\n
+    \   private OrderMapper orderMapper;\n    \n    // 写操作使用主库\n    @Transactional\n
+    \   public void createOrder(Order order) {\n        DataSourceContextHolder.setDataSourceType(\"master\");\n
+    \       try {\n            orderMapper.insert(order);\n        } finally {\n            DataSourceContextHolder.clearDataSourceType();\n
+    \       }\n    }\n    \n    // 读操作使用从库\n    public Order getOrderById(Long orderId)
+    {\n        DataSourceContextHolder.setDataSourceType(\"slave\");\n        try
+    {\n            return orderMapper.selectById(orderId);\n        } finally {\n
+    \           DataSourceContextHolder.clearDataSourceType();\n        }\n    }\n}\n\n缓存优化：\n\n第一步：添加缓存\n\n@Service\npublic
+    class OrderService {\n    \n    @Autowired\n    private OrderMapper orderMapper;\n
+    \   \n    @Cacheable(value = \"order\", key = \"#orderId\")\n    public Order
+    getOrderById(Long orderId) {\n        DataSourceContextHolder.setDataSourceType(\"slave\");\n
+    \       try {\n            return orderMapper.selectById(orderId);\n        }
+    finally {\n            DataSourceContextHolder.clearDataSourceType();\n        }\n
+    \   }\n    \n    @CacheEvict(value = \"order\", key = \"#order.id\")\n    @Transactional\n
+    \   public void updateOrder(Order order) {\n        DataSourceContextHolder.setDataSourceType(\"master\");\n
+    \       try {\n            orderMapper.update(order);\n        } finally {\n            DataSourceContextHolder.clearDataSourceType();\n
+    \       }\n    }\n}\n\n第二步：配置缓存\n\nspring:\n  cache:\n    type: redis\n    redis:\n
+    \     time-to-live: 60000  # 缓存过期时间（毫秒）\n\n第三步：监控缓存命中率\n\n@Component\npublic class
+    CacheMetrics {\n    \n    @Autowired\n    private CacheManager cacheManager;\n
+    \   \n    @Scheduled(fixedRate = 60000)\n    public void reportCacheMetrics()
+    {\n        Cache cache = cacheManager.getCache(\"order\");\n        com.github.benmanes.caffeine.cache.Cache<Object,
+    Object> caffeineCache = \n            (com.github.benmanes.caffeine.cache.Cache<Object,
+    Object>) cache.getNativeCache();\n        \n        CacheStats stats = caffeineCache.stats();\n
+    \       log.info(\"Cache hit rate: {}, hit count: {}, miss count: {}\", \n            stats.hitRate(),
+    stats.hitCount(), stats.missCount());\n    }\n}\n\n实战案例：\n\n某电商系统大促期间连接池调优：\n\n优化前：\n\n-
+    maxPoolSize=30，minIdle=10\n\n- 慢 SQL 平均执行时间=500ms\n\n- 单库架构，所有请求都到主库\n\n- 无缓存\n\n问题现象：\n\n-
+    大促期间 QPS 从 500 增长到 5000\n\n- 获取连接超时率=10%\n\n- 接口响应时间=2000ms\n\n优化方案：\n\n- 连接池调优：\n\n-
+    SQL 优化：\n\n- 读写分离：\n\n- 缓存优化：\n\n优化效果：\n\n- 获取连接超时率从 10% 降低到 0.1%\n\n- 接口响应时间从
+    2000ms 降低到 100ms\n\n- QPS 从 500 提升到 5000\n\n- 数据库 CPU 占用从 80% 降低到 30%\n\n3️⃣ Key
+    Differences\n\n[嵌入表格未展开]\n\n3、场景题：在大促场景下，如何快速应对连接池压力？\n\n⭐⭐⭐（应急处理、动态调整、监控告警、预案演练）\n\n1️⃣
+    Common Answer 大促的时候把连接数调大，比如 maxTotal 调到 200。然后监控一下，有问题再调整。如果实在不行，就限流或者降级。\n\n2️⃣
+    Impressive Answer 在大促场景下应对连接池压力需要应急处理和预案演练并重，我将从应急处理、动态调整、监控告警和预案演练四个方面详细说明。\n\n应急处理：\n\n第一步：快速扩容连接池\n\n如果监控发现连接池压力过大，立即扩容：\n\nspring:\n
+    \ datasource:\n    hikari:\n      maximum-pool-size: 200  # 从 120 增加到 200\n      minimum-idle:
+    100\n\n通过配置中心动态下发配置，无需重启服务。\n\n第二步：启用限流\n\n如果连接池扩容后仍然无法满足需求，启用限流：\n\n@Configuration\npublic
+    class RateLimiterConfig {\n    \n    @Bean\n    public RateLimiter orderRateLimiter()
+    {\n        return RateLimiter.create(1000);  // 每秒 1000 个请求\n    }\n}\n\n@Service\npublic
+    class OrderService {\n    \n    @Autowired\n    private RateLimiter orderRateLimiter;\n
+    \   \n    public Order createOrder(Order order) {\n        if (!orderRateLimiter.tryAcquire())
+    {\n            throw new RateLimitExceededException(\"请求过于频繁，请稍后重试\");\n        }\n
+    \       // 业务逻辑\n    }\n}\n\n第三步：启用降级\n\n如果限流后仍然无法满足需求，启用降级：\n\n@Service\npublic
+    class OrderService {\n    \n    @Autowired\n    private OrderMapper orderMapper;\n
+    \   \n    @HystrixCommand(fallbackMethod = \"getOrderByIdFallback\")\n    public
+    Order getOrderById(Long orderId) {\n        return orderMapper.selectById(orderId);\n
+    \   }\n    \n    public Order getOrderByIdFallback(Long orderId) {\n        //
+    从缓存获取\n        Order order = redisTemplate.opsForValue().get(\"order:\" + orderId);\n
+    \       if (order != null) {\n            return order;\n        }\n        //
+    返回默认值\n        return new Order();\n    }\n}\n\n动态调整：\n\n第一步：监控连接池指标\n\n使用 Prometheus
+    + Grafana 监控连接池指标：\n\n# Prometheus 告警规则\ngroups:\n  - name: connection_pool_alerts\n
+    \   rules:\n      - alert: ConnectionPoolUnderPressure\n        expr: hikaricp_connections_active
+    / hikaricp_connections_max > 0.8\n        for: 5m\n        labels:\n          severity:
+    warning\n        annotations:\n          summary: \"Connection pool under pressure\"\n
+    \         description: \"Active connections: {{ $value }}%\"\n      \n      -
+    alert: ConnectionPoolExhausted\n        expr: hikaricp_connections_active / hikaricp_connections_max
+    > 0.95\n        for: 1m\n        labels:\n          severity: critical\n        annotations:\n
+    \         summary: \"Connection pool nearly exhausted\"\n          description:
+    \"Active connections: {{ $value }}%\"\n\n第二步：自动扩容\n\n使用 K8s HPA（Horizontal Pod
+    Autoscaler）自动扩容：\n\napiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nmetadata:\n
+    \ name: order-service-hpa\nspec:\n  scaleTargetRef:\n    apiVersion: apps/v1\n
+    \   kind: Deployment\n    name: order-service\n  minReplicas: 2\n  maxReplicas:
+    10\n  metrics:\n  - type: Resource\n    resource:\n      name: cpu\n      target:\n
+    \       type: Utilization\n        averageUtilization: 70\n\n第三步：动态配置\n\n使用 Nacos
+    配置中心动态调整连接池配置：\n\nspring:\n  datasource:\n    hikari:\n      maximum-pool-size:
+    ${hikari.maximum-pool-size:120}\n      minimum-idle: ${hikari.minimum-idle:60}\n\n通过
+    Nacos 控制台动态修改配置，无需重启服务。\n\n监控告警：\n\n第一步：配置监控指标\n\n使用 Micrometer 收集连接池指标：\n\n@Configuration\npublic
+    class MetricsConfig {\n    \n    @Bean\n    public MeterRegistryCustomizer<MeterRegistry>
+    metricsCommonTags() {\n        return registry -> registry.config().commonTags(\n
+    \           \"application\", \"order-service\"\n        );\n    }\n}\n\n第二步：配置告警规则\n\n#
+    Prometheus 告警规则\ngroups:\n  - name: connection_pool_alerts\n    rules:\n      -
+    alert: ConnectionPoolUnderPressure\n        expr: hikaricp_connections_active
+    / hikaricp_connections_max > 0.8\n        for: 5m\n        labels:\n          severity:
+    warning\n        annotations:\n          summary: \"Connection pool under pressure\"\n
+    \         description: \"Active connections: {{ $value }}%\"\n      \n      -
+    alert: ConnectionPoolExhausted\n        expr: hikaricp_connections_active / hikaricp_connections_max
+    > 0.95\n        for: 1m\n        labels:\n          severity: critical\n        annotations:\n
+    \         summary: \"Connection pool nearly exhausted\"\n          description:
+    \"Active connections: {{ $value }}%\"\n      \n      - alert: ConnectionAcquireFailure\n
+    \       expr: hikaricp_connections_acquire_fail_rate > 0.01\n        for: 1m\n
+    \       labels:\n          severity: critical\n        annotations:\n          summary:
+    \"High connection acquire failure rate\"\n          description: \"Failure rate:
+    {{ $value }}\"\n\n第三步：配置告警通知\n\n# Alertmanager 配置\nroute:\n  group_by: ['alertname']\n
+    \ group_wait: 10s\n  group_interval: 10s\n  repeat_interval: 1h\n  receiver: 'web.hook'\n\nreceivers:\n-
+    name: 'web.hook'\n  webhook_configs:\n  - url: 'http://alert-manager-webhook:5000/webhook'\n\n预案演练：\n\n第一步：制定预案\n\n制定大促预案，包括：\n\n-
+    连接池扩容预案\n\n- 限流降级预案\n\n- 应急回滚预案\n\n第二步：演练预案\n\n在大促前进行预案演练，验证预案的有效性：\n\n- 模拟连接池压力过大，验证扩容预案\n\n-
+    模拟流量突增，验证限流降级预案\n\n- 模拟系统异常，验证应急回滚预案\n\n第三步：优化预案\n\n根据演练结果优化预案，确保预案的可行性和有效性。\n\n实战案例：\n\n某电商系统双
+    11 大促期间连接池调优：\n\n大促前准备：\n\n- 连接池配置：\n\n- 监控告警：\n\n- 预案演练：\n\n大促期间：\n\n- 监控发现：\n\n-
+    应急处理：\n\n- 动态调整：\n\n- 监控告警：\n\n大促后总结：\n\n- 优化效果：\n\n- 经验总结：\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n4、容易一起考的题\n\n[嵌入表格未展开]\n\n-
+    const：主键或唯一索引查询，最快\n\n- eq_ref：连接查询时使用主键或唯一索引\n\n- ref：使用非唯一索引\n\n- range：范围查询\n\n-
+    index：索引扫描\n\n- ALL：全表扫描，最慢\n\n- Using index：使用索引覆盖，性能好\n\n- Using where：使用 WHERE
+    过滤\n\n- Using temporary：使用临时表，性能差\n\n- Using filesort：使用文件排序，性能差\n\n- maxPoolSize：30
+    → 120\n\n- minIdle：10 → 60\n\n- 添加联合索引（user_id, status）\n\n- SQL 执行时间从 500ms 降低到
+    20ms\n\n- 主库连接池：maxPoolSize=120\n\n- 从库连接池：maxPoolSize=240\n\n- 读请求分散到从库\n\n-
+    添加 Redis 缓存\n\n- 缓存命中率从 0% 提升到 80%\n\n- maxPoolSize=120，minIdle=60\n\n- 配置 Nacos
+    动态配置\n\n- 配置 Prometheus + Grafana 监控\n\n- 配置告警规则\n\n- 演练连接池扩容预案\n\n- 演练限流降级预案\n\n-
+    活跃连接数持续在 95-100（maxPoolSize=120）\n\n- 获取连接失败率=5%\n\n- 通过 Nacos 将 maxPoolSize 从
+    120 调整到 200\n\n- 启用限流，每秒限制 1000 个请求\n\n- K8s HPA 自动扩容，从 2 个实例扩容到 5 个实例\n\n- 活跃连接数降低到
+    60-80\n\n- 活跃连接数恢复正常\n\n- 获取连接失败率降低到 0.1%\n\n- QPS 从 500 提升到 5000\n\n- 接口响应时间从
+    2000ms 降低到 100ms\n\n- 获取连接超时率从 10% 降低到 0.1%\n\n- 提前演练预案非常重要\n\n- 动态配置可以快速响应\n\n-
+    监控告警要及时准确"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PruYwWzfSiDw2dkgSMrcuononnf
+  block_id: doxcnuV7E1Jkb8YGW8XQzS1qF3b
+  page_token: PruYwWzfSiDw2dkgSMrcuononnf
+  original_title: 5.1 连接池调优
+  imported_at: '2026-09-21'

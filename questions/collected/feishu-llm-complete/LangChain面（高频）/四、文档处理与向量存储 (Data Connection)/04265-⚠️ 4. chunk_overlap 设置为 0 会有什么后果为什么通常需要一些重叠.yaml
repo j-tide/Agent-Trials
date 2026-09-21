@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-26bfd684562c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚠️ 4. chunk_overlap 设置为 0 会有什么后果？为什么通常需要一些重叠？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "⚠️ 4. chunk_overlap 设置为 0 会有什么后果？为什么通常需要一些重叠？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    如果 chunk_overlap=0，Splitter 会把文本一刀刀切下去，两个相邻 chunk 之间没有任何交集，就像把一本书切成互不相连的纸条。这在实践中会带来两个严重的问题：
+
+    ① 信息断裂，丢失上下文
+
+    很多重要的语义单元（人名、术语、长句子、跨句的逻辑关系）会刚好落在两个 chunk 的交界处。比如原文是：
+
+    如果切分点正好在 “Transformer” 和 “架构” 之间，chunk1 结尾是“因此我们决定采用 Transformer”，chunk2 开头是“架构。该架构的主要优势在于...”。当用户搜索“Transformer 架构的优势”时，两个 chunk 各有一部分信息，却都不完整，很可能检索到的相关性都不高，导致 RAG 回答缺失关键论据。
+
+    ② 增加“边界效应”，降低鲁棒性
+
+    没有重叠时，每个 chunk 就像一个孤岛，对跨块的引用关系毫无感知。实际检索中，对于需要一两句上下文才能准确理解的问题（例如指代消解，“它”、“该模型”），无重叠切分会让模型看到的文本缺少前因后果，容易产生歧义。
+
+    为什么需要重叠：
+
+    重叠就是在每个切分点“搭一座桥”。chunk1 的末尾部分被复制到 chunk2 的开头，这样任何一个概念只要完整出现在原文的某个位置，就至少有一个 chunk 会包含它的全部上下文，而不会被切分点劈成两半。换句话说，重叠提高了“任何重要信息被完整包含在至少一个 chunk 中”的概率。
+
+    当然，重叠不是越大越好。chunk_overlap 太大会导致：
+
+    - 大量的重复内容被存储和 embedding，浪费存储空间和计算资源。
+
+    - 检索时可能返回语义几乎相同的多个 chunk，降低多样性。
+
+    一般 10%–20% 的 chunk_overlap 是经验上的甜点，既能有效防止边界断裂，又不至于过度冗余。也有更智能的做法：使用 SemanticChunker 或类似工具直接识别语义边界，那样甚至可以做到零重叠而不损失信息，但我们后面会谈到。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/O97CwA74Ji4ZHWkDTIRcb7OanUg
+  block_id: QulbdSOPvoOS26xZkpucv5JqnLc
+  page_token: O97CwA74Ji4ZHWkDTIRcb7OanUg
+  original_title: "⚠️ 4. chunk_overlap 设置为 0 会有什么后果？为什么通常需要一些重叠？"
+  imported_at: '2026-09-21'

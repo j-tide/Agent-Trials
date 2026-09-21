@@ -1,0 +1,104 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fc045f6c04fb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 2.2 哨兵选主算法
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Redis
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Redis
+content:
+  prompt: 2.2 哨兵选主算法
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### 故障转移与选主
+
+    1、哨兵如何从从节点中选择新的主节点？
+
+    ⭐（考察选主的优先级因素）
+
+    哨兵选择新主节点时会考虑多个因素：优先选择优先级（replica-priority）最高的从节点；如果优先级相同，选择复制偏移量最大的从节点，说明数据最新；如果复制偏移量也相同，选择 run ID 最小的从节点。这样可以保证选出的新主节点数据最新且稳定。
+
+    2、哨兵选主算法中的 Raft 投票机制是如何工作的？
+
+    ⭐⭐（考察哨兵 Leader 选举、Raft 协议）
+
+    1️⃣ Common Answer 哨兵选主好像用了 Raft 协议，就是投票选 Leader。每个哨兵都可以发起投票，其他哨兵投票同意，超过半数就当选 Leader。然后由 Leader 负责故障转移，选新的主节点。这个投票机制保证了只有一个哨兵执行故障转移，避免冲突。
+
+    2️⃣ Impressive Answer 哨兵的故障转移流程分为两个阶段：首先在哨兵集群中选举 Leader，然后由 Leader 负责从从节点中选出新的主节点。
+
+    Leader 选举采用类 Raft 的投票机制。当一个哨兵判断主节点客观下线后，会向其他哨兵发送 SENTINEL is-master-down-by-addr 命令，请求投票成为 Leader。每个哨兵在同一轮选举中只能投票一次，投票给第一个向它请求投票的哨兵。
+
+    收到投票请求的哨兵会检查：自己是否已经投过票；请求的哨兵的 run ID 是否比已投票的 run ID 更新；请求的配置纪元（config epoch）是否更高。如果满足条件，就投票同意，否则拒绝。当一个哨兵收到超过半数哨兵的同意票时，就成为 Leader，负责执行故障转移。
+
+    Leader 选出后，会按照以下规则从从节点中选择新主节点：
+
+    第一，过滤掉已下线或最近 10 秒没有回复 PING 的从节点。
+
+    第二，过滤掉优先级为 0 的从节点（优先级 0 表示不参与选主）。
+
+    第三，选择优先级最高的从节点，优先级通过 replica-priority 配置，值越小优先级越高，默认 100。
+
+    第四，如果优先级相同，选择复制偏移量最大的从节点，说明数据最新。
+
+    第五，如果复制偏移量也相同，选择 run ID 最小的从节点。
+
+    选出新主后，Leader 执行 slaveof no one 提升新主，然后让其他从节点执行 slaveof 新主节点地址，最后通知客户端新的主节点地址。整个过程中，哨兵通过配置纪元（config epoch）来保证操作的幂等性，避免重复执行。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    3、生产环境中有 5 个从节点，其中 3 个优先级设置为 50，2 个默认 100，如何保证选主符合预期？
+
+    ⭐⭐⭐（考察 replica-priority 配置、选主策略）
+
+    1️⃣ Common Answer 优先级越小越高，所以优先级 50 的从节点会优先被选为主。如果要保证某个特定的从节点被选中，可以把它的优先级设置得更小，比如 10。或者如果想让默认的 100 被选中，就把那 3 个 50 的调成更大的数。还可以通过调整复制偏移量，让数据最新的从节点被选中。
+
+    2️⃣ Impressive Answer 这个问题需要从 replica-priority 的配置策略和选主规则两个角度分析。首先，replica-priority 的值越小，优先级越高，默认值是 100。在这个场景中，3 个从节点优先级 50，2 个从节点优先级 100，所以会从 3 个优先级 50 的从节点中选择。
+
+    如果这 3 个优先级 50 的从节点中，我们希望某个特定的从节点被选中，有两种策略：
+
+    第一，差异化配置优先级。将目标从节点的 replica-priority 设置为更小的值，比如 10，其他两个保持 50。这样目标从节点优先级最高，一定会被选中。
+
+    第二，如果这 3 个优先级 50 的从节点硬件配置、网络状况不同，可以根据实际情况调整。比如某个从节点配置更高、网络更好，适合做主节点，就给它设置更小的优先级；其他从节点设置较大的优先级作为备选。
+
+    如果希望优先级 100 的从节点被选中，可以将那 3 个优先级 50 的从节点调整为更大的值，比如 150，这样优先级 100 的从节点就会优先被选中。
+
+    需要注意的是，replica-priority 只是第一优先级，如果多个从节点优先级相同，还会比较复制偏移量。复制偏移量越大，说明数据越新，越适合做主节点。所以如果多个从节点优先级相同，可以通过控制复制延迟来影响选主结果。比如希望某个从节点被选中，可以确保它的复制延迟最小，复制偏移量最大。
+
+    生产环境中，建议根据从节点的硬件配置、网络状况、业务重要性等因素综合设置 replica-priority，同时监控复制延迟，确保选出的主节点是最优的。
+
+    3️⃣ Key Differences
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WYybwaFDnib3uYkGNzpcRvJsnzd
+  block_id: doxcnQGWO1QU5w9d6slLCvz3RIg
+  page_token: WYybwaFDnib3uYkGNzpcRvJsnzd
+  original_title: 2.2 哨兵选主算法
+  imported_at: '2026-09-21'

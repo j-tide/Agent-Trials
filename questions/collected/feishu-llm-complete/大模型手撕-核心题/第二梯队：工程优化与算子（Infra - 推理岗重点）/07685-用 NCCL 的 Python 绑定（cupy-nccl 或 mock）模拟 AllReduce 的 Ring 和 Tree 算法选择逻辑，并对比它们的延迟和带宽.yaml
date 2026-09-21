@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e8f256056432
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 用 NCCL 的 Python 绑定（cupy/nccl 或 mock）模拟 AllReduce 的 Ring 和 Tree 算法选择逻辑，并对比它们的延迟和带宽。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 用 NCCL 的 Python 绑定（cupy/nccl 或 mock）模拟 AllReduce 的 Ring 和 Tree 算法选择逻辑，并对比它们的延迟和带宽。
+answer:
+  mode: rubric
+  reference_answer: |-
+    14.1 NCCL 算法选择
+
+    NCCL 根据数据大小和节点拓扑自动选择 AllReduce 算法：小数据量用 Tree，大数据量用 Ring。Tree 延迟低（对数步数），但带宽利用率不如 Ring（Ring 的带宽利用率接近 100%）。我们可以模拟两种算法的通信时间。
+
+    14.2 模拟代码（不依赖 NCCL）
+
+    ```python
+    import math
+
+    def ring_allreduce_time(data_size_bytes, num_gpus, bandwidth_Bps, latency_sec):
+        # Ring 需要 2*(N-1) 步，每一步传输 data_size/N 字节（理想情况）
+        chunk = data_size_bytes / num_gpus
+        steps = 2 * (num_gpus - 1)
+        transfer_time = chunk / bandwidth_Bps * steps
+        total_latency = latency_sec * steps
+        return transfer_time + total_latency
+
+    def tree_allreduce_time(data_size_bytes, num_gpus, bandwidth_Bps, latency_sec):
+        # 二叉树：每一步传输 data_size 数据，需要 2*log2(N) 步（reduce + broadcast）
+        steps = 2 * math.ceil(math.log2(num_gpus))
+        transfer_time = data_size_bytes / bandwidth_Bps * steps
+        total_latency = latency_sec * steps
+        return transfer_time + total_latency
+
+    # 示例
+    size = 1024**2  # 1 MB
+    n = 8
+    bw = 10e9       # 10 GB/s
+    lat = 1e-6      # 1 us
+    print("Ring:", ring_allreduce_time(size, n, bw, lat))
+    print("Tree:", tree_allreduce_time(size, n, bw, lat))
+    ```
+
+    实际 NCCL 在数据量小时用 Tree 以减少延迟，数据量大时用 Ring 以最大化带宽。模拟可体现交叉点。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: PRzFdMvTPoVJKPxTeAXc7lVenyf
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 用 NCCL 的 Python 绑定（cupy/nccl 或 mock）模拟 AllReduce 的 Ring 和 Tree 算法选择逻辑，并对比它们的延迟和带宽。
+  imported_at: '2026-09-21'

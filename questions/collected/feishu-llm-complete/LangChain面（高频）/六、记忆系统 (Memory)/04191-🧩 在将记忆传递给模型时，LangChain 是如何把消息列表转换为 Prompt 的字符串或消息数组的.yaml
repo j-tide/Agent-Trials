@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e16bbe8f307d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 在将记忆传递给模型时，LangChain 是如何把消息列表转换为 Prompt 的字符串或消息数组的？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F9E9 在将记忆传递给模型时，LangChain 是如何把消息列表转换为 Prompt 的字符串或消息数组的？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangChain 的 Memory 在将历史注入 Prompt 时，会根据 Prompt 模板的需求，提供两种格式：字符串（String） 和 消息列表（List of Messages）。
+
+    - 转换为字符串（传统模式）
+    当 Prompt 模板中包含 {chat_history} 占位符且该模板是纯字符串模板时，Memory 会将消息列表序列化为一个文本块。
+
+    - 对于 ConversationBufferMemory，它默认使用 get_buffer_string() 方法，将消息转换为如下格式：
+
+    ```text
+    Human: 你好
+    AI: 你好！有什么可以帮你的？
+    ```
+
+    - 这种格式是预定义的，但你可以在创建 Memory 时通过 human_prefix 和 ai_prefix 参数自定义前缀。
+
+    - 对于 ConversationSummaryMemory，它直接输出摘要文本（字符串）。
+
+    - 转换为消息列表（现代模式）
+    当 Memory 的 return_messages=True 时，它不会将历史转换为字符串，而是直接返回一个 List[BaseMessage]。这通常用于配合聊天模型（如 ChatOpenAI）的 Prompt 模板，因为这些模板接收消息数组而不是字符串。
+    LangChain 的 MessagesPlaceholder 可以在 Prompt 模板中放置一个变量名，该变量在运行时填充为消息列表。例如：
+
+    ```python
+    from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "你是一个助手"),
+        MessagesPlaceholder(variable_name="chat_history"),
+        ("human", "{input}")
+    ])
+    ```
+
+    当传入 chat_history 为消息列表时，这些消息会被直接拼接在 Prompt 中。ChatOpenAI 原生支持消息数组，LangChain 会将其直接传递给 API。
+
+    内部转换细节：
+
+    - 如果你使用了 return_messages=False（默认），记忆会调用 get_buffer_string 生成字符串，然后通过常规的模板替换填入 Prompt。
+
+    - 如果 return_messages=True，记忆的 load_memory_variables 返回的字典中，history 键对应的值是一个消息列表，LangChain 会识别并将其注入到 MessagesPlaceholder 所在位置。
+
+    优点：消息数组更结构化，避免了因格式错误（如分隔符冲突）导致的问题，并且更好地利用了聊天模型的训练格式。
+
+    踩过的坑：当 Prompt 模板混用字符串和消息数组时可能会出错。务必保持一致性：如果使用聊天模型，建议采用消息列表模式。
+
+    通过这种灵活的转换机制，LangChain 使得记忆可以无缝适配不同类型的 LLM 和 Prompt 风格。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Dajiw8ewCiTjamklohBcMVI0nre
+  block_id: Qo4AdR7AxoVc9wxGpN2cjTKxnGh
+  page_token: Dajiw8ewCiTjamklohBcMVI0nre
+  original_title: "\U0001F9E9 在将记忆传递给模型时，LangChain 是如何把消息列表转换为 Prompt 的字符串或消息数组的？"
+  imported_at: '2026-09-21'

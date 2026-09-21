@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f700024f99ce
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果一个链需要同时调用多个不同的 LLM（如 GPT-4 和 Claude），在 LangChain 中你如何组织代码？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 一、基础认知与核心设计
+tags: &1
+- LangChain面（高频）
+- 一、基础认知与核心设计
+content:
+  prompt: 如果一个链需要同时调用多个不同的 LLM（如 GPT-4 和 Claude），在 LangChain 中你如何组织代码？
+answer:
+  mode: rubric
+  reference_answer: "\U0001F500 使用 LCEL 构建条件分支：在 LCEL 中，RunnableBranch 可以根据条件将输入路由到不同的模型。\n\n```python\nfrom
+    langchain_core.runnables import RunnableBranch\n\n# 定义路由条件函数\ndef is_complex_task(input):\n
+    \   return \"复杂推理\" in input[\"question\"]\n\nbranch = RunnableBranch(\n    (lambda
+    x: is_complex_task(x), ChatOpenAI(model=\"gpt-4\")),  # 条件为真走GPT-4\n    ChatAnthropic(model=\"claude-3-haiku\")
+    \ # 否则走Claude Haiku\n)\n\nchain = prompt | branch | output_parser\n```\n\n⚖️ 多模型并行比较：有时我们需要同时让多个模型生成答案，再由另一个模型评判或汇总。LCEL
+    的 RunnableParallel 可以实现并行调用。\n\n```python\nfrom langchain_core.runnables import
+    RunnableParallel\n\nparallel_models = RunnableParallel(\n    gpt_answer=prompt
+    | ChatOpenAI(model=\"gpt-4\"),\n    claude_answer=prompt | ChatAnthropic(model=\"claude-3-opus\")\n)\n\n#
+    评判模型\ndef judge(inputs):\n    gpt_ans = inputs[\"gpt_answer\"]\n    claude_ans
+    = inputs[\"claude_answer\"]\n    # 用另一个模型进行比较...\n```\n\n\U0001F39B️ Router 模式：更复杂的场景可以使用
+    LLMRouterChain 或自定义路由逻辑，根据用户意图（如“翻译”用 DeepL 专用模型，“代码”用 CodeLlama）分发到不同模型。\n\n```python\nrouter_prompt
+    = PromptTemplate.from_template(\"\"\"\n判断下列用户请求应该由哪个专家处理：\n请求：{query}\n专家列表：翻译专家、代码专家、通用专家\n只返回专家名称。\n\"\"\")\nrouter
+    = router_prompt | ChatOpenAI() | StrOutputParser()\n# 根据路由结果选择模型...\n```\n\n\U0001F9E9
+    优点：这种组织方式保持了代码的声明式风格，所有模型调用路径清晰可测。修改路由规则或添加新模型只需调整配置，无需改动业务逻辑。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DPfNwcDyYiIwkGkVfjDcpKE6nNf
+  block_id: KUspdB9iYo7SgLxHawicX00znDw
+  page_token: DPfNwcDyYiIwkGkVfjDcpKE6nNf
+  original_title: 如果一个链需要同时调用多个不同的 LLM（如 GPT-4 和 Claude），在 LangChain 中你如何组织代码？
+  imported_at: '2026-09-21'

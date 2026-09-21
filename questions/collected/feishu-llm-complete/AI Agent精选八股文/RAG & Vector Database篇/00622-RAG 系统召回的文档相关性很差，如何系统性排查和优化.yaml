@@ -1,0 +1,104 @@
+---
+schema_version: 1
+id: feishu-llm-complete-630bec1219a0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: RAG 系统召回的文档相关性很差，如何系统性排查和优化？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: RAG 系统召回的文档相关性很差，如何系统性排查和优化？
+answer:
+  mode: rubric
+  reference_answer: |-
+    召回差是 RAG 系统最常见的线上故障，而根因往往不止一个。我习惯用一条“顺藤摸瓜”式的排查路线，从问题本身倒推，找到病根再下药。
+
+    排查路线图：
+
+    [图片内容未导入]
+
+    具体排查步骤与优化手段：
+
+    第一步：先看 Query 有没有“带病上岗”
+
+    很多召回问题，根源在用户。用户问“那个红色的按钮是干嘛的？”，而知识库里写的是“紧急制动开关功能说明”。这种表达鸿沟靠单纯的向量相似度很难跨越。
+
+    - 解决方案：引入 Query 改写。在检索前，用 LLM 把口语化、模糊化的问题，改写成更精准、更像文档语言的检索词。例如用 Multi-Query 生成多个角度的查询，或用 HyDE 先生成一篇假设文档再检索。
+
+    ```python
+    # 简单的 Query 改写示例：把口语变专业
+    rewrite_prompt = f"将以下用户问题改写成更适合检索的关键词：{question}"
+    search_query = llm(rewrite_prompt)
+    docs = vectorstore.search(search_query)
+    ```
+
+    第二步：看检索结果，判断是“没召回”还是“召回了没用”
+
+    把检索返回的 Top-5 文档片段打印出来，和问题放在一起对比。
+
+    - 如果完全不沾边：问题出在“语义鸿沟”或“专有名词”。
+    → 上混合检索（Hybrid Search）：向量检索擅长语义，但对专有名词、缩写不敏感。加上 BM25 关键词检索，两路结果用 RRF（倒数排名融合）合并，能极大改善专有名词的召回。
+
+    - 如果部分相关，但最准的那条排在后面：问题出在“初排不够精”。
+    → 引入 Reranker（精排模型）：用 Cross-Encoder 对召回的候选（比如 top-50）重新打分排序，把真正相关的提到前几位。这是成本低、效果提升最显著的一步。
+
+    - 如果检索到的片段像是“半句话”：问题出在分块切断了关键信息。
+    → 增大 chunk_overlap，或用“父子文档索引”：用小 chunk 做精准检索，但返回给 LLM 时，自动展开成包含该 chunk 的整个大段落（父文档）。
+
+    第三步：如果检索结果明明很准，但 LLM 还是答非所问
+
+    根因在“生成侧”。常见问题：
+
+    - 上下文过长，模型注意力分散：精简上下文，只保留 Reranker 给出的 Top-3。
+
+    - Prompt 指令不清晰：强化“只能根据提供的资料回答，不知道就明确说不知道”的指令。
+
+    - 模型能力不足：从 GPT-3.5 换成 GPT-4o，或从 7B 小模型换成更强的模型。
+
+    第四步：做一个端到端的排查脚本
+
+    我习惯在生产日志里挂一个诊断钩子，当用户点“踩”时，自动抓取当时的 question、检索 docs 和最终 answer，然后跑一遍分析。
+
+    ```python
+    def diagnose_relevance(question, docs, answer):
+        print(f"用户问题: {question}")
+        for i, doc in enumerate(docs):
+            print(f"检索结果 {i+1}: {doc.page_content[:200]}...")
+        # 用 LLM 辅助判断
+        judge_prompt = f"问题: {question}\n检索片段: {docs}\n答案: {answer}\n分析召回差的原因。"
+        diagnosis = llm(judge_prompt)
+        print(f"诊断意见: {diagnosis}")
+    ```
+
+    优化不是一锤子买卖。每次改进分块、改写、混合检索后，都应该用同一批测试集（比如 100 条真实用户查询）来对比前后的召回率和最终答案的准确率。用数据说话，而不是凭感觉调参。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Vf3WwfQfWib73PkQHd2coGQXnmf
+  block_id: doxcn5dBOOqUoZ6DTeEch3zwqCf
+  page_token: Vf3WwfQfWib73PkQHd2coGQXnmf
+  original_title: RAG 系统召回的文档相关性很差，如何系统性排查和优化？
+  imported_at: '2026-09-21'

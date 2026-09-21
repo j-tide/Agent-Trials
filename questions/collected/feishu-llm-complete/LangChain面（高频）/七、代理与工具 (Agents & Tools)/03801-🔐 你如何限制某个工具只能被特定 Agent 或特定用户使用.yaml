@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e0e17bafdbdd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F510 你如何限制某个工具只能被特定 Agent 或特定用户使用？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "\U0001F510 你如何限制某个工具只能被特定 Agent 或特定用户使用？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在多 Agent 系统或多租户应用中，工具权限控制至关重要。LangChain 本身不提供内置的权限管理，但你可以通过以下几种方式实现：
+
+    - 在工具函数内部进行权限校验
+
+    最简单的做法。工具函数接收用户信息（如通过全局上下文或参数），在执行实际操作前检查权限。如果没有权限，返回一个明确的错误信息。
+
+    ```python
+    @tool
+    def admin_tool(user_id: str, action: str) -> str:
+        """执行管理员操作。"""
+        if not is_admin(user_id):
+            return "错误：权限不足，只有管理员可以执行此操作。"
+        # 执行管理操作
+    ```
+
+    - 在 Agent 初始化时动态过滤工具列表
+
+    根据当前用户或 Agent 的角色，创建不同的工具列表。这样 Agent 在 Prompt 中根本看不到无权使用的工具，自然无法调用。
+
+    ```python
+    def build_tools_for_user(user):
+        base_tools = [search, calculate]
+        if user.is_admin:
+            base_tools.append(admin_tool)
+        return base_tools
+    ```
+
+    - 使用自定义的 AgentExecutor 包装器
+    继承 AgentExecutor，重写 _take_next_step 方法，在执行工具前检查权限。这可以实现更细粒度的控制，比如记录审计日志。
+
+    - 通过工具注册中心和元数据管理
+    创建一个工具注册表，每个工具有 required_role 属性。在 Agent 启动时，只加载与当前用户角色匹配的工具。
+
+    ✅ 我的做法：我通常采用“动态工具列表” + “工具内部兜底检查”的双重保险。动态列表防止 Agent 看到不该看的工具（更安全），工具内部检查则作为最后防线，防止代码 bug 导致越权。权限信息通过全局上下文注入，避免每个工具函数都手动传递用户ID。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZZIjwAYoMiY0VEk7JiDcIuK3nPb
+  block_id: EHcPdMEdLo0nnjxtEAocHJqHnle
+  page_token: ZZIjwAYoMiY0VEk7JiDcIuK3nPb
+  original_title: "\U0001F510 你如何限制某个工具只能被特定 Agent 或特定用户使用？"
+  imported_at: '2026-09-21'

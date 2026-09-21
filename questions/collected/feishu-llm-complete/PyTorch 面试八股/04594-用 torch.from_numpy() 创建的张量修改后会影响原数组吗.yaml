@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6d690c53254f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 用 torch.from_numpy() 创建的张量修改后会影响原数组吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 用 torch.from_numpy() 创建的张量修改后会影响原数组吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    会。 torch.from_numpy() 创建的张量与原始 NumPy 数组共享同一块底层内存。这意味着对张量的任何 in-place 修改（例如 tensor[0] = 0， tensor.add_(1)）都会立刻反映在原 NumPy 数组上，反之亦然
+
+    ```python
+    import numpy as np
+    import torch
+
+    arr = np.array([1.0, 2.0, 3.0])
+    t = torch.from_numpy(arr)
+
+    # in-place 修改张量
+    t[0] = 99.0
+    print(arr)  # [99.  2.  3.]  —— 原数组发生了改变！
+
+    # in-place 修改数组
+    arr[1] = 88.0
+    print(t)    # tensor([99., 88.,  3.])  —— 张量也随之改变！
+    ```
+
+    深入理解与避坑指南：
+
+    - 速度 vs. 安全性：这种共享内存的设计使得数据在 NumPy 和 PyTorch 之间传输几乎零开销，非常适合数据加载等性能敏感场景。但它的陷阱在于，如果不小心进行了 in-place 操作，可能导致难以追踪的 bug，例如预处理的数据被意外修改。
+
+    - 如何避免：如果你希望保持 NumPy 数组的独立性，请使用 torch.tensor(arr) 来创建张量，它会显式地复制一份数据，从而切断内存共享。
+
+    - 检测是否共享内存：可以通过 tensor.data_ptr() == arr.ctypes.data 来判断它们是否指向同一内存地址。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Vf94wFO62ij7vwkGFVbcOxpdnRe
+  block_id: NeL3dMJ9doCezXxQ5o7czkdRnag
+  page_token: Vf94wFO62ij7vwkGFVbcOxpdnRe
+  original_title: 用 torch.from_numpy() 创建的张量修改后会影响原数组吗？
+  imported_at: '2026-09-21'

@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e97b3359b850
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么当前的主流做法是“先 SFT 再 RLHF”，而不是直接从基座模型开始 RLHF？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 1-基础认知与流程全景
+tags: &1
+- RLHF面试高频考点
+- 1-基础认知与流程全景
+content:
+  prompt: 为什么当前的主流做法是“先 SFT 再 RLHF”，而不是直接从基座模型开始 RLHF？
+answer:
+  mode: rubric
+  reference_answer: |-
+    直接从基座模型（Base Model）开始 RLHF 在理论上是可行的，但实践中会面临效率与稳定性的双重灾难。SFT 作为前置步骤，起到了“导航”和“预热”的关键作用。
+
+    - 搜索空间的维度爆炸
+
+    基座模型的知识和语言能力是在万亿 token 的互联网数据上通过预测下一个词形成的，其生成分布极为广泛、发散且不可控。对于同一个提示，基座模型可以生成一篇新闻稿、一段代码、一首诗、或者一通胡言乱语。RLHF 的初始阶段，智能体（模型）几乎需要在一个完全无约束的文本空间中盲目探索。奖励信号对于这种随机生成来说将是极其稀疏的，模型可能在找到第一个有意义的奖励之前就耗尽算力，或者陷入“生成随机噪声—偶尔得高分—疯狂重复该噪声”的循环。
+
+    - 奖励模型训练的数据分布断裂
+
+    奖励模型需要基于模型生成的样本来训练和迭代。如果直接从基座模型开始，我们收集到的初始样本将充满大量毫无意义、不符合任何语法或语义的乱码。让人类标注员去评判这些乱码是无效且痛苦的，会导致标注数据质量极低，奖励模型无法学习到有意义的模式。SFT 首先将模型约束在一个“像模像样”的回答空间内，确保了后续用于训练奖励模型的数据至少是基本可读、有一定结构的，大大提升了奖励模型的有效性。
+
+    - KL 惩罚锚点的缺失
+
+    PPO 等 RL 算法中的 KL 散度惩罚需要一个参考策略。如果以基座模型作为参考，那么它对“正常语言”的概率估计可能本身就存在偏差，因为它见过的“好文本”和“差文本”是混在一起的。用 SFT 模型作为参考则不同，它已经是一个专门优化过、擅长输出高质量回答的策略。以它为锚，KL 惩罚才能精确地、有意义地约束策略不要偏离“已经很好的行为”太远，既防止了语言崩溃，也保护了 SFT 已经学会的指令遵循能力。
+
+    - 任务理解与格式对齐
+
+    基座模型对用户的提示格式非常敏感且难以预测。SFT 阶段通过在高质量“指令-回答”对上训练，教会了模型一整套元能力：理解“指令”的边界、生成目标导向的回答、遵循特定的输出格式（如 JSON、列表）。这些能力构成了一个稳固的“初始策略”，使得 RLHF 阶段可以专注于优化更高阶的偏好维度（如安全性、风格、细节），而不用在基础的“听懂人话”上浪费探索。
+
+    因此，SFT 为 RLHF 的起飞铺设了一条可靠的跑道，没有这条跑道，RLHF 这架飞机的起落架可能在乱石堆中直接折断。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GwbVw98pjiJcOCkoTGhc0Pz3nVh
+  block_id: R2HadlGzLoq4WLxvO8achKoRnoh
+  page_token: GwbVw98pjiJcOCkoTGhc0Pz3nVh
+  original_title: 为什么当前的主流做法是“先 SFT 再 RLHF”，而不是直接从基座模型开始 RLHF？
+  imported_at: '2026-09-21'

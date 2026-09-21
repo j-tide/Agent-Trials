@@ -1,0 +1,169 @@
+---
+schema_version: 1
+id: feishu-llm-complete-61997bbf70ec
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3.2 RocketMQ事务消息
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 3.2 RocketMQ事务消息
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### 事务消息原理
+
+    1、RocketMQ事务消息的执行流程是怎样的？
+
+    ⭐（半消息、本地事务、提交/回滚、回查）
+
+    RocketMQ事务消息的执行流程：
+
+    - Producer发送半消息到Broker
+
+    - Broker存储半消息，但不让Consumer消费
+
+    - Producer执行本地事务
+
+    - 根据本地事务结果，发送Commit或Rollback请求
+
+    - 如果超时未收到确认，Broker回查Producer的本地事务状态
+
+    2、RocketMQ事务消息如何保证一致性？如果Commit失败了怎么办？
+
+    ⭐⭐（回查机制、最终一致性）
+
+    1️⃣ Common Answer 通过回查机制保证一致性。如果Commit失败，Broker会主动回查Producer的本地事务状态，然后根据结果提交或回滚。这样就能保证最终一致性。
+
+    2️⃣ Impressive Answer RocketMQ事务消息通过回查机制保证最终一致性，让我详细说明Commit失败的处理流程：
+
+    回查触发条件： 当Broker收到半消息后，会启动一个定时任务。如果在transactionTimeOut时间内没有收到Producer的Commit或Rollback请求，就会触发回查。默认超时时间是1分钟。
+
+    回查流程：
+
+    - Broker发送回查请求到Producer
+
+    - Producer的checkLocalTransaction方法被调用
+
+    - Producer查询本地事务状态（如查询订单表）
+
+    - 根据查询结果返回COMMIT_MESSAGE或ROLLBACK_MESSAGE
+
+    - Broker根据回查结果提交或回滚消息
+
+    Commit失败的几种场景：
+
+    - 网络故障：Producer发送Commit请求但网络中断，Broker未收到
+
+    - Producer宕机：本地事务执行成功但Producer崩溃，未发送Commit
+
+    - 超时：本地事务执行时间过长，超过了transactionTimeOut
+
+    回查机制的保证： 无论哪种场景，只要本地事务执行成功，回查时就能查到正确的状态，从而Commit消息。这就是最终一致性的保证。
+
+    回查次数限制： 为了避免无限回查，RocketMQ限制了回查次数，默认是15次。超过次数后，消息会被丢弃或进入死信队列。可以通过transactionCheckMax参数调整。
+
+    生产环境注意事项：
+
+    - 幂等性：本地事务和回查逻辑都要保证幂等，避免重复执行
+
+    - 查询性能：回查时要快速查询本地状态，避免影响性能
+
+    - 日志记录：记录回查日志，方便排查问题
+
+    - 监控告警：监控回查次数，如果频繁回查说明有问题
+
+    对比其他方案： 相比TCC需要实现Try、Confirm、Cancel三个接口，RocketMQ事务消息只需要实现本地事务和回查逻辑，实现简单，侵入性小。但要注意事务消息的吞吐量较低，不适合高并发场景。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    3、你的事务消息回查次数达到了上限，消息被丢弃了，如何处理？
+
+    ⭐⭐⭐（异常处理和数据修复）
+
+    1️⃣ Common Answer 那就去找原因呗，看为什么一直回查失败。如果本地事务成功了，就手动把消息补发一下。或者把消息捞出来重新处理。
+
+    2️⃣ Impressive Answer 事务消息回查次数达到上限被丢弃，说明系统出现了异常，需要系统性排查和数据修复。让我详细说明处理方案：
+
+    第一步：确认本地事务状态
+
+    - 根据消息的Keys（通常是订单ID）查询本地数据库
+
+    - 确认本地事务是否真的执行成功
+
+    - 如果本地事务成功，说明是回查逻辑有问题
+
+    - 如果本地事务失败，说明消息应该被回滚，丢弃是正确的
+
+    第二步：排查回查失败原因
+
+    - 回查逻辑错误：检查checkLocalTransaction方法，是否有bug导致一直返回UNKNOWN
+
+    - 查询超时：回查时查询数据库超时，导致返回UNKNOWN
+
+    - 数据库连接问题：数据库连接池耗尽或网络异常
+
+    - 日志丢失：回查日志未记录，无法定位问题
+
+    第三步：数据修复方案 如果确认本地事务成功但消息被丢弃，需要手动补偿：
+
+    - 手动发送消息：
+
+    // 根据订单ID查询订单信息
+       Order order = orderService.queryByOrderId(orderId);
+       // 手动构建消息并发送
+       Message msg = new Message("OrderTopic", order.toJson());
+       producer.send(msg);
+
+    - 批量修复脚本：
+
+    - 死信队列处理：
+
+    第四步：预防措施
+
+    - 增加回查次数：适当调大transactionCheckMax，给更多重试机会
+
+    - 优化回查逻辑：确保回查方法稳定可靠，避免返回UNKNOWN
+
+    - 增加监控：监控回查次数，超过阈值时告警
+
+    - 定期对账：定期比对订单表和消息表，发现不一致及时修复
+
+    真实案例： 某电商项目在大促期间出现事务消息回查失败，排查发现是数据库连接池耗尽导致回查超时。优化方案：1）增加数据库连接池大小；2）回查逻辑增加缓存；3）增加transactionCheckMax到30次。问题解决后未再出现。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/OKxBw38EbiXvoAksf2jc1fn6nMh
+  block_id: doxcnOlalz2WGsndicyIjDRelhd
+  page_token: OKxBw38EbiXvoAksf2jc1fn6nMh
+  original_title: 3.2 RocketMQ事务消息
+  imported_at: '2026-09-21'

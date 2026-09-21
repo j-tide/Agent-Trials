@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9cc83b8bc58f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3F7️ 在 LangChain 中，如何实现按元数据过滤的检索（例如只检索某个年份的文档）？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F3F7️ 在 LangChain 中，如何实现按元数据过滤的检索（例如只检索某个年份的文档）？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 LangChain 中，实现元数据过滤检索主要依赖向量数据库自身的能力。不同向量数据库的过滤语法不同，但通过 search_kwargs 或 filter 参数传递给检索器即可。
+
+    以 Chroma 为例：
+
+    retriever = vectorstore.as_retriever(
+        search_kwargs={
+            "k": 5,
+            "filter": {"year": 2023}
+        }
+    )
+    # 检索时只会考虑 year=2023 的文档
+
+    Chroma 支持嵌套字段和操作符（如 {"year": {" lte": 2023}}）。
+
+    以 Weaviate 为例：
+
+    retriever = vectorstore.as_retriever(
+        search_kwargs={
+            "k": 5,
+            "where_filter": {
+                "operator": "Equal",
+                "path": ["year"],
+                "valueInt": 2023
+            }
+        }
+    )
+
+    Weaviate 使用 GraphQL 风格的 where 过滤。
+
+    以 FAISS 为例：FAISS 本身不支持元数据过滤，因为它只存向量。要实现过滤，必须在检索后手动筛选，或者使用 LangChain 的 FAISS 封装提供的 similarity_search 方法，传入 filter 函数（但会降低效率）。通常建议换用支持过滤的向量库。
+
+    通用方法：如果你不确定底层向量库，可以自定义一个带过滤的 Retriever 包装器：
+
+    class FilteredRetriever(BaseRetriever):
+        def __init__(self, base_retriever, filter_dict):
+            self.base = base_retriever
+            self.filter_dict = filter_dict
+        def _get_relevant_documents(self, query):
+            docs = self.base.get_relevant_documents(query)
+            return [doc for doc in docs if all(doc.metadata.get(k) == v for k,v in self.filter_dict.items())]
+
+    但这种方式效率较低，最好依赖数据库原生过滤。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TYm8wI1HmiQSuPkpe81c9XYanHb
+  block_id: XLsode3VGoB0ZIxPVu2cv5Uun1d
+  page_token: TYm8wI1HmiQSuPkpe81c9XYanHb
+  original_title: "\U0001F3F7️ 在 LangChain 中，如何实现按元数据过滤的检索（例如只检索某个年份的文档）？"
+  imported_at: '2026-09-21'

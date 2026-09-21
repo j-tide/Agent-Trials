@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5cff636f080a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: RoPE 在推理时如何与 KV Cache 结合？缓存的是旋转后的 K 还是旋转前的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: RoPE 在推理时如何与 KV Cache 结合？缓存的是旋转后的 K 还是旋转前的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在自回归解码时，每步只生成一个新 token，需要计算该 token 的 Q、K、V，并将新 K、V 追加到 KV Cache 中。为了复用缓存的 K，RoPE 对 K 的旋转操作必须与位置相关。
+
+    方案选择：
+
+    - 缓存旋转前的 K，每次使用时重新旋转：缓存的是未加位置编码的原始 K。在每一步，需要根据当前位置为所有缓存的 K 施加 RoPE（因为 K 的旋转角度依赖于其绝对位置）。但这会导致每一步都要对全部缓存进行旋转，计算量巨大，不可取。
+
+    - 缓存旋转后的 K：将已经施加 RoPE 的 K（即 k_rot）直接存入缓存。这样在后续步中直接使用，无需重新旋转。这是标准做法。
+
+    具体实现：
+
+    在推理的每一步，对新 token 计算 Q 和 K，并根据当前 token 的绝对位置分别对 Q 和 K 施加 RoPE，然后将旋转后的 K 追加到 KV Cache。对于 Q，每次只计算当前 token 的 Q，只需旋转当前一个位置。因此 KV Cache 中存储的是已经旋转后的 K 和 V（V 无需旋转）。这样，注意力计算时，Q 和缓存的 K 都是旋转后的，内积自然包含了相对位置信息。
+
+    伪代码：
+
+    ```python
+    # step: 当前步数（从0开始）
+    position = step  # 当前token的绝对位置
+    q = self.q_proj(x)  # 新 token 的 Q
+    k = self.k_proj(x)
+    v = self.v_proj(x)
+    # 施加 RoPE
+    q_rot, k_rot = apply_rotary_pos_emb(q, k, freqs_cis, position)
+    # 更新 cache
+    self.k_cache[:, :, step:step+1] = k_rot
+    self.v_cache[:, :, step:step+1] = v
+    # 取出全部缓存 K, V（形状：B, H, step+1, D）
+    k_all = self.k_cache[:, :, :step+1]
+    v_all = self.v_cache[:, :, :step+1]
+    # 注意力计算
+    attn_output = scaled_dot_product_attention(q_rot, k_all, v_all)
+    ```
+
+    缓存的是旋转后的 K。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VuccwPjSli6dm2kOTxJclpKdnhb
+  block_id: N9imdAG2PoDs7IxdPxLcRJWDnvf
+  page_token: VuccwPjSli6dm2kOTxJclpKdnhb
+  original_title: RoPE 在推理时如何与 KV Cache 结合？缓存的是旋转后的 K 还是旋转前的？
+  imported_at: '2026-09-21'

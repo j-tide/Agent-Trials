@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cdb51ffdc484
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F680 LangServe 部署到生产时，你一般使用什么 ASGI 服务器？（uvicorn, gunicorn 等）"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F680 LangServe 部署到生产时，你一般使用什么 ASGI 服务器？（uvicorn, gunicorn 等）"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangServe 应用本质是 FastAPI，因此所有符合 ASGI 的服务器都能用。我的选择取决于部署环境和并发模型。
+
+    单机部署：
+
+    - Uvicorn：最简单，适合开发和小规模服务。使用 uvicorn.run(app, host="0.0.0.0", port=8000)。但 Uvicorn 默认只有一个 worker，不能充分利用多核 CPU。
+
+    - Gunicorn + UvicornWorker：生产环境最常用。Gunicorn 作为进程管理器，每个 Worker 内嵌一个 Uvicorn 实例。这样既可以利用多核，又可以保持异步高性能。
+
+    ```bash
+    gunicorn app:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+    ```
+
+    - Hypercorn：另一个支持 HTTP/2 的 ASGI 服务器，但社区较小。
+
+    容器化部署（Kubernetes）：
+
+    - 通常直接用 Uvicorn（一个容器一个进程），因为 K8s 本身负责多副本和负载均衡。每个 Pod 运行 uvicorn app:app --host 0.0.0.0 --port 8000。通过 HPA（水平自动伸缩器）根据 CPU/内存或自定义指标扩缩容。
+
+    关键配置：
+
+    - 超时设置：流式请求可能持续时间较长（数十秒），必须调整 Gunicorn/Uvicorn 的超时参数（--timeout 120），否则连接会被过早断开。
+
+    - 并发连接数：Uvicorn 默认的 --limit-max-connections 可根据内存大小适当调高，避免拒绝请求。
+
+    - 资源限制：在 Gunicorn 中设置 --max-requests 和 --max-requests-jitter，定期重启 Worker，防止内存泄漏累积。
+
+    额外建议：如果是面向 Web 客户端的流式服务，强烈建议在 Uvicorn 前面加一层 Nginx，负责 SSL 终端、静态文件、缓存、限流等，保护应用服务器。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K973wYln7iD4oCkYW2acmsT4nke
+  block_id: DZnHdwwTbogFj7xEvcucfalWndd
+  page_token: K973wYln7iD4oCkYW2acmsT4nke
+  original_title: "\U0001F680 LangServe 部署到生产时，你一般使用什么 ASGI 服务器？（uvicorn, gunicorn
+    等）"
+  imported_at: '2026-09-21'

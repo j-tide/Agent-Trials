@@ -1,0 +1,195 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5a2ea7644ec9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 4.1 RabbitMQ架构与Exchange
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 4.1 RabbitMQ架构与Exchange
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### RabbitMQ的核心概念
+
+    1、基础题：RabbitMQ的核心组件有哪些？
+
+    ⭐（Exchange、Queue、Binding、RoutingKey）
+
+    RabbitMQ的核心组件包括：
+
+    - Exchange（交换机）：接收消息并路由到Queue
+
+    - Queue（队列）：存储消息，等待Consumer消费
+
+    - Binding（绑定）：Exchange和Queue的绑定关系
+
+    - RoutingKey（路由键）：消息路由的规则
+
+    2、进阶题：RabbitMQ的Exchange类型有哪些？分别适用于什么场景？
+
+    ⭐⭐（direct、fanout、topic、headers）
+
+    1️⃣ Common Answer 有四种：direct、fanout、topic、headers。direct是精确匹配，fanout是广播，topic是模糊匹配，headers用的少。根据业务需求选就行。
+
+    2️⃣ Impressive Answer RabbitMQ的Exchange类型决定了消息路由的方式，我来详细说明：
+
+    - Direct Exchange（直连交换机）
+
+    - 路由规则：根据RoutingKey精确匹配到绑定的Queue
+
+    - 适用场景：点对点消息，如订单状态更新
+
+    - 示例：订单创建时发送RoutingKey="order.create"，绑定该RoutingKey的Queue接收消息
+
+    - 特点：简单直接，一对一或多对一
+
+    - Fanout Exchange（扇出交换机）
+
+    - 路由规则：忽略RoutingKey，将消息广播到所有绑定的Queue
+
+    - 适用场景：广播消息，如系统通知、日志收集
+
+    - 示例：用户注册成功后，发送消息到Fanout Exchange，通知服务、积分服务、营销服务同时接收
+
+    - 特点：最快速度，一对多广播
+
+    - Topic Exchange（主题交换机）
+
+    - 路由规则：根据RoutingKey模糊匹配，支持*（匹配一个单词）和#（匹配多个单词）
+
+    - 适用场景：多维度路由，如按地区、级别分发消息
+
+    - 示例：
+
+    - 特点：灵活强大，支持复杂路由
+
+    - Headers Exchange（头交换机）
+
+    - 路由规则：根据消息的headers属性匹配，不依赖RoutingKey
+
+    - 适用场景：复杂的多属性匹配，性能较低，使用较少
+
+    - 示例：根据消息的priority和type属性路由
+
+    - 特点：最灵活但性能最差
+
+    选型建议：
+
+    - 简单路由：优先用Direct
+
+    - 广播场景：用Fanout
+
+    - 复杂路由：用Topic
+
+    - 特殊需求：考虑Headers，但要注意性能
+
+    性能对比： Fanout > Direct > Topic > Headers
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    3、场景题：你需要实现一个订单状态变更通知系统，不同状态的订单要发给不同的处理系统，如何设计？
+
+    ⭐⭐⭐（Exchange选型和路由设计）
+
+    1️⃣ Common Answer 用Topic Exchange吧，RoutingKey写成order.状态，比如order.created、order.paid。然后不同的系统绑定不同的RoutingKey，这样就能路由到对应的队列了。
+
+    2️⃣ Impressive Answer 订单状态变更通知是一个典型的多维度路由场景，我会使用Topic Exchange设计灵活的路由方案：
+
+    设计思路： 订单状态有多种（创建、支付、发货、完成、取消），不同状态需要不同的处理逻辑，同时还需要考虑订单类型（普通订单、预售订单）、地区（国内、海外）等维度。
+
+    RoutingKey设计： 采用多级RoutingKey，格式为：order.{status}.{type}.{region}
+
+    - order.created.normal.domestic：国内普通订单创建
+
+    - order.paid.presale.overseas：海外预售订单支付
+
+    - order.shipped.normal.domestic：国内普通订单发货
+
+    Exchange和Queue设计： 使用Topic Exchange，不同系统绑定不同的RoutingKey模式：
+
+    - 库存系统：绑定order.created..，处理所有订单创建
+
+    - 支付系统：绑定order.paid..，处理所有订单支付
+
+    - 物流系统：绑定order.shipped..，处理所有订单发货
+
+    - 客服系统：绑定order.*.*.domestic，处理国内所有订单
+
+    - 风控系统：绑定order.created.presale.*，处理预售订单创建
+
+    代码示例：
+
+    // 发送消息
+    String routingKey = "order." + order.getStatus() + "." + order.getType() + "." + order.getRegion();
+    rabbitTemplate.convertAndSend("orderExchange", routingKey, order);
+
+    // 绑定队列
+    @RabbitListener(bindings = @QueueBinding(
+        value = @Queue("inventoryQueue"),
+        exchange = @Exchange(value = "orderExchange", type = "topic"),
+        key = "order.created.*.*"
+    ))
+    public void handleOrderCreated(Order order) {
+        // 处理订单创建
+    }
+
+    扩展性设计：
+
+    - 新增状态：只需发送新的RoutingKey，无需修改现有绑定
+
+    - 新增系统：添加新的Queue和绑定即可
+
+    - 临时路由：可以临时绑定特殊RoutingKey，如order.*.*.*用于监控
+
+    备选方案： 如果路由规则简单，也可以用Direct Exchange，每种状态一个RoutingKey。但Topic Exchange更灵活，适合未来扩展。
+
+    注意事项：
+
+    - RoutingKey不要过长，影响性能
+
+    - 绑定规则不要太多，增加路由复杂度
+
+    - 监控消息路由情况，及时发现异常
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/OKxBw38EbiXvoAksf2jc1fn6nMh
+  block_id: doxcnhyvWrIdhS7bBE0wcUUxJrh
+  page_token: OKxBw38EbiXvoAksf2jc1fn6nMh
+  original_title: 4.1 RabbitMQ架构与Exchange
+  imported_at: '2026-09-21'

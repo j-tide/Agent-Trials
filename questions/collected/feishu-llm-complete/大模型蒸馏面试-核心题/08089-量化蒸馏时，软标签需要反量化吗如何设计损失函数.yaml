@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3a4941e84955
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 量化蒸馏时，软标签需要反量化吗？如何设计损失函数？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型蒸馏面试-核心题
+derived_topic: 
+tags: &1
+- 大模型蒸馏面试-核心题
+content:
+  prompt: 量化蒸馏时，软标签需要反量化吗？如何设计损失函数？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在量化蒸馏（QAD）中，软标签（教师输出）绝对不需要反量化，而学生的Logits通常也不需要反量化来进行蒸馏损失计算。
+
+    损失函数设计详解：
+
+    - 教师软标签：教师模型在FP32精度下推理，得到Logits。然后，对其应用温度Softmax得到软标签 PtTPtT。这个过程完全在FP32下进行，没有量化，所以不存在反量化。
+
+    - 学生Logits：学生模型在QAT模式下进行前向传播。其输出的Logits（记为 zszs）是经过伪量化节点（FakeQuant）后计算出来的，它在数值上已经模拟了量化后的效果。这个 zszs 的数据类型通常是FP32（因为伪量化操作是在FP32张量上模拟的），但它的数值空间是量化后的、有噪声的。
+
+    - 蒸馏损失计算：
+
+    唯一需要“反量化”的场景：如果你进行的是白盒蒸馏，想要对齐的是学生模型量化后的INT8特征图与教师的FP32特征图。这时，你需要将学生的INT8特征图反量化为FP32，然后再与教师的FP32特征图计算MSE损失。但这个“反量化”操作通常已经由框架或你手动插入的伪量化节点处理了，你在设计损失函数时，直接对收到的FP32张量进行MSE计算即可。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UUO6wYJNKi0JGbk0iV0cLyY1nxe
+  block_id: WQlqdHTSYorae3xiLRZcQspZnfh
+  page_token: UUO6wYJNKi0JGbk0iV0cLyY1nxe
+  original_title: 量化蒸馏时，软标签需要反量化吗？如何设计损失函数？
+  imported_at: '2026-09-21'

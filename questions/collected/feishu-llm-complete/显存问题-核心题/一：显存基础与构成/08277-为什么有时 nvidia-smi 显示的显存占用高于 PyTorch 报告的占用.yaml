@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c26b1eecb4af
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么有时 nvidia-smi 显示的显存占用高于 PyTorch 报告的占用？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 一：显存基础与构成
+tags: &1
+- 显存问题-核心题
+- 一：显存基础与构成
+content:
+  prompt: 为什么有时 nvidia-smi 显示的显存占用高于 PyTorch 报告的占用？
+answer:
+  mode: rubric
+  reference_answer: "这是一个经常被问到的经典问题。原因是两者统计的口径不同：nvidia-smi 显示的是整个 GPU 上由所有进程使用的显存总量，以及
+    CUDA 驱动和上下文占用的显存；而 PyTorch 报告的是该 PyTorch 进程内部实际用于存储张量的显存量。\n\n\U0001F50D 具体差异来源\n\n-
+    PyTorch 缓存分配器（Caching Allocator）预留的空间\nPyTorch 使用缓存分配器管理显存。当张量被释放时，PyTorch 不会立即将显存归还给
+    CUDA 驱动，而是将其标记为“空闲”并留在自己的缓存池中，以便未来快速复用。torch.cuda.memory_allocated() 返回的是当前实际被张量占用的显存，而
+    torch.cuda.memory_reserved() 返回的是分配器持有的全部显存（包括缓存池中的空闲块）。nvidia-smi 看到的是 PyTorch
+    分配器向 CUDA 驱动申请到的全部显存，因此它的数值等于或接近 memory_reserved()，而远大于 memory_allocated()。\n\n-
+    CUDA 上下文和驱动开销\nGPU 上电后，CUDA 驱动本身会占用少量显存（通常在 200–800 MB）。这些包括内核缓存、显存管理数据结构、以及 GPU
+    计算所需的上下文信息。这些开销由整个 GPU 共享，PyTorch 无法感知，也不会将其计入自己的统计。\n\n- 其他 GPU 进程\nnvidia-smi
+    显示的是整个 GPU 上所有进程的显存使用总和。如果系统中有其他程序也在使用 GPU（例如另一个 Python 进程、图形界面、X Server 等），它们占用的显存也会被计入。PyTorch
+    只统计自己进程内部的张量数据。\n\n- 碎片与未归还的显存\n即使 PyTorch 进程结束，如果没有显式调用 cudaFree 或进程未完全终止，部分显存可能不会立即归还给驱动，造成
+    nvidia-smi 显示的已用显存高于 PyTorch 自身的统计。\n\n\U0001F4A1 结论：nvidia-smi 看到的是“总账单”，PyTorch
+    报告的是“实际消费”。缓存分配器的存在使得这两者之间始终存在一个差值。这个差值通常是正常的，不代表显存泄漏，除非 nvidia-smi 的数值持续单向增长且
+    PyTorch 的 memory_allocated() 稳定，那才需要排查是否 CUDA 上下文或其他进程发生了泄漏。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ASR1w4TNSiuI8wk9EFTcEhTunZd
+  block_id: DsiYdpGLOowjVGxRbGccK2E0nIc
+  page_token: ASR1w4TNSiuI8wk9EFTcEhTunZd
+  original_title: 为什么有时 nvidia-smi 显示的显存占用高于 PyTorch 报告的占用？
+  imported_at: '2026-09-21'

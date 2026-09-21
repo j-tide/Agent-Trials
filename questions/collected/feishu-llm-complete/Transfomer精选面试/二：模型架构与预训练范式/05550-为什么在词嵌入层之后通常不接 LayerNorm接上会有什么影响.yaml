@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e695843ce141
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么在词嵌入层之后通常不接 LayerNorm？接上会有什么影响？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 二：模型架构与预训练范式
+tags: &1
+- Transfomer精选面试
+- 二：模型架构与预训练范式
+content:
+  prompt: 为什么在词嵌入层之后通常不接 LayerNorm？接上会有什么影响？
+answer:
+  mode: rubric
+  reference_answer: |-
+    通常不接的原因：
+
+    - 保留嵌入的原始尺度：词嵌入和位置嵌入等是模型学习的基础表示，它们的数值范围和方差在预训练初期通过初始化和训练过程自然地调整。如果立即在嵌入后加 LayerNorm，会强制将嵌入归一化为零均值单位方差，可能破坏预嵌入中携带的语义信息（例如低频词的嵌入模长可能本身就小，归一化会放大它们）。
+
+    - Transformer 层内部已有归一化：Pre-Norm 架构在每个子层前都加 LayerNorm，因此嵌入后的第一层注意力之前就会进行归一化，相当于对嵌入的归一化被放在了第一层注意力之前，无需额外提前。
+
+    - 训练稳定性：在大模型中，嵌入层后的 LayerNorm 有时反而会导致训练不稳定，因为嵌入的梯度被归一化层缩放后，可能导致更大的波动。早期一些实验发现去掉嵌入后的 LayerNorm 有益于训练。
+
+    如果接上 LayerNorm：
+
+    - 强制将嵌入归一化，这可能使得输入表示的分布更平稳，理论上有利于深层训练。实际上有些模型（如某些 ViT 变体、一些轻量模型）也会在嵌入后加 LayerNorm，称为 Pre-Embedding LayerNorm。
+
+    - 但可能会限制表示能力：例如，模型无法通过调整嵌入的模长来编码 token 的频率或重要性，因为归一化把所有 token 的嵌入都拉到同一尺度。这可能导致需要更多层来重新学习这些尺度信息。
+
+    - 在 Pre-Norm Transformer 中，嵌入后不加 LayerNorm 是主流，因为第一层的自注意力之前已经有 LayerNorm 了。
+
+    总结：加不加嵌入后 LayerNorm 取决于具体架构和经验。标准 Transformer（如 GPT、BERT）在嵌入后一般不加；但一些现代模型（如 LLaMA）也采用了 RMSNorm 前置，但实际上首层归一化是包含在 Transformer 块内的，不是单独在嵌入后。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SbTdwOcZ4iLPOwkcuOvcEg8On4b
+  block_id: KKLudJwXgonhmkxStwecLD2nnTc
+  page_token: SbTdwOcZ4iLPOwkcuOvcEg8On4b
+  original_title: 为什么在词嵌入层之后通常不接 LayerNorm？接上会有什么影响？
+  imported_at: '2026-09-21'

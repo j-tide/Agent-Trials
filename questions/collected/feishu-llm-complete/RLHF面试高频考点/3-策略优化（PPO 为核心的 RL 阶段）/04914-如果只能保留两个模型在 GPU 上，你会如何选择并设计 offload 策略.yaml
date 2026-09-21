@@ -1,0 +1,91 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7272101f628f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果只能保留两个模型在 GPU 上，你会如何选择并设计 offload 策略？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: 如果只能保留两个模型在 GPU 上，你会如何选择并设计 offload 策略？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是一个极致的显存优化问题，意味着我们只能在 GPU 显存中驻留两个最核心的模型，其余模型必须通过 Offload 到 CPU 内存甚至 NVMe 硬盘上，以时间换空间。
+
+    选择保留的模型：Actor 和 Critic。
+
+    理由：只有这两个模型需要频繁地进行前向和反向传播以更新参数，是训练的计算核心。将它们驻留在 GPU 上，保证了训练循环（占整个 RLHF 流程 90% 以上的计算量）不受 Offload 的严重影响，保持了尽可能高的训练吞吐。Reference 和 RM 在整个训练过程中只进行少量的推理，计算频率低，可以被 Offload。
+
+    Offload 策略设计：
+
+    - Reference 模型和 Reward Model 的 Offload：
+
+    - 优化器状态的 Offload (ZeRO-Offload)：
+
+    - 检查点与重计算：
+
+    风险与权衡：
+
+    - 大量依赖 CPU Offload 和异步通信，使得系统架构变得复杂，调试困难。CPU 与 GPU 之间的 PCIe 带宽是核心瓶颈。如果模型极大，即使 Offload 也无法实时处理，训练吞吐将显著下降。
+
+    - 我们假设 CPU 推理足够快，对于百亿参数级别的 RM 和 Reference，CPU 推理可能成为瓶颈，需要部署在多个 CPU 核上并进行模型并行，这将增加工程复杂度。
+
+    总结：保留 Actor 和 Critic 在 GPU，Offload Reference 和 RM 到 CPU，并配合 ZeRO-Offload 与异步流水线，是极端显存限制下最可行、对训练吞吐影响最小的方案。
+
+    - Actor 模型：进行一次前向传播（计算新策略的对数概率）和一次反向传播（计算 PPO 损失的梯度，更新参数）。前向传播不需要生成，只需要计算已有 token 的概率，因此比采样阶段快很多。
+
+    - Critic 模型：进行一次前向传播（计算每个 token 的价值 V(s_t)）和一次反向传播（计算价值损失的梯度，更新参数）。
+
+    - 管道并行与异步：将采样和奖励计算放在不同 GPU 上，形成流水线。例如，Actor 在 GPU A 上生成，生成完毕后数据立刻发送到 GPU B 上的 RM/Ref 进行计算，同时 GPU A 立即开始下一个 batch 的采样。这可以隐藏计算延迟。
+
+    - 共享底座与批量推理：将 RM 和 Reference 的部分层与 Actor 共享（如果架构允许），或者将多个序列打包成更大的 batch 进行一次前向传播，提高 GPU 的利用率，摊销延迟。
+
+    - 模型量化与优化：对 RM 和 Reference 进行 INT8 量化或使用 TensorRT 推理加速，减小其计算时间。
+
+    - 在采样阶段，当 Actor 生成完毕一个 batch 的数据后，异步地将数据（token IDs）传输到 CPU 内存。
+
+    - CPU 上部署着完整的 Reference 和 RM 模型（或它们的量化版本）。利用成熟的 CPU 推理框架（如 llama.cpp、ONNX Runtime），让它们在 CPU 上执行前向传播，计算所需的奖励和 KL 惩罚。
+
+    - 计算完成后，将得到的标量和 token 级奖励等小规模数据传回 GPU。
+
+    - 这个过程可以与下一个 batch 的采样重叠，完全隐藏 CPU 推理的延迟。只要 CPU 推理时间小于一个 batch 的生成时间，就不会对总吞吐造成影响。如果 CPU 推理成为瓶颈，可以对 RM 和 Reference 进行 INT8 量化加速。
+
+    - 即使只保留了两个模型，它们的参数、梯度和优化器状态（如 Adam 的动量）仍然可能超出显存。此时，需要采用 ZeRO-Offload 的思想。
+
+    - 将优化器状态和 FP32 的主权重副本 Offload 到 CPU 内存。GPU 上仅保存 FP16（或 BF16）的模型参数和梯度。
+
+    - 在更新时，将 GPU 上的梯度传回 CPU，在 CPU 上完成优化器更新（如 Adam 的动量更新、权重衰减），然后将更新后的 FP16 权重传回 GPU。
+
+    - 这同样可以与 GPU 计算流水线化，用通信和 CPU 计算掩盖延迟。
+
+    - 为了节省训练时激活占用的显存，可以对 Actor 和 Critic 启用激活检查点（gradient checkpointing）。这会增加部分前向计算时间，但能大幅降低显存占用。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UCjewCVubi1tThkQzKzczCP2nyc
+  block_id: FAivdUb2UoijYqxDEwHcdZe0n9d
+  page_token: UCjewCVubi1tThkQzKzczCP2nyc
+  original_title: 如果只能保留两个模型在 GPU 上，你会如何选择并设计 offload 策略？
+  imported_at: '2026-09-21'

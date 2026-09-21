@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9629d0f74702
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 进行离线蒸馏时，存储空间巨大，如何优化？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型蒸馏面试-核心题
+derived_topic: 
+tags: &1
+- 大模型蒸馏面试-核心题
+content:
+  prompt: 进行离线蒸馏时，存储空间巨大，如何优化？
+answer:
+  mode: rubric
+  reference_answer: |-
+    面对离线存储空间爆炸的问题，可以通过以下策略进行优化：
+
+    - 存储Top-K Logits：对于大词表模型（如LLM），教师预测的绝大部分概率都集中在少数词上。我们没有必要存储整个词表的概率分布。只保存教师概率最高的 Top-K 个（如K=8或16）词的ID及其对应概率。在计算蒸馏损失时，将未保存的词的概率置为一个极小值（如0），并在学生端进行相应处理。这能将存储空间压缩几个数量级。
+
+    - 存储软标签而不是Logits：Logits是未归一化的实数，范围不确定。而通过Softmax和高T生成的软标签是一个和为1的概率分布，数值范围在[0,1]之间。使用半精度浮点数（FP16）或甚至更低精度的格式存储这些概率值，可以节省一半甚至更多的空间。
+
+    - 压缩与序列化：使用高效的压缩算法（如Zstandard、LZ4）对存储的文件进行实时压缩。使用高效的序列化格式（如numpy的.npz格式、HuggingFace Datasets的Arrow格式，而不是Python原生的pickle）也能显著减小体积。
+
+    - 选择性地存储：只对复杂、困难、长尾的指令存储软标签。对于简单的指令，直接使用硬标签训练。这可以大幅减少存储量，同时保证在关键数据上的蒸馏效果。
+
+    - 仅存储关键层的特征：如果进行特征蒸馏，不需要存储所有层。只存储教师最后几层的特征图，进行轻量级的离线特征蒸馏。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HgUfwaznAiYDsakz5oRckIO5nLJ
+  block_id: QZ1Gdgy7rofWV9x4pz8ctATpnTP
+  page_token: HgUfwaznAiYDsakz5oRckIO5nLJ
+  original_title: 进行离线蒸馏时，存储空间巨大，如何优化？
+  imported_at: '2026-09-21'

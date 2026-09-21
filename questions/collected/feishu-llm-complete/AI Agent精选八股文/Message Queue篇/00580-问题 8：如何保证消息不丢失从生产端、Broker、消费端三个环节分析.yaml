@@ -1,0 +1,161 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c0af1bafb61d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 问题 8：如何保证消息不丢失？从生产端、Broker、消费端三个环节分析
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 问题 8：如何保证消息不丢失？从生产端、Broker、消费端三个环节分析
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度：⭐⭐⭐（消息可靠性、ACK机制、持久化、事务消息）
+
+    1️⃣ Common Answer
+
+    开启持久化、手动 ACK 就行了。生产端设置重试，Broker 开启刷盘，消费端确认后再提交 offset。
+
+    2️⃣ Impressive Answer
+
+    我会从这几个角度思考：全链路风险分析、生产端保障机制、Broker 可靠性配置、消费端幂等设计、Kafka/RocketMQ 实战配置。
+
+    - 全链路风险分析
+
+    ```text
+    Producer → Broker → Consumer
+       ↓         ↓          ↓
+     网络抖动   磁盘故障    消费失败
+     重试失败   副本丢失    ACK 超时
+    ```
+
+    每个环节都可能丢消息，需要层层防护。
+
+    - 生产端保障
+
+    - 同步发送：future.get() 确保消息到达 Broker
+
+    - 重试机制：配置 retries=3，指数退避避免雪崩
+
+    - 事务消息：RocketMQ 事务消息，本地事务 + 消息发送原子性
+
+    ```text
+    // Kafka 生产端配置
+    Properties props = new Properties();
+    props.put("acks", "all");  // 等待所有副本确认
+    props.put("retries", 3);
+    props.put("enable.idempotence", true);  // 开启幂等
+
+    // RocketMQ 事务消息
+    TransactionMQProducer producer = new TransactionMQProducer("group");
+    producer.setTransactionListener(new TransactionListener() {
+        @Override
+        public LocalTransactionState executeLocalTransaction(Message msg, Object arg) {
+            // 执行本地事务
+            return success ? LocalTransactionState.COMMIT_MESSAGE : LocalTransactionState.ROLLBACK_MESSAGE;
+        }
+    });
+    ```
+
+    - Broker 保障
+
+    [嵌入表格未展开]
+
+    - 消费端保障
+
+    - 手动 ACK：消费成功后再提交 offset
+
+    - 幂等消费：业务层去重（后续章节详述）
+
+    - 消费位移管理：enable.auto.commit=false
+
+    ```text
+    // Kafka 消费端手动提交
+    props.put("enable.auto.commit", "false");
+    while (true) {
+        ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+        for (ConsumerRecord<String, String> record : records) {
+            process(record);  // 业务处理
+        }
+        consumer.commitSync();  // 手动提交
+    }
+
+    // RocketMQ 手动 ACK
+    MessageListenerConcurrently listener = (msgs, context) -> {
+        for (MessageExt msg : msgs) {
+            processMessage(msg);
+        }
+        return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;  // 确认消费
+    };
+    ```
+
+    - 实战配置组合拳
+
+    Kafka 高可靠性配置：
+
+    ```text
+    # 生产端
+    acks=all
+    retries=3
+    enable.idempotence=true
+
+    # Broker 端
+    min.insync.replicas=2
+    num.replica.fetchers=2
+    log.flush.interval.messages=1
+
+    # 消费端
+    enable.auto.commit=false
+    auto.offset.reset=earliest
+    ```
+
+    RocketMQ 高可靠性配置：
+
+    ```text
+    # Broker 端
+    flushDiskType=SYNC_FLUSH
+    brokerRole=SYNC_MASTER
+    defaultTopicQueueNums=8
+
+    # 消费端
+    consumeThreadMin=20
+    consumeThreadMax=64
+    ```
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    ### 6.9 消息幂等性设计
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcnGOW1IamlVE14qJmsiHCchd
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: 问题 8：如何保证消息不丢失？从生产端、Broker、消费端三个环节分析
+  imported_at: '2026-09-21'

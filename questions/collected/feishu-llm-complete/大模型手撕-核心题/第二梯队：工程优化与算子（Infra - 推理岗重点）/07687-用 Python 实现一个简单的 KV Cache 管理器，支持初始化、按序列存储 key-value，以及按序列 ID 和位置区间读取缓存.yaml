@@ -1,0 +1,144 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c3c086e1b4aa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 用 Python 实现一个简单的 KV Cache 管理器，支持初始化、按序列存储 key/value，以及按序列 ID 和位置区间读取缓存。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 用 Python 实现一个简单的 KV Cache 管理器，支持初始化、按序列存储 key/value，以及按序列 ID 和位置区间读取缓存。
+answer:
+  mode: rubric
+  reference_answer: |-
+    2.1 设计目标
+
+    我们需要一个能够管理多个序列、支持多层注意力的 KV Cache 管理器。它应具备：
+
+    - 按层、按序列存储 K 和 V。
+
+    - 支持追加写入（decode 阶段）和区间读取（prefill 后获取全部、decode 时读取历史）。
+
+    - 高效的内存管理，避免频繁分配。
+
+    2.2 基于字典的简单实现
+
+    ```python
+    import torch
+    from typing import Dict, Tuple, Optional
+
+    class SimpleKVCache:
+        def __init__(self):
+            # 存储结构: self.cache[layer_idx][seq_id] = (K_tensor, V_tensor)
+            self.cache: Dict[int, Dict[int, Tuple[torch.Tensor, torch.Tensor]]] = {}
+
+        def init_sequence(self, layer_idx: int, seq_id: int, k: torch.Tensor, v: torch.Tensor):
+            """初始化或覆盖某序列在某层的 KV。k/v 形状 [num_heads, seq_len, head_dim]"""
+            if layer_idx not in self.cache:
+                self.cache[layer_idx] = {}
+            self.cache[layer_idx][seq_id] = (k, v)
+
+        def append(self, layer_idx: int, seq_id: int, new_k: torch.Tensor, new_v: torch.Tensor):
+            """追加单个 token 的 KV。new_k 形状 [num_heads, 1, head_dim]"""
+            if layer_idx not in self.cache or seq_id not in self.cache[layer_idx]:
+                # 如果不存在则初始化
+                self.init_sequence(layer_idx, seq_id, new_k, new_v)
+                return
+            k, v = self.cache[layer_idx][seq_id]
+            self.cache[layer_idx][seq_id] = (
+                torch.cat([k, new_k], dim=1),
+                torch.cat([v, new_v], dim=1)
+            )
+
+        def get(self, layer_idx: int, seq_id: int, start: int = 0, end: Optional[int] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+            """读取区间 [start, end) 的 KV。若 end 为 None，则读到末尾。"""
+            k, v = self.cache[layer_idx][seq_id]
+            if end is None:
+                end = k.size(1)
+            return k[:, start:end, :], v[:, start:end, :]
+
+        def get_sequence_length(self, layer_idx: int, seq_id: int) -> int:
+            return self.cache[layer_idx][seq_id][0].size(1)
+
+        def remove_sequence(self, layer_idx: int, seq_id: int):
+            if layer_idx in self.cache and seq_id in self.cache[layer_idx]:
+                del self.cache[layer_idx][seq_id]
+    ```
+
+    2.3 使用 PyTorch 张量池的优化实现
+
+    频繁的 torch.cat 会导致内存碎片和性能下降。实际系统中常预分配一块大的张量作为缓存池，然后通过索引写入。例如，为每层分配一个 [max_batch_size, max_seq_len, num_heads, head_dim] 的 K 和 V 张量，然后按序列 ID 写入。
+
+    ```python
+    class PreallocKVCache:
+        def __init__(self, num_layers, max_batch, max_seq_len, num_heads, head_dim):
+            self.num_layers = num_layers
+            # 为每层预分配 K 和 V 张量
+            self.k = torch.zeros(num_layers, max_batch, num_heads, max_seq_len, head_dim, dtype=torch.float16)
+            self.v = torch.zeros_like(self.k)
+            self.seq_len = torch.zeros(max_batch, dtype=torch.long)  # 每个batch槽的当前长度
+            self.seq_to_slot = {}  # seq_id -> batch_slot
+
+        def register_seq(self, seq_id: int) -> int:
+            """为新序列分配一个batch槽位"""
+            slot = len(self.seq_to_slot)
+            self.seq_to_slot[seq_id] = slot
+            return slot
+
+        def store_prefill(self, layer_idx: int, seq_id: int, k: torch.Tensor, v: torch.Tensor):
+            """prefill 时写入整个 prompt 的 KV"""
+            slot = self.seq_to_slot[seq_id]
+            L = k.size(2)  # k shape: [1, heads, L, D]
+            self.k[layer_idx, slot, :, :L] = k[0]
+            self.v[layer_idx, slot, :, :L] = v[0]
+            self.seq_len[slot] = L
+
+        def append_decode(self, layer_idx: int, seq_id: int, new_k: torch.Tensor, new_v: torch.Tensor):
+            """decode 时追加一个 token"""
+            slot = self.seq_to_slot[seq_id]
+            cur_len = self.seq_len[slot]
+            self.k[layer_idx, slot, :, cur_len:cur_len+1] = new_k[0]
+            self.v[layer_idx, slot, :, cur_len:cur_len+1] = new_v[0]
+            self.seq_len[slot] += 1
+    ```
+
+    这种预分配方案避免了动态分配，且在 GPU 上直接操作，效率极高，但需要预先设定最大 batch 和最大长度。
+
+    2.4 对比与选择
+
+    - 简单字典：灵活性高，适合原型验证。
+
+    - 预分配张量：性能高，适合生产环境，类似 ONNX Runtime 的 IOBinding。
+
+    - PagedAttention：终极方案，通过分页管理消除预分配浪费，vLLM 的核心。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IhgfwCPtoif3TWkyezuc4sW9nbg
+  block_id: SHP4dA5jhov6ZCxhEJccvSrZnfh
+  page_token: IhgfwCPtoif3TWkyezuc4sW9nbg
+  original_title: 用 Python 实现一个简单的 KV Cache 管理器，支持初始化、按序列存储 key/value，以及按序列 ID 和位置区间读取缓存。
+  imported_at: '2026-09-21'

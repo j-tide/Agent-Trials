@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5d821f2dc6ce
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在分布式训练中，如何处理变长数据的padding和对齐？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 在分布式训练中，如何处理变长数据的padding和对齐？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在分布式训练中，当使用DistributedSampler时，每个进程获得的是数据集的互不重叠子集。这些子集内部的样本长度仍然是变长的。处理变长序列的方法与单机训练类似，但需要注意分布式环境下的负载均衡和效率。
+
+    处理方法：
+
+    - 动态填充（Dynamic Padding）：在每个batch内，将序列填充到该batch中最大长度，而不是整个数据集的最大长度。这通过自定义collate_fn实现。
+
+    ```python
+    def collate_fn(batch):
+        inputs, labels = zip(*batch)
+        # 填充到batch内最大长度
+        padded_inputs = torch.nn.utils.rnn.pad_sequence(inputs, batch_first=True, padding_value=0)
+        labels = torch.tensor(labels)
+        return padded_inputs, labels
+    ```
+
+    在DDP中，每个进程独立完成自己batch内的填充，无需跨进程通信。
+
+    - 序列打包（Packing）：将多个短序列拼接成一个长序列，并生成对应的attention_mask（分块对角掩码）。这可以在collate_fn中实现，也可以预先离线打包。打包后序列长度统一，提高了GPU利用率，且不需要padding。但需要正确处理attention_mask以隔离不同样本。
+
+    - 长度分桶（Length Bucketing）：在构建Sampler时，将长度相近的样本放入同一个batch，减少填充量。可以自定义BatchSampler，根据样本长度排序后分批。在分布式环境下，可以在每个进程内独立进行分桶，或者先在各进程内排序再采样。
+
+    - 负载均衡考虑：由于每个进程获取的数据子集是随机划分的，可能会出现某个进程的batch平均长度显著大于其他进程的情况，导致该进程计算变慢，成为“掉队者”（straggler）。为缓解此问题，可以在DistributedSampler中使用shuffle=True，或者采用更精细的数据划分策略（如基于长度进行全局排序后再分配）。
+
+    对齐要求：对于某些模型架构（如需要pack_padded_sequence的RNN），需要按长度降序排列序列，并在collate_fn中同时返回排序索引和实际长度。现代Transformer通常使用attention_mask来忽略填充位置，对齐要求较低。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KwdbwAt6ziL8zKkU7VMcVNEin8d
+  block_id: KVSrd66AnoueHkxZycMc6dGUnBh
+  page_token: KwdbwAt6ziL8zKkU7VMcVNEin8d
+  original_title: 在分布式训练中，如何处理变长数据的padding和对齐？
+  imported_at: '2026-09-21'

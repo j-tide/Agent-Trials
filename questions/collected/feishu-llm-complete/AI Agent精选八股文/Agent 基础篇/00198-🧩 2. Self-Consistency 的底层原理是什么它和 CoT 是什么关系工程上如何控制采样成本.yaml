@@ -1,0 +1,91 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6e6ac8e71706
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 2. Self-Consistency 的底层原理是什么？它和 CoT 是什么关系？工程上如何控制采样成本？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F9E9 2. Self-Consistency 的底层原理是什么？它和 CoT 是什么关系？工程上如何控制采样成本？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    2.1 底层原理：边缘化随机误差
+
+    从概率视角看，给定问题 xx，模型采样一条推理链 riri 和最终答案 aiai 的过程可以视为从条件分布 P(r,a∣x)P(r,a∣x) 中抽样。单次 CoT 就是取一个样本，其正确率受限于模型对该问题的“一次答对概率”。
+
+    Self-Consistency 则通过对答案做边缘化：
+
+    [图片内容未导入]
+
+    实际中我们无法遍历所有 rr，就用蒙特卡洛采样近似，用投票（多数/加权）来估计最可能的 aa。这背后的假设是：正确推理虽然路径多样，但往往收敛到同一正确答案；错误推理则各错各的，分散在不同的错误答案上。
+
+    因此，只要模型单次正确率不是太低（比如 >30%），多次采样就能让正确选项的概率被显著放大。
+
+    2.2 和 CoT 的关系：CoT 是“单次慢思考”，Self-Consistency 是“多次慢思考取共识”
+
+    - CoT 解决的是“模型愿不愿意想”的问题——把单步生成扩展为多步推理链。
+
+    - Self-Consistency 解决的是“想一次可能想歪”的问题——想多次，取最稳妥的那个结论。
+
+    没有 CoT，采样出的可能是直接猜的答案，没有推理过程，无法做一致性比较。因此 Self-Consistency 必须建立在 CoT 之上。两者组合成为推理增强的经典范式：CoT + 采样 + 投票。
+
+    2.3 工程成本控制：不能无脑采 50 条
+
+    多轮采样会直接让 Token 成本翻 N 倍。控制成本的三种常见方法：
+
+    ① 固定少量采样 + 早停
+
+    设一个最大采样数（如 5 或 7），当某个答案出现次数达到阈值（如 3/5）就提前停止。
+
+    def self_consistency(problem, max_samples=7, confidence_threshold=0.6):
+        answers = []
+        for i in range(max_samples):
+            cot = llm(problem, temperature=0.7)  # 用非零温度产生多样性
+            ans = extract_final_answer(cot)
+            answers.append(ans)
+            # 检查是否已可提前结束
+            counter = Counter(answers)
+            if counter.most_common(1)[0][1] >= confidence_threshold * len(answers):
+                break
+        return Counter(answers).most_common(1)[0][0]
+
+    ② 自适应采样：简单题少采，难题多采
+
+    先用一个轻量级的一致性检查：如果前 3 次答案完全一致，直接返回；如果高度分歧，再追加采样到 10 次。可配合模型的平均 token 置信度判断难易。
+
+    ③ 用更小/更便宜的模型做验证
+
+    采样时用较小的模型产生候选推理链，再用大模型对不一致的候选做校验，这样既保持质量又降低大模型调用次数。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcnffQsOUQHCX82aiafmWWmxf
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: "\U0001F9E9 2. Self-Consistency 的底层原理是什么？它和 CoT 是什么关系？工程上如何控制采样成本？"
+  imported_at: '2026-09-21'

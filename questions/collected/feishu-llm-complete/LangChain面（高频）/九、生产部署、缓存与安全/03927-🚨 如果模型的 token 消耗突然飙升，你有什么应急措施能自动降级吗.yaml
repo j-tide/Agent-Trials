@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3d3d10ae70f8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6A8 如果模型的 token 消耗突然飙升，你有什么应急措施？能自动降级吗？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F6A8 如果模型的 token 消耗突然飙升，你有什么应急措施？能自动降级吗？"
+answer:
+  mode: rubric
+  reference_answer: "Token 消耗飙升可能由多种原因引起：恶意攻击、业务流量激增、Agent 死循环、Prompt 设计缺陷等。应急措施应该分层次，并尽可能自动化。\n\n\U0001F6E1️
+    第一层：自动熔断与限流\n\n- 实时监控阈值告警：在 Prometheus 或 Datadog 上设置规则，例如“每分钟总 Token 消耗超过 X”或“单个用户
+    5 分钟内消耗超过 Y”，一旦触发，通过 PagerDuty 通知。\n\n- 自动限流：当检测到超限时，自动调低 API 网关的速率限制阈值，或者增加 Token
+    Bucket 的填充间隔，强行压制请求量。这可以由一个自动扩容/缩容的控制器完成。\n\n\U0001F501 第二层：降级策略\n\n- 模型降级：当 GPT-4
+    消耗过高时，自动将部分或全部请求切换到 GPT-4 Turbo 或 GPT-3.5。可以在代码中预定义降级链，当高优先级模型的调用失败或超预算时，自动 fallback。\n\n-
+    功能降级：对于非关键功能（如生成个性化签名、复杂摘要），在预算紧张时直接返回默认值或简化版本，跳过 LLM 调用。\n\n- 拒绝服务：对于超出配额的免费用户，直接返回“服务繁忙，请稍后再试”或提示升级套餐。\n\n\U0001F50D
+    第三层：快速定位与止损\n\n- 实时查询异常来源：通过日志中的 user_id、ip、user_agent 等，快速找出消耗异常的来源。可能是某个用户的脚本失控，或是某个
+    Agent 陷入循环。临时封禁该用户或禁用特定工具。\n\n- 热更新配置：如果问题出在 Prompt 长度，可以通过配置中心动态调整 Prompt 模板，减少上下文长度，无需重启服务。\n\n\U0001F916
+    第四层：自动化响应（自愈）\n\n- 基于规则引擎：当检测到 5 分钟内 Token 消耗增长 200% 且平均 Prompt 长度异常增长，自动将系统切换到“节能模式”——对所有请求强制使用短回复
+    Prompt 并切换到小模型，同时通知开发团队。\n\n- 回滚部署：如果飙升与最近一次发布相关，自动触发回滚到上一个稳定版本。\n\n实践案例：我们一个线上
+    Agent 曾因为网页抓取工具返回了极长的 HTML 内容（未正确提取正文），导致 Prompt 膨胀，单次 Token 消耗暴增。监控系统在 3 分钟内发出告警，我们通过日志定位到异常的工具调用，立即在工具函数内部添加了文本截断逻辑（限制最大返回长度），并重启了服务。之后我们增加了“单次
+    Prompt 最大 token 数”的硬限制，超过阈值直接截断并告警。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WzEDwedwxiXAD4kdXdjcKjdQnCe
+  block_id: SpFAddj3toazsexEAc1cQ120nzc
+  page_token: WzEDwedwxiXAD4kdXdjcKjdQnCe
+  original_title: "\U0001F6A8 如果模型的 token 消耗突然飙升，你有什么应急措施？能自动降级吗？"
+  imported_at: '2026-09-21'

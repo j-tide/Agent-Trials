@@ -1,0 +1,88 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6a72cafbe0fa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 自我蒸馏中，如何防止模型退化或模式崩塌？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型蒸馏面试-核心题
+derived_topic: 
+tags: &1
+- 大模型蒸馏面试-核心题
+content:
+  prompt: 自我蒸馏中，如何防止模型退化或模式崩塌？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在自我蒸馏中，如果只用模型自己的输出作为目标反复训练，容易造成模型退化（输出质量下降、多样性丢失）或模式坍塌（仅生成高概率常见模式）。防止策略如下：
+
+    （1）保留真实数据信号
+
+    - 混合训练：永远不要完全抛弃原始监督信号（真实标签或人类数据）。即使在自我蒸馏循环中，每一轮训练都将真实数据与生成数据混合，维持对真实分布的锚定。
+
+    - 真实数据作为“硬教师”：同时最小化对真实目标的负对数似然（NLL）和蒸馏损失，使用加权组合 αLGT+(1−α)LdistillαLGT+(1−α)Ldistill。
+
+    （2）温度和平滑处理
+
+    - 在生成软标签时使用较高的温度 TT，使学生模型学到更平滑的类别间关系，避免过度锐化少数类别而抑制其他合理输出。
+
+    - 对自生成样本的标签实施标签平滑，防止过于自信的目标导致误差放大。
+
+    （3）维护历史参考/滑动平均教师
+
+    - EMA 教师：不直接用最新学生模型作为教师，而是用参数指数滑动平均的副本，它产生更稳定、噪声更小的软目标，防止正反馈震荡。
+
+    - 多代集成：保留过去几代模型的集合进行投票或加权平均，产生软标签，相当于教师的知识具有历史一致性，避免单代偏差。
+
+    （4）正则化与多样性约束
+
+    - 置信度惩罚：对生成分布的熵施加最小熵约束或惩罚过低的熵，强制维持输出多样性。
+
+    - 对比损失/负样本：如 SPIN 那样引入负例信号，避免模型单纯压缩到少数模式。
+
+    - 辅助损失：例如在自蒸馏中加入 KL 散度反向约束，不让学生远离初始模型太远（类似 trust region 思想，如 PPO 中的 KL 惩罚）。
+
+    （5）数据层面的多样性增强
+
+    - 对 prompt 进行改写、回译等增广，保证生成样本的来源分布广泛。
+
+    - 使用 Top-k / Top-p 采样，甚至故意引入温度随机性，保障生成样本覆盖长尾。
+
+    （6）早停和迭代控制
+
+    - 监控验证集上的多样性和质量指标（如 self-BLEU、distinct-n），当多样性骤降或困惑度异常时停止自蒸馏循环。
+
+    - 限制迭代轮次，多数研究（如 Born-Again Networks）发现两到三代自蒸馏就能收敛增益，再继续可能退化。
+
+    （7）引入外部弱监督
+
+    - 即便在自蒸馏框架下，也能利用规则、代码执行结果、检索文本等外部信号筛选生成样本，防止错误模式固化。
+
+    这些策略结合使用，可确保自蒸馏的正则化效应大于误差累积效应，从而稳定提升而不退化。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QL86wYWUwi6Ho0kQFiacbXeSnqE
+  block_id: UzWGdUAwWowdGHxubT4c2u56nFg
+  page_token: QL86wYWUwi6Ho0kQFiacbXeSnqE
+  original_title: 自我蒸馏中，如何防止模型退化或模式崩塌？
+  imported_at: '2026-09-21'

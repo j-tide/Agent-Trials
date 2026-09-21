@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-db387c5644d3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个“温度采样”数据采样器，用于平衡不同任务的数据量。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 实现一个“温度采样”数据采样器，用于平衡不同任务的数据量。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    import numpy as np
+    from torch.utils.data import Sampler
+    from collections import Counter
+
+    class TemperatureSampler(Sampler):
+        def __init__(self, dataset, task_labels: list, temperature: float = 0.5):
+            self.dataset = dataset
+            self.task_labels = task_labels
+            self.task_counts = Counter(task_labels)
+            self.temperature = temperature
+            self.task_probs = self._compute_probs()
+
+        def _compute_probs(self):
+            counts = np.array([self.task_counts[t] for t in sorted(self.task_counts.keys())])
+            probs = counts ** self.temperature
+            probs = probs / probs.sum()
+            return probs
+
+        def __iter__(self):
+            # 根据每个任务的概率，随机采样任务，再从该任务中均匀采样一个样本
+            tasks = sorted(self.task_counts.keys())
+            task_ids = np.arange(len(tasks))
+            while True:
+                chosen_task = np.random.choice(task_ids, p=self.task_probs)
+                # 获取该任务的所有样本索引
+                indices = [i for i, t in enumerate(self.task_labels) if t == tasks[chosen_task]]
+                yield np.random.choice(indices)
+
+        def __len__(self):
+            # 无法确定精确长度，返回估计值
+            return len(self.dataset)
+    ```
+
+    使用时将 task_labels 传入，可自动平衡高频和低频任务。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: P2GedFMiLoD9VpxCYhAcXcX5ngZ
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: 实现一个“温度采样”数据采样器，用于平衡不同任务的数据量。
+  imported_at: '2026-09-21'

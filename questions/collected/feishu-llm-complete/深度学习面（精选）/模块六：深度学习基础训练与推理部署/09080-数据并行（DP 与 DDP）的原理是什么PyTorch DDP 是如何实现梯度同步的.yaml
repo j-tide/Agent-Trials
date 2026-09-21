@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9ae4780e014e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 数据并行（DP 与 DDP）的原理是什么？PyTorch DDP 是如何实现梯度同步的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块六：深度学习基础训练与推理部署
+tags: &1
+- 深度学习面（精选）
+- 模块六：深度学习基础训练与推理部署
+content:
+  prompt: 数据并行（DP 与 DDP）的原理是什么？PyTorch DDP 是如何实现梯度同步的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    [图片内容未导入]
+
+    [图片内容未导入]
+
+    数据并行（Data Parallelism） 是最常用的分布式训练策略，其核心思想是将一个 batch 的数据分割成多个 micro-batch，分别在多个设备（GPU）上各自持有一份完整的模型副本，独立完成前向传播和反向传播得到梯度，然后将所有设备上的梯度进行汇总平均，用平均梯度更新每个副本的模型参数，从而保持所有副本的一致性。
+
+    DP（DataParallel，单机多卡）
+
+    - PyTorch 的 nn.DataParallel 是一种单进程多线程的实现。
+
+    - 工作流程：主 GPU（通常为 GPU0）将 batch 切分并广播给其他 GPU；所有 GPU 完成前向计算；各 GPU 的输出 gather 到主 GPU 计算损失；损失广播到各 GPU 进行反向传播；各 GPU 的梯度在主 GPU 上进行求和（reduce），然后更新主 GPU 的参数，再将参数广播给其他 GPU。
+
+    - 缺点：主 GPU 负载不均衡（需聚合输出、损失、梯度，再广播参数），通信效率低；Python 全局解释器锁（GIL）限制多线程性能；仅支持单机。
+
+    DDP（DistributedDataParallel，多机多卡）
+
+    - 采用多进程机制，每个 GPU 由一个独立进程控制，避免了 GIL。
+
+    - 模型副本：每个进程初始化相同的模型，加载相同的初始参数。
+
+    - 前向与反向：每个进程独立执行前向和反向，获得各自 local batch 上的梯度。
+
+    - 梯度同步：通过AllReduce通信原语，将各进程的梯度进行求和（或平均），使所有进程获得完全相同的平均梯度。同步发生在每次反向传播计算出所有梯度之后、优化器 step 之前。
+
+    - 参数更新：每个进程用相同的平均梯度更新自己的模型，保证所有副本在每次迭代后参数严格一致。
+
+    - DDP 还提供了 gradient_as_bucket_view 和通信与计算 overlap 的优化：将梯度分桶，一旦某个桶内的梯度全部计算完毕，立即启动该桶的 AllReduce，同时继续计算其他层的梯度，从而隐藏通信时间。
+
+    梯度同步实现（AllReduce）
+    DDP 使用 NCCL 后端的 AllReduce 操作，支持多种算法（如 Ring AllReduce、Tree AllReduce）。它对所有参数的梯度张量进行规约（默认求和），然后除以进程数实现平均。DDP 通过 Reducer 机制在 autograd 梯度产生时就异步触发通信，实现高效同步。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ChO2w20yAiZl9Zko9tUc2plKnwe
+  block_id: NUqbdtykgoX26Dx0T4HcnVM9nIg
+  page_token: ChO2w20yAiZl9Zko9tUc2plKnwe
+  original_title: 数据并行（DP 与 DDP）的原理是什么？PyTorch DDP 是如何实现梯度同步的？
+  imported_at: '2026-09-21'

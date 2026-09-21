@@ -1,0 +1,119 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7a0514f4bf97
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 整合核心功能，写出一个简洁的 BPE 分词器完整训练和推理的伪代码，包含训练（含词频统计、bigram 合并）、保存模型、编码、解码的全部流程
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 整合核心功能，写出一个简洁的 BPE 分词器完整训练和推理的伪代码，包含训练（含词频统计、bigram 合并）、保存模型、编码、解码的全部流程
+answer:
+  mode: rubric
+  reference_answer: "综合前面的所有要素，下面给出一个完整的 BPE 分词器伪代码，采用 Byte-Level（解决 OOV）并支持特殊 token、词汇表大小上限、保存和加载模型。\n\n完整流程伪代码：\n\n```text\n类
+    BPETokenizer:\n    def __init__(self, vocab_size=30000, special_tokens=[]):\n
+    \       self.vocab_size = vocab_size\n        self.special_tokens = special_tokens
+    \ # e.g., [\"[PAD]\",\"[UNK]\",\"[CLS]\",\"[SEP]\"]\n        self.end_id = 256\n
+    \       self.merges = []  # [(a_id, b_id, new_id), ...]\n        self.id_to_bytes
+    = {}  # id -> bytes\n        self.token_to_id = {}  # string/int token -> final
+    model id\n        self.id_to_token = {}\n    \n    def train(self, text_iterable):\n
+    \       # 1. 词频统计（分批）\n        word_freq = Counter()\n        for text_chunk in
+    text_iterable:\n            words = text_chunk.split()\n            word_freq.update(words)\n
+    \       \n        # 2. 加入特殊 token 频率（保证存在）\n        for sp in self.special_tokens:\n
+    \           if sp not in word_freq:\n                word_freq[sp] = 0\n        \n
+    \       # 3. Byte-Level 初始化\n        word_symbols = []  # [(id_seq, freq)]\n        pair_to_indices
+    = defaultdict(set)\n        bigram_freq = Counter()\n        for i in range(256):\n
+    \           self.id_to_bytes[i] = bytes([i])\n        \n        for word, freq
+    in word_freq.items():\n            if word in self.special_tokens:\n                #
+    特殊 token：分配新 ID，作为一个整体，不加结束符\n                new_id = len(self.id_to_bytes)\n
+    \               self.id_to_bytes[new_id] = word.encode('utf-8')\n                seq
+    = [new_id]  # 不加结束符\n            else:\n                byte_seq = list(word.encode('utf-8'))
+    + [self.end_id]\n                seq = byte_seq\n            word_symbols.append([seq,
+    freq])\n            # 更新 bigram 频率和索引\n            for i in range(len(seq)-1):\n
+    \               pair = (seq[i], seq[i+1])\n                bigram_freq[pair] +=
+    freq\n                pair_to_indices[pair].add(len(word_symbols)-1)\n        \n
+    \       # 4. 建立堆\n        heap = []\n        for pair, f in bigram_freq.items():\n
+    \           heapq.heappush(heap, (-f, pair))\n        \n        next_id = len(self.id_to_bytes)\n
+    \       num_merges = self.vocab_size - next_id\n        if num_merges < 0: num_merges
+    = 0\n        \n        # 5. 合并循环\n        for step in range(num_merges):\n            #
+    获取有效最佳 pair\n            best_pair = None\n            while heap:\n                neg_f,
+    pair = heapq.heappop(heap)\n                if bigram_freq.get(pair, 0) == -neg_f:\n
+    \                   best_pair = pair\n                    break\n            if
+    best_pair is None:\n                break\n            \n            a, b = best_pair\n
+    \           new_id = next_id\n            next_id += 1\n            self.merges.append((a,
+    b, new_id))\n            self.id_to_bytes[new_id] = self.id_to_bytes[a] + self.id_to_bytes[b]\n
+    \           \n            # 更新受影响单词的 bigram 统计（同前详述，此处简写）\n            update_affected_words(word_symbols,
+    best_pair, new_id, bigram_freq, pair_to_indices, heap)\n        \n        # 6.
+    构建最终 token -> id 映射\n        # 我们已经有 self.id_to_bytes (id->bytes)，可将其映射为 token
+    字符串\n        # 为方便使用，构建 token_to_id 字典（以 bytes 的字符串表示或保留原 ID）\n        # 如果直接使用
+    ID 作为模型输入，则 token_to_id 为 id -> id\n        for id_ in range(next_id):\n            #
+    将字节解码为字符串（可能包含不可打印字符，用特殊表示）\n            # 简单做法：token 就是该 ID 对应的字节串，但用作字符串可能含乱码\n
+    \           # 在推理时，我们直接使用 ID 列表，不必转为字符串。\n            pass\n        \n        #
+    最终 vocab_size = next_id\n        self.vocab_size_actual = next_id\n    \n    def
+    encode(self, text):\n        words = text.split()\n        ids = []\n        for
+    word in words:\n            if word in self.special_tokens:\n                #
+    直接获取其 ID（假设在训练时已分配）\n                # 此处在训练时我们为特殊 token 分配了 ID，可以通过查找得到\n                sp_id
+    = self._get_special_id(word)\n                ids.append(sp_id)\n                continue\n
+    \           seq = list(word.encode('utf-8')) + [self.end_id]\n            for
+    a, b, new_id in self.merges:\n                new_seq = []\n                i
+    = 0\n                while i < len(seq):\n                    if i < len(seq)-1
+    and seq[i] == a and seq[i+1] == b:\n                        new_seq.append(new_id)\n
+    \                       i += 2\n                    else:\n                        new_seq.append(seq[i])\n
+    \                       i += 1\n                seq = new_seq\n            ids.extend(seq)\n
+    \       return ids\n    \n    def decode(self, ids):\n        byte_buf = []\n
+    \       for tid in ids:\n            if tid == self.end_id:\n                byte_buf.append(b'
+    ')\n            else:\n                byte_buf.append(self.id_to_bytes[tid])\n
+    \       text = b''.join(byte_buf).decode('utf-8', errors='replace')\n        return
+    ' '.join(text.split())\n    \n    def save(self, path_prefix):\n        # 保存 id_to_bytes
+    (pickle or json)，merges，special_tokens 等\n        ...\n    \n    def load(self,
+    path_prefix):\n        # 加载模型参数\n        ...\n```\n\n伪代码总结：\n\n- 训练：分批读文本 -> 统计词频
+    -> 字节级初始化（特殊 token 整词处理） -> 堆加速的合并循环直到词汇表达到设定大小 -> 记录合并规则和 ID 映射。\n\n- 编码：单词按字节拆分
+    -> 应用 merges 得到子词 ID 序列 -> 输出。\n\n- 解码：ID 序列 -> 查找字节拼接 -> 替换结束符为空格 -> UTF-8 解码成文本。\n\n-
+    保存/加载：序列化 merges, id_to_bytes, 特殊 token 列表等。\n\n此框架整合了前述所有核心功能，构成一个实用的 BPE 分词器。\n\n-
+    扫描当前符号序列，若发现相邻的 a 后紧跟 b，则将其合并为 ab。\n\n- 对于同一条规则，需要重复扫描直到没有可合并的为止吗？实际上，由于规则的顺序性，通常的做法是：按照
+    rules 的先后顺序，针对每一条规则，扫描序列并将所有满足条件的相邻对进行合并（一次性替换所有出现）。这与训练时的单步合并逻辑相同：训练时每一轮只合并一种
+    pair，但会对所有单词的所有出现进行合并；编码时也应该对所有出现进行合并，且按照规则顺序依次执行。因为后面的合并规则可能依赖于前面的合并结果，所以必须严格按顺序。\n\n-
+    直接将字节值（0-255）作为符号 ID，但为了可读性，通常映射为字符形式，如 '!' 对应 33，而不可打印字节则转为形如 <0x00> 的字符串或直接保留为
+    bytes 对象。\n\n- 在 GPT-2 的实现中，字节被映射到 Unicode 字符（例如 0 -> 'Ā', 1 -> 'ā', ...），但逻辑本质不变。\n\n-
+    为了简单，我们可以使用整数字节值（0-255）或使用 bytes 单字节切片作为符号，但字典键需可哈希。常用做法是将字节转换为整数，但在符号序列中使用整数，便于合并。\n\n-
+    维护 word_symbols 列表，每个单词的符号序列（list）。\n\n- 维护一个全局 bigram_freq 字典，初始通过全量扫描建立。\n\n-
+    当选定 best_pair = (a, b) 后，找出所有包含该 pair 的单词序列（可以在计算频率时同时记录单词索引，例如构建一个 pair_to_words
+    映射：pair -> [ (word_idx, count) ]，但计数已经是频率加权后的总和，要精确更新需要知道具体每个单词中出现了几次，并考虑单词频率）。\n\n-
+    移除旧序列中所有的 bigram，减去相应频率。\n\n- 添加新序列中产生的 bigram，加上相应频率。\n由于单词频率 freq 可能大于 1，处理时需要乘以
+    freq。\n\n- 对于每个受影响的单词（根据 pair_to_words[best_pair]），在它的序列中执行合并，合并前后需要：\n\n- 取出
+    symbols, freq = word_symbols[idx]。\n\n- 减去旧 bigram 频率：扫描旧 symbols 的所有相邻对，将其频率从
+    bigram_freq 中减去 freq。同时从 pair_to_word_indices[pair] 中移除该索引（如果该单词不再包含该 pair，则移除；由于我们后面会重新添加新
+    pair，可以一次性清除：删除所有旧 pair 的关联，之后重新建立）。\n\n- 应用合并：在 symbols 上执行 (a,b) -> c 的合并（同之前的
+    merge_vocab 逻辑），得到 new_symbols。\n\n- 添加新 bigram 频率：扫描 new_symbols 的所有相邻对，将其频率加上
+    freq。同时将该索引 idx 加入到对应 pair_to_word_indices[pair] 集合中。\n\n- 更新 word_symbols[idx]
+    的序列为 new_symbols。\n\n- 从堆中弹出堆顶元素，检查其频率（取负）是否等于 bigram_freq[pair] 的当前值。\n\n- 如果相等，说明是有效的最高频
+    pair；否则丢弃，继续弹出，直到找到有效的。\n\n- 需要注意，堆可能为空（所有 pair 频率为 0 或无 bigram）。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XDqKw0GPGi6JvkkfpwUcqpdAndd
+  block_id: S0g2dASzfo8kgfxawqicyTYyndf
+  page_token: XDqKw0GPGi6JvkkfpwUcqpdAndd
+  original_title: 整合核心功能，写出一个简洁的 BPE 分词器完整训练和推理的伪代码，包含训练（含词频统计、bigram 合并）、保存模型、编码、解码的全部流程
+  imported_at: '2026-09-21'

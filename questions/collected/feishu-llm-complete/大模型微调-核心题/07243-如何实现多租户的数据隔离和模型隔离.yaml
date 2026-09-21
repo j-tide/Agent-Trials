@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6f4e901551e8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何实现多租户的数据隔离和模型隔离？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如何实现多租户的数据隔离和模型隔离？
+answer:
+  mode: rubric
+  reference_answer: |-
+    隔离是微调平台安全性的基石。需要从数据、模型、计算、网络四个层面实现深度的租户隔离。
+
+    数据隔离 (Data Isolation)
+
+    - 存储层：为每个租户创建独立的对象存储桶（Bucket）或文件系统目录，设置严格的访问控制列表（ACL/ABAC）。租户A无法直接访问租户B的数据文件。所有数据访问均通过平台API进行，API层会验证租户身份和权限。
+
+    - 数据库层：在元数据管理数据库（如MySQL/PostgreSQL）中，使用“租户ID”字段进行水平隔离，或直接为每个租户分配独立的Schema/数据库实例，实现物理隔离。
+
+    - 传输中加密：数据上传和下载均通过TLS加密，敏感数据可要求租户在客户端侧先加密再上传，平台不持有解密密钥。
+
+    模型隔离 (Model Isolation)
+
+    - 模型存储：类似数据隔离，每个租户的微调产物（LoRA权重、全量模型checkpoint）存储在独立的存储空间中。
+
+    - 模型加载与缓存：在高密度的推理部署场景下，多个租户可能共享同一个基座模型，但不同租户的LoRA适配器是独立的。推理引擎（如vLLM, S-LoRA）需支持多租户LoRA的动态加载和隔离。同一GPU上的不同租户请求，其KV Cache和LoRA权重在显存中是逻辑分离的，一个租户的请求不会访问到其他租户的LoRA权重。
+
+    - 模型服务：对于全量微调的大模型，可以为高等级租户提供独占GPU的推理服务；对于普通租户，使用GPU共享技术（如MIG, MPS, vGPU）实现性能隔离，避免“邻居效应”。
+
+    计算隔离 (Compute Isolation)
+
+    - 训练任务：为每个租户的训练任务创建独立的容器（Pod）运行环境，通过Kubernetes Namespace进行隔离。配置Resource Quota，严格限制每个租户可使用的最大GPU数量、CPU和内存。
+
+    - 推理服务：同样通过容器化部署，确保计算环境的清洁和可复现。
+
+    网络隔离 (Network Isolation)
+
+    - 租户的训练和推理容器运行在独立的虚拟私有网络（VPC）或子网中，通过Network Policy控制Pod间的流量，默认拒绝所有跨租户的访问。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ty64w3f7OipOfgkdPWVcn8ganTf
+  block_id: NHXsdhMZIoZcKJxOoudcA1QDnce
+  page_token: Ty64w3f7OipOfgkdPWVcn8ganTf
+  original_title: 如何实现多租户的数据隔离和模型隔离？
+  imported_at: '2026-09-21'

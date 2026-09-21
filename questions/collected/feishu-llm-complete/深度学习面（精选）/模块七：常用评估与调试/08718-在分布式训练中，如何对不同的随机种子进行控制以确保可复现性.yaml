@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f7dd9f2f9ce7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在分布式训练中，如何对不同的随机种子进行控制以确保可复现性？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块七：常用评估与调试
+tags: &1
+- 深度学习面（精选）
+- 模块七：常用评估与调试
+content:
+  prompt: 在分布式训练中，如何对不同的随机种子进行控制以确保可复现性？
+answer:
+  mode: rubric
+  reference_answer: |-
+    分布式训练中可复现性挑战来自多进程、CUDA 非确定性操作及通信。要实现严格控制，需处理以下方面：
+
+    基础随机种子设置
+
+    - 设置 Python 的 random.seed(seed)、NumPy 的 np.random.seed(seed)。
+
+    - 设置 PyTorch 的 torch.manual_seed(seed)、torch.cuda.manual_seed(seed)、torch.cuda.manual_seed_all(seed)（确保所有卡上的种子一致）。
+
+    - 设置 torch.backends.cudnn.deterministic = True，强制 cuDNN 使用确定性算法，避免因算法选择导致的不一致。
+
+    - 设置 torch.backends.cudnn.benchmark = False，防止 cuDNN 动态搜索最快算法而引入不确定性。
+
+    分布式特有设置
+
+    - 确保每个进程使用相同的基础种子，然后根据 rank 微调数据采样器种子。通常在每个 epoch 开始时，通过 DistributedSampler 传入 epoch 作为种子的一部分，从而确保各 rank 的数据分片在 epoch 间不同但可复现。
+
+    - 操作通信的确定性：PyTorch DDP 的 AllReduce 是确定性的，但某些集合通信可能有非确定性实现，选择确定性的后端和算法。
+
+    - 数据加载器：给 DataLoader 的 worker 初始化函数设置种子，且设置 worker_init_fn 使每个 worker 的种子依赖于 epoch 和 worker_id，保证数据读取顺序可复现。
+
+    随机性追踪与验证
+
+    - 记录所有随机种子的设定值，在实验中保存。
+
+    - 在较小规模上（如单机2卡）运行两次，比较中间层的输出、梯度和最终损失，确保完全一致。
+
+    - 注意 PyTorch 和底层库版本的影响，不同版本的算子可能有细微差异，尽量固定环境。
+
+    特别注意
+
+    - torch.nn.Module 中的 Dropout 等随机层在分布式下每个 rank 的 mask 可能不同，但只要种子统一，对整体梯度的影响应可预测。如果需要 bit-level 可复现，可能需要在 DDP 中同步 dropout mask，但通常不需要。
+
+    - 对 RNN/LSTM，循环操作在 cuDNN 中可能有非确定性，可设置环境变量或改用确定性实现。
+
+    通过上述组合，可以在分布式环境中获得高度可复现的训练结果。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NWoUwEWXUiCS73kuJHncl6jGnNe
+  block_id: QtG5dshyMoNzWVxygLocRrRenTd
+  page_token: NWoUwEWXUiCS73kuJHncl6jGnNe
+  original_title: 在分布式训练中，如何对不同的随机种子进行控制以确保可复现性？
+  imported_at: '2026-09-21'

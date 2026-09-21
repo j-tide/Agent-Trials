@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7be17d5716f5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当微调数据多为长文本时，怎样平衡显存和batch size？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 当微调数据多为长文本时，怎样平衡显存和batch size？
+answer:
+  mode: rubric
+  reference_answer: |-
+    长文本微调时，显存和batch size的平衡主要依靠梯度累积、梯度检查点、序列打包优化和动态批处理。
+
+    一、梯度累积（Gradient Accumulation）
+
+    这是最核心的手段。将micro‑batch size设到显存可承受的最小值（如1或2），然后通过累积多个micro‑batch的梯度来模拟目标全局batch size。例如，目标batch size=64，micro‑batch=2，则累积32步。这确保了长序列的激活不会撑爆显存。
+
+    二、梯度检查点（Gradient Checkpointing）
+
+    开启后可大幅降低激活显存，从而在相同显存下可以使用更大的micro‑batch，或在相同micro‑batch下支持更长的序列。但会牺牲约20‑30%的训练速度。
+
+    三、序列打包（Sequence Packing）
+
+    将多个短文本拼接成一个接近最大长度的序列，减少padding浪费，提高有效token比例。但长文本本身已近满长度，打包空间有限。可以使用动态打包：允许一个pack中包含不同长度的样本，通过截断或跳过超长样本来控制最大长度。
+
+    四、使用长度感知的动态批处理（Dynamic Batching）
+
+    构建DataLoader时，将长度相似的样本分到同一个batch，以减少padding开销。极端情况下，对少数超长样本单独成batch，使用极小的micro‑batch处理。
+
+    五、利用ZeRO‑3或张量并行
+
+    在多卡环境下，通过ZeRO‑3分片参数和激活，可将单卡显存压力大幅降低，从而支持更大的序列或micro‑batch。张量并行也能直接按TP度线性降低单卡激活。
+
+    六、截断与滑动窗口
+
+    如果任务允许，对超长文本进行智能截断（保留首尾关键信息），或使用滑动窗口注意力，在模型架构层面限制最大序列长度。
+
+    实践组合：设置micro_batch_size=1，gradient_accumulation_steps=32，启用gradient_checkpointing和FlashAttention，使用ZeRO‑3（多卡时），并配置长度感知的Dynamic Batching。这样可以在有限的显存下，高效训练长文本模型。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: Gj5KdhSfYogfDGxSJ9jcoMsUnvt
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 当微调数据多为长文本时，怎样平衡显存和batch size？
+  imported_at: '2026-09-21'

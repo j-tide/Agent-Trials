@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-db11a45adf4f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 序列打包在蒸馏中是否适用？有什么注意事项？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型蒸馏面试-核心题
+derived_topic: 
+tags: &1
+- 大模型蒸馏面试-核心题
+content:
+  prompt: 序列打包在蒸馏中是否适用？有什么注意事项？
+answer:
+  mode: rubric
+  reference_answer: |-
+    结论：完全适用，且是大幅提升训练效率的利器，但必须极其谨慎地处理注意力掩码和位置编码，否则会直接导致蒸馏失败。
+
+    序列打包（Packing）的原理与优势：
+
+    它将多个短序列样本拼接成一个长序列，并将一个Batch内的这个长序列作为模型输入，从而减少不必要的Padding Token，大幅提高每次前向/反向传播中有效Token的计算占比，提升训练吞吐量。
+
+    蒸馏中的注意事项：
+
+    - 注意力掩码是“生命线”：打包的核心在于构造分块对角注意力掩码（Block-Diagonal Causal Mask）。这个掩码必须确保每个样本内部的Token可以相互关注（且遵循因果性），但不同样本之间的Token绝对不能相互关注。如果掩码构造错误，会导致信息泄露，模型将学到错误的上下文关联，蒸馏出的模型会表现出不可预测的行为。
+
+    - 位置编码的适应性：对于使用RoPE等相对位置编码的模型，由于其关注的是Token间的相对距离，打包通常可以直接适配，无需特殊处理。但对于使用了绝对位置编码（或可学习位置编码）的模型，连续的绝对位置会破坏每个独立样本的位置信息。此时打包需谨慎。
+
+    - 教师模型也需要处理打包数据：在白盒蒸馏中，为了让师生模型处理相同的输入以提取特征进行对齐，教师模型也必须处理打包后的序列。这显著增加了白盒蒸馏的复杂度。
+
+    - Loss Masking的精确性：不仅需要掩码Padding Token，还需要确保不同样本间的分隔Token（如EOS）也被正确掩码，不对其计算损失。
+
+    结论：对于黑盒SFT蒸馏，序列打包是非常值得推荐的技术。对于白盒蒸馏，由于教师的参与，实现复杂度大幅增加，需要更精细的工程处理。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HgUfwaznAiYDsakz5oRckIO5nLJ
+  block_id: Rfs8dIHPAowfM4xYA2jcG0hXneb
+  page_token: HgUfwaznAiYDsakz5oRckIO5nLJ
+  original_title: 序列打包在蒸馏中是否适用？有什么注意事项？
+  imported_at: '2026-09-21'

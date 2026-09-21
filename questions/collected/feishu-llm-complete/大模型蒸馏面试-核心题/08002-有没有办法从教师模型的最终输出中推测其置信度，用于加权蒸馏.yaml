@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-62f8c0a1b3ed
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 有没有办法从教师模型的最终输出中推测其置信度，用于加权蒸馏？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型蒸馏面试-核心题
+derived_topic: 
+tags: &1
+- 大模型蒸馏面试-核心题
+content:
+  prompt: 有没有办法从教师模型的最终输出中推测其置信度，用于加权蒸馏？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在黑盒场景下，我们无法直接获得完整的logits，但可以通过一些手段近似地推测教师模型对某个回答的置信度，并将其用于加权蒸馏。
+
+    可行的推测方法：
+
+    - 利用API返回的logprobs（如果提供）：这是最直接、最准确的信号。对于生成的回答序列，我们可以计算其平均对数概率。平均logprob越高，代表模型对这个回答的整体“把握”越大，置信度越高。可以将该值作为该条蒸馏数据的权重，使得学生模型更关注那些教师“确信”的样本。
+
+    - 自我一致性（Self-Consistency）采样：对同一个问题，让教师模型以较高温度（>0.7）生成多个回答。
+
+    - 扰动输入测试：对原始指令进行微小的、不影响语义的扰动（如添加/删除一个无关紧要的修饰词），观察教师模型的输出是否稳定。输出越稳定，置信度越高。
+
+    如何使用这些置信度？
+
+    - 加权蒸馏：在计算蒸馏损失时，将推测出的置信度作为该样本的权重。教师越确信的回答，对学生的影响越大。
+
+    - 拒绝采样：只保留置信度高于某个阈值的样本用于训练。
+
+    - 课程学习：在训练初期，只使用高置信度（简单）的样本；后期逐渐加入低置信度（困难）的样本。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LjfGwN95livJFZkv1WJcPZvun4e
+  block_id: NkCMdrZocoOgqdxCxP0clkzJnLc
+  page_token: LjfGwN95livJFZkv1WJcPZvun4e
+  original_title: 有没有办法从教师模型的最终输出中推测其置信度，用于加权蒸馏？
+  imported_at: '2026-09-21'

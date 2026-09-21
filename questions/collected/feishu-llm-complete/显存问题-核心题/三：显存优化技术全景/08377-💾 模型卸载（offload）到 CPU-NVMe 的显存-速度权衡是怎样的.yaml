@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a8db48ab2f64
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BE 模型卸载（offload）到 CPU/NVMe 的显存-速度权衡是怎样的？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F4BE 模型卸载（offload）到 CPU/NVMe 的显存-速度权衡是怎样的？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 模型卸载将部分模型状态（权重、优化器、KV Cache）从 GPU 显存转移至 CPU 内存或 NVMe
+    SSD，以大幅降低 GPU 显存占用，但代价是计算时将数据通过低带宽总线搬运，导致显著的速度下降。这是典型的“空间换时间”策略，带宽和延迟的鸿沟决定了下降程度。\n\n\U0001F504
+    卸载层次与带宽对比\n\n[嵌入表格未展开]\n\n当计算所需数据不在 GPU 时，必须等待数据搬运，GPU 空闲等待，吞吐大打折扣。\n\n\U0001F50D
+    显存节省 vs 速度损失的具体表现\n\n- 卸载优化器状态（训练场景）\nZeRO-Offload 将 Adam 优化器状态（动量、方差）放在 CPU，GPU
+    仅保留参数和梯度。更新参数时，梯度传到 CPU，CPU 执行优化器步骤，再将更新后的参数传回 GPU。由于优化器状态大小是权重的 4 倍，显存节省巨大。但每步增加两次完整的参数传输（梯度→CPU，参数→GPU），加上
+    CPU 计算。通常导致 20-50% 的吞吐下降，但使单卡能训练数十 B 模型。\n\n- 卸载模型参数（推理场景）\n推理时可将不常用的层或整个模型权重放在
+    CPU，计算时逐层预取。例如 llama.cpp 支持部分层卸载到 CPU。每层需要传输权重矩阵，会严重降低生成速度，尤其对于小 batch。典型地，卸载一半层到
+    CPU 可能导致速度下降 3-5 倍。\n\n- 卸载 KV Cache（推理场景）\n长序列推理中，可将冷 KV Cache 块卸载到 CPU 内存，需要时换入。vLLM
+    等支持 swap 到 CPU。由于 KV Cache 访问频繁，即使部分卸载，延迟也会上升，但可处理更长上下文。\n\n⚖️ 权衡决策\n\n- 何时值得：当
+    GPU 显存绝对不足，无法运行目标模型时，卸载是唯一解法。例如在 24GB 卡上推理 70B 量化模型，必须部分卸载。\n\n- 如何优化：通过异步预取（prefetch）和计算重叠隐藏传输延迟。DeepSpeed
+    ZeRO-Infinity 可以在计算当前层时提前从 NVMe 预取下一层，实现部分隐藏。但硬件带宽底层限制仍在。\n\n- 效果实例：使用 ZeRO-Infinity
+    在单张 V100 32GB 上训练 30B 模型，比纯 GPU 训练慢 3-5 倍；推理 175B 模型，生成速度降至数秒一个 token，但可行。\n\n\U0001F4CA
+    速度-显存曲线（定性）\n\n- 完全 GPU：速度 100%，显存 100%。\n\n- 卸载优化器到 CPU：速度 70-80%，显存可降至 40%。\n\n-
+    卸载参数到 CPU：速度 20-40%，显存可降至 10%。\n\n- 卸载到 NVMe：速度 5-15%，显存可降至几乎无限（仅 GPU 保留极少工作集）。\n\n✅
+    总结：卸载是解决显存不足的终极手段，以大幅牺牲速度为代价换取模型运行能力。实际应用中，总是优先用量化、并行等其他方法，卸载作为保底方案。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CiqBwrPCSiM7tNk8mpocAB3gn3b
+  block_id: FuO1dTcD0oZ9fDxqNK7c0Vp1nBh
+  page_token: CiqBwrPCSiM7tNk8mpocAB3gn3b
+  original_title: "\U0001F4BE 模型卸载（offload）到 CPU/NVMe 的显存-速度权衡是怎样的？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,138 @@
+---
+schema_version: 1
+id: feishu-llm-complete-708500ca1218
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 构建一个支持嵌套工具调用的解析器：工具返回的结果中可能包含新的工具调用请求，递归处理直到没有进一步调用为止。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 构建一个支持嵌套工具调用的解析器：工具返回的结果中可能包含新的工具调用请求，递归处理直到没有进一步调用为止。
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    在某些 Agent 场景中，一个工具的执行结果可能是一个全新的工具调用请求（例如，工具返回“需要进一步查询XX”）。我们需要一个递归解析器，能够在每次工具执行后检查返回值，如果返回值本身包含有效的工具调用（符合 Action/Action Input 格式或包含 JSON 代码块），则自动提取并执行，如此递归，直到返回值不再包含工具调用为止。为防止无限递归，必须设置最大递归深度。
+
+    实现
+
+    ```python
+    import re
+    import json
+    from typing import Dict, Any, Callable
+
+    def recursive_tool_executor(
+        initial_text: str,
+        tool_registry: Dict[str, Callable],
+        parse_func: Callable[[str], Dict],
+        max_depth: int = 5
+    ) -> Any:
+        """
+        递归执行嵌套工具调用。
+        Args:
+            initial_text: 包含初始工具调用的文本
+            tool_registry: 工具函数映射
+            parse_func: 从文本中提取工具调用信息的函数，返回 {"name":..., "arguments":...} 或 None
+            max_depth: 最大递归深度
+        Returns:
+            最终结果（非工具调用时返回原文本）
+        """
+        depth = 0
+        current_text = initial_text
+        while depth < max_depth:
+            # 尝试从当前文本中解析工具调用
+            try:
+                call = parse_func(current_text)
+            except Exception:
+                call = None
+            if call is None:
+                # 没有工具调用，返回当前文本
+                return current_text
+            tool_name = call.get("name")
+            arguments = call.get("arguments", {})
+            if tool_name not in tool_registry:
+                # 工具不存在，返回当前文本或抛出异常
+                return current_text
+            # 执行工具
+            try:
+                result = tool_registry[tool_name](**arguments)
+            except Exception as e:
+                result = f"工具执行错误: {e}"
+            # 将结果转换为字符串（若为字典等，转为JSON字符串）
+            if not isinstance(result, str):
+                result = json.dumps(result, ensure_ascii=False)
+            current_text = result
+            depth += 1
+        # 达到最大深度，返回当前文本
+        return current_text
+
+    # 示例工具
+    def search(query):
+        # 模拟返回一个新的工具调用
+        return '需要进一步查询详细信息：\n```json\n{"name": "get_details", "arguments": {"topic": "' + query + '"}}\n```'
+
+    def get_details(topic):
+        return f"{topic}的详细信息：这是关于{topic}的详细内容。"
+
+    # 解析函数：复用前面的 parse_react_action
+    def parse_action(text):
+        try:
+            return parse_react_action(text)
+        except Exception:
+            # 尝试直接查找 JSON
+            start = text.find('{')
+            end = text.rfind('}')
+            if start != -1 and end != -1:
+                try:
+                    obj = json.loads(text[start:end+1])
+                    if "name" in obj and "arguments" in obj:
+                        return obj
+                except:
+                    pass
+        return None
+
+    registry = {"search": search, "get_details": get_details}
+    initial = 'Action: search\nAction Input: {"query": "AI"}'
+    final_result = recursive_tool_executor(initial, registry, parse_action, max_depth=3)
+    print(final_result)  # 输出详细信息
+    ```
+
+    说明
+
+    - 每次工具执行后，将其结果作为下一轮解析的输入，判断是否再次包含工具调用。
+
+    - 设置最大深度防止无限循环。
+
+    - 解析函数可以支持多种格式，增强健壮性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  block_id: JILJdRJvJolXOCx9XR5cE9c3nGc
+  page_token: Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  original_title: 构建一个支持嵌套工具调用的解析器：工具返回的结果中可能包含新的工具调用请求，递归处理直到没有进一步调用为止。
+  imported_at: '2026-09-21'

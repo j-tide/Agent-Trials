@@ -1,0 +1,104 @@
+---
+schema_version: 1
+id: feishu-llm-complete-82c4897211d1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 2、进阶题：DefaultHandlerExceptionResolver 处理哪些内置异常？如何自定义 HandlerExceptionResolver？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 2、进阶题：DefaultHandlerExceptionResolver 处理哪些内置异常？如何自定义 HandlerExceptionResolver？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（内置异常、自定义异常解析器）\n\n1️⃣ Common Answer\n\nDefaultHandlerExceptionResolver
+    处理一些 Spring 的异常，比如 404、405 之类的。自定义异常解析器要实现 HandlerExceptionResolver 接口。\n\n2️⃣
+    Impressive Answer\n\n我从 3 个维度解析：\n\n- DefaultHandlerExceptionResolver 处理的内置异常：\n\n[嵌入表格未展开]\n\n-
+    自定义 HandlerExceptionResolver：\n\n```text\n@Component\n@Order(Ordered.HIGHEST_PRECEDENCE)\npublic
+    class AgentExceptionHandlerResolver implements HandlerExceptionResolver {\n    \n
+    \   @Override\n    public ModelAndView resolveException(HttpServletRequest request,\n
+    \                                        HttpServletResponse response,\n                                         Object
+    handler,\n                                         Exception ex) {\n        \n
+    \       // Agent 工具调用异常\n        if (ex instanceof AgentToolCallException) {\n
+    \           AgentToolCallException toolEx = (AgentToolCallException) ex;\n            return
+    buildErrorResponse(response, \n                HttpStatus.SERVICE_UNAVAILABLE,
+    \n                toolEx.getCode(), \n                toolEx.getMessage());\n
+    \       }\n        \n        // LLM 限流异常\n        if (ex instanceof AgentRateLimitException)
+    {\n            AgentRateLimitException rateEx = (AgentRateLimitException) ex;\n
+    \           response.setHeader(\"X-RateLimit-Limit\", String.valueOf(rateEx.getLimit()));\n
+    \           response.setHeader(\"X-RateLimit-Remaining\", \"0\");\n            response.setHeader(\"X-RateLimit-Reset\",
+    String.valueOf(rateEx.getResetTime()));\n            \n            return buildErrorResponse(response,
+    \n                HttpStatus.TOO_MANY_REQUESTS, \n                rateEx.getCode(),
+    \n                rateEx.getMessage());\n        }\n        \n        // 参数校验异常\n
+    \       if (ex instanceof MethodArgumentNotValidException) {\n            MethodArgumentNotValidException
+    validEx = (MethodArgumentNotValidException) ex;\n            String errorMessage
+    = validEx.getBindingResult()\n                .getFieldErrors()\n                .stream()\n
+    \               .map(error -> error.getField() + \": \" + error.getDefaultMessage())\n
+    \               .collect(Collectors.joining(\", \"));\n            \n            return
+    buildErrorResponse(response, \n                HttpStatus.BAD_REQUEST, \n                \"VALIDATION_ERROR\",
+    \n                errorMessage);\n        }\n        \n        // 其他异常不处理，交给下一个解析器\n
+    \       return null;\n    }\n    \n    private ModelAndView buildErrorResponse(HttpServletResponse
+    response,\n                                           HttpStatus status,\n                                           String
+    code,\n                                           String message) {\n        try
+    {\n            response.setStatus(status.value());\n            response.setContentType(\"application/json;charset=UTF-8\");\n
+    \           \n            ErrorResponse errorResponse = ErrorResponse.builder()\n
+    \               .code(code)\n                .message(message)\n                .timestamp(System.currentTimeMillis())\n
+    \               .build();\n            \n            response.getWriter().write(new
+    ObjectMapper().writeValueAsString(errorResponse));\n            \n            return
+    new ModelAndView();\n        } catch (IOException e) {\n            return null;\n
+    \       }\n    }\n}\n```\n\n- @ExceptionHandler 全局异常处理：\n\n```text\n@ControllerAdvice\n@Slf4j\npublic
+    class AgentGlobalExceptionHandler {\n    \n    // Agent 工具调用超时\n    @ExceptionHandler(AgentToolTimeoutException.class)\n
+    \   public ResponseEntity<ErrorResponse> handleToolTimeout(AgentToolTimeoutException
+    ex) {\n        log.error(\"Agent tool timeout: {}\", ex.getMessage(), ex);\n        \n
+    \       return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT)\n            .body(ErrorResponse.builder()\n
+    \               .code(\"TOOL_TIMEOUT\")\n                .message(ex.getMessage())\n
+    \               .timestamp(System.currentTimeMillis())\n                .build());\n
+    \   }\n    \n    // LLM 限流\n    @ExceptionHandler(AgentRateLimitException.class)\n
+    \   public ResponseEntity<ErrorResponse> handleRateLimit(AgentRateLimitException
+    ex) {\n        log.warn(\"Agent rate limit: {}\", ex.getMessage());\n        \n
+    \       return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)\n            .header(\"X-RateLimit-Limit\",
+    String.valueOf(ex.getLimit()))\n            .header(\"X-RateLimit-Remaining\",
+    \"0\")\n            .header(\"X-RateLimit-Reset\", String.valueOf(ex.getResetTime()))\n
+    \           .body(ErrorResponse.builder()\n                .code(\"RATE_LIMIT_EXCEEDED\")\n
+    \               .message(ex.getMessage())\n                .timestamp(System.currentTimeMillis())\n
+    \               .build());\n    }\n    \n    // 参数校验失败\n    @ExceptionHandler(MethodArgumentNotValidException.class)\n
+    \   public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException
+    ex) {\n        String errorMessage = ex.getBindingResult()\n            .getFieldErrors()\n
+    \           .stream()\n            .map(error -> error.getField() + \": \" + error.getDefaultMessage())\n
+    \           .collect(Collectors.joining(\", \"));\n        \n        return ResponseEntity.badRequest()\n
+    \           .body(ErrorResponse.builder()\n                .code(\"VALIDATION_ERROR\")\n
+    \               .message(errorMessage)\n                .timestamp(System.currentTimeMillis())\n
+    \               .build());\n    }\n    \n    // 通用异常\n    @ExceptionHandler(Exception.class)\n
+    \   public ResponseEntity<ErrorResponse> handleException(Exception ex) {\n        log.error(\"Unexpected
+    error: {}\", ex.getMessage(), ex);\n        \n        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)\n
+    \           .body(ErrorResponse.builder()\n                .code(\"INTERNAL_ERROR\")\n
+    \               .message(\"An unexpected error occurred\")\n                .timestamp(System.currentTimeMillis())\n
+    \               .build());\n    }\n}\n```\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EvyJwQ60XiC313kQqbUcyFhEnAh
+  block_id: doxcncxfBUrScrTLHAHi4wHSQ9d
+  page_token: EvyJwQ60XiC313kQqbUcyFhEnAh
+  original_title: 2、进阶题：DefaultHandlerExceptionResolver 处理哪些内置异常？如何自定义 HandlerExceptionResolver？
+  imported_at: '2026-09-21'

@@ -1,0 +1,103 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7b9a11372a83
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F39B️ 调用大模型 API 时，Temperature、Top-P、Max Tokens 等参数分别控制什么？如何调优？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F39B️ 调用大模型 API 时，Temperature、Top-P、Max Tokens 等参数分别控制什么？如何调优？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    核心采样参数：控制模型的“创造力—确定性”频谱。
+
+    确定性 ←────────────────────────────→ 创造性
+      Temp=0         Temp=0.7          Temp=1.5
+      Top-P=0.1      Top-P=0.9          Top-P=1.0
+
+    Temperature (温度，通常 0~2)
+
+    在 softmax 之前，将 logits 除以温度值。
+
+    - Temp < 1：概率分布更尖锐，高概率词更突出，输出确定、保守。
+
+    - Temp = 1：不做缩放，原始分布。
+
+    - Temp > 1：分布更平滑，低概率词获得更多机会，输出多样、容易跑偏。
+    原理公式： p_i = softmax(logits / T)_i
+
+    Top-P (Nucleus Sampling，核采样)
+    只从累积概率达到 P 的最小候选集合中采样。例如 Top-P=0.9 表示：对概率从高到低排序，只保留使累积概率超过 0.9 的那些 token，其余被设为 0 并重新归一化。
+
+    - Top-P 小（如0.1）：极度聚焦头部，接近确定性。
+
+    - Top-P 大（如0.9）：保留较多可能性。
+
+    Top-K
+
+    只从概率最高的 K 个 token 中采样，其余截断。常与 Top-P 结合使用。
+
+    Max Tokens（输出长度上限）
+
+    控制模型单次生成的最大 token 数。不是越长越好：过长浪费成本，且可能生成重复或无关内容；过短则截断有效输出。
+
+    其他常见参数：
+
+    - Frequency Penalty：惩罚已出现 token 的频率，降低重复。
+
+    - Presence Penalty：惩罚 token 是否已出现（不问次数），鼓励引入新词。
+
+    调优策略（实战经验）：
+
+    [嵌入表格未展开]
+
+    调优代码示例（用 OpenAI 兼容接口）：
+
+    def completion_with_params(prompt, task_type="factual"):
+        configs = {
+            "factual": {"temperature": 0.1, "top_p": 0.9, "max_tokens": 500},
+            "creative": {"temperature": 0.8, "top_p": 0.95, "max_tokens": 1024},
+            "code": {"temperature": 0.0, "top_p": 1.0, "max_tokens": 2048}
+        }
+        params = configs.get(task_type, configs["factual"])
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[{"role": "user", "content": prompt}],
+            **params
+        )
+        return response.choices[0].message.content
+
+    调优核心建议： 不要同时调整所有参数；一般先固定 Top-P=0.9，只调整 Temperature 来找最佳点。如果出现大量重复，考虑加 Frequency Penalty（0.1~0.3）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcnwCpSkTBIsGxVDSaQ96Da0g
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "\U0001F39B️ 调用大模型 API 时，Temperature、Top-P、Max Tokens 等参数分别控制什么？如何调优？"
+  imported_at: '2026-09-21'

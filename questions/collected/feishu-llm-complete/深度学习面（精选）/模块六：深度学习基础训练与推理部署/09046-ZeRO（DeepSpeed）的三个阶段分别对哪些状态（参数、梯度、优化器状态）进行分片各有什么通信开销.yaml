@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-22c1add14fef
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ZeRO（DeepSpeed）的三个阶段分别对哪些状态（参数、梯度、优化器状态）进行分片？各有什么通信开销？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块六：深度学习基础训练与推理部署
+tags: &1
+- 深度学习面（精选）
+- 模块六：深度学习基础训练与推理部署
+content:
+  prompt: ZeRO（DeepSpeed）的三个阶段分别对哪些状态（参数、梯度、优化器状态）进行分片？各有什么通信开销？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO（Zero Redundancy Optimizer）将优化器状态、梯度和参数在数据并行的设备间进行分片，消除冗余存储，从而支持更大模型。
+
+    ZeRO-1 (Optimizer State Sharding)
+
+    - 分片内容：优化器状态（如 Adam 中的动量、方差）。
+
+    - 参数和梯度：仍完整存储在每个 GPU 上。
+
+    - 通信开销：在优化器更新步骤中，每个 GPU 需要收集所有其他 GPU 上的分片优化器状态（或收集更新后的参数），涉及 AllGather 或 ReduceScatter，通信量与数据并行相当（与模型参数量成比例）。
+
+    ZeRO-2 (Optimizer State + Gradient Sharding)
+
+    - 分片内容：优化器状态 + 梯度分片。
+
+    - 参数：仍完整存储。
+
+    - 通信开销：每个 GPU 只存储与其优化器状态分区对应的梯度。在反向传播后，需要将梯度通过 ReduceScatter 规约并分片，各 GPU 只保留自己负责的部分梯度。通信量仍与模型大小同阶，但避免了冗余存储梯度。
+
+    ZeRO-3 (Optimizer State + Gradient + Parameter Sharding)
+
+    - 分片内容：优化器状态、梯度、参数全部分片。每个 GPU 只存储模型参数的 1/N。
+
+    - 前向/反向传播时：需要动态收集所需的参数。通信开销更高：前向时需要 AllGather 收集参数，反向时需要再次 AllGather 收集参数，然后 ReduceScatter 梯度。总通信量为标准数据并行的 1.5 倍左右，但将显存占用降到了 1/N，能够训练巨型模型。
+
+    总结：ZeRO 的阶段越高，显存节省越多，但通信量从不变到略微增加（ZeRO-3 通信量约为 DP 的 1.5 倍），需要在模型规模和通信开销间权衡。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ChO2w20yAiZl9Zko9tUc2plKnwe
+  block_id: QbAhdLF4hod46RxgonFcmAH9n5g
+  page_token: ChO2w20yAiZl9Zko9tUc2plKnwe
+  original_title: ZeRO（DeepSpeed）的三个阶段分别对哪些状态（参数、梯度、优化器状态）进行分片？各有什么通信开销？
+  imported_at: '2026-09-21'

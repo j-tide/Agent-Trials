@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8c4664efcb6c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用大词表（如 256k）对小语种的覆盖更好，但会带来什么计算问题？如何权衡？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 二：模型架构与预训练范式
+tags: &1
+- Transfomer精选面试
+- 二：模型架构与预训练范式
+content:
+  prompt: 使用大词表（如 256k）对小语种的覆盖更好，但会带来什么计算问题？如何权衡？
+answer:
+  mode: rubric
+  reference_answer: |-
+    计算问题：
+
+    - 嵌入层参数量激增：假设隐藏维度为4096，256k词表的嵌入矩阵拥有10亿个参数，仅此一项就占用约4GB显存（FP32）。这挤占了模型其他部分的资源，也增加了优化器状态的存储开销。
+
+    - Softmax瓶颈：在计算输出概率时，需要对全词表做softmax。每次前向传播都要计算并归一化这十万个logits，计算耗时远大于小词表。在大规模训练中，输出层可能成为主要瓶颈。
+
+    - 训练信号稀疏：大词表中大量token在语料中出现频率极低，这些低频token的嵌入向量得不到足够的训练样本，参数更新稀疏，容易过拟合或欠拟合，本质上浪费了容量。
+
+    - 分布式通信开销：在模型并行中，输出层常按词表维度切分。大词表导致通信量增大，尤其在使用TP（张量并行）时，全词表的gather操作开销不容小觑。
+
+    如何权衡：
+
+    - 按需设置：如果目标应用是通用领域，32k-64k通常足够覆盖主要语言。如果明确需要支持许多小语种且数据充足，可以考虑增大到128k。256k及以上通常用于极大规模模型或特殊场景（如字节级模型）。
+
+    - 采用大词表但稀疏更新：训练时使用Sampled Softmax，只更新当前batch中出现的正类和部分负类的嵌入，避免全词表计算。但在推理时仍需全词表softmax，不过可通过缓存词表概率或使用近似方法。
+
+    - 参数分解（如ALBERT）：将大词表的嵌入矩阵分解为两个小矩阵的乘积，控制总参数量。
+
+    - 分层Softmax：将词表组织成树结构，将softmax复杂度从O(V)降至O(log V)，但实现复杂，且对性能有一定影响。
+
+    - 数据驱动决策：通过实验评估在验证集上不同词表大小的困惑度和下游任务性能，找到性价比最高的点。
+
+    最终，词表大小是模型设计的核心超参数之一，需要在计算效率、内存占用和语言覆盖率之间取得平衡。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SbTdwOcZ4iLPOwkcuOvcEg8On4b
+  block_id: Bsj5d7MzCo6jBRxWtTBcv5ydnEh
+  page_token: SbTdwOcZ4iLPOwkcuOvcEg8On4b
+  original_title: 使用大词表（如 256k）对小语种的覆盖更好，但会带来什么计算问题？如何权衡？
+  imported_at: '2026-09-21'

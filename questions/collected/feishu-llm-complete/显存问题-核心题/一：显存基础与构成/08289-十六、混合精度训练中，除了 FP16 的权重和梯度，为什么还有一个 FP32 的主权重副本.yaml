@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fd3b69933272
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 十六、混合精度训练中，除了 FP16 的权重和梯度，为什么还有一个 FP32 的主权重副本？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 一：显存基础与构成
+tags: &1
+- 显存问题-核心题
+- 一：显存基础与构成
+content:
+  prompt: 十六、混合精度训练中，除了 FP16 的权重和梯度，为什么还有一个 FP32 的主权重副本？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在混合精度训练（例如 torch.cuda.amp）的标准实现中，虽然前向和反向使用半精度（FP16/BF16）来加速，但必须额外维护一份 FP32 的主权重（Master Weights）。这不是可选项，而是数值稳定性与精度要求下的工程必然。
+
+    原因一：权重更新的累加精度需求
+
+    [图片内容未导入]
+
+    原因二：梯度缩放（Loss Scaling）只是权宜之计
+
+    [图片内容未导入]
+
+    原因三：Adam 等自适应优化器的状态是 FP32，需要 FP32 权重参与
+
+    Adam 内部的 m、v 以 FP32 存储，它们累积的是 FP32 梯度（从 FP16 反量化或直接转换）。更新时计算出 FP32 的 Δw，自然应该应用到 FP32 的权重上。
+
+    工作流
+
+    - 训练开始：FP32 主权重初始化，并将其转换为 FP16（截断）用于前向计算。
+
+    - 前向：使用 FP16 权重和 FP16 激活计算。
+
+    - 反向：得到 FP16 梯度。
+
+    - 优化器内部：将 FP16 梯度转换为 FP32（如果混合精度代码如此），用于更新 FP32 的 m,vm,v。
+
+    - 计算 FP32 的 Δw，更新 FP32 主权重。
+
+    - 将更新后的 FP32 主权重再次转换为 FP16，供下一步前向使用。
+
+    因此，显存中同时存在：FP16 计算用权重 + FP32 主权重 + FP16 梯度（如果保留） + FP32 状态。FP32 主权重带来的额外 4 字节/参数，是保证模型收敛的代价。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GR6GwGe1Hij4c3keg1Qckq5unRb
+  block_id: FZW3dW7KcoT1m4xK12zc2UMInjb
+  page_token: GR6GwGe1Hij4c3keg1Qckq5unRb
+  original_title: 十六、混合精度训练中，除了 FP16 的权重和梯度，为什么还有一个 FP32 的主权重副本？
+  imported_at: '2026-09-21'

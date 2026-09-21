@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9568bc5396a2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在自定义 Function 中，ctx 对象有什么用？如何保存中间结果？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 在自定义 Function 中，ctx 对象有什么用？如何保存中间结果？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ctx 是一个上下文管理对象，用于在 forward 和 backward 之间传递和保存信息。
+
+    - 保存：ctx.save_for_backward(*tensors) 将前向传播中的中间结果（非标量张量）保存下来，供反向传播使用。这些张量在反向时会自动取出，并从计算图中安全地分离。
+
+    - 存储其他信息：你可以将任意Python对象（如整数、列表）直接赋值给 ctx 的属性（如 ctx.my_val = 10）。
+
+    class MyLinear(nn.Function):
+        @staticmethod
+        def forward(ctx, input, weight, bias=None):
+            ctx.save_for_backward(input, weight)  # 保存反向所需数据
+            output = input.mm(weight.t())
+            if bias is not None:
+                output += bias
+            return output
+
+        @staticmethod
+        def backward(ctx, grad_output):
+            input, weight = ctx.saved_tensors  # 取出保存的张量
+            grad_input = grad_weight = grad_bias = None
+            if ctx.needs_input_grad[0]:
+                grad_input = grad_output.mm(weight)
+            if ctx.needs_input_grad[1]:
+                grad_weight = grad_output.t().mm(input)
+            return grad_input, grad_weight, grad_bias
+
+    注意：save_for_backward 只能保存张量，且要求它们是 forward 的输入或输出，不能保存中间计算产生的临时张量（除非也将其作为额外输出）。正确保存数据是自定义高效、正确反向传播的关键。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BR8jwpyRCirUwbkqDCzc7IufnKc
+  block_id: FuOedy5jOouXnaxYlkCcspRXnve
+  page_token: BR8jwpyRCirUwbkqDCzc7IufnKc
+  original_title: 在自定义 Function 中，ctx 对象有什么用？如何保存中间结果？
+  imported_at: '2026-09-21'

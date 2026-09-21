@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0445904857cc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "❌ 当 Agent 出错（如选择了不存在的工具），LangChain 有内建的错误处理吗？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "❌ 当 Agent 出错（如选择了不存在的工具），LangChain 有内建的错误处理吗？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangChain 的 AgentExecutor 提供了一些内建的错误处理机制，但并非万能。
+
+    内建错误处理
+
+    - 解析错误（Output Parsing Error）
+    当 LLM 的输出不符合预期格式（例如 ReAct 中缺少 Action:）时，会抛出 OutputParserException。AgentExecutor 默认会捕获此异常，并将错误信息追加到 Prompt 中，要求 LLM 重新输出。这通过 handle_parsing_errors=True 参数控制。你也可以传入一个自定义的错误处理函数。
+
+    - 工具不存在
+    如果 LLM 调用了一个不在工具列表中的工具，AgentExecutor 会抛出一个异常，但不会自动修复。默认情况下，这个异常会直接传递给调用者。你可以通过设置 handle_parsing_errors 或自定义错误处理来捕获，并向 LLM 反馈“工具 X 不存在，请从可用工具中选择”。
+
+    - 工具执行错误
+
+    工具内部的异常不会被 AgentExecutor 自动捕获，而是会中断整个流程。为了避免这个问题，你应该在工具函数内部做好异常处理，并将错误信息作为 Observation 返回给 Agent，而不是抛出异常。例如：
+
+    def my_tool(input: str) -> str:
+        try:
+            # 执行操作
+            return "成功"
+        except Exception as e:
+            return f"工具执行失败：{e}"
+
+    增强错误处理的方式
+
+    - 使用 CallbackHandler 监听 on_tool_error 事件，记录日志或触发告警。
+
+    - 在自定义 Agent 的 Prompt 中加入指令：“如果你尝试了一个不存在的工具，请根据错误信息选择正确的工具”。
+
+    - 利用 LangSmith 追踪错误。
+
+    ✅ 经验：对于工具不存在的问题，最有效的办法是确保 Prompt 中的工具描述与工具名称严格一致。我通常会在工具注册时自动生成描述，避免手动编写导致的不匹配。同时，所有工具都要做健壮的异常捕获，绝不让工具内部的错误“击穿”到 AgentExecutor。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/L6pCw9CICiNRXDkqTmbcNMZ5nzh
+  block_id: WPTmdmIY9ooN7pxlOz2c29Afnuc
+  page_token: L6pCw9CICiNRXDkqTmbcNMZ5nzh
+  original_title: "❌ 当 Agent 出错（如选择了不存在的工具），LangChain 有内建的错误处理吗？"
+  imported_at: '2026-09-21'

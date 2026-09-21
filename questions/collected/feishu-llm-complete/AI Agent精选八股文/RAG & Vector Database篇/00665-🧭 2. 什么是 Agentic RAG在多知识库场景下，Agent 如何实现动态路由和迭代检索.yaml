@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-095edc468438
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9ED 2. 什么是 Agentic RAG？在多知识库场景下，Agent 如何实现动态路由和迭代检索？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "\U0001F9ED 2. 什么是 Agentic RAG？在多知识库场景下，Agent 如何实现动态路由和迭代检索？"
+answer:
+  mode: rubric
+  reference_answer: "Agentic RAG 就是将 RAG 的检索和生成能力封装成工具，交给一个能够推理和规划的 Agent 来调度。 这个
+    Agent 不仅能回答问题，还能主动分析问题、制定检索计划、并在执行过程中根据反馈调整策略。\n\n在多知识库场景下（例如，公司内部有“产品文档库”、“HR
+    政策库”、“技术规范库”），Agent 需要解决两个核心问题：去哪里查 和 怎么查到底。\n\n2.1 动态路由：去哪查？\n\nAgent 首先需要根据用户意图，自动选择正确的知识库或工具。这通常由一个
+    Router Agent 或分类器实现。\n\n[图片内容未导入]\n\n实现方式：\n\n- LLM 路由：在 System Prompt 中描述各个知识库的职责，让
+    LLM 根据问题输出选择。例如：“如果问题是 HR 相关，输出 HR；如果是产品相关，输出 PRODUCT；否则输出 GENERAL。”\n\n- 语义路由：将各个知识库的“描述”向量化，计算用户问题的向量，选择最匹配的知识库。\n\n示例代码：用
+    LLM 实现动态路由\n\n```python\ndef route_to_knowledge_base(question: str, llm) -> str:\n
+    \   prompt = f\"\"\"\n你是一个路由器。根据用户问题，决定应该查询哪个知识库。\n知识库列表：\n- HR_DB: 包含员工手册、休假政策、福利待遇等HR相关信息。\n-
+    PRODUCT_DB: 包含产品功能、API文档、版本发布说明等。\n- TECH_DB: 包含内部技术规范、架构设计、代码标准等。\n如果问题不涉及任何特定知识库，回复
+    \"GENERAL\"。\n\n用户问题: {question}\n请只回复知识库名称（HR_DB, PRODUCT_DB, TECH_DB, GENERAL）:\n\"\"\"\n
+    \   return llm(prompt).strip()\n```\n\n2.2 迭代检索：怎么查到底？\n\n复杂问题往往不是一次检索就能解决的。Agentic
+    RAG 允许 Agent 进行 多轮检索，每一轮都基于上一轮的结果调整策略。这包括：\n\n- 子问题分解：将复杂问题拆成多个子问题，逐一检索再汇总。\n\n-
+    查询改写：如果第一次检索结果不理想，让 LLM 改写查询词，用同义词或更精确的术语重新检索。\n\n- 多源验证：从一个知识库查到部分信息，再从另一个知识库补充或交叉验证。\n\n示例代码：一个简单的迭代
+    Agent 循环\n\n```python\ndef agentic_rag(question: str, llm, tools: dict, max_iter=5):\n
+    \   \"\"\"\n    tools: {'HR_DB': retriever_func, 'PRODUCT_DB': retriever_func,
+    ...}\n    \"\"\"\n    context = []\n    for i in range(max_iter):\n        # 1.
+    Agent 思考下一步行动\n        action_prompt = f\"\"\"\n你是一个研究助手。你的目标是回答用户问题。你可以使用以下工具：\n-
+    search_hr(query): 搜索HR知识库\n- search_product(query): 搜索产品知识库\n- search_tech(query):
+    搜索技术知识库\n- finish(answer): 当你确定能完整回答时，调用此函数。\n\n当前已收集的信息：\n{context if context
+    else \"无\"}\n\n用户问题：{question}\n\n请决定下一步行动。只输出函数名和参数，例如: search_hr(\"年假政策\")\n或者
+    finish(\"你的最终答案\")\n\"\"\"\n        action = llm(action_prompt).strip()\n\n        if
+    action.startswith(\"finish\"):\n            return action.split(\"finish(\")[1].rstrip(\")\").strip('\"')\n
+    \       \n        # 2. 解析并执行工具调用\n        tool_name, query = parse_action(action)\n
+    \       if tool_name in tools:\n            result = tools[tool_name](query)\n
+    \           context.append(f\"[{tool_name}] 查询: {query}\\n结果: {result[:500]}\")\n
+    \       else:\n            context.append(f\"错误: 未知工具 {tool_name}\")\n    \n    #
+    超过最大迭代，强制生成答案\n    force_prompt = f\"基于以下信息，尽最大努力回答：{context}\\n问题：{question}\"\n
+    \   return llm(force_prompt)\n```\n\n在这个循环里，Agent 可以看到自己已经知道的信息（context），并决定是继续查、换个库查、还是已经够了。这就是
+    迭代检索 的核心——Agent 在信息积累的每一步都重新评估局势，而不是一条路走到黑。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcngUhFG9v6ANs2OzMHoRcC1d
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "\U0001F9ED 2. 什么是 Agentic RAG？在多知识库场景下，Agent 如何实现动态路由和迭代检索？"
+  imported_at: '2026-09-21'

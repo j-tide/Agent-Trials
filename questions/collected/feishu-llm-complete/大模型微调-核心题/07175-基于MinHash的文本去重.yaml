@@ -1,0 +1,92 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9d0830420fc4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 基于MinHash的文本去重
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 基于MinHash的文本去重
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    import re
+    import hashlib
+    from collections import defaultdict
+    import random
+
+    class MinHash:
+        def __init__(self, num_perm: int = 128, seed: int = 42):
+            self.num_perm = num_perm
+            self.prime = 2**61 - 1
+            random.seed(seed)
+            self.a = [random.randint(1, self.prime - 1) for _ in range(num_perm)]
+            self.b = [random.randint(1, self.prime - 1) for _ in range(num_perm)]
+
+        def _hash(self, x, i):
+            return (self.a[i] * x + self.b[i]) % self.prime
+
+        def signature(self, tokens: set) -> list:
+            token_hashes = [hash(t) & 0xFFFFFFFF for t in tokens]
+            if not token_hashes:
+                return [float('inf')] * self.num_perm
+            sig = []
+            for i in range(self.num_perm):
+                sig.append(min(self._hash(h, i) for h in token_hashes))
+            return sig
+
+        @staticmethod
+        def similarity(sig1, sig2):
+            return sum(x == y for x, y in zip(sig1, sig2)) / len(sig1)
+
+    def deduplicate_texts(texts, threshold=0.8, ngram_size=3):
+        mh = MinHash()
+        signatures = []
+        for text in texts:
+            words = text.split()
+            ngrams = set()
+            for i in range(len(words) - ngram_size + 1):
+                ngrams.add(' '.join(words[i:i+ngram_size]))
+            signatures.append(mh.signature(ngrams))
+
+        keep_indices = []
+        for i, text in enumerate(texts):
+            is_dup = False
+            for j in keep_indices:
+                if mh.similarity(signatures[i], signatures[j]) >= threshold:
+                    is_dup = True
+                    break
+            if not is_dup:
+                keep_indices.append(i)
+        return [texts[i] for i in keep_indices]
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: KcuvdTXCPoztakxpArkc07rknhe
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: 基于MinHash的文本去重
+  imported_at: '2026-09-21'

@@ -1,0 +1,94 @@
+---
+schema_version: 1
+id: feishu-llm-complete-556f63d4ed45
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 1.1 数据库三大范式
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 1.1 数据库三大范式
+answer:
+  mode: rubric
+  reference_answer: "### 三大范式的定义与判断\n\n1、基础题：什么是数据库三大范式？如何判断一个表是否符合各范式？\n\n⭐（1NF/2NF/3NF
+    的定义、范式判断）\n\n第一范式（1NF）：每个字段都是不可再分的最小数据单元，表中的所有列都是原子性的。例如，不能有\"地址\"字段包含\"省、市、区\"，应该拆分为省、市、区三个字段。\n\n第二范式（2NF）：在满足
+    1NF 的基础上，非主键字段必须完全依赖于主键，不能只依赖主键的一部分。这主要针对联合主键的情况，如果表只有单一主键，则自动满足 2NF。\n\n第三范式（3NF）：在满足
+    2NF 的基础上，非主键字段不能传递依赖于主键。即非主键字段之间不能有依赖关系，所有非主键字段都直接依赖于主键。\n\n判断方法：\n\n- 1NF：看字段是否可再分\n\n-
+    2NF：看是否有部分依赖（针对联合主键）\n\n- 3NF：看是否有传递依赖\n\n2、进阶题：在电商系统中，订单表包含订单号、用户ID、商品ID、商品名称、用户姓名、用户地址等字段，请分析这个表的设计问题，并给出符合第三范式的优化方案。\n\n⭐⭐（范式分析、表结构优化、实际应用）\n\n1️⃣
+    Common Answer 这个表不符合第三范式，因为商品名称依赖商品ID，用户姓名和地址依赖用户ID，都传递依赖订单号。应该把商品信息、用户信息拆出来，订单表只保留订单号、用户ID、商品ID这些关联字段。\n\n2️⃣
+    Impressive Answer 这是一个典型的违反第三范式的设计问题。让我先分析这个表的结构和依赖关系。\n\n原表的依赖关系分析：\n\n- 主键：订单号\n\n-
+    用户ID → 订单号（部分依赖，违反 2NF）\n\n- 商品ID → 订单号（部分依赖，违反 2NF）\n\n- 商品名称 → 商品ID → 订单号（传递依赖，违反
+    3NF）\n\n- 用户姓名 → 用户ID → 订单号（传递依赖，违反 3NF）\n\n- 用户地址 → 用户ID → 订单号（传递依赖，违反 3NF）\n\n这个表同时违反了
+    2NF 和 3NF，会导致以下问题：\n\n- 数据冗余：一个用户买多个商品，用户姓名和地址会重复存储多次\n\n- 更新异常：用户修改地址时，需要更新所有订单记录，容易遗漏\n\n-
+    插入异常：新用户注册但未下单，无法存储用户信息\n\n- 删除异常：删除订单时，可能丢失用户信息\n\n符合第三范式的优化方案：\n\n```text\ngraph
+    TD\n    A[订单表] -->|user_id| B[用户表]\n    A -->|product_id| C[商品表]\n    A -->|order_id|
+    D[订单详情表]\n    \n    B -->|user_id| B\n    C -->|product_id| C\n    D -->|order_id|
+    A\n    D -->|product_id| C\n```\n\n表结构设计：\n\n订单表（orders）：\n\n```text\nCREATE TABLE
+    orders (\n    order_id BIGINT PRIMARY KEY,\n    user_id BIGINT NOT NULL,\n    order_time
+    DATETIME NOT NULL,\n    total_amount DECIMAL(10,2) NOT NULL,\n    status TINYINT
+    NOT NULL,\n    INDEX idx_user_id (user_id)\n);\n```\n\n用户表（users）：\n\n```text\nCREATE
+    TABLE users (\n    user_id BIGINT PRIMARY KEY,\n    user_name VARCHAR(50) NOT
+    NULL,\n    user_phone VARCHAR(20) NOT NULL,\n    user_address VARCHAR(200),\n
+    \   INDEX idx_phone (user_phone)\n);\n```\n\n商品表（products）：\n\n```text\nCREATE
+    TABLE products (\n    product_id BIGINT PRIMARY KEY,\n    product_name VARCHAR(100)
+    NOT NULL,\n    price DECIMAL(10,2) NOT NULL,\n    stock INT NOT NULL,\n    INDEX
+    idx_name (product_name)\n);\n```\n\n订单详情表（order_items）：\n\n```text\nCREATE TABLE
+    order_items (\n    order_id BIGINT NOT NULL,\n    product_id BIGINT NOT NULL,\n
+    \   quantity INT NOT NULL,\n    price DECIMAL(10,2) NOT NULL,\n    PRIMARY KEY
+    (order_id, product_id),\n    INDEX idx_product_id (product_id)\n);\n```\n\n优化后的优势：\n\n-
+    消除冗余：每个实体只存储一份，用户信息、商品信息不会重复\n\n- 避免异常：更新用户地址只需修改 users 表，不会影响订单\n\n- 灵活扩展：用户可以在下单前注册，商品可以独立管理\n\n-
+    查询效率：通过外键索引可以高效关联查询\n\n查询示例：\n\n```text\n-- 查询某用户的所有订单及商品信息\nSELECT o.order_id,
+    o.order_time, p.product_name, oi.quantity, oi.price\nFROM orders o\nJOIN users
+    u ON o.user_id = u.user_id\nJOIN order_items oi ON o.order_id = oi.order_id\nJOIN
+    products p ON oi.product_id = p.product_id\nWHERE u.user_id = ?;\n```\n\n不过在实际工程中，我们会在订单详情表中冗余商品名称和价格（反范式设计），因为商品信息可能被修改，但订单中的商品名称和价格应该保持下单时的快照。这体现了范式与反范式的权衡。\n\n3️⃣
+    Key Differences\n\n3、场景题：在设计一个电商订单系统时，订单表需要存储下单时的商品名称、价格、用户地址等信息，但这些信息可能会在后续被修改。你会如何设计表结构？为什么？\n\n⭐⭐⭐（范式与反范式权衡、业务场景设计）\n\n1️⃣
+    Common Answer 按照第三范式设计，订单表只存订单号、用户ID、商品ID，商品名称和价格去商品表查，用户地址去用户表查。这样不冗余，更新方便。\n\n2️⃣
+    Impressive Answer 这是一个典型的范式与反范式权衡场景。我会采用订单快照 + 反范式设计的方案。\n\n核心矛盾：\n\n- 如果严格遵循
+    3NF，订单表只存关联 ID，商品名称、价格、用户地址都从关联表查询\n\n- 但订单是历史记录，下单时的商品名称、价格、用户地址应该是快照，不应该随后续修改而变化\n\n我的设计方案：\n\n订单表（orders）：\n\n```text\nCREATE
+    TABLE orders (\n    order_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n    user_id BIGINT
+    NOT NULL,\n    user_name VARCHAR(50) NOT NULL,           -- 冗余：下单时的用户名快照\n    user_address
+    VARCHAR(200) NOT NULL,       -- 冗余：下单时的地址快照\n    order_time DATETIME NOT NULL,\n
+    \   total_amount DECIMAL(10,2) NOT NULL,\n    status TINYINT NOT NULL DEFAULT
+    0,\n    INDEX idx_user_id (user_id),\n    INDEX idx_order_time (order_time)\n)
+    COMMENT='订单表';\n```\n\n订单详情表（order_items）：\n\n```text\nCREATE TABLE order_items
+    (\n    id BIGINT PRIMARY KEY AUTO_INCREMENT,\n    order_id BIGINT NOT NULL,\n
+    \   product_id BIGINT NOT NULL,\n    product_name VARCHAR(100) NOT NULL,       --
+    冗余：下单时的商品名称快照\n    product_price DECIMAL(10,2) NOT NULL,     -- 冗余：下单时的价格快照\n
+    \   quantity INT NOT NULL,\n    subtotal DECIMAL(10,2) NOT NULL,          -- 冗余：小计，避免重复计算\n
+    \   INDEX idx_order_id (order_id),\n    INDEX idx_product_id (product_id)\n) COMMENT='订单详情表';\n```\n\n设计理由：\n\n-
+    业务正确性：订单是历史记录，下单时的商品价格可能后续调整，用户地址可能搬家，但订单信息不应该变化。例如，用户下单时商品 100 元，后续商品涨价到 120
+    元，订单中应该保持 100 元。\n\n- 查询性能：订单详情页需要展示商品名称、价格、用户地址等信息，如果都去关联表查询，需要多表 JOIN，性能较差。冗余存储后，单表查询即可。\n\n-
+    审计追溯：如果商品名称被修改（如品牌更名），订单中应该保留下单时的名称，便于追溯和客服处理。\n\n- 数据一致性：虽然冗余了字段，但这些字段在订单创建后不再修改，不会出现数据不一致的问题。\n\n反范式设计的代价与应对：\n\n-
+    存储空间：冗余字段会增加存储，但订单数据是只读的，存储成本可接受\n\n- 数据冗余：用户修改地址后，历史订单的地址不会更新，这是符合业务预期的\n\n何时使用反范式设计：\n\n我会根据以下原则判断是否需要反范式：\n\n在电商订单场景中：\n\n-
+    订单数据创建后几乎不再修改 → 适合反范式\n\n- 订单详情查询频繁 → 需要冗余提升性能\n\n- 订单快照是业务需求 → 必须冗余\n\n总结：数据库设计不是教条地遵循范式，而是根据业务需求、性能要求、数据特性进行权衡。订单场景采用快照式的反范式设计是最佳实践。\n\n3️⃣
+    Key Differences\n\n4、容易一起考的题\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Up98wO80gi5aQ9keH7Hcff3VnRd
+  block_id: doxcnFYkguIPHHad9CB8r6M1Mtf
+  page_token: Up98wO80gi5aQ9keH7Hcff3VnRd
+  original_title: 1.1 数据库三大范式
+  imported_at: '2026-09-21'

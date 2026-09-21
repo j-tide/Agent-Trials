@@ -1,0 +1,274 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a147625e350d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 项目需要快速接入新的数据表，如何用 MBG 或 MyBatis-Plus 代码生成器提升开发效率？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 项目需要快速接入新的数据表，如何用 MBG 或 MyBatis-Plus 代码生成器提升开发效率？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐⭐（代码生成、开发效率、Agent 场景）
+
+    1️⃣ Common Answer 用 MBG 生成 Mapper 接口和实体类，然后手写业务逻辑。或者用 MyBatis-Plus 的代码生成器，生成 Service 和 Controller，直接用。
+
+    2️⃣ Impressive Answer
+
+    - MyBatis-Plus 代码生成器：
+
+    ```text
+    AutoGenerator generator = new AutoGenerator();
+    generator.setDataSource(new DataSourceConfig.Builder("jdbc:mysql://localhost:3306/agent_db", "root", "password").build());
+    generator.setGlobalConfig(new GlobalConfig.Builder().outputDir("src/main/java").author("agent").build());
+    generator.setPackageInfo(new PackageConfig.Builder().parent("com.example.agent").moduleName("tool").build());
+    generator.setStrategy(new StrategyConfig.Builder().addInclude("tool_call", "tool_param").entityBuilder().enableLombok().build());
+    generator.execute();
+    ```
+
+    生成内容：Entity、Mapper、Mapper XML、Service、ServiceImpl、Controller，完整 CRUD 代码。
+
+    - Agent 场景快速接入：
+
+    - 开发效率提升：
+
+    - 最佳实践：
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    - Executor：缓存未命中，重复查库 → 优化缓存策略
+
+    - StatementHandler：参数设置慢（如大对象序列化）→ 优化参数传递
+
+    - JDBC：SQL 本身慢（如全表扫描）→ 优化 SQL，加索引
+
+    - ResultSetHandler：结果映射慢（如大量数据）→ 分页查询，减少数据量
+
+    - aggressiveLazyLoading=true（默认）：调用任意 getter 方法时，加载所有懒加载属性（性能差，不推荐）。
+
+    - aggressiveLazyLoading=false：只加载被调用的属性，其他懒加载属性保持未加载状态（推荐，性能好）。
+
+    - 开启懒加载（lazyLoadingEnabled=true），查询 Session 时不立即查询 Message。
+
+    - 使用 MyBatis-Plus 的 in 查询批量加载 Message：
+
+    - 在 Mapper XML 中使用 collection 嵌套查询，配置 fetchType="eager"：
+
+    - 多轮对话查询：用懒加载 + 批量查询，避免加载全量历史消息，只加载最近 20 条（分页）。
+
+    - 知识库关联查询：用 JOIN 查询，一次性加载知识库条目和关联标签。
+
+    - 监控与优化：通过 MyBatis 插件统计 SQL 次数，设置告警（单次请求 SQL > 10 次），持续优化。
+
+    - 事务内切换数据源：事务开始前切换数据源，事务内所有操作使用同一数据源。注意：事务内不能切换数据源，否则报错（事务绑定的是初始数据源的 Connection）。
+
+    - 事务传播行为：REQUIRED 传播行为下，子事务继承父事务的数据源；REQUIRES_NEW 传播行为下，子事务可以切换数据源。
+
+    - 最佳实践：在 @Transactional 方法外切换数据源，事务内不切换；或使用 @Transactional(propagation = Propagation.REQUIRES_NEW) 开启新事务切换数据源。
+
+    - 主流程：先写业务库（本地事务），成功后写向量库（远程调用）。
+
+    - 补偿机制：向量库写入失败时，记录失败日志，通过定时任务重试；或发送消息到 MQ，消费者重试。
+
+    - 代码示例：
+
+    - 使用 Seata AT 模式，业务库和向量库都接入 Seata，通过 @GlobalTransactional 保证分布式事务一致性。
+
+    - 缺点：性能开销大（锁机制、日志记录），不适合高并发场景。
+
+    - 适用场景：强一致性要求高、并发量低的场景（如金融系统）。
+
+    - 弱一致性：工具调用允许短暂不一致，用本地事务 + 补偿机制，性能好。
+
+    - 强一致性：关键操作（如支付）用 Seata，保证数据一致。
+
+    - 监控与告警：监控跨库操作的成功率、失败重试次数，设置告警（失败率 > 1%）。
+
+    - 类型安全：编译期检查字段名，避免 SQL 拼写错误。
+
+    - 代码可读性：Java 代码直观，IDE 支持重构和跳转。
+
+    - 动态条件：支持 if 条件判断，动态构建查询：
+
+    - 复杂查询限制：多表关联、子查询、复杂聚合查询不如 XML 灵活。
+
+    - 性能问题：动态拼接 SQL，可能生成低效 SQL（如 OR 条件过多）。
+
+    - 学习成本：需要熟悉 MyBatis-Plus API。
+
+    - 灵活性高：支持复杂 SQL（多表关联、子查询、存储过程调用）。
+
+    - SQL 优化：可以手动优化 SQL，避免低效查询。
+
+    - 可维护性：SQL 与代码分离，DBA 可以直接优化 SQL。
+
+    - 类型不安全：字段名是字符串，容易拼写错误。
+
+    - 代码冗余：需要编写 XML 文件，增加维护成本。
+
+    - 重构困难：修改字段名需要同步修改 XML。
+
+    - 简单查询：用 LambdaQueryWrapper，提高开发效率。
+
+    - 复杂查询：用 XML 动态 SQL，保证 SQL 性能和灵活性。
+
+    - 混合使用：简单条件用 LambdaQueryWrapper，复杂逻辑用 XML。
+
+    - 实现 MetaObjectHandler 接口，重写 insertFill() 和 updateFill() 方法：
+
+    - MyBatis-Plus 通过 MybatisPlusInterceptor 拦截 SQL 执行，在插入和更新前调用 MetaObjectHandler 填充字段。
+
+    - strictInsertFill() 严格填充（字段存在且非空才填充），fillStrategy() 策略填充（覆盖已有值）。
+
+    - 实体类字段添加 @TableLogic：
+
+    - 自动填充：Agent 对话记录自动填充 createTime、createBy（Agent ID），避免手动设置，减少代码冗余。
+
+    - 逻辑删除：Agent 工具调用记录逻辑删除，保留历史数据用于审计和分析，查询时自动过滤已删除记录。
+
+    - 解析 LLM 返回的 JSON，动态构建 LambdaQueryWrapper：
+
+    - 在 Mapper XML 中使用 <if>、<choose>、<foreach> 动态构建 SQL：
+
+    - 简单动态查询：用 MyBatis-Plus 条件构造器，提高开发效率。
+
+    - 复杂动态查询：用 XML 动态 SQL，保证 SQL 灵活性。
+
+    - 混合使用：基础条件用 LambdaQueryWrapper，复杂逻辑用 XML。
+
+    - LLM 返回简单条件（如 name=张三、age>18）：用 LambdaQueryWrapper，代码简洁。
+
+    - LLM 返回复杂条件（如 IN (1,2,3)、BETWEEN 10 AND 20）：用 XML 动态 SQL，保证 SQL 性能。
+
+    - 监控与优化：通过 MyBatis 插件统计 SQL 执行时间，优化慢查询。
+
+    - cacheEnabled="true"：全局开启二级缓存（默认 true），可被 Mapper 级别覆盖
+
+    - lazyLoadingEnabled="true"：全局开启延迟加载（默认 false），按需加载关联对象
+
+    - aggressiveLazyLoading="false"：按需加载（默认 true，加载任一属性则加载所有）
+
+    - multipleResultSetsEnabled="true"：允许单条语句返回多个结果集（默认 true）
+
+    - useColumnLabel="true"：使用列标签代替列名（默认 true）
+
+    - defaultExecutorType="SIMPLE"：默认执行器类型（SIMPLE/REUSE/BATCH）
+
+    - poolMaximumActiveConnections：最大活跃连接数（默认 10），超过则等待
+
+    - poolMaximumIdleConnections：最大空闲连接数（默认 10），超过则关闭
+
+    - poolMaximumCheckoutTime：最大等待时间（默认 20000ms），超时抛异常
+
+    - poolTimeToWait：等待重试间隔（默认 20000ms）
+
+    - poolPingQuery：连接检测 SQL（默认 "SELECT 1"），检测连接有效性
+
+    - poolPingEnabled：是否开启连接检测（默认 false）
+
+    - 高峰期调优：Agent 服务 QPS 1000+，设置 poolMaximumActiveConnections=50，避免连接耗尽
+
+    - 空闲连接优化：低峰期设置 poolMaximumIdleConnections=5，减少资源占用
+
+    - 连接检测：poolPingEnabled=true，poolPingQuery="SELECT 1"，避免使用失效连接
+
+    - 等待时间：poolMaximumCheckoutTime=5000ms，快速失败，避免长时间阻塞
+
+    - 二级缓存：知识库查询开启二级缓存，减少 DB 连接占用
+
+    - 延迟加载：工具调用记录参数列表延迟加载，减少长事务
+
+    - Executor 类型：批量操作用 BATCH，减少连接占用时间
+
+    - 超时设置：defaultStatementTimeout=5000ms，避免慢查询占用连接
+
+    - 索引优化：为 session_id、tool_id 等高频查询字段添加索引
+
+    - 分页优化：大数据量查询使用分页，避免全表扫描
+
+    - 批量操作：消息记录批量插入，减少连接次数
+
+    - 连接池监控：通过 JMX 或 Prometheus 监控活跃连接数、等待队列长度
+
+    - 慢查询告警：设置慢查询阈值（5 秒），超过则告警
+
+    - 连接泄露检测：定期检查活跃连接数，发现异常增长告警
+
+    - 实体类：User.java，包含所有字段，支持 @Generated 注解
+
+    - Mapper 接口：UserMapper.java，包含 insert、updateByPrimaryKey、selectByPrimaryKey、deleteByPrimaryKey 等基础方法
+
+    - Mapper XML：UserMapper.xml，包含 SQL 映射配置
+
+    - Example 类：UserExample.java，用于动态构建查询条件（如 WHERE id = ? AND name LIKE ?）
+
+    - 命令行：java -jar mybatis-generator-core-x.x.x.jar -configfile generatorConfig.xml
+
+    - Maven 插件：mvn mybatis-generator:generate
+
+    - Java 代码：GeneratorGenerator.generate(null, config, null, null, null, true)
+
+    - 动态查询：Agent 查询工具调用记录，按 session_id、tool_name、status 等条件组合查询
+
+    - 复杂条件：example.or().andCreateTimeBetween(startTime, endTime); 支持 OR 条件
+
+    - 排序分页：example.setOrderByClause("create_time DESC"); 排序，配合 PageHelper 分页
+
+    - 自定义方法：继承 IntrospectedTableMyBatis3Impl，重写 generateBaseRecordClass()，添加自定义方法
+
+    - 自定义模板：修改 mapperGenerator.ftl 模板，生成自定义 Mapper 方法
+
+    - MyBatis-Plus 代码生成器：AutoGenerator generator = new AutoGenerator(); generator.setStrategy(new StrategyConfig().setInclude("tool_call")); 支持生成 Service、Controller 等更多文件。
+
+    - 新表接入：Agent 新增 agent_log 表，运行代码生成器，5 分钟内生成完整 CRUD 代码
+
+    - 自定义模板：修改 controller.java.ftl，添加 Agent 特有的方法（如 @PostMapping("/execute") 工具执行接口）
+
+    - 批量生成：一次生成多个表（addInclude("tool_call", "tool_param", "agent_log")），统一代码风格
+
+    - 减少重复代码：自动生成基础 CRUD，专注业务逻辑开发
+
+    - 统一代码规范：通过模板统一代码风格，降低维护成本
+
+    - 快速迭代：Agent 功能快速扩展，新增数据表即时生成代码
+
+    - 版本控制：生成代码纳入 Git，避免重复生成覆盖修改
+
+    - 增量生成：只生成新表，已生成的表手动维护
+
+    - 自定义扩展：在生成代码基础上添加业务逻辑，不修改生成模板
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VU1MwcbuKiIco5kkmQCc1W0lnFc
+  block_id: doxcnXMJKvkAbyi72OWyU8cLcih
+  page_token: VU1MwcbuKiIco5kkmQCc1W0lnFc
+  original_title: 3、场景题：Agent 项目需要快速接入新的数据表，如何用 MBG 或 MyBatis-Plus 代码生成器提升开发效率？
+  imported_at: '2026-09-21'

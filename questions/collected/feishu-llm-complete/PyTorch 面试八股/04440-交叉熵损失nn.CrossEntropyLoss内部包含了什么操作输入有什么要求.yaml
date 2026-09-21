@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ba0030f19d3c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 交叉熵损失nn.CrossEntropyLoss内部包含了什么操作？输入有什么要求？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 交叉熵损失nn.CrossEntropyLoss内部包含了什么操作？输入有什么要求？
+answer:
+  mode: rubric
+  reference_answer: |-
+    nn.CrossEntropyLoss 是 PyTorch 中的标准多分类损失，它将 LogSoftmax 和 NLLLoss（负对数似然损失）组合在了一起。具体而言，它先对预测的logits应用 softmax 取对数，然后计算真实标签对应的负对数似然。
+
+    输入要求：
+
+    - 预测值（input）：模型输出的原始logits，形状 (N, C) 或 (N, C, d1, d2, ...)（用于分割等）。C 是类别数。不需要预先经过 softmax 或 log_softmax。
+
+    - 目标值（target）：形状应与输入兼容，对于标准分类，形状为 (N,)，每个值是一个整数类索引，范围 [0, C-1]。也可以使用类概率分布（形状 (N, C)），但此时内部会采用不同的路径。
+
+    - 权重（可选）：可以传入每个类别的权重，用于处理样本不平衡。
+
+    - ignore_index（可选）：指定某个类别索引在损失计算中被忽略。
+
+    内部计算流程：
+
+    - 对输入logits应用 log_softmax(dim=1) 得到对数概率。
+
+    - 取出每个样本对应真实标签位置的对数概率。
+
+    - 如果提供了权重，加权求和；否则直接求平均（默认 reduction='mean'）。
+
+    示例：
+
+    ```python
+    loss_fn = nn.CrossEntropyLoss()
+    logits = torch.randn(10, 5, requires_grad=True)  # 10个样本，5类
+    targets = torch.randint(0, 5, (10,))
+    loss = loss_fn(logits, targets)
+    ```
+
+    注意：由于内置了softmax，网络最后一层不应加激活，直接输出logits。这有助于数值稳定性。
+
+    - 都会被 model.to(device) 移动到目标设备。
+
+    - 都会被 state_dict() 和 torch.save 保存和恢复。
+
+    - register_buffer 注册的张量不参与梯度计算，不出现在 model.parameters() 中，优化器忽略它。
+
+    - 典型用途：存储 BatchNorm 层的 running_mean, running_var，或任何需要持久化但在训练时不更新的状态。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HAxGwBLA5iBs8qkyVHtcDa23nug
+  block_id: X8HYdrILZolxQsxySWgcZDyPnbf
+  page_token: HAxGwBLA5iBs8qkyVHtcDa23nug
+  original_title: 交叉熵损失nn.CrossEntropyLoss内部包含了什么操作？输入有什么要求？
+  imported_at: '2026-09-21'

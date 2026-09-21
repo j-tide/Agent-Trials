@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e4e354e51060
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多模态模型的“推理即服务”在云原生环境下，如何通过 GPU 虚拟化（MIG）实现细粒度资源切分？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 多模态模型的“推理即服务”在云原生环境下，如何通过 GPU 虚拟化（MIG）实现细粒度资源切分？
+answer:
+  mode: rubric
+  reference_answer: |-
+    MIG（Multi-Instance GPU）是NVIDIA A100/H100的硬件虚拟化技术，可将一块物理GPU划分为多个独立的GPU实例，每个实例拥有专属的显存、缓存和计算资源，互不干扰。
+
+    在多模态推理中的应用：
+
+    - 按模型组件切分
+
+    将视觉编码器部署在一个MIG实例（如10GB显存），LLM部署在另一个更大的实例（如剩余70GB）。两者在同一块GPU上物理隔离，避免了视觉编码器和LLM抢占缓存，也防止了显存碎片的相互影响。两者之间通过GPU间的NVLink高速传输视觉token（H100上可达900GB/s），延迟远低于跨网络传输。
+
+    - 多租户隔离
+
+    SaaS服务中，不同客户（租户）的推理请求需要安全隔离。可以为每个大客户分配独立的MIG实例，专属运行其模型副本，确保数据和模型安全，同时保证SLA。小客户可共享一个实例，通过软件层面隔离。
+
+    - 混合精度与任务分配
+
+    在一个MIG实例上运行量化后的轻量模型（用于简单查询），另一个实例上运行全精度大模型（用于复杂推理）。根据请求难度路由到不同实例。
+
+    - 精细QoS保障
+
+    MIG的硬隔离特性使得QoS可预测性极高。一个实例的推理不会因为另一个实例的突发负载而性能抖动。可以精确规划每个实例的吞吐和延迟上限。
+
+    注意事项：
+
+    - MIG会降低单块GPU的总吞吐，因为切分带来了固定的硬件资源碎片。适合多租户和安全隔离需求强烈的场景。
+
+    - 对于追求极致吞吐的单一服务，使用MIG不如用整个GPU配合软件层面的并发（如MPS）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RRQVwfGDQiejs6kBW04ch16ynHe
+  block_id: JEQedODW8oG0ecxstbXcyxeGn1b
+  page_token: RRQVwfGDQiejs6kBW04ch16ynHe
+  original_title: 多模态模型的“推理即服务”在云原生环境下，如何通过 GPU 虚拟化（MIG）实现细粒度资源切分？
+  imported_at: '2026-09-21'

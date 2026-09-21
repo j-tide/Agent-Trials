@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-af726cfce2b6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 奖励模型是否可以增量更新？在策略迭代中，如何不断让 RM 适应新的数据分布？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 2-偏好数据与奖励建模
+tags: &1
+- RLHF面试高频考点
+- 2-偏好数据与奖励建模
+content:
+  prompt: 奖励模型是否可以增量更新？在策略迭代中，如何不断让 RM 适应新的数据分布？
+answer:
+  mode: rubric
+  reference_answer: |-
+    必须增量更新，否则 RM 在策略迭代中很快会过时。
+
+    增量更新策略：
+
+    - 定期全量重训 (Periodic Full Retraining)
+    当累积了足够多的新标注数据（来自当前策略的新分布）时，将新数据与旧数据按一定比例混合，从头或从旧 RM 检查点重新训练一个新 RM。这是最简单也最彻底的更新方式，能无偏地吸收新信息。缺点是成本高。
+
+    - 微调增量更新 (Incremental Fine-tuning)
+    以现有 RM 为起点，仅用新分布的数据进行少量步数的微调。为了避免灾难性遗忘（忘记了之前学到的有效通用标准），必须采取以下措施：
+
+    - 集成与淘汰 (Ensemble with Retirement)
+    保留多个历史版本的 RM（如 RM_v1, RM_v2, ...）。在 PPO 中，使用它们的加权平均作为当前奖励，权重随时间衰减。当新 RM 上线后，最旧的 RM 被淘汰。这自然实现了奖励标准的平滑过渡。
+
+    - 在线自适应 RM (Online Adaptation)
+    在 PPO 训练的同时，RM 也以较小的学习率在线更新。但这种方法极易导致“奖励黑客的共谋”：Actor 和 RM 可能一起漂移到一个荒诞的状态。因此，必须用固定的参考基线 RM进行交叉验证，或使用双重 RM（一个在线更新，一个冻结），通过 KL 惩罚或打分对比来约束在线 RM 的更新幅度。
+
+    适应新分布的核心挑战：
+
+    - 避免“谄媚”RM：如果只用高分样本更新 RM，RM 会变得对当前策略越来越宽容，导致分数膨胀和标准退化。必须同时引入多样性的负样本，特别是人类标注为低质量但当前 RM 打分较高的假阳性样本。
+
+    - 保持与人类价值观的锚定：始终保留一批从项目初始就由人类专家精心标注的“金标准”偏好数据，在每次 RM 更新后验证其与人类判断的一致性。如果相关性下降，则回滚或修正更新。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KFgpwxoYei4VBPkDUJfcFKLLnVf
+  block_id: Eyi1dU36IoJghGxmzBLcuFlbnoc
+  page_token: KFgpwxoYei4VBPkDUJfcFKLLnVf
+  original_title: 奖励模型是否可以增量更新？在策略迭代中，如何不断让 RM 适应新的数据分布？
+  imported_at: '2026-09-21'

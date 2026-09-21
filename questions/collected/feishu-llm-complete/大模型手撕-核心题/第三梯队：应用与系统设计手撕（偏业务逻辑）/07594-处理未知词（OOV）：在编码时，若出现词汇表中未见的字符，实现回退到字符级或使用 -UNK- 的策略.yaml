@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-204d0c1552d8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 处理未知词（OOV）：在编码时，若出现词汇表中未见的字符，实现回退到字符级或使用 <UNK> 的策略
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 处理未知词（OOV）：在编码时，若出现词汇表中未见的字符，实现回退到字符级或使用 <UNK> 的策略
+answer:
+  mode: rubric
+  reference_answer: "在 BPE 分词器中，未知词通常指包含训练时未见过字符的单词。由于 BPE 的初始词汇表建立在字符级，理想情况下如果训练语料覆盖了所有可能的
+    Unicode 字符，则不会出现未知字符。但实际中，测试文本可能包含罕见字符或表情符号等。针对这种情况，有两种主流策略：\n\n- 回退到字符级（Fallback
+    to characters）：对未见字符仍然保留其原始字符作为 token，即进行字符级切分。因为即使某些字符没有在合并规则中出现过，但如果在初始化时将任意字符视为合法符号，那么编码时可直接将未知字符当作单字符
+    token 处理。这要求训练时采用了“开放词汇”策略，如 Byte-Level BPE（以字节为基础，256 个基本符号，可表示任何 UTF-8 序列），或训练时将词汇表初始化为所有
+    Unicode 码点（不现实，通常使用字节）。\n\n- 使用 <UNK> 特殊符号：训练时预留一个特殊 token <UNK>，编码时将所有未见过的字符替换为
+    <UNK>。这会导致信息丢失，且解码后无法还原原始文本，通常不推荐用于生成任务，但在某些分类任务中可用。\n\n由于前文我们采用字符级初始化，若测试时出现未见于初始字符集（或词汇表）的字符，编码过程会因找不到该字符而失败。因此需要扩展编码函数，加入
+    OOV 处理。更常见的做法是直接采用 Byte-Level BPE（见下一问），从根本上解决 OOV 问题，因为它将文本视为字节序列，任何文本都能用 256
+    个字节表示。\n\n基于字符级 BPE 的 OOV 处理策略实现：\n\n方案一：回退到字符本身（假设初始字符集为训练时见过的所有字符，未见字符仍保留原样，但无法参与任何合并，因为合并规则中不包含它们）。编码时，将单词拆分为字符，若某字符不在初始字符集中，则将其原样保留，且不参与合并（因为合并规则都以已知字符对为基础）。此时该未知字符会作为独立
+    token 输出。这种方法保持了文本的可还原性，只要解码时按原样拼接即可。但需要确保模型能处理这样的“扩展”词汇。\n\n方案二：将未知字符替换为 <UNK>。在编码前预处理：检查每个字符是否在基础字符集中，若不在则替换为
+    <UNK>。<UNK> 在训练时作为特殊符号加入词汇表（频率可设为 0 或极低），编码时 <UNK> 可与其他符号合并吗？通常 <UNK> 不参与合并，它作为一个原子
+    token 使用。因此合并规则中可能不包含 <UNK> 相关的 pair。为了支持 <UNK>，在初始化时可以将一个虚拟单词 \"<UNK>\" 加入词频字典（频率为
+    0），从而让 < , U, N, K, > 和 </w> 出现在初始字符集中，之后可能被合并为一个整体 token <UNK>。但更简单的是将 <UNK>
+    作为单个不可分割的符号处理，编码时若遇到未知字符直接输出 ['<UNK>']。\n\n下面给出结合两种策略的编码函数增强版：\n\n```python\ndef
+    encode_word_with_oov(word: str, merges: list, known_chars: set, \n                         unk_token:
+    str = '<UNK>', use_unk: bool = False) -> list:\n    \"\"\"\n    编码一个单词，支持 OOV
+    字符处理。\n    参数：\n        word: 原始单词\n        merges: BPE 合并规则\n        known_chars:
+    训练时初始字符集（包含 '</w>'）\n        unk_token: 未知词标记\n        use_unk: True 则使用 <UNK>
+    替代未知字符；False 则回退到字符本身\n    返回：\n        token 列表\n    \"\"\"\n    if use_unk:\n
+    \       # 将未知字符替换为 unk_token\n        chars = []\n        for ch in word:\n            if
+    ch in known_chars:\n                chars.append(ch)\n            else:\n                chars.append(unk_token)\n
+    \       # 注意：若整个词变成 <UNK> 序列，仍按正常合并流程，但通常我们不合并 <UNK>\n        # 简单起见，直接返回 [unk_token]
+    如果包含任何未知字符？ 可自定义策略。\n        # 这里我们保留 <UNK> 作为字符参与可能的合并（根据训练规则），但多数情况下直接返回 [unk_token]
+    表示整个词未知。\n        # 更稳健：若包含任何未知字符，直接输出 [unk_token] 并跳过合并？\n        # 以下提供按字符替换的版本：\n
+    \   else:\n        # 回退字符本身：未知字符保留原样，但不参与任何合并（因为规则中不包含它们）\n        chars = list(word)\n
+    \   \n    # 后续编码同上，将 chars 加上 </w>\n    symbols = chars + ['</w>']\n    for (a,
+    b), ab in merges:\n        new_symbols = []\n        i = 0\n        while i <
+    len(symbols):\n            if i < len(symbols)-1 and symbols[i] == a and symbols[i+1]
+    == b:\n                new_symbols.append(ab)\n                i += 2\n            else:\n
+    \               new_symbols.append(symbols[i])\n                i += 1\n        symbols
+    = new_symbols\n    return symbols\n```\n\n然而，最彻底的解决方法是采用 Byte-Level BPE，如问题 10
+    所述。它将文本转为字节序列，初始符号就是 0~255 共 256 个字节。这样任何 Unicode 字符（包括表情符号）都被表示成多个字节，永远不会有未登录符号。GPT-2、GPT-3、LLaMA
+    等模型均采用此种方式。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XDqKw0GPGi6JvkkfpwUcqpdAndd
+  block_id: FKolds0haowRejx4whjcNEWHnxd
+  page_token: XDqKw0GPGi6JvkkfpwUcqpdAndd
+  original_title: 处理未知词（OOV）：在编码时，若出现词汇表中未见的字符，实现回退到字符级或使用 <UNK> 的策略
+  imported_at: '2026-09-21'

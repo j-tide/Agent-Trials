@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ee4302f53b49
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现分组量化（group-wise）的解包与反量化：权重以 int8 存储，每 group_size 个元素共享一个 scale，写出反量化到 FP32
+  的核函数
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现分组量化（group-wise）的解包与反量化：权重以 int8 存储，每 group_size 个元素共享一个 scale，写出反量化到
+    FP32 的核函数
+answer:
+  mode: rubric
+  reference_answer: |-
+    分组量化 介于 per-tensor 和 per-channel 之间，将权重矩阵按一定分组大小（如 128）分组，每组独立计算 scale。对于形状为 [K, N] 的权重，通常沿输入维度（列）或沿行分组。这里假设权重为二维 [OC, IC]，分组大小 group_size，在 IC 维度上进行分组。存储格式：int8 的权重紧凑排列，另外存储 scale 数组，长度为 OC * ceil(IC/group_size)。
+
+    反量化核函数需要根据分组索引取出对应的 scale，将 int8 转换为 FP32。实现时可以用循环或 PyTorch 的索引操作。
+
+    代码（PyTorch 实现，模拟反量化核函数）：
+
+    ```python
+    def groupwise_dequantize(w_q: torch.Tensor, scale: torch.Tensor, group_size: int):
+        """
+        w_q: int8 tensor [OC, IC]  权重（以 int8 紧凑存储）
+        scale: FP32 tensor [OC, num_groups]  其中 num_groups = ceil(IC/group_size)
+        group_size: 每组的元素数
+        Returns:
+            w_fp: FP32 [OC, IC]
+        """
+        OC, IC = w_q.shape
+        num_groups = (IC + group_size - 1) // group_size
+        # 将 w_q reshape 为 [OC, num_groups, group_size] 但最后一组可能不足
+        # 简单实现：循环
+        w_fp = torch.empty_like(w_q, dtype=torch.float32)
+        for g in range(num_groups):
+            start = g * group_size
+            end = min(start + group_size, IC)
+            # 取出该组 scale，形状 [OC]
+            s = scale[:, g].unsqueeze(1)  # [OC, 1]
+            w_fp[:, start:end] = w_q[:, start:end].float() * s
+        return w_fp
+    ```
+
+    若权重的 int8 存储是按组交织的（如 [OC * num_groups, group_size]），则需要相应解包。这里演示简单形式。更高效的核函数可用 CUDA，逻辑同上。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: PKuKdMnqtoZ9HHxRThqcDXlnnpb
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 实现分组量化（group-wise）的解包与反量化：权重以 int8 存储，每 group_size 个元素共享一个 scale，写出反量化到
+    FP32 的核函数
+  imported_at: '2026-09-21'

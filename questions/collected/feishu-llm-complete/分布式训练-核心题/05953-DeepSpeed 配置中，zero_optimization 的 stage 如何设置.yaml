@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-810238a082e6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: DeepSpeed 配置中，zero_optimization 的 stage 如何设置？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: DeepSpeed 配置中，zero_optimization 的 stage 如何设置？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 DeepSpeed 配置文件的 zero_optimization 部分，stage 参数接受 0、1、2、3 四个值：
+
+    - stage=0：禁用 ZeRO，所有状态（参数、梯度、优化器）每张卡都保存完整副本，相当于标准数据并行。
+
+    - stage=1：分片优化器状态。单卡只存储 1/N 的 FP32 主权重和 Adam 状态，梯度仍为全量。更新后通过 AllGather 收集完整参数。
+
+    - stage=2：进一步分片梯度。反向传播时对梯度做 ReduceScatter，每卡只保留负责参数的那部分梯度，节省梯度显存。
+
+    - stage=3：进一步分片模型参数。每卡只持久存储 1/N 的参数，前向和反向通过 AllGather 临时收集完整参数，显存压缩到极致。
+
+    如何选择 stage：
+
+    - 如果单卡能容纳完整模型状态，且希望最小通信开销，用 stage=0 或 1。
+
+    - 大多数 7B~13B 模型在 8 卡 A100 上，stage=2 是性能与显存的最佳平衡。
+
+    - 需要训练更大模型或使用更长序列时，升级到 stage=3。
+
+    - 在跨节点环境下，若 ZeRO-3 通信成为瓶颈，可考虑使用 ZeRO++ 的 stage=3 变体。
+
+    DeepSpeed 还支持 offload_optimizer 和 offload_param 等选项，可与任意 stage 组合使用。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: TWnZdxI7Hofi6xxNEWVcyuOHncc
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: DeepSpeed 配置中，zero_optimization 的 stage 如何设置？
+  imported_at: '2026-09-21'

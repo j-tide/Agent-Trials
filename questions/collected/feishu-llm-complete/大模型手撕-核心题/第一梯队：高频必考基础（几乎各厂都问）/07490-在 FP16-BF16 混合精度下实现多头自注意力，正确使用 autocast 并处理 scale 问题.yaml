@@ -1,0 +1,93 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e75f0415f657
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 FP16/BF16 混合精度下实现多头自注意力，正确使用 autocast 并处理 scale 问题。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 在 FP16/BF16 混合精度下实现多头自注意力，正确使用 autocast 并处理 scale 问题。
+answer:
+  mode: rubric
+  reference_answer: |-
+    21.1 原理
+
+    FP16 计算速度更快但精度有限，易导致数值溢出（尤其是 softmax 的指数操作）。混合精度训练通过 autocast 自动将部分操作（如 matmul）转为 FP16，同时保留关键操作（如 softmax、归一化）在 FP32。缩放因子 scale 通常在 FP16 下需要调整为 FP32 计算，以避免下溢。
+
+    21.2 实现
+
+    ```python
+    import torch.cuda.amp as amp
+
+    class MixedPrecisionAttention(MultiHeadSelfAttention):
+        def forward(self, x, key_padding_mask=None, attn_mask=None):
+            B, seq_len, _ = x.shape
+            with amp.autocast(enabled=True):
+                qkv = self.qkv_proj(x)
+                q, k, v = qkv.chunk(3, dim=-1)
+
+                q = q.view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+                k = k.view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+                v = v.view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+
+                # 缩放因子在 FP32 下计算，避免精度问题
+                scale = self.head_dim ** 0.5
+                # 将 Q、K 转为 FP32 进行 softmax 前的计算？
+                # 实践中，autocast 会自动处理大多数情况，但为确保 softmax 稳定，
+                # 注意力分数可以保持在 FP32。
+                attn_scores = torch.matmul(q.float(), k.float().transpose(-2, -1)) / scale
+
+                if key_padding_mask is not None:
+                    attn_scores = attn_scores.masked_fill(
+                        key_padding_mask.unsqueeze(1).unsqueeze(2), float('-inf'))
+                if attn_mask is not None:
+                    attn_scores = attn_scores.masked_fill(attn_mask == 0, float('-inf'))
+
+                attn_weights = F.softmax(attn_scores, dim=-1)  # softmax 通常在 FP32
+                attn_weights = self.dropout(attn_weights)
+
+                attn_output = torch.matmul(attn_weights, v.float())
+                attn_output = attn_output.transpose(1, 2).contiguous().view(B, seq_len, -1)
+                output = self.out_proj(attn_output.to(x.dtype))
+            return output
+    ```
+
+    21.3 注意事项
+
+    - autocast 上下文会自动将符合条件的操作转为 FP16（如 Linear、matmul），但 softmax、masked_fill 等通常保留 FP32。
+
+    - 若不显式转换为 FP32，BF16 的动态范围较大，通常更安全；但 FP16 下必须小心 softmax 溢出，因此示例中将 Q、K 显式转为 FP32 计算注意力分数。
+
+    - 混合精度训练时，损失缩放（GradScaler）用于处理 FP16 的梯度下溢。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTpnwxWMsiVDwIkIoX0c1TU4ned
+  block_id: Oxd3dT8u0obQsHxSFHNciX87n9j
+  page_token: QTpnwxWMsiVDwIkIoX0c1TU4ned
+  original_title: 在 FP16/BF16 混合精度下实现多头自注意力，正确使用 autocast 并处理 scale 问题。
+  imported_at: '2026-09-21'

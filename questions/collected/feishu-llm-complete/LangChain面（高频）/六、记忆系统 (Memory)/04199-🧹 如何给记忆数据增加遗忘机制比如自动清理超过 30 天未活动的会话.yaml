@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-22f0c9d8fb50
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9F9 如何给记忆数据增加“遗忘”机制？比如自动清理超过 30 天未活动的会话。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F9F9 如何给记忆数据增加“遗忘”机制？比如自动清理超过 30 天未活动的会话。"
+answer:
+  mode: rubric
+  reference_answer: "遗忘机制对于隐私合规（如 GDPR 的“被遗忘权”）和资源管理至关重要。\n\n实现方式：\n\n- 利用 Redis 的
+    TTL\nRedisChatMessageHistory 支持 ttl 参数。当会话在 ttl 秒内没有活动，整个 key 会被自动删除。这相当于“自动遗忘”。\n\n```python\nhistory
+    = RedisChatMessageHistory(session_id=\"...\", ttl=2592000)  # 30天\n```\n\n- PostgreSQL
+    定时清理任务\n在数据库中，通过 created_at 字段和 session_id 分组，编写定时任务（如 pg_cron 或外部 cron 脚本）定期删除超过
+    30 天未更新的会话数据。\n\n```sql\nDELETE FROM chat_history \nWHERE session_id IN (\n    SELECT
+    session_id FROM chat_history \n    GROUP BY session_id \n    HAVING MAX(created_at)
+    < NOW() - INTERVAL '30 days'\n);\n```\n\n- 应用层主动遗忘\n当用户请求删除账号或特定会话时，调用 memory.clear()
+    或直接操作存储后端删除对应的 session 记录。这属于“主动遗忘”。\n\n- 冷热数据分离\n\n将超过一定时间的会话数据转移到廉价的归档存储（如对象存储），并从主存储中删除。需要时可以从归档恢复，但日常查询不会加载它们。\n\n-
+    摘要替代遗忘\n\n如果不想完全删除，可以定期将旧会话压缩为一段摘要，然后删除原始消息，用摘要作为该会话的长期记忆。\n\n设计要点：确保遗忘操作记录在审计日志中，以证明合规性。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Dajiw8ewCiTjamklohBcMVI0nre
+  block_id: Li8bdpsLioqVa0xm1OwcEwAFnXg
+  page_token: Dajiw8ewCiTjamklohBcMVI0nre
+  original_title: "\U0001F9F9 如何给记忆数据增加“遗忘”机制？比如自动清理超过 30 天未活动的会话。"
+  imported_at: '2026-09-21'

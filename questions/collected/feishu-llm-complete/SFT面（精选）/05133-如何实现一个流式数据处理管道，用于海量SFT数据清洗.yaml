@@ -1,0 +1,88 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e57a781ed50c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何实现一个流式数据处理管道，用于海量SFT数据清洗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 如何实现一个流式数据处理管道，用于海量SFT数据清洗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    对于无法完全装入内存的海量数据，我们使用生成器（generator）和管道模式，逐步读取、处理、过滤并写入结果。
+
+    ```python
+    import json
+    import gzip
+    from typing import Iterator, Callable
+
+    def stream_jsonl(input_files: list[str]) -> Iterator[dict]:
+        """逐个读取 jsonl（或 .jsonl.gz）文件，yield 每条记录"""
+        for file_path in input_files:
+            opener = gzip.open if file_path.endswith('.gz') else open
+            with opener(file_path, 'rt', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                        yield obj
+                    except json.JSONDecodeError:
+                        continue
+
+    def clean_pipeline(input_files: list[str], output_file: str, filter_func: Callable, transform_func=None):
+        """
+        流式处理：读取 -> 过滤 -> 转换 -> 写入。
+        filter_func(obj) 返回 True 保留；transform_func(obj) 可修改对象。
+        """
+        with open(output_file, 'w', encoding='utf-8') as fout:
+            for obj in stream_jsonl(input_files):
+                if filter_func(obj):
+                    if transform_func:
+                        obj = transform_func(obj)
+                    fout.write(json.dumps(obj, ensure_ascii=False) + '\n')
+        print(f"流式处理完成，输出到 {output_file}")
+
+    # 示例过滤函数：保留指令长度>10且回答长度>5的样本
+    def length_filter(obj):
+        return len(obj.get('instruction', '')) > 10 and len(obj.get('output', '')) > 5
+    ```
+
+    说明：
+
+    - 使用 Iterator 模式逐行读取，内存占用极小。
+
+    - 可根据需求组合多个过滤和转换函数，实现复杂的清洗流水线。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JFt9wvuo1ijVfLktrcDcfTR8nTd
+  block_id: VLB4dJnImo9dD6xGoK5cxJe1nwe
+  page_token: JFt9wvuo1ijVfLktrcDcfTR8nTd
+  original_title: 如何实现一个流式数据处理管道，用于海量SFT数据清洗？
+  imported_at: '2026-09-21'

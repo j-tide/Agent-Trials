@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-eb402dd25a13
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50D 如果你想在流式输出过程中，基于已生成的内容做一些实时处理（如敏感词过滤），怎么做？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F50D 如果你想在流式输出过程中，基于已生成的内容做一些实时处理（如敏感词过滤），怎么做？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    可以利用 stream 迭代器或自定义回调，在 token 到达时立即检查。
+
+    方案一：在消费流时过滤（推荐）
+
+    ```python
+    blocked_words = ["暴力", "色情"]
+    for chunk in chain.stream({"topic": topic}):
+        if any(word in chunk for word in blocked_words):
+            # 检测到敏感词，停止输出并返回警告
+            print("[内容已屏蔽]")
+            break
+        print(chunk, end="", flush=True)
+    ```
+
+    这种方式简单，但过滤粒度较粗（token 可能跨词切分，导致漏检）。
+
+    方案二：使用回调进行缓冲过滤
+    实现一个回调处理器，在 on_llm_new_token 中维护一个缓冲区，按逻辑边界（如遇到标点、空格、换行）检查缓冲区内容。如果检测到敏感词，可以抛出异常中断生成，或者替换后再输出。
+
+    ```python
+    class ContentFilterHandler(BaseCallbackHandler):
+        def __init__(self, blocked_words):
+            self.buffer = ""
+            self.blocked = set(blocked_words)
+            self.cancelled = False
+
+        def on_llm_new_token(self, token: str, **kwargs) -> None:
+            if self.cancelled:
+                return
+            self.buffer += token
+            # 检测完整词（简单策略：遇到空格或标点）
+            if token in (' ', '\n', '.', '，', '。'):
+                for word in self.blocked:
+                    if word in self.buffer:
+                        self.cancelled = True
+                        raise StopIteration("敏感词中断")
+                sys.stdout.write(self.buffer)
+                self.buffer = ""
+    ```
+
+    在生产环境，建议使用专门的内容安全服务（如 OpenAI Moderation API），通过异步调用避免阻塞主线程。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CZWewxKPziW9NLkL7iBcV35cncy
+  block_id: EBHAdpoOOo0TM1xiY5xcUf5ynVb
+  page_token: CZWewxKPziW9NLkL7iBcV35cncy
+  original_title: "\U0001F50D 如果你想在流式输出过程中，基于已生成的内容做一些实时处理（如敏感词过滤），怎么做？"
+  imported_at: '2026-09-21'

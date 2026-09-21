@@ -1,0 +1,526 @@
+---
+schema_version: 1
+id: feishu-llm-complete-157556d1604e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 4.1 慢 SQL 定位
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 4.1 慢 SQL 定位
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### 慢 SQL 的定位方法
+
+    1、基础题：如何定位慢 SQL？
+
+    ⭐（slowquerylog、EXPLAIN、Druid 监控）
+
+    定位慢 SQL 的方法包括：
+
+    - 开启 MySQL 的 slowquerylog，记录执行时间超过阈值的 SQL
+
+    - 使用 EXPLAIN 分析 SQL 执行计划，找出性能瓶颈
+
+    - 使用 Druid 监控页面，查看 SQL 执行统计信息
+
+    2、进阶题：详细说明慢 SQL 的定位方法和分析工具
+
+    ⭐⭐（slowquerylog、EXPLAIN、pt-query-digest、Druid 监控）
+
+    1️⃣ Common Answer 开启 MySQL 的慢查询日志，记录执行慢的 SQL。然后用 EXPLAIN 分析一下，看看有没有用索引。也可以用 Druid 监控页面，按执行时间排序找慢 SQL。
+
+    2️⃣ Impressive Answer 慢 SQL 定位需要使用多种工具和系统化方法，我将从慢查询日志、EXPLAIN 分析、pt-query-digest 和 Druid 监控四个方面详细说明。
+
+    慢查询日志：
+
+    第一步：开启慢查询日志
+
+    -- 查看慢查询日志是否开启
+    SHOW VARIABLES LIKE 'slow_query_log%';
+
+    -- 开启慢查询日志
+    SET GLOBAL slow_query_log = 'ON';
+
+    -- 设置慢查询阈值（秒）
+    SET GLOBAL long_query_time = 1;
+
+    -- 设置慢查询日志路径
+    SET GLOBAL slow_query_log_file = '/var/log/mysql/mysql-slow.log';
+
+    第二步：配置 my.cnf
+
+    [mysqld]
+    # 开启慢查询日志
+    slow_query_log = 1
+    # 慢查询阈值（秒）
+    long_query_time = 1
+    # 记录未使用索引的查询
+    log_queries_not_using_indexes = 1
+    # 慢查询日志路径
+    slow_query_log_file = /var/log/mysql/mysql-slow.log
+
+    第三步：分析慢查询日志
+
+    慢查询日志格式：
+
+    # Time: 2024-01-01T10:00:00.123456Z
+    # User@Host: root[root] @ localhost []  Id:    1
+    # Query_time: 5.123456  Lock_time: 0.000123 Rows_sent: 100  Rows_examined: 100000
+    SET timestamp=1704096000;
+    SELECT * FROM orders WHERE user_id = 123456 AND status = 'PAID';
+
+    关键字段：
+
+    - Query_time：查询执行时间（秒）
+
+    - Lock_time：锁等待时间（秒）
+
+    - Rows_sent：返回的行数
+
+    - Rows_examined：扫描的行数
+
+    EXPLAIN 分析：
+
+    第一步：使用 EXPLAIN 分析 SQL
+
+    EXPLAIN SELECT * FROM orders WHERE user_id = 123456 AND status = 'PAID';
+
+    第二步：分析 EXPLAIN 输出
+
+    +----+-------------+-------+------+---------------+------+---------+------+--------+-------------+
+
+    | id | select_type | table | type | possible_keys | key  | key_len | ref  | rows   | Extra       |
+    +----+-------------+-------+------+---------------+------+---------+------+--------+-------------+
+
+    |  1 | SIMPLE      | orders| ALL  | NULL          | NULL | NULL    | NULL | 100000 | Using where |
+    +----+-------------+-------+------+---------------+------+---------+------+--------+-------------+
+
+    关键字段：
+
+    - id：查询的标识符，相同 id 表示同一层级
+
+    - select_type：查询类型（SIMPLE、PRIMARY、SUBQUERY 等）
+
+    - type：访问类型（ALL、index、range、ref、eq_ref、const）
+
+    - possible_keys：可能使用的索引
+
+    - key：实际使用的索引
+
+    - key_len：使用的索引长度
+
+    - ref：索引的查找条件
+
+    - rows：预估扫描的行数
+
+    - Extra：额外信息（Using index、Using where、Using temporary 等）
+
+    第三步：判断 SQL 性能
+
+    性能判断标准：
+
+    - type：const > eq_ref > ref > range > index > ALL
+
+    - key：NULL 表示未使用索引
+
+    - rows：扫描行数越少越好
+
+    - Extra：
+
+    pt-query-digest 分析：
+
+    第一步：安装 pt-query-digest
+
+    # Ubuntu/Debian
+    sudo apt-get install percona-toolkit
+
+    # CentOS/RHEL
+    sudo yum install percona-toolkit
+
+    第二步：分析慢查询日志
+
+    # 分析慢查询日志
+    pt-query-digest /var/log/mysql/mysql-slow.log
+
+    # 分析最近 1 小时的慢查询
+    pt-query-digest --since 1h /var/log/mysql/mysql-slow.log
+
+    # 分析执行时间超过 5 秒的查询
+    pt-query-digest --filter '$event->{Query_time} > 5' /var/log/mysql/mysql-slow.log
+
+    第三步：分析 pt-query-digest 输出
+
+    # Profile
+    # Rank Query ID           Response time   Calls R/Call V/M   Item
+    # ==== ================== ============= ===== ====== ===== ==============
+    #    1 0x123456789ABCDEF  500.0000 50.0%   1000 0.5000  0.10 SELECT orders
+    #    2 0xFEDCBA987654321  300.0000 30.0%    500 0.6000  0.20 SELECT users
+    #    3 0x111111111111111  100.0000 10.0%    200 0.5000  0.05 SELECT products
+
+    # Query 1: 500 QPS, 0.500s avg, 0.10s max, 1000 calls
+    # SELECT * FROM orders WHERE user_id = ? AND status = ?;
+
+    关键字段：
+
+    - Rank：排名，按总执行时间排序
+
+    - Query ID：查询的唯一标识
+
+    - Response time：总执行时间
+
+    - Calls：执行次数
+
+    - R/Call：平均执行时间
+
+    - V/M：方差/均值，反映执行时间的稳定性
+
+    Druid 监控：
+
+    第一步：访问 Druid 监控页面
+
+    访问 http://localhost:8080/druid/sql.html，查看 SQL 统计信息。
+
+    第二步：按执行时间排序
+
+    点击"执行时间"列头，按执行时间从大到小排序，找出执行时间最长的 SQL。
+
+    第三步：分析 SQL 详情
+
+    点击 SQL 链接，查看详细信息：
+
+    - 执行次数：判断是否频繁执行
+
+    - 平均执行时间：判断是否持续慢
+
+    - 最大执行时间：判断是否有偶发慢查询
+
+    - 执行错误次数：判断是否有异常
+
+    第四步：导出 SQL 语句
+
+    复制慢 SQL 语句，准备进行优化。
+
+    实战案例：
+
+    某电商系统慢 SQL 优化：
+
+    定位慢 SQL：
+
+    - 开启 slowquerylog，设置 longquerytime=1
+
+    - 使用 pt-query-digest 分析慢查询日志
+
+    - 发现查询订单列表的 SQL 平均执行时间为 5 秒
+
+    分析慢 SQL：
+
+    EXPLAIN SELECT * FROM orders WHERE user_id = 123456 AND status = 'PAID';
+
+    +----+-------------+-------+------+---------------+------+---------+------+--------+-------------+
+
+    | id | select_type | table | type | possible_keys | key  | key_len | ref  | rows   | Extra       |
+    +----+-------------+-------+------+---------------+------+---------+------+--------+-------------+
+
+    |  1 | SIMPLE      | orders| ALL  | NULL          | NULL | NULL    | NULL | 100000 | Using where |
+    +----+-------------+-------+------+---------------+------+---------+------+--------+-------------+
+
+    type=ALL 表示全表扫描，key=NULL 表示未使用索引。
+
+    优化方案：
+
+    - 添加联合索引：
+
+    CREATE INDEX idx_user_status ON orders(user_id, status);
+
+    - 优化后的 EXPLAIN：
+
+    +----+-------------+-------+------+----------------+----------------+---------+-------+------+-------------+
+
+    | id | select_type | table | type | possible_keys  | key            | key_len | ref   | rows | Extra       |
+    +----+-------------+-------+------+----------------+----------------+---------+-------+------+-------------+
+
+    |  1 | SIMPLE      | orders| ref  | idx_user_status| idx_user_status| 102     | const |   10 | Using index |
+    +----+-------------+-------+------+----------------+----------------+---------+-------+------+-------------+
+
+    type=ref 表示使用索引，rows=10 表示扫描行数大幅减少。
+
+    优化效果：
+
+    - SQL 执行时间从 5 秒降低到 0.02 秒
+
+    - 性能提升 250 倍
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    3、场景题：如何使用 pt-query-digest 分析慢查询日志？
+
+    ⭐⭐⭐（工具安装、日志分析、报告解读、优化建议）
+
+    1️⃣ Common Answer 安装 pt-query-digest，然后运行命令分析慢查询日志。它会生成一个报告，显示哪些 SQL 慢，执行了多少次。看一下报告就知道要优化哪些 SQL 了。
+
+    2️⃣ Impressive Answer pt-query-digest 是 Percona Toolkit 提供的强大工具，可以系统化分析慢查询日志。我将从工具安装、日志分析、报告解读和优化建议四个方面详细说明。
+
+    工具安装：
+
+    第一步：安装 Percona Toolkit
+
+    Ubuntu/Debian：
+
+    sudo apt-get update
+    sudo apt-get install percona-toolkit
+
+    CentOS/RHEL：
+
+    sudo yum install percona-toolkit
+
+    macOS：
+
+    brew install percona-toolkit
+
+    第二步：验证安装
+
+    pt-query-digest --version
+
+    日志分析：
+
+    第一步：基本分析
+
+    # 分析慢查询日志
+    pt-query-digest /var/log/mysql/mysql-slow.log
+
+    输出示例：
+
+    # 500ms total time, 100 queries, 5ms avg query time
+    # Profile
+    # Rank Query ID           Response time   Calls R/Call V/M   Item
+    # ==== ================== ============= ===== ====== ===== ==============
+    #    1 0x123456789ABCDEF  250.0000 50.0%    50 5.0000  0.10 SELECT orders
+    #    2 0xFEDCBA987654321  150.0000 30.0%    30 5.0000  0.20 SELECT users
+    #    3 0x111111111111111  100.0000 20.0%    20 5.0000  0.05 SELECT products
+
+    第二步：过滤分析
+
+    # 分析最近 1 小时的慢查询
+    pt-query-digest --since 1h /var/log/mysql/mysql-slow.log
+
+    # 分析执行时间超过 5 秒的查询
+    pt-query-digest --filter '$event->{Query_time} > 5' /var/log/mysql/mysql-slow.log
+
+    # 分析执行次数超过 100 次的查询
+    pt-query-digest --filter '$event->{Query_time_sum} > 100' /var/log/mysql/mysql-slow.log
+
+    # 分析特定数据库的慢查询
+    pt-query-digest --filter '$event->{db} eq "ecommerce"' /var/log/mysql/mysql-slow.log
+
+    第三步：高级过滤
+
+    # 分析包含特定 SQL 模式的查询
+    pt-query-digest --filter '$event->{fingerprint} =~ m/^SELECT/' /var/log/mysql/mysql-slow.log
+
+    # 分析扫描行数超过 10000 的查询
+    pt-query-digest --filter '$event->{Rows_examined} > 10000' /var/log/mysql/mysql-slow.log
+
+    # 分析返回行数超过 1000 的查询
+    pt-query-digest --filter '$event->{Rows_sent} > 1000' /var/log/mysql/mysql-slow.log
+
+    # 分析锁等待时间超过 1 秒的查询
+    pt-query-digest --filter '$event->{Lock_time} > 1' /var/log/mysql/mysql-slow.log
+
+    报告解读：
+
+    第一部分：总体概览
+
+    # 500ms total time, 100 queries, 5ms avg query time, 5ms max query time
+
+    - total time：总执行时间
+
+    - queries：查询总数
+
+    - avg query time：平均执行时间
+
+    - max query time：最大执行时间
+
+    第二部分：查询排名
+
+    # Rank Query ID           Response time   Calls R/Call V/M   Item
+    # ==== ================== ============= ===== ====== ===== ==============
+    #    1 0x123456789ABCDEF  250.0000 50.0%    50 5.0000  0.10 SELECT orders
+    #    2 0xFEDCBA987654321  150.0000 30.0%    30 5.0000  0.20 SELECT users
+
+    - Rank：排名，按总执行时间排序
+
+    - Query ID：查询的唯一标识（SQL 的 MD5 值）
+
+    - Response time：总执行时间
+
+    - Calls：执行次数
+
+    - R/Call：平均执行时间
+
+    - V/M：方差/均值，反映执行时间的稳定性
+
+    - Item：SQL 语句摘要
+
+    第三部分：查询详情
+
+    # Query 1: 5.000s avg, 50 calls, 250.000s total, 0.10s max
+    # SELECT * FROM orders WHERE user_id = ? AND status = ?;
+
+    - avg：平均执行时间
+
+    - calls：执行次数
+
+    - total：总执行时间
+
+    - max：最大执行时间
+
+    第四部分：执行时间分布
+
+    # Time range: 2024-01-01 10:00:00 to 2024-01-01 11:00:00
+    # Attribute          pct   total     min     max     avg     95% stddev  median
+    # ============ ======= ======= ======= ======= ======= ======= ======= =======
+    # Query_time           100    5s    4.5s    5.5s      5s    5.4s   0.2s    5.1s
+    # Rows_examined        100  10000   8000   12000  10000  11500   1000   10000
+
+    - Query_time：执行时间分布
+
+    - Rows_examined：扫描行数分布
+
+    优化建议：
+
+    优先级排序：
+
+    根据以下因素确定优化优先级：
+
+    - 总执行时间（Response time）：总执行时间最长的 SQL 优先优化
+
+    - 执行次数（Calls）：执行次数多的 SQL 优先优化
+
+    - 平均执行时间（R/Call）：平均执行时间长的 SQL 优先优化
+
+    - 扫描行数（Rows_examined）：扫描行数多的 SQL 优先优化
+
+    优化策略：
+
+    场景一：全表扫描
+
+    如果 type=ALL，key=NULL：
+
+    - 添加合适的索引
+
+    - 优化 SQL 语句，避免全表扫描
+
+    场景二：索引失效
+
+    如果 possible_keys 不为空，但 key=NULL：
+
+    - 检查索引失效原因（隐式转换、函数、前缀匹配等）
+
+    - 优化 SQL 语句，避免索引失效
+
+    场景三：扫描行数多
+
+    如果 rows 很大：
+
+    - 添加合适的索引，减少扫描行数
+
+    - 使用分页查询，减少返回行数
+
+    - 只查询需要的字段，减少数据传输
+
+    场景四：执行次数多
+
+    如果 calls 很大：
+
+    - 添加缓存，减少数据库查询
+
+    - 使用批量操作，减少查询次数
+
+    实战案例：
+
+    某电商系统慢查询优化：
+
+    分析慢查询日志：
+
+    pt-query-digest /var/log/mysql/mysql-slow.log
+
+    报告解读：
+
+    # Rank Query ID           Response time   Calls R/Call V/M   Item
+    # ==== ================== ============= ===== ====== ===== ==============
+    #    1 0x123456789ABCDEF  250.0000 50.0%    50 5.0000  0.10 SELECT orders
+    #    2 0xFEDCBA987654321  150.0000 30.0%    30 5.0000  0.20 SELECT users
+
+    查询订单列表的 SQL 排名第一，总执行时间 250 秒，执行次数 50 次，平均执行时间 5 秒。
+
+    分析 SQL：
+
+    EXPLAIN SELECT * FROM orders WHERE user_id = 123456 AND status = 'PAID';
+
+    type=ALL, key=NULL, rows=100000
+
+    全表扫描，未使用索引。
+
+    优化方案：
+
+    - 添加联合索引：
+
+    CREATE INDEX idx_user_status ON orders(user_id, status);
+
+    - 优化后的 EXPLAIN：
+
+    type=ref, key=idx_user_status, rows=10
+
+    使用索引，扫描行数大幅减少。
+
+    优化效果：
+
+    - SQL 执行时间从 5 秒降低到 0.02 秒
+
+    - 总执行时间从 250 秒降低到 1 秒
+
+    - 性能提升 250 倍
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PruYwWzfSiDw2dkgSMrcuononnf
+  block_id: doxcnOEglmZ1GASVVhmDFt9a29d
+  page_token: PruYwWzfSiDw2dkgSMrcuononnf
+  original_title: 4.1 慢 SQL 定位
+  imported_at: '2026-09-21'

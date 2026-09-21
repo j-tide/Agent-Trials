@@ -1,0 +1,109 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fdaaf39acc85
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 11. 多轮对话SFT数据如何拼接？loss mask应该如何处理？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F9E9 11. 多轮对话SFT数据如何拼接？loss mask应该如何处理？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    多轮对话SFT数据的拼接和loss masking是一门精确的手艺活，直接影响模型的多轮交互能力。拼接决定模型看到什么样的上下文序列，loss masking决定模型在哪些位置学习生成。
+
+    一、多轮对话的拼接结构
+
+    假设有一个包含两轮对话的样本：
+
+    - 系统提示：你是一个简洁的助手。
+
+    - 第一轮用户：今天天气如何？
+
+    - 第一轮助手：晴朗，25°C。
+
+    - 第二轮用户：适合出门吗？
+
+    - 第二轮助手：非常适合。
+
+    使用ChatML模板拼接后的完整序列为：
+
+    <|im_start|>system
+    你是一个简洁的助手。<|im_end|>
+    <|im_start|>user
+    今天天气如何？<|im_end|>
+    <|im_start|>assistant
+    晴朗，25°C。<|im_end|>
+    <|im_start|>user
+    适合出门吗？<|im_end|>
+    <|im_start|>assistant
+    非常适合。<|im_end|>
+
+    拼接的核心原则是：严格按照时间顺序串联，保留完整的历史上下文。后面轮次的生成依赖于前面所有轮次的信息，因此不能将多轮对话拆分成独立的单轮样本——那样模型将无法学会指代消解（“它”、“这个”）、状态追踪和话题连贯。
+
+    二、Loss Mask的精确处理
+
+    Loss mask决定了哪些token参与损失计算。在SFT中，只有assistant角色对应的token才被计算损失，所有system、user部分的token全部被mask（损失置为0）。
+
+    具体到上面两轮对话的例子，我们需要计算损失的token位置是：
+
+    - 第一轮assistant部分：晴朗，25°C。<|im_end|>
+
+    - 第二轮assistant部分：非常适合。<|im_end|>
+
+    其余所有位置（包括<|im_start|>标记本身、system内容、user内容）都被mask。
+
+    三、多轮对话中Loss Mask的实现策略
+
+    [嵌入表格未展开]
+
+    主流做法是“全轮次loss”——对每一轮的assistant回复都计算损失。原因是：
+
+    - 学习对话的即时响应：模型需要在每一轮都给出恰当回复，而不仅仅是最终轮。如果只训练最后一轮，模型可能在前几轮生成质量不佳。
+
+    - 充分利用数据信号：多轮对话数据中，每一轮assistant回复都是高质量的，丢弃任何一个都是对珍贵训练信号的浪费。
+
+    - 支持灵活推理：训练时覆盖所有轮次，推理时无论用户停止在哪一轮，模型都有能力在该轮给出良好回复。
+
+    四、Loss Mask的技术实现细节
+
+    在代码实现中，通常会为每个token创建一个对应的label张量。对于需要计算损失的token，label设为该token的真实ID；对于需要mask的token，label设为-100（PyTorch中ignore_index的默认值）。模型的前向传播对所有位置都计算logits，但损失函数在遇到label=-100的位置时会自动跳过。
+
+    对于多轮对话，需要编写脚本来精确定位每一段<|im_start|>assistant到<|im_end|>之间的区间，将这些区间的label设为真实token ID，其余位置设为-100。这是SFT数据预处理中最容易出bug的环节——mask位置错误会导致模型学习到错误的行为模式。
+
+    五、特殊Token的mask处理
+
+    一个常被讨论的细节是：<|im_start|>和<|im_end|>本身是否应该被mask？答案通常是不计算损失。它们是格式标记，不属于助手需要生成的“实质内容”。但需要注意的是，在推理时模型需要能够生成<|im_end|>来主动结束回复，因此这些特殊token必须出现在训练数据中作为助手回复的一部分（即位于assistant区间内），但在计算损失时可以被mask，也可以保留——实践中两种做法都有，性能差异通常不大。
+
+    ✅ 总结：多轮对话SFT数据通过时间顺序拼接保留完整上下文，loss mask精确限定在每轮assistant回复区间。全轮次loss是主流，确保模型在对话任何阶段都能生成高质量回复。实现时必须严格核对mask边界，避免因一个位置的处理失误影响整体训练效果。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tx5MwZddviIdFJkeUJbc7HEvnWe
+  block_id: Gq1adhv2goGQ5AxUS5Vc0ieGnx0
+  page_token: Tx5MwZddviIdFJkeUJbc7HEvnWe
+  original_title: "\U0001F9E9 11. 多轮对话SFT数据如何拼接？loss mask应该如何处理？"
+  imported_at: '2026-09-21'

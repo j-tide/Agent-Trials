@@ -1,0 +1,100 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a6c50a3231d6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写脚本实现A/B测试，批量运行两个模型对比，并统计胜率。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 编写脚本实现A/B测试，批量运行两个模型对比，并统计胜率。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    import torch
+    from tqdm import tqdm
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from typing import List, Dict
+
+    def ab_test(
+        prompts: List[str],
+        model_a_path: str,
+        model_b_path: str,
+        tokenizer_path: str,
+        judge_model=None,  # 可选的裁判模型，若没有则用简单规则
+        max_new_tokens: int = 128,
+        device: str = "cuda"
+    ) -> Dict[str, int]:
+        """
+        批量运行两个模型，对每个prompt分别生成回答，然后利用内置或外部裁判统计胜率。
+        返回字典 {'A_wins': int, 'B_wins': int, 'ties': int}
+        """
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
+        model_a = AutoModelForCausalLM.from_pretrained(model_a_path).to(device)
+        model_b = AutoModelForCausalLM.from_pretrained(model_b_path).to(device)
+        model_a.eval()
+        model_b.eval()
+
+        results = {'A_wins': 0, 'B_wins': 0, 'ties': 0}
+
+        for prompt in tqdm(prompts):
+            inputs = tokenizer(prompt, return_tensors="pt").to(device)
+            with torch.no_grad():
+                gen_a = model_a.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
+                gen_b = model_b.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
+            resp_a = tokenizer.decode(gen_a[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
+            resp_b = tokenizer.decode(gen_b[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
+
+            if judge_model is not None:
+                # 使用GPT-as-judge或其他裁判模型
+                winner = judge_model.compare(prompt, resp_a, resp_b)
+            else:
+                # 简单规则：谁更长谁赢（仅示例，实际无意义）
+                winner = 'A' if len(resp_a) > len(resp_b) else ('B' if len(resp_b) > len(resp_a) else 'tie')
+
+            if winner == 'A':
+                results['A_wins'] += 1
+            elif winner == 'B':
+                results['B_wins'] += 1
+            else:
+                results['ties'] += 1
+
+        return results
+    ```
+
+    使用示例：
+
+    ```python
+    prompts = ["解释什么是机器学习", "写一首关于秋天的诗"]
+    stats = ab_test(prompts, "path/to/modelA", "path/to/modelB", "path/to/tokenizer")
+    print(stats)  # {'A_wins': 2, 'B_wins': 0, 'ties': 0}
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: OdzHdniOOo1y2IxwBSbc14MvnOg
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: 编写脚本实现A/B测试，批量运行两个模型对比，并统计胜率。
+  imported_at: '2026-09-21'

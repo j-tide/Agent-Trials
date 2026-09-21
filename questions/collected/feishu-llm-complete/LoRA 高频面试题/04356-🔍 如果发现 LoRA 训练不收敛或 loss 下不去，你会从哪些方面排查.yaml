@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-39f0df2ac615
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50D 如果发现 LoRA 训练不收敛或 loss 下不去，你会从哪些方面排查？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LoRA 高频面试题
+derived_topic: 
+tags: &1
+- LoRA 高频面试题
+content:
+  prompt: "\U0001F50D 如果发现 LoRA 训练不收敛或 loss 下不去，你会从哪些方面排查？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    当 LoRA 训练不收敛时，我会按照“参数设置 → 模型结构 → 数据质量”的顺序进行系统排查。
+
+    - 排查参数设置
+
+    - α 值（LoRA 缩放因子）是否合适？ α 控制 LoRA 残差对主路径的贡献强度。如果 α 设得过大（如 256），可能导致初始更新过于激进，破坏预训练特征；过小（如 1）则贡献太弱，等于没学。我通常将 α 设为与初始秩 r 相同的值（如 r=8, α=8）或 2*r。如果 loss 震荡不收敛，我会优先尝试减小 α。
+
+    - 学习率是否过大或过小？ 如前所述，过大易震荡，过小则收敛极慢。我会以 1e-4 为中心，尝试上下各一个数量级（如 5e-5, 2e-4）进行快速实验。
+
+    - 目标模块是否正确？ 确认 LoRA 是否被添加到了正确的层上。对于纯文本任务，通常只需要加在自注意力的 Q、V 投影层。如果漏掉了关键层，或错加到了 FFN 层，容量可能不足。
+
+    - 排查模型结构
+
+    - LoRA 层是否正确“激活”？ 在 HuggingFace PEFT 中，检查 LoraConfig 的 target_modules 是否匹配实际模型层的命名（例如 LLaMA 中是 q_proj, v_proj）。一个常见的坑是层名拼写错误或大小写不匹配，导致 LoRA 根本没有被注入。
+
+    - 是否遗漏了可训练的归一化层？ 大部分 LoRA 配置默认会训练 LayerNorm 参数。如果手动冻结了它们，可能影响模型对数据分布的适配，导致收敛缓慢。检查 modules_to_save 参数。
+
+    - 排查数据与训练过程
+
+    - 数据是否存在问题？ 检查输入文本是否被正确分词，标签是否对齐，有无大量空数据或乱码。对于 QA 任务，尤其要注意 Prompt 格式是否正确。
+
+    - 是欠拟合还是过拟合？ 观察训练损失和验证损失曲线。如果两者都高且持平，说明学习不充分，可能容量不足（增大 r）或学习率过小；如果训练损失低但验证损失不降反升，则是过拟合，需要降低 r、增大 dropout 或增加数据。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XjiewYcvci750Gkvcqyc01XBnDc
+  block_id: SaWSdOPYjo73PPx6jWqcuz2fn7c
+  page_token: XjiewYcvci750Gkvcqyc01XBnDc
+  original_title: "\U0001F50D 如果发现 LoRA 训练不收敛或 loss 下不去，你会从哪些方面排查？"
+  imported_at: '2026-09-21'

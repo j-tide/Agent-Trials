@@ -1,0 +1,49 @@
+---
+schema_version: 1
+id: feishu-llm-complete-032045780d25
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 在 MoE 推理中，所有专家的权重都必须常驻显存吗？有什么卸载策略？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: "\U0001F9E9 在 MoE 推理中，所有专家的权重都必须常驻显存吗？有什么卸载策略？"
+answer:
+  mode: rubric
+  reference_answer: "并非绝对必须全部常驻显存，但在线服务场景下几乎必须如此。 存在一些卸载策略可以缓解显存压力，但会以增加延迟为代价。\n\n\U0001F6E0️
+    卸载策略\n\n- CPU 内存卸载（Offloading）\n\n将部分不常被激活的专家权重放在 CPU 内存中，仅在需要时通过 PCIe 传输到 GPU
+    显存。例如，根据统计，某专家被激活的频率很低，可将其卸载。但每次卸载/加载会引入数百微秒的延迟，对于延迟敏感的在线服务不适用。离线批处理或低频推理场景下可行。\n\n-
+    专家并行 + 分层存储\n\n在多 GPU 环境下，可以将不同专家放置在不同 GPU 上，结合 NVLink 或 InfiniBand 进行跨 GPU 通信。这不是卸载，而是分布式存储。若仍然无法全部放入显存，可将冷门专家放在
+    CPU 内存池，所有 GPU 共享访问。\n\n- 选择性加载（Speculative Loading）\n\n类似于投机采样，用一个轻量级门控预测模型提前预测未来可能需要激活的专家，并提前从
+    CPU 加载到 GPU，掩盖传输延迟。实现复杂，但能有效隐藏卸载开销。\n\n- 量化 + 卸载\n\n对专家权重进行 INT4 量化，减小模型体积，使得尽可能多的专家能放入显存。剩余的再考虑卸载。\n\n⚖️
+    实际权衡\n\n在线对话服务通常要求 TPOT < 100ms，CPU 卸载引入的延迟（即使只是偶尔触发）可能导致严重的抖动，因此绝大多数生产环境选择配备足够多的
+    GPU 显存来容纳完整模型。卸载策略主要用于个人开发者或低成本部署场景。\n\n\U0001F4A1 结论：在云端 API 服务中，Mixtral 8×7B
+    必须用至少 2 张 80GB GPU（张量并行）来承载全量权重；在本地实验中，可使用量化 + CPU 卸载勉强在单张 24GB 显卡上运行，但速度极慢。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C0pNwQLAmiNN2tkVnWGccLYLns0
+  block_id: CLqvdRQnooN3iXxyD7zcLEtXnJf
+  page_token: C0pNwQLAmiNN2tkVnWGccLYLns0
+  original_title: "\U0001F9E9 在 MoE 推理中，所有专家的权重都必须常驻显存吗？有什么卸载策略？"
+  imported_at: '2026-09-21'

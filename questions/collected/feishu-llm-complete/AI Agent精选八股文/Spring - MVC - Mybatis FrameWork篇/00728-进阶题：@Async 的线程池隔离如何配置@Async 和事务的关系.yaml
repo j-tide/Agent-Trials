@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ad58f9a44bd0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 2、进阶题：@Async 的线程池隔离如何配置？@Async 和事务的关系？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 2、进阶题：@Async 的线程池隔离如何配置？@Async 和事务的关系？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（线程池配置、事务传播、异步事务）\n\n1️⃣ Common Answer\n\n@Async 可以指定线程池，用
+    @Async(\"executor\") 就行。@Async 和事务的关系是异步方法不会继承主方法的事务，因为不在同一个线程。\n\n2️⃣ Impressive
+    Answer\n\n- 线程池隔离配置：\n\n@Configuration\n@EnableAsync\npublic class AsyncConfig
+    {\n    \n    @Bean(\"agentExecutor\")\n    public Executor agentExecutor() {\n
+    \       ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();\n        executor.setCorePoolSize(10);\n
+    \       executor.setMaxPoolSize(20);\n        executor.setQueueCapacity(100);\n
+    \       executor.setThreadNamePrefix(\"agent-async-\");\n        executor.setRejectedExecutionHandler(new
+    ThreadPoolExecutor.CallerRunsPolicy());\n        executor.initialize();\n        return
+    executor;\n    }\n    \n    @Bean(\"toolExecutor\")\n    public Executor toolExecutor()
+    {\n        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();\n        executor.setCorePoolSize(5);\n
+    \       executor.setMaxPoolSize(10);\n        executor.setQueueCapacity(50);\n
+    \       executor.setThreadNamePrefix(\"tool-async-\");\n        executor.setRejectedExecutionHandler(new
+    ThreadPoolExecutor.AbortPolicy());\n        executor.initialize();\n        return
+    executor;\n    }\n}\n\n- 指定线程池：\n\n@Service\npublic class AgentService {\n    @Async(\"agentExecutor\")
+    \ // 使用 agentExecutor 线程池\n    public CompletableFuture<AgentResult> executeAsync(AgentRequest
+    request) {\n        return CompletableFuture.completedFuture(doExecute(request));\n
+    \   }\n}\n\n@Service\npublic class ToolService {\n    @Async(\"toolExecutor\")
+    \ // 使用 toolExecutor 线程池\n    public CompletableFuture<ToolResponse> callAsync(ToolRequest
+    request) {\n        return CompletableFuture.completedFuture(doCall(request));\n
+    \   }\n}\n\n- @Async 和事务的关系：\n\n@Service\npublic class AgentService {\n    @Transactional\n
+    \   public AgentResult execute(AgentRequest request) {\n        // 主事务\n        AgentResult
+    result = doExecute(request);\n        agentRepository.save(result);  // 在主事务中\n
+    \       \n        asyncService.saveAsync(result);  // 异步方法，不在主事务中\n        return
+    result;\n    }\n}\n\n@Service\npublic class AsyncService {\n    @Async\n    @Transactional
+    \ // 需要自己开启事务\n    public void saveAsync(AgentResult result) {\n        asyncRepository.save(result);
+    \ // 在独立事务中\n    }\n}\n\n- 异步事务的注意事项：\n\n- Agent 场景实战：Agent 执行完成后，异步保存日志到数据库（@Async(\"agentExecutor\")），异步发送通知（@Async(\"notificationExecutor\")），两者使用不同的线程池隔离，避免互相影响。\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcnUsKmHDa1JpStxYvxo6M7VB
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 2、进阶题：@Async 的线程池隔离如何配置？@Async 和事务的关系？
+  imported_at: '2026-09-21'

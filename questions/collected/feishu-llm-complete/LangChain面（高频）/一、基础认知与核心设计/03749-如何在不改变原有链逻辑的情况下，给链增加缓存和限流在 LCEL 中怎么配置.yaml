@@ -1,0 +1,95 @@
+---
+schema_version: 1
+id: feishu-llm-complete-91d17c6d7f48
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在不改变原有链逻辑的情况下，给链增加缓存和限流？在 LCEL 中怎么配置？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 一、基础认知与核心设计
+tags: &1
+- LangChain面（高频）
+- 一、基础认知与核心设计
+content:
+  prompt: 如何在不改变原有链逻辑的情况下，给链增加缓存和限流？在 LCEL 中怎么配置？
+answer:
+  mode: rubric
+  reference_answer: |-
+    LCEL 提供了 with_config() 和 with_fallbacks() 等方法来非侵入式地增强链的功能。
+
+    增加缓存：
+
+    ```python
+    from langchain_core.caches import InMemoryCache
+    from langchain_core.runnables import RunnableConfig
+
+    # 启用全局缓存（对整个应用生效）
+    from langchain.globals import set_llm_cache
+    set_llm_cache(InMemoryCache())
+
+    # 对特定调用启用缓存
+    chain.with_config(config={"cache_key": "my_unique_key"})
+    ```
+
+    也可以使用更强大的 SQLiteCache 或 RedisCache 进行持久化缓存，避免重启丢失。
+
+    增加限流：
+
+    ```python
+    from langchain_core.runnables import RunnableLambda
+
+    def rate_limit(input):
+        # 自定义限流逻辑，例如调用API限流库
+        return input
+
+    limited_chain = chain | RunnableLambda(rate_limit)
+    ```
+
+    在 LCEL 中，你还可以为链的特定步骤绑定配置：
+
+    ```python
+    chain = (
+        prompt
+        | model.with_config({"tags": ["gpt4", "production"]})  # 标签用于监控
+        | parser
+    )
+    ```
+
+    增加回退（故障转移）：
+
+    ```python
+    fallback_model = ChatAnthropic(model="claude-3-sonnet")
+    robust_chain = model.with_fallbacks([fallback_model])
+
+    # 整个链的回退
+    chain_with_fallback = prompt | robust_chain | parser
+    ```
+
+    这样主模型不可用时，会自动切换备用模型，调用方无感知。
+
+    所有增强都通过 with_* 方法链式调用，完全不影响原有链逻辑。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DPfNwcDyYiIwkGkVfjDcpKE6nNf
+  block_id: TfgPda92DoWkbYx9aPOc4IDRncd
+  page_token: DPfNwcDyYiIwkGkVfjDcpKE6nNf
+  original_title: 如何在不改变原有链逻辑的情况下，给链增加缓存和限流？在 LCEL 中怎么配置？
+  imported_at: '2026-09-21'

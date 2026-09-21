@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bb143f92f390
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DD 2. 请详细描述Self-Instruct方法的完整流程"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F4DD 2. 请详细描述Self-Instruct方法的完整流程"
+answer:
+  mode: rubric
+  reference_answer: |-
+    [图片内容未导入]
+
+    Self-Instruct是由斯坦福大学提出的通过模型自身生成训练数据的方法，它的核心思想是“用少量的种子示例，让模型自己给自己出题并解答，从而大幅降低SFT数据构造对人工的依赖”。完整流程可分为五个阶段。
+
+    阶段一：准备种子任务池
+
+    首先需要准备一个包含约175个任务的种子池。每个任务是一条自然语言指令及其对应的标准回答。这些种子数据通常由人工精心撰写，覆盖了希望模型学会的核心任务类型——如翻译、问答、分类、摘要、生成等。种子数据的质量和多样性直接影响后续生成数据的质量，因此需要确保任务类型广泛、指令措辞自然、回答准确规范。
+
+    阶段二：指令生成
+
+    这是Self-Instruct的核心环节。从种子池中随机抽取6-8条指令作为few-shot示例，拼接到一个预定义的prompt模板中，然后让模型生成一条全新的、与已有指令不同的指令。这个prompt模板的设计至关重要，它要求模型：
+
+    - 理解示例中的任务类型和措辞风格
+
+    - 创造性地生成一个从未出现过的新任务
+
+    - 用自然、多样化的语言表达这个任务
+
+    模型生成新指令后，会与已有的所有指令进行语义相似度比较（通常使用ROUGE-L等指标）。如果与任何已有指令过于相似（超过阈值），则丢弃重新生成，以保证指令多样性。
+
+    阶段三：指令分类与过滤
+
+    生成的指令需要判断其类型——是分类任务还是生成任务。分类任务通常有明确的、有限的答案选项；生成任务则要求产生一段自由文本。分类的依据是通过few-shot示例让模型自己判断。这一步为后续的回答生成提供了格式约束：分类任务通常只需输出类别标签，生成任务则需要产出完整文本。
+
+    阶段四：回答生成
+
+    对于每条通过过滤的指令，使用同一个模型（或者更强的模型）生成回答。这是一个输入-输出的生成过程：将指令作为输入，要求模型给出高质量的回答。对于分类任务，可能还会同时生成一些选项供模型选择。为了确保回答质量，可以采用输出过滤：如果生成的回答不符合预期格式（如分类任务中回答不在预设类别内），或包含明显的矛盾、低质内容，则丢弃该数据。
+
+    阶段五：迭代扩展与后处理
+
+    将新生成的指令-回答对经过人工或自动质量审核后，加入任务池。从新的任务池中再次采样，重复上述过程。通过多次迭代，任务池从最初的175条逐步扩展到数千甚至数万条。最后，对所有生成的数据进行去重（基于语义相似度）、格式统一和质量抽检，形成最终的SFT训练集。
+
+    关键成功因素：
+
+    - 种子数据的多样性和质量直接决定了生成数据的上限
+
+    - 相似度过滤的阈值需要精心调参，过高会导致数据重复，过低则限制生成量
+
+    - 每一轮迭代都需要抽样检查数据质量，避免错误累积
+
+    - 使用不同的模型分别生成指令和回答（指令用创意性强的模型，回答用准确性高的模型）可提升效果
+
+    Self-Instruct的核心价值在于打破了SFT数据的人工标注瓶颈，使得以极低成本快速构建大规模、多样化SFT数据集成为可能。Alpaca等模型正是基于这一方法，仅用5万条Self-Instruct数据就让LLaMA 7B展现出了接近GPT-3.5的指令遵循能力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tx5MwZddviIdFJkeUJbc7HEvnWe
+  block_id: IOSXdKvuaopsbzxyFPecHvyEnZf
+  page_token: Tx5MwZddviIdFJkeUJbc7HEvnWe
+  original_title: "\U0001F4DD 2. 请详细描述Self-Instruct方法的完整流程"
+  imported_at: '2026-09-21'

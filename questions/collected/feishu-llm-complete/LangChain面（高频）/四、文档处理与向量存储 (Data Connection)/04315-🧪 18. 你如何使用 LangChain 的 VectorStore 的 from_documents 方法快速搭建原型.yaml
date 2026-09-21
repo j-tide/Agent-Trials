@@ -1,0 +1,100 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8c1a711b441c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EA 18. 你如何使用 LangChain 的 VectorStore 的 from_documents 方法快速搭建原型？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F9EA 18. 你如何使用 LangChain 的 VectorStore 的 from_documents 方法快速搭建原型？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    from_documents 是原型神器，它把“文档分割、嵌入、建库”三步压缩到一行代码，让我能在几分钟内见到端到端效果。
+
+    极简示例：
+
+    ```python
+    from langchain_community.document_loaders import TextLoader
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
+    from langchain_openai import OpenAIEmbeddings
+    from langchain_community.vectorstores import Chroma
+
+    # 1. 加载
+    loader = TextLoader("knowledge.txt")
+    docs = loader.load()
+
+    # 2. 分割
+    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+    chunks = splitter.split_documents(docs)
+
+    # 3. 一句建库，自动嵌入 + 存储
+    vectorstore = Chroma.from_documents(
+        documents=chunks,
+        embedding=OpenAIEmbeddings(),
+        persist_directory="./chroma_proto",
+    )
+    ```
+
+    发生了什么？
+
+    - from_documents 内部迭代文档列表，逐批调用 embedding.embed_documents 得到向量。
+
+    - 将向量与 page_content、metadata 一起写入 Chroma 数据库（持久化到 ./chroma_proto）。
+
+    - 返回的 vectorstore 可直接调用 similarity_search。
+
+    快速原型技巧：
+
+    - 选用 Chroma 或 FAISS（内存模式）作为向量库，因为它们零配置，速度极快。
+
+    - 使用 sentence-transformers 本地模型避免调用 API 的延迟和费用：
+
+    ```python
+    from langchain_huggingface import HuggingFaceEmbeddings
+    embedding = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    ```
+
+    - 一次性加载多种格式：把 PDF、Markdown、网页都加载为 Document，合并后 from_documents，一个混合知识库就出来了。
+
+    - 用 collection_name 隔离不同实验：Chroma.from_documents(..., collection_name="exp1")。
+
+    局限性：
+
+    - 如果文档量极大（百万级），from_documents 会一次性加载所有嵌入到内存/硬盘，可能 OOM 或超时。这时需要手动分批或换用更健壮的索引管道。
+
+    - 它默认不会做增量，每次调用都会新建集合（如果同名集合存在，Chroma 会报错），所以实际原型迭代时，可以先删掉旧集合再跑，或者每次换个 collection_name。
+
+    用它搭建第一个 MVP，半个小时足够了。之后验证可行，再重构为更健壮的构建管道。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/I0Gnw9RQoiOa2yk59JjcwumPnrf
+  block_id: WcEedNYVRoz8g0xcQymc2UkMnGe
+  page_token: I0Gnw9RQoiOa2yk59JjcwumPnrf
+  original_title: "\U0001F9EA 18. 你如何使用 LangChain 的 VectorStore 的 from_documents 方法快速搭建原型？"
+  imported_at: '2026-09-21'

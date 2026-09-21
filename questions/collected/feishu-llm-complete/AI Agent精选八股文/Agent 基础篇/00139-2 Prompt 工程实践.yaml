@@ -1,0 +1,185 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3fa77f7ca82d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3.2 Prompt 工程实践
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: 3.2 Prompt 工程实践
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### System Prompt 的设计最佳实践
+
+    1、基础题：System Prompt 里应该写什么？
+
+    难度级别：⭐（System Prompt 基本结构、角色定义）
+
+    System Prompt 是 Agent 的行为契约基础，通常包含三部分：角色与能力边界定义（告诉模型它是谁、能做什么、不能做什么）、输出格式约束（格式模板和示例）、以及边界条件与拒绝策略（什么情况下应该拒绝并如何回应）。
+
+    ---
+
+    2、进阶题：在构建 AI Agent 系统时，System Prompt 的设计有哪些最佳实践？如何兼顾功能性和性能优化？
+
+    难度级别：⭐⭐（角色边界定义、格式约束、KV Cache 友好设计、优先级排列）
+
+    1️⃣ Common Answer
+
+    System Prompt 就是告诉模型它是谁、该怎么做。好的 System Prompt 要清晰简洁，包括角色定义、行为规则和输出格式。比如写"你是专业客服助手，只回答产品相关问题，用 JSON 格式输出"。另外 System Prompt 要保持稳定，不要经常改，这样缓存效果更好。
+
+    2️⃣ Impressive Answer
+
+    我会从功能设计和性能设计两个维度来展开。
+
+    - 角色与能力边界要精确，不要模糊。不要只写"你是一个助手"，要给出具体身份、具体能力范围和明确的知识边界。边界清晰后模型的行为就更可预测，"自由发挥"的空间更小。
+
+    - 格式约束用"描述 + 示例"组合，不要只描述。对 Agent 系统来说，工具调用参数解析依赖输出格式的稳定性。只说"用 JSON 输出"不够，要直接给出 schema 加一个正确示例，描述加示例的组合比单纯描述可靠得多。
+
+    - 边界条件和拒绝策略不能省。明确告诉模型什么时候应该拒绝、拒绝时怎么回答。很多人忽略这一点，结果是模型在超出能力范围时硬撑着给错误答案。加一条"超出能力范围时直接说明，不要猜测或编造"能显著减少这类幻觉。
+
+    - KV Cache 友好是性能层面的核心考量。System Prompt 每次请求都相同，API 侧命中前缀缓存能显著降低首 Token 延迟和费用。要求是内容完全固定，包括标点和空格，不能有动态插值。需要动态注入的信息（当前日期、用户信息）统一放到 User 消息里，不要放 System Prompt 里。Anthropic 缓存命中有 90% 费用折扣，高并发场景收益非常可观。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：你的 Agent 的 System Prompt 有 3000 个 token，但每次请求都在里面插入当前用户的姓名和权限，导致 Cache 命中率为 0，如何改造？
+
+    难度级别：⭐⭐（KV Cache 前缀缓存条件、动态内容隔离、Prompt 结构重构）
+
+    1️⃣ Common Answer
+
+    把用户姓名和权限从 System Prompt 里移出去，放到用户消息里。这样 System Prompt 就固定了，可以命中缓存。
+
+    2️⃣ Impressive Answer
+
+    方向是对的，但具体改造要考虑几个细节：
+
+    - System Prompt 必须完全固定，包括标点和空格。前缀缓存命中的条件是逐字节完全相同，只改一个字符，从那个位置开始的所有 block 都会 cache miss。所以不只是移出姓名和权限，System Prompt 里任何动态插值都要清除。
+
+    - 动态信息的放置位置。用户姓名、权限、当前日期这些信息，统一移到对话的第一条 User 消息里，格式固定为"当前用户：{name}，权限级别：{role}"，让 System Prompt 的 3000 token 在整个会话生命周期内完全不变。
+
+    - 如果有固定的 Few-shot 示例，也可以跟在 System Prompt 后面一起缓存，按"System Prompt → 固定示例 → 对话历史 → 当前用户输入"的顺序排列，稳定内容在前，动态内容在后。
+
+    - 效果评估。改造后监控 API 返回的 cache_creation_input_tokens 和 cache_read_input_tokens 比例，确认缓存确实在命中。Anthropic 命中缓存的 input token 只收原价 10%，3000 token 的 System Prompt 在高并发下节省非常可观。
+
+    ❌ 改造前: [System Prompt + 用户名 + 权限 + 时间戳] → 每次不同 → Cache Miss
+
+    ✅ 改造后:
+      ① System Prompt (3000 token 纯静态) ← KV Cache 命中
+      ② Fixed Few-shot 示例             ← KV Cache 命中
+      ③ User消息: "当前用户:{name}, 权限:{role}" ← 动态部分，不缓存
+      ④ 用户当前输入
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+
+    ### Few-shot Prompting 的示例选择策略
+
+    1、基础题：Few-shot Prompting 是什么？
+
+    难度级别：⭐（Few-shot 基本概念、示例数量经验值）
+
+    Few-shot Prompting 是在 Prompt 里提供若干输入-输出示例，帮助模型理解任务模式、输出格式和边界情况。通常 3-8 个示例是性价比最高的区间，再多效果提升会递减但 Token 消耗线性增长。质量和多样性比数量更重要。
+
+    ---
+
+    2、进阶题：Few-shot 示例的选择策略对效果有哪些关键影响？动态 Few-shot 和静态 Few-shot 各自适用什么场景？
+
+    难度级别：⭐⭐（示例质量 vs 数量、位置影响、动态检索原理、示例池持续优化）
+
+    1️⃣ Common Answer
+
+    Few-shot 就是给几个例子让模型参考。示例 3 到 8 个比较合适，太少效果不好，太多占太多 Token。动态 Few-shot 是根据问题动态选相似的示例，静态是固定几个。动态效果更好但实现复杂，需要 Embedding 做相似度检索。
+
+    2️⃣ Impressive Answer
+
+    我会从示例质量原则、位置影响、静态 vs 动态选型三个角度来回答。
+
+    - 质量和多样性比数量更重要。10 个重复覆盖同一种模式的示例，不如 4 个覆盖不同边界情况的示例。好的示例集要覆盖典型场景、关键边界情况，输出格式完全规范，避免示例之间高度相似——相似示例浪费 Token 但不增加信息量。
+
+    - 位置比数量更容易被忽视。示例放得越靠近实际任务指令，效果越好，这和 LLM 对近端上下文注意力权重更高有关。如果 System Prompt 很长，我会把示例放在 User 消息里紧邻问题的位置，而不是全部堆在 System Prompt 开头。
+
+    - 静态 vs 动态的工程选型。静态 Few-shot 适合任务分布集中、边界情况有限的场景（比如固定格式的文档解析），System Prompt 固定，KV Cache 命中率高。动态 Few-shot 适合输入差异大、任务分布宽泛的场景：用 Embedding 模型将示例库向量化，每次请求时检索最相似的 K 个示例注入 Prompt。实现时有两个细节：检索到的示例把相关性最高的放在最靠近任务指令的位置；要设置相似度阈值，过低相似度的示例宁可不用，防止负迁移。
+
+    在 Agent 系统里，我还会用"示例池持续优化"机制：人工标注高质量示例入库，同时把线上效果好的对话（通过用户反馈或 LLM 自评筛选）也入库，让示例池随系统运行持续优化。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：你的 Agent 需要处理用户提交的各类合同文档，不同类型合同的解析格式差异很大，用静态 Few-shot 效果很差，怎么改造？
+
+    难度级别：⭐⭐（动态 Few-shot 工程实现、相似度检索、负迁移防御）
+
+    1️⃣ Common Answer
+
+    可以换成动态 Few-shot，根据当前合同类型选择对应的示例。用 Embedding 检索和当前文档最相似的示例来用，效果应该会好很多。
+
+    2️⃣ Impressive Answer
+
+    这是动态 Few-shot 的标准应用场景，我会这样实现：
+
+    - 建立分类型的示例库。按合同类型（劳动合同、采购合同、租赁合同等）分类标注高质量解析示例，每类至少覆盖 3-5 种典型格式变体，包含关键的边界情况，比如字段缺失、格式异常的处理方式。
+
+    - 检索策略。用文档的前 500 字（包含合同标题和开头条款）作为查询，向量化后检索示例库，取 Top-3 最相似的示例。设置相似度阈值（比如 cosine similarity > 0.75），低于阈值的示例不用，宁可给模型说"无相关示例，请基于以下格式要求处理"，防止错误类型的示例带来负迁移。
+
+    - 示例放置顺序。相关性最高的示例放在最靠近当前任务指令的位置，利用近因效应，不要按检索分数降序从上到下堆。
+
+    - 持续优化。线上把解析结果准确的对话标注入库，并定期做示例去重，避免库里同质化示例过多。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MtcJwOeh8il1EhkIooccEEwBntb
+  block_id: doxcnQIEtMvmENgU7bNE8YiTuZg
+  page_token: MtcJwOeh8il1EhkIooccEEwBntb
+  original_title: 3.2 Prompt 工程实践
+  imported_at: '2026-09-21'

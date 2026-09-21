@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8eb970ea59c5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“Model Parallel”中的“参数分片”？它与 ZeRO-3 的参数分片有何不同？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 什么是“Model Parallel”中的“参数分片”？它与 ZeRO-3 的参数分片有何不同？
+answer:
+  mode: rubric
+  reference_answer: |-
+    模型并行中的参数分片：主要指张量并行 (Tensor Parallelism)，将单个Transformer层内的权重矩阵（如QKV投影、FFN的线性层）沿列或行切分到多个GPU上。每张卡持有该层权重的一部分，在前向和反向传播时需要通信（如AllReduce）来合并激活或梯度。这种分片粒度细（层内分片），通信频率高（每层多次），但能有效降低单卡显存和计算量。通常与流水线并行结合，用于单个模型副本跨多卡。
+
+    ZeRO-3 的参数分片：属于数据并行的扩展，将整个模型的参数（包括所有层）平均分布到数据并行组的所有GPU上。每张卡只持久保存一部分参数（例如某几层的完整权重，或每层权重的部分切片）。当某层参与计算时，通过AllGather从其他卡收集该层完整参数，计算后立即释放非本地分片。这种分片粒度粗（层间或参数张量级），但保留了数据并行的独立计算特性（每张卡处理不同的micro-batch数据），通信主要发生在层边界。
+
+    关键区别：
+
+    - 分片维度：TP分片在层内（如按列切分矩阵），ZeRO-3分片在层间或参数张量维度。
+
+    - 数据依赖：TP的张量并行组内的GPU共同处理同一份输入；ZeRO-3的GPU各自处理不同的micro-batch，与其他数据并行一致。
+
+    - 通信模式：TP需要每层进行AllReduce或AllGather/ReduceScatter，通信频繁；ZeRO-3的AllGather只在每层前向和反向各发生一次，通信量较大但频率较低。
+
+    - 扩展性：TP受限于单层参数量和通信带宽，通常不能跨节点高效扩展；ZeRO-3可跨节点扩展，但通信量随节点数增加。
+
+    实践中，两者常结合使用：节点内使用TP利用NVLink高带宽，节点间使用ZeRO-3降低显存和通信压力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: VVlAdeEVto4Oqox33VRcUBwvnCz
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 什么是“Model Parallel”中的“参数分片”？它与 ZeRO-3 的参数分片有何不同？
+  imported_at: '2026-09-21'

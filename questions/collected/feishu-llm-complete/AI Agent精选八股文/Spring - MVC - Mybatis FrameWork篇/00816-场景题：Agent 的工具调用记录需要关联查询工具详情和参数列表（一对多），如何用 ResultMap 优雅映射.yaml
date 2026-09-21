@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-58982a214f65
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 的工具调用记录需要关联查询工具详情和参数列表（一对多），如何用 ResultMap 优雅映射？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 的工具调用记录需要关联查询工具详情和参数列表（一对多），如何用 ResultMap 优雅映射？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐⭐（复杂映射、性能优化、Agent 场景）
+
+    1️⃣ Common Answer 可以写一个 ResultMap，用 association 关联工具详情，用 collection 关联参数列表。查询的时候用 JOIN 把表连起来，一次查询把数据都查出来。
+
+    2️⃣ Impressive Answer
+
+    - ResultMap 配置：
+
+    ```text
+    <resultMap id="toolCallMap" type="ToolCall">
+      <id property="id" column="call_id"/>
+      <result property="toolName" column="tool_name"/>
+      <association property="tool" javaType="Tool" column="tool_id" select="selectToolById"/>
+      <collection property="params" ofType="ToolParam" column="call_id" select="selectParamsByCallId"/>
+    </resultMap>
+    ```
+
+    - 嵌套结果优化：为避免 N+1 问题，使用嵌套结果方式，一条 SQL 查询所有数据：
+
+    ```text
+    SELECT c.id as call_id, c.tool_name, t.*, p.*
+    FROM tool_call c
+    LEFT JOIN tool t ON c.tool_id = t.id
+    LEFT JOIN tool_param p ON c.id = p.call_id
+    WHERE c.session_id = #{sessionId}
+    ```
+
+    - Agent 场景性能优化：工具调用记录查询频率高，参数列表只在详情页展示，使用延迟加载：<collection fetchType="lazy" .../>，列表页不加载参数，减少数据传输量。缓存策略：工具详情用二级缓存，避免重复查询。
+
+    - 分页处理：一对多关联查询时，主记录分页需要特殊处理（如使用 DISTINCT 或子查询），避免分页数据不准确。Agent 最佳实践：工具调用列表只返回主记录，参数列表通过独立接口按需加载。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VU1MwcbuKiIco5kkmQCc1W0lnFc
+  block_id: doxcn8Sz5kDvTXN6Ipt6D4GZP5e
+  page_token: VU1MwcbuKiIco5kkmQCc1W0lnFc
+  original_title: 3、场景题：Agent 的工具调用记录需要关联查询工具详情和参数列表（一对多），如何用 ResultMap 优雅映射？
+  imported_at: '2026-09-21'

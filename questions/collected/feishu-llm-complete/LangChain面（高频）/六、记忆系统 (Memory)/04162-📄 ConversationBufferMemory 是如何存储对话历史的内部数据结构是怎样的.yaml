@@ -1,0 +1,96 @@
+---
+schema_version: 1
+id: feishu-llm-complete-45216b579557
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4C4 ConversationBufferMemory 是如何存储对话历史的？内部数据结构是怎样的？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F4C4 ConversationBufferMemory 是如何存储对话历史的？内部数据结构是怎样的？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    ConversationBufferMemory 是 LangChain 中最简单、最直接的 Memory 实现。它的工作方式就是将所有对话原封不动地存入一个缓冲区。
+
+    内部数据结构：
+    它内部主要通过一个 ChatMessageHistory 对象来存储消息列表。这个列表里的每个元素都是一个 LangChain 的 Message 对象，常见的有：
+
+    - HumanMessage：用户说的话。
+
+    - AIMessage：AI 的回复。
+
+    - SystemMessage：系统提示词。
+
+    从源码角度看，它是一个包含多个 Message 的列表，大致结构如下：
+
+    ```text
+    [
+        HumanMessage(content="你好"),
+        AIMessage(content="你好！有什么我可以帮你的吗？"),
+        HumanMessage(content="介绍一下人工智能"),
+        AIMessage(content="人工智能是..."),
+        ...
+    ]
+    ```
+
+    当你调用 memory.chat_memory.messages 就能看到这个列表。
+
+    它如何被用于 Prompt：
+    当你使用 ConversationChain 时，Memory 会将这个列表转换为一个适合 LLM 的文本字符串，通常是下面这种对话格式：
+
+    ```text
+    Human: 你好
+    AI: 你好！有什么我可以帮你的吗？
+    Human: 介绍一下人工智能
+    AI:
+    ```
+
+    这个字符串会被插入到 Prompt 模板的 {history} 占位符中，LLM 就在此基础上进行续写。
+
+    配置示例：
+
+    ```python
+    from langchain.memory import ConversationBufferMemory
+    from langchain.chains import ConversationChain
+    from langchain.llms import OpenAI
+
+    memory = ConversationBufferMemory()
+    conversation = ConversationChain(
+        llm=OpenAI(),
+        memory=memory,
+        verbose=True
+    )
+    conversation.predict(input="你好")
+    conversation.predict(input="介绍一下人工智能")
+    # 此时 memory.buffer 或 memory.chat_memory.messages 已经包含了前两轮的对话
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H3N3wvSCiibLlPk5ZpjcveFHnNb
+  block_id: Pnk9dDldKoQ77ixE5WacqsaAnRb
+  page_token: H3N3wvSCiibLlPk5ZpjcveFHnNb
+  original_title: "\U0001F4C4 ConversationBufferMemory 是如何存储对话历史的？内部数据结构是怎样的？"
+  imported_at: '2026-09-21'

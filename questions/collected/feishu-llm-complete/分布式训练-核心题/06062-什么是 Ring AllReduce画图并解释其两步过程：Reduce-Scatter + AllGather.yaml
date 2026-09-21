@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-300837d5fa00
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是 Ring AllReduce？画图并解释其两步过程：Reduce-Scatter + AllGather。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 什么是 Ring AllReduce？画图并解释其两步过程：Reduce-Scatter + AllGather。
+answer:
+  mode: rubric
+  reference_answer: |-
+    Ring AllReduce 是将所有参与节点排列成一个逻辑环，数据在环上依次传递，完成归约与广播。整个过程分为两个阶段：Reduce-Scatter 和 AllGather。
+
+    阶段一：Reduce-Scatter
+
+    - 将每个节点上的待归约数据（例如梯度张量）均匀划分为N个连续的数据块（N为节点数）。
+
+    - 执行N-1步。每一步，每个节点将自己某个数据块发送给环上的下一个节点，同时从前一个节点接收对应的数据块。
+
+    - 接收到的数据块与本地对应的数据块进行累加（reduce）。
+
+    - 经过N-1步后，每个节点拥有某个特定数据块的完整归约结果（即所有N个节点该块的累加和）。此时，每个节点只持有最终结果的1/N。
+
+    阶段二：AllGather
+
+    - 同样执行N-1步。每一步，每个节点将自己持有的已归约数据块发送给下一个节点，同时从前一个节点接收对方持有的已归约数据块。
+
+    - 接收到的数据块直接覆盖或替换本地对应块（不再累加）。
+
+    - 经过N-1步后，每个节点都收集到所有其他节点的归约块，从而得到完整的归约结果。
+
+    图示（假设4个节点，数据分为4块）：
+
+    节点0: A0 B0 C0 D0
+    节点1: A1 B1 C1 D1
+    节点2: A2 B2 C2 D2
+    节点3: A3 B3 C3 D3
+
+    Reduce-Scatter后：
+
+    节点0: A_sum (A0+A1+A2+A3)
+    节点1: B_sum
+    节点2: C_sum
+    节点3: D_sum
+
+    AllGather后，每个节点都拥有 A_sum B_sum C_sum D_sum。
+
+    Ring AllReduce将通信负载均匀分布，避免单点瓶颈，总通信量约为 2(N-1)/N × 数据大小。
+
+    [图片内容未导入]
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XxBHwhYPNiVrDYkSIHCccehWn72
+  block_id: TCIedo5qEouCTCxl8Q4cebg1nwd
+  page_token: XxBHwhYPNiVrDYkSIHCccehWn72
+  original_title: 什么是 Ring AllReduce？画图并解释其两步过程：Reduce-Scatter + AllGather。
+  imported_at: '2026-09-21'

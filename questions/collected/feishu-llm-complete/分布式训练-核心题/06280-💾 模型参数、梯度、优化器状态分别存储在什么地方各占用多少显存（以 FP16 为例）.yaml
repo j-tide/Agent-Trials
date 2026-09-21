@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-427cbf389f21
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BE 模型参数、梯度、优化器状态分别存储在什么地方？各占用多少显存（以 FP16 为例）？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: "\U0001F4BE 模型参数、梯度、优化器状态分别存储在什么地方？各占用多少显存（以 FP16 为例）？"
+answer:
+  mode: rubric
+  reference_answer: "这些数据在训练期间全部驻留在GPU的显存（HBM/VRAM）中，因为GPU是计算的核心，需要极快地读取和写入这些数据。它们的显存占用是大模型训练主要的内存消耗来源。\n\n以下我们假设模型参数量为
+    P，并使用混合精度训练（前向和反向用FP16，但优化器状态和主参数副本用FP32来保证精度）进行估算。\n\n\U0001F539 模型参数（Model Weights）\n\n-
+    存储内容：神经网络层的权重矩阵和偏置向量。\n\n- FP16格式：这是参与前向和反向计算的主力。每个参数占用2个字节。总占用 = 2P 字节。\n\n-
+    FP32主参数副本：在混合精度训练中，通常还会在内存中保留一份FP32（4字节）的参数副本，用于累积微小的梯度更新，防止精度损失。总占用 = 4P 字节。有些框架（如ZeRO-1）通过分片共享该副本。\n\n\U0001F539
+    梯度（Gradients）\n\n- 存储内容：反向传播计算出的、对应于每个参数的损失函数偏导数值。\n\n- 存储格式：在前向和反向传播中，梯度的计算和存储通常与模型参数的FP16一致，以节省算力和显存，因此也以FP16（2字节）存储。总占用
+    = 2P 字节。\n\n\U0001F539 优化器状态（Optimizer States）\n\n- 存储内容：对于Adam/AdamW优化器，需要为每个参数维护一阶动量（m）和二阶动量（v）。这些状态值需要保持高精度（FP32，4字节）以确保更新过程的数值稳定性。\n\n-
+    总占用：m占4P字节，v占4P字节，合计 = 8P 字节。\n\n\U0001F4CA 显存占用比例（以7B参数模型为例）\n\n- 参数（FP16）：2
+    × 7B = 14 GB\n\n- 参数主副本（FP32）：4 × 7B = 28 GB （通常与优化器状态一起考虑在ZeRO分片中）\n\n- 梯度（FP16）：2
+    × 7B = 14 GB\n\n- 优化器状态（FP32）：8 × 7B = 56 GB\n\n- 总计（不含激活值）至少为：14 + 28 + 14 +
+    56 = 112 GB。\n\n\U0001F4A1 大模型为何用ZeRO：仅上述四项就远超单张A100（80GB）的容量，这还没算上体积可能更大的激活值。因此，ZeRO等分片策略成为必需，它们将优化器状态、梯度和参数拆分到多张GPU，从而极大降低单卡显存需求。例如，使用ZeRO-3后，单卡只需要存1/N的参数和状态（N为GPU数量）。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Yto8wfa8ti5TgZktU1YczVp7nme
+  block_id: Kkp8dEXASozahpx0ZHfcLQshnEh
+  page_token: Yto8wfa8ti5TgZktU1YczVp7nme
+  original_title: "\U0001F4BE 模型参数、梯度、优化器状态分别存储在什么地方？各占用多少显存（以 FP16 为例）？"
+  imported_at: '2026-09-21'

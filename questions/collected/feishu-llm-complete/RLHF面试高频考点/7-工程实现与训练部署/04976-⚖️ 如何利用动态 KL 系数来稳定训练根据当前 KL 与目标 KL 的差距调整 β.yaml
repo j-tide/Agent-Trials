@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-166d306f2dba
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚖️ 如何利用“动态 KL 系数”来稳定训练？根据当前 KL 与目标 KL 的差距调整 β。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "⚖️ 如何利用“动态 KL 系数”来稳定训练？根据当前 KL 与目标 KL 的差距调整 β。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    固定 KL 系数 β 无法适应策略在不同训练阶段的行为变化。动态 β 根据实际 KL 与预设目标的偏差自适应调整，是保持 KL 稳定在期望区间的有效手段。
+
+    算法逻辑（PID 控制器）：
+
+    - 目标 KL：例如 0.02（每个 token 平均）。
+
+    - 在每次 PPO 批次更新完成后，计算该批次数据的当前策略 KL（kl_current）。
+
+    - 根据偏差调整 β：
+
+    if kl_current > target_kl * 1.5:
+        beta *= 2.0   # 太偏离，加强惩罚
+    elif kl_current < target_kl / 1.5:
+        beta /= 2.0   # 太保守，放松惩罚
+
+    - 为防抖动，对 β 进行指数移动平均平滑，并设定上下限（如 0.01 ~ 0.5）。
+
+    效果：
+
+    - 初期策略刚开始学习，KL 较低，β 较小允许探索。
+
+    - 后期若出现奖励黑客或漂移，KL 上升，β 自动增大，将策略拉回安全区。
+
+    - 达到稳态时，β 和 KL 在目标附近小范围波动。
+
+    实践：
+
+    - 将 β 作为优化器的一个外部参数，在每次训练步后更新。
+
+    - 在 tensorboard 中同时绘制 kl_current 和 beta，便于观察两者的互动。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SrIPwt6g4iOx8zkf5StcnDK8nCc
+  block_id: IK3ld1kNuoJrguxwKoocUTOvn1d
+  page_token: SrIPwt6g4iOx8zkf5StcnDK8nCc
+  original_title: "⚖️ 如何利用“动态 KL 系数”来稳定训练？根据当前 KL 与目标 KL 的差距调整 β。"
+  imported_at: '2026-09-21'

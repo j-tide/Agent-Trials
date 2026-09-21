@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d081ecfe1963
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何封装一个自定义的 LLM？需要重写哪些核心方法？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: 如何封装一个自定义的 LLM？需要重写哪些核心方法？
+answer:
+  mode: rubric
+  reference_answer: "当你想接入一个 LangChain 官方未集成的模型（例如自研模型、内部服务），可以继承 BaseLLM 或 BaseChatModel
+    来实现自定义适配器。\n\n\U0001F6E0️ 以封装自定义 ChatModel 为例，你需要至少重写以下方法：\n\n- _generate 或 _agenerate（底层生成逻辑）\n\n-
+    输入：messages（List[BaseMessage]）、stop（停止词列表）、run_manager（回调管理器）等。\n\n- 输出：ChatResult
+    对象，包含 generations（List[ChatGeneration]），每个 ChatGeneration 包含 message（AIMessage）和可选的
+    generation_info。\n\n- 你需要在此方法中实现模型的实际调用（HTTP 请求、本地推理等），并将返回的文本包装为 AIMessage。\n\n-
+    _stream 或 _astream（流式生成逻辑，可选但推荐）\n\n- 返回一个生成器，每次 yield 一个 ChatGenerationChunk，包含
+    message（AIMessageChunk）。\n\n- 支持流式输出可以显著提升用户体验。\n\n- _llm_type 属性（返回一个字符串，标识模型类型）\n\n-
+    返回自定义的名称，如 \"my-custom-llm\"。\n\n- _identifying_params 属性（可选，用于日志和追踪）\n\n- 返回一个字典，包含模型的标识参数。\n\n\U0001F4DC
+    示例伪代码：\n\nfrom langchain_core.language_models.chat_models import BaseChatModel\nfrom
+    langchain_core.messages import AIMessage, BaseMessage\nfrom langchain_core.outputs
+    import ChatResult, ChatGeneration\nfrom typing import List, Optional, Any\n\nclass
+    MyCustomChatModel(BaseChatModel):\n    model_name: str = \"my-model\"\n    api_url:
+    str = \"http://localhost:8000/chat\"\n\n    def _generate(self, messages: List[BaseMessage],
+    stop: Optional[List[str]] = None, run_manager=None, **kwargs) -> ChatResult:\n
+    \       # 1. 将 LangChain 消息列表转换为 API 所需的 JSON 格式\n        payload = self._convert_messages(messages)\n
+    \       # 2. 调用模型 API\n        import requests\n        response = requests.post(self.api_url,
+    json=payload)\n        response.raise_for_status()\n        text = response.json()[\"content\"]\n
+    \       # 3. 包装为 AIMessage\n        message = AIMessage(content=text)\n        generation
+    = ChatGeneration(message=message)\n        return ChatResult(generations=[generation])\n\n
+    \   def _stream(self, messages, stop=None, run_manager=None, **kwargs):\n        #
+    流式实现略\n        pass\n\n    @property\n    def _llm_type(self):\n        return
+    \"my-custom-chat-model\"\n\n\U0001F9EA 测试与集成：\n\n- 实现后，你的自定义类可以直接在 LCEL 中使用：chain
+    = prompt | MyCustomChatModel() | parser。\n\n- 确保处理异常（网络超时、模型错误），考虑重试和回退。\n\n-
+    如果要支持异步，重写 _agenerate 和 _astream 方法。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NWPhwBZQ9iuqdXkPhHNcLThjnig
+  block_id: RAPpdlQsMoscIuxgYfVcL7YBncb
+  page_token: NWPhwBZQ9iuqdXkPhHNcLThjnig
+  original_title: 如何封装一个自定义的 LLM？需要重写哪些核心方法？
+  imported_at: '2026-09-21'

@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d574647e88bf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在混合精度训练中，梯度下溢 (Gradient Underflow) 如何处理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 在混合精度训练中，梯度下溢 (Gradient Underflow) 如何处理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    梯度下溢是指在 FP16 训练中，某些梯度值小于 FP16 能表示的最小正规数（约 6×10⁻⁸），导致在 FP16 下被截断为 0。这会使对应参数无法获得有效更新，训练停滞或偏向次优解。
+
+    处理方法：
+
+    - Loss Scaling（损失缩放）：这是最核心的解决方案。将损失值乘以一个较大的缩放因子（如 2¹⁶），反向传播计算出的梯度也会相应放大，从而被推入 FP16 的可表示范围。在更新参数前，再将梯度除以相同的缩放因子还原。动态损失缩放会自动调整缩放因子：如果连续多个 step 没有溢出，则增大缩放因子；如果检测到溢出（梯度中有 Inf/NaN），则减小缩放因子并跳过本次更新。
+
+    - 切换到 BF16 训练：BF16 拥有与 FP32 相同的 8 位指数，动态范围极大（最小正规数约 1.2×10⁻³⁸），几乎不会发生梯度下溢，因此不需要损失缩放。这是当前大模型训练的首选。
+
+    - 关键操作保持 FP32：对于容易产生小梯度的操作（如 softmax 的梯度、LayerNorm 的梯度），在计算时提升到 FP32 精度。
+
+    - 适当增大学习率：一定程度上能增大梯度幅度，但风险较大，不建议作为主要手段。
+
+    - 使用梯度累积时注意缩放：如果使用梯度累积，应在每次微批次反向传播前应用缩放，或者在累积完成后再统一缩放，需保持一致。
+
+    通常，结合动态损失缩放的 FP16 训练可以很好地解决梯度下溢。但 BF16 的出现使问题大大简化。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: HNnhdKpw6o7LTDxIBg3c7heSnpf
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: 在混合精度训练中，梯度下溢 (Gradient Underflow) 如何处理？
+  imported_at: '2026-09-21'

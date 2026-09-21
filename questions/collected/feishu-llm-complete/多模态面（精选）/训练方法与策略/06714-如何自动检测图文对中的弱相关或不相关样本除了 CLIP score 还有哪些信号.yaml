@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0b708e058020
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何自动检测图文对中的“弱相关”或“不相关”样本？除了 CLIP score 还有哪些信号？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 训练方法与策略
+tags: &1
+- 多模态面（精选）
+- 训练方法与策略
+content:
+  prompt: 如何自动检测图文对中的“弱相关”或“不相关”样本？除了 CLIP score 还有哪些信号？
+answer:
+  mode: rubric
+  reference_answer: |-
+    CLIP Score 是衡量图文语义相关性的主流指标，但并非完美，有时会给出误导性的高分（例如，对“狗”的图片和“一只猫”的文本仍可能打出 0.3+ 的分数）。多信号融合是更可靠的检测方案。
+
+    可用的多维信号：
+
+    - 细粒度跨模态对齐模型：使用比 CLIP 更强的模型，如 BLIP-2 的 ITM（图文匹配）头、或 SigLIP。它们在难负样本上训练得更好，能更精准地区分细微不匹配。
+
+    - 文本-图像实体匹配度：用 OCR 或物体检测模型提取图像中的文字、物体标签，与文本中的实体进行对比。若文本提了“汽车”但图中检测不到汽车，则大概率不相关。
+
+    - NLI（自然语言推理）：将图文对转化为假设-前提任务。例如，将文本作为假设，图像的描述（由另一个模型生成）作为前提，用 NLI 模型判断是否蕴含。若蕴含分数低，说明图文不一致。
+
+    - 问答一致性：用 VQA 模型向图像提问文本中的关键实体或关系（如“图中有猫吗？”）。若答案与文本不符，则标记为弱相关。
+
+    - 图像搜索反向验证：用文本去图像库中检索，若原图不在 Top-K 内，则说明文本对该图不具有唯一指代性，可能为弱相关。
+
+    - 文本困惑度与信息量：文本内容是否过分模糊或通用（如“一张图片”），缺乏实质信息，这类文本即使图像匹配也价值低。
+
+    - 模型置信度与噪声鲁棒性：给图像加上轻微噪声，观察 CLIP Score 的下降程度。若微小扰动导致分数骤降，说明对齐本身就很脆弱。
+
+    融合策略：
+
+    将上述信号作为特征，训练一个轻量级分类器（如 XGBoost），在人工标注的“相关/不相关”样本上进行训练，自动学习各信号的最佳组合权重。这比单一阈值更鲁棒，可大幅降低误杀和漏网。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BTogw3417ihokikqMFvcnoCvnOb
+  block_id: G1wtdDZqzoznX9x5IiycGk4Snkf
+  page_token: BTogw3417ihokikqMFvcnoCvnOb
+  original_title: 如何自动检测图文对中的“弱相关”或“不相关”样本？除了 CLIP score 还有哪些信号？
+  imported_at: '2026-09-21'

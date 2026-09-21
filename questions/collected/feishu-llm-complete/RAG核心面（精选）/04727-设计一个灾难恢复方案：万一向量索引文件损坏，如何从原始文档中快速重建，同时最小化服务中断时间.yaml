@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-008578e8b0fa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 设计一个“灾难恢复”方案：万一向量索引文件损坏，如何从原始文档中快速重建，同时最小化服务中断时间？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RAG核心面（精选）
+derived_topic: 
+tags: &1
+- RAG核心面（精选）
+content:
+  prompt: 设计一个“灾难恢复”方案：万一向量索引文件损坏，如何从原始文档中快速重建，同时最小化服务中断时间？
+answer:
+  mode: rubric
+  reference_answer: "\U0001F525 索引损坏是灾难级故障，恢复速度 = 业务中断时长。\n\n\U0001F691 灾难恢复方案：\n\n-
+    索引高可用与定期快照\n\n- 生产环境必须部署向量库的高可用集群（如多副本），单副本损坏自动故障转移，避免全局不可用。\n\n- 定期（每日）创建冷快照到对象存储（如
+    S3/MinIO）。向量库如 Qdrant、Milvus 均支持快照导出/导入。这是最基础的恢复点（RPO≤24h）。\n\n- 离线快速重建管道（Always
+    Warm）\n\n- 保持一套预热的重建流水线，它和主索引使用同一批原始文档存储（如对象存储），但平时处于待机状态。\n\n- 该流水线包含：文档下载→切片→嵌入→索引构建，所有步骤都已容器化且能自动并发扩展。\n\n-
+    定期（如每周）用全量文档进行一次影子重建，生成一个完整索引，并存储其二进制文件。这样在真损坏时，直接加载这个预构建好的新索引，只需几分钟加载时间，而不是从头重建。\n\n-
+    触发灾难恢复\n\n- 监控发现索引不可用 → 自动决策：若能快速故障转移到备用副本，使用副本；若主备全损，立即启动加载预构建的备用索引。\n\n- 同时，启动增量重建来覆盖自上次快照/预构建后新增的文档：从事件日志中重放最近新增的文档，补建索引，追上最新状态。\n\n-
+    在此期间，如果 RAG 服务必须在线，可以降级为仅用 BM25 或规则检索，提供基础能力。\n\n- 服务降级与无感切换\n\n- RAG 服务应设计为多检索源兜底：向量库、全文搜索引擎、规则匹配。当向量库异常，自动路由到备选源，用户可能感到质量下降但不至中断。\n\n\U0001F510
+    终极目标：RPO < 5分钟，RTO < 10分钟。通过预构建索引+增量重放实现。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SoxewKodgi96DZkngxYcNDCsn6b
+  block_id: KEy9dRsrKon87sxGBEqcf9shnFf
+  page_token: SoxewKodgi96DZkngxYcNDCsn6b
+  original_title: 设计一个“灾难恢复”方案：万一向量索引文件损坏，如何从原始文档中快速重建，同时最小化服务中断时间？
+  imported_at: '2026-09-21'

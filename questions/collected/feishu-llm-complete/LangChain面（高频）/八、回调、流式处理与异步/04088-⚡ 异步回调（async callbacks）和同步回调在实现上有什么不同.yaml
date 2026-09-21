@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c3ce3a43fcfe
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚡ 异步回调（async callbacks）和同步回调在实现上有什么不同？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "⚡ 异步回调（async callbacks）和同步回调在实现上有什么不同？"
+answer:
+  mode: rubric
+  reference_answer: "同步回调继承 BaseCallbackHandler，实现 on_llm_start 等方法。这些方法会在主线程（或当前线程）中同步执行，如果其中做了耗时操作（如写入磁盘），会阻塞链的继续执行。\n\n异步回调继承
+    AsyncCallbackHandler，必须实现 on_llm_start 等方法的异步版本（即 async def on_llm_start）。当你在异步链（如
+    chain.arun()）中使用异步回调时，LangChain 会 await 这些方法，从而不会阻塞事件循环。\n\n关键区别：\n\n- 如果异步链使用了同步回调，LangChain
+    会通过 asyncio.to_thread 将同步方法调度到线程池中执行，以避免阻塞事件循环。但这会引入线程切换的开销，并且可能无法保证严格的执行顺序。\n\n-
+    同步链使用异步回调时，会直接报错，因为同步环境无法执行协程。\n\n- 因此，在异步应用中必须使用异步回调，以获得最佳性能和正确性。\n\n示例异步回调：\n\nfrom
+    langchain.callbacks import AsyncCallbackHandler\n\nclass AsyncLLMLogger(AsyncCallbackHandler):\n
+    \   async def on_llm_start(self, serialized, prompts, **kwargs):\n        await
+    self._async_write_log(\"start\", prompts)\n    \n    async def _async_write_log(self,
+    event, data):\n        async with aiofiles.open(\"log.txt\", \"a\") as f:\n            await
+    f.write(f\"{event}: {data}\\n\")\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  block_id: PjMqdnQsmog9asxwWaZcEcTnnUJ
+  page_token: LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  original_title: "⚡ 异步回调（async callbacks）和同步回调在实现上有什么不同？"
+  imported_at: '2026-09-21'

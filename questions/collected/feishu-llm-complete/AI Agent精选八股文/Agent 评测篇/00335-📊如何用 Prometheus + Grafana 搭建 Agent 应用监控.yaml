@@ -1,0 +1,174 @@
+---
+schema_version: 1
+id: feishu-llm-complete-816c61b067f7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA如何用 Prometheus + Grafana 搭建 Agent 应用监控？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 评测篇
+tags: &1
+- AI Agent精选八股文
+- Agent 评测篇
+content:
+  prompt: "\U0001F4CA如何用 Prometheus + Grafana 搭建 Agent 应用监控？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Agent 应用监控不能只看 CPU 和内存，必须覆盖 LLM 调用的延迟、Token 消耗、错误率、工具调用次数、Agent 任务完成率 等业务指标。
+
+    整体架构：
+
+    [图片内容未导入]
+
+    第一步：在 Agent 代码中埋点并暴露指标
+
+    使用 Python 的 prometheus_client 库，定义几个核心指标：
+
+    ```python
+    from prometheus_client import start_http_server, Counter, Histogram, Gauge, Info
+    import time, random
+
+    # 定义指标
+    llm_call_counter = Counter('agent_llm_calls_total', 'LLM 调用总次数', ['model', 'status'])
+    llm_latency = Histogram('agent_llm_latency_seconds', 'LLM 调用延迟', ['model'])
+    llm_tokens = Counter('agent_llm_tokens_total', 'Token 消耗总量', ['model', 'type'])  # type: input/output
+    tool_call_counter = Counter('agent_tool_calls_total', '工具调用总次数', ['tool_name', 'status'])
+    task_completion = Counter('agent_tasks_completed_total', '任务完成总数', ['result'])  # result: success/fail/timeout
+    active_tasks = Gauge('agent_active_tasks', '当前正在执行的任务数')
+
+    # 在你的 Agent 执行逻辑中打点
+    class MonitoredAgent:
+        def call_llm(self, model, prompt):
+            start = time.time()
+            status = 'success'
+            try:
+                result = self.model.generate(prompt)
+                # 记录 Token 用量 (假设 API 返回 usage)
+                llm_tokens.labels(model=model, type='input').inc(result.usage.prompt_tokens)
+                llm_tokens.labels(model=model, type='output').inc(result.usage.completion_tokens)
+                return result
+            except Exception:
+                status = 'error'
+                raise
+            finally:
+                llm_call_counter.labels(model=model, status=status).inc()
+                llm_latency.labels(model=model).observe(time.time() - start)
+
+        def execute_tool(self, tool_name, args):
+            tool_call_counter.labels(tool_name=tool_name, status='attempt').inc()
+            try:
+                result = self.tools[tool_name](**args)
+                tool_call_counter.labels(tool_name=tool_name, status='success').inc()
+                return result
+            except Exception:
+                tool_call_counter.labels(tool_name=tool_name, status='error').inc()
+                raise
+
+        def run(self, task):
+            active_tasks.inc()
+            try:
+                # ... 你的 Agent 循环
+                task_completion.labels(result='success').inc()
+            except Exception:
+                task_completion.labels(result='fail').inc()
+            finally:
+                active_tasks.dec()
+
+    # 启动 HTTP 服务，暴露 /metrics
+    start_http_server(8000)
+    ```
+
+    第二步：配置 Prometheus 抓取指标
+
+    prometheus.yml：
+
+    ```yaml
+    global:
+      scrape_interval: 15s
+
+    scrape_configs:
+      - job_name: 'agent-app'
+        static_configs:
+          - targets: ['agent-app:8000']   # 你的 Agent 服务地址
+    ```
+
+    第三步：在 Grafana 中创建面板
+
+    添加 Prometheus 数据源后，可以创建以下关键面板：
+
+    - LLM 调用 QPS 与错误率
+    查询：rate(agent_llm_calls_total[1m])
+    按 model 和 status 分面。
+
+    - P50/P95/P99 延迟
+    查询：histogram_quantile(0.95, rate(agent_llm_latency_seconds_bucket[5m]))
+
+    - Token 消耗趋势（分模型）
+    查询：sum(increase(agent_llm_tokens_total[5m])) by (model, type)
+
+    - 工具调用成功率
+    查询：sum(rate(agent_tool_calls_total{status='success'}[5m])) / sum(rate(agent_tool_calls_total[5m]))
+
+    - 任务完成率
+    查询：sum(rate(agent_tasks_completed_total{result='success'}[5m])) / sum(rate(agent_tasks_completed_total[5m]))
+
+    第四步：设置告警规则
+
+    在 Prometheus 中定义告警，例如：
+
+    ```yaml
+    groups:
+      - name: agent_alerts
+        rules:
+          - alert: HighLLMErrorRate
+            expr: rate(agent_llm_calls_total{status="error"}[5m]) / rate(agent_llm_calls_total[5m]) > 0.05
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Agent LLM 调用错误率超过 5%"
+    ```
+
+    第五步：更进一步的 Agent 专属监控
+
+    除了基础指标，AI Agent 还需要监控上下文行为。比如：
+
+    - 对话轮次分布：用 Histogram 统计每个任务的平均推理步数，防止 Agent 陷入死循环。
+
+    - 工具调用序列模式：如果某个工具的调用率突然下降，可能 Prompt 或模型能力发生了变化。
+
+    - 生成内容安全指标：通过一个后台任务抽样 Agent 的输出，送安全模型打分，将分数暴露为 Gauge。
+
+    这些指标都可以通过同样的 prometheus_client 暴露，因为它们本质上都是数值。
+
+    收束：
+
+    用 Prometheus + Grafana 监控 Agent，就是给 AI 系统装上了“心率仪”和“血压计”。你不仅能看见它是否活着，还能看见每一次 LLM 调用的呼吸、每一个工具使用的心跳。当某天凌晨三点，LLM 的延迟突然从 1.2 秒飙到 30 秒时，告警会替你打电话，而不是等客户来投诉才后知后觉。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NeK0wkFRfi2KLHkHiQucC7hWnpI
+  block_id: doxcnPIUilbV9GXl9KSoNOjAxrc
+  page_token: NeK0wkFRfi2KLHkHiQucC7hWnpI
+  original_title: "\U0001F4CA如何用 Prometheus + Grafana 搭建 Agent 应用监控？"
+  imported_at: '2026-09-21'

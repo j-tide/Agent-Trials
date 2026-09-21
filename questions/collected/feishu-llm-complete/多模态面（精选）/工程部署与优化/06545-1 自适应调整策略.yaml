@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0c69466473aa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 8.1 自适应调整策略
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 8.1 自适应调整策略
+answer:
+  mode: rubric
+  reference_answer: |-
+    前端预处理：
+
+    - 在 API 网关或负载均衡器层面，根据图像的原始尺寸和内容复杂度，自动决定是否需要高分辨率处理。
+
+    - 例如，简单背景、单一物体的图像使用低分辨率（224×224），复杂场景或含文字的文档使用高分辨率（切块后等效 672×672）。
+
+    服务端动态压缩：
+
+    - 设定最大视觉 token 预算（如每个请求不超过 1024 个 token）。
+
+    - 根据原图分辨率，动态选择编码策略：小图直接用基础编码器；大图按需切块，但限制最大切块数（如最多 4 块）。
+
+    - 使用重要性引导的 token 剪枝：在视觉编码器内部，根据注意力分数或特征差异度，动态丢弃不重要的 patch token，保留核心物体和文字区域。
+
+    用户可选的质量等级：
+
+    - API 提供 quality 参数：low（固定 256 token）、medium（自适应，最多 512 token）、high（最多 1024 token）。
+
+    - 在计价策略上，不同质量等级对应不同成本和延迟，引导用户合理选择。
+
+    实现示例：
+
+    def adaptive_encode(image, quality="medium"):
+        w, h = image.size
+        # 计算原始所需token数
+        base_tokens = (w // 14) * (h // 14)  # ViT patch=14
+        max_tokens = {"low": 256, "medium": 512, "high": 1024}[quality]
+        if base_tokens <= max_tokens:
+            return encode_base(image)
+        else:
+            # 动态分块，限制块数
+            scale = sqrt(max_tokens / base_tokens)
+            resized = image.resize((int(w*scale), int(h*scale)))
+            return encode_with_blocks(resized, max_blocks=4)
+
+    ### 设计一个多模态模型的微服务架构，如何界定检索、理解、生成等服务的边界？
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MBXGwHbIji6laOkvmpvc08ApnAg
+  block_id: PEOAd6CX1oztHcxH4wWcg32cnFd
+  page_token: MBXGwHbIji6laOkvmpvc08ApnAg
+  original_title: 8.1 自适应调整策略
+  imported_at: '2026-09-21'

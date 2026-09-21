@@ -1,0 +1,99 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0b1c95b98a1e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现非对称量化的 scale 和 zero_point 计算，编写从 FP32→uint8 的量化及反量化函数
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现非对称量化的 scale 和 zero_point 计算，编写从 FP32→uint8 的量化及反量化函数
+answer:
+  mode: rubric
+  reference_answer: |-
+    非对称量化 不假设零点对齐，而是将张量的最小值和最大值线性映射到无符号整数范围 [0, 2^b - 1]（常用 uint8: 0~255）。需要计算 scale 和 zero_point（零点偏移）。公式：
+
+    [图片内容未导入]
+
+    实现细节：
+
+    - 如果 min == max，则 scale=1.0，zero_point 取 0 或 128 等，避免除零。
+
+    - zero_point 本身为整数（通常 uint8 或 int32），也需 clamp 到 [0, 2^b-1]。
+
+    - 反量化时减去 zero_point 后乘以 scale 恢复浮点值。
+
+    代码：
+
+    ```python
+    import torch
+
+    def asymmetric_quantize(x: torch.Tensor, bits=8):
+        """
+        非对称量化到 uint8
+        Returns:
+            x_q: uint8 tensor
+            scale: float
+            zero_point: int (uint8 范围内的整数)
+        """
+        qmin = 0
+        qmax = 2 ** bits - 1   # 255
+        min_val = torch.min(x)
+        max_val = torch.max(x)
+        if max_val == min_val:
+            scale = torch.tensor(1.0)
+            zero_point = torch.tensor(0)
+        else:
+            scale = (max_val - min_val) / (qmax - qmin)
+            zero_point = torch.round(-min_val / scale)
+            zero_point = torch.clamp(zero_point, qmin, qmax)
+        # 量化
+        x_q = torch.round(x / scale) + zero_point
+        x_q = torch.clamp(x_q, qmin, qmax)
+        x_q = x_q.to(torch.uint8)
+        return x_q, scale, zero_point.to(torch.int32)
+
+    def asymmetric_dequantize(x_q: torch.Tensor, scale: torch.Tensor, zero_point: torch.Tensor):
+        """
+        非对称反量化
+        """
+        return (x_q.float() - zero_point.float()) * scale
+
+    # 验证
+    x = torch.randn(1000) * 0.5 + 0.2  # 非对称分布
+    x_q, scale, zp = asymmetric_quantize(x)
+    x_recon = asymmetric_dequantize(x_q, scale, zp)
+    mse = torch.mean((x - x_recon) ** 2).item()
+    print(f"Scale: {scale:.6f}, Zero Point: {zp.item()}, MSE: {mse:.8f}")
+    ```
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: COfXdB6OfoSgqNxgNbwcfQcsnwe
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 实现非对称量化的 scale 和 zero_point 计算，编写从 FP32→uint8 的量化及反量化函数
+  imported_at: '2026-09-21'

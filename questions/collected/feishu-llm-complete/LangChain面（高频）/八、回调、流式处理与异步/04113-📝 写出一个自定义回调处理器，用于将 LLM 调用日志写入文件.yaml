@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-80427f389747
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DD 写出一个自定义回调处理器，用于将 LLM 调用日志写入文件。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F4DD 写出一个自定义回调处理器，用于将 LLM 调用日志写入文件。"
+answer:
+  mode: rubric
+  reference_answer: "下面是一个生产可用的 LLMFileLogger 实现。它考虑了日志轮转、JSON 格式化、长文本截断、以及多线程安全。\n\nimport
+    json\nimport time\nimport logging\nfrom datetime import datetime\nfrom logging.handlers
+    import RotatingFileHandler\nfrom langchain.callbacks import BaseCallbackHandler\n\nclass
+    LLMFileLogger(BaseCallbackHandler):\n    \"\"\"将 LLM 调用详细信息写入文件，支持日志轮转和多线程安全\"\"\"\n
+    \   \n    def __init__(self, log_file: str = \"llm_calls.log\", max_bytes: int
+    = 10*1024*1024, backup_count: int = 5):\n        self._start_times = {}\n        #
+    为每个实例创建独立的 logger，避免与 root logger 冲突\n        logger_name = f\"LLMCallback_{id(self)}\"\n
+    \       self.logger = logging.getLogger(logger_name)\n        self.logger.setLevel(logging.INFO)\n
+    \       \n        # 使用 RotatingFileHandler 自动轮转\n        handler = RotatingFileHandler(\n
+    \           log_file, maxBytes=max_bytes, backupCount=backup_count, encoding='utf-8'\n
+    \       )\n        handler.setFormatter(logging.Formatter('%(message)s'))\n        self.logger.addHandler(handler)\n\n
+    \   def on_llm_start(self, serialized, prompts, **kwargs):\n        run_id = str(kwargs.get(\"run_id\"))\n
+    \       self._start_times[run_id] = time.time()\n        \n        # 构建日志条目，长
+    prompt 截断\n        log_entry = {\n            \"event\": \"llm_start\",\n            \"model\":
+    serialized.get(\"name\", serialized.get(\"id\", [\"unknown\"])[0]),\n            \"prompts\":
+    [p[:500] for p in prompts],  # 截断，避免单条日志过大\n            \"timestamp\": datetime.now().isoformat(),\n
+    \           \"run_id\": run_id\n        }\n        self.logger.info(json.dumps(log_entry,
+    ensure_ascii=False))\n\n    def on_llm_end(self, response, **kwargs):\n        run_id
+    = str(kwargs.get(\"run_id\"))\n        start = self._start_times.pop(run_id, None)\n
+    \       latency = time.time() - start if start else None\n        \n        #
+    兼容不同 LLM 的 token 返回格式\n        token_usage = {}\n        if hasattr(response,
+    'llm_output') and response.llm_output:\n            token_usage = response.llm_output.get('token_usage',
+    {})\n        \n        # 获取生成文本\n        text = \"\"\n        if response.generations:\n
+    \           text = response.generations[0][0].text\n        \n        log_entry
+    = {\n            \"event\": \"llm_end\",\n            \"run_id\": run_id,\n            \"latency_sec\":
+    round(latency, 3) if latency else None,\n            \"prompt_tokens\": token_usage.get(\"prompt_tokens\",
+    0),\n            \"completion_tokens\": token_usage.get(\"completion_tokens\",
+    0),\n            \"total_tokens\": token_usage.get(\"total_tokens\", 0),\n            \"response_preview\":
+    text[:200],\n            \"timestamp\": datetime.now().isoformat()\n        }\n
+    \       self.logger.info(json.dumps(log_entry, ensure_ascii=False))\n\n    def
+    on_llm_error(self, error, **kwargs):\n        run_id = str(kwargs.get(\"run_id\"))\n
+    \       log_entry = {\n            \"event\": \"llm_error\",\n            \"run_id\":
+    run_id,\n            \"error\": str(error),\n            \"timestamp\": datetime.now().isoformat()\n
+    \       }\n        self.logger.error(json.dumps(log_entry, ensure_ascii=False))\n\n使用：\n\nllm_logger
+    = LLMFileLogger(\"my_llm.log\")\nchain = ConversationChain(llm=OpenAI(), callbacks=[llm_logger])\nchain.predict(input=\"Hello\")\n\n这会生成结构化的
+    JSON 日志文件，可以直接被 Logstash 或 Filebeat 采集。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  block_id: OAMbdeffpolPUhxJHCBcsq4bnhg
+  page_token: LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  original_title: "\U0001F4DD 写出一个自定义回调处理器，用于将 LLM 调用日志写入文件。"
+  imported_at: '2026-09-21'

@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-df286ef4042a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用TensorRT对PyTorch模型进行推理优化，需要做哪些转换？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 使用TensorRT对PyTorch模型进行推理优化，需要做哪些转换？
+answer:
+  mode: rubric
+  reference_answer: |-
+    TensorRT是NVIDIA的深度学习推理优化器，需要对PyTorch模型进行转换：
+
+    - 导出PyTorch模型为ONNX
+    这是最通用的中间格式，确保opset_version足够高，并使用do_constant_folding=True。
+
+    - 使用TensorRT的ONNX解析器
+    TensorRT提供了trtexec命令行工具或C++/Python API (tensorrt.ONNXParser) 来加载ONNX模型。它会将ONNX图解析为TensorRT网络。
+
+    - 构建优化引擎
+
+    - 推理
+    加载引擎，创建执行上下文，将输入输出绑定到GPU内存，然后调用execute_v2进行高性能推理。
+
+    Python示例（简化流程）：
+
+    ```python
+    import tensorrt as trt
+    # 1. 创建builder和network
+    builder = trt.Builder(TRT_LOGGER)
+    network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
+    parser = trt.OnnxParser(network, TRT_LOGGER)
+    with open("model.onnx", "rb") as f:
+        parser.parse(f.read())
+    # 2. 配置优化
+    config = builder.create_builder_config()
+    config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)
+    if use_fp16:
+        config.set_flag(trt.BuilderFlag.FP16)
+    # 3. 构建引擎
+    engine = builder.build_serialized_network(network, config)
+    with open("model.engine", "wb") as f:
+        f.write(engine)
+    ```
+
+    注意事项
+
+    - 不支持的算子需要用plugin或自定义层实现。
+
+    - 动态输入形状需要在构建时指定-1维度，并通过optimization_profile设置最小/最优/最大形状。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  block_id: NIHydxT6horjdUx8KTDc4TDLn9b
+  page_token: AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  original_title: 使用TensorRT对PyTorch模型进行推理优化，需要做哪些转换？
+  imported_at: '2026-09-21'

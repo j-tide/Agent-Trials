@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bec84675691a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EA 推理时的临时激活值主要出现在哪个阶段？占用大吗？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 一：显存基础与构成
+tags: &1
+- 显存问题-核心题
+- 一：显存基础与构成
+content:
+  prompt: "\U0001F9EA 推理时的临时激活值主要出现在哪个阶段？占用大吗？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    临时激活值是指神经网络在前向传播过程中产生的中间输出张量，它们只在前向计算时短暂存在，计算完成后即可释放。
+
+    主要出现阶段
+    临时激活值在 Prefill 阶段达到峰值。因为在 Prefill 阶段，模型一次性并行处理整个 Prompt 序列。最大的临时激活值通常是注意力得分矩阵 QKT，其形状为 [batch, heads, S, S]，其中 S 是 Prompt 长度。当 S 很大时（如 32k），这个矩阵的大小会呈平方级膨胀。即使使用了 FlashAttention 等优化技术，通过分块计算避免了存储完整矩阵，但仍需要为每个分块分配临时缓冲区。
+
+    在 Decode 阶段，每次只处理一个新 token，矩阵运算规模极小（如 [1, 1, 1, S] 的注意力），产生的临时激活值非常小且相对稳定，通常不是显存瓶颈。
+
+    占用大吗？
+    对于短文本推理，临时激活值占用很小（通常小于 1 GB），可以忽略。但在长文本 Prefill 时，如果不加以优化，注意力得分矩阵可能导致瞬时显存高峰，甚至 OOM。FlashAttention 等技术的核心价值就在于通过分块和重计算，将这部分瞬时的 O(S2) 显存开销降为 O(S)。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/V8kBw2QTZiAMOSkgR2LcLycmnOb
+  block_id: BUYbdFrhqo3ow2xDDfOci3FznGc
+  page_token: V8kBw2QTZiAMOSkgR2LcLycmnOb
+  original_title: "\U0001F9EA 推理时的临时激活值主要出现在哪个阶段？占用大吗？"
+  imported_at: '2026-09-21'

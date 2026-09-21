@@ -1,0 +1,111 @@
+---
+schema_version: 1
+id: feishu-llm-complete-05526dbe5c7f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 8. 如果你有一个复杂的处理流程，既包含串行也包含并行，用 LCEL 如何清晰地表达？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "\U0001F9E9 8. 如果你有一个复杂的处理流程，既包含串行也包含并行，用 LCEL 如何清晰地表达？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LCEL 的设计哲学就是“用声明式管道组合复杂的执行图”。对于混合了串行和并行的流程，我们通过管道运算符 | 和 RunnableParallel (即 RunnableMap) 的嵌套，就能像搭积木一样构建出有向无环图 (DAG)。
+
+    假设这样一个流程：
+
+    - 输入是一篇中文文章。
+
+    - 先并行做两件事：翻译成英文，同时提取中文关键词。
+
+    - 得到英文翻译后，串行做两件事：对英文做摘要，并分析英文情感。
+
+    - 最后把中文关键词、英文摘要、英文情感合并成最终报告。
+
+    用 LCEL 表达几乎是画图式的：
+
+    ```python
+    from langchain_core.runnables import RunnableParallel, RunnableLambda
+    from langchain_openai import ChatOpenAI
+    from langchain_core.prompts import ChatPromptTemplate
+
+    model = ChatOpenAI(model="gpt-4o")
+
+    # 定义各个原子链
+    translate_chain = ChatPromptTemplate.from_template("翻译成英文: {article}") | model
+    keywords_chain = ChatPromptTemplate.from_template("提取中文关键词: {article}") | model
+    summarize_chain = ChatPromptTemplate.from_template("对以下英文做摘要: {english}") | model
+    sentiment_chain = ChatPromptTemplate.from_template("分析情感: {english}") | model
+
+    # 开始组装
+    def format_final(inputs: dict) -> str:
+        return f"关键词: {inputs['keywords']}\n摘要: {inputs['summary']}\n情感: {inputs['sentiment']}"
+
+    full_chain = (
+        # 第一步：并行翻译和提取关键词
+        RunnableParallel({
+            "english": translate_chain,      # 输入会自动拿到 article
+            "keywords": keywords_chain,
+        })
+        # 第二步：基于英语结果再做并行处理
+        | RunnableParallel({
+            "summary": lambda x: summarize_chain.invoke({"english": x["english"]}),
+            "sentiment": lambda x: sentiment_chain.invoke({"english": x["english"]}),
+            "keywords": lambda x: x["keywords"]  # 透传关键词
+        })
+        # 第三步：格式化为报告
+        | RunnableLambda(format_final)
+    )
+    ```
+
+    几点解释：
+
+    - 最外层的 RunnableParallel 同时运行翻译和关键词提取，因为输入都是 article，LCEL 会自动把输入 dict 的所有键传给子 Runnable，只要子 Runnable 定义了对应的 input key。
+
+    - 第二步的并行使用了 lambda，因为 summarize_chain 和 sentiment_chain 的输入 key 是 english，而上一层输出的是 {"english": ..., "keywords": ...}。通过 lambda 做简单的键映射，保持数据流清晰。
+
+    - 你也可以把第二步的并行写成另一个 RunnableParallel，里面每个值是已经通过 .with_config 或 RunnableLambda 做了映射的链，这样更纯粹。
+
+    表达技巧：
+
+    - 用 RunnableParallel 表示 fork/join 的并行。
+
+    - 用 | 表示串行依赖。
+
+    - 用 RunnableLambda 做数据变换（如提取字段、格式化字符串）。
+
+    - 当分支间有复杂的数据传递时，善用 RunnablePassthrough 保留原始字段，以便后续使用。
+
+    这种声明式写法最大的好处是：代码结构就是执行图的映射。后期如果需要调整顺序，比如把情感分析移到翻译前面，只需要调整管道顺序；如果某个并行分支要拆分成更细的串行子链，就在那个位置直接替换成 A | B 即可。可读性和可维护性远超一堆 if-else 加回调的传统方式。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GVyNwmUlOitEZBkWqxUchfRtnfh
+  block_id: PezbdadbUo5GKOxB0lwcXZlmn8b
+  page_token: GVyNwmUlOitEZBkWqxUchfRtnfh
+  original_title: "\U0001F9E9 8. 如果你有一个复杂的处理流程，既包含串行也包含并行，用 LCEL 如何清晰地表达？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6ad12cd962f2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 11. 什么是 All-to-All 通信？MoE 模型中的 token 路由用到了它。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 11. 什么是 All-to-All 通信？MoE 模型中的 token 路由用到了它。
+answer:
+  mode: rubric
+  reference_answer: |-
+    All-to-All 的操作语义：每个节点i向其他每个节点j发送一个特定的数据块 D_{i→j}。操作完成后，每个节点j收到来自所有节点i的数据块 D_{i→j}。数据在节点间进行彻底的重新分布。即“每人给每人不同礼物，每人收到来自每人的不同礼物”。
+
+    特点：
+
+    - 与AllGather不同，All-to-All发送给不同目标的数据是不同的。
+
+    - 每个节点发送的总数据量等于接收的总数据量，均为 (N-1) × 单块大小。
+
+    - 通信模式是全互联，带宽需求高。
+
+    在 MoE 中的具体应用：
+
+    - 混合专家模型（MoE）将FFN层替换为多个专家网络。输入token经过路由器（门控网络）被分配到最合适的几个专家上。
+
+    - 由于专家被放置在不同的GPU上（专家并行），token需要从当前GPU被发送到它所属的专家所在的GPU。这个过程就是通过All-to-All实现的。
+
+    - 前向过程：每个GPU计算本地token的路由决策，确定每个token的目标专家。然后执行All-to-All，将token分派（dispatch）到对应的专家GPU。各GPU独立执行专家计算后，再次通过All-to-All将计算结果组合（combine）回原始token的顺序。
+
+    - All-to-All在MoE中的重要性：它实现了负载均衡和专家并行。如果没有高效的All-to-All，MoE的扩展性将大打折扣。自定义的高效All-to-All内核（如DeepSpeed的Moe）会针对token稀疏性和通信进行优化。
+
+    All-to-All的通信时间通常受限于最繁忙的链路，因为某些专家可能接收大量token，导致负载不均。这需要结合容量因子和辅助损失来均衡。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XxBHwhYPNiVrDYkSIHCccehWn72
+  block_id: DEGmd8RnuoXWWYxy4vlcWjm2nZe
+  page_token: XxBHwhYPNiVrDYkSIHCccehWn72
+  original_title: 11. 什么是 All-to-All 通信？MoE 模型中的 token 路由用到了它。
+  imported_at: '2026-09-21'

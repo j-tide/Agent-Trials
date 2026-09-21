@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5dd7877a19a9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 全参数微调 70B 模型需要多少显存？给出估算过程。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 全参数微调 70B 模型需要多少显存？给出估算过程。
+answer:
+  mode: rubric
+  reference_answer: |-
+    以 LLaMA‑2‑70B（或类似稠密架构）为例，采用混合精度训练（FP16/BF16 用于前向和反向，FP32 用于优化器状态），使用 AdamW 优化器，我们来逐项估算单卡所需的显存。
+
+    - 模型权重
+
+    70B 参数，每个参数以 FP16（2 字节）存储：
+
+    [图片内容未导入]
+
+    在混合精度训练中，通常还会维护一份 FP32 的主权重副本用于精确更新，但这部分通常可以分摊到优化器状态中或由 ZeRO 管理，这里先不计入。
+
+    - 梯度
+
+    反向传播需要为每个参数存储与权重相同精度的梯度（FP16）：
+
+    [图片内容未导入]
+
+    - 优化器状态 (Adam)
+    Adam 优化器为每个参数维护两个 FP32 的矩估计（一阶动量 m 和二阶动量 v），每个占用 4 字节：
+
+    [图片内容未导入]
+
+    - 中间激活与临时缓冲区
+
+    激活显存取决于 batch size、序列长度、隐藏维度和模型层数。对于 70B 模型，假设 batch size=1，序列长度=2048，激活显存的经验公式约为：
+
+    [图片内容未导入]
+
+    带入典型值（hidden=8192，层数=80），单层激活约十几 MB，整模型激活约 200‑400 GB。具体值与是否使用梯度检查点、FlashAttention 有关。开启梯度检查点后可大幅降低激活显存至数十 GB。为了保守估算，我们取约 300 GB。
+
+    - 框架与碎片开销
+
+    PyTorch 缓存分配器、NCCL 通信缓冲区等会额外占用 10‑20 GB。
+
+    总计（无任何优化）：
+
+    [图片内容未导入]
+
+    显然，单卡完全不可能。必须借助分布式策略（见第 3 题）。如果使用 ZeRO‑3 将模型状态分片到 8 张 GPU，则单卡显存可大幅降低。例如，权重、梯度、优化器状态各降至 1/8，单卡这三项合计约 (140+140+560)/8=105 GB，再加上激活和开销，单卡约 150‑200 GB，仍然超出 80 GB 容量。此时需要叠加张量并行（TP）进一步切分激活，最终实现 70B 全量微调。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: T3Shd1nWOoKZcixsNQucxCyan0g
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 全参数微调 70B 模型需要多少显存？给出估算过程。
+  imported_at: '2026-09-21'

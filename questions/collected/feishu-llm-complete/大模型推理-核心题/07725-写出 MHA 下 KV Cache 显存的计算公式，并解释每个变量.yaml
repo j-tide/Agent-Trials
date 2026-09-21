@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b715e0d5846d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出 MHA 下 KV Cache 显存的计算公式，并解释每个变量。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: 写出 MHA 下 KV Cache 显存的计算公式，并解释每个变量。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在标准的多头注意力（MHA）机制下，每一层Transformer都需要缓存所有历史token的Key和Value向量。计算这部分显存占用，是每位推理工程师的基本功。
+
+    公式如下：
+
+    [图片内容未导入]
+
+    我们来逐一拆解每个变量，并赋予它们工程直觉：
+
+    - 2（Key和Value两份）：每一层、每个头都需要同时存储Key和Value，两者完全对称，大小相同。这是最直接的2倍关系。
+
+    - L（层数, Layers）：每一层都有自己独立的K、V投影矩阵，不同层之间的缓存互不共享，必须全部保留。这是模型深度的代价。
+
+    - B（批量大小, Batch Size）：不同的推理请求是完全独立的，它们的KV Cache严格隔离。因此，显存占用会随并发请求数线性增长。这是推理服务吞吐量的核心限制。
+
+    - S（序列总长度, Sequence Length）：即“Prompt长度 + 已生成token数”。这是变量，会随着生成过程从0线性增长。当上下文达到数万时，这个因子会变得极为恐怖。
+
+    - D_{\text{model}} 或 H \times d_h（模型宽度）：这是每个token表征的维度。H是注意力头数，d_h是每个头的维度。在7B模型中，这通常是4096。模型的宽度越宽，每一步需要记忆的信息就越多。
+
+    - sizeof(dtype)（精度字节数）：FP16为2字节，INT8为1字节，INT4为0.5字节。对KV Cache进行量化是节省显存最直接的手段之一。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C0pNwQLAmiNN2tkVnWGccLYLns0
+  block_id: GeaTdelqao0811xnYoTcnCWdnGl
+  page_token: C0pNwQLAmiNN2tkVnWGccLYLns0
+  original_title: 写出 MHA 下 KV Cache 显存的计算公式，并解释每个变量。
+  imported_at: '2026-09-21'

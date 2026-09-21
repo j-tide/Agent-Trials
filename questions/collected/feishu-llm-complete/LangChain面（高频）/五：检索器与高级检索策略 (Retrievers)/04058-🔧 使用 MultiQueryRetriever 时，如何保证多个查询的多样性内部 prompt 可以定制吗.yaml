@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-710c35c3f394
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F527 使用 MultiQueryRetriever 时，如何保证多个查询的多样性？内部 prompt 可以定制吗？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F527 使用 MultiQueryRetriever 时，如何保证多个查询的多样性？内部 prompt 可以定制吗？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    保证多样性的关键在于 LLM 生成的查询是否足够发散。 MultiQueryRetriever 通过以下几点来保证：
+
+    - Prompt 设计：默认的 Prompt 会明确要求 LLM 生成多个“不同角度”或“不同表述”的查询。例如，它会指示模型“生成3个不同版本的查询，以便从向量数据库中检索到更全面的文档”。
+
+    - LLM 的温度（Temperature）：在调用 LLM 生成查询时，可以设置较高的温度（例如 0.7），以增加随机性和多样性。
+
+    - 定制 Prompt：这是最直接的方法。你可以完全自定义 Prompt，加入领域特定的指令、示例（few-shot），或者要求生成包含同义词、相关概念的查询。
+
+    自定义 Prompt 示例：
+
+    ```python
+    from langchain.retrievers.multi_query import MultiQueryRetriever
+    from langchain.prompts import PromptTemplate
+
+    # 自定义的查询生成Prompt
+    custom_prompt = PromptTemplate.from_template(
+        """你是一个专业的信息检索专家。请根据用户的问题，生成{num_queries}个不同角度、不同措辞的搜索查询，以便全面覆盖相关文档。
+        要求：
+        - 每个查询应与原始问题语义相关，但使用不同的表达方式、同义词或下位概念。
+        - 输出为JSON列表，如：["查询1", "查询2", ...]
+
+        用户问题：{question}
+
+        生成的查询列表（JSON格式）："""
+    )
+
+    retriever_from_llm = MultiQueryRetriever.from_llm(
+        retriever=base_retriever,
+        llm=ChatOpenAI(temperature=0.7),
+        prompt=custom_prompt,   # 传入自定义prompt
+        num_queries=5           # 生成5个查询
+    )
+    ```
+
+    通过这种方式，你可以精确控制查询的多样性和格式。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YrNHwdqUUiHr0JkXRNrc4c0kn5d
+  block_id: RWDkdVzt2oPalyxBMNgcUvtvn8f
+  page_token: YrNHwdqUUiHr0JkXRNrc4c0kn5d
+  original_title: "\U0001F527 使用 MultiQueryRetriever 时，如何保证多个查询的多样性？内部 prompt 可以定制吗？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-97158dc05b8d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4A5 训练时 loss 正常下降但突然 OOM，可能的原因是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "\U0001F4A5 训练时 loss 正常下降但突然 OOM，可能的原因是什么？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 与之前“训练后期 OOM”类似，但特别强调 loss 正常下降，意味着训练过程在正常进行，突然 OOM
+    往往是由于数据处理中的异常样本、框架调度变化或显存泄漏累积到临界点。\n\n\U0001F50E 特别可能的原因：\n\n- 异常长样本\nLoss 正常下降说明模型能处理当前序列，但突然遇到一个远超平均长度的文本（未做截断），激活显存瞬间飙升致
+    OOM。这是最常见原因。\n\n- 梯度累积或 micro-batch 调度变化\n某些动态调整策略（如根据样本长度动态改变 micro-batch 数量）可能在某些组合下导致显存峰值意外超标。\n\n-
+    evaluation 阶段占用\n训练过程中每隔若干步会进行验证（eval）。Eval 时模型进入无梯度模式，但可能使用更大的 batch 或更多的缓存来加速指标计算（如存储预测），这部分额外显存没有及时释放，叠加训练显存后溢出。\n\n-
+    框架自动混合精度调整\n某些框架（如 DeepSpeed）在训练过程中可能会根据统计动态调整 precision 或 offload 策略，若其改变了显存使用模式，也可能诱发
+    OOM。\n\n- 显存泄漏\n每个 step 有很小一部分显存未被释放（如 Hook 记录张量），经过数千 step 累积后突然超过阈值，即使 loss
+    正常也会 OOM。这属于缓慢增长型泄漏，在某个分配大张量时触发。\n\n\U0001F6E1️ 排查方法：\n\n- 设置 torch.cuda.set_per_process_memory_fraction
+    和 max_split_size_mb 避免碎片。\n\n- 记录 OOM 前的 batch 输入，检查是否存在超长样本。\n\n- 在 eval 前后打印显存占用，对比差异。\n\n-
+    使用 PyTorch Profiler 记录分配，分析 OOM 步的分配峰值。\n\n✅ 因此，训练中突然 OOM 大多是外部因素（数据、eval、碎片）引发，模型本身训练正常不代表内存管理安全。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C7vaw6NlnicTRUkFemecRp3jnLd
+  block_id: MK1SdSVH0okBduxHneZcOdkBn5f
+  page_token: C7vaw6NlnicTRUkFemecRp3jnLd
+  original_title: "\U0001F4A5 训练时 loss 正常下降但突然 OOM，可能的原因是什么？"
+  imported_at: '2026-09-21'

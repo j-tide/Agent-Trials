@@ -1,0 +1,172 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c3c564031db9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F39B️ 3. 在 CrewAI Hierarchical 模式下，Manager Agent 行为不可预测怎么处理？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F39B️ 3. 在 CrewAI Hierarchical 模式下，Manager Agent 行为不可预测怎么处理？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Hierarchical 模式的灵活换来的是不确定性：Manager 可能分配错任务、跳过关键步骤、过早结束或无限循环。我们需要一套约束 + 监控 + 兜底的策略来驯服它。
+
+    策略一：约束 Manager 的 System Prompt
+
+    Manager Agent 是一个内部创建的 LLM，我们可以通过 manager_agent_config 参数注入自定义指令，明确它的行为边界。
+
+    crew = Crew(
+        agents=[...],
+        tasks=[...],
+        process=Process.hierarchical,
+        manager_llm=ChatOpenAI(model="gpt-4o"),
+        manager_agent_config={
+            "role": "严格的项目经理",
+            "goal": "确保所有任务按顺序高质量完成，不跳过任何步骤",
+            "backstory": "你是一个一丝不苟的管理者，必须让每个 Agent 完成指定的全部 Task 后才结束。",
+            "allow_delegation": False,  # 禁止 Manager 把任务分配给不在列表中的 Agent
+            "max_iter": 10,            # 限制最大推理轮次
+        }
+    )
+
+    策略二：用 Task 的 expected_output 和 context 锁定预期
+
+    Manager 的行为很大程度上取决于 Task 定义的清晰度。模糊的任务描述会导致 Manager 随意解读。
+
+    # ❌ 模糊：Manager 可能自己脑补
+    task = Task(description="分析市场", expected_output="市场分析报告")
+
+    # ✅ 具体：Manager 清楚必须产出什么，如何验证
+    task = Task(
+        description="收集中国市场前三大新能源两轮车品牌的2025年销量、均价、用户评分。"
+                    "然后分析它们的竞争优劣势。",
+        expected_output="一个 JSON 数组，每个元素包含 brand, sales_2025, avg_price, rating, strengths, weaknesses",
+        agent=analyst
+    )
+
+    策略三：设置硬性约束和早停机制
+
+    在 Crew 级别设置 max_rpm（每分钟最大请求数）防止刷爆 API，设置 verbose=True 实时观察 Manager 的决策。还可以通过回调函数监控异常行为。
+
+    def monitor_callback(step_output):
+        # 如果 Manager 连续三次分配同一个 Agent，发出警告或强制终止
+        if detect_loop(step_output):
+            raise RuntimeError("检测到 Manager 陷入循环，终止执行")
+
+    crew = Crew(
+        agents=[...],
+        tasks=[...],
+        process=Process.hierarchical,
+        verbose=True,
+        step_callback=monitor_callback,
+        max_rpm=10
+    )
+
+    策略四：混合模式降级 —— 用 Sequential 作为兜底
+
+    如果 Hierarchical 模式在生产环境的表现不够稳定，可以将流程拆分为外层 Sequential + 内层 Hierarchical。外层保证关键步骤的顺序，内层在某个步骤内部使用 Hierarchical 获得灵活性。
+
+    # 外层：固定流程
+    task_collect = Task(...)  # Sequential
+    task_analyze = Task(...)  # 内部使用 Hierarchical Crew
+
+    # 内层 Hierarchical 只在分析阶段使用
+    inner_crew = Crew(
+        agents=[analyst1, analyst2],
+        tasks=[task_analyze],
+        process=Process.hierarchical
+    )
+
+    def analyze_step():
+        return inner_crew.kickoff()
+
+    # 外层 Sequential 调用内层函数节点
+
+    策略五：人工审批节点
+
+    在 Task 定义中可以通过 human_input=True 要求 Manager 在完成某些关键步骤后等待人工审批，确保不跑偏。
+
+    task_report = Task(
+        description="生成最终分析报告",
+        expected_output="Markdown 格式报告",
+        agent=reporter,
+        human_input=True  # Manager 执行完此任务后会暂停，等待人工确认
+    )
+
+    策略六：事后评估与自动重试
+
+    每次运行后，用一个评估 Agent 审查 Manager 的决策日志，如果发现不合理的分配，自动重新运行并附带纠正指令。这个评估可以作为 CI/CD 的一部分，在每次部署新 prompt 时验证。
+
+    # 评估 Manager 决策质量
+    eval_agent = Agent(
+        role="质量评估员",
+        goal="检查 Manager 的决策日志，判断是否合理",
+        backstory="你负责监督 AI 团队的工作质量"
+    )
+
+    eval_task = Task(
+        description=f"审查以下决策日志：{manager_log}，判断 Manager 是否合理分配了任务，"
+                    "如果没有，指出具体问题。",
+        expected_output="通过/不通过，以及原因",
+        agent=eval_agent
+    )
+
+    总结一句话：
+
+    Hierarchical Manager 就像一个聪明但偶尔随性的实习生——你给它的指令越具体、边界越清晰、监控越实时，它的表现就越可靠。永远不要完全放任一个 LLM 自主决策，而是用约束、任务模板、回调、混合模式和人工兜底，把它框在一个安全又高效的范围内。
+
+    - 基于 Token 窗口的上下文记忆，在单次 Crew 执行过程中维护
+
+    - 使用 RAGCallbackHandler 捕获每个 Task 的输入输出，存储在内存中
+
+    - 后续 Task 可通过 memory.read() 获取历史上下文，自动注入到 Prompt 中
+
+    - 适用于单次会话内的任务依赖，如 Task A 的输出作为 Task B 的输入
+
+    - 基于 Vector Database 的持久化存储（支持 Chroma、Pinecone、Redis Vector）
+
+    - 使用 Embedding 模型将 Task 结果向量化存储，支持语义检索
+
+    - 通过 LongTermMemory 类实现，跨 Crew 执行会话共享历史经验
+
+    - 典型应用场景：代码审查 Agent 记住之前发现的模式，市场调研 Agent 积累行业知识
+
+    - 基于 NER（命名实体识别）的结构化记忆，提取关键实体（人名、公司名、技术术语）
+
+    - 使用 EntityMemory 类维护实体关系图谱，支持实体消歧和关联查询
+
+    - 通过 EntityExtractor 从对话中提取实体，存储为 JSON 格式
+
+    - 实际案例：客服 Agent 记住用户偏好、产品 Agent 维护产品知识图谱
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/URfRwgIyEi3zoQk8qc5cj7yPnfb
+  block_id: doxcnLReaIGyA9gyAQMP95SdPEf
+  page_token: URfRwgIyEi3zoQk8qc5cj7yPnfb
+  original_title: "\U0001F39B️ 3. 在 CrewAI Hierarchical 模式下，Manager Agent 行为不可预测怎么处理？"
+  imported_at: '2026-09-21'

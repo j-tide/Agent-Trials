@@ -1,0 +1,102 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f9a7636a6768
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 LoRA 的反向传播，手动推导 ∂L/∂A 和 ∂L/∂B，并写出对应的 PyTorch 自动求导验证代码。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 实现 LoRA 的反向传播，手动推导 ∂L/∂A 和 ∂L/∂B，并写出对应的 PyTorch 自动求导验证代码。
+answer:
+  mode: rubric
+  reference_answer: |-
+    10.1 手动推导
+
+    记前向过程：
+
+    - zA=Ax（忽略 dropout）
+
+    - zB=BzA=BAx
+
+    - h=W0x+s⋅zB，其中 s=α/r
+
+    损失函数 L 关于 A 和 B 的梯度：
+    由于 zB=BzA，根据链式法则：
+
+    [图片内容未导入]
+
+    10.2 验证代码
+
+    ```python
+    import torch
+
+    # 模拟数据
+    batch_size, in_dim, out_dim, r = 2, 64, 128, 4
+    x = torch.randn(batch_size, in_dim, requires_grad=True)
+    W0 = torch.randn(out_dim, in_dim, requires_grad=False)
+    A = torch.randn(r, in_dim, requires_grad=True)
+    B = torch.randn(out_dim, r, requires_grad=True)
+    alpha = 16.0
+    scaling = alpha / r
+
+    # 前向
+    h = x @ W0.T + scaling * (x @ A.T @ B.T)
+    # 假设计算损失
+    loss = h.sum()
+    loss.backward()
+
+    # 手动计算梯度
+    with torch.no_grad():
+        # dL/dh = 1 (全1梯度)
+        dL_dh = torch.ones_like(h)
+        # dL/dz_B = scaling * dL_dh
+        dL_dzB = scaling * dL_dh  # (batch, out_dim)
+        # dL/dB = dL_dzB^T @ z_A  -> (out_dim, r)
+        z_A = x @ A.T  # (batch, r)
+        dL_dB_manual = dL_dzB.T @ z_A  # (out_dim, batch) @ (batch, r) = (out_dim, r)
+
+        # dL/dA = s * B^T @ dL_dh^T @ x
+        dL_dA_manual = scaling * (B.T @ dL_dh.T) @ x  # (r, out)@(out,batch)@(batch,in) = (r, in)
+
+    # 验证
+    print(torch.allclose(B.grad, dL_dB_manual, atol=1e-6))  # True
+    print(torch.allclose(A.grad, dL_dA_manual, atol=1e-6))  # True
+    ```
+
+    10.3 关键点
+
+    - LoRA 的反向传播完全遵循标准的矩阵微积分，由于 A 和 B 是独立的参数，梯度可以分别计算。
+
+    - 在实际训练中，PyTorch 的自动求导会自动处理这些梯度，上述推导用于理解 LoRA 的训练动态，并可用于手动实现或调试。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LZxww5JuBif3JAkuCoIcuqRenuf
+  block_id: QwU4dsGvkofzhKxBu6Hc7Wiangf
+  page_token: LZxww5JuBif3JAkuCoIcuqRenuf
+  original_title: 实现 LoRA 的反向传播，手动推导 ∂L/∂A 和 ∂L/∂B，并写出对应的 PyTorch 自动求导验证代码。
+  imported_at: '2026-09-21'

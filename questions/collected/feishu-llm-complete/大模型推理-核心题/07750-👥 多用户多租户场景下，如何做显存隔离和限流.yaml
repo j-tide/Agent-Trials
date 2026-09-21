@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f45c8b59f9c2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F465 多用户多租户场景下，如何做显存隔离和限流？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: "\U0001F465 多用户多租户场景下，如何做显存隔离和限流？"
+answer:
+  mode: rubric
+  reference_answer: "在多租户环境中，保证不同用户/业务之间的公平性和隔离性至关重要，尤其是防止单个“坏”请求（如超长上下文）耗尽整个 GPU
+    显存导致所有用户受影响。\n\n\U0001F6E1️ 1. 显存隔离策略\n\n- 基于 PagedAttention 的软隔离：vLLM 允许为每个请求分配独立的
+    KV Cache 页，物理上不连续，但总量仍受公共池限制。无法做到完全的跨租户显存隔离，但可以通过限制单个请求的显存使用量来实现保护。\n\n- 最大生成长度限制：对每个租户的请求强制设置
+    max_tokens 上限，防止生成过长的回复导致 KV Cache 爆炸。\n\n- 上下文长度限制：限制输入 prompt 的最大 token 数。\n\n-
+    GPU 资源切分（MIG）：在支持 MIG 的 GPU（如 A100）上，可将一张 GPU 划分为多个独立实例，每个实例有独立的显存和计算资源，分配给不同租户。这是硬件级强隔离，但资源利用率会下降。\n\n-
+    多模型实例部署：在每张 GPU 上部署多个轻量级推理实例（如多个 vLLM 进程），每个实例服务一个租户，通过 GPU 时分的虚拟化技术（如 MPS）或单纯的多进程来隔离。\n\n\U0001F6A6
+    2. 限流策略\n\n- 并发请求数限制：为每个租户设置最大并发请求数，防止单一租户霸占所有请求槽位。\n\n- Token 生成速率限制：限制每秒生成的
+    token 数（Tokens Per Second, TPS），平滑流量。\n\n- 排队与优先级：超出限制的请求进入等待队列，按优先级和到达时间调度。\n\n-
+    API 网关层限流：在推理服务前部署 Kong、Nginx 等网关，进行 Token Bucket 或 Leaky Bucket 限流。\n\n\U0001F4CA
+    3. 监控与告警\n\n- 实时监控每个租户的显存占用、请求延迟、吞吐量等，一旦发现异常（如某租户的显存突增），自动触发限流或告警。\n\n\U0001F4A1
+    实用方案：对于大多数场景，显存隔离通过限制 max_model_len 和 max_tokens 实现软隔离，配合 API 网关的并发限流，已经足够。如果需要极致的隔离，可采用
+    MIG 或独立实例，但会牺牲一定灵活性。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTNrwT2t1iCzbMkI7FZc3sj5nBb
+  block_id: FrdVdWlAyo8MalxeTzocExpvnkb
+  page_token: QTNrwT2t1iCzbMkI7FZc3sj5nBb
+  original_title: "\U0001F465 多用户多租户场景下，如何做显存隔离和限流？"
+  imported_at: '2026-09-21'

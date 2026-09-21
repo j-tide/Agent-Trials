@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fc91e3e9538b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 全参数微调时，如何设置weight decay以控制过拟合？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 全参数微调时，如何设置weight decay以控制过拟合？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Weight decay 是L2正则化的实现，通过在损失函数中增加权重平方和的惩罚项，限制模型参数的大小，防止过拟合。在全参数微调中，由于数据量通常较小，weight decay是控制过拟合的关键杠杆之一。
+
+    如何设置？
+
+    - 与预训练保持一致或略高：大多数预训练模型（如LLaMA）使用0.1的weight decay。微调时，可沿用此值，或根据数据量略作调整。数据量越小，weight decay应越大（如0.2甚至0.5），以施加更强的正则化。
+
+    - 避免对bias和LayerNorm施加：标准的weight decay应只应用于权重矩阵（线性层的weight），而不应用于bias和LayerNorm的参数。这些参数通常不需要正则化，强行衰减反而可能影响性能。PyTorch的AdamW已经内置了这一区分。
+
+    - 动态调整：在训练过程中，如果发现验证损失在某个点后开始上升（过拟合迹象），可以尝试增大weight decay；如果模型在训练集上都无法收敛（欠拟合），则需减小weight decay。
+
+    - 与学习率协同：更高的学习率往往需要更大的weight decay来平衡。当尝试不同学习率时，可保持weight decay与学习率的比例相对稳定。
+
+    过大或过小的后果
+
+    - 过大（如1.0）：会过度限制模型容量，导致模型无法充分学习微调任务，表现为训练损失和验证损失都居高不下，模型输出平庸、重复，甚至遗忘预训练知识。
+
+    - 过小（如0或0.001）：正则化不足，模型极易在微调数据上过拟合，表现为训练损失极低但验证损失上升，泛化能力差，输出变得模板化。
+
+    推荐起步值：对于全参数微调7B模型，weight decay=0.1 是一个安全、广泛验证的起点。如果数据量小于5000条，可以尝试0.2；如果数据量超过10万条，可降至0.05。始终在一个独立的验证集上监控困惑度，必要时调整。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: MR4ZdC1q5o1RQUx0U4ycBttwnJb
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 全参数微调时，如何设置weight decay以控制过拟合？
+  imported_at: '2026-09-21'

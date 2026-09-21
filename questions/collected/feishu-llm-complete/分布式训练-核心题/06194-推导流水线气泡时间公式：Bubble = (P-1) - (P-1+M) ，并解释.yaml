@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fdc98e6a723e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 推导流水线气泡时间公式：Bubble = (P-1) / (P-1+M) ，并解释。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 推导流水线气泡时间公式：Bubble = (P-1) / (P-1+M) ，并解释。
+answer:
+  mode: rubric
+  reference_answer: |-
+    我们针对 1F1B 调度推导气泡率。假设每个微批次的前向计算时间为 1，反向计算时间也为 1（通常反向略长，但为简化设为相等）。总设备数为 P，微批次数量为 M。
+
+    理想情况：所有设备 100% 利用率，总有效工作时间为 P * 2M（P 个设备，每个完成 M 个前向和 M 个反向）。完成所有工作的时间应为 2M。
+
+    1F1B 调度的实际耗时：在 1F1B 中，流水线的填充和排空需要额外时间。总执行时间 T = (P-1) + M (前向填充) + (P-1) + M (反向排空) ? 更准确地说，1F1B 的调度时间可以计算为：第一个微批次从第一个设备到最后一个设备需要 P 步（前向传递），然后反向回来也需要 P 步。由于微批次流水线执行，最后一个微批次的反向完成时间等于：
+
+    - 前向完成时间：最后一个微批次在第一个设备上开始的时间是 M-1，到达最后一个设备是 (M-1) + (P-1) = M+P-2。
+
+    - 反向完成时间：从最后一个设备开始反向，第一个微批次的反向与最后一个微批次的前向有时间重叠。1F1B 的总时间公式通常为：T = (P-1) + (M) + (P-1) + (M) - 1？实际推导可得 T = M + 2(P-1) 当 M > P 时？经过更精确的 1F1B 调度分析，总时间 = M + 2(P-1) 当 M 足够大时（稳定阶段）。总计算量是 2P*M，气泡时间 = T - 2M = 2(P-1)。气泡率 = 2(P-1) / (M + 2(P-1))。但是通常给出的简化气泡率公式为 (P-1) / (P-1 + M)，这是假设前向和反向混合在一起的时间归一化结果，考虑了流水线深度与微批次比例。
+
+    另一种常见推导：在 1F1B 中，设备空闲只发生在流水线的填充和排空阶段。填充阶段需要 (P-1) 步（每个设备等待第一个微批次到达），排空阶段同样需要 (P-1) 步（最后一个微批次反向传递）。总时间 = 2M (理想) + (P-1)（前向填充）+ (P-1)（反向排空）- 一些重叠？实际上 T = 2M + 2(P-1) - 1 ？我们采用广泛引用的结果：对于 1F1B，气泡率 ≈ (P-1)/(P-1+M)。这意味着：当 M 远大于 P 时，气泡率趋近于 0；当 M 较小时，气泡显著。这符合直觉：微批次越多，填充和排空的相对开销越低。
+
+    推导：设总有效工作量为 W = P * 2M。实际总耗时为 T = 2M + 2(P-1)。空闲总时间为 2(P-1)。因此空闲时间占比（气泡率）= 2(P-1) / (2M + 2(P-1)) = (P-1) / (P-1+M)。如果考虑反向时间比前向长，公式会有调整，但核心原理不变。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: H3JndamooomoMUxyUKmcOqWHnSh
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: 推导流水线气泡时间公式：Bubble = (P-1) / (P-1+M) ，并解释。
+  imported_at: '2026-09-21'

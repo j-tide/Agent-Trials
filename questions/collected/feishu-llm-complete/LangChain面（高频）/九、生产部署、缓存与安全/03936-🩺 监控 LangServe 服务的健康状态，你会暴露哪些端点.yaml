@@ -1,0 +1,90 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e028d0c9b351
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001FA7A 监控 LangServe 服务的健康状态，你会暴露哪些端点？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001FA7A 监控 LangServe 服务的健康状态，你会暴露哪些端点？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    健康检查是服务可靠性的基础。除了最基本的“存活”检查，还应暴露“就绪”和“依赖”状态。
+
+    暴露的端点：
+
+    - /healthz（存活检查）：返回 200，表示进程在运行。通常由 Kubernetes livenessProbe 使用。
+
+    - /readyz（就绪检查）：检查关键依赖是否可用，如 LLM API 连通性、Redis 连接、数据库连接等。如果不可用，返回 503。Kubernetes readinessProbe 使用，防止流量进入不健康的实例。
+
+    - /metrics（指标）：Prometheus 抓取端点，暴露 LLM 调用次数、延迟、错误率等（通过前面提到的回调实现）。
+
+    - /debug/pprof 或 py-spy 接口（可选）：性能剖析，仅在内部网络开放。
+
+    实现示例：
+
+    ```python
+    from fastapi import FastAPI
+    import redis, httpx
+
+    app = FastAPI()
+
+    @app.get("/readyz")
+    async def readyz():
+        # 检查Redis
+        try:
+            r = redis.Redis(...)
+            r.ping()
+        except:
+            return {"status": "unhealthy", "detail": "redis down"}, 503
+        # 检查LLM API
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get("https://api.openai.com/v1/models", timeout=5)
+                if resp.status_code != 200:
+                    raise Exception("OpenAI API error")
+        except:
+            return {"status": "degraded", "detail": "llm api unreachable"}, 200
+        return {"status": "ok"}
+    ```
+
+    额外监控：
+
+    - 通过 Prometheus AlertManager 设置告警，例如错误率 >5%、P99 延迟 >10s、实例数异常等。
+
+    - 在 Grafana 仪表盘中集成健康状态指示灯。
+
+    实践：我曾因 LLM API 临时故障导致服务雪崩，后来在 /readyz 中加入了对 API 的主动探测，当探测失败时自动将 Pod 标为 Not Ready，Kubernetes 停止向该 Pod 转发流量，避免请求堆积。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K973wYln7iD4oCkYW2acmsT4nke
+  block_id: Bjaidv0bIoR6BXx9bshcxw2Cn6n
+  page_token: K973wYln7iD4oCkYW2acmsT4nke
+  original_title: "\U0001FA7A 监控 LangServe 服务的健康状态，你会暴露哪些端点？"
+  imported_at: '2026-09-21'

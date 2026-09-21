@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4030391da4f0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: DPO 训练时，除了最终的损失值，一般还需要监控哪些指标（如 chosen 和 rejected 的准确率、reward margin 等）？写出计算这些指标的代码。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: DPO 训练时，除了最终的损失值，一般还需要监控哪些指标（如 chosen 和 rejected 的准确率、reward margin 等）？写出计算这些指标的代码。
+answer:
+  mode: rubric
+  reference_answer: |-
+    需要监控的核心指标：
+
+    - Reward Accuracy（奖励准确率）：chosen 的隐含奖励大于 rejected 的比例。直接反映模型对偏好数据的区分能力。
+
+    - Reward Margin：chosen 奖励与 rejected 奖励之差，衡量模型的区分度。
+
+    - Chosen 和 Rejected 的平均 Log Probability：监控策略模型在 chosen 和 rejected 上的对数概率变化。
+
+    - KL Divergence：策略模型与参考模型之间的 KL 散度（可近似为 log_ratio 的期望），确保模型不过度偏离。
+
+    - Loss 本身：DPO 损失的均值。
+
+    代码实现：
+
+    ```python
+    def compute_metrics(
+        policy_chosen_logps, policy_rejected_logps,
+        ref_chosen_logps, ref_rejected_logps, beta
+    ):
+        with torch.no_grad():
+            chosen_rewards = beta * (policy_chosen_logps - ref_chosen_logps)
+            rejected_rewards = beta * (policy_rejected_logps - ref_rejected_logps)
+            reward_margin = chosen_rewards - rejected_rewards
+            accuracy = (reward_margin > 0).float().mean().item()
+            avg_margin = reward_margin.mean().item()
+            avg_chosen_logp = policy_chosen_logps.mean().item()
+            avg_rejected_logp = policy_rejected_logps.mean().item()
+            # 近似 KL 散度：chosen 和 rejected 上的平均 log-ratio
+            kl_approx = 0.5 * ((policy_chosen_logps - ref_chosen_logps).mean() +
+                               (policy_rejected_logps - ref_rejected_logps).mean()).item()
+        return {
+            "loss": None,  # 在训练循环中单独计算
+            "reward_accuracy": accuracy,
+            "reward_margin": avg_margin,
+            "chosen_logp": avg_chosen_logp,
+            "rejected_logp": avg_rejected_logp,
+            "kl_approx": kl_approx
+        }
+    ```
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  block_id: XJ7zdNz1Jo9lUqx1zwncyMaan9g
+  page_token: Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  original_title: DPO 训练时，除了最终的损失值，一般还需要监控哪些指标（如 chosen 和 rejected 的准确率、reward margin
+    等）？写出计算这些指标的代码。
+  imported_at: '2026-09-21'

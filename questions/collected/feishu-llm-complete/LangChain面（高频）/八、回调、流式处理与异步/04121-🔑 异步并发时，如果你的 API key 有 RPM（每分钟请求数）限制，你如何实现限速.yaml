@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f38a9e715d90
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F511 异步并发时，如果你的 API key 有 RPM（每分钟请求数）限制，你如何实现限速？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F511 异步并发时，如果你的 API key 有 RPM（每分钟请求数）限制，你如何实现限速？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    RPM 限制需要精确到每分钟请求次数，不能仅靠并发数控制。需要实现滑动窗口或令牌桶算法。
+
+    推荐方案：使用 asyncio-throttle 或自实现令牌桶
+
+    ```python
+    import asyncio, time
+    from collections import deque
+
+    class RateLimiter:
+        def __init__(self, max_calls, period=60):
+            self.max_calls = max_calls
+            self.period = period
+            self.calls = deque()
+
+        async def acquire(self):
+            now = time.time()
+            # 移除过期的记录
+            while self.calls and self.calls[0] < now - self.period:
+                self.calls.popleft()
+            if len(self.calls) >= self.max_calls:
+                sleep_time = self.calls[0] + self.period - now
+                await asyncio.sleep(sleep_time)
+            self.calls.append(time.time())
+
+    # 使用
+    limiter = RateLimiter(50)  # 每分钟50次
+
+    async def ask_llm(prompt):
+        await limiter.acquire()
+        return await llm.ainvoke(prompt)
+    ```
+
+    或者用第三方库：aiolimiter、limiter 等。
+
+    关键：令牌桶需要跨进程共享（如 Redis），对于多实例部署，必须使用集中式计数。我用过 redis-py + Lua 脚本实现原子性令牌桶，效果不错。
+
+    此外：Semaphore 只能限制并发，不能解决 RPM，两者常配合使用：Semaphore 防止瞬时高峰，令牌桶满足长期平均限制。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XRv0wx736iBPPjk1VBdcvmwSnmb
+  block_id: UnU9dxFmJosGXwxv695cVB6fnqe
+  page_token: XRv0wx736iBPPjk1VBdcvmwSnmb
+  original_title: "\U0001F511 异步并发时，如果你的 API key 有 RPM（每分钟请求数）限制，你如何实现限速？"
+  imported_at: '2026-09-21'

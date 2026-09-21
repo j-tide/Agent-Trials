@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4bd588fa4879
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何将模型权重从float32安全转换为float16，并检查精度损失？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何将模型权重从float32安全转换为float16，并检查精度损失？
+answer:
+  mode: rubric
+  reference_answer: |-
+    将模型从 FP32 转换为 FP16 可以显著减少显存占用和加速计算，但可能会引入精度损失，尤其在数值范围极端的模型上。安全转换需要以下步骤：
+
+    - 转换模型参数：
+    使用 .half() 方法将模型参数转换为 FP16，同时将输入也转为 FP16。
+
+    ```python
+    model = model.half().to(device)
+    input = input.half()
+    ```
+
+    转换注意事项：
+
+    - BatchNorm 层：通常保留 FP32，因为 FP16 可能引起统计量不稳定。可以用 model.half() 后手动将 BN 层转回 FP32，或者使用 PyTorch 的混合精度训练中自动转换。
+
+    - Loss 计算：如果涉及 FP16 的 Loss，可能需要缩放，但推理时不需要。
+
+    - Softmax、LayerNorm：部分算子对精度敏感，PyTorch 会自动处理，但若出现 NaN，可强制部分层保持 FP32（例如，在模型定义中设置 self.norm.float()）。
+
+    - 精度损失检查：
+
+    - 相对误差：比较 FP32 和 FP16 模型在相同输入下的输出差异。
+
+    ```python
+    with torch.no_grad():
+        out_fp32 = model_fp32(input_fp32)
+        out_fp16 = model_fp16(input_fp16)
+        diff = (out_fp16.float() - out_fp32).abs()
+        rel_diff = diff / (out_fp32.abs() + 1e-5)
+        print(f"Max diff: {diff.max()}, Mean rel diff: {rel_diff.mean()}")
+    ```
+
+    余弦相似度：对于特征向量，检查方向一致性。
+
+    ```python
+    cos = torch.nn.functional.cosine_similarity(out_fp32.float().view(1,-1), out_fp16.float().view(1,-1))
+    ```
+
+    - 推理指标：在验证集上比较准确率、困惑度等指标，确保下降在可接受范围（通常<0.5%）。
+
+    - 特殊层检查：如果模型包含大值范围（如 Transformer 的 attention logits），可对特定层输出做监控，必要时对该层使用 FP32。
+
+    - 动态范围问题：FP16 能表示的数值范围比 FP32 窄，最大约 65504。如果激活值超出此范围，会出现 Inf/NaN。可以在容易溢出的地方插入 torch.clamp 或转为 FP32 计算。使用 torch.cuda.amp 的 autocast 可以自动处理这些情况，但推理时若直接 model.half() 则需手动确保安全。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WSlbwtUNQiNbKakCLPDcsZ9Hnsg
+  block_id: MyKVdXx32oZ9xGxYAzocI2tAndf
+  page_token: WSlbwtUNQiNbKakCLPDcsZ9Hnsg
+  original_title: 如何将模型权重从float32安全转换为float16，并检查精度损失？
+  imported_at: '2026-09-21'

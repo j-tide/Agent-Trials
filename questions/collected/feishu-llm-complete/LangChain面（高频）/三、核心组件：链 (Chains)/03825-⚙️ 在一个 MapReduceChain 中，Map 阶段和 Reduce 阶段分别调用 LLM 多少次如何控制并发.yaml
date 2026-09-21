@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e6d477e7088e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚙️ 在一个 MapReduceChain 中，Map 阶段和 Reduce 阶段分别调用 LLM 多少次？如何控制并发？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "⚙️ 在一个 MapReduceChain 中，Map 阶段和 Reduce 阶段分别调用 LLM 多少次？如何控制并发？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    调用次数
+
+    - Map 阶段：调用 LLM 的次数 等于分割出的 chunk 数量。如果文档被切分成 10 个块，Map 阶段就会执行 10 次 LLM 调用。
+
+    - Reduce 阶段：至少调用 LLM 1 次。如果所有 Map 输出拼接后仍在 token 限制内，则一次调用即可。否则，若 Reduce 输入超出窗口，LangChain 会启用递归 Reduce，此时 Reduce 阶段可能会调用多次 LLM，形成多级合并。
+
+    并发控制
+
+    LangChain 使用 Python 的 asyncio 或 ThreadPoolExecutor 来实现并发。通过以下参数控制：
+
+    - concurrency：在创建 MapReduceChain 时，设置 LLMChain 的并发级别。默认不限制，但可指定最大并发数来避免 API 限流或资源过载。
+
+    - 对于 ChatOpenAI 等模型，可以在初始化时设置 max_concurrency 来限制同时发出的请求数。
+
+    - 如果要精细控制，可以在调用链的 arun 方法（异步）中结合 asyncio.Semaphore 自定义并发。
+
+    代码示例
+
+    from langchain.chains import MapReduceDocumentsChain, ReduceDocumentsChain, StuffDocumentsChain
+    from langchain.chains.llm import LLMChain
+    from langchain.prompts import PromptTemplate
+    from langchain.chat_models import ChatOpenAI
+
+    # 1. Map 链
+    map_template = "请总结以下内容:\n{text}\n总结:"
+    map_prompt = PromptTemplate(template=map_template, input_variables=["text"])
+    map_chain = LLMChain(llm=ChatOpenAI(model="gpt-4", max_concurrency=10), prompt=map_prompt)
+
+    # 2. Reduce 链
+    reduce_template = "以下是对不同部分的总结:\n{text}\n综合以上，给出一个连贯的摘要:"
+    reduce_prompt = PromptTemplate(template=reduce_template, input_variables=["text"])
+    reduce_chain = LLMChain(llm=ChatOpenAI(model="gpt-4"), prompt=reduce_prompt)
+    combine_documents_chain = StuffDocumentsChain(llm_chain=reduce_chain, document_variable_name="text")
+
+    # 3. 组合成 MapReduce
+    reduce_documents_chain = ReduceDocumentsChain(
+        combine_documents_chain=combine_documents_chain,
+        collapse_documents_chain=combine_documents_chain,  # 递归reduce
+        token_max=4000,
+    )
+    map_reduce_chain = MapReduceDocumentsChain(
+        llm_chain=map_chain,
+        reduce_documents_chain=reduce_documents_chain,
+        document_variable_name="text",
+    )
+
+    图标：多个Map任务同时发出API请求 -> 受并发限制器控制 -> 完成后进入Reduce队列
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Jb18witLXiiZV0kzYmccDNKDntb
+  block_id: XaFjdb0VcoWP23xnbEdcGpVbnTc
+  page_token: Jb18witLXiiZV0kzYmccDNKDntb
+  original_title: "⚙️ 在一个 MapReduceChain 中，Map 阶段和 Reduce 阶段分别调用 LLM 多少次？如何控制并发？"
+  imported_at: '2026-09-21'

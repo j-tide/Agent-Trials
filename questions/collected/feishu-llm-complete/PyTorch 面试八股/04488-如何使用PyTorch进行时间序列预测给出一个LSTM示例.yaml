@@ -1,0 +1,92 @@
+---
+schema_version: 1
+id: feishu-llm-complete-066b3c58f312
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用PyTorch进行时间序列预测？给出一个LSTM示例。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何使用PyTorch进行时间序列预测？给出一个LSTM示例。
+answer:
+  mode: rubric
+  reference_answer: |-
+    时间序列预测通过历史窗口数据推断未来值。LSTM（长短期记忆网络）是处理序列依赖的经典模型。下面是一个单变量多步预测的完整示例：
+
+    ```python
+    import torch
+    import torch.nn as nn
+
+    class LSTMForecaster(nn.Module):
+        def __init__(self, input_size=1, hidden_size=64, num_layers=2, output_steps=10):
+            super().__init__()
+            self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+            self.linear = nn.Linear(hidden_size, output_steps)  # 一次性输出未来多步
+
+        def forward(self, x):
+            # x 形状: (batch, seq_len, input_size)
+            out, (h_n, c_n) = self.lstm(x)
+            # 取最后时间步的隐状态进行预测
+            return self.linear(out[:, -1, :])   # (batch, output_steps)
+    ```
+
+    训练步骤：
+
+    - 数据预处理：将一维时间序列切分为滑动窗口，前 lookback 个点为输入，后 output_steps 个点为标签。
+
+    - 标准化：通常对数据进行 Z-Score 或 MinMax 归一化。
+
+    - 构建DataLoader并训练：
+
+    ```python
+    model = LSTMForecaster(input_size=1, hidden_size=64, output_steps=10)
+    criterion = nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+    for X_batch, y_batch in train_loader:
+        optimizer.zero_grad()
+        pred = model(X_batch.unsqueeze(-1))  # 增加特征维度
+        loss = criterion(pred, y_batch)
+        loss.backward()
+        optimizer.step()
+    ```
+
+    - 评估与反归一化：预测结果需逆变换回原始尺度。
+
+    关键技巧：
+
+    - 使用 batch_first=True 提高代码可读性。
+
+    - 如果数据有多变量，可调整 input_size，并在 LSTM 前增加全连接映射或直接拼接。
+
+    - 对长序列，可结合梯度裁剪或引入 Attention 机制提升效果。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  block_id: RPbGdxCkfowl85x6sxbccVLGnhg
+  page_token: AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  original_title: 如何使用PyTorch进行时间序列预测？给出一个LSTM示例。
+  imported_at: '2026-09-21'

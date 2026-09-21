@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d3863ecc6c70
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写代码计算两个SFT模型在同一提示下的输出KL散度
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 写代码计算两个SFT模型在同一提示下的输出KL散度
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    import torch
+    import torch.nn.functional as F
+
+    def compute_kl_divergence(model1, model2, tokenizer, prompt, max_len=50):
+        """计算两个模型对同一prompt生成序列时的KL散度"""
+        inputs = tokenizer(prompt, return_tensors='pt')
+        # 使用模型1生成序列
+        gen_out = model1.generate(**inputs, max_new_tokens=max_len, do_sample=False,
+                                  output_scores=True, return_dict_in_generate=True)
+        generated_ids = gen_out.sequences[0]
+        # 获取两个模型在每个生成token上的logits
+        logits1 = []
+        logits2 = []
+        with torch.no_grad():
+            past_kv1 = None
+            past_kv2 = None
+            input_ids = inputs.input_ids
+            for _ in range(generated_ids.size(-1) - input_ids.size(-1)):
+                out1 = model1(input_ids, past_key_values=past_kv1, use_cache=True)
+                out2 = model2(input_ids, past_key_values=past_kv2, use_cache=True)
+                logits1.append(out1.logits[:, -1, :])
+                logits2.append(out2.logits[:, -1, :])
+                past_kv1 = out1.past_key_values
+                past_kv2 = out2.past_key_values
+                # 下一步输入是当前生成的token
+                input_ids = generated_ids[:, len(inputs.input_ids[0]):len(inputs.input_ids[0])+1+_]
+        logits1 = torch.cat(logits1, dim=0)
+        logits2 = torch.cat(logits2, dim=0)
+        p = F.softmax(logits1, dim=-1)
+        q = F.softmax(logits2, dim=-1)
+        kl = F.kl_div(F.log_softmax(logits1, dim=-1), q, reduction='batchmean')
+        return kl.item()
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JFt9wvuo1ijVfLktrcDcfTR8nTd
+  block_id: SvM6dZsn7o8HGqx1ceWcQyrqnxd
+  page_token: JFt9wvuo1ijVfLktrcDcfTR8nTd
+  original_title: 写代码计算两个SFT模型在同一提示下的输出KL散度
+  imported_at: '2026-09-21'

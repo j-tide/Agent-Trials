@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-91ed204e5c51
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写一个通信开销分析器，给定模型各层大小、并行策略（DP/TP/PP）、硬件带宽和延迟，估算一次训练迭代的通信总时间。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 编写一个通信开销分析器，给定模型各层大小、并行策略（DP/TP/PP）、硬件带宽和延迟，估算一次训练迭代的通信总时间。
+answer:
+  mode: rubric
+  reference_answer: |-
+    19.1 分析器设计
+
+    [图片内容未导入]
+
+    19.2 估算方法
+
+    - 数据并行（AllReduce 梯度）：使用 Ring AllReduce 模型，数据量 = 模型参数量 * 数据精度字节。时间 = 2(DP-1)(L + 参数量/(DP * B_{intra}))（假设同节点）。
+
+    - 张量并行：前向/反向中的 AllReduce/ReduceScatter。每个 AllReduce 的数据量是激活大小（如 batchseqd）。层内多次通信。
+
+    - 流水线并行：点对点 Send/Recv 激活和梯度，数据量 = batchseqd，延迟为 L + 数据量/B_{inter}（假设跨节点）。1F1B 下每个 micro-batch 在 stage 边界传输 2 次。
+
+    编写一个类，接收这些参数，计算汇总时间。简化代码：
+
+    ```python
+    class CommAnalyzer:
+        def __init__(self, dp, tp, pp, intra_bw, inter_bw, latency):
+            self.dp = dp; self.tp = tp; self.pp = pp
+            self.intra_bw = intra_bw; self.inter_bw = inter_bw
+            self.lat = latency
+        def allreduce_time(self, data_bytes, num_gpus, is_inter=False):
+            bw = self.inter_bw if is_inter else self.intra_bw
+            steps = 2 * (num_gpus - 1)
+            return steps * (self.lat + data_bytes / (num_gpus * bw))
+        def send_recv_time(self, data_bytes, is_inter=True):
+            bw = self.inter_bw if is_inter else self.intra_bw
+            return self.lat + data_bytes / bw
+        def estimate_iteration(self, model_size, batch_seq_dim, num_layers):
+            total = 0
+            # Data parallel: AllReduce gradients
+            grad_size = model_size * 2  # FP16
+            total += self.allreduce_time(grad_size, self.dp, is_inter=(self.dp>8))  # 假设跨节点
+            # Tensor parallel: 每层两次 AllReduce (MLP) + 两次 (Attention) 等等，简化为每层 4 次
+            msg_size = batch_seq_dim * 2  # FP16
+            for _ in range(num_layers):
+                # 假定的 AllReduce 次数
+                total += 4 * self.allreduce_time(msg_size, self.tp, is_inter=False)  # TP 通常同节点
+            # Pipeline parallel: 每层在 stage 边界的通信 (1F1B)
+            if self.pp > 1:
+                # 每个 micro-batch 在每个边界传输 2 次
+                total += (self.pp-1) * num_microbatches * 2 * self.send_recv_time(batch_seq_dim*2)
+            return total
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: ROj7dWf1uopZMwxpkiBcSjGpnye
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 编写一个通信开销分析器，给定模型各层大小、并行策略（DP/TP/PP）、硬件带宽和延迟，估算一次训练迭代的通信总时间。
+  imported_at: '2026-09-21'

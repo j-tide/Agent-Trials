@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4e793edb3796
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何将 LoRA 与梯度检查点结合使用？写出在 LoRA 层上启用 torch.utils.checkpoint 的代码片段。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 如何将 LoRA 与梯度检查点结合使用？写出在 LoRA 层上启用 torch.utils.checkpoint 的代码片段。
+answer:
+  mode: rubric
+  reference_answer: |-
+    15.1 背景
+
+    梯度检查点（Gradient Checkpointing）通过在反向传播时重新计算中间激活来节省显存。对于 LoRA 层，我们希望冻结的原始权重部分不保存激活，而只保存 LoRA 分支必要的激活。PyTorch 的 torch.utils.checkpoint.checkpoint 可以包裹任意函数。
+
+    15.2 代码实现
+
+    在 LoRALinear.forward 中使用梯度检查点，需要将计算拆分为一个独立的函数，以便重计算。
+
+    ```python
+    import torch.utils.checkpoint as checkpoint
+
+    class LoRALinear(nn.Module):
+        # ... 初始化省略
+
+        def _lora_forward(self, x):
+            # 仅包含 LoRA 分支的计算
+            return self.lora_B(self.lora_A(self.dropout(x)))
+
+        def forward(self, x):
+            base_out = self.original_linear(x)
+            # 使用检查点包裹 LoRA 分支，节省其激活显存
+            lora_out = checkpoint.checkpoint(self._lora_forward, x, use_reentrant=False)
+            return base_out + self.scaling * lora_out
+    ```
+
+    注意：如果希望也减少原始线性层内部的激活，可对整个 self.original_linear 使用检查点，但通常原始层已被冻结且不更新梯度，可以不保留其激活图。更简单的做法是仅在模型的 Transformer 层级别应用检查点，LoRA 层内的少量激活可忽略。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LZxww5JuBif3JAkuCoIcuqRenuf
+  block_id: GoefdvW5noJrl5xcdrTcDqRtn7b
+  page_token: LZxww5JuBif3JAkuCoIcuqRenuf
+  original_title: 如何将 LoRA 与梯度检查点结合使用？写出在 LoRA 层上启用 torch.utils.checkpoint 的代码片段。
+  imported_at: '2026-09-21'

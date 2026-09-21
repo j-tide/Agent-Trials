@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6f4012f310c5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6A6 当生成序列中出现 EOS 过早或过晚时，如何处理 log prob 和奖励的截断？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "\U0001F6A6 当生成序列中出现 EOS 过早或过晚时，如何处理 log prob 和奖励的截断？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    EOS（End of Sequence）异常会严重影响奖励计算和序列建模。
+
+    EOS 过早（模型刚开始就输出 EOS）：
+
+    - log prob 处理：保留真实的 log prob，因为这是模型的实际行为，PPO 需要基于真实概率进行优化。
+
+    - 奖励处理：过早结束的回答通常内容贫乏，RM 会给出低分。这种低奖励会通过优势函数反馈，让模型学会不要过早结束。如果模型频繁出现此行为，可在奖励中额外施加“过早终止惩罚”（如固定 -2 分），加速纠正。
+
+    - 训练技巧：在 PPO 的 mini-batch 中，如果某条回答的 EOS 过早（如 < 5 个 token），可将其视为“无效轨迹”，不参与优势计算，或赋予极低的优势。
+
+    EOS 过晚（达到最大长度仍未输出 EOS）：
+
+    - 序列被强制截断。此时 不能 简单用 RM 对截断文本打分，因为 RM 训练时评估的是完整回答，截断文本可能语义不全。
+
+    - 标准做法：
+
+    - V(sT) 代替后续奖励，而非假设未来奖励为 0。
+
+    - log prob 处理：保留真实 log prob，因为截断是环境限制，不是模型选择。
+
+    实践：在数据记录中标记 EOS 状态（自然/过早/截断），在训练时根据标记采取不同处理策略。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SrIPwt6g4iOx8zkf5StcnDK8nCc
+  block_id: DWIVdUsWRoBunXx1iYIc7nEenwe
+  page_token: SrIPwt6g4iOx8zkf5StcnDK8nCc
+  original_title: "\U0001F6A6 当生成序列中出现 EOS 过早或过晚时，如何处理 log prob 和奖励的截断？"
+  imported_at: '2026-09-21'

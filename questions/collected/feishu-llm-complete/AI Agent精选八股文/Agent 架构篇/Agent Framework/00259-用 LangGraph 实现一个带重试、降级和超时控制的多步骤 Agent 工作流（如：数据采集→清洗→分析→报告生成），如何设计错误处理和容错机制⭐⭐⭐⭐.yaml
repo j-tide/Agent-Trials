@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2043cb39ddbf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 用 LangGraph 实现一个带重试、降级和超时控制的多步骤 Agent 工作流（如：数据采集→清洗→分析→报告生成），如何设计错误处理和容错机制？⭐⭐⭐⭐
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: 用 LangGraph 实现一个带重试、降级和超时控制的多步骤 Agent 工作流（如：数据采集→清洗→分析→报告生成），如何设计错误处理和容错机制？⭐⭐⭐⭐
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐⭐（容错设计、工程实践、生产级质量）\n\n1️⃣ Common Answer\n\n可以用 try-catch
+    来处理错误。重试的话就循环几次，如果还是失败就跳过或者返回默认值。超时可以用 timeout 参数设置。降级就是如果某个步骤失败了，就用一个简单的替代方案。整个流程用
+    LangGraph 的节点和边连起来就行。\n\n2️⃣ Impressive Answer\n\n- 整体架构设计\n\nfrom langgraph.graph
+    import StateGraph, END\nfrom typing import TypedDict, Literal\nimport time\n   \nclass
+    WorkflowState(TypedDict):\n    raw_data: dict\n    cleaned_data: dict\n    analysis_result:
+    dict\n    report: str\n    error_step: str\n    retry_count: int\n    status:
+    Literal[\"success\", \"degraded\", \"failed\"]\n   \ngraph = StateGraph(WorkflowState)\n\n-
+    重试机制实现\n\ndef retry_wrapper(node_func, max_retries=3, backoff_factor=2):\n    def
+    wrapper(state):\n        retry_count = state.get(\"retry_count\", 0)\n        try:\n
+    \           result = node_func(state)\n            # 成功后重置重试计数\n            result[\"retry_count\"]
+    = 0\n            return result\n        except Exception as e:\n            if
+    retry_count < max_retries:\n                # 指数退避重试\n                wait_time
+    = backoff_factor ** retry_count\n                time.sleep(wait_time)\n                return
+    {\"retry_count\": retry_count + 1, \"error_step\": node_func.__name__}\n            else:\n
+    \               # 重试耗尽，触发降级\n                return {\"status\": \"degraded\",
+    \"error_step\": node_func.__name__}\n    return wrapper\n   \n# 应用重试包装器\ngraph.add_node(\"collect_data\",
+    retry_wrapper(collect_data_node, max_retries=3))\n\n- 超时控制\n\nfrom concurrent.futures
+    import TimeoutError\n   \ndef timeout_wrapper(node_func, timeout_seconds=30):\n
+    \   def wrapper(state):\n        start_time = time.time()\n        try:\n            result
+    = node_func(state)\n            if time.time() - start_time > timeout_seconds:\n
+    \               raise TimeoutError(f\"Node {node_func.__name__} timeout\")\n            return
+    result\n        except TimeoutError:\n            return {\"status\": \"degraded\",
+    \"error_step\": node_func.__name__}\n    return wrapper\n   \ngraph.add_node(\"clean_data\",
+    timeout_wrapper(clean_data_node, timeout_seconds=30))\n\n- 降级策略设计\n\ndef fallback_collect_data(state):\n
+    \   # 降级：使用缓存数据或默认数据\n    return {\"raw_data\": {\"source\": \"cache\", \"data\":
+    []}, \"status\": \"degraded\"}\n   \ndef fallback_clean_data(state):\n    # 降级：跳过清洗，直接返回原始数据\n
+    \   return {\"cleaned_data\": state[\"raw_data\"], \"status\": \"degraded\"}\n
+    \  \n# 条件边：根据状态决定下一步\ndef should_retry_or_fallback(state):\n    if state[\"retry_count\"]
+    > 0:\n        return \"retry\"\n    elif state[\"status\"] == \"degraded\":\n
+    \       return \"fallback\"\n    else:\n        return \"next\"\n   \ngraph.add_conditional_edges(\n
+    \   \"collect_data\",\n    should_retry_or_fallback,\n    {\n        \"retry\":
+    \"collect_data\",  # 重试当前节点\n        \"fallback\": \"clean_data\",  # 降级后继续\n
+    \       \"next\": \"clean_data\"  # 正常流程\n    }\n)\n\n- 全局错误处理与状态监控\n\ndef error_handler(state):\n
+    \   error_step = state.get(\"error_step\", \"unknown\")\n    print(f\"Workflow
+    failed at step: {error_step}\")\n    print(f\"Final status: {state['status']}\")\n
+    \   # 发送告警通知\n    # 记录错误日志\n    return {\"status\": \"failed\"}\n   \ngraph.add_node(\"error_handler\",
+    error_handler)\ngraph.add_edge(\"generate_report\", END)\ngraph.add_conditional_edges(\n
+    \   \"generate_report\",\n    lambda state: \"error_handler\" if state[\"status\"]
+    == \"failed\" else END,\n    {\"error_handler\": \"error_handler\", END: END}\n)\n\n-
+    Checkpointer 配置（支持断点续传）\n\nfrom langgraph.checkpoint.postgres import PostgresSaver\n
+    \  \ncheckpointer = PostgresSaver.from_conn_string(\"postgresql://...\")\ncompiled_graph
+    = graph.compile(checkpointer=checkpointer)\n   \n# 执行工作流\nresult = compiled_graph.invoke(\n
+    \   initial_state,\n    config={\"thread_id\": \"workflow-001\"}\n)\n\n3️⃣ Key
+    Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BGoPwvMLhic7wKkrioacP0oynIh
+  block_id: doxcnrOzRzwBE2JjpQt34gUnC5e
+  page_token: BGoPwvMLhic7wKkrioacP0oynIh
+  original_title: 用 LangGraph 实现一个带重试、降级和超时控制的多步骤 Agent 工作流（如：数据采集→清洗→分析→报告生成），如何设计错误处理和容错机制？⭐⭐⭐⭐
+  imported_at: '2026-09-21'

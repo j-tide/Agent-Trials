@@ -1,0 +1,119 @@
+---
+schema_version: 1
+id: feishu-llm-complete-07f506010479
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4B0 3. 在积分系统中，用户支付成功后需要增加积分，如何保证积分不会重复增加？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: "\U0001F4B0 3. 在积分系统中，用户支付成功后需要增加积分，如何保证积分不会重复增加？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是一个典型的“支付成功 → 发放积分”的幂等场景。我们采用 数据库唯一索引 + 业务状态机 的双重保证，确保积分只增加一次。
+
+    整体流程：
+
+    [图片内容未导入]
+
+    步骤详解：
+
+    - 流水检查：每次收到支付成功消息，先根据订单 ID 查询积分流水表。如果发现已有发放记录，直接返回成功。这层是轻量级的查重。
+
+    - 唯一索引拦截：插入积分流水记录时，以 order_id 作为唯一索引。如果并发或重试导致同一条订单消息被两个线程同时处理，其中一个线程的 INSERT 会因为主键冲突而失败，从而阻止重复处理。
+
+    - 余额更新：在插入流水成功的同一事务中，更新用户的积分余额（SET points = points + amount），并更新订单表上的积分发放状态为“已发放”。所有操作在一个数据库事务中，保证原子性。
+
+    代码示例（Spring Boot + MyBatis）：
+
+    @Service
+    public class PointsGrantService {
+
+        @Autowired
+        private PointsFlowMapper flowMapper;
+        @Autowired
+        private UserPointsMapper userPointsMapper;
+        @Autowired
+        private OrderMapper orderMapper;
+
+        @Transactional(rollbackFor = Exception.class)
+        public void grantPoints(String orderId, Long userId, int points) {
+            // 1. 快速检查：查询流水表
+            PointsFlow existing = flowMapper.selectByOrderId(orderId);
+            if (existing != null) {
+                return; // 已发放
+            }
+
+            // 2. 插入流水，order_id 为唯一键，如果重复则抛出 DuplicateKeyException
+            PointsFlow flow = PointsFlow.builder()
+                    .orderId(orderId)
+                    .userId(userId)
+                    .points(points)
+                    .build();
+            try {
+                flowMapper.insert(flow);
+            } catch (DuplicateKeyException e) {
+                return; // 并发写入，重复处理
+            }
+
+            // 3. 增加用户积分（原子更新）
+            userPointsMapper.addPoints(userId, points);
+
+            // 4. 更新订单表积分发放状态，同时做状态机防重
+            orderMapper.updatePointsStatus(orderId, "GRANTED");
+        }
+    }
+
+    -- 积分流水表 DDL
+    CREATE TABLE points_flow (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        order_id VARCHAR(64) NOT NULL,
+        user_id BIGINT NOT NULL,
+        points INT NOT NULL,
+        create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_order_id (order_id)
+    );
+
+    关键设计点：
+
+    - 唯一索引保护：即使没有第一步的查询，第二步的 INSERT 也会因为唯一键冲突而阻止重复。查询是一种优化，避免无效的插入异常。
+
+    - 事务边界：流水插入和余额更新在同一个本地事务中，要么都成功，要么都回滚。如果余额更新失败（如用户不存在），流水也会回滚，不会产生脏数据。
+
+    - 外部兜底：如果业务允许极其罕见的 Redis/DB 故障，可以添加一个定时对账任务，每天对比支付单和积分流水，发现差异自动补发或告警。
+
+    收束：保证积分不重复增加的秘密，不在于某一种技术，而在于让重复消息在数据库的强约束面前变成“无操作”。唯一索引是守门员，流水表是检查站，而事务则确保每一步都走得稳当。这种防御思路，同样适用于库存、优惠券、余额等任何需要精确计数的场景。
+
+    ---
+
+    ### 1.2 CDC 变更数据捕获
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JpfiwiBYoisbfUkjsLgcdTcHnTf
+  block_id: doxcn3k0kB6oVSiUhARTDx0hWid
+  page_token: JpfiwiBYoisbfUkjsLgcdTcHnTf
+  original_title: "\U0001F4B0 3. 在积分系统中，用户支付成功后需要增加积分，如何保证积分不会重复增加？"
+  imported_at: '2026-09-21'

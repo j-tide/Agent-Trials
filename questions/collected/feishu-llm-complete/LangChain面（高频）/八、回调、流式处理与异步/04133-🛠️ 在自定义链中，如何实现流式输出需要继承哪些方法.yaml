@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7b98bd53ec3f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E0️ 在自定义链中，如何实现流式输出？需要继承哪些方法？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F6E0️ 在自定义链中，如何实现流式输出？需要继承哪些方法？"
+answer:
+  mode: rubric
+  reference_answer: "如果你要编写一个自定义链并支持流式输出，需要遵循 LangChain 的 Runnable 协议。相比于传统的 Chain
+    基类，LCEL 的 Runnable 是更推荐的实现方式。\n\n关键步骤：\n\n- 继承 Runnable 而不是 Chain。Runnable 提供了统一的接口，包括
+    invoke、stream、astream 等。\n\n- 实现核心方法：\n\n- invoke(self, input, config)：返回完整结果，用于非流式调用。\n\n-
+    stream(self, input, config)：返回同步迭代器。通常你需要重写此方法，在内部调用下游 LLM 的 stream，并处理中间逻辑，然后
+    yield 每个 chunk。\n\n- transform(self, input, config)：这是一个生成器函数，框架默认的 stream 就是调用它。你可以重写
+    transform 来逐个产出事件。\n\n- 对于异步，还有 ainvoke、astream、atransform。\n\n- 使用 @chain 装饰器（LangChain
+    提供）可以快速将一个函数转换为支持流式的 Runnable，但自定义复杂链时手动继承更灵活。\n\n示例：一个简单的自定义流式链\n\n```python\nfrom
+    langchain_core.runnables import Runnable\nfrom typing import Iterator\n\nclass
+    MyStreamingChain(Runnable):\n    def __init__(self, llm):\n        self.llm =
+    llm\n\n    def invoke(self, input, config=None):\n        return self.llm.invoke(input)\n\n
+    \   def stream(self, input, config=None) -> Iterator:\n        # 直接委托给 LLM 的 stream，返回每个
+    token chunk\n        for chunk in self.llm.stream(input):\n            yield chunk\n```\n\n如果你想在中间做一些处理，比如在生成
+    token 后添加一个前缀，可以在 stream 中实现：\n\n```python\ndef stream(self, input, config=None):\n
+    \   yield \"\U0001F916 \"  # 自定义输出\n    for chunk in self.llm.stream(input):\n
+    \       yield chunk\n```\n\n重要提示：要确保内部组件（如 LLM）已经开启流式模式，否则 stream 返回的可能是一次性结果而不是迭代器。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CZWewxKPziW9NLkL7iBcV35cncy
+  block_id: QYppd6ztdo3GaQxDhRfcPnkrnOe
+  page_token: CZWewxKPziW9NLkL7iBcV35cncy
+  original_title: "\U0001F6E0️ 在自定义链中，如何实现流式输出？需要继承哪些方法？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1c284e5b27a2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F517 前缀缓存（Prefix Caching）如何识别相同前缀并复用 KV Cache？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F517 前缀缓存（Prefix Caching）如何识别相同前缀并复用 KV Cache？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    识别机制：
+
+    - 推理框架（如 vLLM）在接收到请求时，会对 prompt 计算哈希（例如 token 序列的前缀哈希）。
+
+    - 系统维护一个 前缀哈希表，记录每个前缀对应的 KV 块列表（即物理块 ID 序列）。
+
+    - 当新请求的前缀哈希命中时，直接将该前缀的物理块映射到新请求的逻辑页表中，不需要重新计算。
+
+    复用过程：
+
+    - 新请求到达，调度器提取 prompt token。
+
+    - 逐 token 或逐块计算哈希，查找是否有相同前缀的现成 KV 块。
+
+    - 如果命中，就直接共享那些物理块，并设置只读标志；新请求从该前缀之后开始计算。
+
+    - 对于不匹配的后缀，分配新块继续生成。
+
+    写时复制（Copy-on-Write）：
+
+    如果某个请求要修改共享的 KV（理论上生成阶段不会修改已有的 K/V，但某些场景可能需要），可使用写时复制保护共享块，但常见的自回归推理中共享块是只读的，无需复制，直接复用即可。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tr76wMZZwibI1ikxqpEcjhJtnZc
+  block_id: Vg0wdfTshoMMOwx3Oc0cakX9n4B
+  page_token: Tr76wMZZwibI1ikxqpEcjhJtnZc
+  original_title: "\U0001F517 前缀缓存（Prefix Caching）如何识别相同前缀并复用 KV Cache？"
+  imported_at: '2026-09-21'

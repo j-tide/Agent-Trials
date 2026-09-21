@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1de0b4c04929
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⏱️ 怎样限制 Agent 的最大迭代步数？设置这个参数有什么讲究？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "⏱️ 怎样限制 Agent 的最大迭代步数？设置这个参数有什么讲究？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    限制方法：在 AgentExecutor 初始化时，通过 max_iterations 参数设置。
+
+    agent_executor = AgentExecutor(
+        agent=agent,
+        tools=tools,
+        max_iterations=5,   # 最多5步
+        verbose=True,
+    )
+
+    当 Agent 执行步数达到 max_iterations 时，AgentExecutor 会强制停止循环。此时，它可以根据 early_stopping_method 参数来处理：
+
+    - "force"（默认）：直接抛出异常（AgentFinish），不加额外处理。
+
+    - "generate"：停止后，让 LLM 基于当前已获得的所有信息，强行生成一个最终答案。这会额外调用一次 LLM，消耗 token，但能给用户一个结果。
+
+    设置这个参数的讲究：
+
+    - 避免无限循环：这是最基本的安全措施。如果工具调用总是失败，或者 Agent 在循环中打转，没有 max_iterations 会导致 API 费用不断累积。
+
+    - 平衡任务复杂度与成本：多数问题 3-5 步足够。如果设置太高，Agent 可能会进行不必要的过度探索，浪费时间和 token。如果太低，复杂问题可能无法完成。
+
+    - 结合工具特性：如果某个工具执行速度慢（比如调用外部 API 需数秒），更应限制步数，防止用户体验极差。
+
+    - 对结果的影响：步数不足可能导致最终答案不完整。因此，我通常设置 early_stopping_method="generate"，至少给用户一个基于现有信息的答复，而不是报错。
+
+    - 调试时：可以临时设高一些，观察 Agent 的行为；生产环境则保守设置。
+
+    ✅ 经验：我一般设置 max_iterations=5，early_stopping_method="generate"。这样既能应对大部分问题，又不会在失败时冷冰冰地报错。如果 Agent 频繁达到上限，说明要么工具不够好，要么问题太复杂，需要优化工具或拆分任务。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/L6pCw9CICiNRXDkqTmbcNMZ5nzh
+  block_id: CdiedX2DKo4L3Zx3HqAcdsi1n3c
+  page_token: L6pCw9CICiNRXDkqTmbcNMZ5nzh
+  original_title: "⏱️ 怎样限制 Agent 的最大迭代步数？设置这个参数有什么讲究？"
+  imported_at: '2026-09-21'

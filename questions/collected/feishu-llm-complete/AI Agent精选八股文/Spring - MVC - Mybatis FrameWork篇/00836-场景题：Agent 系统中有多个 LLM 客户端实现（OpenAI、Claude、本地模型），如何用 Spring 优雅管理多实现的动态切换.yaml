@@ -1,0 +1,91 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fd460ca8a21c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 4、场景题：Agent 系统中有多个 LLM 客户端实现（OpenAI、Claude、本地模型），如何用 Spring 优雅管理多实现的动态切换？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 4、场景题：Agent 系统中有多个 LLM 客户端实现（OpenAI、Claude、本地模型），如何用 Spring 优雅管理多实现的动态切换？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐⭐（@Qualifier、策略模式 + Map 注入、@ConditionalOnProperty、SPI 机制）
+
+    1️⃣ Common Answer
+
+    可以定义一个 LlmClient 接口，然后写多个实现类。用 @Qualifier 注解指定注入哪个。或者用 @ConditionalOnProperty 根据配置决定加载哪个实现。运行时切换的话可以用策略模式。
+
+    2️⃣ Impressive Answer
+
+    - 策略模式 + Map 自动注入（最推荐）：
+
+    ```text
+    public interface LlmClient {
+        String getModelName();
+        ChatResponse chat(ChatRequest request);
+    }
+
+    @Service
+    public class LlmRouter {
+        private final Map<String, LlmClient> clientMap;
+
+        // Spring 自动将所有 LlmClient 实现注入到 Map 中
+        // key = Bean 名称，value = Bean 实例
+        public LlmRouter(Map<String, LlmClient> clientMap) {
+            this.clientMap = clientMap;
+        }
+
+        public ChatResponse route(String modelName, ChatRequest request) {
+            LlmClient client = clientMap.get(modelName);
+            if (client == null) {
+                throw new UnsupportedModelException("不支持的模型: " + modelName);
+            }
+            return client.chat(request);
+        }
+    }
+    ```
+
+    - 动态切换：路由策略存 Nacos 配置中心，通过 @RefreshScope 实现运行时切换默认模型，无需重启。
+
+    - 扩展性设计：新增模型只需实现 LlmClient 接口并注册为 Spring Bean，路由器自动感知，零修改扩展（开闭原则）。
+
+    - 配合 @ConditionalOnProperty：按环境启停，如测试环境不加载 GPT-4 客户端（节省成本），生产环境全量加载。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    ### 2.7 响应式编程 Spring WebFlux
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CDpWwiHlFibwCokmhxDcZEhbnQb
+  block_id: doxcnEA7aQ4En72yR1hCMJaSjYg
+  page_token: CDpWwiHlFibwCokmhxDcZEhbnQb
+  original_title: 4、场景题：Agent 系统中有多个 LLM 客户端实现（OpenAI、Claude、本地模型），如何用 Spring 优雅管理多实现的动态切换？
+  imported_at: '2026-09-21'

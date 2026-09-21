@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1c0eb29b973f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: WordPiece 使用“最大似然”来选择合并对，BPE 使用“频率”，这导致两者在实际分词中有什么不同表现？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 二：模型架构与预训练范式
+tags: &1
+- Transfomer精选面试
+- 二：模型架构与预训练范式
+content:
+  prompt: WordPiece 使用“最大似然”来选择合并对，BPE 使用“频率”，这导致两者在实际分词中有什么不同表现？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这两种不同的选择准则直接影响了词表的构成和最终的分词行为。
+
+    BPE选择合并对的标准纯粹是频率驱动的：哪两个符号挨在一起出现的次数最多，就合并谁。这意味着高频搭配会被优先合并，而不管这两个符号组合在一起是否在语言学上构成一个合理的语义单元。例如，在英文语料中，"."和空格可能因为极高的共现频率而被早早合并为一个token，尽管这个组合并没有承载多少语义信息。此外，BPE可能会将一个高频出现的常见词内部的某个高频子串过早合并，导致一个原本应该保持完整的词被拆散。
+
+    WordPiece的选择标准是似然增益，通俗地理解就是：合并这对符号后，训练语料在这个语言模型下的“概率”增加得最多。数学上，这等价于选择使count(pair) / (count(first) * count(second))最大的对。这个比值衡量了两个符号是“偶然相遇”还是“有意结合”。如果两个符号各自独立出现的频率都很高，但合在一起出现的次数只是偶然水平，则这个比值低，不会优先合并。反之，如果两个符号经常绑在一起出现，远超它们独立出现的期望，说明它们构成一个有意义的单元，这个比值就高，会被优先合并。
+
+    实际表现差异：
+
+    - BPE更容易将常见但无意义的搭配合并，比如“空格+the”或“句号+空格”。WordPiece对这些搭配的合并则更谨慎，因为“空格”和“the”各自频率都很高，组合的似然增益可能不大。
+
+    - 在低频词或罕见搭配上，WordPiece倾向于保留更多细粒度的子词，因为它能根据似然判断合并不划算；而BPE如果恰好这对在语料中因为某种原因频率较高，仍会合并。
+
+    - WordPiece产生的词表往往在语言学上更合理，比如一个词的词干和词缀会被更清晰地分离，因为词缀和词干的结合往往比随机搭配有更高的似然增益。BPE则可能产生一些无意义的碎片化子词。
+
+    因此，WordPiece的分词结果通常更符合人类对语言结构的直觉，生成的子词更可能是有意义的形态学单元。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SbTdwOcZ4iLPOwkcuOvcEg8On4b
+  block_id: C8ZedizlZoNqQ5xLvhdc1tminCc
+  page_token: SbTdwOcZ4iLPOwkcuOvcEg8On4b
+  original_title: WordPiece 使用“最大似然”来选择合并对，BPE 使用“频率”，这导致两者在实际分词中有什么不同表现？
+  imported_at: '2026-09-21'

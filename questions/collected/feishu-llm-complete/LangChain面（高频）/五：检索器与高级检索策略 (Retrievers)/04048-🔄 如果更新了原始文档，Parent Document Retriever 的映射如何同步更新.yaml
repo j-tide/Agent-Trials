@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-85c4874cae9e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F504 如果更新了原始文档，Parent Document Retriever 的映射如何同步更新？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F504 如果更新了原始文档，Parent Document Retriever 的映射如何同步更新？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    更新文档时，最棘手的问题是如何保持父子映射的一致性。目前 LangChain 的 ParentDocumentRetriever 没有内建自动同步机制，需要自行设计更新策略。
+
+    策略一：全量重建（最稳妥）
+
+    - 当文档库发生任何增、删、改时，清空向量库和 docstore，重新执行 add_documents(all_documents) 进行全量索引。
+
+    - 优点：逻辑简单，确保完全一致。
+
+    - 缺点：数据量大时耗时，索引期间可能影响检索服务。
+
+    策略二：增量更新（需定制）
+
+    - 新增文档：直接调用 add_documents([new_doc])，会自动生成父子块并添加映射。
+
+    - 删除文档：需要先根据文档 ID 找到对应的所有子块 ID，从向量库中删除这些子块的向量，并从 docstore 中删除父文档。可以通过在添加文档时，在子块和父块的 metadata 中记录原始文档 ID（如文件名），删除时按此 ID 过滤删除。
+
+    - 修改文档：结合删除旧文档和新增文档两步操作。
+
+    - 实现要点：在添加文档时，给父文档和子文档的 metadata 注入一个外部唯一标识（如文件路径、数据库 ID），以便后续精准删除。
+
+    策略三：软删除与时间戳
+
+    - 为每个文档增加时间戳或版本号。
+
+    - 检索时，只考虑最新版本的文档，旧版本标记为不可见。这样无需物理删除，但会占用存储空间。
+
+    注意：无论采用哪种策略，向量库和 docstore 的操作应在同一个事务中，或者先更新存储再更新索引，以防止中间态导致检索错误。如果使用外部数据库（如 Redis），可以利用其原子性操作。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HEY1ws44PidEGlkYttccK5AenXe
+  block_id: ERTBdLPOioabf6xsb6tchpBknRg
+  page_token: HEY1ws44PidEGlkYttccK5AenXe
+  original_title: "\U0001F504 如果更新了原始文档，Parent Document Retriever 的映射如何同步更新？"
+  imported_at: '2026-09-21'

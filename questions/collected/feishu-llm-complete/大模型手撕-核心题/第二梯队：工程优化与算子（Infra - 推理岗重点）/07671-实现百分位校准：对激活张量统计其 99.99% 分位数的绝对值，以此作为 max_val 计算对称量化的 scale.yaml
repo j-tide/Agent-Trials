@@ -1,0 +1,96 @@
+---
+schema_version: 1
+id: feishu-llm-complete-840d6b8c00e8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现百分位校准：对激活张量统计其 99.99% 分位数的绝对值，以此作为 max_val 计算对称量化的 scale
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现百分位校准：对激活张量统计其 99.99% 分位数的绝对值，以此作为 max_val 计算对称量化的 scale
+answer:
+  mode: rubric
+  reference_answer: |-
+    百分位校准 是为了减少离群值对量化范围的影响。直接使用最大值可能导致 scale 过大，大部分数值量化后分辨率不足。改用高分位数（如 99.99%）的绝对值作为有效最大值，能更好地平衡覆盖范围与精度。对称量化的 scale 公式为：
+
+    [图片内容未导入]
+
+    实现细节：
+
+    - 使用 PyTorch 的 torch.quantile 计算分位数，但它只支持一维张量。所以先将激活张量展平为一维，再求分位数。
+
+    - 如果分位数为 0，则回退到一个极小值（如 1e-8）以避免除零。
+
+    - 计算得到的 scale 作为该激活的量化尺度，后续采用对称量化。
+
+    代码示例：
+
+    ```python
+    import torch
+
+    def percentile_calibrate_scale(x: torch.Tensor, percentile=0.9999, bits=8):
+        """
+        使用百分位校准计算对称量化的 scale
+        Args:
+            x: FP32 激活张量
+            percentile: 分位数 (如 0.9999)
+            bits: 量化位宽
+        Returns:
+            scale: 浮点 scale
+        """
+        qmax = 2 ** (bits - 1) - 1   # 127 for 8-bit
+        # 展平并计算绝对值分位数
+        x_abs_flat = torch.abs(x).flatten()
+        # 若张量非空
+        if x_abs_flat.numel() == 0:
+            return torch.tensor(1.0)
+        max_val = torch.quantile(x_abs_flat, percentile)
+        if max_val == 0:
+            max_val = torch.tensor(1e-8, device=x.device)
+        scale = max_val / qmax
+        return scale
+
+    # 使用示例
+    x = torch.randn(10000) * 0.5
+    # 加入一个离群值
+    x[0] = 100.0
+    scale = percentile_calibrate_scale(x, 0.9999)
+    print(f"Percentile scale: {scale:.6f}")
+    # 对比 minmax scale
+    max_abs = torch.max(torch.abs(x))
+    scale_minmax = max_abs / 127
+    print(f"MinMax scale: {scale_minmax:.6f}")
+    ```
+
+    说明：百分位校准能显著减小离群值对量化精度的影响，尤其在激活分布存在长尾时效果很好，是量化部署中的常用策略。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: JBMfdFKVboh5LixBqrcckBqXncf
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 实现百分位校准：对激活张量统计其 99.99% 分位数的绝对值，以此作为 max_val 计算对称量化的 scale
+  imported_at: '2026-09-21'

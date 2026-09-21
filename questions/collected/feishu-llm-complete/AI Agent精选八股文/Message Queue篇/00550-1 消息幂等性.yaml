@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cc490c03e17e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 5.1 消息幂等性
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 5.1 消息幂等性
+answer:
+  mode: rubric
+  reference_answer: "### 如何保证消息幂等性\n\n1、基础题：什么是消息幂等性？为什么需要保证？\n\n⭐（重复消费、数据一致性）\n\n消息幂等性是指：无论消息被消费多少次，结果都是一样的。需要保证是因为网络抖动、重试等原因可能导致消息重复消费，如果不处理会导致数据不一致。\n\n2、进阶题：如何保证消息消费的幂等性？\n\n⭐⭐（唯一ID、数据库唯一键、分布式锁）\n\n1️⃣
+    Common Answer 用唯一ID吧，消费前查一下这个ID有没有处理过。或者用数据库的唯一键，重复插入会报错。也可以用Redis锁，保证只有一个消费者处理。\n\n2️⃣
+    Impressive Answer 保证消息幂等性有多种方案，我会根据场景选择合适的方案：\n\n方案一：基于唯一ID的幂等表\n\n- 消息发送时生成唯一ID（如UUID、订单ID）\n\n-
+    消费前先查询幂等表，判断是否已处理\n\n- 如果未处理，执行业务逻辑，插入幂等表\n\n- 如果已处理，直接跳过\n\npublic void consume(Message
+    message) {\n    String messageId = message.getId();\n    // 查询幂等表\n    if (idempotentRepository.exists(messageId))
+    {\n        return; // 已处理，跳过\n    }\n    // 执行业务逻辑\n    doBusiness(message);\n
+    \   // 插入幂等表\n    idempotentRepository.insert(messageId);\n}\n\n方案二：数据库唯一键\n\n-
+    利用数据库的唯一约束，如订单ID、流水号\n\n- 重复插入时会抛出唯一键冲突异常\n\n- 捕获异常，说明已处理，直接返回成功\n\npublic void
+    consume(Message message) {\n    try {\n        // 插入业务表，利用唯一键约束\n        orderRepository.insert(message);\n
+    \   } catch (DuplicateKeyException e) {\n        // 唯一键冲突，说明已处理\n        log.info(\"Message
+    already processed: {}\", message.getId());\n    }\n}\n\n方案三：Redis分布式锁\n\n- 消费前获取分布式锁，key为消息ID\n\n-
+    获取成功则执行业务逻辑，释放锁\n\n- 获取失败说明正在处理或已处理\n\npublic void consume(Message message) {\n
+    \   String lockKey = \"lock:\" + message.getId();\n    // 尝试获取锁，过期时间30秒\n    boolean
+    locked = redisTemplate.opsForValue()\n        .setIfAbsent(lockKey, \"1\", 30,
+    TimeUnit.SECONDS);\n    if (!locked) {\n        return; // 获取锁失败，说明正在处理或已处理\n
+    \   }\n    try {\n        doBusiness(message);\n    } finally {\n        redisTemplate.delete(lockKey);\n
+    \   }\n}\n\n方案四：状态机判断\n\n- 业务表有状态字段，如待处理、处理中、已完成\n\n- 消费时先查询状态，只处理待处理的\n\n- 处理完成后更新状态\n\n方案对比：\n\n[嵌入表格未展开]\n\n生产环境建议：\n\n-
+    优先使用唯一键：如果业务表有唯一约束，直接利用\n\n- 幂等表兜底：没有唯一键时，使用幂等表\n\n- 分布式锁加速：高并发时用分布式锁减少数据库压力\n\n-
+    组合使用：如分布式锁+唯一键，双重保证\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n3、场景题：你的系统已经上线，但没有做幂等性保证，现在发现数据重复了，如何修复？\n\n⭐⭐⭐（数据修复和系统改造）\n\n1️⃣
+    Common Answer 先把重复的数据清理掉，然后加上幂等性保证。用脚本查出来重复的数据，删除多余的。然后代码里加上唯一ID判断，以后就不会重复了。\n\n2️⃣
+    Impressive Answer 数据重复是线上事故，需要紧急修复和系统改造同时进行。让我详细说明处理方案：\n\n第一步：紧急止血\n\n- 暂停消费：先停止消费者，避免继续产生重复数据\n\n-
+    分析影响范围：查询重复数据涉及的表、时间范围、业务影响\n\n- 评估损失：统计重复数据的数量、金额等，评估业务影响\n\n第二步：数据修复\n\n- 识别重复数据：\n\n--
+    找出重复的订单（按订单ID分组，count>1）\n   SELECT order_id, COUNT(*) \n   FROM orders \n   GROUP
+    BY order_id \n   HAVING COUNT(*) > 1;\n\n- 确定保留规则：\n\n- 删除重复数据：\n\n-- 删除重复订单，保留ID最小的\n
+    \  DELETE FROM orders \n   WHERE id NOT IN (\n       SELECT MIN(id) \n       FROM
+    orders \n       GROUP BY order_id\n   );\n\n- 数据验证：\n\n第三步：系统改造\n\n- 添加幂等性保证：\n\n-
+    代码改造示例：\n\n@Transactional\n   public void consume(Message message) {\n       String
+    orderId = message.getOrderId();\n       // 检查是否已存在\n       if (orderRepository.existsByOrderId(orderId))
+    {\n           log.warn(\"Order already exists: {}\", orderId);\n           return;\n
+    \      }\n       // 创建订单\n       orderRepository.insert(message);\n   }\n\n- 灰度发布：\n\n第四步：预防措施\n\n-
+    监控告警：\n\n- 定期对账：\n\n- 流程规范：\n\n真实案例： 某支付系统因消费者重启导致重复消费，产生重复支付记录。处理方案：1）紧急停止消费者；2）查询出1000条重复支付记录；3）联系用户退款；4）添加幂等表；5）灰度发布后恢复消费。整个处理耗时4小时，用户投诉率上升5%。\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n4、容易一起考的题\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/OKxBw38EbiXvoAksf2jc1fn6nMh
+  block_id: doxcnsOfpQt3BTcP2GT8tILHXbb
+  page_token: OKxBw38EbiXvoAksf2jc1fn6nMh
+  original_title: 5.1 消息幂等性
+  imported_at: '2026-09-21'

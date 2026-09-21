@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d0bc6ac1cae5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用PyTorch实现Multi-head Self-Attention（带mask）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 使用PyTorch实现Multi-head Self-Attention（带mask）
+answer:
+  mode: rubric
+  reference_answer: "实现一个标准的多头自注意力模块，支持因果掩码（causal mask）和填充掩码（padding mask）。为简洁，这里假设输入是
+    (batch, seq_len, d_model)，且已通过线性层得到 Q, K, V。\n\n```python\nimport torch\nimport
+    torch.nn as nn\nimport torch.nn.functional as F\n\nclass MultiHeadSelfAttention(nn.Module):\n
+    \   def __init__(self, d_model: int, n_heads: int, dropout: float = 0.1):\n        super().__init__()\n
+    \       assert d_model % n_heads == 0\n        self.d_model = d_model\n        self.n_heads
+    = n_heads\n        self.d_k = d_model // n_heads\n        \n        self.W_q =
+    nn.Linear(d_model, d_model)\n        self.W_k = nn.Linear(d_model, d_model)\n
+    \       self.W_v = nn.Linear(d_model, d_model)\n        self.W_o = nn.Linear(d_model,
+    d_model)\n        self.dropout = nn.Dropout(dropout)\n        \n    def forward(self,
+    x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:\n        B, T, C
+    = x.shape\n        # 线性变换并拆分为多头\n        q = self.W_q(x).view(B, T, self.n_heads,
+    self.d_k).transpose(1, 2)  # (B, n_heads, T, d_k)\n        k = self.W_k(x).view(B,
+    T, self.n_heads, self.d_k).transpose(1, 2)\n        v = self.W_v(x).view(B, T,
+    self.n_heads, self.d_k).transpose(1, 2)\n        \n        # 缩放点积注意力\n        attn_scores
+    = torch.matmul(q, k.transpose(-2, -1)) / (self.d_k ** 0.5)  # (B, n_heads, T,
+    T)\n        \n        # 应用掩码\n        if mask is not None:\n            # mask
+    形状通常为 (B, 1, 1, T) 或 (B, 1, T, T)，这里兼容两种\n            attn_scores = attn_scores.masked_fill(mask
+    == 0, float('-inf'))\n        \n        attn_weights = F.softmax(attn_scores,
+    dim=-1)\n        attn_weights = self.dropout(attn_weights)\n        \n        #
+    加权求和\n        out = torch.matmul(attn_weights, v)  # (B, n_heads, T, d_k)\n        out
+    = out.transpose(1, 2).contiguous().view(B, T, C)  # (B, T, d_model)\n        out
+    = self.W_o(out)\n        return out\n```\n\n说明：\n\n- 掩码 mask 通常来自 attention_mask，其中
+    0 表示需要屏蔽的位置。在实际使用中，可以通过一个函数生成因果掩码并与填充掩码结合。\n\n- 该实现省略了单独的 bias 和缓存机制，专注于注意力核心。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JFt9wvuo1ijVfLktrcDcfTR8nTd
+  block_id: BHugdVhLHoArhdxEVgocXFGzn2d
+  page_token: JFt9wvuo1ijVfLktrcDcfTR8nTd
+  original_title: 使用PyTorch实现Multi-head Self-Attention（带mask）
+  imported_at: '2026-09-21'

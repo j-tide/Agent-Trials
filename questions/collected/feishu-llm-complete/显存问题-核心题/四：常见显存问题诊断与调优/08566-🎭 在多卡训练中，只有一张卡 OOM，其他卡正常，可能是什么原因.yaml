@@ -1,0 +1,49 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4156a764802a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3AD 在多卡训练中，只有一张卡 OOM，其他卡正常，可能是什么原因？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F3AD 在多卡训练中，只有一张卡 OOM，其他卡正常，可能是什么原因？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 这种不对称 OOM 通常源于负载不均衡：不同卡上的数据、模型层、激活或优化器状态分布不均，导致某卡峰值过高。\n\n\U0001F50D
+    常见原因：\n\n- 数据分布差异：如果使用不均匀的数据分割（如某些卡处理显著更长的样本），激活显存差异大。\n\n- 流水线并行（PP）的层分配不均：首卡可能有
+    Embedding 层，末卡有输出头，参数和激活更多，若切分不调整，易 OOM。\n\n- 张量并行（TP）头数分配：在 TP 中，若某卡负责的注意力头数更多（设计错误），权重和激活不对称。\n\n-
+    ZeRO 分片不完美：ZeRO-3 虽然分片，但某些小参数（如 bias）可能被复制到所有卡，叠加通信缓冲区导致某卡额外占用。\n\n- 通信任务差异：在部分
+    Mesh 拓扑中，某卡可能承担更多的 NCCL 集合通信根节点角色，额外分配缓冲。\n\n- CUDA 上下文或驱动版本差异：极少见，不同卡可能由于硬件微小差异或温度降频影响内存分配行为？\n\n\U0001F6E0️
+    解决：\n\n- 检查每卡 nvidia-smi 和 torch.cuda.memory_allocated() 的差异。\n\n- 对于 PP，手动调整层分配或使用自动平衡工具。\n\n-
+    确保数据加载中 DistributedSampler 正确且不做额外排序导致某卡序列长度集中。\n\n- 禁用或减小通信缓冲（overlap_comm=False）。\n\n-
+    尝试关闭 NCCL 的 PXN 等特性。\n\n✅ 因此，单卡 OOM 往往是模型或数据切分不均匀的信号，需针对性均衡。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BbCrwkO3wiWmAikFy0zc2OK6nPg
+  block_id: NNmfdOCcdoAlZMx4nnMcMzZjnMb
+  page_token: BbCrwkO3wiWmAikFy0zc2OK6nPg
+  original_title: "\U0001F3AD 在多卡训练中，只有一张卡 OOM，其他卡正常，可能是什么原因？"
+  imported_at: '2026-09-21'

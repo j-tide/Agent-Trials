@@ -1,0 +1,123 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9a9ec4e27dbe
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 5、场景题：Agent 需要同时调用 3 个外部 API（搜索、天气、数据库），如何用 WebFlux 实现并发调用并合并结果？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 5、场景题：Agent 需要同时调用 3 个外部 API（搜索、天气、数据库），如何用 WebFlux 实现并发调用并合并结果？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐⭐（Mono.zip、Flux.merge、超时控制、fallback 降级）
+
+    1️⃣ Common Answer
+
+    可以用 Mono.zip 把三个 Mono 合并，它们会并发执行。或者用 Flux.merge 合并多个流。加个 timeout 设置超时时间，超时了就返回默认值。
+
+    2️⃣ Impressive Answer
+
+    - Mono.zip 并发合并：
+
+    ```text
+    public Mono<AgentContext> gatherContext(String query) {
+        Mono<SearchResult> searchMono = searchClient.search(query)
+            .timeout(Duration.ofSeconds(3))
+            .onErrorResume(e -> Mono.just(SearchResult.empty()));
+
+        Mono<WeatherInfo> weatherMono = weatherClient.getWeather(query)
+            .timeout(Duration.ofSeconds(2))
+            .onErrorResume(e -> Mono.just(WeatherInfo.unavailable()));
+
+        Mono<DbResult> dbMono = Mono.fromCallable(() -> dbService.query(query))
+            .subscribeOn(Schedulers.boundedElastic())
+            .timeout(Duration.ofSeconds(5))
+            .onErrorResume(e -> Mono.just(DbResult.empty()));
+
+        return Mono.zip(searchMono, weatherMono, dbMono)
+            .map(tuple -> AgentContext.builder()
+                .search(tuple.getT1())
+                .weather(tuple.getT2())
+                .dbResult(tuple.getT3())
+                .build());
+    }
+    ```
+
+    - 关键设计点：
+
+    - 进阶优化：如果某个 API 非必需（如天气），可以用 Mono.zipDelayError() 延迟错误处理，优先返回已完成的结果；配合 Mono.firstWithSignal() 实现"谁先返回用谁"的竞速模式。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    把鉴权限流集中到网关，就像给整个 Agent 系统装上了智能门禁和流量阀门——既保证了安全性，又避免了下游服务的防护短板，是所有高流量 AI 应用必须要走的一步。
+
+    - 服务提供者启动时，通过 OpenAPI 向 Nacos Server 发送 POST /nacos/v1/ns/instance 注册自己，包含 IP、端口、元数据等信息。
+
+    - 服务消费者订阅服务名，Nacos Server 将当前健康的实例列表推送给消费者。后续若实例变化，使用 UDP 推送 + 定时轮询 混合机制保证最终一致。
+
+    - 临时实例 采用客户端主动上报心跳（5s 间隔），Nacos 15s 内未收到心跳则标记不健康，30s 剔除。这符合 AP 模型，适合弹性扩缩的微服务。
+
+    - 持久实例 由 Nacos Server 主动探测（TCP/HTTP），即使客户端断连也不会立即删除，适合数据库等有状态服务，体现 CP 模型。
+
+    - Nacos Server 集群使用简化的 Raft 协议（CP 模式）或 Distro 协议（AP 模式）进行数据同步。默认 AP，但可以在注册持久实例或进行配置管理时切换到 CP，这是它最大的灵活性所在。
+
+    整个方案最核心的设计理念是：用元数据给实例打标，用染色标记透传流量，用负载均衡策略实现路由隔离。这套思路不仅适用于模型服务，也同样适用于多版本 API、多地域部署等灰度场景。当你的 Agent 平台需要从单一模型平滑过渡到多模型混合推理时，这种架构能让你在不修改任何业务代码的前提下，动态调整流量，真正做到了“发布即上线，上线可验证，验证再全量”。
+
+    - 一级缓存：成品 Bean
+
+    - 二级缓存：早期暴露的 Bean（未填充属性）
+
+    - 三级缓存：ObjectFactory，用于生成 AOP 代理的早期引用
+
+    - 不可变性：字段可以声明为 final，保证依赖不会被意外修改
+
+    - 完整性：对象创建时就注入所有依赖，不会出现"半初始化"状态
+
+    - 可测试性：单元测试时直接 new 传参，不依赖 Spring 容器
+
+    - 循环依赖暴露：构造器注入会在启动时暴露循环依赖，而不是运行时才发现
+
+    - 局部处理：onErrorReturn(默认值)、onErrorResume(恢复流)、onErrorMap(转换异常)
+
+    - 全局处理：实现 WebExceptionHandler 或用@ControllerAdvice + @ExceptionHandler（WebFlux 版本）
+
+    - finally 语义：doFinally(SignalType→回调)，无论成功/失败都执行
+
+    - 独立超时：每个调用设置不同的超时时间（搜索 3s、天气 2s、DB 5s），而非统一超时
+
+    - 独立降级：onErrorResume 返回空结果而非抛异常，一个失败不影响其他
+
+    - 阻塞隔离：DB 查询是阻塞的，用 subscribeOn(Schedulers.boundedElastic()) 隔离到弹性线程池
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CDpWwiHlFibwCokmhxDcZEhbnQb
+  block_id: doxcnx5MbBKP8JpphhzSh49PFBf
+  page_token: CDpWwiHlFibwCokmhxDcZEhbnQb
+  original_title: 5、场景题：Agent 需要同时调用 3 个外部 API（搜索、天气、数据库），如何用 WebFlux 实现并发调用并合并结果？
+  imported_at: '2026-09-21'

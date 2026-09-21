@@ -1,0 +1,150 @@
+---
+schema_version: 1
+id: feishu-llm-complete-731e2dbfaa6f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9ED 1. SpringAI 的 Advisor 机制是什么？如何用 Advisor 实现 RAG？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F9ED 1. SpringAI 的 Advisor 机制是什么？如何用 Advisor 实现 RAG？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    一句话：Advisor 是 Spring AI 中拦截和增强请求/响应的切面（AOP）机制，可以在调用 LLM 前后插入自定义逻辑。
+
+    它借鉴了 Spring AOP 的思想，但专门针对 AI 调用链设计。每个 Advisor 都可以在 Prompt 发送给模型之前做预处理，在模型返回之后做后处理，甚至完全替换请求。
+
+    [图片内容未导入]
+
+    Advisor 接口定义（简化）：
+
+    ```java
+    public interface RequestResponseAdvisor {
+        // 前置拦截：修改 Prompt
+        AdvisedRequest adviseRequest(AdvisedRequest request, Map<String, Object> context);
+        // 后置拦截：修改响应
+        ChatResponse adviseResponse(ChatResponse response, Map<String, Object> context);
+        // 优先级
+        int getOrder();
+    }
+    ```
+
+    如何用 Advisor 实现 RAG？
+
+    核心思路是编写一个 RetrievalAugmentationAdvisor，在请求发送前，从向量数据库中检索相关文档，插入到 Prompt 的上下文中。
+
+    ```text
+    用户问题 → Advisor 拦截 → 向量检索 → 拼接文档 → 增强后的 Prompt → LLM → 回答
+    ```
+
+    代码示例：实现一个简单的 RAG Advisor
+
+    ```java
+    @Component
+    public class RagAdvisor implements RequestResponseAdvisor {
+
+        private final VectorStore vectorStore;
+
+        public RagAdvisor(VectorStore vectorStore) {
+            this.vectorStore = vectorStore;
+        }
+
+        @Override
+        public AdvisedRequest adviseRequest(AdvisedRequest request, Map<String, Object> context) {
+            // 1. 获取用户原始输入
+            String userQuery = request.userText();
+            // 2. 从向量库检索相关文档
+            List<Document> docs = vectorStore.similaritySearch(SearchRequest.query(userQuery).withTopK(3));
+            // 3. 拼接检索结果
+            String contextText = docs.stream()
+                    .map(Document::getContent)
+                    .collect(Collectors.joining("\n\n"));
+            // 4. 构建增强后的系统提示词
+            String augmentedSystem = String.format(
+                    "根据以下参考资料回答用户问题。如果资料中没有答案，请如实告知。\n\n参考资料：\n%s", contextText
+            );
+            // 5. 修改请求，注入上下文
+            return AdvisedRequest.from(request)
+                    .withSystemText(augmentedSystem + "\n\n" + request.systemText())
+                    .build();
+        }
+
+        @Override
+        public ChatResponse adviseResponse(ChatResponse response, Map<String, Object> context) {
+            // 这里可做后处理，如提取引用、记录日志
+            return response;
+        }
+
+        @Override
+        public int getOrder() { return 0; }
+    }
+    ```
+
+    在 ChatClient 中使用：
+
+    ```java
+    @Bean
+    public ChatClient chatClient(ChatClient.Builder builder, RagAdvisor ragAdvisor) {
+        return builder
+                .defaultAdvisors(ragAdvisor)
+                .build();
+    }
+
+    // 调用时
+    String answer = chatClient.prompt().user("公司去年的营收是多少？").call().content();
+    ```
+
+    Advisor 链的执行模型：
+
+    Spring AI 支持多个 Advisor 串联，形成一个链条。比如你可以同时启用：
+
+    - RagAdvisor：检索增强
+
+    - LoggingAdvisor：记录请求响应日志
+
+    - ContentGuardAdvisor：过滤输出中的敏感词
+
+    它们按 getOrder() 的值顺序执行，像一个 Servlet Filter 链，但专门服务于 AI 调用。
+
+    Advisor vs LangChain 的 Runnable：
+
+    两者目标相似——都是“在 LLM 调用前后插入逻辑”。但实现哲学不同：
+
+    - Advisor 是 Spring 的 AOP 风格，面向切面，无侵入式配置。
+
+    - Runnable 是管道式组合，你需要显式地用 | 连接各个步骤。
+
+    在 Spring 生态中，Advisor 更符合 Java 开发者的习惯，且天然集成 Spring 的 Bean 管理和配置体系。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AFyRwmNoZiYw94kQOOhc35Junpd
+  block_id: doxcnFnGYeYJKK0pdyHY7HdjIxd
+  page_token: AFyRwmNoZiYw94kQOOhc35Junpd
+  original_title: "\U0001F9ED 1. SpringAI 的 Advisor 机制是什么？如何用 Advisor 实现 RAG？"
+  imported_at: '2026-09-21'

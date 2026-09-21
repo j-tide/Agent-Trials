@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cc62c3ad7f12
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当 batch size 很小时，BN 的性能为什么会严重下降？有什么替代方案？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块二：优化算法与训练技术
+tags: &1
+- 深度学习面（精选）
+- 模块二：优化算法与训练技术
+content:
+  prompt: 当 batch size 很小时，BN 的性能为什么会严重下降？有什么替代方案？
+answer:
+  mode: rubric
+  reference_answer: |-
+    性能下降原因：
+
+    - BN 依赖 mini-batch 的统计量来估计全局的数据分布。当 batch size 很小时，每个 mini-batch 的样本数量不足以反映整体数据的均值和方差，导致统计量的估计噪声极大。
+
+    - 训练时，这种噪声会引入不稳定的归一化，使训练曲线震荡，收敛变慢甚至不收敛。
+
+    - 测试时使用全局移动平均统计量，但训练时由于 batch 统计量噪声大，移动平均估计也不够准确，导致训练和测试之间的不一致性加剧（分布偏移），损害泛化能力。
+
+    - 在极小 batch（如 1 或 2）中，方差甚至可能为零或异常波动，导致数值问题。
+
+    替代方案：
+
+    - Layer Normalization (LN)：在特征维度内归一化，不依赖 batch 维度，适合小 batch 或序列模型。
+
+    - Instance Normalization (IN)：在单个样本的每个通道上归一化，通常用于风格迁移。
+
+    - Group Normalization (GN)：将通道分组，在每组内归一化，是 LN 和 IN 的折中，对于小 batch 的图像任务表现很好，甚至超过 BN。
+
+    - Batch Renormalization：在训练时使用经过修正的移动平均统计量来缓解小 batch 噪声。
+
+    - SyncBN (Synchronized BN)：跨 GPU 通信计算全局 batch 统计量，但无法减小单机极小 batch 的根本问题。
+
+    - 使用更小的学习率和更保守的训练策略，但往往不及 GN/LN 有效。
+
+    因此，在小 batch 场景（比如目标检测、分割因显存限制 batch 为 1~2），通常直接采用 GN 或 LN，而不使用 BN。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MEkDwLvpcivtflkXAq3cZb1SnZd
+  block_id: RctcdvF6LoZqgsxATnvczU3rnid
+  page_token: MEkDwLvpcivtflkXAq3cZb1SnZd
+  original_title: 当 batch size 很小时，BN 的性能为什么会严重下降？有什么替代方案？
+  imported_at: '2026-09-21'

@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9dda21705bfa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EA 你如何对 LangChain 的各个组件（Retriever, LLM, Chain）进行单元测试？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 十、生态对比与最佳实践
+tags: &1
+- LangChain面（高频）
+- 十、生态对比与最佳实践
+content:
+  prompt: "\U0001F9EA 你如何对 LangChain 的各个组件（Retriever, LLM, Chain）进行单元测试？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    单元测试的关键是隔离外部依赖，让测试快速、可靠、可重复。
+
+    测试 Retriever：
+
+    - Mock 向量库。使用 unittest.mock.patch 替换 vectorstore.similarity_search 的返回值。
+
+    - 测试自定义检索逻辑（如混合检索的融合算法）时，构造一个小的本地文档集，使用 InMemoryVectorStore（Chroma 支持）进行真实检索，但不需要网络。
+
+    - 验证检索结果的数量、相关性顺序、元数据过滤是否生效。
+
+    测试 LLM：
+
+    - LangChain 提供了 FakeLLM 和 FakeListLLM，可以按顺序返回预设的文本。用它们来模拟 LLM 的响应。
+
+    - 如果测试需要验证对 LLM 的调用参数（如 temperature, max_tokens），使用 unittest.mock 包装 ChatOpenAI，并断言调用时传入的参数。
+
+    - 对于简单的 LLM 调用，根本不需要测试 LLM 本身，而是测试你的链是否正确地构造了 Prompt，以及是否正确地处理了 LLM 的返回值。
+
+    测试 Chain：
+
+    - 对于 LCEL 链：使用 RunnableLambda 将关键步骤替换为可控制的 mock 函数。例如，将 LLM 替换为 RunnableLambda(lambda x: AIMessage(content="测试输出"))。
+
+    - 使用 chain.invoke 并验证输出是否符合预期。这比测试内部方法更有价值，因为它验证了端到端的行为。
+
+    - 对于包含条件分支的链，构造不同的输入，确保分支逻辑正确。
+
+    测试 Agent：
+
+    - 使用 FakeLLM 返回预设的 AgentAction 或 AgentFinish，模拟 Agent 的决策过程。
+
+    - 测试 AgentExecutor 的错误处理：比如工具调用失败时，Agent 是否能正确重试或返回错误信息。
+
+    - 不测试 Agent 的“智能”，只测试它的“逻辑流程”。
+
+    测试 Memory：
+
+    - 创建 Memory 实例，手动调用 save_context，然后调用 load_memory_variables，断言返回的历史记录是否正确。
+
+    - 测试窗口记忆的裁剪、摘要记忆的触发等。
+
+    集成测试：在单元测试之外，建议搭建一个简单的集成测试环境，使用真实的 LLM（但限制调用次数）或本地小模型，运行端到端的测试。这个可以放在 CI 的夜间构建中。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/OutcwjKcbiXdEJkV2g7cmhUnnkf
+  block_id: EeOOd6RtOorNmaxRkTgciigmnX2
+  page_token: OutcwjKcbiXdEJkV2g7cmhUnnkf
+  original_title: "\U0001F9EA 你如何对 LangChain 的各个组件（Retriever, LLM, Chain）进行单元测试？"
+  imported_at: '2026-09-21'

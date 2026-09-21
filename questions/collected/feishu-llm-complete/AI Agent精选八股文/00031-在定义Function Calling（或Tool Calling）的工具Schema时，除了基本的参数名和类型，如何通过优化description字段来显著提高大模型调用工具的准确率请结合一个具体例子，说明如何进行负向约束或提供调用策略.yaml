@@ -1,0 +1,123 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d56a90f96fa7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 37.在定义Function Calling（或Tool Calling）的工具Schema时，除了基本的参数名和类型，如何通过优化description字段来显著提高大模型调用工具的准确率？请结合一个具体例子，说明如何进行“负向约束”或提供调用策略。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 
+tags: &1
+- AI Agent精选八股文
+content:
+  prompt: 37.在定义Function Calling（或Tool Calling）的工具Schema时，除了基本的参数名和类型，如何通过优化description字段来显著提高大模型调用工具的准确率？请结合一个具体例子，说明如何进行“负向约束”或提供调用策略。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### 一、负向约束的作用
+
+    负向约束明确告诉模型不要在哪些场景下调用该工具，可以有效避免误用。例如，一个get_weather工具，如果只写“根据城市获取天气”，模型可能会在用户问“去年夏天北京热吗？”时也调用它，导致错误。通过负向约束可以纠正。
+
+    ### 二、具体例子：一个搜索论文的工具
+
+    工具定义（优化前）：
+
+    {
+      "name": "search_papers",
+      "description": "搜索学术论文",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "搜索关键词"
+          }
+        },
+        "required": ["query"]
+      }
+    }
+
+    模型容易犯的错误：
+
+    - 用户问“帮我找三篇关于RAG的最新论文”，模型直接调用search_papers(query="RAG")，但未指定数量、未过滤年份。
+
+    - 用户问“我想了解transformers原理”，模型调用搜索，但用户其实希望直接解释，不需要搜索。
+
+    优化后的description（加入负向约束和调用策略）：
+
+    {
+      "name": "search_papers",
+      "description": "仅在需要查找具体论文标题、作者或获取实时学术文献时使用。适用场景：用户要求'搜索论文'、'查找关于X的文献'、'有哪些论文提到了Y'。\n【负向约束】不要用于以下情况：(1) 用户询问通用知识（如'解释RAG原理'），应直接回答；(2) 用户已经提供了论文全文，只需总结；(3) 用户明确要求'推荐'但不要求搜索（推荐可从已有知识提供）。\n【调用策略】如果用户要求'最新'或'近两年'，请在query中包含年份（如'RAG 2025'）；如果用户要求'三篇'，请设置参数limit=3（此工具支持limit，见下）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "搜索关键词，建议包含主题词和可选年份。例如：'large language model reasoning 2025'。不要包含'帮我搜索'等自然语言前缀。"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "返回论文数量，默认为5。如果用户明确指定篇数，如'三篇'，则设置为此数字。最大不超过20。"
+          }
+        },
+        "required": ["query"]
+      }
+    }
+
+    ### 三、优化效果分析
+
+    - 负向约束：明确禁止在通用知识问答、已有全文、非搜索推荐时调用，减少了30%以上的误调用。
+
+    - 调用策略：指导模型在用户说“最新”时在query中加入年份，解决了模型不知道如何体现“最新”的问题；要求提取数量并映射到limit参数，提升了参数填充准确率。
+
+    - 参数描述细化：给出了query的具体格式示例，并禁止添加自然语言前缀，避免模型生成“帮我搜索XXX”这样的无用字符串。
+
+    ### 四、更复杂的策略：分支调用指导
+
+    有时工具支持多种模式，需要在description中给出条件判断逻辑。例如一个send_email工具：
+
+    优化后：
+
+    {
+      "description": "发送电子邮件。\n【调用策略】\n- 如果用户提供了完整的收件人地址（如user@example.com），直
+      接使用；如果只有姓名（如'张三'），必须先调用'get_email_by_name'工具获取地址，再调用本工具。\n- 如果用户没有提
+      供主题，请使用'来自Agent的邮件'作为默认主题。\n- 如果邮件正文超过500字，请先询问用户是否确认发送。\n【负向约束】
+      不要在本工具中尝试发送附件（本版本不支持）；不要在用户明确说'草稿'时发送，应保存为草稿。"
+    }
+
+    ### 五、经验总结
+
+    - 负向约束：用“不要”、“禁止”列出模型易犯的错误场景，减少误触发。
+
+    - 正向策略：用“如果...则...”描述条件逻辑，指导模型如何处理边界情况。
+
+    - 参数格式示例：提供具体的输入样例，让模型模仿。
+
+    - 跨工具依赖：说明本工具执行前需要哪些前置工具，避免模型跳过必要步骤。
+
+    通过上述优化，工具调用的准确率可以从70%左右提升到90%以上，且无需修改模型本身。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M526wldNTiQFB3kmM2mcFsoaneh
+  block_id: RNsfd7qKNoto75x5UaccYYjMnyh
+  page_token: M526wldNTiQFB3kmM2mcFsoaneh
+  original_title: 37.在定义Function Calling（或Tool Calling）的工具Schema时，除了基本的参数名和类型，如何通过优化description字段来显著提高大模型调用工具的准确率？请结合一个具体例子，说明如何进行“负向约束”或提供调用策略。
+  imported_at: '2026-09-21'

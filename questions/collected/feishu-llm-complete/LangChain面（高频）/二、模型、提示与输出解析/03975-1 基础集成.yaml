@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8e0367ac2a7b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 8.1 基础集成
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: 8.1 基础集成
+answer:
+  mode: rubric
+  reference_answer: |-
+    最基本的集成模式是：prompt | model | parser。数据流如下：
+
+    - prompt 接收用户输入，生成 ChatPromptValue 或字符串。
+
+    - model 接收 Prompt 的输出，生成 AIMessage 或字符串。
+
+    - parser 接收模型的输出，调用其 parse 方法，将文本转换为目标对象（如 Pydantic 实例、字典、列表等）。
+
+    ```python
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_openai import ChatOpenAI
+    from langchain_core.output_parsers import PydanticOutputParser
+    from pydantic import BaseModel, Field
+
+    # 1. 定义数据结构
+    class Person(BaseModel):
+        name: str = Field(description="姓名")
+        age: int = Field(description="年龄")
+
+    # 2. 创建解析器
+    parser = PydanticOutputParser(pydantic_object=Person)
+
+    # 3. 构建 Prompt，注入格式指令
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "你是一个信息提取助手。{format_instructions}"),
+        ("human", "从以下文本提取信息：{text}")
+    ])
+
+    # 4. 模型
+    model = ChatOpenAI(model="gpt-4o", temperature=0)
+
+    # 5. LCEL 链：使用管道符串联
+    chain = prompt | model | parser
+
+    # 6. 调用
+    result = chain.invoke({
+        "text": "我叫张三，今年28岁。",
+        "format_instructions": parser.get_format_instructions()
+    })
+    print(result)  # Person(name='张三', age=28)
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/FkhTw9yBsiro60k5CSIcZezcnj6
+  block_id: GOOzd1A7Zoc5djxH9eDcMxCGndd
+  page_token: FkhTw9yBsiro60k5CSIcZezcnj6
+  original_title: 8.1 基础集成
+  imported_at: '2026-09-21'

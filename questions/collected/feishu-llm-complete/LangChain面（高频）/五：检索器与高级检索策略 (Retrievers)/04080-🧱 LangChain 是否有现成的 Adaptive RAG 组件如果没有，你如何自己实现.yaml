@@ -1,0 +1,101 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7bded568540c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9F1 LangChain 是否有现成的 Adaptive RAG 组件？如果没有，你如何自己实现？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F9F1 LangChain 是否有现成的 Adaptive RAG 组件？如果没有，你如何自己实现？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangChain 目前没有一个名为“AdaptiveRAG”的现成组件。但是，它提供了一系列组合工具，让我们可以轻松搭建出自适应检索系统。核心思路是利用 Router 模式或 Agent 模式。
+
+    实现方案一：使用 RouterChain（路由链）
+    LangChain 的 RouterChain 本身可以根据输入动态选择下一个链。我们可以创建多个预配置的检索链（每个对应一种问题类型），然后用 RouterChain 根据问题内容自动路由。
+
+    具体步骤：
+
+    - 定义多个专用链：
+
+    - 创建路由逻辑：编写一个 RouterPrompt，让 LLM 输出要选择哪个链。例如：
+
+    给定用户问题，判断它属于哪一类：
+    - fact: 需要精确匹配的实体、数字、代码等
+    - concept: 概念解释、原理
+    - multi: 需要多步推理
+    请输出类别名称。
+
+    - 使用 RouterChain 组合这些链。当用户提问时，路由器解析出类别，自动调用对应的专用链。
+
+    实现方案二：自定义 AdaptiveRetriever（更灵活）
+    直接继承 BaseRetriever，在其内部实现动态选择逻辑。这样对外暴露仍是一个统一的 Retriever 接口。
+
+    class AdaptiveRetriever(BaseRetriever):
+        def __init__(self, vector_retriever, bm25_retriever, llm):
+            self.vector_retriever = vector_retriever
+            self.bm25_retriever = bm25_retriever
+            self.llm = llm
+
+        def _analyze_query(self, query):
+            # 用 LLM 分析问题类型和特征（或使用简单规则）
+            # 返回特征字典，如 {"has_number": True, "is_concept": False}
+            prompt = PromptTemplate.from_template("分析以下查询的特征：{query}")
+            return llm.invoke(prompt.format(query=query))
+
+        def _get_relevant_documents(self, query):
+            features = self._analyze_query(query)
+            # 根据特征动态调整参数
+            if features.get("is_factual"):
+                # 事实型：提高 BM25 权重，降低 k 值
+                ensemble = EnsembleRetriever(
+                    retrievers=[self.bm25_retriever, self.vector_retriever],
+                    weights=[0.7, 0.3]
+                )
+                return ensemble.get_relevant_documents(query)[:5]
+            elif features.get("needs_multihop"):
+                # 多跳：使用多步检索器
+                return MultiStepQueryRetriever(...).get_relevant_documents(query)
+            else:
+                # 默认：混合检索加 HyDE
+                hyde_retriever = ...  # 构造 HyDE 检索器
+                return hyde_retriever.get_relevant_documents(query)
+
+    方案三：Agent 驱动（最强大）
+
+    创建一个 Agent，赋予它多个检索工具（向量工具、关键词工具、多步检索工具等），让 Agent 自己根据问题决定调用哪个工具、以什么参数调用。这是目前最灵活的自适应方案，完全由 LLM 做决策。
+
+    关键点：无论哪种实现，都需要对问题特征有准确的判断。可以直接使用 LLM 进行零样本分类，或者训练一个极小的 BERT 分类器来加快速度、降低成本。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HEY1ws44PidEGlkYttccK5AenXe
+  block_id: SxyadIOrLoCkx7xziW4c1p5Vnf3
+  page_token: HEY1ws44PidEGlkYttccK5AenXe
+  original_title: "\U0001F9F1 LangChain 是否有现成的 Adaptive RAG 组件？如果没有，你如何自己实现？"
+  imported_at: '2026-09-21'

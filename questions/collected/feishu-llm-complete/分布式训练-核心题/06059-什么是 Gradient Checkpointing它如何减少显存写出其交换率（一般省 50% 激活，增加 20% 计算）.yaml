@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dfcb202be563
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是 Gradient Checkpointing？它如何减少显存？写出其交换率（一般省 50% 激活，增加 20% 计算）。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 什么是 Gradient Checkpointing？它如何减少显存？写出其交换率（一般省 50% 激活，增加 20% 计算）。
+answer:
+  mode: rubric
+  reference_answer: |-
+    Gradient Checkpointing（梯度检查点）是一种用计算换显存的技术。在训练网络时，通常需要保存每一层的中间激活值，以便在反向传播时计算梯度。梯度检查点则在前向传播时，只选择性地保存部分层的输入（称为检查点），而丢弃其他中间激活。当反向传播需要这些丢弃的激活值时，就从最近的检查点开始重新执行前向计算来恢复它们。
+
+    对于 Transformer，通常以每个层（一个注意力块+一个FFN块）为单元设置检查点。前向时，只保存该层的输入张量（即上一层的输出），该层内部的 Q、K、V、注意力矩阵、FFN 中间输出等全部丢弃。反向传播到该层时，用保存的输入重新运行该层的前向，得到所有需要的中间激活，再计算梯度。
+
+    节省显存：这种方法使得激活值的总显存从“所有层的全部中间结果”降低到“只存检查点张量”，典型情况下能将激活显存减少约 50%~70%。对于深层网络，节省效果显著。
+
+    计算开销：每个检查点层需要额外执行一次前向传播，因此总计算量增加。对于 Transformer，通常增加约 15%~25% 的计算量（取决于检查点划分的粒度）。一般说法是“省 50% 激活，增加 20% 计算”。
+
+    交换率公式可近似为：
+
+    [图片内容未导入]
+
+    其中 segments 是将网络划分的段数。若每个层为一个段，则能极大节省激活显存。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: R4r3dggVloJiHtxgc1McNvJWnnd
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 什么是 Gradient Checkpointing？它如何减少显存？写出其交换率（一般省 50% 激活，增加 20% 计算）。
+  imported_at: '2026-09-21'

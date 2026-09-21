@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bf5e43e2eeff
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 LLM.int8() 混合精度矩阵乘法的简化版：识别输入 X 中绝对值大于阈值（如 6.0）的特征列，这些列用 FP16 计算，其余列量化为 INT8
+  计算，最后合并结果
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现 LLM.int8() 混合精度矩阵乘法的简化版：识别输入 X 中绝对值大于阈值（如 6.0）的特征列，这些列用 FP16 计算，其余列量化为
+    INT8 计算，最后合并结果
+answer:
+  mode: rubric
+  reference_answer: "LLM.int8() 观察到大语言模型激活中存在少量离群特征维度（异常值），它们集中出现在几个特定列上。将这些离群列用 FP16
+    计算，其余大部分列用 INT8 量化计算，可以同时保持速度与精度。\n\n实现简化版：\n\n- 输入 X: [M, K]，权重 W: [N, K]（注意形状，LLM
+    通常是 X @ W^T）。\n\n- 统计 X 每一列的最大绝对值，若某列的最大绝对值 > threshold（如 6.0），则标记该列为离群列 outlier_cols。\n\n-
+    将 X 分为两部分：X_out 包含离群列（FP16），X_in 为其余列。\n\n- 权重 W 相应分为 W_out 和 W_in。\n\n- 对 X_out
+    @ W_out^T 使用 FP16 矩阵乘法（高精度）。\n\n- 对 X_in 和 W_in 进行 INT8 量化（动态或静态）和整数矩阵乘，得到 INT32
+    结果后反量化。\n\n- 两部分结果相加得到最终输出。\n\n代码：\n\n```python\ndef llm_int8_matmul_simple(X:
+    torch.Tensor, W: torch.Tensor, threshold=6.0, bits=8):\n    \"\"\"\n    X: [M,
+    K] FP32 激活\n    W: [N, K] FP32 权重\n    threshold: 离群值阈值\n    Returns:\n        Y:
+    [M, N] FP32\n    \"\"\"\n    M, K = X.shape\n    N = W.shape[0]\n    \n    # 识别离群列：沿
+    M 维度取每个特征列的绝对最大值\n    col_max, _ = torch.max(torch.abs(X), dim=0)  # [K]\n    outlier_mask
+    = col_max > threshold            # [K] bool\n    inlier_mask = ~outlier_mask\n
+    \   \n    # 分离离群和正常部分\n    X_out = X[:, outlier_mask]  # FP32 -> 后续转 FP16\n    W_out
+    = W[:, outlier_mask]  # FP32 -> FP16\n    \n    X_in = X[:, inlier_mask]\n    W_in
+    = W[:, inlier_mask]\n    \n    # FP16 计算离群部分\n    Y_out = torch.matmul(X_out.half(),
+    W_out.t().half()).float()\n    \n    # INT8 计算正常部分\n    if X_in.shape[1] > 0:\n
+    \       # 使用动态量化方法\n        Y_in = dynamic_quantize_linear(X_in, W_in.contiguous(),
+    \n                                       # 需要提前量化权重或在线量化。这里简化：在线量化 W_in\n                                       #
+    我们可以直接调用之前实现的 int8_matmul_sim 等\n                                       )\n        #
+    为简便，我们调用通用 int8 矩阵乘法\n        Y_in_sim, _, _ = int8_matmul_sim(X_in, W_in.t())
+    \ # 注意转置\n        Y_in = Y_in_sim\n    else:\n        Y_in = torch.zeros(M, N,
+    device=X.device)\n    \n    return Y_out + Y_in\n```\n\n说明：真实的 LLM.int8() 中离群特征的维度是固定的（例如在特定注意力头），且离群检测与混合计算在内核级别做了优化。这里简化为列级别的阈值检测，按列拆分并分别用
+    FP16 和 INT8 计算，合并结果。可动态量化 W_in 使用 per-channel 量化以获得更好精度。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: Vq9cdWAL2oIn67xUv8nc61MunTf
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 实现 LLM.int8() 混合精度矩阵乘法的简化版：识别输入 X 中绝对值大于阈值（如 6.0）的特征列，这些列用 FP16
+    计算，其余列量化为 INT8 计算，最后合并结果
+  imported_at: '2026-09-21'

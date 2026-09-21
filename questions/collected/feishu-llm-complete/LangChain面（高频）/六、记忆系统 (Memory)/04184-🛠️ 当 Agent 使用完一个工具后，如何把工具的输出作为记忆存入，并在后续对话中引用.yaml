@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6d33596cfef6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E0️ 当 Agent 使用完一个工具后，如何把工具的输出作为记忆存入，并在后续对话中引用？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F6E0️ 当 Agent 使用完一个工具后，如何把工具的输出作为记忆存入，并在后续对话中引用？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    工具输出通常作为 observation 直接返回给 LLM 进行下一步推理，但默认不会自动存入 Memory。要在后续对话中引用，必须显式地将工具输出保存到 Memory 或长期记忆库。
+
+    实现策略：
+
+    - 利用 Agent 的 Memory 自动保存
+    ConversationBufferMemory 等会保存整个对话历史，包括用户消息和最终的 AI 回复，但不会保存中间的 FunctionMessage 或 ToolMessage（这些只存在于 scratchpad）。要让 Memory 包含工具调用细节，需要将工具输出转化为 AI 能理解的内容，并通过自定义回调或修改 Agent 执行逻辑来写入 Memory。
+
+    - 在 Prompt 中要求 LLM 总结工具输出
+    最简单的方法：在 Agent 的 Prompt 中要求它获得工具结果后，必须用自然语言复述关键信息，这样这部分复述就会出现在最终的 AI 回复中，从而被 Memory 记录。例如：“查询结果显示上海明天25度。基于此，我推荐...”。这样，Memory 就间接记住了天气。
+
+    - 使用专用的“知识库记忆”存储结构化结果
+    对于重要的工具输出（如用户订单号、病历ID），在工具执行后，由应用层逻辑将其存入向量库或键值存储，并关联用户ID。下次对话时，通过检索取出。这是最可靠的方式。
+
+    - 通过回调函数拦截并存储
+    LangChain 提供 on_tool_end 回调。你可以编写一个自定义处理器，在工具调用结束后，将工具名、输入、输出存入 Memory 或数据库。例如：
+
+    ```python
+    class ToolMemoryHandler(BaseCallbackHandler):
+        def on_tool_end(self, output, **kwargs):
+            # 将 output 存储到某个持久化存储
+            persist_tool_output(session_id, output)
+    ```
+
+    最佳实践：对于需要在多轮对话中反复引用的工具结果，主动将其结构化并存入长期记忆，而不只是依赖 LLM 的记忆。这样即使 LLM 上下文窗口被裁剪，关键事实也不会丢失。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PGF2wlLMeiiO4SkG7iycSQbwnNf
+  block_id: Ig0Ud5XcxobbY0xlcMDcFXvqn9g
+  page_token: PGF2wlLMeiiO4SkG7iycSQbwnNf
+  original_title: "\U0001F6E0️ 当 Agent 使用完一个工具后，如何把工具的输出作为记忆存入，并在后续对话中引用？"
+  imported_at: '2026-09-21'

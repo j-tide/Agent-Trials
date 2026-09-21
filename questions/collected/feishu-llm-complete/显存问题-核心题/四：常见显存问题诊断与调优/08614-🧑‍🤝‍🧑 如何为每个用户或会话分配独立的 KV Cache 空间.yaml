@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2130dd209d1d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9D1‍\U0001F91D‍\U0001F9D1 如何为每个用户或会话分配独立的 KV Cache 空间？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F9D1‍\U0001F91D‍\U0001F9D1 如何为每个用户或会话分配独立的 KV Cache 空间？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    逻辑独立，物理共享池
+
+    实际不会为每个用户预先划分一块物理显存，那样会浪费且不灵活。正确做法是：
+
+    - 所有用户的 KV Cache 统一从一个全局 block 池 中分配。
+
+    - 每个会话（请求）维护自己的逻辑页表，指向池中的物理块。
+
+    - 会话之间通过逻辑隔离，无法访问对方的物理块。
+
+    分配策略：
+
+    - 当用户请求到达，调度器从空闲池中取出 block 分配给它，并记入该用户的页表。
+
+    - 可以设置每个会话的最大块数限制（例如依据 max_tokens 计算），防止某个会话垄断资源。
+
+    - 对于优先级高的用户，可赋予更多 block 配额或可抢占低优会话的物理块（通过 swap）。
+
+    多租户场景：
+
+    利用 PagedAttention 的分页特性，可以在保障隔离的同时实现极高的物理内存利用率，不存在物理分区碎片。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tr76wMZZwibI1ikxqpEcjhJtnZc
+  block_id: W5sPdtJfUolnxexlurPcN3wjnsb
+  page_token: Tr76wMZZwibI1ikxqpEcjhJtnZc
+  original_title: "\U0001F9D1‍\U0001F91D‍\U0001F9D1 如何为每个用户或会话分配独立的 KV Cache 空间？"
+  imported_at: '2026-09-21'

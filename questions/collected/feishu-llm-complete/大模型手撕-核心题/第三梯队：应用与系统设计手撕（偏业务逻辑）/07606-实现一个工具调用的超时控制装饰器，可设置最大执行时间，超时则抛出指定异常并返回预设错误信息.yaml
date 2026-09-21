@@ -1,0 +1,114 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d8f00470f186
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个工具调用的超时控制装饰器，可设置最大执行时间，超时则抛出指定异常并返回预设错误信息。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 实现一个工具调用的超时控制装饰器，可设置最大执行时间，超时则抛出指定异常并返回预设错误信息。
+answer:
+  mode: rubric
+  reference_answer: |-
+    实现
+
+    ```python
+    import signal
+    import functools
+    from typing import Any, Callable
+
+    class ToolTimeoutError(Exception):
+        pass
+
+    def with_timeout(timeout_sec: int):
+        """
+        装饰器，为函数调用添加超时控制。
+        Args:
+            timeout_sec: 超时秒数
+        Returns:
+            装饰后的函数，超时时抛出 ToolTimeoutError
+        """
+        def decorator(func: Callable) -> Callable:
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs) -> Any:
+                # 使用 signal 仅适用于 Unix 主线程，若跨平台可改用 concurrent.futures
+                def handler(signum, frame):
+                    raise ToolTimeoutError(f"工具 '{func.__name__}' 执行超时 ({timeout_sec}s)")
+
+                old_handler = signal.signal(signal.SIGALRM, handler)
+                signal.alarm(timeout_sec)
+                try:
+                    result = func(*args, **kwargs)
+                finally:
+                    signal.alarm(0)  # 取消闹钟
+                    signal.signal(signal.SIGALRM, old_handler)
+                return result
+            return wrapper
+        return decorator
+
+    # 跨平台版本（使用 concurrent.futures）
+    def with_timeout_thread(timeout_sec: int):
+        """线程版超时装饰器，适用于所有平台，但开销稍大"""
+        import concurrent.futures
+        def decorator(func):
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(func, *args, **kwargs)
+                    try:
+                        return future.result(timeout=timeout_sec)
+                    except concurrent.futures.TimeoutError:
+                        raise ToolTimeoutError(f"工具 '{func.__name__}' 执行超时 ({timeout_sec}s)")
+            return wrapper
+        return decorator
+
+    # 示例
+    @with_timeout(2)
+    def slow_search(query):
+        import time
+        time.sleep(3)
+        return f"结果: {query}"
+
+    try:
+        print(slow_search("天气"))
+    except ToolTimeoutError as e:
+        print("超时错误:", e)
+    ```
+
+    说明
+
+    - Unix 下使用 signal.alarm 实现低开销超时，但不适用于多线程。
+
+    - 跨平台方案使用 ThreadPoolExecutor + future.result(timeout)，更通用但线程开销略高。
+
+    - 超时异常可被上层重试机制捕获并处理。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  block_id: Jw1PdYzH0oRaNWxzQlocuJ3cnah
+  page_token: Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  original_title: 实现一个工具调用的超时控制装饰器，可设置最大执行时间，超时则抛出指定异常并返回预设错误信息。
+  imported_at: '2026-09-21'

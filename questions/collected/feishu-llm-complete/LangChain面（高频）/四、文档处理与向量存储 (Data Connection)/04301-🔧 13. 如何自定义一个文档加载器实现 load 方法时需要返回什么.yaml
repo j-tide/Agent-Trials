@@ -1,0 +1,97 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3c1259c7cd24
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F527 13. 如何自定义一个文档加载器？实现 load 方法时需要返回什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F527 13. 如何自定义一个文档加载器？实现 load 方法时需要返回什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 LangChain 中自定义加载器，只需要继承 BaseLoader（位于 langchain_core.document_loaders）并实现 lazy_load 方法（返回 Iterator[Document]）即可。load() 方法会自动通过调用 lazy_load 并收集结果返回 List[Document]。所以最标准的做法是实现 lazy_load。
+
+    ```python
+    from typing import Iterator
+    from langchain_core.document_loaders import BaseLoader
+    from langchain_core.documents import Document
+
+    class MyAPILoader(BaseLoader):
+        """从某个 REST API 分页加载文档"""
+
+        def __init__(self, api_url: str, api_key: str, page_size: int = 100):
+            self.api_url = api_url
+            self.api_key = api_key
+            self.page_size = page_size
+
+        def lazy_load(self) -> Iterator[Document]:
+            import requests
+            headers = {"Authorization": f"Bearer {self.api_key}"}
+            page = 1
+            while True:
+                response = requests.get(
+                    self.api_url,
+                    headers=headers,
+                    params={"page": page, "size": self.page_size}
+                )
+                response.raise_for_status()
+                data = response.json()
+                items = data.get("items", [])
+                if not items:
+                    break
+                for item in items:
+                    yield Document(
+                        page_content=item["text"],
+                        metadata={
+                            "source": self.api_url,
+                            "id": item["id"],
+                            "created": item.get("created_at"),
+                        }
+                    )
+                page += 1
+    ```
+
+    关键点：
+
+    - 返回 Document 对象，包含 page_content 和 metadata。
+
+    - lazy_load 是生成器，可以处理无限数据流，内存友好。
+
+    - 建议在 lazy_load 内部处理异常，避免迭代中断；对于需要重试的接口，加入 tenacity 等库。
+
+    - 如果不想用 lazy_load，也可以直接重写 load 方法返回 List[Document]，但就失去了流式处理的好处。
+
+    自定义加载器的优势在于：你可以完全掌控数据获取逻辑，比如加入缓存、限流、数据脱敏。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EY1lwce7uiXgPpklg8tcoBj6nNg
+  block_id: LQGad4ltaoTmyIxZa03ckPxRn9b
+  page_token: EY1lwce7uiXgPpklg8tcoBj6nNg
+  original_title: "\U0001F527 13. 如何自定义一个文档加载器？实现 load 方法时需要返回什么？"
+  imported_at: '2026-09-21'

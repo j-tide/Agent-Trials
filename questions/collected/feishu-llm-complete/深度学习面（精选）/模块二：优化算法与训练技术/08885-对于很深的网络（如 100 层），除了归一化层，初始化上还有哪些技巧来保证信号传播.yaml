@@ -1,0 +1,94 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9b430ae640db
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对于很深的网络（如 100 层），除了归一化层，初始化上还有哪些技巧来保证信号传播？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块二：优化算法与训练技术
+tags: &1
+- 深度学习面（精选）
+- 模块二：优化算法与训练技术
+content:
+  prompt: 对于很深的网络（如 100 层），除了归一化层，初始化上还有哪些技巧来保证信号传播？
+answer:
+  mode: rubric
+  reference_answer: |-
+    除了 Batch Normalization 等归一化技术，初始化方面可以采用以下技巧保证信号传播：
+
+    - 动态等距理论 (Dynamical Isometry)
+    研究如何使输入输出 Jacobian 矩阵的奇异值集中在 1 附近，从而梯度传播时范数保持恒定。正交初始化是实现动态等距的一种有效手段，尤其配合线性或近似线性激活。
+
+    - 正交初始化 + ReLU 的特殊处理
+    正交初始化适用于线性网络，但 ReLU 会破坏正交性。可以采用“正交初始化 + 对权重矩阵进行 SVD 重参数化”或专门设计的卷积正交初始化，以维持等距性质。
+
+    - Scaled Weight Standardization
+    在初始化时将权重标准化（减去均值除以标准差），然后再乘以一个缩放因子 γ，可控制激活幅度。例如 NFNets（Normalizer-Free Networks）使用带缩放因子的权重标准化结合合适的激活缩放来避免 BN。
+
+    - 残差连接与初始化为零的技巧
+    在 ResNet 中，残差分支的最后一层卷积权重可以初始化为零，使得初始时每个残差块近似于恒等映射（H(x)=x），信号可直接传播，深度影响小。类似的思想用于 Transformer 的 FFN 和注意力输出投影。
+
+    - Fixup 初始化
+
+    [图片内容未导入]
+
+    - ZeRO 初始化（针对大模型训练）
+    在分布式训练中，将权重初始化为零，但利用参数的实时分区和优化器状态来打破对称性，不过这不是主流初始化方法，更多是一种系统技巧。
+
+    - 使用 ReZero 或 SkipInit
+    在残差网络中，为每个残差块乘上一个可学习的初始为 0 的参数 αα，让初始状态等于恒等映射，然后逐渐学习残差。这极大缓解了初始化难度。
+
+    - 激活函数的缩放置换
+    对于诸如 Swish、GeLU 等激活函数，如果在初始化时不调整，也可能导致方差变化。可计算该激活函数的“增益”，并在初始化时除以此增益，保持方差恒定（类似于 He 初始化时对 ReLU 的补偿，需针对激活函数推导）。
+
+    - 权重归一化 (Weight Normalization)
+    将权重分解为方向和尺度，在初始化时可单独控制尺度，再配合数据相关初始化稳定信号。
+
+    - LSUV 或数据相关初始化
+    如上所述，通过实际数据校准每层输出方差为 1，直接保证信号传播。
+
+    这些技巧往往组合使用，使得在没有归一化层的情况下，也能训练数百甚至上千层的网络，同时维持快速的收敛和良好的泛化。
+
+    [图片内容未导入]
+
+    - 经过一遍这样的缩放，所有层的输出方差都归一化到 1，实现了层序列单位方差。
+
+    优点：
+
+    - 无需手动计算 fan-in/fan-out，适用于各种架构。
+
+    - 能稳定极深网络的训练，减少对 Batch Normalization 的依赖。
+
+    - 可与正交初始化结合，效果更佳。
+
+    - 对于训练很深的网络，LSUV 有助于避免初期梯度问题。
+
+    然而，LSUV 需要额外的数据传递开销，且在大批量训练时可能稍显繁琐，但在初始化不稳定的网络中非常有效。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Thw6wty8UiFDfIkvicMcVsjCnnb
+  block_id: ZefjdUehaoQk17xSqeOc0A6lnNf
+  page_token: Thw6wty8UiFDfIkvicMcVsjCnnb
+  original_title: 对于很深的网络（如 100 层），除了归一化层，初始化上还有哪些技巧来保证信号传播？
+  imported_at: '2026-09-21'

@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-21c87dd2f1f9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 3D 并行中，如何确定最优的并行度配置（dp, tp, pp）？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块六：深度学习基础训练与推理部署
+tags: &1
+- 深度学习面（精选）
+- 模块六：深度学习基础训练与推理部署
+content:
+  prompt: 在 3D 并行中，如何确定最优的并行度配置（dp, tp, pp）？
+answer:
+  mode: rubric
+  reference_answer: |-
+    3D 并行结合数据并行（DP）、张量并行（TP）和流水线并行（PP）。最优配置需根据模型结构、硬件拓扑、通信带宽、显存限制来权衡。
+
+    步骤与原则：
+
+    - 张量并行（TP）：通常限制在单机内部，利用高带宽 NVLink（如 8 卡机）。TP 度一般等于单机 GPU 数量（如 8），超过单机会有极大通信开销，不划算。对于 Transformer，Megatron 设置 TP=8 常见。
+
+    - 流水线并行（PP）：将模型层切分到多个设备。PP 的通信量相对较小（仅层边界激活和梯度），跨节点也可以接受。PP 度越大，流水线气泡越多，需要大量 micro-batch 来摊销气泡，因此总 batch size 要足够大。同时 PP 的延迟增加。
+
+    - 数据并行（DP）：对剩余的维度使用数据并行，DP 通信（梯度 AllReduce）量与模型总参数成正比，通常需要高带宽网络。在 3D 中，由于 TP 和 PP 已经减少了每 GPU 的模型部分，DP 部分通信量相应降低。
+
+    确定过程：
+
+    - 根据模型总参数和单卡显存，首先确定必须的模型并行度（TP×PP），确保每卡可容纳模型。
+
+    - 在满足显存前提下，优先增大 DP 以提高吞吐，因为 DP 扩展性最好。
+
+    - TP 保持在一个节点内（如 8），PP 可以根据模型层数灵活设置，通常 2~8。
+
+    - 尽量让 TP×PP×DP = 总 GPU 数，并使得每个并行维度的通信开销与计算平衡。
+
+    - 可以用分析工具（如 Megatron-LM 的计算器）模拟不同配置的吞吐量、显存和 bubble 率，选择最佳。
+
+    总结：TP 在内，PP 切深度，DP 扩规模，寻找全局最优。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ChO2w20yAiZl9Zko9tUc2plKnwe
+  block_id: GvfGdLhmdoukdhxTDD5c6zU3nof
+  page_token: ChO2w20yAiZl9Zko9tUc2plKnwe
+  original_title: 在 3D 并行中，如何确定最优的并行度配置（dp, tp, pp）？
+  imported_at: '2026-09-21'

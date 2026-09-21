@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b632395e164c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EC 解释一下 Megatron-LM 中的序列并行如何与 TP 结合减少激活显存。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F9EC 解释一下 Megatron-LM 中的序列并行如何与 TP 结合减少激活显存。"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 Megatron-LM 的序列并行（SP）是对张量并行的补充：在 TP 切分注意力/MLP 的权重和激活的同时，SP
+    将 LayerNorm 和 Dropout 区域的冗余激活沿序列维度切分，避免多卡复制，从而进一步降低长序列训练的激活峰值。\n\n\U0001F52C 结合机制：\n\n-
+    在标准的 Transformer 块中，张量并行切分了 QKV 和 MLP 的列/行，但在 LayerNorm 和残差连接处，每张卡仍持有完整的序列维度张量
+    [batch, seq, hidden]，这些激活并没有被 TP 切分，造成显存冗余。\n\n- 序列并行将 seq 维度切分为 TP 份，每张卡只拥有 seq/TP
+    的片段。在进入 LayerNorm 之前，各卡独立对子序列做归一化；随后再进入注意力的 TP 切分区域。\n\n- 具体实现中，在前向的某些非 TP 区域，通过
+    gather / scatter 在序列维度上重排张量，使得每张卡只需存储序列的一部分，而非完整序列。\n\n- 这样，原本在所有 TP 卡上重复存储的 [batch,
+    seq, hidden] 激活，现在只占用 1/TP 的显存，效果与增加 TP 度相当。对于 128K 等超长序列，节省的激活显存可达几十 GB。\n\n\U0001F91D
+    与 TP 的关系： SP 是 TP 的自然延伸，常用于 TP>1 且序列较长时。两者一起使用可将激活显存降至原来的约 1/TP^2（针对部分区域）。Megatron-LM
+    中通过 --sequence-parallel 标志开启。\n\n✅ 因此，序列并行利用序列维度切分，消除 TP 无法覆盖的激活冗余，是长序列大规模训练的必备技术。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WSBEwNJCni9q3ok7cN6cISL3nwe
+  block_id: UHIbdmt26oChrExYAQfc7UsOnAd
+  page_token: WSBEwNJCni9q3ok7cN6cISL3nwe
+  original_title: "\U0001F9EC 解释一下 Megatron-LM 中的序列并行如何与 TP 结合减少激活显存。"
+  imported_at: '2026-09-21'

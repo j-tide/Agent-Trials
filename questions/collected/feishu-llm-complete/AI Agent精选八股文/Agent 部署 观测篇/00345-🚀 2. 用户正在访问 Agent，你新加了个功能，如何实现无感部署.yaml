@@ -1,0 +1,91 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cf9ef0365145
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F680 2. 用户正在访问 Agent，你新加了个功能，如何实现无感部署？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 部署 观测篇
+tags: &1
+- AI Agent精选八股文
+- Agent 部署 观测篇
+content:
+  prompt: "\U0001F680 2. 用户正在访问 Agent，你新加了个功能，如何实现无感部署？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    无感部署的目标是：新代码上线时，没有一个用户收到 502 错误，也没有一个正在处理的请求被中断。 这需要从“启动新进程 → 切流量 → 关闭旧进程”三个环节精密配合。
+
+    核心原理：优雅重启（Graceful Shutdown）
+
+    [图片内容未导入]
+
+    实现步骤（以 Gunicorn 为例）：
+
+    第一步：发送优雅重启信号
+    不要用 kill -9 去杀掉进程，那会立刻终止所有连接。给 Gunicorn 的 Master 进程发送 SIGHUP 信号：
+
+    kill -HUP $(cat /var/run/gunicorn.pid)
+
+    这个信号会让 Master 做三件事：创建一组新的 Worker → 新 Worker 启动并开始接收请求 → 优雅地关闭旧 Worker。
+
+    第二步：旧 Worker 的优雅关闭
+    Gunicorn 会给旧 Worker 发送 SIGTERM 信号，并等待一个超时时间（默认 30 秒，可配）。Uvicorn 收到 SIGTERM 后会：
+
+    - 停止接受新的连接。
+
+    - 等待当前正在处理的请求全部完成。
+
+    - 然后退出。
+
+    你需要确保 Agent 的单个请求处理时间不超过这个超时窗口。如果你的 Agent 有长达数分钟的任务，需要考虑异步任务 + 轮询的方案（见问题三），而不是让 HTTP 请求一直挂着。
+
+    第三步：新 Worker 的健康检查
+    新 Worker 启动后，可能需要几秒钟加载模型、初始化连接池。Gunicorn 会等它加载完毕才开始向它分发请求。你也可以在 FastAPI 里加一个 /health 端点，配合 Kubernetes 的 readinessProbe 来确保只有真正就绪的 Pod 才接收流量。
+
+    @app.get("/health")
+    async def health():
+        # 简单的健康检查，复杂场景可加入模型加载状态、数据库连接检测等
+        return {"status": "ok"}
+
+    Kubernetes 环境下的零停机部署：
+    如果用 K8s，可以配置 RollingUpdate 策略，结合 preStop 钩子。在 Pod 被终止前，先执行 sleep 10 等待 Service 摘除流量，再让 Gunicorn 优雅关闭。
+
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+      - name: agent
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 10 && kill -HUP 1"]
+
+    一句话：无感部署的本质是用新的进程来接替旧的进程，同时给旧的进程足够的时间“体面地离开”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MO7YwQN1Pi23vUk5MJyc8RWrnDI
+  block_id: doxcnsU5tlcIwkWH9G8KAfgLmdc
+  page_token: MO7YwQN1Pi23vUk5MJyc8RWrnDI
+  original_title: "\U0001F680 2. 用户正在访问 Agent，你新加了个功能，如何实现无感部署？"
+  imported_at: '2026-09-21'

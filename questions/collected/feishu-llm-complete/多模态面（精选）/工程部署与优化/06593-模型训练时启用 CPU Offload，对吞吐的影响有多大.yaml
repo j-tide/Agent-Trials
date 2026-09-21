@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-846e9427923a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 模型训练时启用 CPU Offload，对吞吐的影响有多大？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 模型训练时启用 CPU Offload，对吞吐的影响有多大？
+answer:
+  mode: rubric
+  reference_answer: |-
+    CPU Offload将优化器状态或模型参数从GPU显存卸载到CPU内存，以极低的显存占用换取更多的可训练参数，但代价是吞吐下降。
+
+    不同Offload级别的吞吐损失：
+
+    [嵌入表格未展开]
+
+    吞吐下降的根源：每次前向/反向传播时，需要从CPU内存通过PCIe总线将参数或状态搬运到GPU，PCIe带宽（约32GB/s）远低于GPU显存带宽（约2TB/s）。此外，CPU与GPU之间的通信无法与计算完全重叠，造成GPU空闲等待。
+
+    多模态模型的特殊考量：
+
+    - 视觉编码器参数小且前向计算频繁，其状态不应被卸载，否则每次图像编码都需从CPU加载，极大拖慢速度。
+
+    - LLM参数巨大，若必须卸载，应优先卸载优化器状态，保留模型参数在GPU。
+
+    - 通过异步预取和CUDA Stream重叠，可部分掩盖传输延迟，但无法完全消除。
+
+    实践：在A100单卡80G上训练7B模型通常无需Offload。训练13B-70B模型时，使用ZeRO-3配合仅优化器状态卸载是常见折中方案。若启用参数卸载，训练速度可能下降30%-60%，此时需要批量增大或考虑升级硬件。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  block_id: Fn6ndKuJaopxbixnCvlcbqk9nNc
+  page_token: KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  original_title: 模型训练时启用 CPU Offload，对吞吐的影响有多大？
+  imported_at: '2026-09-21'

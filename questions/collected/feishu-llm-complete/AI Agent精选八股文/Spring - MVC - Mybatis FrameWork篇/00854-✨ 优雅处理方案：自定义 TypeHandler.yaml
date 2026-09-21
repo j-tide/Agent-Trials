@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e719d07f14fe
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "✨ 优雅处理方案：自定义 TypeHandler"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: "✨ 优雅处理方案：自定义 TypeHandler"
+answer:
+  mode: rubric
+  reference_answer: "MyBatis 默认不认识 List<Message> 到 JSON 的转换。我们需要写一个 TypeHandler，利用
+    Jackson 做序列化/反序列化。\n\n定义 TypeHandler\n\n```java\n@MappedTypes(List.class)   //
+    可指定为 List<Message> 但泛型擦除，需注意\n@MappedJdbcTypes(JdbcType.VARCHAR)  // MySQL JSON
+    类型在 JDBC 中映射为 VARCHAR 或 LONGVARCHAR\npublic class MessageListTypeHandler extends
+    BaseTypeHandler<List<Message>> {\n\n    private static final ObjectMapper objectMapper
+    = new ObjectMapper();\n\n    @Override\n    public void setNonNullParameter(PreparedStatement
+    ps, int i, \n                                    List<Message> parameter, JdbcType
+    jdbcType) \n                                    throws SQLException {\n        try
+    {\n            ps.setString(i, objectMapper.writeValueAsString(parameter));\n
+    \       } catch (JsonProcessingException e) {\n            throw new SQLException(\"Failed
+    to convert messages to JSON\", e);\n        }\n    }\n\n    @Override\n    public
+    List<Message> getNullableResult(ResultSet rs, String columnName) \n                                           throws
+    SQLException {\n        String json = rs.getString(columnName);\n        return
+    parseJson(json);\n    }\n\n    @Override\n    public List<Message> getNullableResult(ResultSet
+    rs, int columnIndex) \n                                           throws SQLException
+    {\n        String json = rs.getString(columnIndex);\n        return parseJson(json);\n
+    \   }\n\n    @Override\n    public List<Message> getNullableResult(CallableStatement
+    cs, int columnIndex) \n                                           throws SQLException
+    {\n        String json = cs.getString(columnIndex);\n        return parseJson(json);\n
+    \   }\n\n    private List<Message> parseJson(String json) {\n        if (json
+    == null || json.isEmpty()) return Collections.emptyList();\n        try {\n            return
+    objectMapper.readValue(json, new TypeReference<List<Message>>() {});\n        }
+    catch (JsonProcessingException e) {\n            throw new RuntimeException(\"Failed
+    to parse JSON to messages\", e);\n        }\n    }\n}\n```\n\n注册 TypeHandler\n在
+    mybatis-config.xml 中：\n\n```java\n<typeHandlers>\n    <typeHandler handler=\"com.example.handler.MessageListTypeHandler\"
+    \n                 javaType=\"java.util.List\" jdbcType=\"VARCHAR\"/>\n</typeHandlers>\n```\n\n或者
+    MyBatis-Plus/Spring Boot 项目，可以在配置类中手动注册：\n\n```java\nconfiguration.getTypeHandlerRegistry().register(List.class,
+    JdbcType.VARCHAR, new MessageListTypeHandler());\n```\n\n更方便的是在 Mapper XML 中直接指定
+    typeHandler。\n\n使用方式\n在 Mapper XML 的 resultMap 或字段映射中引用：\n\n```xml\n<resultMap
+    id=\"conversationMap\" type=\"Conversation\">\n    <id property=\"id\" column=\"id\"/>\n
+    \   <result property=\"sessionId\" column=\"session_id\"/>\n    <result property=\"messages\"
+    column=\"messages\" \n            typeHandler=\"com.example.handler.MessageListTypeHandler\"/>\n
+    \   <result property=\"createdAt\" column=\"created_at\"/>\n</resultMap>\n```\n\n或者更简洁的注解方式（MyBatis
+    3.5+ 支持注解指定 TypeHandler）：\n\n```java\n@Results({\n    @Result(property = \"messages\",
+    column = \"messages\", \n            typeHandler = MessageListTypeHandler.class)\n})\n@Select(\"SELECT
+    * FROM agent_conversation WHERE session_id = #{sessionId}\")\nConversation getBySessionId(String
+    sessionId);\n```\n\n这样，你的 Java 代码中就可以直接读写强类型的 List<Message>，MyBatis 在中间完成透明的 JSON
+    转换。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VU1MwcbuKiIco5kkmQCc1W0lnFc
+  block_id: doxcn2t7xDELaXlDo1lq56bC1Ig
+  page_token: VU1MwcbuKiIco5kkmQCc1W0lnFc
+  original_title: "✨ 优雅处理方案：自定义 TypeHandler"
+  imported_at: '2026-09-21'

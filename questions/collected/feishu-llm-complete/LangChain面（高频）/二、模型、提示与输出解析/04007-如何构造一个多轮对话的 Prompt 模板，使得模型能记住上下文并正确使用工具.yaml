@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6715978665eb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何构造一个多轮对话的 Prompt 模板，使得模型能记住上下文并正确使用工具？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: 如何构造一个多轮对话的 Prompt 模板，使得模型能记住上下文并正确使用工具？
+answer:
+  mode: rubric
+  reference_answer: "多轮对话需要模型同时记住历史、遵循系统指令、并在需要时调用工具。LangChain 的 ChatPromptTemplate
+    结合 MessagesPlaceholder 和 bind_tools 可以优雅地实现。\n\n\U0001F4DC 完整模板：\n\n```python\nfrom
+    langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder\n\n# 模板定义\nprompt
+    = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是一个旅行助手。你可以使用工具查询天气、预订酒店。请用中文礼貌地回答。\"),\n
+    \   MessagesPlaceholder(variable_name=\"history\"),  # 历史消息占位\n    (\"human\",
+    \"{input}\"),\n    MessagesPlaceholder(variable_name=\"agent_scratchpad\")  #
+    Agent 中间步骤占位\n])\n\n# 为模型绑定工具\ntools = [get_weather_tool, book_hotel_tool]\nmodel
+    = ChatOpenAI(model=\"gpt-4\").bind_tools(tools)\n\n# 组装链（Agent）\nfrom langchain.agents
+    import AgentExecutor, create_openai_functions_agent\nagent = create_openai_functions_agent(llm=model,
+    tools=tools, prompt=prompt)\nagent_executor = AgentExecutor(agent=agent, tools=tools)\nresult
+    = agent_executor.invoke({\"input\": \"我下周去上海，需要订一家酒店，并了解天气。\"})\n```\n\n\U0001F9E9
+    关键点：\n\n- \"history\" 占位符用于插入对话记忆，保存之前的 HumanMessage 和 AIMessage。\n\n- \"agent_scratchpad\"
+    是 Agent 执行过程中的临时工具调用消息，由框架自动管理。\n\n- bind_tools 使得模型在需要时会返回 tool_calls，框架自动执行工具并将结果作为
+    ToolMessage 插入到 agent_scratchpad。\n\n✅ 效果：模型在第二轮对话中可以引用第一轮提到的城市，无需用户重复，并且能够正确判断何时调用工具。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Plx9wADndiq3tMkxjC6csYJOnXr
+  block_id: ZTs4dzQhQopM71xuh1pcrEFWnnc
+  page_token: Plx9wADndiq3tMkxjC6csYJOnXr
+  original_title: 如何构造一个多轮对话的 Prompt 模板，使得模型能记住上下文并正确使用工具？
+  imported_at: '2026-09-21'

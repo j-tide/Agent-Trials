@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d054bac965b6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练 MoE 模型时，负载均衡损失 (Load Balance Loss) 的权重如何影响训练？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 训练 MoE 模型时，负载均衡损失 (Load Balance Loss) 的权重如何影响训练？
+answer:
+  mode: rubric
+  reference_answer: |-
+    MoE（混合专家）模型中，门控网络将token路由到不同专家。如果不加约束，门控可能坍缩到少数几个专家，导致大部分专家闲置，模型容量浪费。Load Balance Loss鼓励token均匀分配到所有专家。
+
+    权重影响：
+
+    - 权重过大：门控受到强约束，token分配接近均匀，但可能违背了“不同专家擅长不同模式”的初衷，模型性能受限。同时，额外的损失项可能干扰主任务损失的优化，导致收敛变慢。
+
+    - 权重过小：门控不受约束，迅速坍缩到极少数专家，大部分专家没有收到token，无法被训练，造成容量浪费。这是MoE训练中最常见的失败模式。
+
+    - 适中权重：能在均匀分配和专家专业化之间取得平衡。通常权重设为0.01-0.1，具体值需根据模型大小、专家数量、token分布等实验确定。
+
+    诊断：监控每个专家接收到的token数量分布。如果某些专家长期接收不到token，应增大负载均衡损失权重；如果所有专家token数量几乎完全均匀，且下游任务性能不佳，可适当减小权重。理想情况是各专家负载大致均衡，但有一定差异。
+
+    稳定性：负载均衡损失本身不会导致数值不稳定，但它改变了优化目标。如果权重调整后训练loss突然上升，可能是权重过大干扰了主任务。应逐步调整，观察训练loss和下游指标的变化趋势。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: RepLdK0K6ogI4XxcObac7IkHn2f
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: 训练 MoE 模型时，负载均衡损失 (Load Balance Loss) 的权重如何影响训练？
+  imported_at: '2026-09-21'

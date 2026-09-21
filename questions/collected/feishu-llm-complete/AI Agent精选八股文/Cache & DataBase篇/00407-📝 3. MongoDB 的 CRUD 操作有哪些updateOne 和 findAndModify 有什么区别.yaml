@@ -1,0 +1,134 @@
+---
+schema_version: 1
+id: feishu-llm-complete-405ccaafd075
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DD 3. MongoDB 的 CRUD 操作有哪些？updateOne 和 findAndModify 有什么区别？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F4DD 3. MongoDB 的 CRUD 操作有哪些？updateOne 和 findAndModify 有什么区别？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    MongoDB 的 CRUD 操作和 SQL 有清晰的对应关系，但它的原子性边界和返回机制更加灵活。
+
+    核心 CRUD 方法一览：
+
+    updateOne 和 findAndModify 的本质区别：
+
+    这是两个经常会让人犹豫的方法。核心差异在于原子性边界和返回值。
+
+    ```text
+    updateOne(filter, update, options)
+      · 操作：只更新，不返回原始文档
+      · 返回值：{ acknowledged: true, matchedCount: 1, modifiedCount: 1 }
+      · 原子性：更新操作本身是原子的，但“查+改”不是原子的（两个独立步骤）
+
+    findOneAndUpdate(filter, update, options)
+      · 操作：原子地查找文档，更新它，然后返回文档
+      · 返回值：根据选项，返回更新前或更新后的完整文档
+      · 原子性：“查找并修改”整个过程在一个原子操作中完成
+    ```
+
+    关键场景对比：
+
+    ① 并发安全
+    当你需要先读一个值，再基于这个值做修改时，updateOne 存在竞态条件。典型场景：库存扣减。
+
+    ```javascript
+    // ❌ 不安全：两步操作，中间可能被其他请求修改
+    let product = db.products.findOne({ _id: "p001" });
+    if (product.stock > 0) {
+        db.products.updateOne(
+            { _id: "p001" },
+            { $inc: { stock: -1 } }
+        );
+    }
+
+    // ✅ 安全：用 updateOne + 条件更新，原子性由单文档保证
+    let result = db.products.updateOne(
+        { _id: "p001", stock: { $gt: 0 } },  // 过滤条件同时检查库存
+        { $inc: { stock: -1 } }
+    );
+    if (result.modifiedCount === 0) {
+        print("库存不足或扣减失败");
+    }
+
+    // ✅ 更优：用 findOneAndUpdate，既原子扣减，又返回扣减后的文档
+    let updated = db.products.findOneAndUpdate(
+        { _id: "p001", stock: { $gt: 0 } },
+        { $inc: { stock: -1 } },
+        { returnDocument: "after" }  // 返回更新后的文档
+    );
+    if (!updated) {
+        print("库存不足");
+    } else {
+        print(`扣减成功，剩余库存: ${updated.stock}`);
+    }
+    ```
+
+    ② 需要返回原文档的场景
+    当你需要“取出一个待处理的任务，同时把它标记为处理中”，findOneAndUpdate 是最佳选择，它能在一个原子操作里完成“查找并更新”，并返回修改前的任务信息。
+
+    ```javascript
+    // 原子地取出一个待处理任务，并将状态改为 processing
+    let task = db.tasks.findOneAndUpdate(
+        { status: "pending" },
+        { $set: { status: "processing", worker_id: "w001" } },
+        { returnDocument: "before", sort: { created_at: 1 } }
+    );
+    // task 就是那个被抢到的任务，其他 worker 不会再抢到它
+    ```
+
+    ③ 更新操作的多样性
+    MongoDB 的更新操作符非常丰富，这些都可以在 updateOne 和 findOneAndUpdate 中使用：
+
+    选项参数对比：
+
+    ```javascript
+    // updateOne 常用选项
+    db.collection.updateOne(filter, update, {
+        upsert: true,       // 如果不存在则插入
+        arrayFilters: [...] // 数组过滤条件
+    });
+
+    // findOneAndUpdate 额外选项
+    db.collection.findOneAndUpdate(filter, update, {
+        returnDocument: "before" | "after",  // 返回更新前/后文档
+        sort: { field: 1 },                  // 匹配多个时，选择第一个用于更新
+        projection: { field: 1, _id: 0 },    // 返回哪些字段
+        upsert: true
+    });
+    ```
+
+    选择决策表：
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BXVdwSFoCiy4apkiMglchiTGnmh
+  block_id: doxcn6BduQycVXmM1m5QckHNXAb
+  page_token: BXVdwSFoCiy4apkiMglchiTGnmh
+  original_title: "\U0001F4DD 3. MongoDB 的 CRUD 操作有哪些？updateOne 和 findAndModify 有什么区别？"
+  imported_at: '2026-09-21'

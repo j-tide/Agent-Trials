@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6d6b16c0a5cd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 模拟 ZeRO-2 的梯度分片：反向计算后梯度已分片，通过 ReduceScatter 归约梯度到对应节点，更新参数后 AllGather 参数，写出通信步骤。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 模拟 ZeRO-2 的梯度分片：反向计算后梯度已分片，通过 ReduceScatter 归约梯度到对应节点，更新参数后 AllGather 参数，写出通信步骤。
+answer:
+  mode: rubric
+  reference_answer: |-
+    17.1 ZeRO-2 原理
+
+    ZeRO-2 在 ZeRO-1 基础上进一步将梯度也分片。每个节点只存储与自己优化器状态分片对应的梯度分片。反向计算时，每个节点计算完整的梯度，但随后立即通过 ReduceScatter 将规约后的梯度分散到各节点，每个节点只保留自己负责那部分梯度。之后的参数更新和 AllGather 与 ZeRO-1 相同。
+
+    17.2 通信步骤模拟
+
+    ```python
+    def zero2_step(params, grads, optimizer_states, rank, world_size):
+        # grads 完整，但需要被分片规约
+        # 1. ReduceScatter 梯度：每个节点贡献完整梯度，得到自己负责分片的规约梯度
+        scattered_grads = []
+        for g in grads:
+            scattered = reduce_scatter_chunk(g, world_size, rank)
+            scattered_grads.append(scattered)
+        # 2. 用 scattered_grads 更新本地参数分片和优化器状态
+        for i, g_chunk in enumerate(scattered_grads):
+            param_chunk = get_chunk(params[i], rank)
+            update_adam(param_chunk, g_chunk, optimizer_states[i])
+        # 3. AllGather 参数
+        for i, p in enumerate(params):
+            gathered = allgather_chunks(p)
+            params[i].copy_(gathered)
+    ```
+
+    ZeRO-2 相比 ZeRO-1 进一步减少了显存（梯度也不全存），通信量仍然是 ReduceScatter + AllGather，与 ZeRO-1 相同。反向计算时需要完整参数，但参数已在上一轮 AllGather 后完整。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: LF6adANbEolDIQxMv6DcZlUmnrg
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 模拟 ZeRO-2 的梯度分片：反向计算后梯度已分片，通过 ReduceScatter 归约梯度到对应节点，更新参数后 AllGather
+    参数，写出通信步骤。
+  imported_at: '2026-09-21'

@@ -1,0 +1,101 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e68c494bd1d7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在目标检测中，如何用 1×1 卷积替换全连接层来适应不同尺寸输入？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块三：卷积神经网络 (CNN)
+tags: &1
+- 深度学习面（精选）
+- 模块三：卷积神经网络 (CNN)
+content:
+  prompt: 在目标检测中，如何用 1×1 卷积替换全连接层来适应不同尺寸输入？
+answer:
+  mode: rubric
+  reference_answer: |-
+    背景：传统分类网络最后往往经过 Flatten → 全连接 → softmax，输入尺寸必须固定。目标检测需要处理不同大小的图像，且希望在特征图上密集预测。全卷积网络（FCN）思想是用等效的卷积层替换全连接层。
+
+    具体做法：
+
+    - 假设原始分类网络最后一个卷积层输出尺寸为 7×7×512，后接一个全连接层到 4096 神经元，则权重矩阵形状为 4096×(7⋅7⋅512)。
+
+    - 替换为卷积层：核大小 7×7，输入通道 512，输出通道 4096，填充 0，步长 1。这个卷积输出为 1×1×4096。这就是将全连接层的权重重塑为卷积核，等效完成全连接操作。
+
+    - 接下来的分类全连接（4096 → num_classes）同样可以用 1×1×4096×num_classes 的卷积替换。
+
+    适应不同尺寸输入
+
+    - 当输入图像尺寸变大时，比如 14×14 的输入到最后的特征图可能变为 10×10×512（假设根据下采样比例），使用同样的 7×7 卷积核（实际上是滑动窗口），将输出 4×4×40964×4×4096 的热图，而不是单个向量。
+
+    - 再经过 1×1 卷积后，得到 4×4×num_classes4×4×num_classes 的类别分数图，每个空间位置对应原图一个区域的类别预测。
+
+    - 这样就实现了密集预测，可用于目标检测中的区域提议（如 Faster R-CNN 的 RPN 使用 3×3 滑动窗口生成 anchors），或语义分割的像素分类。
+
+    举例（SSD, YOLO, Faster R-CNN）
+
+    - SSD 使用 VGG 基础网络，将其 fc6、fc7 替换为卷积层（fc6 用 3×3 卷积，fc7 用 1×1 卷积），并在其后的特征图上进行多尺度检测。
+
+    - 这种转换使得网络可以一次前向传播获得所有位置的检测结果，实现高效推理。
+
+    这样，通过将全连接层转换为卷积层，网络可以接受任意尺寸输入，并输出空间密集预测，这是现代检测架构的基础。
+
+    - 1×1 卷积
+
+    - 1×1 卷积 → 3×3 卷积
+
+    - 1×1 卷积 → 5×5 卷积
+
+    - 3×3 最大池化 → 1×1 卷积
+
+    - 1×1 卷积将输入低维特征扩展到高维（扩展因子 tt，通常为 6）。
+
+    - 3×3 深度可分离卷积（depthwise）在高维空间中进行空间滤波。
+
+    - 最后的 1×1 卷积（无激活，即线性映射）将高维特征压缩回低维。
+
+    - 采用类似 Swin Transformer 的阶段比例和计算量分配。Swin-T 将计算量集中在不同阶段，ConvNeXt 调整了各阶段的块数，从 ResNet 的 (3,4,6,3) 改为 (3,3,9,3)，使深层阶段获得更多计算预算。
+
+    - 使用 Patchify 作为初始层：将 7×7 卷积的步长设为 4 进行非重叠“分块”，替代传统的 7×7 stride 2 + maxpool。
+
+    - 将 ResNet 瓶颈块中的 3×3 卷积改为深度可分离卷积，减少 FLOPs，与 Transformer 的多头自注意力有结构上的相似性（每组头独立处理通道子集）。
+
+    - 将深度卷积的核大小从 3×3 增大到 7×7，增大了感受野，类似于 Transformer 的全局注意力但计算高效。
+
+    - 采用与 Transformer MLP 类似的倒置瓶颈结构：1×1 升维 → 深度卷积 → 1×1 降维，且升维比更高（扩展比 4）。
+
+    - 增加的宽度有利于学习更丰富的特征。
+
+    - 用 GELU 激活函数替换 ReLU。
+
+    - 减少归一化层的使用：仅使用 Layer Normalization 而不是 Batch Normalization；而且将 LN 移到卷积之前（预归一化）。
+
+    - 调整下采样方式：在深度卷积中使用 stride 2，并在残差短接路径上也使用 1×1 stride 2 进行维度匹配。
+
+    - 去除不必要的激活和归一化堆叠（如激活只保留一次，而不是每个卷积后都激活），更接近 Transformer 的简单设计。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZzPowJPCwi8CT7koPmFcb98OnOe
+  block_id: UzZ7dhvRfoFBAtxGP44c3AlZnif
+  page_token: ZzPowJPCwi8CT7koPmFcb98OnOe
+  original_title: 在目标检测中，如何用 1×1 卷积替换全连接层来适应不同尺寸输入？
+  imported_at: '2026-09-21'

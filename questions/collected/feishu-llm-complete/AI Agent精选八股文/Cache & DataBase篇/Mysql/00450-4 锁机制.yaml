@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8cc682ba5867
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 1.4 锁机制
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 1.4 锁机制
+answer:
+  mode: rubric
+  reference_answer: "### MySQL 行锁、表锁、间隙锁、Next-Key Lock\n\n1、基础题：MySQL 有哪些类型的锁？分别有什么特点？\n\n⭐（考察锁的类型、基本特点）\n\nMySQL
+    的锁从粒度上分为：\n\n- 全局锁：锁定整个数据库实例，常用于全库逻辑备份\n\n- 表级锁：锁定整张表，包括表锁（读锁、写锁）、MDL（元数据锁）\n\n-
+    行级锁：锁定单行数据，包括记录锁、间隙锁、Next-Key Lock，粒度最细，并发度最高\n\n从类型上分为：\n\n- 共享锁（S 锁）：允许读，不允许写\n\n-
+    排他锁（X 锁）：不允许其他事务读写\n\n2、进阶题：详细说明行锁、间隙锁、Next-Key Lock 的区别和使用场景？\n\n⭐⭐（考察锁的粒度、应用场景）\n\n1️⃣
+    Common Answer 行锁就是锁一行，间隙锁就是锁两个值之间的空隙，Next-Key Lock 就是行锁加间隙锁。行锁用于修改数据，间隙锁用于防止插入，Next-Key
+    Lock 用于防止幻读。MySQL 默认用的是 Next-Key Lock，这样可以保证数据一致性。\n\n2️⃣ Impressive Answer 这三种锁是
+    InnoDB 实现并发控制的核心机制，我来详细说明它们的区别和使用场景：\n\n记录锁（Record Lock）锁定的是索引记录本身，不锁间隙。比如 SELECT
+    * FROM user WHERE id = 10 FOR UPDATE，如果 id 是主键索引，就会对 id = 10 的记录加记录锁，其他事务无法修改或删除这条记录，但可以插入
+    id = 9 或 id = 11 的新记录。\n\n间隙锁（Gap Lock）锁定的是索引记录之间的间隙，不包含记录本身。比如 SELECT * FROM
+    user WHERE id BETWEEN 10 AND 20 FOR UPDATE，会对 (10, 20) 这个间隙加锁，防止其他事务插入 id = 11
+    到 id = 19 的新记录，但允许修改 id = 10 或 id = 20 的记录。间隙锁只在 RR 隔离级别下有效，用于防止幻读。\n\nNext-Key
+    Lock是记录锁和间隙锁的组合，锁定记录及其前面的间隙。比如上面的例子，实际会对 (10, 20] 加 Next-Key Lock，既锁定了间隙，也锁定了
+    id = 20 的记录。Next-Key Lock 是 InnoDB 默认的锁策略，可以有效防止幻读。\n\n```text\ngraph LR\n    A[间隙锁]
+    -->|锁定| B[(10, 20)]\n    C[记录锁] -->|锁定| D[20]\n    E[Next-Key Lock] -->|锁定| F[(10,
+    20]]\n```\n\n使用场景：\n\n- 记录锁：用于精确匹配的查询，如 WHERE id = 10\n\n- 间隙锁：用于范围查询，防止幻读，如 WHERE
+    id > 10 AND id < 20\n\n- Next-Key Lock：用于范围查询的右边界，如 WHERE id >= 10 AND id <= 20\n\n特殊情况：\n\n-
+    如果查询条件命中唯一索引，会退化为记录锁\n\n- 如果查询条件不命中索引，会退化为表锁（性能很差）\n\n- 如果使用 RC 隔离级别，不会使用间隙锁和
+    Next-Key Lock\n\n实际开发中，要注意优化查询条件，确保能命中索引，避免全表扫描导致的表锁。\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n3、场景题：在订单系统中，如何设计锁策略防止并发问题？\n\n⭐⭐⭐（考察锁的实战应用、性能优化）\n\n1️⃣
+    Common Answer 订单系统用行锁就行了，因为订单是按 ID 查询的，会命中主键索引，所以用行锁性能最好。如果要防止超卖，就用 SELECT ...
+    FOR UPDATE 加锁。如果要统计订单，就用快照读，不加锁。这样既能保证数据一致性，又能保证性能。\n\n2️⃣ Impressive Answer 在订单系统中，不同业务场景需要不同的锁策略，我来详细设计：\n\n订单创建场景：我会使用
+    行锁 防止超卖。\n\n```text\nSTART TRANSACTION;\n-- 加行锁，精确匹配主键\nSELECT stock FROM product
+    WHERE id = 123 FOR UPDATE;\n-- 判断库存并扣减\nUPDATE product SET stock = stock - 1 WHERE
+    id = 123;\n-- 创建订单\nINSERT INTO order (user_id, product_id, amount) VALUES (1,
+    123, 1);\nCOMMIT;\n```\n\n这里使用主键 ID 精确匹配，会加记录锁，粒度最细，并发度最高。如果使用 WHERE product_id
+    = 123 且 product_id 不是唯一索引，可能会加间隙锁，影响并发性能。\n\n订单查询场景：我会使用 快照读，不加锁。\n\n```text\n--
+    快照读，使用 MVCC，不加锁\nSELECT * FROM order WHERE user_id = 1;\n```\n\n在 RR 隔离级别下，这是快照读，不会加锁，可以支持高并发查询。如果需要看到最新数据，可以使用当前读：\n\n```text\n--
+    当前读，加共享锁\nSELECT * FROM order WHERE user_id = 1 LOCK IN SHARE MODE;\n```\n\n订单统计场景：我会使用
+    Next-Key Lock 防止幻读。\n\n```text\nSTART TRANSACTION;\n-- 统计某时间段的订单金额，防止统计过程中有新订单插入\nSELECT
+    SUM(amount) FROM order WHERE create_time BETWEEN '2024-01-01' AND '2024-01-31'
+    FOR UPDATE;\nCOMMIT;\n```\n\n这里使用范围查询，会加 Next-Key Lock，锁定时间范围内的间隙，防止统计过程中有新订单插入导致幻读。\n\n订单状态更新场景：我会使用
+    乐观锁 减少锁竞争。\n\n```text\n-- 使用版本号乐观锁\nUPDATE order \nSET status = 'PAID', version
+    = version + 1 \nWHERE id = 123 AND version = 5;\n```\n\n如果更新行数为 0，说明版本号已变更，需要重试或提示用户。这种方式减少了数据库锁的使用，提高了并发性能。\n\n性能优化要点：\n\n-
+    确保查询条件命中索引，避免全表扫描导致的表锁\n\n- 尽量使用精确匹配，减少范围查询带来的间隙锁\n\n- 缩小事务范围，减少锁持有时间\n\n- 读写分离，读操作使用从库，减少主库锁竞争\n\n-
+    对于高并发场景，考虑使用 Redis 分布式锁代替数据库锁\n\n实际项目中，我会根据业务特点选择合适的锁策略，在一致性和性能之间找到平衡。\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n4、容易一起考的题\n\n[嵌入表格未展开]"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IYWfwSFCOiA86JkcgEmcmZJNnSb
+  block_id: doxcnFbFWCq9XRvjtzMv8AhT5lh
+  page_token: IYWfwSFCOiA86JkcgEmcmZJNnSb
+  original_title: 1.4 锁机制
+  imported_at: '2026-09-21'

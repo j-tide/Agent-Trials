@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-675924741e91
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个函数，解析 LLM 输出的文本，提取其中的 JSON 函数调用：输入包含 json {...} 代码块的字符串，返回解析后的 JSON 对象（字典），若解析失败则抛出异常。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 实现一个函数，解析 LLM 输出的文本，提取其中的 JSON 函数调用：输入包含 json {...} 代码块的字符串，返回解析后的 JSON
+    对象（字典），若解析失败则抛出异常。
+answer:
+  mode: rubric
+  reference_answer: "原理\n\nLLM 经常以 Markdown 代码块的形式输出 JSON，例如：\n\nHere is the function
+    call:\n\n```text\n{\"name\": \"search\", \"arguments\": {\"query\": \"weather\"}}\n```\n\n```text\n我们需要提取代码块内的
+    JSON 字符串，并解析为 Python 字典。实现时需考虑以下情况：\n- 标准 ````json ... ``` ` 代码块。\n- 代码块中可能包含转义字符、多余空白。\n-
+    LLM 可能直接输出 JSON 对象而不包含代码块标记。\n- JSON 解析可能失败（格式错误），此时应抛出异常并包含明确的错误信息。\n\n**实现**\n\n```python\nimport
+    json\nimport re\nfrom typing import Dict, Any\n\ndef extract_json_from_text(text:
+    str) -> Dict[str, Any]:\n    \"\"\"\n    从 LLM 输出的文本中提取 JSON 函数调用。\n    支持 ```json```
+    代码块或直接 JSON 对象。\n    Args:\n        text: LLM 原始输出字符串\n    Returns:\n        dict:
+    解析后的 JSON 对象\n    Raises:\n        ValueError: 未找到 JSON 或解析失败\n    \"\"\"\n    #
+    1. 尝试提取 ```json ... ``` 代码块\n    # 使用非贪婪匹配，支持多行\n    pattern = r'```json\\s*([\\s\\S]*?)\\s*```'\n
+    \   match = re.search(pattern, text)\n    if match:\n        json_str = match.group(1).strip()\n
+    \       try:\n            return json.loads(json_str)\n        except json.JSONDecodeError
+    as e:\n            raise ValueError(f\"JSON 解析失败: {e}\\n内容: {json_str}\")\n    \n
+    \   # 2. 如果没有代码块，尝试寻找第一个 '{' 和最后一个 '}' 之间的内容\n    # 这是一个简单启发式，适用于 LLM 直接输出 JSON
+    对象的情况\n    start = text.find('{')\n    end = text.rfind('}')\n    if start !=
+    -1 and end != -1 and end > start:\n        json_str = text[start:end+1]\n        try:\n
+    \           return json.loads(json_str)\n        except json.JSONDecodeError as
+    e:\n            raise ValueError(f\"JSON 解析失败: {e}\\n内容: {json_str}\")\n    \n
+    \   # 3. 都没找到，抛出异常\n    raise ValueError(\"未找到有效的 JSON 对象\")\n\n# 示例测试\nif __name__
+    == \"__main__\":\n    # 测试1: 代码块\n    text1 = '好的，调用如下：\\n```json\\n{\"name\":
+    \"get_weather\", \"arguments\": {\"city\": \"北京\"}}\\n```'\n    print(extract_json_from_text(text1))\n
+    \   \n    # 测试2: 直接 JSON\n    text2 = '{\"name\": \"search\", \"arguments\": {\"query\":
+    \"AI\"}}'\n    print(extract_json_from_text(text2))\n    \n    # 测试3: 无效 JSON
+    应抛出异常\n    try:\n        extract_json_from_text(\"这不是 JSON {name: test}\")\n    except
+    ValueError as e:\n        print(\"捕获异常:\", e)\n```\n\n关键点\n\n- 使用正则 re.search
+    非贪婪匹配代码块，[\\s\\S] 匹配包括换行在内的所有字符。\n\n- 如果代码块解析失败，回退到查找首尾花括号，适用于 LLM 可能遗漏代码块标记的场景。\n\n-
+    抛出的异常应包含原始字符串片段，便于调试。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  block_id: UiJydunQfoh5ryxC55Pc9T3Cnph
+  page_token: Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  original_title: 实现一个函数，解析 LLM 输出的文本，提取其中的 JSON 函数调用：输入包含 json {...} 代码块的字符串，返回解析后的
+    JSON 对象（字典），若解析失败则抛出异常。
+  imported_at: '2026-09-21'

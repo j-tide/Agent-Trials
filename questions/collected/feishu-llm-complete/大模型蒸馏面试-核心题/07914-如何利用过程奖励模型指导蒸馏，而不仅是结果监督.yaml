@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-abbeecf25882
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何利用“过程奖励模型”指导蒸馏，而不仅是结果监督？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型蒸馏面试-核心题
+derived_topic: 
+tags: &1
+- 大模型蒸馏面试-核心题
+content:
+  prompt: 如何利用“过程奖励模型”指导蒸馏，而不仅是结果监督？
+answer:
+  mode: rubric
+  reference_answer: |-
+    过程奖励模型（Process Reward Model, PRM） 给予序列中每一步推理或生成动作的即时奖励，而非仅仅对完整输出打分。利用 PRM 指导蒸馏可以将教师的推理过程知识更精细地传递给学生。
+
+    具体实施框架：
+
+    （1）获得过程奖励模型
+
+    - PRM 通常通过标注数据训练：在推理步骤后标注正确与否，或通过自动验证（如数学题步骤检查）得到步骤级奖励。
+
+    - 也可以用大模型自动评估推理步骤的合理性，构建训练数据。
+
+    （2）过程监督蒸馏训练
+
+    - 在学生生成时（自回归），对于每个推理步骤，计算 PRM 给出的奖励 r_t。蒸馏目标不仅最大化最终正确回答的概率，还要最大化整个生成路径上的累积奖励。
+
+    - 可通过 强化学习（如 PPO） 优化：max⁡E[∑tγtrt]maxE[∑tγtrt]，同时加上蒸馏正则项（如 KL 散度与教师分布的偏差限制）。这样学生被鼓励遵循高奖励的推理过程，而不仅仅是模仿最终答案。
+
+    （3）步骤级知识蒸馏（Step-Distill）
+
+    - 教师模型同时提供每一步的合理中间状态（例如隐藏层表示或生成的子步骤软标签）。使用 PRM 判断哪些步骤属于“优质示范”，挑出那些步骤奖励高的教师推理序列，让学生直接模仿这些步骤的生成概率。
+
+    - 也就是说，数据构建时，仅保留教师生成中步骤奖励高的推理链作为正样本，学生进行 SFT 或序列级蒸馏。
+
+    （4）对比过程蒸馏
+
+    - 构造好坏步骤对：对于同一个问题，教师产生多条推理路径，PRM 为每一步打分，形成“优推路径”和“劣推路径”的对比。学生训练时，使用偏好损失（如 DPO）提升高奖励步骤序列的概率，降低低奖励的。这比单纯 SFT 更强调过程质量。
+
+    （5）过程奖励作为辅助损失权重
+
+    - 在标准 logit 蒸馏中，为每个 token 的损失附加一个权重系数，由对应步骤的奖励决定。这样，模型会更关注学习那些对正确推理贡献大的 token，过滤掉噪声或无关步骤。
+
+    （6）自我提升循环
+
+    - 训练得到的过程奖励模型可用来筛选学生自己生成的推理步骤，将高奖励的自身推理链作为新的蒸馏数据，进行自我蒸馏，形成迭代改进。
+
+    优势：
+
+    过程奖励能传递“怎么想是对的”的细节知识，改善多步推理的准确性和连贯性，抑制发散或错误推理。在数学、代码、逻辑任务上，过程监督蒸馏明显优于仅结果监督的蒸馏。
+
+    结论：PRM 指导蒸馏从“抄答案”转变为“学解题方法”，利用步骤级信号精细塑造学生推理行为，显著提升了小模型的推理深度和可靠性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QL86wYWUwi6Ho0kQFiacbXeSnqE
+  block_id: RkZYdOYPdoaYQoxrqfpc734RnDD
+  page_token: QL86wYWUwi6Ho0kQFiacbXeSnqE
+  original_title: 如何利用“过程奖励模型”指导蒸馏，而不仅是结果监督？
+  imported_at: '2026-09-21'

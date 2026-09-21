@@ -1,0 +1,87 @@
+---
+schema_version: 1
+id: feishu-llm-complete-18eb67b68d21
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写可视化代码，绘制给定样本的多头注意力权重热力图，并标注头号和层号。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 编写可视化代码，绘制给定样本的多头注意力权重热力图，并标注头号和层号。
+answer:
+  mode: rubric
+  reference_answer: |-
+    19.1 原理
+
+    可视化注意力权重可以直观地反映模型在处理序列时，各个头关注的不同模式，有助于分析模型是否学到了语法结构、长程依赖或局部注意力。通常取某个头的注意力权重矩阵（形状 (seq_len, seq_len)），绘制热力图，并标注层号和头号。
+
+    19.2 实现
+
+    ```python
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import torch
+
+    def plot_attention_weights(attn_weights, layer_idx, head_idx, tokens=None, save_path=None):
+        """
+        attn_weights: (seq_len, seq_len) 或 (batch, seq_len, seq_len)，这里取单个样本
+        layer_idx: int，层索引
+        head_idx: int，头索引
+        tokens: list of str，可选的 token 标签
+        """
+        if attn_weights.dim() == 3:
+            attn_weights = attn_weights[0]  # 取第一个 batch
+        attn_weights = attn_weights.detach().cpu().numpy()
+
+        plt.figure(figsize=(10, 8))
+        ax = sns.heatmap(attn_weights, cmap='viridis', cbar=True,
+                         xticklabels=tokens, yticklabels=tokens)
+        ax.set_title(f'Attention Weights - Layer {layer_idx}, Head {head_idx}')
+        ax.set_xlabel('Key Position')
+        ax.set_ylabel('Query Position')
+        if tokens:
+            plt.xticks(rotation=90)
+            plt.yticks(rotation=0)
+        if save_path:
+            plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.show()
+    ```
+
+    对于 Transformer 模型，可以在 forward hook 中捕获每一层的注意力权重，然后调用此函数进行可视化。通常选择特定输入样本，观察不同层的头在不同位置上的关注焦点，例如浅层可能关注局部词窗，深层关注语义相关词。
+
+    19.3 扩展
+
+    - 可绘制多个头的子图矩阵，一次性展示一层内所有头的注意力模式。
+
+    - 结合 token 标注（如输入文本分词后的列表），使热力图可解释性更强。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTpnwxWMsiVDwIkIoX0c1TU4ned
+  block_id: A8xtdMbAIoEhOXxikCdcq3GanAc
+  page_token: QTpnwxWMsiVDwIkIoX0c1TU4ned
+  original_title: 编写可视化代码，绘制给定样本的多头注意力权重热力图，并标注头号和层号。
+  imported_at: '2026-09-21'

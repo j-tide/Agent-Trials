@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4576534f6256
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⏱️ 使用 ContextualCompressionRetriever 时，如果压缩步骤很耗时，你如何降低延迟？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "⏱️ 使用 ContextualCompressionRetriever 时，如果压缩步骤很耗时，你如何降低延迟？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    压缩步骤耗时主要是因为对每个文档都要调用一次（或多次）LLM，这是典型的 IO 密集型等待。降低延迟的策略可以从算法、并发、缓存、模型选择四个维度展开。
+
+    - 并发执行
+    默认情况下，LangChain 的压缩器是串行处理文档的。我们可以通过实现异步压缩（acompress_documents）并使用 asyncio.gather 同时处理所有文档，将总延迟从 N * 单文档耗时 降为 max(单文档耗时)。
+
+    ```python
+    # 自定义异步压缩器，或者使用支持异步的 LLM
+    async def acompress_documents(docs, query):
+        tasks = [llm.acall(prompt) for doc in docs]
+        results = await asyncio.gather(*tasks)
+        # 后处理 results
+    ```
+
+    分层过滤，减少需要 LLM 处理的文档数量
+    不直接对原始检索结果进行昂贵的 LLM 压缩。先使用速度极快的 EmbeddingsFilter（基于向量相似度）丢弃低分文档，只保留前 5-10 个送入 LLMChainExtractor。或者在检索阶段就设置严格的 score_threshold 和 k。
+
+    - 模型降级与量化
+
+    - 使用更小、更快的模型：对于压缩任务，gpt-3.5-turbo 通常足够，甚至可以用本地部署的 7B 模型（如 Llama-3-8B）经过量化后专门做压缩。
+
+    - 批处理：如果使用 OpenAI API，可以将多个文档的压缩请求打包到一个批次中（如果自定义 Prompt 支持），减少网络往返。
+
+    - 结果缓存
+
+    对于重复的 (query, doc) 组合，利用缓存（如 Redis）存储压缩结果。LangChain 的 LLM 缓存可以部分实现这一点，但更精确的是自己实现一个文档级别的缓存。
+
+    - 优化 Prompt
+    压缩 Prompt 越简洁，LLM 生成越快。要求 LLM 直接输出“相关句子”，避免冗长的解释，并设置 max_tokens 限制。
+
+    - 预计算与离线压缩
+
+    如果知识库是静态的，可以预先用 LLM 对每个文档进行摘要或关键句提取，生成“压缩版文档”，并存入向量库。检索时直接命中压缩版，无需实时调用 LLM。这是将延迟从在线转移到离线的根本方法。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YrNHwdqUUiHr0JkXRNrc4c0kn5d
+  block_id: KcN4d9QgEoweEOx4BTocLhdnnGc
+  page_token: YrNHwdqUUiHr0JkXRNrc4c0kn5d
+  original_title: "⏱️ 使用 ContextualCompressionRetriever 时，如果压缩步骤很耗时，你如何降低延迟？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,93 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2bf7d98f30c9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3CE️ 3. Speculative Decoding：打破自回归的串行枷锁"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F3CE️ 3. Speculative Decoding：打破自回归的串行枷锁"
+answer:
+  mode: rubric
+  reference_answer: |-
+    问题在哪？
+
+    标准自回归生成一次只能出一个 token，因为每个 token 都依赖前文。这导致 Decode 阶段是严格的串行过程，GPU 算力大量闲置，整个生成的速度被内存带宽锁死。
+
+    核心思想
+
+    用小模型“猜”一串，用大模型“并行验”，一次通过多个 token。 因为验证一个序列的多个 token 是可并行的。
+
+    [图片内容未导入]
+
+    为什么加速？
+
+    - Draft 模型很小，自回归生成 K 个 token 的代价远低于大模型。
+
+    - 大模型只需要做一次前向就能验证 K 个 token，而正常情况需要 K 次前向。
+
+    - 加速比 ≈ 大模型单次耗时 / (大模型验证耗时 + 小模型草稿耗时) × 平均接受长度 αK
+
+    - 实际中，用小模型（或大模型早期层）做 draft，接受率可达 0.8 以上，典型加速 2~3 倍，且输出质量无损（最终分布由大模型控制）。
+
+    关键代码：Draft & Verify 循环
+
+    def speculative_decode(prompt, draft_model, target_model, K=5):
+        generated = []
+        while len(generated) < max_length:
+            # 1) Draft 阶段
+            draft_input = prompt + generated
+            draft_tokens = draft_model.generate(draft_input, max_new_tokens=K)
+
+            # 2) Verify 阶段：一次前向拿到 logits
+            verify_input = draft_input + draft_tokens
+            logits = target_model(verify_input)  # (seq_len, vocab)
+
+            # 3) 逐个验证
+            accepted = []
+            for i, d_token in enumerate(draft_tokens):
+                prob = softmax(logits[len(draft_input) + i - 1])
+                if d_token == torch.argmax(prob):
+                    accepted.append(d_token)
+                else:
+                    accepted.append(torch.multinomial(prob, 1))
+                    break
+            generated.extend(accepted)
+            if len(accepted) < K:
+                # 被拒绝，停止本次草稿
+                pass
+        return generated
+
+    进一步省显存：可使用 Self-Speculative，用模型自身前几层作为 draft 模型，无需额外加载小模型。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VZ8HwGCqEiUGiRkSmGfcRuNdnCg
+  block_id: doxcnXxanaFYbCY55SRbrFD3juN
+  page_token: VZ8HwGCqEiUGiRkSmGfcRuNdnCg
+  original_title: "\U0001F3CE️ 3. Speculative Decoding：打破自回归的串行枷锁"
+  imported_at: '2026-09-21'

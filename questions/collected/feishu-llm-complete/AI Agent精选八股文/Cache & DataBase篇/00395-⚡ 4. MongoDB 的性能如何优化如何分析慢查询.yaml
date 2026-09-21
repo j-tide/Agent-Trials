@@ -1,0 +1,120 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b4d21bb4cc1a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚡ 4. MongoDB 的性能如何优化？如何分析慢查询？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "⚡ 4. MongoDB 的性能如何优化？如何分析慢查询？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    MongoDB 的性能优化，通常遵循“先诊断，后下药”的原则。首先要抓住慢查询，然后根据执行计划和资源使用情况做针对性优化。
+
+    诊断工具链：
+
+    - Profiler：开启数据库的慢查询日志，自动记录执行时间超过阈值的操作。
+
+    - explain()：查看一条查询的具体执行计划，判断是否走了索引、扫描了多少文档。
+
+    - mongostat / mongotop：实时监控实例的吞吐量、锁等待、读写比例等。
+
+    - currentOp() / killOp()：查看当前正在执行的操作，紧急时可以杀掉导致雪崩的慢查询。
+
+    开启慢查询分析：
+
+    ```javascript
+    // 设置慢查询阈值为 100 毫秒
+    db.setProfilingLevel(1, { slowms: 100 })
+
+    // 查询最近的慢查询记录
+    db.system.profile.find().sort({ ts: -1 }).limit(5).pretty()
+    ```
+
+    分析慢查询的四个关键指标：
+    使用 explain("executionStats") 可以得到详细的执行统计，重点关注：
+
+    ```javascript
+    db.orders.find({ user_id: 123, status: "completed" }).explain("executionStats")
+    ```
+
+    - executionStats.executionTimeMillis：总执行时间。
+
+    - executionStats.totalDocsExamined：扫描的文档总数。
+
+    - executionStats.nReturned：实际返回的文档数。
+
+    - queryPlanner.winningPlan.stage：IXSCAN 表示使用了索引，COLLSCAN 表示全表扫描。
+
+    优化方向一：索引优化
+
+    全表扫描是慢查询的头号杀手。优化索引的黄金法则是 ESR 规则：Equality (等值查询) → Sort (排序) → Range (范围查询)。
+
+    ```javascript
+    // 查询：user_id = 123 且 created_at > start，按 created_at 降序
+    // ❌ 差索引
+    db.orders.createIndex({ created_at: -1, user_id: 1 })
+    // ✅ 好索引：等值优先
+    db.orders.createIndex({ user_id: 1, created_at: -1 })
+    ```
+
+    优化方向二：查询与写入优化
+
+    - 使用 覆盖索引：让查询所需的所有字段都包含在索引中，MongoDB 可以直接从索引返回数据，无需访问文档（totalDocsExamined 为 0）。
+
+    - 投影：只返回需要的字段，减少网络传输和内存占用。
+
+    - 批量写入：用 insertMany、bulkWrite 替代逐条写入，减少网络往返。
+
+    优化方向三：硬件与架构
+
+    - 使用 SSD：MongoDB 的 WiredTiger 引擎对随机 IO 很敏感，SSD 对写入和读取的提升非常明显。
+
+    - 配置足够内存：WiredTiger 的缓存越大，热数据命中率越高，磁盘 IO 越少。
+
+    - 读写分离：将报表类和分析类查询指向从节点，减轻主节点压力。
+
+    监控与告警脚本示例：
+
+    ```python
+    import pymongo
+    client = pymongo.MongoClient("mongodb://localhost:27017")
+    db = client.admin
+    # 获取当前操作，发现执行超过 5 秒的查询
+    ops = db.current_op({"active": True, "secs_running": {"$gt": 5}})
+    for op in ops['inprog']:
+        print(f"慢查询: {op['op']} {op['ns']} 耗时 {op['secs_running']}秒")
+    ```
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BXVdwSFoCiy4apkiMglchiTGnmh
+  block_id: doxcnND1sbwpW29DyYP0PNTAjIh
+  page_token: BXVdwSFoCiy4apkiMglchiTGnmh
+  original_title: "⚡ 4. MongoDB 的性能如何优化？如何分析慢查询？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bdd927fa5fc6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当基座模型更新（继续预训练）后，原先训练的 LoRA 权重是否还能有效合并？写出验证代码并分析。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 当基座模型更新（继续预训练）后，原先训练的 LoRA 权重是否还能有效合并？写出验证代码并分析。
+answer:
+  mode: rubric
+  reference_answer: |-
+    16.1 理论分析
+
+    LoRA 权重是相对于某个特定基座模型 W0 训练的。如果基座模型被继续预训练（参数更新为 W0'），那么原先在 W0 上学到的低秩增量 ΔW 可能不再适用于 W0'。原因：
+
+    - ΔW 是针对原始输出分布进行的修正，当基座权重漂移后，修正方向可能不再匹配。
+
+    - 强行合并会导致输出出现非预期的偏移。
+
+    因此，通常不建议跨版本合并。但若两次训练的数据分布或目标相似，且基座更新较小，合并可能仍有一定效果，但需验证。
+
+    16.2 验证代码
+
+    我们可以通过比较合并前后模型在验证集上的困惑度或下游指标来评估。
+
+    ```python
+    def validate_lora_merge(original_model, updated_model, lora_weights, eval_dataset):
+        # 1. 在原始基座上合并 LoRA，评估
+        orig_model = copy.deepcopy(original_model)
+        load_lora(orig_model, lora_weights)
+        merged_orig = merge_and_unload(orig_model)
+        metric_orig = evaluate(merged_orig, eval_dataset)
+
+        # 2. 在更新后的基座上合并 LoRA，评估
+        upd_model = copy.deepcopy(updated_model)
+        load_lora(upd_model, lora_weights)
+        merged_upd = merge_and_unload(upd_model)
+        metric_upd = evaluate(merged_upd, eval_dataset)
+
+        # 3. 比较
+        print(f"Original base metric: {metric_orig}, Updated base metric: {metric_upd}")
+        return metric_orig, metric_upd
+    ```
+
+    通常会发现更新后的基座上性能显著下降，说明需要重新训练 LoRA。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LZxww5JuBif3JAkuCoIcuqRenuf
+  block_id: WSvUdZBo3ovovWxbR9QcS1SjnXc
+  page_token: LZxww5JuBif3JAkuCoIcuqRenuf
+  original_title: 当基座模型更新（继续预训练）后，原先训练的 LoRA 权重是否还能有效合并？写出验证代码并分析。
+  imported_at: '2026-09-21'

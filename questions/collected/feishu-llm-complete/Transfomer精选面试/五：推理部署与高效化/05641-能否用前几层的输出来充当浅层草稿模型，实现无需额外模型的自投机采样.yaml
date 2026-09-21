@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c0709e371a70
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 能否用前几层的输出来充当浅层草稿模型，实现无需额外模型的“自投机采样”？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 五：推理部署与高效化
+tags: &1
+- Transfomer精选面试
+- 五：推理部署与高效化
+content:
+  prompt: 能否用前几层的输出来充当浅层草稿模型，实现无需额外模型的“自投机采样”？
+answer:
+  mode: rubric
+  reference_answer: |-
+    完全可以，这就是自投机采样（Self-Speculative Decoding）或提前退出投机（Draft & Verify with Early Exit）的核心思想。其做法是：
+
+    - 在原大模型的某一中间层（例如总层数的 1/3 或 1/2 处）添加一个轻量草稿预测头（通常就是复用原始词表分类头，或一个极小的线性层），仅凭前几层计算出的隐藏状态就可以生成下一个 token 的概率分布。
+
+    - 草稿阶段：输入前缀先只通过前 L 层，用该预测头自回归生成 K 个草稿 token。由于层数远少于完整模型，单 token 延迟极低。
+
+    - 验证阶段：将“前缀 + K 个草稿 token”一并送入完整大模型进行并行验证。为了进一步加速，可复用草稿阶段已计算的中间层隐藏状态，验证时直接从第 L+1 层开始执行，避免重复计算前缀的浅层。
+
+    - 接受或拒绝的机制与标准投机采样完全相同。
+
+    这种方法的优势非常突出：
+
+    - 无需单独维护草稿模型，节省显存和部署复杂度。
+
+    - 接受率极高（通常在 95% 以上），因为草稿头与主体模型共享绝大多数参数，行为高度一致。
+
+    - 典型实现如 EAGLE 系列，甚至不只用浅层输出，还利用大模型倒数第二层的特征进行外推预测，进一步提升了预测准确性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XlvZwbMXgi5eebkXzxvcP7w4nnf
+  block_id: I4TbdUe24o0NZ8xhH1Tcqy1AnXe
+  page_token: XlvZwbMXgi5eebkXzxvcP7w4nnf
+  original_title: 能否用前几层的输出来充当浅层草稿模型，实现无需额外模型的“自投机采样”？
+  imported_at: '2026-09-21'

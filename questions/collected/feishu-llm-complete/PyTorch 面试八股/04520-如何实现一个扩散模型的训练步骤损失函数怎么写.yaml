@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-92fb1c9820b2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何实现一个“扩散模型”的训练步骤？损失函数怎么写？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何实现一个“扩散模型”的训练步骤？损失函数怎么写？
+answer:
+  mode: rubric
+  reference_answer: |-
+    扩散模型的核心是通过逐步添加噪声和去噪来学习数据分布。以 DDPM 为例，训练步骤如下：
+
+    - 前向扩散（加噪）：对干净图像 x0x0，随机采样时间步 tt，生成带噪图像 xt=αˉtx0+1−αˉtϵxt=αˉtx0+1−αˉtϵ。
+
+    - 模型预测：网络预测添加的噪声 ϵ^ϵ^ 或直接预测原始 x0x0。
+
+    - 损失函数：预测噪声的均方误差。
+
+    ```python
+    loss = F.mse_loss(pred_noise, epsilon)
+    ```
+
+    训练循环骨架：
+
+    ```python
+    for imgs in dataloader:
+        t = torch.randint(0, T, (imgs.size(0),))
+        noise = torch.randn_like(imgs)
+        noisy_imgs = alpha_bar[t].view(-1,1,1,1) * imgs + (1 - alpha_bar[t]).view(-1,1,1,1) * noise
+        pred_noise = model(noisy_imgs, t)
+        loss = F.mse_loss(pred_noise, noise)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+    ```
+
+    其中 alpha_bar 是预设的噪声调度参数。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  block_id: RtnKdwUe3ouWfmx1QKBcY2iinng
+  page_token: AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  original_title: 如何实现一个“扩散模型”的训练步骤？损失函数怎么写？
+  imported_at: '2026-09-21'

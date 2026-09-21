@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b8dcf4ea1b7d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3AF 3. 用户反馈对“太专业”和“太宽泛”的问题都检索不好，你怎么分别应对？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "\U0001F3AF 3. 用户反馈对“太专业”和“太宽泛”的问题都检索不好，你怎么分别应对？"
+answer:
+  mode: rubric
+  reference_answer: "这是典型的“检索粒度悖论”：对窄问题要精，对宽问题要全。解决方案不是一刀切，而是动态路由 + 自适应改写。\n\n核心思路：在收到用户
+    Query 后，先由一个小模型或规则判断问题类型，然后走不同的改写和检索管道。\n\n[图片内容未导入]\n\n3.1 对“太专业”的问题（如查某个具体 API
+    的参数说明）\n\n痛点：专业术语、缩写、代码符号在语义检索中容易被“淹没”，稠密向量对这些冷冰冰的字符串不敏感。\n\n应对组合拳：\n\n① 混合检索前置：在检索入口处就同时走向量检索和
+    BM25 关键词检索，并给 BM25 更高权重。专业术语几乎总能被 BM25 精准命中。\n\n② 元数据过滤：在索引文档时，就把 API 名称、参数名等作为独立字段存储。当识别出问题包含特定实体时，直接用过滤器筛选，而不是纯粹靠相似度排序。\n\n③
+    改写优化：对于特别长的 API 描述查询，先用 LLM 提取核心关键词（如 API 名、参数名），再用这些关键词做 BM25 精确搜索。\n\n```python\ndef
+    handle_professional_query(query: str, vectorstore, bm25_retriever) -> str:\n    #
+    1. 提取核心实体（简单规则或小模型）\n    entities = extract_technical_terms(query)  # 如 [\"X-9000\",
+    \"calibrate\"]\n    \n    # 2. 如果有明确实体，先精确过滤\n    exact_docs = []\n    for entity
+    in entities:\n        exact_docs.extend(vectorstore.filter(field=\"product_id\",
+    value=entity))\n    \n    # 3. 同时做混合检索\n    semantic_docs = vectorstore.similarity_search(query,
+    k=10)\n    keyword_docs = bm25_retriever.search(query, k=10)\n    \n    # 4. 融合：精确匹配的排最前，其余
+    RRF 融合\n    all_docs = exact_docs + rrf_fusion(semantic_docs, keyword_docs)\n
+    \   return all_docs[:5]\n```\n\n3.2 对“太宽泛”的问题（如问某个框架的整体架构）\n\n痛点：宽泛问题需要的答案可能分散在多个章节，单次检索只能抓到局部片段，缺乏全局视角。\n\n应对组合拳：\n\n①
+    Step-Back 改写：把“FastAPI 的整体架构是什么？”后退为“FastAPI 架构概述”或“FastAPI 核心组件”，先用这个宽泛查询检索到综述性文档。\n\n②
+    子问题分解（Sub-Question Decomposition）：对于明显的复合问题，用 LLM 拆成多个子问题，分别检索，再汇总。例如“整体架构”可拆为“路由机制”、“依赖注入”、“中间件”、“请求处理流程”等子问题。\n\n③
+    大块文档召回：针对宽泛问题，增大 chunk_size 或直接使用父文档索引（检索时返回更大的上下文片段），因为宽泛问题需要更完整的上下文来支撑回答。\n\n```python\ndef
+    handle_broad_query(query: str, llm, retriever) -> str:\n    # 1. 判断是否为宽泛问题（如包含\"架构\"、\"原理\"、\"概述\"等词）\n
+    \   if is_broad_query(query):\n        # 2. 使用 Step-Back 生成抽象问题\n        background_query
+    = step_back_rewrite(query, llm)\n        # 3. 用抽象问题检索，同时增加检索数\n        docs =
+    retriever.retrieve(background_query, top_k=20)\n        # 4. 如果文档较长，可以考虑用 LLM
+    做子文档摘要或生成大纲\n        return docs\n    # 否则走默认流程\n    return retriever.retrieve(query,
+    top_k=5)\n```\n\n更智能的做法：动态路由\n\n可以在网关层部署一个轻量级分类器（如 DistilBERT fine-tune 或直接用 LLM
+    判断），根据问题类型自动选择管道。这样对用户透明，整体系统鲁棒性更强。\n\n---\n\n### 4.3 向量数据库选型"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcnz6tFgCRss9zVGAV4HrmbVf
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "\U0001F3AF 3. 用户反馈对“太专业”和“太宽泛”的问题都检索不好，你怎么分别应对？"
+  imported_at: '2026-09-21'

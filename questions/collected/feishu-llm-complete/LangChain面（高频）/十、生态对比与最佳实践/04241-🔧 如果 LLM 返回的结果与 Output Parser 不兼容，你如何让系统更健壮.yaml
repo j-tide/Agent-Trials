@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1e3b9bb7e935
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F527 如果 LLM 返回的结果与 Output Parser 不兼容，你如何让系统更健壮？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 十、生态对比与最佳实践
+tags: &1
+- LangChain面（高频）
+- 十、生态对比与最佳实践
+content:
+  prompt: "\U0001F527 如果 LLM 返回的结果与 Output Parser 不兼容，你如何让系统更健壮？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LLM 输出不稳定是固有特性，Output Parser 解析失败是家常便饭。让系统健壮的核心策略是：防御性设计 + 自动修复 + 降级兜底。
+
+    - 使用 OutputFixingParser：LangChain 提供了一个 OutputFixingParser，它包装另一个 Parser。当内部 Parser 解析失败时，它会将错误信息和原始输出一起再次发送给 LLM，让 LLM 自己修正格式。这个方法简单有效，能解决大部分格式错误问题。
+
+    - 使用结构化输出（Function Calling）：这是最彻底的解决方案。通过 OpenAI 的 Function Calling 或 Tool Use，要求 LLM 返回 JSON 格式的函数调用，而不是自由文本。LLM 在生成 JSON 时的格式可靠性远高于自由文本。LangChain 的 create_openai_functions_agent 和 PydanticOutputParser 结合 Function Calling 可以极大降低解析失败率。
+
+    - 实现重试机制：在 Parser 层面实现自动重试。如果解析失败，可以重新调用 LLM 一次（最多两次），如果仍失败，再降级处理。
+
+    - 降级策略：当所有尝试都失败时，不要让系统崩溃。可以将原始输出作为纯文本返回给用户，或者返回一个默认的兜底回复（如“抱歉，我暂时无法生成结构化的回答”）。同时记录日志和告警，便于后续优化 Prompt。
+
+    - 自定义健壮的 Parser：对于简单的结构化需求（如提取 JSON），不一定用 LangChain 的 Parser，可以自己写一个。例如，用正则从文本中提取 {} 包裹的内容，然后尝试 json.loads。这比依赖 LLM 完全按格式输出更可靠。
+
+    实践：在我们的一个数据分析 Agent 中，要求 LLM 输出一个 JSON 数组。最初使用 PydanticOutputParser，解析失败率约 15%。后来我们改为使用 Function Calling，失败率降至 2%。对于剩下的 2%，我们用 OutputFixingParser 再修复，最终失败率几乎为零。
+
+    反思：不要试图让 LLM 完美遵守格式，而是要建立一套自动修复和降级的管道。把 LLM 当作一个不完美的数据源，而不是一个精确的 API。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JnXtweizdiLAPukHzMGcNKZHn5M
+  block_id: Re6adlDrPoIsrXxIhfpcPR7anAe
+  page_token: JnXtweizdiLAPukHzMGcNKZHn5M
+  original_title: "\U0001F527 如果 LLM 返回的结果与 Output Parser 不兼容，你如何让系统更健壮？"
+  imported_at: '2026-09-21'

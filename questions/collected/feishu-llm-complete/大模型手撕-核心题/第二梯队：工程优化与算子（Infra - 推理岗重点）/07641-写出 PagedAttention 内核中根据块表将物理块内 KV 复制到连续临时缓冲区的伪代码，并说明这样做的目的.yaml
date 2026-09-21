@@ -1,0 +1,98 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9858b1eb5026
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出 PagedAttention 内核中“根据块表将物理块内 KV 复制到连续临时缓冲区”的伪代码，并说明这样做的目的。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 写出 PagedAttention 内核中“根据块表将物理块内 KV 复制到连续临时缓冲区”的伪代码，并说明这样做的目的。
+answer:
+  mode: rubric
+  reference_answer: |-
+    目的
+
+    物理块在显存中可能分散，直接用于矩阵乘法会产生大量非连续内存访问，严重影响带宽。在内核中，先将一个物理块的 K 和 V 加载到共享内存（连续缓冲区），然后在共享内存上执行注意力计算，可以最大化访问效率。
+
+    伪代码（CUDA 风格）
+
+    ```c
+    __global__ void paged_attention_kernel(
+        float* Q,           // [num_heads, head_dim]
+        int* block_table,   // 逻辑块->物理块映射
+        float* kv_cache,    // [2][total_blocks][num_heads][block_size][head_dim]
+        float* output,
+        int seq_len,
+        int block_size,
+        int head_dim
+    ) {
+        int head_idx = blockIdx.x;
+        // 共享内存作为连续缓冲区
+        __shared__ float K_tile[16][128];   // block_size x head_dim
+        __shared__ float V_tile[16][128];
+
+        float O[128] = {0};
+        float l = 0.0, m = -INFINITY;
+        int num_blocks = (seq_len + block_size - 1) / block_size;
+
+        for (int b = 0; b < num_blocks; ++b) {
+            int phy_idx = block_table[b];
+            int tokens = min(block_size, seq_len - b * block_size);
+
+            // 协同加载 K 块和 V 块到共享内存
+            for (int i = threadIdx.x; i < tokens * head_dim; i += blockDim.x) {
+                int t = i / head_dim;
+                int d = i % head_dim;
+                K_tile[t][d] = kv_cache[0 * total_blocks * num_heads * block_size * head_dim +
+                                        phy_idx * num_heads * block_size * head_dim +
+                                        head_idx * block_size * head_dim +
+                                        t * head_dim + d];
+                V_tile[t][d] = kv_cache[1 * ... + t * head_dim + d];
+            }
+            __syncthreads();
+
+            // 在共享内存中计算 Q * K_tile^T，然后 online softmax 更新 O
+            for (int t = 0; t < tokens; ++t) {
+                float dot = 0.0;
+                for (int d = 0; d < head_dim; ++d) dot += Q[head_idx][d] * K_tile[t][d];
+                // ... online softmax 逻辑
+            }
+            __syncthreads();
+        }
+        // 写回 O
+    }
+    ```
+
+    说明：此伪代码展示了 FlashAttention 与 PagedAttention 的核心融合——每次循环通过块表获取物理块索引，从全局内存批量加载 K、V 到共享内存，然后在共享内存中计算注意力，避免了构造中间完整矩阵。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IhgfwCPtoif3TWkyezuc4sW9nbg
+  block_id: WdvqdC47MoIuq8xaJEucZ4nHnce
+  page_token: IhgfwCPtoif3TWkyezuc4sW9nbg
+  original_title: 写出 PagedAttention 内核中“根据块表将物理块内 KV 复制到连续临时缓冲区”的伪代码，并说明这样做的目的。
+  imported_at: '2026-09-21'

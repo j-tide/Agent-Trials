@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-04baf683f564
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DC 流式输出的日志记录一般怎么做？每个 token 都记录吗？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F4DC 流式输出的日志记录一般怎么做？每个 token 都记录吗？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    通常不记录每个 token，因为日志量太大，且 I/O 开销会严重影响生成性能。
+
+    最佳实践：
+
+    - 只记录请求和响应摘要：在 on_llm_start 记录 prompt 摘要，on_llm_end 记录完整回复文本、token 数、耗时。这足以满足审计和监控。
+
+    - 采样记录：在生产环境，可对 1% 的请求记录完整回复文本，用于质量评估。
+
+    - 错误全记录：流式生成出现异常时，记录完整上下文。
+
+    - 使用异步日志：避免日志写入阻塞主线程，可使用 logging.handlers.QueueHandler 或异步日志库。
+
+    示例：
+
+    ```python
+    class StreamLogger(BaseCallbackHandler):
+        def on_llm_end(self, response, **kwargs):
+            text = "".join([g[0].text for g in response.generations]) if response.generations else ""
+            logging.info(f"LLM call finished: tokens={...}, response={text[:200]}...")
+    ```
+
+    为何不记录每个 token：假设每秒生成 50 token，1k 并发，日志写入会成为瓶颈，且 token 片段无完整语义，分析价值低。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CZWewxKPziW9NLkL7iBcV35cncy
+  block_id: QEEcd8Et6oo7VOxFTepcf56xn2a
+  page_token: CZWewxKPziW9NLkL7iBcV35cncy
+  original_title: "\U0001F4DC 流式输出的日志记录一般怎么做？每个 token 都记录吗？"
+  imported_at: '2026-09-21'

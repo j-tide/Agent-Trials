@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dcca40225908
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何实现一个训练过程中自动调整 batch size 的策略？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何实现一个训练过程中自动调整 batch size 的策略？
+answer:
+  mode: rubric
+  reference_answer: |-
+    自动调整 batch size 常用于在显存受限时动态平衡吞吐量和稳定性。一个简单的策略是：根据当前显存占用，动态增加或减少 batch size，或根据梯度范数变化调整。
+
+    示例：基于 OOM 的自适应 batch size：
+
+    ```python
+    current_batch_size = 64
+    while True:
+        try:
+            train_with_batch_size(current_batch_size)
+            # 成功，尝试增大
+            current_batch_size = int(current_batch_size * 1.1)
+        except RuntimeError as e:
+            if 'out of memory' in str(e):
+                # OOM，减小并重试
+                current_batch_size = int(current_batch_size * 0.8)
+                torch.cuda.empty_cache()
+                continue
+            else:
+                raise e
+    ```
+
+    更精细的做法是基于梯度噪声尺度（GNS）动态调整，但工程实现复杂。工业界更常用的是固定 micro-batch size，通过梯度累积来灵活调整有效 batch size。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SlZHw2a2fiQQVBkkXXscts3znGd
+  block_id: CfscdVnU5ohlXVxlvAXcUfCcn3e
+  page_token: SlZHw2a2fiQQVBkkXXscts3znGd
+  original_title: 如何实现一个训练过程中自动调整 batch size 的策略？
+  imported_at: '2026-09-21'

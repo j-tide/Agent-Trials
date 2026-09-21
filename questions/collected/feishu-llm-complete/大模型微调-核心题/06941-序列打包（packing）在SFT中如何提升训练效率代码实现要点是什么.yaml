@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-04c44f385e90
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 29. 序列打包（packing）在SFT中如何提升训练效率？代码实现要点是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 29. 序列打包（packing）在SFT中如何提升训练效率？代码实现要点是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    序列打包 是将多个短样本拼接成一个接近模型最大长度（如2048）的序列，从而大幅减少计算浪费在padding token上的比例，提升有效token的吞吐量。
+
+    效率提升：在包含大量短指令的SFT数据集中，使用packing可将有效token利用率从20%~30%提升至80%以上，训练吞吐量可提升2~5倍。例如，原本一个batch只能处理16个样本（含大量padding），packing后可处理相当于60个有效样本的token量。
+
+    代码实现要点：
+
+    - 样本拼接：从数据集中逐个取出样本，将其input_ids和labels拼接到缓冲区，直到达到最大长度。在样本之间插入一个分隔符（如EOS token），其label设为-100。
+
+    - 注意力掩码构造：这是最核心也最容易出错的地方。必须构造4D的分块对角因果掩码。每个样本内部的token可以互相关注（且遵循因果），但不同样本之间的注意力权重必须被屏蔽（设为负无穷）。这样模型才能正确学习每个独立的任务，而不会将前后样本混淆。
+
+    - 位置编码：对于RoPE等相对位置编码，由于注意力已被隔离在各自块内，连续的绝对位置不会造成负面影响。因此通常无需特殊处理位置编码。
+
+    - 填充与截断：若缓冲区剩余长度不足放下一个完整样本，可选择用pad填充剩余部分，或截断该样本（损失部分信息），或将该样本移入下一个pack。
+
+    - 多轮对话处理：对于多轮对话，应将整个对话视为一个不可分割的单元进行打包，避免将同一对话的不同轮次打散到不同pack中。
+
+    ✅ 代码框架：通常通过自定义DataCollator来实现。在__call__方法中，遍历batch中的样本，动态构建pack序列，同时构建对应的4D attention mask。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PMU2wL6MLiKo4yk5L39cu6vqnIc
+  block_id: Qdp3d07NhopQ23xvTeNcok7VnGc
+  page_token: PMU2wL6MLiKo4yk5L39cu6vqnIc
+  original_title: 29. 序列打包（packing）在SFT中如何提升训练效率？代码实现要点是什么？
+  imported_at: '2026-09-21'

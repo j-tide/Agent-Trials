@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-068937cfc6c1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: DistributedSampler如何保证每个进程获取不同数据？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: DistributedSampler如何保证每个进程获取不同数据？
+answer:
+  mode: rubric
+  reference_answer: |-
+    DistributedSampler通过将整个数据集的索引按进程总数均匀划分，然后根据当前进程的rank分配不重叠的子集，确保每个进程处理的数据互不重复。
+
+    工作原理：
+
+    - 假设数据集有100个样本，world_size=4。
+
+    - DistributedSampler生成索引[0, 1, 2, ..., 99]。
+
+    - 将索引按进程数划分：rank 0 取 [0, 4, 8, ...]，rank 1 取 [1, 5, 9, ...]，以此类推。
+
+    - 划分后的索引子集作为每个进程的采样范围。这样，整个epoch内，所有进程的数据覆盖了整个数据集，且互不重叠。
+
+    实现细节：
+
+    - 如果数据集长度不能被进程数整除，可以通过drop_last=True丢弃最后不完整的batch，或通过pad补齐。
+
+    - 通过shuffle=True，在每个epoch开始时，DistributedSampler会使用相同的随机种子打乱全局索引，然后分配给各进程，保证所有进程的随机性一致且数据不重叠。
+
+    使用示例：
+
+    ```python
+    from torch.utils.data import DistributedSampler
+
+    sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=32, sampler=sampler)
+    ```
+
+    这样，每个进程的DataLoader只会从分配给它的子集中抽取数据，无需额外设置。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KwdbwAt6ziL8zKkU7VMcVNEin8d
+  block_id: VMZIdA8Y4o2Ny2xsH2QcutBgnEs
+  page_token: KwdbwAt6ziL8zKkU7VMcVNEin8d
+  original_title: DistributedSampler如何保证每个进程获取不同数据？
+  imported_at: '2026-09-21'

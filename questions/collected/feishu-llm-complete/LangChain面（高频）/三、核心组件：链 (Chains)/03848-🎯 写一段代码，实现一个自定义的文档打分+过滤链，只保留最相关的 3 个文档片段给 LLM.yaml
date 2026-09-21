@@ -1,0 +1,101 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a4de8bf17041
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3AF 写一段代码，实现一个自定义的“文档打分+过滤”链，只保留最相关的 3 个文档片段给 LLM。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "\U0001F3AF 写一段代码，实现一个自定义的“文档打分+过滤”链，只保留最相关的 3 个文档片段给 LLM。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这里我们实现一个自定义链，它结合了 MapRerank 的思想，但并非直接从 LangChain 继承，而是用函数式风格组装，便于理解。我们将使用一个评分 Prompt 让 LLM 给每个文档打分，然后排序取前三。
+
+    from langchain.chains import LLMChain
+    from langchain.prompts import PromptTemplate
+    from langchain.chat_models import ChatOpenAI
+    from langchain.schema import Document
+    import re
+
+    # 1. 定义评分 Prompt
+    score_prompt = PromptTemplate.from_template(
+        """你是一个专业的文档相关性评估专家。请根据用户的问题，评估以下文档片段的相关性，并给出一个1-100的整数分数。
+
+    用户问题: {question}
+
+    文档片段: {document}
+
+    请直接输出分数，格式为"Score: 数字"，不要输出其他内容。"""
+    )
+
+    # 2. 创建LLM链
+    llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
+    score_chain = LLMChain(llm=llm, prompt=score_prompt)
+
+    # 3. 打分函数，处理单个文档，返回 (doc, score)
+    def score_document(question: str, doc: Document) -> (Document, int):
+        raw = score_chain.run(question=question, document=doc.page_content)
+        match = re.search(r"Score:\s*(\d+)", raw)
+        if match:
+            score = int(match.group(1))
+        else:
+            score = 0
+        return doc, score
+
+    # 4. 主过滤函数：传入文档列表和问题，返回top_k文档
+    def filter_top_k(question: str, docs: list[Document], k: int = 3) -> list[Document]:
+        scored = []
+        for doc in docs:
+            _, score = score_document(question, doc)
+            scored.append((doc, score))
+        # 按得分降序排序
+        scored.sort(key=lambda x: x[1], reverse=True)
+        top_docs = [doc for doc, _ in scored[:k]]
+        return top_docs
+
+    # 5. 使用示例
+    # 假设 docs 是从 Retriever 获取的候选文档
+    question = "什么是量子纠缠？"
+    top3_docs = filter_top_k(question, docs, k=3)
+    # 之后可以将 top3_docs 交给 stuff 或其他链生成最终答案
+
+    ⚠️ 注意事项：
+
+    - 此实现每次打分调用一次 LLM，文档多时成本高。可改用更便宜的模型（如 gpt-3.5-turbo）或批量打分。
+
+    - 如果文档片段较长，需要截断，避免超出打分模型的 token 限制。
+
+    - 对于生产环境，建议使用异步并发（asyncio.gather）同时为多个文档打分，加速处理。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Jb18witLXiiZV0kzYmccDNKDntb
+  block_id: MsymdwkyboRvnWxBWRccHmJOnBc
+  page_token: Jb18witLXiiZV0kzYmccDNKDntb
+  original_title: "\U0001F3AF 写一段代码，实现一个自定义的“文档打分+过滤”链，只保留最相关的 3 个文档片段给 LLM。"
+  imported_at: '2026-09-21'

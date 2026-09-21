@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-227455bb5560
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对于生成式语言模型，蒸馏损失如何在每个 token 上计算？需要 mask 吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型蒸馏面试-核心题
+derived_topic: 
+tags: &1
+- 大模型蒸馏面试-核心题
+content:
+  prompt: 对于生成式语言模型，蒸馏损失如何在每个 token 上计算？需要 mask 吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    必须进行Mask，而且这是生成式模型蒸馏的精髓所在。
+
+    在生成式模型中，损失是按Token计算的，但我们只希望对模型生成的那部分Token（即回答部分）计算蒸馏损失，而忽略输入部分（即Prompt/Instruction部分）的损失。这一操作被称为Loss Masking。
+
+    计算流程：
+
+    - 构造输入与标签：对于一个指令 X 和回答 Y，我们将序列拼接为 S=[X,Y]。然后，我们需要创建一个与 SS 等长的labels序列。
+
+    - 设置掩码：在labels序列中，将输入 X 部分对应的所有Token位置的标签设置为 -100（PyTorch中的忽略索引）。而对于回答 Y 部分，标签保持为真实的Token ID。
+
+    - 前向传播与损失计算：模型对整个序列 S 进行前向传播，输出每个Token位置的Logits。然后，使用labels序列与这些Logits计算交叉熵损失。在损失函数内部，会自动忽略labels == -100的位置，因此只有回答 YY 部分的Token贡献了损失梯度。
+
+    为什么必须这么做？
+
+    - 训练目标的精确性：我们训练模型是为了在给定Prompt的条件下生成回答。如果对Prompt部分也计算损失，相当于要求模型也去学习生成Prompt，这不仅浪费算力，还会导致模型在推理时产生不可预期的行为（如自己扮演用户提问）。
+
+    - 模仿行为的确定性：在蒸馏场景下，学生模型需要精确模仿教师在回答时的行为，而不是模仿教师去理解Prompt。因此，必须将学习信号聚焦于“如何回答”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HgUfwaznAiYDsakz5oRckIO5nLJ
+  block_id: FcuDdQUc8orVfsxqej8cLQkOnJh
+  page_token: HgUfwaznAiYDsakz5oRckIO5nLJ
+  original_title: 对于生成式语言模型，蒸馏损失如何在每个 token 上计算？需要 mask 吗？
+  imported_at: '2026-09-21'

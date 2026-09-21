@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-62b7d9cb0bb0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果希望融合两个不同任务微调的LoRA权重，有什么方法？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如果希望融合两个不同任务微调的LoRA权重，有什么方法？
+answer:
+  mode: rubric
+  reference_answer: |-
+    融合两个在不同任务上分别微调的LoRA权重，目标是得到一个能同时执行两个任务的单一模型（或适配器）。常见方法有：
+
+    - 加权平均合并（Weight Averaging）：
+
+    [图片内容未导入]
+
+    - 基于Fisher信息的弹性合并（Fisher Merging）：
+
+    - 任务向量算术（Task Vector Arithmetic）：
+
+    [图片内容未导入]
+
+    - 路由网络学习（如Mix-of-LoRA）：
+
+    - 联合训练（Multi-task LoRA）：
+
+    推荐：如果任务相关性高且追求低成本，可尝试加权平均并扫描 λλ；如果追求高质量，可考虑路由组合或直接在混合数据上微调一个LoRA。融合前，建议在各自任务和混合任务评估集上测试，确保没有灾难性干扰。
+
+    - 奇异值本身的大小（幅度越大越重要）。
+
+    - 对损失的敏感度（可通过梯度或Fisher信息近似）。敏感度高的奇异值微小的变化就能大幅影响损失，因此更重要。
+
+    - LoRA：AdamW优化器，学习率常设为 2e-4 或 3e-4，配合warmup和余弦衰减。
+
+    - 全参微调：AdamW，学习率常设为 1e-5 或 5e-6，配合极小的warmup比例。
+
+    - 注意力层优先：通常将大部分秩预算分配给注意力投影矩阵（Q、K、V、O），因为这些层对行为控制最重要。FFN层可分配少量或零秩。
+
+    - 深层优先：高层（靠近输出）比底层更需要高秩，因为高层特征更接近任务特定。
+
+    - 依据层大小：参数矩阵维度更大的层（如FFN的中间层）即使秩相同，可训练参数也更多。按参数量比例分配秩是一种简单策略。
+
+    - 在训练过程中评估每一层参数的重要性（通过奇异值大小或梯度信息），动态剪除不重要的秩，并重新分配给更重要的层。这种方法能自动找到最优分配方案，但训练过程更复杂。
+
+    - 如果希望保持总秩固定，但不同层可调，可以通过随机搜索或进化算法，采样不同的秩配置，根据验证性能选择最佳组合。
+
+    - 计算每个LoRA参数对各自任务的重要性（通过Fisher信息矩阵）。在合并时，对每个参数，根据其在两个任务中的重要性进行加权，优先保留对各自任务重要的参数方向，减少互相破坏。
+
+    - 在组合适配器之上训练一个小型路由器，让模型根据输入动态决定使用哪个适配器的输出或它们的混合。这是目前效果最好的方式，但需要额外的组合训练数据。
+
+    - 将两个任务的数据混合，训练一个新的LoRA（或同时训练两个LoRA），这是最可靠但成本最高的方法。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UEbgw2D3ci93jLkR3c6cdyoInve
+  block_id: WgpZdae0aoDpnQxYi4DcqSn8nBe
+  page_token: UEbgw2D3ci93jLkR3c6cdyoInve
+  original_title: 如果希望融合两个不同任务微调的LoRA权重，有什么方法？
+  imported_at: '2026-09-21'

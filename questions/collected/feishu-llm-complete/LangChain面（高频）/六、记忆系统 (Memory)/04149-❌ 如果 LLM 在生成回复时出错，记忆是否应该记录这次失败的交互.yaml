@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b068b3a6b9f5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "❌ 如果 LLM 在生成回复时出错，记忆是否应该记录这次失败的交互？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "❌ 如果 LLM 在生成回复时出错，记忆是否应该记录这次失败的交互？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    一般不应该记录失败的交互，或者需要特殊标记后记录。
+
+    理由：
+
+    - 失败的消息（例如因为 API 超时、内容过滤等导致的中断）是不完整的，存入记忆会破坏对话的连贯性。
+
+    - 如果用户看到错误，他们通常会重试。如果失败的尝试也存入记忆，可能会造成重复或混乱的上下文。
+
+    最佳实践：
+
+    - 默认丢弃：在调用链的 predict 或 ainvoke 抛出异常时，不在 except 块中调用 save_context。
+
+    - 特殊记录（用于调试）：如果需要记录错误以便分析，可以使用一个单独的“错误日志”记忆或直接写日志，而不是混入对话历史。或者，可以用一个特殊的 SystemMessage 或标记了 metadata 的消息存入记忆，表明这是一条失败的消息，并在 Prompt 中指示 LLM 忽略它们。
+
+    - LangChain 的回调：可以利用 on_llm_error 回调来捕获错误并记录到日志。
+
+    实现示例：
+
+    ```python
+    try:
+        response = chain.predict(input=user_input)
+    except Exception as e:
+        # 记录错误日志，但不更新对话记忆
+        logger.error(f"LLM generation failed: {e}")
+        response = "抱歉，我暂时无法处理您的请求，请稍后再试。"
+        # 可选：将这句道歉存入记忆，让用户知道发生了什么
+        memory.save_context({"input": user_input}, {"output": response})
+    ```
+
+    在生成真实回复失败时，通常返回一个兜底回复，并将这个兜底回复存入记忆，以保持对话的连续。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H3N3wvSCiibLlPk5ZpjcveFHnNb
+  block_id: GMkfdLLxpo7zBLxnfmac5aumn6e
+  page_token: H3N3wvSCiibLlPk5ZpjcveFHnNb
+  original_title: "❌ 如果 LLM 在生成回复时出错，记忆是否应该记录这次失败的交互？"
+  imported_at: '2026-09-21'

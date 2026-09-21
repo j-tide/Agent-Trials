@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e34e8b60dc4d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: LoRA训练时，如何调整学习率？和全参数微调有何不同？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: LoRA训练时，如何调整学习率？和全参数微调有何不同？
+answer:
+  mode: rubric
+  reference_answer: |-
+    LoRA训练时的学习率设置与全参数微调有显著差异，主要是因为可训练参数规模和参数初始化策略不同。
+
+    全参数微调的学习率：
+
+    - 需要非常保守（通常在5e-6到2e-5范围），因为所有参数都被更新，过大的学习率极易引发灾难性遗忘。
+
+    - 学习率通常依赖于预训练阶段结束时的学习率，取其1/5到1/10。
+
+    - 不同层可能需要不同的学习率（如分层学习率衰减），但实现较复杂。
+
+    LoRA训练的学习率：
+
+    - 可适当提高：因为LoRA只训练新增的小矩阵A和B，基座模型参数冻结。A通常随机高斯初始化，B初始化为零。由于B从零开始，训练初期梯度的方向和幅度需要被有效放大才能快速学习，因此LoRA的学习率可以比全参数微调高出一个数量级，常见范围在1e-4到5e-4，甚至更高（如8e-4）。
+
+    - 与秩r和alpha的关系：LoRA论文建议将学习率与 alpha/r 的比值关联。通常设置 lr = base_lr * (alpha / r) 或类似的比例关系。原因是 αrrα 已经起到了缩放适配器输出的作用，学习率应相应调整以保持更新步长的合理性。如果使用默认 alpha = 2r，则缩放因子为2，此时学习率可以适当大些；如果 alpha = r，缩放因子为1，学习率可参照常规值。
+
+    - 实际调参：我通常从1e-4开始，观察损失下降曲线。如果几个step后损失下降非常缓慢，可能是学习率太低；如果损失剧烈震荡或迅速发散，则学习率太高。对于简单任务和少量数据，学习率可以稍低（5e-5）；对于复杂任务，可以提高到2e-4或3e-4。
+
+    与全参数微调的本质不同：
+
+    LoRA的学习率实质上是控制小矩阵A、B的更新步伐，而基座模型的输出端没有变化。因此，整个优化问题被解耦，我们只需关心适配器的学习动态，这比调整全模型参数更稳定，超参数选择也更宽容。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZYXSwaWATimyqQkmZm5cAPJHnoc
+  block_id: UjXKdeCyYoor6NxGjUNc95KznCd
+  page_token: ZYXSwaWATimyqQkmZm5cAPJHnoc
+  original_title: LoRA训练时，如何调整学习率？和全参数微调有何不同？
+  imported_at: '2026-09-21'

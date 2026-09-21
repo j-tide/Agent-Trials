@@ -1,0 +1,91 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b06c87f6ddac
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DA 在检索时，如何处理同义词、缩写等词不匹配问题？LangChain 有无辅助组件？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F4DA 在检索时，如何处理同义词、缩写等词不匹配问题？LangChain 有无辅助组件？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    词不匹配是信息检索的经典难题。当用户查询“AI”时，文档中写的是“人工智能”，向量检索对此有一定容忍度，但关键词检索（BM25）则会完全漏掉。
+
+    解决方案：
+
+    - 语义检索天然缓解
+
+    向量嵌入模型能捕捉词语的语义，因此“AI”和“人工智能”在向量空间中距离很近。这是解决词不匹配的第一道防线，因此向量检索是必须的。
+
+    - 查询扩展
+
+    在检索前，对用户查询进行同义词扩展和缩写补全。例如，将“AI”扩展为“人工智能 OR 机器学习”，将“LSTM”扩展为“长短期记忆网络”。这可以显著提升关键词检索的召回。
+
+    - 如何实现：可以构建一个同义词词典，或者使用 LLM 对查询进行改写。MultiQueryRetriever 就是利用 LLM 生成包含同义词的多个查询的典型工具。
+
+    - 文档端增强——同义词索引
+
+    在索引文档时，为文档中的每个词增加其同义词索引项。这样即使用户使用了不同词语，也能命中。这种方法需要构建一个高质量的同义词库，或者使用预训练的词向量来动态生成同义词。
+
+    - 使用混合检索
+
+    正如前面所述，向量检索和关键词检索各有所长。向量检索能处理同义词，关键词检索能处理精确词汇（如缩写“CNN”）。混合检索能够互补。
+
+    - LangChain 的辅助组件
+
+    - MultiQueryRetriever：直接用于查询扩展，生成多个包含不同表述和同义词的查询。
+
+    - 自定义 Retriever + 同义词表：你可以很容易地写一个 Retriever 包装器，在调用底层检索器前，先用一个同义词词典或 LLM 扩展查询。例如：
+
+    class SynonymExpandingRetriever(BaseRetriever):
+        def __init__(self, base_retriever, synonym_dict):
+            ...
+        def _get_relevant_documents(self, query):
+            expanded_queries = [query]
+            for word, synonyms in self.synonym_dict.items():
+                if word in query:
+                    for syn in synonyms:
+                        expanded_queries.append(query.replace(word, syn))
+            # 合并检索所有扩展查询的结果
+            ...
+
+    - ContextualCompressionRetriever：并不直接解决词不匹配，但可以在检索后，用 LLM 过滤，间接容忍部分词不匹配带来的噪声。
+
+    - 使用实体链接
+
+    对于专有名词、缩写，可以通过实体链接（Entity Linking）技术，将文本中的提及链接到知识库中的唯一实体。这样无论使用哪种表述，都能定位到同一实体。
+
+    总结：词不匹配问题的根本解决在于语义理解和知识库的规范化。在 LangChain 中，最常用、最有效的组合是：向量检索（兜底语义） + MultiQueryRetriever（扩展查询），并辅以自定义的同义词词典用于关键词检索。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HEY1ws44PidEGlkYttccK5AenXe
+  block_id: COpddAl4BoV8QuxZ61xcBrpcnlh
+  page_token: HEY1ws44PidEGlkYttccK5AenXe
+  original_title: "\U0001F4DA 在检索时，如何处理同义词、缩写等词不匹配问题？LangChain 有无辅助组件？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7ae75d16510c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 PPO 训练中，Actor 和 Critic 是否共享底座参数？各有什么利弊？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 1-基础认知与流程全景
+tags: &1
+- RLHF面试高频考点
+- 1-基础认知与流程全景
+content:
+  prompt: 在 PPO 训练中，Actor 和 Critic 是否共享底座参数？各有什么利弊？
+answer:
+  mode: rubric
+  reference_answer: |-
+    是否共享：没有硬性规定，两种设计均有成熟实现，但在大规模语言模型的 RLHF 中，独立底座（不共享）是更主流的选择。ChatGPT 背后的 InstructGPT 和多数开源复现（如 DeepSpeed-Chat）都采用 Actor 和 Critic 各自拥有完整的模型权重，甚至从不同的初始化起点出发。共享底座的方案在计算资源极度受限时会出现，但正逐渐被淘汰。
+
+    共享底座参数的优势：
+
+    - 显存和算力节省：这是共享最直接的动机。Actor 和 Critic 如果共用同一个 Transformer 编码器，只需加载一份庞大的参数（比如 7B、13B），能节省约一半的模型显存，使得在相同硬件条件下可以使用更大的基础模型或更大的 batch size。
+
+    - 特征复用：Actor 和 Critic 需要理解相同的语言，共享底座意味着对 prompt 和生成序列的深层语义理解只需要计算一次，特征可以同时用于策略决策和价值估计。这理论上能加速训练初期 Critic 的收敛，因为底座已经具备了从 SFT 继承的语言理解能力。
+
+    - 简化工程架构：只需维护一个优化器状态组，减少了分布式训练中模型分片和通信的复杂度。
+
+    共享底座参数的劣势（为何主流选择不共享）：
+
+    - 目标冲突（Gradient Interference）：这是最致命的问题。Actor 的损失函数（PPO 裁剪目标 + KL 惩罚）和 Critic 的损失函数（价值回归的 MSE）优化的方向完全不同，甚至可能相互矛盾。共享底座时，两者的梯度会通过共享参数发生干涉——Actor 想要最大化奖励的策略梯度，与 Critic 想要最小化价值估计误差的梯度，在共享层的权重更新上角力，导致两者都无法充分学习，收敛变慢甚至不稳定。
+
+    - 灾难性遗忘加剧：Actor 在不断改变其语言生成分布，底座参数随之漂移。Critic 原本基于旧分布学习到的价值函数会立即过时，被迫用新漂移的底座重新学习，形成“追着自己的尾巴跑”的无效循环。独立底座则允许 Critic 保持自己稳定的特征提取器，只更新输出层附近，避免了这种耦合漂移。
+
+    - 学习速率不匹配：Actor 通常需要较小的学习率以保证策略稳定（受 KL 约束），而 Critic 可以用相对较大的学习率快速逼近真实价值。共享底座迫使两者必须使用折中的学习率，或者用复杂的梯度累积策略，拖慢整体进度。
+
+    - 价值估计偏差风险：如果底座参数被 Actor 主导，Critic 被迫基于“Actor 的偏好视角”去看待世界，而不是客观地评估状态价值。这可能导致价值估计出现系统性偏差，优势函数不准确，进而误导 Actor 的训练。
+
+    主流实践：独立底座。Critic 通常从 SFT 模型或 RM 初始化（但独立参数），Actor 从 SFT 模型初始化，两者各自拥有完整的 Transformer 权重。这虽然增大了显存占用，但通过模型并行、ZeRO 优化等技术可以缓解，并且带来了稳定性和收敛速度的显著提升。在一些更激进的优化中，Critic 甚至可以比 Actor 小（如参数减半），仅保留评估能力，进一步节省资源。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TopFwyc4Si1SxFkkfQlc4kXxnJd
+  block_id: M1d8dUJPAoXzgkxk8chcHzgonhc
+  page_token: TopFwyc4Si1SxFkkfQlc4kXxnJd
+  original_title: 在 PPO 训练中，Actor 和 Critic 是否共享底座参数？各有什么利弊？
+  imported_at: '2026-09-21'

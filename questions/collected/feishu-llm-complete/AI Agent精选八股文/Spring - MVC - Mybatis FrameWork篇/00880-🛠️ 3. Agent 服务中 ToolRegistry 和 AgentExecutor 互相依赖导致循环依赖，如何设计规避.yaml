@@ -1,0 +1,150 @@
+---
+schema_version: 1
+id: feishu-llm-complete-247e3a3a1f3c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E0️ 3. Agent 服务中 ToolRegistry 和 AgentExecutor 互相依赖导致循环依赖，如何设计规避？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: "\U0001F6E0️ 3. Agent 服务中 ToolRegistry 和 AgentExecutor 互相依赖导致循环依赖，如何设计规避？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    假设我们正在开发一个 Agent 框架，有两个核心类：
+
+    - ToolRegistry：管理所有可用工具（Tool），并负责根据名称查找工具。
+
+    - AgentExecutor：执行 Agent 的任务，需要从 ToolRegistry 获取工具来调用；同时，某些工具的执行又需要回调 AgentExecutor 的能力（比如执行子任务）。
+
+    这就形成了一个典型的循环依赖：ToolRegistry ↔ AgentExecutor。直接使用 @Autowired 互相注入会触发 Spring 的循环依赖解决方案，虽然 Spring 能解决，但代码结构会变得脆弱（比如未来改为构造器注入就会炸），而且隐藏了不合理的分层。
+
+    重构思路：核心是打破“直接持有”的依赖链条。 有三种经典策略：
+
+    策略一：使用 @Lazy 注解（最快但非最优）
+
+    在其中一个注入点加上 @Lazy，让 Spring 先注入一个代理对象，真正的 Bean 在第一次调用时才被创建。这利用了 Spring 的延迟初始化来绕过循环依赖的创建时序问题。
+
+    @Component
+    public class AgentExecutor {
+        @Autowired
+        @Lazy
+        private ToolRegistry toolRegistry;
+        // ...
+    }
+
+    优点：改动最小，一行代码解决问题。
+    缺点：隐藏了设计上的耦合，@Lazy 会导致 Bean 的初始化错误推迟到运行时才暴露，且不能用于构造器注入，不利于不可变设计。
+
+    策略二：提取中介者，使用事件/回调解耦（推荐）
+
+    分析业务逻辑：为什么 ToolRegistry 需要 AgentExecutor？很可能是因为某个工具需要“执行子 Agent”的能力。我们可以把“执行子 Agent”这个能力抽象成一个接口 TaskExecutor，让 AgentExecutor 实现它，然后 ToolRegistry 只依赖这个接口。同时，为了避免直接的循环引用，可以让 ToolRegistry 在需要执行任务时，通过一个回调或者事件去触发，而不是直接持有 AgentExecutor。
+
+    // 抽象任务执行器接口
+    public interface TaskExecutor {
+        String execute(String task);
+    }
+
+    // AgentExecutor 实现该接口
+    @Component
+    public class AgentExecutor implements TaskExecutor {
+        @Autowired
+        private ToolRegistry toolRegistry;
+
+        @Override
+        public String execute(String task) {
+            // 使用工具执行
+            Tool tool = toolRegistry.getTool("search");
+            // ...
+        }
+    }
+
+    // ToolRegistry 只依赖 TaskExecutor，不直接依赖 AgentExecutor
+    @Component
+    public class ToolRegistry {
+        // 注意：这里没有 @Autowired AgentExecutor，而是依赖 TaskExecutor
+        private TaskExecutor taskExecutor;
+
+        // 构造器注入，没有循环
+        public ToolRegistry(TaskExecutor taskExecutor) {
+            this.taskExecutor = taskExecutor;
+        }
+
+        // 某个工具内部需要调用任务执行能力
+        public void executeSubTask(String subTask) {
+            taskExecutor.execute(subTask);
+        }
+    }
+
+    但这样还有循环吗？TaskExecutor 由 AgentExecutor 实现，而 AgentExecutor 又依赖 ToolRegistry，编译层面没有循环（构造器可以正常工作），因为 Spring 能够通过三级缓存解决。但如果想彻底消灭循环，可以进一步使用事件模型：当工具需要执行子任务时，发布一个 TaskRequestEvent，由 AgentExecutor 监听并处理。
+
+    // 彻底解耦：事件驱动
+    @Component
+    public class ToolRegistry {
+        @Autowired
+        private ApplicationEventPublisher publisher;
+
+        public void executeSubTask(String subTask) {
+            publisher.publishEvent(new SubTaskEvent(subTask));
+        }
+    }
+
+    @Component
+    public class AgentExecutor {
+        @EventListener
+        public void handleSubTask(SubTaskEvent event) {
+            // 执行子任务，期间可以调用 toolRegistry（这里无循环）
+        }
+    }
+
+    策略三：使用 ObjectProvider 延迟获取
+
+    在 Spring 中，可以使用 ObjectProvider<T> 来延迟获取依赖，它本质上是一种“懒加载”的委托。当 ToolRegistry 需要 AgentExecutor 时，再从容器的提供者中获取。
+
+    @Component
+    public class ToolRegistry {
+        @Autowired
+        private ObjectProvider<AgentExecutor> agentExecutorProvider;
+
+        public void executeSubTask(String subTask) {
+            AgentExecutor executor = agentExecutorProvider.getIfAvailable();
+            if (executor != null) {
+                executor.execute(subTask);
+            }
+        }
+    }
+
+    这样，ToolRegistry 并不在初始化时就依赖 AgentExecutor，而是等到真正需要时才获取，打破了创建时的循环。
+
+    总结：在设计 Agent 系统时，遇到循环依赖，第一反应不应该是加 @Lazy 或依赖 Spring 的三级缓存来解决，而是停下来审视分层。通常循环依赖意味着两个类之间的关系过于紧密，应该引入接口、事件或中介者来明确职责边界。ToolRegistry 只负责工具的管理和查找，它不应该去主动执行任务；执行任务的职责应该由 AgentExecutor 或独立的任务调度器来承担。理顺这些边界，循环依赖往往就自然消失了。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcn5RCG0OslRlaLnwOQK4V0ie
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: "\U0001F6E0️ 3. Agent 服务中 ToolRegistry 和 AgentExecutor 互相依赖导致循环依赖，如何设计规避？"
+  imported_at: '2026-09-21'

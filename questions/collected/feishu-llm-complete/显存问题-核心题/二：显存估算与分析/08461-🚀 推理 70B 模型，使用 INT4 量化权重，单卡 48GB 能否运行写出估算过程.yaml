@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dd0f9ddb6991
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F680 推理 70B 模型，使用 INT4 量化权重，单卡 48GB 能否运行？写出估算过程。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "\U0001F680 推理 70B 模型，使用 INT4 量化权重，单卡 48GB 能否运行？写出估算过程。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    假设使用典型的 70B 模型（如 Llama-2-70B），层数 80，hidden_size 8192，中间 FFN 尺寸通常为 28672，注意力头数 64，头维度 128，没有 GQA 的话 KV 头数也是 64，但 70B 模型一般使用 GQA（如 8 组），这里保守点先按 8 组计算。
+
+    权重显存：INT4 权重，每个参数占 0.5 字节（4-bit）。70B 参数 × 0.5 字节 = 35 GB。实际推理框架可能还有些量化参数（如缩放因子）等开销，大约增加 1-2 GB，我们暂且算权重 36 GB。
+
+    KV Cache 显存：单卡 48GB 通常用于高吞吐场景，可能支持 batch size 1，但我们需要确认输入长度。假设输入长度 2048，输出长度 512，那么总序列长度 2560 token。KV 头数为 8（GQA），头维度 128。
+
+    每 token 每层的 KV 对大小 = 2 (K & V) × KV 头数 × 头维度 × FP16(2 字节) = 2 × 8 × 128 × 2 = 4096 字节。
+
+    80 层，总大小 = 4096 × 80 × 2560 = 4096 × 204,800 = 838,860,800 字节 ≈ 800 MiB（0.78 GiB）。可见即使序列长度 2560，KV Cache 也只有不到 1 GB。
+
+    中间激活：通常极小的 batch size 激活可以忽略不计（几 MB）。
+
+    总显存 = 权重 36 GB + KV Cache 0.8 GB ≈ 36.8 GB。远小于 48 GB，因此单卡 48GB 完全可以运行，甚至 batch size 可以增大。如果未使用 GQA，KV 头数为 64，则 KV Cache 变为 800 MB × (64/8) = 6.4 GB，总显存 ≈ 42.4 GB，仍然在 48GB 以内。所以，无论是否 GQA，INT4 量化的 70B 模型在 48GB 卡上都能运行，还有余量。
+
+    实际上，许多框架（如 vLLM、LMDeploy）已经能在 48GB 的 A6000 或 L40S 上运行量化 70B。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/U2u9wFuzEiPu2okJIcFcYZkUnhc
+  block_id: MfLbdwBzNo4DWIxd9lwcdG4pnoc
+  page_token: U2u9wFuzEiPu2okJIcFcYZkUnhc
+  original_title: "\U0001F680 推理 70B 模型，使用 INT4 量化权重，单卡 48GB 能否运行？写出估算过程。"
+  imported_at: '2026-09-21'

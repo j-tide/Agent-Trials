@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b304c65f75fd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F39B️ 使用 vLLM 时，为什么 gpu_memory_utilization 参数很重要？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F39B️ 使用 vLLM 时，为什么 gpu_memory_utilization 参数很重要？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 gpu_memory_utilization 决定了 vLLM 在初始化时预留多少比例的 GPU 显存用于
+    KV Cache 块池，直接影响到可并发的请求数、最大序列长度以及是否能容纳模型权重。设太小，剩余显存放空，吞吐低；设太大，可能导致权重加载或临时缓冲区 OOM。\n\n\U0001F50D
+    深入解析：\n\n- vLLM 启动时，先加载模型权重，剩余显存 × gpu_memory_utilization 全部分配给 KV 块池。\n\n- 例如
+    24GB 卡，权重占 14GB，剩余 10GB，若设置 0.9，则块池大小 = 10GB × 0.9 = 9GB。剩下的 1GB 留作激活等开销。\n\n-
+    过大风险：设 1.0 会尝试占满全部剩余显存，若模型前向需要临时分配一些张量（如长 prompt 编码），可能 OOM。因此默认 0.9 留出安全缓冲。\n\n-
+    过小浪费：设 0.5 则仅用 5GB 作池，可支持的总 token 数少，并发能力不足，大量显存闲置。\n\n- 分块调度核心：池里全是相同大小的 KV 块，其数量决定了系统能同时维护多少个
+    token 的 KV Cache。该参数直接换算成最大 token 容量。\n\n\U0001F4CA 调优建议：\n\n- 若观察到 OOM 在第一个请求或
+    prompt 处理阶段，适当降低该值（如 0.85）。\n\n- 若显存尚有较多空闲且请求排队，提高至 0.95 以增大池。\n\n- 结合 max-model-len
+    一起调，确保池大小能满足模型最大长度的单请求需求。\n\n✅ 所以，gpu_memory_utilization 是 vLLM 显存管理的总阀门，需根据实际权重、流量和显存量精确调整。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BbCrwkO3wiWmAikFy0zc2OK6nPg
+  block_id: G7LKdmbrMooHeVxNt4bcGUzUn2g
+  page_token: BbCrwkO3wiWmAikFy0zc2OK6nPg
+  original_title: "\U0001F39B️ 使用 vLLM 时，为什么 gpu_memory_utilization 参数很重要？"
+  imported_at: '2026-09-21'

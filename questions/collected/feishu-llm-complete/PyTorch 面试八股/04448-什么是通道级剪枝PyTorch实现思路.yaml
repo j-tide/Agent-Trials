@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a50943a6b26f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是通道级剪枝？PyTorch实现思路。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 什么是通道级剪枝？PyTorch实现思路。
+answer:
+  mode: rubric
+  reference_answer: |-
+    通道级剪枝（Channel Pruning）是一种结构化剪枝方法，它直接移除卷积层或全连接层中不重要的整个通道（对于卷积，是输出通道）。与权重级别的非结构化剪枝（产生稀疏矩阵）不同，通道剪枝后模型依然是密集的，可以直接在通用硬件上获得加速，无需特殊的稀疏库支持。
+
+    核心思想：衡量每个输出通道的重要性（例如，通过该通道权重的 L2 范数、BN 层的缩放因子 γγ 等），然后修剪掉重要性低的通道，并相应调整后续层的输入通道数，使模型变窄。
+
+    PyTorch 实现思路：
+
+    - 选择要剪枝的层：通常为卷积层、全连接层。定义剪枝比例或阈值。
+
+    - 重要性评估：对每个目标层的输出通道计算重要性分数。常见指标：
+
+    - 确定要保留的通道索引：根据分数排序，保留前 k% 的通道索引。
+
+    - 构造新模型或修改原模型：
+
+    - 实现方式：
+
+    ```python
+    def prune_conv_layer(conv, bn, prune_ratio):
+        # 评估重要性
+        scores = torch.norm(conv.weight.data, dim=(1,2,3))
+        num_keep = int(len(scores) * (1 - prune_ratio))
+        _, indices = torch.topk(scores, num_keep)
+        # 修改权重
+        conv.weight.data = conv.weight.data[indices]
+        if conv.bias is not None:
+            conv.bias.data = conv.bias.data[indices]
+        conv.out_channels = num_keep
+        # 修改 BN
+        bn.weight.data = bn.weight.data[indices]
+        bn.bias.data = bn.bias.data[indices]
+        bn.running_mean.data = bn.running_mean.data[indices]
+        bn.running_var.data = bn.running_var.data[indices]
+        bn.num_features = num_keep
+        return indices
+    ```
+
+    - 注意：必须保证前后层的维度匹配，因此需要从后往前逐层处理，并传递保留的索引以修正下一层的输入通道。
+
+    - 微调：剪枝后精度通常会下降，需要在原数据集上进行少量微调（fine-tuning）以恢复精度。
+
+    优缺点：通道剪枝能直接减少模型尺寸和计算量，加速效果明显；但实现复杂，容易引入错误，且对不同架构需要定制。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WSlbwtUNQiNbKakCLPDcsZ9Hnsg
+  block_id: TmjddoXTAorbU1x7ngPcwNvynKu
+  page_token: WSlbwtUNQiNbKakCLPDcsZ9Hnsg
+  original_title: 什么是通道级剪枝？PyTorch实现思路。
+  imported_at: '2026-09-21'

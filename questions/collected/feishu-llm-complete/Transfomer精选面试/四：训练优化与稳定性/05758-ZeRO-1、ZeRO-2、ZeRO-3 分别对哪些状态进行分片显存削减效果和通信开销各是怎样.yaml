@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c1da8b720006
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ZeRO-1、ZeRO-2、ZeRO-3 分别对哪些状态进行分片？显存削减效果和通信开销各是怎样？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 四：训练优化与稳定性
+tags: &1
+- Transfomer精选面试
+- 四：训练优化与稳定性
+content:
+  prompt: ZeRO-1、ZeRO-2、ZeRO-3 分别对哪些状态进行分片？显存削减效果和通信开销各是怎样？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO（Zero Redundancy Optimizer）通过消除数据并行中的冗余存储来优化显存。
+
+    - ZeRO-1：将优化器状态（如 Adam 的 momentum 和 variance）分片到各 GPU。每张卡只存储一部分参数的优化器状态，并负责更新这部分参数。通信：在反向传播后，需要对梯度进行 ReduceScatter，使每张卡拥有自己那部分参数的梯度，然后更新对应优化器状态和参数。之后，需要通过 AllGather 收集更新后的参数。显存削减：优化器状态部分几乎减少到 1/N（N 为 GPU 数）。通信量与标准数据并行相当（AllReduce vs ReduceScatter+AllGather）。
+
+    - ZeRO-2：在 ZeRO-1 基础上，还将梯度分片。每张卡只存储自己那部分参数的梯度。反向计算时，每张卡只对负责的参数计算梯度。通信：类似，需要 ReduceScatter 将梯度分片到对应卡。显存节省更多（梯度也减少 1/N）。通信量略增。
+
+    - ZeRO-3：进一步将模型参数也分片。每张卡只存储一层（或一部分）参数。前向需要某层时，通过 AllGather 从其他卡收集完整参数；计算后丢弃；反向同理。这几乎将显存占用均分给所有卡，允许训练超大模型。通信量大幅增加，因为每层前向和反向都需要 AllGather 参数和 ReduceScatter 梯度。
+
+    总的来说，ZeRO-1/2/3 逐步增加通信量以换取更高的显存效率。ZeRO-3 结合梯度检查点，可实现百亿甚至千亿参数模型的训练。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JQ7Ewcu5vi3kzPkkXV2cvczhnyh
+  block_id: S9v0drT0noIvqnx0obTcxI2xnMf
+  page_token: JQ7Ewcu5vi3kzPkkXV2cvczhnyh
+  original_title: ZeRO-1、ZeRO-2、ZeRO-3 分别对哪些状态进行分片？显存削减效果和通信开销各是怎样？
+  imported_at: '2026-09-21'

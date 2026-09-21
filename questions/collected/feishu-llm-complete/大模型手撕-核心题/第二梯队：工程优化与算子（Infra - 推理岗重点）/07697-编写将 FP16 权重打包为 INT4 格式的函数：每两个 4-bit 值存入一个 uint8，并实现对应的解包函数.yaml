@@ -1,0 +1,105 @@
+---
+schema_version: 1
+id: feishu-llm-complete-577d2bc1c2fb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写将 FP16 权重打包为 INT4 格式的函数：每两个 4-bit 值存入一个 uint8，并实现对应的解包函数
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 编写将 FP16 权重打包为 INT4 格式的函数：每两个 4-bit 值存入一个 uint8，并实现对应的解包函数
+answer:
+  mode: rubric
+  reference_answer: |-
+    INT4 打包 即将有符号 4-bit 整数（通常范围 [-8,7]）两个一组拼成一个字节（uint8）。通常低 4 位存放第一个值，高 4 位存放第二个值。我们假设量化后的权重值在 [-8,7] 范围内。
+
+    打包函数：
+
+    - 输入：w_q 为 PyTorch int8 张量，但值只使用低 4 位（范围 [-8,7]）。
+
+    - 将连续两个元素合并：packed = (w_q[2*i] & 0xF) | ((w_q[2*i+1] & 0xF) << 4)，结果存储为 uint8。
+
+    - 如果元素个数为奇数，最后一个字节的高 4 位补 0。
+
+    解包函数：
+
+    - 将 uint8 拆分为两个 int8，恢复为 [N] 形状。需要将高 4 位右移 4 位并符号扩展：对于 4 位有符号数，若高 4 位最高位（bit3）为 1，表示负数，需进行符号扩展。解包逻辑：low = packed & 0x0F 然后 low = low - 16 if low > 7 else low，同理高 4 位：high = (packed >> 4) & 0x0F; high = high - 16 if high > 7 else high。
+
+    代码实现：
+
+    ```python
+    def pack_int4(w_q: torch.Tensor) -> torch.Tensor:
+        """
+        将 int8（值在[-8,7]）打包为 uint8，每两个元素一字节
+        Args:
+            w_q: int8 tensor，形状 [N]，其中数值范围 [-8, 7]
+        Returns:
+            packed: uint8 tensor，形状 [ceil(N/2)]
+        """
+        # 确保值在有效范围内并转换为无符号整数的低4位表示
+        w_q = w_q.to(torch.int8)
+        # 转为无符号4位（0~15），负数加16
+        w_u4 = torch.where(w_q < 0, w_q + 16, w_q).to(torch.uint8)  # 0~15
+        N = w_q.numel()
+        if N % 2 == 1:
+            # 补齐到偶数长度，多出的一个高4位置0
+            w_u4 = torch.cat([w_u4, torch.zeros(1, dtype=torch.uint8, device=w_q.device)])
+        # 每两个元素：低4位来自偶数索引，高4位来自奇数索引
+        low = w_u4[0::2]            # 低4位
+        high = w_u4[1::2] << 4      # 高4位
+        packed = low | high
+        return packed.to(torch.uint8)
+
+    def unpack_int4(packed: torch.Tensor, original_length: int) -> torch.Tensor:
+        """
+        将打包的 uint8 解包为 int8，恢复形状 [original_length]
+        """
+        low = (packed & 0x0F).to(torch.int8)
+        high = ((packed >> 4) & 0x0F).to(torch.int8)
+        # 符号扩展：如果值 > 7 则是负数，需转为 [-8, -1]
+        low = torch.where(low > 7, low - 16, low)
+        high = torch.where(high > 7, high - 16, high)
+        # 交替交织
+        unpacked = torch.stack([low, high], dim=1).flatten()  # [2*len(packed)]
+        # 截取到原始长度
+        return unpacked[:original_length]
+    ```
+
+    使用示例：
+
+    ```python
+    w_q = torch.tensor([1, -2, 7, -8, 3], dtype=torch.int8)
+    packed = pack_int4(w_q)
+    print(packed)  # 例如: tensor([0xEE?, ...]) 取决于顺序
+    unpacked = unpack_int4(packed, w_q.numel())
+    print(unpacked)  # 应该与 w_q 一致
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: WTtPdoKJioZCEXxR1MjcjYTknif
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 编写将 FP16 权重打包为 INT4 格式的函数：每两个 4-bit 值存入一个 uint8，并实现对应的解包函数
+  imported_at: '2026-09-21'

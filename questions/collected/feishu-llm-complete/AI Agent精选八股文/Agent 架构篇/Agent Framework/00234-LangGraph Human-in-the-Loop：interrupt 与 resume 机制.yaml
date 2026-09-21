@@ -1,0 +1,113 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1cbd9ae85cd3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: LangGraph Human-in-the-Loop：interrupt 与 resume 机制
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: LangGraph Human-in-the-Loop：interrupt 与 resume 机制
+answer:
+  mode: rubric
+  reference_answer: |-
+    ---
+
+    1、LangGraph 的 interrupt_before 是什么？
+
+    难度级别：⭐（interrupt_before/after 基本配置）
+
+    interrupt_before 是图编译时的全局配置，指定在哪些节点执行前自动暂停等待人工确认，不需要修改节点代码，适合统一拦截高风险操作。interrupt_after 是节点执行后暂停，用于人工审查结果。两者都依赖 Checkpointing，暂停状态会持久化，等待人工用 Command(resume=...) 恢复执行。
+
+    ---
+
+    2、LangGraph 如何实现 Human-in-the-Loop？请解释 interrupt() 的工作原理和 Command(resume=...) 恢复机制？
+
+    难度级别：⭐⭐⭐（interrupt 控制流中断原理、GraphInterrupt 异常、Command resume、Checkpointing 底层支撑）
+
+    1️⃣ Common Answer
+
+    在节点里调用 interrupt() 就会暂停执行，等用户输入后用 Command(resume=用户输入) 恢复。也可以在 compile() 时配置 interrupt_before 指定在哪些节点前暂停。这个功能用于需要人工审核的场景。
+
+    2️⃣ Impressive Answer
+
+    我会从原理、用法和生产设计三个层面来讲：
+
+    - interrupt() 的本质：控制流中断，不是 sleep。调用 interrupt() 时，框架做三件事：把当前 State（含 interrupt 的值）写入 Checkpoint → 抛出 GraphInterrupt 特殊异常 → graph.invoke() 捕获该异常并返回，附带 interrupt 的内容。整个图执行就此暂停，状态完整持久化，等待外部恢复。
+
+    - Command(resume=...) 恢复执行的机制。人工操作完成后，用同一个 thread_id 再次调用 graph.invoke(Command(resume="approve"), config)，框架从 Checkpoint 恢复 State，把 resume 的值注入 interrupt() 的返回值，图从暂停点继续执行——不是重头跑，而是接着走。
+
+    - 生产设计：interrupt_before vs 节点内 interrupt 的选择。interrupt_before/after 是编译时的无侵入全局配置，适合统一治理高风险节点；节点内手动调用 interrupt() 更灵活，可以把上下文（比如"要删除的具体数据"）一起传给审核人。完整的生产异步审核系统通常是：Agent 触发 interrupt → 写入消息队列 → 推送通知给审核人 → 审核人在 Web 界面操作 → 后端调用 graph.invoke(Command(resume=...), config)，同时需要设计超时处理，超时后自动拒绝或升级审核。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、金融 Agent 要执行一笔大额转账前需要人工确认，如何用 LangGraph 设计这个审核流程？
+
+    难度级别：⭐⭐⭐（interrupt 携带上下文、异步审核系统设计、超时处理）
+
+    1️⃣ Common Answer
+
+    在执行转账的节点前加 interrupt，让人工确认一下，确认后再继续执行，或者用 interrupt_before 配置在转账节点前暂停。
+
+    2️⃣ Impressive Answer
+
+    这个场景用节点内 interrupt() 而不是 interrupt_before，原因是需要把"转账金额、收款方、风险等级"等上下文信息传给审核人：
+
+    def transfer_review_node(state: AgentState) -> dict:
+        decision = interrupt({
+            "amount": state["transfer_amount"],
+            "to_account": state["to_account"],
+            "risk_level": state["risk_level"],
+            "message": f"即将转账 {state['transfer_amount']} 元到 {state['to_account']}，请确认"
+        })
+        if decision == "approve":
+            return {"task_status": "approved"}
+        return {"task_status": "rejected", "reject_reason": decision}
+
+    服务端收到 interrupt 后，通过消息队列把审核请求推给风控人员。审核人在内部系统点击"通过/拒绝"，前端调用：
+
+    graph.invoke(Command(resume="approve"), config)  # 或 "reject: 金额超限"
+
+    超时设计：如果 30 分钟内无人审核，后台定时任务自动调用 Command(resume="timeout_reject")，节点里对 "timeout_reject" 做特殊处理，记录日志并通知申请人。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    ### 5.3 LangGraph 多 Agent 架构
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BGoPwvMLhic7wKkrioacP0oynIh
+  block_id: doxcnpCq24Pwbw0NtEjFXXtZije
+  page_token: BGoPwvMLhic7wKkrioacP0oynIh
+  original_title: LangGraph Human-in-the-Loop：interrupt 与 resume 机制
+  imported_at: '2026-09-21'

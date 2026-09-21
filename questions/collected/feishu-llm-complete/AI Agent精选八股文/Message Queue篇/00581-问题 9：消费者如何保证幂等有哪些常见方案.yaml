@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-db4d07e7fadd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 问题 9：消费者如何保证幂等？有哪些常见方案？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 问题 9：消费者如何保证幂等？有哪些常见方案？
+answer:
+  mode: rubric
+  reference_answer: "难度：⭐⭐⭐（幂等设计、去重表、状态机、Token机制）\n\n1️⃣ Common Answer\n\n用数据库唯一键或者
+    Redis 去重。\n\n2️⃣ Impressive Answer\n\n我会从这几个角度思考：幂等性必要性、五种方案对比、适用场景分析、实战案例设计、幂等与重试关系。\n\n-
+    为什么需要幂等\n\n- At Least Once 语义：消息可能重复投递\n\n- 网络重试：生产端重试、消费端重试\n\n- Rebalance 重复消费：消费者组重平衡时重复投递\n\n-
+    业务异常：ACK 超时导致重复消费\n\n- 五种幂等方案对比\n\n[嵌入表格未展开]\n\n- 方案详解\n\n方案一：数据库唯一键\n\n```text\nCREATE
+    TABLE `order` (\n  `order_id` VARCHAR(32) PRIMARY KEY,\n  `status` TINYINT,\n
+    \ `amount` DECIMAL(10,2),\n  UNIQUE KEY `uk_order_no` (`order_no`)\n);\n\n-- 幂等插入\nINSERT
+    INTO `order` VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE status = status;\n```\n\n方案二：去重表\n\n```text\nCREATE
+    TABLE `dedup_log` (\n  `biz_id` VARCHAR(64) PRIMARY KEY,\n  `create_time` DATETIME\n);\n\n--
+    事务保证\nBEGIN;\nINSERT INTO `dedup_log` VALUES (?, NOW());\n-- 业务操作\nUPDATE `account`
+    SET balance = balance - ? WHERE user_id = ?;\nCOMMIT;\n```\n\n方案三：Redis setnx\n\n```text\npublic
+    boolean process(String messageId) {\n    String key = \"dedup:\" + messageId;\n
+    \   // setnx + 过期时间\n    boolean success = redis.setnx(key, \"1\", 300);  // 5分钟过期\n
+    \   if (!success) {\n        return false;  // 重复消息\n    }\n    try {\n        doBusiness();\n
+    \       return true;\n    } finally {\n        // 不删除 key，等待自动过期\n    }\n}\n```\n\n方案四：状态机\n\n```text\npublic
+    enum OrderStatus {\n    CREATED, PAID, SHIPPED, COMPLETED, CANCELLED;\n    \n
+    \   public boolean canTransitionTo(OrderStatus target) {\n        switch (this)
+    {\n            case CREATED: return target == PAID || target == CANCELLED;\n            case
+    PAID: return target == SHIPPED;\n            case SHIPPED: return target == COMPLETED;\n
+    \           default: return false;\n        }\n    }\n}\n\n// 幂等更新\npublic void
+    payOrder(String orderId) {\n    Order order = orderDao.findById(orderId);\n    if
+    (!order.getStatus().canTransitionTo(OrderStatus.PAID)) {\n        throw new IllegalStateException(\"订单状态不允许支付\");\n
+    \   }\n    order.setStatus(OrderStatus.PAID);\n    orderDao.update(order);\n}\n```\n\n方案五：Token
+    机制\n\n```text\n// 1. 生产端预分配 Token\nString token = UUID.randomUUID().toString();\nredis.setex(\"token:\"
+    + token, 300, \"1\");\nmessage.setToken(token);\n\n// 2. 消费端验证 Token\npublic boolean
+    consume(Message msg) {\n    String token = msg.getToken();\n    String key = \"token:\"
+    + token;\n    if (redis.del(key) == 0) {\n        return false;  // Token 已被消费\n
+    \   }\n    doBusiness(msg);\n    return true;\n}\n```\n\n- 实战：订单支付场景幂等设计\n\n组合方案：唯一键
+    + 状态机\n\n```text\n@Service\npublic class PaymentService {\n    \n    @Transactional\n
+    \   public void payOrder(PaymentRequest request) {\n        // 1. 唯一键去重（数据库层面）\n
+    \       Order order = orderDao.findByOrderNo(request.getOrderNo());\n        if
+    (order == null) {\n            throw new OrderNotFoundException();\n        }\n
+    \       \n        // 2. 状态机检查（业务层面）\n        if (!order.getStatus().canTransitionTo(OrderStatus.PAID))
+    {\n            log.warn(\"订单状态不允许支付: {}\", order.getStatus());\n            return;
+    \ // 幂等返回\n        }\n        \n        // 3. 执行支付\n        paymentService.charge(request.getUserId(),
+    request.getAmount());\n        \n        // 4. 更新状态\n        order.setStatus(OrderStatus.PAID);\n
+    \       order.setPayTime(LocalDateTime.now());\n        orderDao.update(order);\n
+    \       \n        // 5. 发送后续消息（幂等发送）\n        sendOrderPaidMessage(order);\n    }\n}\n```\n\n-
+    幂等与重试的关系\n\n- 幂等是重试的前提：只有幂等才能安全重试\n\n- 重试不等于幂等：重试是策略，幂等是保障\n\n- 最佳实践：幂等设计 + 指数退避重试\n\n```text\n//
+    重试 + 幂等\n@Retryable(value = {Exception.class}, maxAttempts = 3, \n    backoff
+    = @Backoff(delay = 1000, multiplier = 2))\npublic void processMessage(Message
+    msg) {\n    // 幂等消费逻辑\n    if (isProcessed(msg.getId())) {\n        return;\n
+    \   }\n    doBusiness(msg);\n    markProcessed(msg.getId());\n}\n```\n\n3️⃣ Key
+    Differences\n\n[嵌入表格未展开]\n\n---\n\n### 6.10 延迟消息与定时消息"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcnrv99HSnqq5xArhtPQ9okXd
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: 问题 9：消费者如何保证幂等？有哪些常见方案？
+  imported_at: '2026-09-21'

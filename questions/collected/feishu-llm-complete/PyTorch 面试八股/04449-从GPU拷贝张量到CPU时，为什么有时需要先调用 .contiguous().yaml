@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a8264a115778
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 从GPU拷贝张量到CPU时，为什么有时需要先调用 .contiguous()？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 从GPU拷贝张量到CPU时，为什么有时需要先调用 .contiguous()？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是由于许多GPU操作（如 transpose、permute、narrow）产生的张量视图在底层内存中并不连续。当调用 .cpu() 将数据传回主机时，PyTorch 内部实际上需要将数据从 GPU 显存复制到 CPU 内存。如果原张量不连续，底层驱动程序或框架可能无法直接进行高效的 DMA 传输，而必须先将其整理为连续块。
+
+    典型症状：直接在不连续的 GPU 张量上调用 .cpu() 可能会得到一个仍然不连续的 CPU 张量，或者在某些情况下（特别是与 NumPy 互操作时）会触发隐式的数据拷贝和警告。为了确保数据在 CPU 上是标准连续布局，并避免潜在的性能问题和错误，最佳实践是在 .cpu() 之前调用 .contiguous()。
+
+    ```python
+    x_gpu = torch.randn(3, 4, device='cuda').t()  # GPU上不连续
+    # 先变为连续，再拷贝到 CPU
+    x_cpu = x_gpu.contiguous().cpu()
+    print(x_cpu.is_contiguous())  # True
+    ```
+
+    这保证了 x_cpu 是一个内存连续的张量，可以直接用于 view、numpy() 等操作而不会出错。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Vf94wFO62ij7vwkGFVbcOxpdnRe
+  block_id: TAV9dGGfeo9wQ4xVrIOcTozrnvd
+  page_token: Vf94wFO62ij7vwkGFVbcOxpdnRe
+  original_title: 从GPU拷贝张量到CPU时，为什么有时需要先调用 .contiguous()？
+  imported_at: '2026-09-21'

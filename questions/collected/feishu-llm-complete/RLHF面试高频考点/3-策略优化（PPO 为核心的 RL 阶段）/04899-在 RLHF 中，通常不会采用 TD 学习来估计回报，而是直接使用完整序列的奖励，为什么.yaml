@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-079bca25ed5e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 RLHF 中，通常不会采用 TD 学习来估计回报，而是直接使用完整序列的奖励，为什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: 在 RLHF 中，通常不会采用 TD 学习来估计回报，而是直接使用完整序列的奖励，为什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    首先需要澄清一个常见的误区：RLHF 中的 PPO 实际上是结合了 TD 学习的思想的，它并非完全不用 TD 学习。但是，它使用 TD 学习的方式与标准的在线 RL 有根本不同。这里的核心差别在于 “on-policy 的完整轨迹” 与 “在线增量学习” 的区别。
+
+    为什么我们可以“离线地”看到完整序列？
+
+    RLHF 的 PPO 阶段是on-policy的，但它在一个批次内的训练流程是这样的：
+
+    - 用当前的 Actor 策略采样生成一个完整批次的所有对话轨迹。
+
+    - 等待所有轨迹全部生成完毕，此时我们拥有了每个轨迹的完整的、真实的 token 序列和最终奖励模型评分。
+
+    - 在这些完整的轨迹上计算回报 Gt，然后进行多轮（通常是2-4个epoch）的 PPO 更新。
+
+    - 更新完后，丢弃这批次数据，用更新后的策略重新采样。
+
+    在这个流程中，我们在步骤 2 已经拿到了每个状态的“真实”最终结果（即序列的完整回报）。既然我们已经知道了真实结局，为何还要像在线学习那样，用一个不完整的、带有猜测成分的 TD(0) 目标来估计呢？直接使用完整的、无偏的蒙特卡洛（MC）回报 Gt 作为 Critic 的回归目标，不是更准确吗？
+
+    GAE：TD 学习的优雅介入
+    然而，直接用 MC 回报有一个致命缺陷：方差极大。在 RLHF 中，动作空间巨大，不同采样路径的最终结果可能天差地别。如果我们直接用高方差的 MC 回报去训练 Critic，Critic 的估计会剧烈震荡，进而导致以其为基础计算的优势函数 At=Gt−V(st) 充满噪声，最终使 Actor 的更新不稳定。
+
+    因此，现代 PPO 实现几乎都采用广义优势估计（GAE），而 GAE 本质上就是 TD(λ)。GAE 通过指数加权的方式，将不同步长的 TD 误差组合在一起，在偏差和方差之间取得了平衡。它既利用了真实环境（这里是 RM）给出的即时奖励信号，也利用了 Critic 网络对后续状态的估计来“截断”过长的未来，从而平滑方差。所以，我们不是不用 TD 学习，而是用 GAE 这种基于完整轨迹的、离线的 TD(λ) 算法，而不是那种收到一个 transition 就更新一次模型的在线 TD(0)。
+
+    总结：RLHF 不采用纯粹的在线 TD 学习，是因为我们可以高效地批量生成完整轨迹，这允许我们使用低偏差的 MC 回报。但同时，为了抑制 MC 回报带来的高方差，我们采用 GAE 进行偏差-方差折中，从而让训练过程更加稳定。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/N1iEwZtKqi63XWkhV4ccypmRnkh
+  block_id: Y5TndoXnTopBLnxjKqac5GIzn2b
+  page_token: N1iEwZtKqi63XWkhV4ccypmRnkh
+  original_title: 在 RLHF 中，通常不会采用 TD 学习来估计回报，而是直接使用完整序列的奖励，为什么？
+  imported_at: '2026-09-21'

@@ -1,0 +1,153 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5ac0eb873d08
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3ED公司有一套内部系统（CRM、ERP、文档服务），需要让 Agent 能调用，如何设计接入方案？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F3ED公司有一套内部系统（CRM、ERP、文档服务），需要让 Agent 能调用，如何设计接入方案？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是一个典型的企业级 Agent 落地场景。目标是：用最小改造成本，把现有的内部系统能力暴露为 MCP 工具，供 Agent 统一调度。
+
+    核心方案：MCP Gateway + 适配器模式
+
+    不要修改现有系统，而是在它们前面架设一个 MCP 网关，由它负责协议翻译和调用编排。
+
+    [图片内容未导入]
+
+    设计要点：
+
+    - 统一认证层
+
+    MCP Gateway 负责对接 SSO，接收到 Agent 请求时，将用户身份映射为各个内部系统的访问令牌（可能不同系统使用不同凭证）。这种映射关系可以配置在网关中。
+
+    - 适配器抽象
+
+    为每个内部系统编写一个适配器，将系统的 API 翻译成 MCP Tool 定义。
+
+    public interface SystemAdapter {
+        List<Tool> getTools();                          // 返回该系统提供的工具列表
+        Object callTool(String toolName, Map<String, Object> args); // 执行调用
+    }
+
+    CRM 适配器实现示例：
+
+    @Component
+    public class CrmAdapter implements SystemAdapter {
+        @Override
+        public List<Tool> getTools() {
+            return List.of(
+                new Tool("search_customers", "搜索客户", Map.of("keyword", "string")),
+                new Tool("get_customer_detail", "获取客户详情", Map.of("customerId", "string"))
+            );
+        }
+        @Override
+        public Object callTool(String toolName, Map<String, Object> args) {
+            String token = ContextAuth.getToken("CRM");
+            return switch (toolName) {
+                case "search_customers" -> crmClient.search(args.get("keyword").toString(), token);
+                case "get_customer_detail" -> crmClient.getById(args.get("customerId").toString(), token);
+                default -> throw new ToolNotFoundException();
+            };
+        }
+    }
+
+    - 工具聚合与动态注册
+    MCP Server 启动时，扫描所有 SystemAdapter Bean，汇聚所有工具到一个统一列表。当 tools/list 被调用时，返回全公司所有可用工具。
+
+    @Bean
+    public List<Tool> aggregateTools(List<SystemAdapter> adapters) {
+        return adapters.stream()
+                .flatMap(adapter -> adapter.getTools().stream())
+                .collect(Collectors.toList());
+    }
+
+    - 调用路由
+    收到 tools/call 时，根据工具名称找到对应的适配器，委托执行。
+
+    @McpTool(name = "*")  // 可以用动态路由
+    public Object routeCall(String toolName, Map<String, Object> args) {
+        for (SystemAdapter adapter : adapters) {
+            for (Tool tool : adapter.getTools()) {
+                if (tool.getName().equals(toolName)) {
+                    return adapter.callTool(toolName, args);
+                }
+            }
+        }
+        throw new ToolNotFoundException();
+    }
+
+    - 容错与降级
+
+    引入 Resilience4j 进行熔断。当一个内部系统不可用时，及时切断，返回友好的错误提示，而不是让 Agent 无限等待。
+
+    @CircuitBreaker(name = "crm", fallbackMethod = "crmFallback")
+    public Object callCrmTool(String toolName, Map<String, Object> args) {
+        // 调用逻辑
+    }
+    public Object crmFallback(Exception e) {
+        return "CRM系统暂时不可用，请稍后重试。";
+    }
+
+    这个方案的价值在于： 内部系统的工程师不需要学 MCP，他们只需要维护自己的 API；而 AI 平台的工程师只需要写一次适配器，所有 Agent 就能立即“看懂”并使用整个公司的数字资产。这是一种非侵入式、可扩展、能渐进式建设的企业 AI 基础设施架构。
+
+    - 解析 mcp_servers.json 配置文件，为每个 Server 启动一个子进程（stdio）或建立 HTTP 连接。
+
+    - 持有多个 MCP Client 实例，管理它们的生命周期。
+
+    - 将 LLM 的“工具调用意图”路由到对应的 Client，并将结果返回给 LLM。
+
+    - 控制权限：用户在 Host 上看到“是否允许调用此工具？”的提示。
+
+    - 维护与 Server 之间的传输通道（stdio、HTTP + SSE）。
+
+    - 发送 JSON-RPC 请求：initialize、tools/list、tools/call、resources/read 等。
+
+    - 接收并解析 Server 的响应，以及可能的推送通知。
+
+    - 处理重连、错误、超时。
+
+    - 声明自己的 capabilities（支持工具、资源、还是提示）。
+
+    - tools/list：返回工具列表（名称、描述、参数 schema）。
+
+    - tools/call：执行工具，返回结果。
+
+    - resources/read：读取资源（如文件、数据库）。
+
+    - 处理来自 Client 的请求：
+
+    - 通常连接后端的真实数据源（数据库、REST API、文件系统）。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Na85wIeNuichcjklD4LcUQ6Gn2c
+  block_id: doxcnmMsIA5DhDa0v9MKSjr3EDc
+  page_token: Na85wIeNuichcjklD4LcUQ6Gn2c
+  original_title: "\U0001F3ED公司有一套内部系统（CRM、ERP、文档服务），需要让 Agent 能调用，如何设计接入方案？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,147 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c116c933113a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 工具调用超时、LLM 限流（429）、参数校验失败，如何设计分层异常体系和统一错误码规范？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 工具调用超时、LLM 限流（429）、参数校验失败，如何设计分层异常体系和统一错误码规范？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐⭐（分层异常、错误码规范、Agent 场景）\n\n1️⃣ Common Answer\n\n定义几个异常类，用
+    @ExceptionHandler 处理。错误码用枚举定义，统一返回格式。\n\n2️⃣ Impressive Answer\n\n我给出完整的分层异常体系设计：\n\n-
+    异常分层架构：\n\n```text\n// 基础异常\npublic abstract class AgentBaseException extends
+    RuntimeException {\n    private final String code;\n    private final int httpStatus;\n
+    \   \n    public AgentBaseException(String code, String message, int httpStatus)
+    {\n        super(message);\n        this.code = code;\n        this.httpStatus
+    = httpStatus;\n    }\n    \n    public String getCode() {\n        return code;\n
+    \   }\n    \n    public int getHttpStatus() {\n        return httpStatus;\n    }\n}\n\n//
+    工具调用异常（5xx）\npublic class AgentToolException extends AgentBaseException {\n    public
+    AgentToolException(String code, String message) {\n        super(code, message,
+    HttpStatus.INTERNAL_SERVER_ERROR.value());\n    }\n}\n\n// 工具调用超时\npublic class
+    AgentToolTimeoutException extends AgentToolException {\n    private final String
+    toolName;\n    private final long timeout;\n    \n    public AgentToolTimeoutException(String
+    toolName, long timeout) {\n        super(\"TOOL_TIMEOUT\", \n              String.format(\"Tool
+    %s timeout after %dms\", toolName, timeout),\n              HttpStatus.GATEWAY_TIMEOUT.value());\n
+    \       this.toolName = toolName;\n        this.timeout = timeout;\n    }\n}\n\n//
+    LLM 限流异常（429）\npublic class AgentRateLimitException extends AgentBaseException
+    {\n    private final int limit;\n    private final long resetTime;\n    \n    public
+    AgentRateLimitException(int limit, long resetTime) {\n        super(\"RATE_LIMIT_EXCEEDED\",
+    \n              \"Rate limit exceeded, please retry later\",\n              HttpStatus.TOO_MANY_REQUESTS.value());\n
+    \       this.limit = limit;\n        this.resetTime = resetTime;\n    }\n    \n
+    \   public int getLimit() {\n        return limit;\n    }\n    \n    public long
+    getResetTime() {\n        return resetTime;\n    }\n}\n\n// 参数校验异常（4xx）\npublic
+    class AgentValidationException extends AgentBaseException {\n    private final
+    Map<String, String> fieldErrors;\n    \n    public AgentValidationException(Map<String,
+    String> fieldErrors) {\n        super(\"VALIDATION_ERROR\", \"Parameter validation
+    failed\", \n              HttpStatus.BAD_REQUEST.value());\n        this.fieldErrors
+    = fieldErrors;\n    }\n    \n    public Map<String, String> getFieldErrors() {\n
+    \       return fieldErrors;\n    }\n}\n\n// 业务逻辑异常（4xx）\npublic class AgentBusinessException
+    extends AgentBaseException {\n    public AgentBusinessException(String code, String
+    message) {\n        super(code, message, HttpStatus.BAD_REQUEST.value());\n    }\n}\n```\n\n-
+    统一错误码规范：\n\n```text\npublic enum AgentErrorCode {\n    // 通用错误码（1000-1999）\n    SUCCESS(\"0000\",
+    \"Success\"),\n    INTERNAL_ERROR(\"1000\", \"Internal server error\"),\n    INVALID_REQUEST(\"1001\",
+    \"Invalid request\"),\n    VALIDATION_ERROR(\"1002\", \"Parameter validation failed\"),\n
+    \   \n    // Agent 工具错误码（2000-2999）\n    TOOL_TIMEOUT(\"2000\", \"Tool execution
+    timeout\"),\n    TOOL_ERROR(\"2001\", \"Tool execution error\"),\n    TOOL_NOT_FOUND(\"2002\",
+    \"Tool not found\"),\n    TOOL_DISABLED(\"2003\", \"Tool is disabled\"),\n    \n
+    \   // LLM 错误码（3000-3999）\n    LLM_RATE_LIMIT(\"3000\", \"LLM rate limit exceeded\"),\n
+    \   LLM_QUOTA_EXCEEDED(\"3001\", \"LLM quota exceeded\"),\n    LLM_ERROR(\"3002\",
+    \"LLM processing error\"),\n    LLM_TIMEOUT(\"3003\", \"LLM request timeout\"),\n
+    \   \n    // 知识库错误码（4000-4999）\n    KB_NOT_FOUND(\"4000\", \"Knowledge base not
+    found\"),\n    KB_INDEX_ERROR(\"4001\", \"Knowledge base index error\"),\n    KB_SEARCH_ERROR(\"4002\",
+    \"Knowledge base search error\");\n    \n    private final String code;\n    private
+    final String message;\n    \n    AgentErrorCode(String code, String message) {\n
+    \       this.code = code;\n        this.message = message;\n    }\n    \n    public
+    String getCode() {\n        return code;\n    }\n    \n    public String getMessage()
+    {\n        return message;\n    }\n}\n```\n\n- 统一响应格式：\n\n```text\n@Data\n@Builder\npublic
+    class ApiResponse<T> {\n    private String code;\n    private String message;\n
+    \   private T data;\n    private long timestamp;\n    \n    public static <T>
+    ApiResponse<T> success(T data) {\n        return ApiResponse.<T>builder()\n            .code(AgentErrorCode.SUCCESS.getCode())\n
+    \           .message(AgentErrorCode.SUCCESS.getMessage())\n            .data(data)\n
+    \           .timestamp(System.currentTimeMillis())\n            .build();\n    }\n
+    \   \n    public static <T> ApiResponse<T> error(AgentErrorCode errorCode) {\n
+    \       return ApiResponse.<T>builder()\n            .code(errorCode.getCode())\n
+    \           .message(errorCode.getMessage())\n            .timestamp(System.currentTimeMillis())\n
+    \           .build();\n    }\n    \n    public static <T> ApiResponse<T> error(String
+    code, String message) {\n        return ApiResponse.<T>builder()\n            .code(code)\n
+    \           .message(message)\n            .timestamp(System.currentTimeMillis())\n
+    \           .build();\n    }\n}\n```\n\n- 全局异常处理器：\n\n```text\n@ControllerAdvice\n@Slf4j\npublic
+    class AgentGlobalExceptionHandler {\n    \n    // 工具调用超时\n    @ExceptionHandler(AgentToolTimeoutException.class)\n
+    \   public ResponseEntity<ApiResponse<Void>> handleToolTimeout(AgentToolTimeoutException
+    ex) {\n        log.error(\"Tool timeout: tool={}, timeout={}ms\", ex.getToolName(),
+    ex.getTimeout(), ex);\n        \n        return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT)\n
+    \           .body(ApiResponse.error(AgentErrorCode.TOOL_TIMEOUT));\n    }\n    \n
+    \   // LLM 限流\n    @ExceptionHandler(AgentRateLimitException.class)\n    public
+    ResponseEntity<ApiResponse<Void>> handleRateLimit(AgentRateLimitException ex)
+    {\n        log.warn(\"Rate limit: limit={}, resetTime={}\", ex.getLimit(), ex.getResetTime());\n
+    \       \n        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)\n
+    \           .header(\"X-RateLimit-Limit\", String.valueOf(ex.getLimit()))\n            .header(\"X-RateLimit-Remaining\",
+    \"0\")\n            .header(\"X-RateLimit-Reset\", String.valueOf(ex.getResetTime()))\n
+    \           .body(ApiResponse.error(AgentErrorCode.LLM_RATE_LIMIT));\n    }\n
+    \   \n    // 参数校验异常\n    @ExceptionHandler(MethodArgumentNotValidException.class)\n
+    \   public ResponseEntity<ApiResponse<Map<String, String>>> handleValidation(\n
+    \       MethodArgumentNotValidException ex) {\n        \n        Map<String, String>
+    fieldErrors = ex.getBindingResult()\n            .getFieldErrors()\n            .stream()\n
+    \           .collect(Collectors.toMap(\n                FieldError::getField,\n
+    \               FieldError::getDefaultMessage,\n                (existing, replacement)
+    -> existing\n            ));\n        \n        return ResponseEntity.badRequest()\n
+    \           .body(ApiResponse.<Map<String, String>>builder()\n                .code(AgentErrorCode.VALIDATION_ERROR.getCode())\n
+    \               .message(AgentErrorCode.VALIDATION_ERROR.getMessage())\n                .data(fieldErrors)\n
+    \               .timestamp(System.currentTimeMillis())\n                .build());\n
+    \   }\n    \n    // Agent 业务异常\n    @ExceptionHandler(AgentBusinessException.class)\n
+    \   public ResponseEntity<ApiResponse<Void>> handleBusiness(AgentBusinessException
+    ex) {\n        log.warn(\"Business error: code={}, message={}\", ex.getCode(),
+    ex.getMessage());\n        \n        return ResponseEntity.badRequest()\n            .body(ApiResponse.error(ex.getCode(),
+    ex.getMessage()));\n    }\n    \n    // 通用异常\n    @ExceptionHandler(Exception.class)\n
+    \   public ResponseEntity<ApiResponse<Void>> handleException(Exception ex) {\n
+    \       log.error(\"Unexpected error\", ex);\n        \n        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)\n
+    \           .body(ApiResponse.error(AgentErrorCode.INTERNAL_ERROR));\n    }\n}\n```\n\n-
+    使用示例：\n\n```text\n@Service\npublic class AgentToolService {\n    \n    public
+    String callTool(String toolName, Map<String, Object> params) {\n        // 检查工具是否存在\n
+    \       if (!toolRegistry.exists(toolName)) {\n            throw new AgentBusinessException(\n
+    \               AgentErrorCode.TOOL_NOT_FOUND.getCode(),\n                String.format(\"Tool
+    %s not found\", toolName));\n        }\n        \n        // 检查工具是否启用\n        if
+    (!toolRegistry.isEnabled(toolName)) {\n            throw new AgentBusinessException(\n
+    \               AgentErrorCode.TOOL_DISABLED.getCode(),\n                String.format(\"Tool
+    %s is disabled\", toolName));\n        }\n        \n        try {\n            //
+    执行工具调用（带超时）\n            return CompletableFuture.supplyAsync(() -> {\n                return
+    toolExecutor.execute(toolName, params);\n            }).get(30, TimeUnit.SECONDS);\n
+    \           \n        } catch (TimeoutException e) {\n            throw new AgentToolTimeoutException(toolName,
+    30000);\n        } catch (Exception e) {\n            throw new AgentToolException(\n
+    \               AgentErrorCode.TOOL_ERROR.getCode(),\n                String.format(\"Tool
+    execution error: %s\", e.getMessage()));\n        }\n    }\n    \n    public String
+    callLLM(String prompt) {\n        try {\n            return llmService.generate(prompt);\n
+    \       } catch (RateLimitException e) {\n            throw new AgentRateLimitException(e.getLimit(),
+    e.getResetTime());\n        }\n    }\n}\n```\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EvyJwQ60XiC313kQqbUcyFhEnAh
+  block_id: doxcnrW8oLoVe9BCN7MlGRFoDYd
+  page_token: EvyJwQ60XiC313kQqbUcyFhEnAh
+  original_title: 3、场景题：Agent 工具调用超时、LLM 限流（429）、参数校验失败，如何设计分层异常体系和统一错误码规范？
+  imported_at: '2026-09-21'

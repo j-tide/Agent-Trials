@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8293fe1678ef
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当序列长度差异巨大时，如何设计批采样策略（如按长度排序、Bucket 采样）？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块四：序列模型与 RNN
+tags: &1
+- 深度学习面（精选）
+- 模块四：序列模型与 RNN
+content:
+  prompt: 当序列长度差异巨大时，如何设计批采样策略（如按长度排序、Bucket 采样）？
+answer:
+  mode: rubric
+  reference_answer: |-
+    目标：减少因填充导致的浪费，提高 GPU 利用率和训练效率。
+
+    按长度排序
+
+    将整个训练集的样本按照序列长度排序，然后按固定的 batch size 顺序切分。这样每个 batch 内样本长度相近，填充量大大减少。但这样破坏了随机性，可能导致训练震荡或收敛到局部极值。通常用于静态数据集。
+
+    Bucket 采样（分桶采样）
+
+    - 设定若干长度区间（如 [0,50], [51,100], [101,200]…）。
+
+    - 将每个样本根据其长度分配到对应的桶中。
+
+    - 训练时，随机选择一个桶（或轮转），再从该桶内随机抽取样本组成 batch。这样 batch 内的长度差异被限制在一定范围内，同时保留了整体随机性。
+
+    - 可对每个桶的 batch size 单独设置（长度大的桶 batch size 小些以控制显存）。
+
+    动态批处理
+
+    在一次迭代中，动态地从剩余未训练样本中抽取若干样本，使得它们的总长度（或总 token 数）不超过预设上限。这在 NLP 预训练中常见，例如“按token数累积”，当累积 token 数达到阈值即作为一个 batch。这种方法最大化每步的计算量，对极长序列尤其有效。
+
+    其他技巧
+
+    - 尽量让数据加载器在每个 epoch 重新按长度采样，以保证不同 epoch 的顺序变化。
+
+    - 使用 collate_fn 进行 padding 和 packing。
+
+    - 对于分布式训练，需注意不同 GPU 上的 batch 长度分布。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Hzh6wrqVbixchzkZXJDcLj5cnqh
+  block_id: Z553d85y4o4lCqxwTtGcKkP3nKf
+  page_token: Hzh6wrqVbixchzkZXJDcLj5cnqh
+  original_title: 当序列长度差异巨大时，如何设计批采样策略（如按长度排序、Bucket 采样）？
+  imported_at: '2026-09-21'

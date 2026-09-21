@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8b3e72820f91
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 你如何监控缓存的命中率和效果？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F4CA 你如何监控缓存的命中率和效果？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    监控缓存命中率是评估缓存价值的关键。可以通过以下方式实现：
+
+    - 在应用层埋点
+    自定义一个包装 BaseCache 的装饰器，记录每次 lookup 和 update 的调用，计算命中率。
+
+    ```python
+    class MonitoredCache(BaseCache):
+        def __init__(self, underlying_cache):
+            self.cache = underlying_cache
+            self.hits = 0
+            self.misses = 0
+
+        def lookup(self, prompt, llm_string):
+            result = self.cache.lookup(prompt, llm_string)
+            if result:
+                self.hits += 1
+            else:
+                self.misses += 1
+            return result
+        # update同理
+    ```
+
+    - 通过回调收集
+    在 on_llm_start 和 on_llm_end 回调中无法直接感知缓存，因为缓存命中时 on_llm_start 都不会触发（缓存直接返回）。因此需要在缓存层面埋点。
+
+    - Redis 内置监控
+    如果使用 Redis，可以通过 INFO stats 命令获取 keyspace_hits 和 keyspace_misses，但这反映的是整个 Redis 实例的命中率，不局限于 LangChain。
+
+    - 集成到 Prometheus
+    编写自定义的 Counter，如 langchain_cache_hits_total 和 langchain_cache_misses_total，在缓存访问时递增。然后通过 Grafana 展示命中率曲线和趋势。
+
+    - 评估缓存效果
+
+    除了命中率，还应监控：
+
+    - 延迟降低：对比有缓存和无缓存的端到端延迟。
+
+    - 成本节省：根据命中次数和 token 单价计算节省金额。
+
+    - 错误率：缓存错误（如序列化失败）的频率。
+
+    实践：我们使用了 GPTCache，其内置了 stats 接口，可以直接暴露命中率。我们将这些指标导出到 Prometheus，并在 Grafana 中搭建了缓存效率看板。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VWvFwnt5pi19m7ky7Udc0PatnRe
+  block_id: WC9PdfD0JoIu5Ux97yucEtW1nfu
+  page_token: VWvFwnt5pi19m7ky7Udc0PatnRe
+  original_title: "\U0001F4CA 你如何监控缓存的命中率和效果？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,93 @@
+---
+schema_version: 1
+id: feishu-llm-complete-09ef5943f5ed
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EA 2. 写一个自定义链，输入是一段文本，输出是这段文本的英文翻译和情感分析结果。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "\U0001F9EA 2. 写一个自定义链，输入是一段文本，输出是这段文本的英文翻译和情感分析结果。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    我先给个具体实现，然后再说设计上的取舍。假设我们底层有两个能力：翻译用某个 LLM，情感分析用另一个轻量模型或同一个 LLM 的不同 prompt。代码可以这样写：
+
+    ```python
+    from typing import Dict, Any, List
+    from langchain.chains.base import Chain
+    from langchain_core.language_models import BaseLLM
+    from langchain_core.prompts import PromptTemplate
+
+    class TranslateAndSentimentChain(Chain):
+        """输入一段文本，输出英文翻译和情感分析结果"""
+
+        llm: BaseLLM
+        translate_prompt: PromptTemplate = PromptTemplate(
+            input_variables=["text"],
+            template="将以下文本翻译成英文，只返回英文译文：\n{text}"
+        )
+        sentiment_prompt: PromptTemplate = PromptTemplate(
+            input_variables=["english_text"],
+            template="分析下面英文文本的情感，只输出一个单词（positive/negative/neutral）：\n{english_text}"
+        )
+
+        @property
+        def input_keys(self) -> List[str]:
+            return ["text"]
+
+        @property
+        def output_keys(self) -> List[str]:
+            return ["english_translation", "sentiment"]
+
+        def _call(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+            text = inputs["text"]
+
+            # 第1步：翻译
+            translate_input = self.translate_prompt.format(text=text)
+            translation = self.llm.invoke(translate_input).strip()
+
+            # 第2步：情感分析
+            sentiment_input = self.sentiment_prompt.format(english_text=translation)
+            sentiment = self.llm.invoke(sentiment_input).strip().lower()
+
+            return {
+                "english_translation": translation,
+                "sentiment": sentiment
+            }
+    ```
+
+    这个实现很直白，但面试官这时候很可能追问：“你这里用的是同一个 LLM 实例，如果翻译和情感分析需要不同模型呢？” 那就要把 translate_llm 和 sentiment_llm 分开传入。实际项目中我确实这么干过，翻译用 GPT-4 保证质量，情感分析用 GPT-3.5 省钱，当时就在构造函数里区分了 translate_llm 和 sentiment_llm，并且每个 prompt 都单独暴露为可配置参数，这样当产品经理一会儿要翻译成德语、一会儿要输出“愤怒/惊喜”这种多分类情感时，我只需要改配置，不用动链的逻辑。
+
+    另外，如果让我现在重新设计，我会让这个链直接实现 Runnable，用 RunnableParallel 和 RunnableLambda 组合，因为这样可以把翻译和情感分析的依赖关系显式化，还能自动获得并行能力（虽然这里有依赖，不能完全并行）。但为了展示对传统 Chain 的掌握，上面这种写法足够了。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QpN4wGGTGiz4zzkOhzqc7iipn1e
+  block_id: SCP3dSSWPot3qpxkqDFc41Xln3e
+  page_token: QpN4wGGTGiz4zzkOhzqc7iipn1e
+  original_title: "\U0001F9EA 2. 写一个自定义链，输入是一段文本，输出是这段文本的英文翻译和情感分析结果。"
+  imported_at: '2026-09-21'

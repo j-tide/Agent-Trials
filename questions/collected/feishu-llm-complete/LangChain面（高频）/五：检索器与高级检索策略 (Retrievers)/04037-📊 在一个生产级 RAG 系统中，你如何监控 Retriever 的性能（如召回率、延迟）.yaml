@@ -1,0 +1,103 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6fa05a2db35e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 在一个生产级 RAG 系统中，你如何监控 Retriever 的性能（如召回率、延迟）？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F4CA 在一个生产级 RAG 系统中，你如何监控 Retriever 的性能（如召回率、延迟）？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    监控目标：
+
+    - 召回率（Recall）：检索到的相关文档数 / 总共相关文档数。衡量检索器找全的能力。
+
+    - 精确率（Precision）：检索到的相关文档数 / 检索到的总文档数。衡量检索器找准的能力。
+
+    - 平均延迟（Latency）：P50、P95、P99 的检索耗时。
+
+    - 缓存命中率：缓存使用效果。
+
+    - 错误率：检索器异常比例。
+
+    实施策略：
+
+    - 建立评估集
+    准备一组代表性的查询和对应的标准答案文档 ID。这个黄金数据集可以来自用户反馈（点击、点赞）或专家标注。定期（如每天）离线评估检索器的召回率、MRR 等指标。
+
+    - 在线埋点与指标收集
+    在 Retriever 的包装器中，记录每次调用的耗时、返回文档数量、检索源等。将这些指标输出到监控系统（如 Prometheus + Grafana）。示例：
+
+    ```python
+    import time
+    from prometheus_client import Histogram, Counter
+
+    REQUEST_TIME = Histogram('retriever_latency_seconds', '...')
+    DOCS_RETURNED = Counter('retriever_docs_returned', '...')
+
+    class MonitoredRetriever(BaseRetriever):
+        def _get_relevant_documents(self, query):
+            start = time.time()
+            docs = self.base_retriever.get_relevant_documents(query)
+            REQUEST_TIME.observe(time.time() - start)
+            DOCS_RETURNED.inc(len(docs))
+            return docs
+    ```
+
+    - 延迟监控与告警
+
+    - 召回率在线近似评估
+    通过用户行为间接评估：如果用户对 RAG 回答点了“踩”或追问，可能意味着检索未命中关键文档。将这些会话记录下来，定期人工分析。也可以使用 LLM 自动比较检索结果和理想答案，计算事实覆盖度。
+
+    - 日志审计
+    记录未命中的查询（返回 0 文档），分析是否是知识库缺失还是检索器失效。
+
+    工具推荐：
+
+    - Prometheus + Grafana（指标可视化）
+
+    - LangSmith（LangChain 官方，可跟踪链的每一步）
+
+    - 自建 ELK 日志分析
+
+    通过这套监控体系，你可以持续优化检索器，确保 RAG 系统的高质量运行。
+
+    - 遍历每个检索器的结果，对于文档 dd 记录它在各检索器中的排名 rankrank（从0开始或从1开始，内部处理）。
+
+    - 使用公式 score(d) += weight / (k + rank) 累积得分。k 默认60，用来平滑低排名的差距。
+
+    - 设置延迟阈值（如 P95 > 500ms），超过即触发告警。
+
+    - 按检索器类型、文档库分区观察延迟，定位慢查询。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YrNHwdqUUiHr0JkXRNrc4c0kn5d
+  block_id: ImnqdJ4ZJouTO4xPAyEcc1sXnz4
+  page_token: YrNHwdqUUiHr0JkXRNrc4c0kn5d
+  original_title: "\U0001F4CA 在一个生产级 RAG 系统中，你如何监控 Retriever 的性能（如召回率、延迟）？"
+  imported_at: '2026-09-21'

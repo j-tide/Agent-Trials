@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-363bd83e47e7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6A6 2. 如何使用 max_concurrency 限制链的最大并发调用？这在什么场景下有用？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "\U0001F6A6 2. 如何使用 max_concurrency 限制链的最大并发调用？这在什么场景下有用？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    max_concurrency 就是在 RunnableConfig 里设置的一个整数值，表示这个 Runnable 实例允许同时处理的最大调用数。它由底层的 batch 和异步调度器共同遵守。用法非常简单：
+
+    ```python
+    chain.invoke(input, config={"max_concurrency": 5})
+    # 或者批处理时
+    chain.batch(inputs, config={"max_concurrency": 5})
+    ```
+
+    当你调用 batch 时，框架内部会维护一个信号量，确保同时运行的调用数量不超过这个值。对于异步的 abatch 或 astream，同样会遵守这个并发上限。
+
+    它是怎么工作的？
+    在 LangChain 源码里，Runnable 的批处理逻辑最终会走到一个 _batch_with_config 的内部函数，里面使用 asyncio.Semaphore（异步）或 threading.BoundedSemaphore（同步）来实现并发控制。即使你一次性传入 1000 个输入，实际执行时也只会同时跑 max_concurrency 个，其余的排队等待。
+
+    哪些场景最有用？
+
+    - API 速率限制：OpenAI 的免费层或某些付费层有 RPM（每分钟请求数）和 TPM（每分钟 token 数）的限制。直接大规模批处理很容易触发 429。设置 max_concurrency=10 再加上合适的重试策略，就能平稳地消化请求，虽然总时间可能拉长，但不会因为限流而失败。
+
+    - 保护后端资源：如果你的自定义链里要访问数据库或外部 API，这些服务本身有自己的连接池上限。比如数据库只允许 20 个并发连接，你把 max_concurrency 设成 20，就不会撑爆连接池。
+
+    - 内存管理：某些链在运行时会占用大量内存（例如长文档分割和向量化），并发过高可能导致 OOM。限制并发能平滑内存曲线。
+
+    - 成本控制：故意降低并发，避免瞬间产生巨额 LLM 调用费用（结合警报一起用）。
+
+    注意事项：max_concurrency 是 per Runnable 的。如果你在多个不同 Runnable 上并发调用，每个都有自己的限制。如果你需要全局的跨链并发控制，就得在应用层自己做限流（比如用一个全局的 asyncio.Semaphore 包住整个调用块），这是 max_concurrency 做不到的。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GVyNwmUlOitEZBkWqxUchfRtnfh
+  block_id: SQiKd7PUHobebBxlDBxcBjJuntg
+  page_token: GVyNwmUlOitEZBkWqxUchfRtnfh
+  original_title: "\U0001F6A6 2. 如何使用 max_concurrency 限制链的最大并发调用？这在什么场景下有用？"
+  imported_at: '2026-09-21'

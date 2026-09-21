@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-abcaaf2d816d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何初始化分布式训练环境？init_process_group的参数含义。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何初始化分布式训练环境？init_process_group的参数含义。
+answer:
+  mode: rubric
+  reference_answer: |-
+    分布式训练环境通过torch.distributed.init_process_group()进行初始化，它建立进程间通信的基础。
+
+    函数原型：
+
+    ```python
+    torch.distributed.init_process_group(
+        backend='nccl',          # 通信后端
+        init_method='env://',    # 进程发现与握手方式
+        world_size=4,            # 总进程数
+        rank=0,                  # 当前进程的全局编号
+        timeout=timedelta(minutes=30)  # 超时设置
+    )
+    ```
+
+    参数详解：
+
+    - backend：集合通信的后端类型。
+
+    - init_method：指定各个进程如何互相发现并进行初始握手。
+
+    - world_size：参与分布式训练的总进程数（= GPU总数）。通常在脚本中通过torch.distributed.get_world_size()获取，而不是硬编码。
+
+    - rank：当前进程的全局唯一编号，从0到world_size-1。同样通常从环境变量中获取。
+
+    - timeout：集合通信操作的超时时间，默认为10分钟。对于大模型或慢速网络，可能需要调大以避免超时错误。
+
+    典型初始化代码：
+
+    ```python
+    import torch.distributed as dist
+    import os
+
+    # 当使用torchrun启动时，环境变量已设置
+    dist.init_process_group(backend='nccl', init_method='env://')
+    local_rank = int(os.environ['LOCAL_RANK'])
+    torch.cuda.set_device(local_rank)  # 绑定当前进程到对应GPU
+    ```
+
+    初始化完成后，所有进程通过一个逻辑通信组连接起来，可以进行后续的集合操作。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KwdbwAt6ziL8zKkU7VMcVNEin8d
+  block_id: RdcDdqoXcoumr5x45xwcJCeFnCe
+  page_token: KwdbwAt6ziL8zKkU7VMcVNEin8d
+  original_title: 如何初始化分布式训练环境？init_process_group的参数含义。
+  imported_at: '2026-09-21'

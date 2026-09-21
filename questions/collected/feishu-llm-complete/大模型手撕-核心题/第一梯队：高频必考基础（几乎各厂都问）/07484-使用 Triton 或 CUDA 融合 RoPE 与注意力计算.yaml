@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-005fdec7f809
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 Triton 或 CUDA 融合 RoPE 与注意力计算
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 使用 Triton 或 CUDA 融合 RoPE 与注意力计算
+answer:
+  mode: rubric
+  reference_answer: |-
+    融合的基本想法：在注意力 kernel 中，加载 Q 和 K 的块后，直接在片上计算 RoPE 的旋转，避免将旋转后的 Q、K 写回 HBM。伪代码（CUDA 思路）：
+
+    [图片内容未导入]
+
+    在 Triton 中，可以在加载 Q、K 的切片后，应用旋转：
+
+    ```python
+    @triton.jit
+    def rope_rotate(q, k, cos, sin, seq_len, ...):
+        idx = tl.program_id(0)
+        # 加载 cos, sin 对应位置
+        c = tl.load(cos + ...)
+        s = tl.load(sin + ...)
+        q0, q1 = ...
+        q_rot0 = q0 * c - q1 * s
+        q_rot1 = q0 * s + q1 * c
+        tl.store(...)
+    ```
+
+    融合后的优点：减少了一次全局内存的读写（旋转后的 Q、K 不必写出再读入），显著提升带宽利用率。实际实现较复杂，通常集成在 FlashAttention kernel 中。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VuccwPjSli6dm2kOTxJclpKdnhb
+  block_id: V4pBdTYxTocZTKxgZ1Bc4dP9nyd
+  page_token: VuccwPjSli6dm2kOTxJclpKdnhb
+  original_title: 使用 Triton 或 CUDA 融合 RoPE 与注意力计算
+  imported_at: '2026-09-21'

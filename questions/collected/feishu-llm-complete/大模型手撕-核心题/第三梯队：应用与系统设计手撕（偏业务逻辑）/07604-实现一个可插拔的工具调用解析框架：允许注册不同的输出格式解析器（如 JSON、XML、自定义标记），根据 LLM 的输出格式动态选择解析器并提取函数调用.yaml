@@ -1,0 +1,146 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b6dbd9742fd1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个可插拔的工具调用解析框架：允许注册不同的输出格式解析器（如 JSON、XML、自定义标记），根据 LLM 的输出格式动态选择解析器并提取函数调用。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 实现一个可插拔的工具调用解析框架：允许注册不同的输出格式解析器（如 JSON、XML、自定义标记），根据 LLM 的输出格式动态选择解析器并提取函数调用。
+answer:
+  mode: rubric
+  reference_answer: |-
+    实现
+
+    ```python
+    from abc import ABC, abstractmethod
+    from typing import Dict, Any, Optional
+
+    class ToolCallParser(ABC):
+        @abstractmethod
+        def parse(self, text: str) -> Optional[Dict[str, Any]]:
+            """从文本中提取工具调用，返回 {"name": ..., "arguments": ...} 或 None"""
+            pass
+
+    class JSONBlockParser(ToolCallParser):
+        """解析 ```json ... ``` 代码块"""
+        def parse(self, text: str) -> Optional[Dict]:
+            import re, json
+            pattern = r'```json\s*([\s\S]*?)\s*```'
+            match = re.search(pattern, text)
+            if match:
+                try:
+                    obj = json.loads(match.group(1))
+                    if "name" in obj and "arguments" in obj:
+                        return obj
+                except:
+                    pass
+            return None
+
+    class ReActParser(ToolCallParser):
+        """解析 Action/Action Input 格式"""
+        def parse(self, text: str) -> Optional[Dict]:
+            # 复用前面的 parse_react_action 逻辑，此处简略
+            import re, json
+            action_match = re.search(r'Action:\s*(.+?)\s*(?:\n|$)', text)
+            input_match = re.search(r'Action Input:\s*([\s\S]*?)(?=\n\s*Action:|\Z)', text)
+            if action_match and input_match:
+                tool_name = action_match.group(1).strip()
+                input_str = input_match.group(1).strip()
+                # 解析 JSON
+                try:
+                    args = json.loads(input_str)
+                except:
+                    # 尝试提取 JSON
+                    start = input_str.find('{')
+                    end = input_str.rfind('}')
+                    if start != -1 and end != -1:
+                        args = json.loads(input_str[start:end+1])
+                    else:
+                        return None
+                return {"name": tool_name, "arguments": args}
+            return None
+
+    class XMLParser(ToolCallParser):
+        """解析 XML 格式 <tool_call name=".."><arg key="..">value</arg></tool_call>"""
+        def parse(self, text: str) -> Optional[Dict]:
+            import re
+            match = re.search(r'<tool_call\s+name="(\w+)"\s*>(.*?)</tool_call>', text, re.DOTALL)
+            if match:
+                name = match.group(1)
+                args_str = match.group(2)
+                args = {}
+                for arg_m in re.finditer(r'<arg\s+key="(\w+)"\s*>(.*?)</arg>', args_str):
+                    args[arg_m.group(1)] = arg_m.group(2)
+                return {"name": name, "arguments": args}
+            return None
+
+    class ParserRegistry:
+        def __init__(self):
+            self.parsers: Dict[str, ToolCallParser] = {}
+
+        def register(self, name: str, parser: ToolCallParser):
+            self.parsers[name] = parser
+
+        def parse(self, text: str) -> Optional[Dict]:
+            # 遍历所有解析器，返回第一个成功的结果
+            for parser in self.parsers.values():
+                result = parser.parse(text)
+                if result is not None:
+                    return result
+            return None
+
+    # 示例
+    registry = ParserRegistry()
+    registry.register("json", JSONBlockParser())
+    registry.register("react", ReActParser())
+    registry.register("xml", XMLParser())
+
+    text1 = 'Action: search\nAction Input: {"query": "天气"}'
+    text2 = '<tool_call name="search"><arg key="query">天气</arg></tool_call>'
+    text3 = '```json\n{"name": "search", "arguments": {"query": "天气"}}\n```'
+
+    print(registry.parse(text1))
+    print(registry.parse(text2))
+    print(registry.parse(text3))
+    ```
+
+    说明
+
+    - 每个解析器实现统一接口，可灵活扩展。
+
+    - ParserRegistry 顺序尝试各解析器，第一个成功即返回。
+
+    - 可加入自动检测逻辑（如根据文本特征选择解析器）提高效率。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  block_id: QK1xd3qcgoKlE3ximCycBrs6nBr
+  page_token: Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  original_title: 实现一个可插拔的工具调用解析框架：允许注册不同的输出格式解析器（如 JSON、XML、自定义标记），根据 LLM 的输出格式动态选择解析器并提取函数调用。
+  imported_at: '2026-09-21'

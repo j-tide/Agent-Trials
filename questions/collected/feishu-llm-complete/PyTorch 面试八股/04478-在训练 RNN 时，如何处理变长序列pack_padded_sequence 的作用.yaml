@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dd633a714757
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在训练 RNN 时，如何处理变长序列？pack_padded_sequence 的作用。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 在训练 RNN 时，如何处理变长序列？pack_padded_sequence 的作用。
+answer:
+  mode: rubric
+  reference_answer: |-
+    RNN 要求一个 batch 内的所有序列长度相同，否则无法并行计算。pack_padded_sequence 将填充后的变长序列压缩为一个紧凑的 PackedSequence 对象，RNN 在其上运算时自动跳过填充部分，既避免浪费计算，也防止填充值污染隐藏状态。
+
+    使用流程：
+
+    - 将序列按长度降序排列。
+
+    - 使用 pad_sequence 填充到最长序列。
+
+    - 调用 pack_padded_sequence，传入填充后的张量、序列长度列表和 batch_first=True。
+
+    - 将 PackedSequence 送入 RNN。
+
+    - RNN 输出仍然是 PackedSequence，可用 pad_packed_sequence 解包回普通张量。
+
+    ```python
+    from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+
+    # inputs: (batch, seq_len, feature_dim), lengths: list of seq lengths
+    sorted_lengths, sorted_idx = lengths.sort(descending=True)
+    sorted_inputs = inputs[sorted_idx]
+    packed = pack_padded_sequence(sorted_inputs, sorted_lengths, batch_first=True)
+    packed_output, hidden = rnn(packed)
+    output, _ = pad_packed_sequence(packed_output, batch_first=True)
+    ```
+
+    对于现代大模型（Transformer），此技术已不常用，因为 Transformer 使用 attention_mask 来忽略填充位置。但对于某些轻量级或特定结构（如 LSTM 语言模型），依然有效。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SlZHw2a2fiQQVBkkXXscts3znGd
+  block_id: PinEdFHqYoTB2Rx6ifLcX4iRnob
+  page_token: SlZHw2a2fiQQVBkkXXscts3znGd
+  original_title: 在训练 RNN 时，如何处理变长序列？pack_padded_sequence 的作用。
+  imported_at: '2026-09-21'

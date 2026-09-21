@@ -1,0 +1,96 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0a56639a6bbb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 设计一个实验：比较 r=1, r=4, r=16 时的微调性能和可训练参数量，写出配置 LoRA 的代码。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 设计一个实验：比较 r=1, r=4, r=16 时的微调性能和可训练参数量，写出配置 LoRA 的代码。
+answer:
+  mode: rubric
+  reference_answer: |-
+    13.1 实验设计
+
+    目标：评估不同秩对下游任务性能（如困惑度或分类准确率）的影响，以及参数量与训练效率。
+
+    步骤：
+
+    - 选择基座模型（如 GPT-2 或 LLaMA-7B）。
+
+    - 固定其他超参数：学习率、batch size、训练步数、LoRA 的 α（例如 α=16）、dropout 等。
+
+    - 对每个 r 值（1, 4, 16）分别创建一个 LoRA 配置，注入模型。
+
+    - 在相同的微调数据集上训练相同步数，记录训练损失、验证困惑度、下游任务指标。
+
+    - 统计可训练参数量、峰值显存、训练吞吐。
+
+    13.2 配置 LoRA 的代码（基于 HuggingFace PEFT）
+
+    ```python
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from peft import get_peft_model, LoraConfig, TaskType
+
+    def run_lora_experiment(model_name, r, alpha=16):
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
+
+        lora_config = LoraConfig(
+            task_type=TaskType.CAUSAL_LM,
+            r=r,
+            lora_alpha=alpha,
+            lora_dropout=0.05,
+            target_modules=["q_proj", "v_proj"],  # 仅示例，可按需扩展
+        )
+        model = get_peft_model(model, lora_config)
+        model.print_trainable_parameters()  # 输出可训练参数量
+        return model, tokenizer
+
+    # 实验循环
+    for r in [1, 4, 16]:
+        model, tokenizer = run_lora_experiment("gpt2", r=r)
+        # 进行训练，记录指标...
+    ```
+
+    13.3 预期结果与分析
+
+    - r=1：可训参数最少，训练最快，但性能可能受限，因为低秩约束过强，只能捕捉到非常粗糙的任务适应。
+
+    - r=4：通常是一个较好的折中，能在多数任务上接近全参数微调的性能，同时保持低资源消耗。
+
+    - r=16：可训参数较多，性能可能进一步提升，但边际收益递减，且过拟合风险增加。
+
+    实验中应观察到随着 r 增加，训练损失下降更快，但 r=16 相比 r=4 的提升可能不显著。最终选择取决于任务复杂度和资源预算。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LZxww5JuBif3JAkuCoIcuqRenuf
+  block_id: WMv8dIy56otwF8x7kGbc17wTnib
+  page_token: LZxww5JuBif3JAkuCoIcuqRenuf
+  original_title: 设计一个实验：比较 r=1, r=4, r=16 时的微调性能和可训练参数量，写出配置 LoRA 的代码。
+  imported_at: '2026-09-21'

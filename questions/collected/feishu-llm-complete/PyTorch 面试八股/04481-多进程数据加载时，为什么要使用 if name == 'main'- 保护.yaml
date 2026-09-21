@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7cb58578bc35
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: '多进程数据加载时，为什么要使用 if name == ''main'': 保护？'
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: '多进程数据加载时，为什么要使用 if name == ''main'': 保护？'
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是Windows 和 POSIX 系统的多进程机制要求。Python 在创建子进程时会重新导入主模块脚本。如果没有 if name == 'main': 保护，子进程会再次执行 DataLoader 的创建代码，从而无限递归地创建新进程，最终导致程序崩溃。
+
+    原理：
+
+    - 当 num_workers > 0 时，PyTorch 使用 torch.multiprocessing 启动子进程。每个子进程都需要导入并执行主脚本，以获得数据集类定义等全局变量。
+
+    - 如果不将主执行代码限制在 main 中，子进程一启动就会再次执行 DataLoader 初始化，进而再次启动子进程，形成死循环。
+
+    正确写法：
+
+    ```python
+    if __name__ == '__main__':
+        dataset = MyDataset()
+        loader = DataLoader(dataset, num_workers=4)
+        for batch in loader:
+            train(batch)
+    ```
+
+    注意：在 Jupyter Notebook 中，多进程限制更多，可能无法使用 num_workers>0，或需要特别设置。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BLzXwUOV1i4vVjkNph6csNj1nwe
+  block_id: ZOfCdWxKyoz09vxHTBec2Rcanzb
+  page_token: BLzXwUOV1i4vVjkNph6csNj1nwe
+  original_title: '多进程数据加载时，为什么要使用 if name == ''main'': 保护？'
+  imported_at: '2026-09-21'

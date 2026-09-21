@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-881bd10d48fc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在微调阶段，使用 LoRA 训练时，显存节省主要体现在哪里？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 在微调阶段，使用 LoRA 训练时，显存节省主要体现在哪里？
+answer:
+  mode: rubric
+  reference_answer: |-
+    LoRA（Low-Rank Adaptation）的核心思想是“冻结主模型，只训练旁路”。它不直接修改预训练权重，而是在需要适配的层旁边插入一对低秩矩阵A和B，训练时只更新这两个小矩阵。这一设计带来了显存占用的根本性改变。
+
+    第一，梯度的显存急剧缩减。
+
+    全参数微调时，反向传播需要为模型的每一个参数计算并存储梯度。一个7B参数的模型，仅梯度（FP16）就需要占用14GB显存。这些梯度要一直保留到优化器更新完成，是显存的常驻消耗。而LoRA冻结了主模型的所有参数，这意味着主模型的参数不需要梯度。反向传播时，计算图只需要追溯到LoRA层的低秩矩阵，只为这极少量的参数生成梯度。假设rank=16，LoRA的可训练参数通常只有全模型的0.1%左右，梯度占用从14GB骤降到几十MB，几乎可以忽略不计。
+
+    第二，优化器状态的显存同样坍塌。
+
+    Adam优化器需要为每一个可训练参数保存一阶动量m和二阶动量v，两者通常以FP32存储，占用的显存是参数本身的8倍。全参数微调7B模型时，m和v合起来需要约56GB显存，这是训练中最大的一笔开销。LoRA只有极少量的可训练参数，对应的优化器状态也缩减到几乎为零。这是LoRA能够将微调门槛降低到消费级显卡的核心原因。
+
+    第三，主模型权重以只读方式存在，无需冗余。
+
+    在全参数微调中，往往需要保留一份FP32的主权重副本用于精确更新，这又是一笔与模型参数相当的显存开销。LoRA的原始权重被冻结，不需要梯度，也不需要FP32副本。前向传播直接使用FP16的原始权重，反向传播时这些权重不产生梯度，不需要额外存储。主模型权重以一种“只读”的方式参与计算，不产生额外的显存负担。
+
+    第四，激活值可以选择性优化。
+
+    虽然前向传播仍然需要产生激活值用于反向传播，但LoRA的旁路结构让激活值的存储也有优化空间。因为主模型不变，某些中间层的输出可以在反向传播时重新计算而不是存储，进一步压缩激活值占用。配合Gradient Checkpointing，激活值可以被压到极低水平。
+
+    综上，LoRA将微调的显存开销从“模型参数、梯度、优化器状态”的三座大山，削减到仅剩“模型参数的只读存储”和“极少量可训练参数的相关状态”。这使得原本需要多张A100才能完成的7B模型全参数微调，变成单张消费级显卡就能跑的任务。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: HT8idYTeHo1r60xfiQicz1uOnSd
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 在微调阶段，使用 LoRA 训练时，显存节省主要体现在哪里？
+  imported_at: '2026-09-21'

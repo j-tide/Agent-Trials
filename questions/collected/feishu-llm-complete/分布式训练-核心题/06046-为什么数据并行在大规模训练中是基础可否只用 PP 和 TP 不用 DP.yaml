@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-66adae9cb664
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么数据并行在大规模训练中是基础？可否只用 PP 和 TP 不用 DP？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 为什么数据并行在大规模训练中是基础？可否只用 PP 和 TP 不用 DP？
+answer:
+  mode: rubric
+  reference_answer: |-
+    数据并行是基础的原因：
+
+    - 吞吐量扩展：数据并行通过增加GPU数量，线性地提高每个训练步处理的样本数（全局批次大小），从而提升整体训练吞吐量。这是最直接、最高效的扩展方式。
+
+    - 通信效率：DP的梯度通信可以通过“梯度桶”和通信计算重叠隐藏延迟，且通信量与参数量成正比，不随序列长度或隐藏维度爆炸。相比TP的高频激活通信，DP的通信压力更可控。
+
+    - 成熟优化：DP有大量的优化技术（如ZeRO、梯度压缩、异步通信），能够有效降低显存和通信开销。
+
+    能否只用PP和TP不用DP？
+
+    理论上可以，但极端低效。只用PP和TP意味着只有一个模型副本（DP=1）。此时虽然模型可以被切分到多卡，但每张卡每次只能处理一个微批次的数据。为了增加吞吐，必须增大微批次大小，但这受到单卡显存限制。而且，PP和TP都无法像DP那样通过增加副本来线性提升吞吐。
+
+    实际后果：
+
+    - 训练速度极慢：即使你用1000张卡做TP=8, PP=125，但只有一个数据流经过，设备利用率极低，大部分时间在等待流水线填充。
+
+    - 无法有效利用大规模集群：为了充分利用千卡集群，必须创建多个数据并行副本。DP提供了水平扩展（scale out）的能力，而TP/PP提供垂直扩展（scale up）以容纳单模型大小。
+
+    因此，DP是吞吐扩展的基础，TP/PP是容纳大模型的必要手段。三者结合才能同时实现“大模型”和“高吞吐”。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: H7HedlpAtoYAmuxJUMhcv8ePnNE
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: 为什么数据并行在大规模训练中是基础？可否只用 PP 和 TP 不用 DP？
+  imported_at: '2026-09-21'

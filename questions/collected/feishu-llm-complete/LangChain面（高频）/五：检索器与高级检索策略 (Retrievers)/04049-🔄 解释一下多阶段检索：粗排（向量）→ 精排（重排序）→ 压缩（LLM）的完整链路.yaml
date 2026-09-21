@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8731470b00aa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F504 解释一下“多阶段检索”：粗排（向量）→ 精排（重排序）→ 压缩（LLM）的完整链路。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F504 解释一下“多阶段检索”：粗排（向量）→ 精排（重排序）→ 压缩（LLM）的完整链路。"
+answer:
+  mode: rubric
+  reference_answer: "多阶段检索是现代 RAG 系统中平衡速度、成本和精度的经典架构。它像漏斗一样，逐步筛选和提炼信息，最终只把最相关、最紧凑的上下文交给
+    LLM。\n\n用户查询\n   ↓\n[第一阶段：粗排（Retrieval）]  \n  目的：从海量文档中快速召回候选集。  \n  方法：向量检索（ANN）和/或关键词检索（BM25）。
+    \ \n  特点：速度快（毫秒级），覆盖面广，但精度较低。  \n  输出：候选文档集合（例如 top-100）。\n   ↓\n[第二阶段：精排（Reranking）]
+    \ \n  目的：对候选集进行更精细的相关性排序。  \n  方法：使用计算量更大但更精确的模型（如交叉编码器 Cohere Rerank、bge-reranker）。
+    \ \n  特点：速度中等（几十毫秒），能捕捉细粒度语义，排序质量高。  \n  输出：重排后的 top-K 文档（例如 top-10）。\n   ↓\n[第三阶段：压缩（Compression）]
+    \ \n  目的：从每个文档中提取与查询直接相关的核心片段，去除冗余。  \n  方法：基于 LLM 的提取器（LLMChainExtractor）或较小的模型。
+    \ \n  特点：计算量大（秒级），但能极大减少 token 消耗，提升 LLM 生成质量。  \n  输出：压缩后的文档片段（例如 3-5 个关键句）。\n
+    \  ↓\n最终上下文 → LLM 生成答案\n\n各阶段的设计权衡\n\n- 粗排：通过增加召回量（如 top-200）为后续阶段提供更多“原料”，但会增加后续阶段的计算负担。通常使用近似最近邻搜索（ANN）和倒排索引，支持百万级文档库。\n\n-
+    精排：通常是一个列表级（Listwise）或对级（Pairwise）的重排序模型。输入是查询和文档列表，输出重新排序的文档列表。选择重排序模型时要在延迟和精度之间平衡。\n\n-
+    压缩：视情况而定，如果文档已经较短（如 100-200 tokens），可跳过压缩。对于长文档（如 2000+ tokens），压缩非常必要。除了 LLM
+    提取，也可采用基于规则的关键句抽取（如 TextRank）。\n\n示例架构：\n\nFAISS (ANN) 召回 top-100 → bge-reranker-large
+    精排 top-10 → LLMChainExtractor 压缩 → GPT-4 生成\n\n链式串联：\n\n在 LangChain 中，可以这样组装：\n\nretriever
+    = vectorstore.as_retriever(search_kwargs={\"k\": 100})\ncompressor = BgeRerankCompressor(top_n=10)
+    \ # 自定义的精排压缩器\ncompression_retriever = ContextualCompressionRetriever(\n    base_compressor=compressor,
+    base_retriever=retriever\n)\n# 如果再需要 LLM 压缩，可以再包一层 LLMChainExtractor\nextractor
+    = LLMChainExtractor.from_llm(llm)\nfinal_retriever = ContextualCompressionRetriever(\n
+    \   base_compressor=extractor, base_retriever=compression_retriever\n)\n\n监控与调试：记录每个阶段的输出文档数量和内容，以便当最终答案质量不佳时，能迅速定位是哪个阶段遗漏了关键文档。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TYm8wI1HmiQSuPkpe81c9XYanHb
+  block_id: IdSLdWuqfoCyzPxNF73cndTjnYc
+  page_token: TYm8wI1HmiQSuPkpe81c9XYanHb
+  original_title: "\U0001F504 解释一下“多阶段检索”：粗排（向量）→ 精排（重排序）→ 压缩（LLM）的完整链路。"
+  imported_at: '2026-09-21'

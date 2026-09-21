@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8784618e1c7a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分析 RoPE 对长文本外推的限制，并介绍 NTK-aware 插值
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 分析 RoPE 对长文本外推的限制，并介绍 NTK-aware 插值
+answer:
+  mode: rubric
+  reference_answer: |-
+    外推失败的原因：
+    RoPE 的频率范围从 1（i=0）到接近 0（i=d/2-1）。当序列长度超过训练时的最大长度，模型会遇到从未见过的 m * θ_i 值，尤其是高频分量（i 大，θ_i 小）在长距离上的旋转角度超出了训练分布，导致注意力混乱。
+
+    具体来说，θ_i = base^{-2i/d}，最大频率为 1（对应周期为 2π ≈ 6.28），最小频率为 base^{-(d-2)/d} 接近 1/base。训练长度为 2048 时，模型学到的是相对距离在 [0, 2048] 范围内的模式。当距离扩大到 4096，对于较小的 θ_i（低频），Δ * θ_i 仍在训练范围内，但高频分量的 Δ * θ_i 会超出，使得这些分量的内积行为不可预测，破坏注意力分布。这导致困惑度急剧上升。
+
+    NTK-aware 插值：
+    核心思想是缩放频率，将高频分量的旋转速度降低，使得新长度下的最大相对距离对应的旋转角度仍落在训练分布内。具体做法是将 base 从 10000 增大到 10000 * α^{d/(d-2)}，其中 α 是长度扩展倍数。这等价于将频率 θ_i 按照其索引 i 进行非线性缩放：高频（i 大）缩放更多，低频几乎不变。
+
+    公式：新频率 θ'_i = θ_i * (base_new / base)^{-2i/d}，可以仅通过修改 base 实现。
+
+    实现：
+
+    ```python
+    def ntk_aware_rope_scale(inv_freq, scale_factor):
+        # inv_freq: (dim/2,)
+        # 采用 NTK-aware 缩放
+        base = 10000.0
+        new_base = base * scale_factor ** (dim / (dim - 2))
+        inv_freq = 1.0 / (new_base ** (torch.arange(0, dim, 2).float() / dim))
+        return inv_freq
+    ```
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VuccwPjSli6dm2kOTxJclpKdnhb
+  block_id: U9A5dS8Wto7iOSxouMTc6kr1nWg
+  page_token: VuccwPjSli6dm2kOTxJclpKdnhb
+  original_title: 分析 RoPE 对长文本外推的限制，并介绍 NTK-aware 插值
+  imported_at: '2026-09-21'

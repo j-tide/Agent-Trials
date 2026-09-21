@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-af4ab3bab8c4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果让你设计一个多模型路由（根据语言、领域自动选择 LLM），用 LangChain 如何实现？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: 如果让你设计一个多模型路由（根据语言、领域自动选择 LLM），用 LangChain 如何实现？
+answer:
+  mode: rubric
+  reference_answer: "\U0001F310 多模型路由的核心是根据输入特征（语言、领域、复杂度、成本要求等）将请求分发到最合适的 LLM。这可以通过
+    LangChain 的 RunnableBranch、RunnableLambda 或自定义路由逻辑实现。\n\n\U0001F6E0️ 设计步骤：\n\n-
+    定义模型池：创建不同能力的模型实例。例如：\n\n- 路由规则：编写判断函数，根据输入内容决定路由。例如：\n\n- 实现路由链：\n\n方案一：使用 RunnableBranch
+    顺序匹配\n\nfrom langchain_core.runnables import RunnableBranch\n\ndef is_chinese(input_dict):\n
+    \   # 简单的语言检测逻辑\n    return any('\\u4e00' <= ch <= '\\u9fff' for ch in input_dict[\"question\"])\n\ndef
+    is_code(input_dict):\n    return \"def \" in input_dict[\"question\"] or \"class
+    \" in input_dict[\"question\"]\n\nbranch = RunnableBranch(\n    (lambda x: is_chinese(x),
+    chinese_chain),\n    (lambda x: is_code(x), code_chain),\n    default_chain  #
+    gpt4\n)\nresult = branch.invoke({\"question\": \"...\"})\n\n方案二：使用一个“路由器” LLM
+    进行意图分类\n\n先用一个轻量、便宜的模型分析用户输入，输出一个标签（如“翻译”、“代码”、“通用”），然后根据标签选择模型。\n\nrouter_prompt
+    = PromptTemplate.from_template(\"\"\"\n判断以下用户请求的类型，只输出一个词：翻译、代码、通用。\n请求：{question}\n类型：\"\"\")\nrouter_chain
+    = router_prompt | cheap_model | StrOutputParser()\n\ndef route_by_intent(input_dict):\n
+    \   intent = router_chain.invoke(input_dict)\n    if intent == \"翻译\":\n        return
+    translation_chain.invoke(input_dict)\n    elif intent == \"代码\":\n        return
+    code_chain.invoke(input_dict)\n    else:\n        return default_chain.invoke(input_dict)\n\nfull_chain
+    = RunnableLambda(route_by_intent)\n\n方案三：结合 LangGraph 实现带状态的复杂路由\n\n对于需要多步判断或需要上下文的路由，可以用
+    LangGraph 构建一个状态图，在节点中执行分类和模型调用。\n\n\U0001F4CA 生产化考量：\n\n- 路由逻辑要尽量轻量，避免路由本身消耗大量
+    Token。\n\n- 记录每次路由决策和模型调用，用于成本分析和 A/B 测试。\n\n- 可以为路由配置回退：如果目标模型失败，自动降级到默认模型。\n\n-
+    动态路由表可以存储在配置中心（如 Redis），实现热更新。\n\n- 自动截断历史消息（保留最近 K 轮）。\n\n- 切换至更大的上下文窗口模型（如 gpt-4-128k）。\n\n-
+    压缩或摘要历史对话（使用 ConversationSummaryMemory 生成摘要，替换原始历史）。\n\n- gpt4：通用复杂推理。\n\n- claude：长文档处理。\n\n-
+    local_code_model：代码生成。\n\n- chinese_llm：中文优化模型。\n\n- 检测语言：is_chinese(text) → chinese_llm\n\n-
+    检测领域（通过关键词或分类模型）：is_code_related(text) → local_code_model\n\n- 检测复杂度：文本长度 > 2000
+    → claude\n\n- 默认：gpt4"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NWPhwBZQ9iuqdXkPhHNcLThjnig
+  block_id: DYfRd7TTHoCyKmxk6jkcYn4Fndf
+  page_token: NWPhwBZQ9iuqdXkPhHNcLThjnig
+  original_title: 如果让你设计一个多模型路由（根据语言、领域自动选择 LLM），用 LangChain 如何实现？
+  imported_at: '2026-09-21'

@@ -1,0 +1,126 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fff90e1d7cee
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E0 ConversationSummaryMemory 是如何利用 LLM 来压缩历史的？它的 prompt 可以自定义吗？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F9E0 ConversationSummaryMemory 是如何利用 LLM 来压缩历史的？它的 prompt 可以自定义吗？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    ConversationSummaryMemory 是解决长对话记忆问题的一个优雅方案。它不会像窗口记忆那样粗暴地丢弃历史，而是请 LLM 出场，将冗长的对话历史提炼成一段简洁的摘要。每次新的对话产生，它都会更新这段摘要。
+
+    工作原理：
+
+    - 初始化：开始时摘要为空。
+
+    - 对话进行：每当有新的对话轮次产生，这些消息不会直接全部存入历史，而是被交给一个内部的“摘要链”。
+
+    - LLM 摘要：摘要链使用一个预设的 Prompt，将已有的旧摘要 + 新的对话消息 一起发给 LLM，LLM 返回一段更新后的摘要文本。
+
+    - 存储摘要：Memory 存储的是这段不断更新的摘要文本，而不是完整的对话列表。当需要加载 Memory 时，它会直接将这段摘要作为上下文放入 Prompt。
+
+    优点：
+
+    - 上下文长度可控：无论对话多长，最终保存在 Prompt 中的只是那段摘要，其长度相对稳定。
+
+    - 保留长期脉络：摘要能够抓住对话的关键信息、意图和结论，让模型拥有全局视野。
+
+    默认 Prompt 与自定义：
+
+    是的，Prompt 完全支持自定义。它的默认 Prompt 类似：
+
+    ```text
+    Progressively summarize the lines of conversation provided, adding onto the previous summary returning a new summary.
+
+    EXAMPLE
+    Current summary:
+    The human asks what the AI thinks of artificial intelligence. The AI thinks artificial intelligence is a force for good.
+
+    New lines of conversation:
+    Human: Why do you think artificial intelligence is a force for good?
+    AI: Because artificial intelligence will help humans reach their full potential.
+
+    New summary:
+    The human asks what the AI thinks of artificial intelligence. The AI thinks artificial intelligence is a force for good because it will help humans reach their full potential.
+    END OF EXAMPLE
+
+    Current summary:
+    {summary}
+
+    New lines of conversation:
+    {new_lines}
+
+    New summary:
+    ```
+
+    你可以通过 prompt 参数传入自定义的 PromptTemplate，例如，如果你想用中文摘要，或者要求摘要突出特定信息（如用户偏好）。
+
+    ```python
+    from langchain.memory import ConversationSummaryMemory
+    from langchain.llms import OpenAI
+
+    # 自定义摘要 Prompt
+    custom_prompt = PromptTemplate(
+        input_variables=["summary", "new_lines"],
+        template="""
+        请将以下新的对话内容，整合到已有的对话摘要中，生成一个全新的、更全面的中文摘要。
+
+        已有摘要：
+        {summary}
+
+        新对话内容：
+        {new_lines}
+
+        新摘要：
+        """
+    )
+
+    memory = ConversationSummaryMemory(
+        llm=OpenAI(temperature=0),
+        prompt=custom_prompt
+    )
+    ```
+
+    代价：
+
+    - 经济成本：每次对话更新摘要都要调用一次 LLM（额外的 API 费用）。
+
+    - 延迟增加：额外的 LLM 调用会增加处理时间。
+
+    - 信息损失：摘要过程是有损压缩，一些细节可能丢失。因此不适合需要精确复现历史原话的场景。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H3N3wvSCiibLlPk5ZpjcveFHnNb
+  block_id: WEM8diV9motAfSxHFrXcbdaknUh
+  page_token: H3N3wvSCiibLlPk5ZpjcveFHnNb
+  original_title: "\U0001F9E0 ConversationSummaryMemory 是如何利用 LLM 来压缩历史的？它的 prompt
+    可以自定义吗？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bed9eacd8bd7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何避免MoE微调时的“专家坍塌”问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如何避免MoE微调时的“专家坍塌”问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    专家坍塌 是指MoE模型在训练或微调过程中，路由器几乎将所有token都分配给少数几个（甚至一个）专家，导致其他专家不被激活、形同虚设的现象。这会严重损害模型的容量和性能，使得MoE的优势荡然无存。
+
+    避免专家坍塌的策略：
+
+    - 持续施加负载均衡损失
+    负载均衡损失（Load Balancing Loss）是预训练MoE模型时防止坍塌的核心手段。微调时绝不应将其移除，反而应根据数据量调整其系数。公式通常基于专家接收的token比例和路由概率的乘积，鼓励每个专家在全局和每个batch中都有相对均衡的负载。在微调初期，可以适当增大该损失的权重，待路由器稳定后再逐步减小。
+
+    - 引入辅助熵损失或专家多样性损失
+    除了负载均衡，还可以加入熵最大化损失，惩罚路由器输出的概率分布过于集中。例如，对每个token的路由概率分布计算熵，并希望该熵尽可能大，从而促使模型探索不同的专家组合。
+
+    - 设置专家容量与随机路由
+    为每个专家设定一个最大处理容量（Capacity），当分配给某专家的token数超过容量时，超出的token被强制丢弃或通过残差连接绕过。这能强迫路由器寻找替代专家。此外，在训练时可以以一定概率随机将token分配给任意专家，增加探索，防止模型过早收敛到局部最优。
+
+    - 数据调度与课程学习
+    微调初期使用更加平衡、通用的数据，让路由器维持均匀的分配；后期再逐步加入领域专用数据。也可以在每个batch中刻意构造包含各类任务的混合数据，避免连续多个batch都来自同一狭窄领域。
+
+    - 使用Z-loss或正则化约束路由权重
+    Z-loss（对路由logits的平方和施加惩罚）可以稳定路由器的输出，防止其logits值过大导致softmax后分布极度尖锐。这有助于减缓坍塌。
+
+    - 冻结或部分冻结路由器
+    如果微调数据量很小，可以考虑冻结路由器参数，仅微调专家权重。这样从根本上杜绝了路由坍塌，但代价是无法优化任务特定的专家分配。可以在微调后期再以极小学习率解冻路由器。
+
+    - 监控与早停
+    在微调过程中持续监控每个专家被激活的频率、接收的token数以及负载均衡损失。一旦发现某些专家的激活率持续下降，立即停止训练并调整策略（例如增大负载均衡损失系数）。及早发现是防止不可逆坍塌的关键。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RK7mw2OHeiOHyEkfsfXcDkH1nRh
+  block_id: WHz5djGnfooWHFxyJSzceg1Cnnx
+  page_token: RK7mw2OHeiOHyEkfsfXcDkH1nRh
+  original_title: 如何避免MoE微调时的“专家坍塌”问题？
+  imported_at: '2026-09-21'

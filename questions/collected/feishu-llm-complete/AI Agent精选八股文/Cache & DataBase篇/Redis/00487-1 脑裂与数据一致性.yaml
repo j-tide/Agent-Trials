@@ -1,0 +1,100 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8071c432ec35
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 4.1 脑裂与数据一致性
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Redis
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Redis
+content:
+  prompt: 4.1 脑裂与数据一致性
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### Split-Brain 问题
+
+    1、什么是 Redis 的脑裂问题？
+
+    ⭐（考察脑裂的定义、产生原因）
+
+    Redis 脑裂问题是指由于网络分区，导致集群中出现多个主节点，每个主节点都认为自己是最新的，客户端可以同时向多个主节点写入数据，导致数据不一致。脑裂通常发生在主从复制或哨兵模式中，当主节点和部分从节点被隔离时，可能出现多个主节点同时接受写操作的情况。
+
+    2、如何通过 min-slaves-to-write 配置避免脑裂？
+
+    ⭐⭐（考察 min-slaves-to-write、min-slaves-max-lag）
+
+    1️⃣ Common Answer min-slaves-to-write 是配置主节点至少要有多少个从节点才能写。如果从节点数量不够，主节点就拒绝写操作。这样可以避免脑裂，因为脑裂时主节点可能和从节点分开了，从节点数量不够，就不能写，就不会出现数据不一致。还有一个 min-slaves-max-lag 配置，好像是限制复制延迟的。
+
+    2️⃣ Impressive Answer min-slaves-to-write 是 Redis 防止脑裂导致数据丢失的关键配置，需要配合 min-slaves-max-lag 使用。
+
+    min-slaves-to-write 配置主节点至少需要多少个从节点连接，才能接受写操作。默认值为 0，表示不限制。设置为 N 时，如果连接的从节点数量少于 N，主节点拒绝写操作，返回错误。
+
+    min-slaves-max-lag 配置从节点的复制延迟上限，单位是秒。默认值为 10，表示从节点的复制延迟不能超过 10 秒。如果从节点的复制延迟超过这个值，不计入 min-slaves-to-write 的计数。
+
+    这两个配置配合使用的逻辑是：主节点在处理写命令前，检查当前连接的从节点数量，以及这些从节点的复制延迟。只有当从节点数量 ≥ min-slaves-to-write，且这些从节点的复制延迟 ≤ min-slaves-max-lag 时，才接受写操作。
+
+    脑裂场景下，假设配置 min-slaves-to-write=2，min-slaves-max-lag=10。主节点和从节点 1 被隔离，从节点 2、3 正常连接到主节点。如果主节点和从节点 1 被隔离，主节点还能连接到从节点 2、3，从节点数量满足要求，可以正常写。但如果主节点被完全隔离，无法连接到任何从节点，从节点数量为 0，不满足 min-slaves-to-write=2，主节点拒绝写操作，避免脑裂后的数据写入。
+
+    需要注意的是，min-slaves-to-write 和 min-slaves-max-lag 的配置需要权衡。设置过小，可能无法有效防止脑裂；设置过大，可能影响主节点的可用性。比如 min-slaves-to-write=3，如果从节点 2 个故障，主节点就无法写，即使主节点正常。建议根据业务对数据一致性和可用性的要求，合理配置这两个参数。对于强一致性要求的业务，可以设置较大的 min-slaves-to-write；对于高可用性要求的业务，可以设置较小的 min-slaves-to-write。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    3、生产环境中有 1 主 3 从，配置 min-slaves-to-write=2，如果 2 个从节点网络分区，会发生什么？
+
+    ⭐⭐⭐（考察脑裂场景下的数据写入、可用性影响）
+
+    1️⃣ Common Answer 2 个从节点网络分区了，主节点还能连接到 1 个从节点。min-slades-to-write=2，需要至少 2 个从节点才能写，现在只有 1 个，所以主节点应该拒绝写操作。这样虽然影响可用性，但可以防止脑裂导致的数据不一致。不过如果业务要求高可用，可能需要调整配置。
+
+    2️⃣ Impressive Answer 这个问题需要从 min-slaves-to-write 的配置逻辑、可用性影响、业务权衡三个角度分析。
+
+    首先，1 主 3 从的集群，配置 min-slaves-to-write=2，意味着主节点至少需要 2 个从节点连接才能写。如果 2 个从节点网络分区，主节点只能连接到 1 个从节点，不满足 min-slaves-to-write=2 的要求，主节点拒绝写操作。
+
+    这种情况下，主节点虽然正常运行，但对客户端来说不可写，影响可用性。但同时，这有效防止了脑裂导致的数据不一致。如果网络分区导致主节点和部分从节点被隔离，可能出现两个主节点同时接受写操作的情况。通过 min-slades-to-write=2 的配置，主节点在从节点数量不足时拒绝写操作，避免了脑裂后的数据写入。
+
+    需要注意的是，这个场景下，网络分区的 2 个从节点可能已经选举出新的主节点（如果是哨兵模式），新的主节点可以正常写。这样，客户端可以切换到新的主节点继续写，保证了可用性。原来的主节点因为从节点数量不足拒绝写操作，避免了数据冲突。
+
+    从业务角度来看，min-slaves-to-write 的配置需要在一致性和可用性之间权衡：
+
+    第一，强一致性要求的业务，比如金融、支付，建议设置较大的 min-slaves-to-write，比如 3，确保至少 3 个从节点复制成功才认为写入成功，最大程度保证数据一致性。但这会降低可用性，从节点故障时主节点可能无法写。
+
+    第二，高可用性要求的业务，比如缓存、计数器，可以设置较小的 min-slaves-to-write，比如 1，甚至 0，确保主节点在大部分情况下可以写，提高可用性。但这增加了脑裂导致数据不一致的风险。
+
+    第三，折中方案，设置 min-slaves-to-write=2，在一致性和可用性之间平衡。同时，配合 min-slaves-max-lag 配置，确保从节点的复制延迟在合理范围内。
+
+    生产环境中，建议根据业务特点和对数据一致性的要求，合理配置 min-slaves-to-write。对于关键业务，可以设置较大的值；对于非关键业务，可以设置较小的值。同时，监控从节点的复制延迟和网络状况，及时调整配置。
+
+    3️⃣ Key Differences
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WYybwaFDnib3uYkGNzpcRvJsnzd
+  block_id: doxcna3ArirkN5JxGi1lQacJ8ig
+  page_token: WYybwaFDnib3uYkGNzpcRvJsnzd
+  original_title: 4.1 脑裂与数据一致性
+  imported_at: '2026-09-21'

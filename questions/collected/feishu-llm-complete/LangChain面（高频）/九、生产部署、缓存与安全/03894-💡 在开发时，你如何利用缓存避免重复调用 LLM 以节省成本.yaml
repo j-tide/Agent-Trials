@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-81d021e918c5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4A1 在开发时，你如何利用缓存避免重复调用 LLM 以节省成本？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F4A1 在开发时，你如何利用缓存避免重复调用 LLM 以节省成本？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    开发阶段，反复调试 Prompt 会导致大量重复的 API 调用，成本快速累积。我会采取以下策略：
+
+    - 开启 InMemoryCache 并保持常驻
+    在 Jupyter Notebook 或调试脚本开头就设置 set_llm_cache(InMemoryCache())。这样同一进程内，相同 Prompt 只调用一次。
+
+    - 使用 SQLiteCache 持久化到本地文件
+
+    ```python
+    from langchain.cache import SQLiteCache
+    set_llm_cache(SQLiteCache(database_path=".langchain.db"))
+    ```
+
+    这样即使重启程序，之前的调用结果仍然有效。开发几天下来，能避免大量重复请求。
+
+    - 配合 LangChain 的 llm_cache 上下文管理器
+    可以在特定代码块中临时启用缓存，而不是全局开启，避免影响其他测试。
+
+    - 在 CI/CD 中使用共享 Redis 缓存
+
+    我们团队的 CI 流水线会部署一个 Redis 实例，专门用于测试期间的缓存。每次提交代码，所有测试用例的 LLM 调用优先走 Redis 缓存，大幅缩减测试时间和费用。
+
+    - 利用 GPTCache 的预加载能力
+    把常用的 Prompt 和期望的输出预先缓存，开发新功能时直接从缓存读取，不消耗 API。
+
+    实践：我习惯在 pytest 的 conftest.py 中全局设置 SQLiteCache，并确保数据库文件被版本控制忽略但保留在本地，这样运行测试时自动缓存。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VWvFwnt5pi19m7ky7Udc0PatnRe
+  block_id: CBfAdFWntoB1tvx0ZAzcbQnTnmb
+  page_token: VWvFwnt5pi19m7ky7Udc0PatnRe
+  original_title: "\U0001F4A1 在开发时，你如何利用缓存避免重复调用 LLM 以节省成本？"
+  imported_at: '2026-09-21'

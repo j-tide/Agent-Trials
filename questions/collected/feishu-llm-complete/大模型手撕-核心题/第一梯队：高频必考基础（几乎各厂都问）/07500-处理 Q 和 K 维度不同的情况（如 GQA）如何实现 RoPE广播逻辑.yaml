@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-963c1430cc31
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 处理 Q 和 K 维度不同的情况（如 GQA）如何实现 RoPE？广播逻辑。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 处理 Q 和 K 维度不同的情况（如 GQA）如何实现 RoPE？广播逻辑。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 GQA 或 MQA 中，Query 头数 h 大于 Key/Value 头数 g，但 Q 和 K 的 head_dim 通常保持一致。因此 RoPE 的旋转操作本身对每个头的 Q 和 K 独立进行，维度相同，所以可以直接分别旋转。问题在于 freqs_cis 的形状与广播：freqs_cis 的形状是 (max_seq_len, head_dim//2)，与头数无关。
+
+    实现广播逻辑：
+
+    - 分别对 Q 和 K 进行旋转，Q 形状为 (B, h, L, head_dim)，K 形状为 (B, g, L, head_dim)。
+
+    - 将 freqs_cis 扩展为 (1, 1, L, head_dim//2) 或通过 position_ids 索引得到 (B, 1, L, head_dim//2)，然后分别应用到 Q 和 K 上。对于 Q 需要广播到 h 个头，K 广播到 g 个头。
+
+    - 旋转操作本身与头数无关，只需要确保 freqs_cis 在头维度上广播（通过 unsqueeze）。
+
+    代码示例：
+
+    ```python
+    def apply_rotary_emb_gqa(q, k, freqs_cis, position_ids):
+        # q: (B, num_q_heads, L, head_dim)
+        # k: (B, num_kv_heads, L, head_dim)
+        # freqs_cis: (max_seq_len, head_dim//2) 复数形式
+        cis = freqs_cis[position_ids]  # (B, L, head_dim//2)
+        # 为头维度增加维度并广播
+        cis_q = cis.unsqueeze(1)  # (B, 1, L, head_dim//2) 自动广播到所有q头
+        cis_k = cis.unsqueeze(1)  # 同样
+        # 复数旋转
+        q_ = torch.view_as_complex(q.float().reshape(*q.shape[:-1], -1, 2))
+        k_ = torch.view_as_complex(k.float().reshape(*k.shape[:-1], -1, 2))
+        q_rot = q_ * cis_q
+        k_rot = k_ * cis_k
+        q_out = torch.view_as_real(q_rot).flatten(-2).type_as(q)
+        k_out = torch.view_as_real(k_rot).flatten(-2).type_as(k)
+        return q_out, k_out
+    ```
+
+    由于 head_dim 相同，旋转逻辑完全一致，因此 GQA/MQA 不影响 RoPE 的实现，只需在头维度上正确广播 freqs_cis 即可。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VuccwPjSli6dm2kOTxJclpKdnhb
+  block_id: QvSqdstQjowQ3kxueDScC7OMnUf
+  page_token: VuccwPjSli6dm2kOTxJclpKdnhb
+  original_title: 处理 Q 和 K 维度不同的情况（如 GQA）如何实现 RoPE？广播逻辑。
+  imported_at: '2026-09-21'

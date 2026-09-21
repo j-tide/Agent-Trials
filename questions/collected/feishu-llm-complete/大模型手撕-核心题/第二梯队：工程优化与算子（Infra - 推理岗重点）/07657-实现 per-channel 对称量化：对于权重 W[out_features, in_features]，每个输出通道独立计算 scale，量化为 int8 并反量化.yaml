@@ -1,0 +1,92 @@
+---
+schema_version: 1
+id: feishu-llm-complete-942b2064a193
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 per-channel 对称量化：对于权重 W[out_features, in_features]，每个输出通道独立计算 scale，量化为
+  int8 并反量化
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现 per-channel 对称量化：对于权重 W[out_features, in_features]，每个输出通道独立计算 scale，量化为
+    int8 并反量化
+answer:
+  mode: rubric
+  reference_answer: |-
+    Per-channel 量化 常用于模型权重，因为不同输出通道的权重分布可能差异较大。对于形状为 [out_features, in_features] 的二维权重张量，我们对每个 out_features 行（即每个输出通道）独立计算 scale，得到 shape 为 [out_features] 的 scale 向量。量化时，每行使用对应的 scale，反量化同理。
+
+    实现：
+
+    - 输入：W (FP32)，shape [OC, IC]。
+
+    - 对每一行 i，计算 max_abs = max(|W[i,:]|)，scale[i] = max_abs / 127。
+
+    - 量化：W_q[i, :] = round(W[i,:] / scale[i]) clamp 到 [-128,127]。
+
+    - 反量化：W_fp[i,:] = W_q[i,:] * scale[i]。
+
+    代码：
+
+    ```python
+    def per_channel_symmetric_quantize(w: torch.Tensor, bits=8):
+        """
+        w: [OC, IC]
+        Returns:
+            w_q: int8 tensor [OC, IC]
+            scale: FP32 tensor [OC]
+        """
+        qmax = 2 ** (bits - 1) - 1   # 127
+        qmin = -qmax - 1             # -128
+        # 每行的最大绝对值
+        max_abs_per_ch = torch.max(torch.abs(w), dim=1).values  # [OC]
+        # 避免除零
+        max_abs_per_ch = torch.clamp(max_abs_per_ch, min=1e-8)
+        scale = max_abs_per_ch / qmax   # [OC]
+        # 量化：w / scale[:, None] 广播
+        w_q = torch.round(w / scale.unsqueeze(1))
+        w_q = torch.clamp(w_q, qmin, qmax)
+        w_q = w_q.to(torch.int8)
+        return w_q, scale
+
+    def per_channel_symmetric_dequantize(w_q: torch.Tensor, scale: torch.Tensor):
+        return w_q.float() * scale.unsqueeze(1)
+
+    # 示例
+    w = torch.randn(64, 128) * 0.5
+    w_q, scale = per_channel_symmetric_quantize(w)
+    w_recon = per_channel_symmetric_dequantize(w_q, scale)
+    mse = torch.mean((w - w_recon) ** 2).item()
+    print(f"Per-channel MSE: {mse:.8f}")
+    ```
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: XLITd8XfgoGbxExXkXmcXuSlnXe
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 实现 per-channel 对称量化：对于权重 W[out_features, in_features]，每个输出通道独立计算
+    scale，量化为 int8 并反量化
+  imported_at: '2026-09-21'

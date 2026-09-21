@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-32055d38cc6f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多租户场景下，推理服务如何实现安全和资源隔离？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 五：推理部署与高效化
+tags: &1
+- Transfomer精选面试
+- 五：推理部署与高效化
+content:
+  prompt: 多租户场景下，推理服务如何实现安全和资源隔离？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多租户指不同用户或团队共享推理集群，需在性能和安全性上严格隔离。
+
+    资源隔离：
+
+    - 硬件级（MIG/GPU 分区）：对高等级租户，可独占一个 MIG 实例甚至整张 GPU，彻底避免显存、计算和缓存的竞争。
+
+    - 显存与计算隔离：在共享推理引擎中，通过配额机制限制每个租户的并发请求数、最大输入+输出总 token 数、可使用的 KV cache 内存上限。调度器跟踪租户使用量，超量即返回限流错误。
+
+    - GPU 时间片隔离：使用 CUDA MPS（Multi-Process Service）或 vGPU 技术，在软件层面隔离上下文；但安全性和性能隔离不如 MIG 彻底，适用于隔离要求不高的场景。
+
+    - 网络与存储隔离：不同租户的模型权重存储可位于不同 bucket，通过独立凭证访问；推理 Pod 通过 NetworkPolicy 限制通信，仅允许与调度器和存储的必要交互。
+
+    安全隔离：
+
+    - API 鉴权与认证：每个租户分配独立的 API Key，API 网关进行鉴权，识别租户身份。
+
+    - 数据隔离：同一引擎同时服务多租户时，请求数据（prompt、生成的文本）通过逻辑隔离保障。调度器绝不会将 A 租户的请求发送给 B 租户专属的实例；共享实例内部需保证请求间不存在数据泄露（例如 batch 中不同序列相互不可见，注意力掩码硬隔离）。应禁止将租户数据用于任何形式的缓存复用，除非该缓存是租户专属且加密隔离。
+
+    - 推理内容安全：即使模型共用，也要保证租户 A 不能通过 prompt 注入读取其他租户的上下文（共享 prefix cache 除外，但 prefix cache 通常只缓存系统公共提示，不缓存用户私人历史）。可通过每次请求时清空聊天历史、使用唯一会话 ID 隔离 KV cache 页，实现会话级隔离。
+
+    - 代码执行与依赖：如推理平台支持用户自定义预处理/后处理函数，必须置于严格沙箱（如 gVisor、WebAssembly）运行，避免逃逸。
+
+    多租户调度策略：
+
+    - 可为每个租户设置独立的请求队列，并使用权重公平调度（WFQ）防止某个租户的突发流量饿死其他租户。
+
+    - 在过载时，按租户级别进行优先级抢占和限流，保障 SLA 承诺高的租户资源。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/L2bpwgVV1iZoZnkrvgac88LjnCc
+  block_id: KDVUdPrcRouLxJxfjH2cAQ0enDh
+  page_token: L2bpwgVV1iZoZnkrvgac88LjnCc
+  original_title: 多租户场景下，推理服务如何实现安全和资源隔离？
+  imported_at: '2026-09-21'

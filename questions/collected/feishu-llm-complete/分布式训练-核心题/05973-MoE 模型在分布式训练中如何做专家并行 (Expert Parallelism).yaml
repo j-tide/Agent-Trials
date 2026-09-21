@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ad41640bd22c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: MoE 模型在分布式训练中如何做“专家并行” (Expert Parallelism)？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: MoE 模型在分布式训练中如何做“专家并行” (Expert Parallelism)？
+answer:
+  mode: rubric
+  reference_answer: |-
+    专家并行是一种专门为 MoE 设计的分布式策略，将不同的专家放置在不同的 GPU 上，每个 GPU 只负责计算自己持有的专家。
+
+    工作流程：
+
+    - 每个 GPU 上运行完整的自注意力层（这部分可以是数据并行），产出 token 表示。
+
+    - 进入 MoE 层后，每个 GPU 独立运行门控网络，计算本地 token 对各专家的路由分数。
+
+    - 根据路由决策，每个 GPU 知道自己的 token 需要被送往哪些专家（可能在本卡也可能在其他卡）。
+
+    - 执行 All-to-All 通信：各 GPU 将 token 重新分发，属于专家 0 的 token 全部汇集到持有专家 0 的 GPU，属于专家 1 的 token 汇集到持有专家 1 的 GPU，以此类推。
+
+    - 每个 GPU 在自己持有的专家上对收集到的 token 执行 FFN 计算。
+
+    - 再次执行 All-to-All 通信：将处理完的 token 送回其原始 GPU，恢复原始顺序。
+
+    - 继续后续层的计算。
+
+    专家并行的优势在于：模型参数（专家 FFN）被分布到多卡，每张卡只存储一部分专家，显存压力减轻；同时每个 token 只激活 1~2 个专家，计算负载也被分散。这天然适合大规模 MoE 训练。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQczwN8cliZ2XSkOI26ckCcPnuf
+  block_id: KVIQdnvHqoFcnJxETWgcBpStnbb
+  page_token: GQczwN8cliZ2XSkOI26ckCcPnuf
+  original_title: MoE 模型在分布式训练中如何做“专家并行” (Expert Parallelism)？
+  imported_at: '2026-09-21'

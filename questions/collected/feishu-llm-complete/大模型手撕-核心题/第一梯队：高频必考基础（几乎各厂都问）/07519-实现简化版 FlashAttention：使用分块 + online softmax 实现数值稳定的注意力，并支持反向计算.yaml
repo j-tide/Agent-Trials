@@ -1,0 +1,108 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5a5cf30f501c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现简化版 FlashAttention：使用分块 + online softmax 实现数值稳定的注意力，并支持反向计算。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 实现简化版 FlashAttention：使用分块 + online softmax 实现数值稳定的注意力，并支持反向计算。
+answer:
+  mode: rubric
+  reference_answer: |-
+    FlashAttention 的关键在于分块计算和重计算。这里展示支持反向传播的简化版（不考虑异步内存拷贝等底层优化）。
+
+    ```python
+    class FlashAttention(torch.autograd.Function):
+        @staticmethod
+        def forward(ctx, Q, K, V, scale):
+            B, H, L, D = Q.shape
+            if scale is None:
+                scale = math.sqrt(D)
+            ctx.scale = scale
+            chunk_size = min(256, L)
+            O = torch.zeros_like(Q)
+            L_acc = torch.zeros(B, H, L, 1, device=Q.device)
+            M = torch.full((B, H, L, 1), -float('inf'), device=Q.device)
+
+            for i in range(0, L, chunk_size):
+                Qi = Q[:, :, i:i+chunk_size]
+                for j in range(0, L, chunk_size):
+                    Kj = K[:, :, j:j+chunk_size]
+                    Vj = V[:, :, j:j+chunk_size]
+                    scores = torch.matmul(Qi, Kj.transpose(-2, -1)) / scale
+                    M_prev = M[:, :, i:i+chunk_size]
+                    L_prev = L_acc[:, :, i:i+chunk_size]
+                    M_cur = scores.max(dim=-1, keepdim=True)[0]
+                    M_new = torch.maximum(M_prev, M_cur)
+                    L_prev_corrected = L_prev * torch.exp(M_prev - M_new)
+                    L_cur = torch.exp(scores - M_new).sum(dim=-1, keepdim=True)
+                    L_new = L_prev_corrected + L_cur
+                    O[:, :, i:i+chunk_size] = O[:, :, i:i+chunk_size] * torch.exp(M_prev - M_new) + \
+                        torch.matmul(torch.exp(scores - M_new), Vj)
+                    M[:, :, i:i+chunk_size] = M_new
+                    L_acc[:, :, i:i+chunk_size] = L_new
+            O = O / L_acc
+            ctx.save_for_backward(Q, K, V, O, L_acc, M)
+            return O
+
+        @staticmethod
+        def backward(ctx, dO):
+            Q, K, V, O, L, M = ctx.saved_tensors
+            scale = ctx.scale
+            B, H, Lq, D = Q.shape
+            Lk = K.shape[2]
+            dQ = torch.zeros_like(Q)
+            dK = torch.zeros_like(K)
+            dV = torch.zeros_like(V)
+            chunk_size = min(256, Lq)
+
+            for i in range(0, Lq, chunk_size):
+                Qi = Q[:, :, i:i+chunk_size]
+                dOi = dO[:, :, i:i+chunk_size]
+                Oi = O[:, :, i:i+chunk_size]
+                for j in range(0, Lk, chunk_size):
+                    Kj = K[:, :, j:j+chunk_size]
+                    Vj = V[:, :, j:j+chunk_size]
+                    scores = torch.matmul(Qi, Kj.transpose(-2, -1)) / scale
+                    Pij = torch.exp(scores - M[:, :, i:i+chunk_size])
+                    # 反向传播局部计算（简化的实现省略细节，实际应与前向对应）
+                    # ...
+                    # 这里仅示意结构，完整的反向公式见13题。
+            # 由于实现完整手工反向较复杂，此处省略具体累加细节，实际项目推荐使用PyTorch自动微分。
+            return dQ, dK, dV, None
+    ```
+
+    在生产环境中，直接使用 PyTorch 2.0+ 的 scaled_dot_product_attention 即可获得 FlashAttention 加速，不需手动实现反向。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTpnwxWMsiVDwIkIoX0c1TU4ned
+  block_id: WzsvdJdSQoDHfMx0u9kc1RJqn5f
+  page_token: QTpnwxWMsiVDwIkIoX0c1TU4ned
+  original_title: 实现简化版 FlashAttention：使用分块 + online softmax 实现数值稳定的注意力，并支持反向计算。
+  imported_at: '2026-09-21'

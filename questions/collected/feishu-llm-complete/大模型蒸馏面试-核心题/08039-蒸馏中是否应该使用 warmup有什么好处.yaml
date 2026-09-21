@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-592579be3e96
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 蒸馏中是否应该使用 warmup？有什么好处？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型蒸馏面试-核心题
+derived_topic: 
+tags: &1
+- 大模型蒸馏面试-核心题
+content:
+  prompt: 蒸馏中是否应该使用 warmup？有什么好处？
+answer:
+  mode: rubric
+  reference_answer: |-
+    结论：应该使用，且在多损失蒸馏中几乎是一项必备策略。
+
+    在蒸馏训练中，Warmup（学习率预热）的重要性远高于常规训练，其根本原因在于多个损失函数的协同与博弈。
+
+    好处与深层原理：
+
+    - 稳定初期训练的“乱流”：蒸馏初期，学生模型的参数（无论是随机初始化还是预训练）与教师模型的参数空间相距甚远。此时，各项损失（任务损失、KL散度、MSE等）会产生方向各异、量级不同的巨大梯度。这些梯度如同湍急的、方向混乱的水流，如果直接使用满额学习率，会将学生模型瞬间冲垮，导致损失震荡甚至模型崩溃。Warmup通过逐步增大学习率，给了模型一个宝贵的“缓冲期”，让各项损失的梯度在最初的几步更新中逐渐“磨合”，找到合力方向，从而平滑训练。
+
+    - 保护预训练知识（从预训练权重初始化时）：当学生模型是从强大的预训练权重（如LLaMA-7B）初始化时，其参数已处于一个优质的“能量盆地”中。蒸馏信号（尤其是软标签和特征对齐）会强力地将模型拉向教师的方向。如果初期学习率过大，会瞬间破坏这些宝贵的预训练表征，造成灾难性遗忘。Warmup在此时扮演了“保护垫”的角色，让模型缓慢适应新的蒸馏目标，在保留旧知识与学习新任务之间找到渐进式的平衡。
+
+    - 自适应优化器状态构建：对于AdamW等自适应优化器，它们需要前几步的梯度来构建一阶和二阶矩估计。在训练初期，这些矩估计是极不准确的。Warmup阶段的小学习率，确保了优化器在此期间接收到的梯度更新量级较小，使其能够在一个相对稳定的环境中，逐步建立起对梯度统计的有效估计，为后续的高效更新打下基础。
+
+    实现建议：
+
+    - Warmup步数：通常设总训练步数的5%到10%。对于从预训练权重初始化的学生，Warmup步数可以更长（如10%），以更好地保护预训练知识。
+
+    - Warmup策略：最常用的是线性Warmup，让学习率从0（或一个极小值）线性增加到目标学习率。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HgUfwaznAiYDsakz5oRckIO5nLJ
+  block_id: KsbMdVFs5oLakVxu30VcDQeUnf9
+  page_token: HgUfwaznAiYDsakz5oRckIO5nLJ
+  original_title: 蒸馏中是否应该使用 warmup？有什么好处？
+  imported_at: '2026-09-21'

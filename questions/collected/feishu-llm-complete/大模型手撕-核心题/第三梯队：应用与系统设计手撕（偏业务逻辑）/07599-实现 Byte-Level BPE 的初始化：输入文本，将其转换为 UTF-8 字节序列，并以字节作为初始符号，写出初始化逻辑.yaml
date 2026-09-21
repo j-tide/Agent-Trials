@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dfc7ad64eb9a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 Byte-Level BPE 的初始化：输入文本，将其转换为 UTF-8 字节序列，并以字节作为初始符号，写出初始化逻辑
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 实现 Byte-Level BPE 的初始化：输入文本，将其转换为 UTF-8 字节序列，并以字节作为初始符号，写出初始化逻辑
+answer:
+  mode: rubric
+  reference_answer: "Byte-Level BPE 的核心思想是将每个单词视为 UTF-8 编码后的字节序列，每个字节（0-255）作为一个初始符号，而不是
+    Unicode 字符。这样做的好处是词汇表大小从海量 Unicode 字符缩减到仅 256 个基本符号，彻底消除了 OOV 问题。任何文本都能用这 256
+    个字节表示。\n\n初始化步骤：\n\n- 对原始文本进行单词切分（如按空格或使用正则分词器）。\n\n- 统计每个单词的频率。\n\n- 对于每个单词，将其字符串编码为
+    UTF-8 字节序列。Python 中可以通过 word.encode('utf-8') 得到 bytes 对象。\n\n- 将每个字节转换为一个可显示的符号。常见的表示方法有：\n\n-
+    在每个单词字节序列末尾添加一个特殊的结束符，可以是一个特殊字节值（如 256，或者 </w> 的某种表示）。为了不与 0-255 冲突，通常使用超出范围的
+    ID（如 256 表示结束符）。或者沿用字符串表示，用 '</w>' 字符串符号，但在字节层面，所有符号都是整数，可定义 end_of_word = 256。\n\n-
+    统计每个字节（0-255 外加结束符）的频率，形成初始词汇表。\n\nPython 实现：\n\n```python\nfrom collections import
+    Counter\n\ndef byte_level_initialize(text: str) -> tuple:\n    \"\"\"\n    对文本进行
+    Byte-Level BPE 初始化。\n    返回：\n        word_symbols: [(byte_sequence, freq), ...]
+    每个序列为整数列表，以 256 结尾\n        byte_freq: 各字节的频率字典，键为整数 0-256\n    \"\"\"\n    #
+    1. 单词切分（保留标点等，这里简单按空格切分）\n    words = text.split()\n    word_freq = Counter(words)\n
+    \   \n    word_symbols = []\n    byte_freq = Counter()\n    end_id = 256  # 结束符
+    ID\n    \n    for word, freq in word_freq.items():\n        # 将单词编码为 UTF-8 字节，转为整数列表\n
+    \       byte_seq = list(word.encode('utf-8'))\n        # 添加结束符\n        byte_seq.append(end_id)\n
+    \       word_symbols.append((byte_seq, freq))\n        for b in byte_seq:\n            byte_freq[b]
+    += freq\n            \n    return word_symbols, byte_freq\n\n# 示例：\ntext = \"Hello
+    world! Hello\"\nword_syms, freq = byte_level_initialize(text)\n# \"Hello\" ->
+    [72, 101, 108, 108, 111, 256]\n# \"world!\" -> [119, 111, 114, 108, 100, 33, 256]\n#
+    频率：72:1, 101:1, 108:2, 111:2, 256:2, 等等\n```\n\n后续的 bigram 计算、合并等操作完全类似，只是符号都是整数
+    ID。新合并的符号可以赋予新的整数 ID（例如从 257 开始递增）。合并时将两个整数 ID a 和 b 替换为新的 ID。最终词汇表就是一系列整数及其对应的字节序列。\n\n优点：\n\n-
+    完全无 OOV。\n\n- 可以处理任何语言、表情符号、特殊符号。\n\n- 初始符号集极小且固定（256 + 结束符），合并次数可控，最终词汇表大小可任意指定。\n\n注意：在实际解码时，需要能够将整数
+    ID 序列转换回原始字节，再解码为 UTF-8 字符串。训练过程中需要保存每个 ID（包括合并产生的新 ID）到字节序列的映射。最终解码：将 ID 序列转成字节串，移除结束符对应的字节，然后将字节串
+    UTF-8 解码为字符串。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XDqKw0GPGi6JvkkfpwUcqpdAndd
+  block_id: Dn8mdaoLoofJM0xvoTtcnuH2n1g
+  page_token: XDqKw0GPGi6JvkkfpwUcqpdAndd
+  original_title: 实现 Byte-Level BPE 的初始化：输入文本，将其转换为 UTF-8 字节序列，并以字节作为初始符号，写出初始化逻辑
+  imported_at: '2026-09-21'

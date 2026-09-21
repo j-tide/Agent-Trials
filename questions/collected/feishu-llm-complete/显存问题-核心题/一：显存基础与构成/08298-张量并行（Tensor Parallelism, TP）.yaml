@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-15276cb45fed
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 张量并行（Tensor Parallelism, TP）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 一：显存基础与构成
+tags: &1
+- 显存问题-核心题
+- 一：显存基础与构成
+content:
+  prompt: 张量并行（Tensor Parallelism, TP）
+answer:
+  mode: rubric
+  reference_answer: |-
+    TP 将单个层内的参数矩阵在多个 GPU 上切分，每张卡只持有参数的一部分。
+
+    对显存各类别的影响：
+
+    - 权重：每张卡只持分片后的权重，例如将 D×D 的矩阵按列切分成 D×(D/N)，单卡权重大幅减小（约 1/N）。
+
+    - 梯度：同样，梯度与权重分片对应，单卡梯度也降至 1/N。
+
+    - 优化器状态：由于每张卡只更新自己的那部分参数，mm 和 vv 也相应减少到 1/N1/N。
+
+    - 激活值：情况复杂。TP 的前向计算中，各卡并行计算自己的分片，但某些操作需要在同层内进行AllReduce 通信。激活值（如隐状态）通常会在 TP 组内复制或分片。具体：
+
+    - 通信缓冲区：新增了同步所需的临时缓冲，大小与分片大小相关。
+
+    总体：TP 将几乎所有静态显存（权重、梯度、状态）等比压缩，激活部分通常也减小，是一种“全面瘦身”。但代价是通信量和频率极高，需高速互联（如 NVLink）。
+
+    流水线并行（Pipeline Parallelism, PP）
+
+    PP 将模型按层切分，每个 GPU 负责一段连续的层（例如 GPU 0 负责层 1-10，GPU 1 负责层 11-20）。
+
+    对显存各类别的影响：
+
+    - 权重、梯度、优化器状态：每张卡只持有自己那几层的参数，故这些部分也等比减小（层数减少为 1/PP）。
+
+    - 激活值：最核心的不同。由于 PP 一次只在一个微批次（micro-batch）上经过该卡负责的层，所以激活值只包含这几层的中间结果，而不是全部层。激活值同样减少了约 1/PP 倍（基于层数比例）。
+
+    - 额外的内存：PP 通常需要将多个微批次的中间激活（跨阶段的边界张量）暂存起来，以便反向时使用。这是流水线气泡引入的额外激活，但占用通常和段内激活相当，不会显著增加峰值。
+
+    - 通信缓冲区：PP 的点对点通信（发送/接收激活和梯度）需要临时缓冲区，大小等于一个微批次的激活张量。
+
+    总体：PP 同样减小了各静态项和激活项，但带来新的激活暂存需求。它可以与 TP 正交组合（3D 并行），共同降低单卡总显存。
+
+    组合效果
+
+    3D 并行下，每个 GPU 只持有模型的一个小碎片：
+
+    - 参数 = Φ/(TP×PP)
+
+    - 优化器状态同等缩减。
+
+    - 激活值 = Lper_gpu× 单层激活，与 PP 成反比，且 TP 可能进一步减小单层激活大小。
+
+    - 这实现了千卡训练超大模型的可能性。
+
+    面试者应强调：TP 减小了每个张量的大小（切割矩阵），而 PP 减小了张量的数量（切割层数），两者正交叠加使得单卡负担成倍缩小。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GR6GwGe1Hij4c3keg1Qckq5unRb
+  block_id: F9jHdS9uZoYvSCxXDgAc4nzAnOf
+  page_token: GR6GwGe1Hij4c3keg1Qckq5unRb
+  original_title: 张量并行（Tensor Parallelism, TP）
+  imported_at: '2026-09-21'

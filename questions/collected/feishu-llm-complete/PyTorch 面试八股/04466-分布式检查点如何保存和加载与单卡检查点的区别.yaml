@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7d2151b8c7cb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分布式检查点如何保存和加载？与单卡检查点的区别。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 分布式检查点如何保存和加载？与单卡检查点的区别。
+answer:
+  mode: rubric
+  reference_answer: |-
+    分布式检查点：在大模型训练中，单卡无法容纳完整模型，需将模型参数和优化器状态分片保存在各进程的存储中。
+
+    - 保存：各进程调用 torch.save 保存自己持有的参数分片、优化器状态分片及元数据。通常所有进程都保存，并依赖共享文件系统。FSDP 提供 SHARDED_STATE_DICT 高效保存分片，也可用 FULL_STATE_DICT 在 rank 0 聚合完整状态（需大量 CPU 内存）。
+
+    - 加载：训练恢复时，各进程从对应分片文件加载，要求当前分布式拓扑与保存时一致。FSDP 的 load_state_dict 可自动处理分片映射。
+
+    - 与单卡检查点的区别：单卡检查点包含完整模型权重，可直接用于推理或迁移；分片检查点不是完整权重，依赖于分布式配置，无法直接用于单卡，但保存/加载极快且不消耗额外内存。可通过工具（如 DeepSpeed 的 ds_to_hf.sh）将分片转换为单卡检查点。
+
+    注意事项：保存时需所有进程同步（dist.barrier），确保文件写入完成。恢复时必须同时加载优化器状态和学习率调度器。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KwdbwAt6ziL8zKkU7VMcVNEin8d
+  block_id: BQfOdAg8FokvR2xbaodcZODTnQd
+  page_token: KwdbwAt6ziL8zKkU7VMcVNEin8d
+  original_title: 分布式检查点如何保存和加载？与单卡检查点的区别。
+  imported_at: '2026-09-21'

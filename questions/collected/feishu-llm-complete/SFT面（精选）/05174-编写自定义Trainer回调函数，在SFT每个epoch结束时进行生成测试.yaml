@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-81eeea9bd8c1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写自定义Trainer回调函数，在SFT每个epoch结束时进行生成测试
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 编写自定义Trainer回调函数，在SFT每个epoch结束时进行生成测试
+answer:
+  mode: rubric
+  reference_answer: |-
+    我们可以通过继承 TrainerCallback 来实现一个回调，在每个 epoch 结束时用几个固定的 prompt 让模型生成回答，并记录日志。
+
+    ```python
+    from transformers import TrainerCallback, TrainerControl, TrainerState, TrainingArguments
+    import torch
+
+    class GenerationEvalCallback(TrainerCallback):
+        """每个 epoch 结束时，使用测试 prompt 生成回答，打印或记录日志"""
+        def __init__(self, test_prompts: list, tokenizer, max_new_tokens=50):
+            self.test_prompts = test_prompts
+            self.tokenizer = tokenizer
+            self.max_new_tokens = max_new_tokens
+
+        def on_epoch_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+            model = kwargs['model']
+            model.eval()
+            print(f"\n=== Epoch {state.epoch:.2f} 生成测试 ===")
+            for prompt in self.test_prompts:
+                inputs = self.tokenizer(prompt, return_tensors='pt').to(model.device)
+                with torch.no_grad():
+                    outputs = model.generate(
+                        **inputs,
+                        max_new_tokens=self.max_new_tokens,
+                        do_sample=False,
+                        pad_token_id=self.tokenizer.eos_token_id
+                    )
+                generated = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+                print(f"Prompt: {prompt}\nGenerated: {generated}\n")
+            model.train()  # 恢复训练模式
+    ```
+
+    使用方式：
+
+    ```python
+    trainer.add_callback(GenerationEvalCallback(
+        test_prompts=["你好，请介绍一下人工智能。", "写一首关于春天的诗。"],
+        tokenizer=tokenizer
+    ))
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JFt9wvuo1ijVfLktrcDcfTR8nTd
+  block_id: OuWzdTFCkoYBOpx0BJYcLbfonkc
+  page_token: JFt9wvuo1ijVfLktrcDcfTR8nTd
+  original_title: 编写自定义Trainer回调函数，在SFT每个epoch结束时进行生成测试
+  imported_at: '2026-09-21'

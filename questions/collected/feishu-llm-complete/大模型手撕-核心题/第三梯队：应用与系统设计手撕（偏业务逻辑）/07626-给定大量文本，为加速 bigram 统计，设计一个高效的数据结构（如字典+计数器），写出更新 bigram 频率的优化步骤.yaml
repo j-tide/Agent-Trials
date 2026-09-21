@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c808c40dfa55
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 给定大量文本，为加速 bigram 统计，设计一个高效的数据结构（如字典+计数器），写出更新 bigram 频率的优化步骤
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 给定大量文本，为加速 bigram 统计，设计一个高效的数据结构（如字典+计数器），写出更新 bigram 频率的优化步骤
+answer:
+  mode: rubric
+  reference_answer: "当语料非常大时，每次合并后重新扫描所有单词符号序列来计算 bigram 频率会极慢。优化思路是维护一个全局的 bigram
+    频率字典，并在每次合并时只更新受影响的 bigram 计数，而不是全量重算。\n\n高效数据结构：\n\n- 每个单词的当前符号序列可以存储为一个双向链表或动态数组，但为了便于更新
+    bigram，通常使用简单的列表，但需要能够快速找到哪些单词包含被合并的 pair。我们可以建立一个映射：pair -> 包含该 pair 的单词列表（或单词索引），并记录该
+    pair 在每个单词中的位置（或直接重新扫描该单词）。然而，维护位置会非常复杂。\n\n- 更实用的方法：在每次合并操作后，只修改那些实际发生合并的单词序列，并针对这些序列局部重新计算
+    bigram 变化。因为一次合并仅影响少数单词（并非所有单词都包含该最高频 pair）。我们可以：\n\n详细优化步骤：\n\n假设我们有数据结构：\n\n-
+    word_symbols: 列表，每个元素为 [symbols, freq]，symbols 为可变列表。\n\n- bigram_freq: defaultdict(int)，记录当前全局
+    bigram 频率。\n\n- pair_to_word_indices: defaultdict(set)，记录每个 pair 出现在哪些单词索引中。这里不考虑单词内部多次出现，仅记录单词索引，对于更新我们可能需要重新扫描该单词，但只扫描被合并的单词，而不是全部。由于一个单词内可能有多个
+    (a,b) 出现，重新扫描该单词所有 bigram 更新频率是合理且简单的。\n\n更新步骤（每次合并后）：\n\n- 选出 best_pair = (a,
+    b)，新符号 c = a + b（或新 ID）。\n\n- 获取受影响的单词索引集合：affected_indices = pair_to_word_indices.get(best_pair,
+    set())，如果为空则忽略（理论上不会）。\n\n- 对于每个索引 idx 在 affected_indices 中：\n\n- 将 best_pair
+    的频率清零并从 pair_to_word_indices 中删除，因为所有出现都被合并了（除非合并后由于某种原因重新形成，但在这个局部更新中，旧 pair
+    已经被消除，新序列中不会包含 (a,b) 除非 c 再参与其他合并，但 (a,b) 作为原始 pair 不会再出现，因为 a 和 b 相邻的情况被替换了。注意：如果序列为
+    ... a a b ...，合并时扫描从左到右只会替换第一个匹配项？需要确保扫描策略与全量重建一致：一次扫描替换所有非重叠的 (a,b)。那么合并后可能仍有剩余的
+    a 和 b 相邻吗？例如 a a b：索引 0,1 是 a, a 不符合；1,2 是 a, b 符合，替换为 a c，最终序列 ['a', 'c']，不会留下
+    (a,b)。但如果序列是 a b a b，合并：c c，没有 (a,b)。所以所有 (a,b) 都会被消除。因此从 bigram_freq 和映射中删除 best_pair
+    是安全的。\n\n- （可选）如果新产生的 bigram 在 bigram_freq 中不存在，则创建；如果某个 bigram 频率降为 0，则从 bigram_freq
+    和 pair_to_word_indices 中删除。\n\n代码示例（局部更新核心逻辑）：\n\n```python\ndef update_bigram_stats(word_symbols,
+    bigram_freq, pair_to_word_indices, best_pair, new_symbol):\n    a, b = best_pair\n
+    \   # 获取所有包含 best_pair 的单词索引（使用集合避免重复处理）\n    affected = pair_to_word_indices.get(best_pair,
+    set()).copy()\n    \n    for idx in affected:\n        symbols, freq = word_symbols[idx]\n
+    \       # 1. 减去旧 bigram 频率并清除索引关联\n        for i in range(len(symbols) - 1):\n
+    \           pair = (symbols[i], symbols[i+1])\n            bigram_freq[pair] -=
+    freq\n            if bigram_freq[pair] <= 0:\n                del bigram_freq[pair]\n
+    \           # 从 pair_to_word_indices 中移除 idx（我们稍后重建，简单直接全部清除）\n            if
+    pair in pair_to_word_indices:\n                pair_to_word_indices[pair].discard(idx)\n
+    \               if not pair_to_word_indices[pair]:\n                    del pair_to_word_indices[pair]\n
+    \       \n        # 2. 执行合并\n        new_syms = []\n        i = 0\n        while
+    i < len(symbols):\n            if i < len(symbols) - 1 and symbols[i] == a and
+    symbols[i+1] == b:\n                new_syms.append(new_symbol)\n                i
+    += 2\n            else:\n                new_syms.append(symbols[i])\n                i
+    += 1\n        word_symbols[idx][0] = new_syms  # 更新序列\n        \n        # 3.
+    添加新 bigram 频率并建立索引\n        for i in range(len(new_syms) - 1):\n            pair
+    = (new_syms[i], new_syms[i+1])\n            bigram_freq[pair] += freq\n            if
+    pair not in pair_to_word_indices:\n                pair_to_word_indices[pair]
+    = set()\n            pair_to_word_indices[pair].add(idx)\n    \n    # 清除 best_pair
+    的索引（已被消除）\n    if best_pair in pair_to_word_indices:\n        del pair_to_word_indices[best_pair]\n```\n\n这样就可以在
+    O(受影响单词数 × 平均单词长度) 的时间内完成 bigram 更新，远快于全量扫描。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XDqKw0GPGi6JvkkfpwUcqpdAndd
+  block_id: DDjidr5Lcore6AxFybVcYjntnrb
+  page_token: XDqKw0GPGi6JvkkfpwUcqpdAndd
+  original_title: 给定大量文本，为加速 bigram 统计，设计一个高效的数据结构（如字典+计数器），写出更新 bigram 频率的优化步骤
+  imported_at: '2026-09-21'

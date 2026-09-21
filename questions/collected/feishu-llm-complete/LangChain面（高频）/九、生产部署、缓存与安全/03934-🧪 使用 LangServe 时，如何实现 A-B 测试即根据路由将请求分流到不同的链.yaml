@@ -1,0 +1,91 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d2adf27608f8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EA 使用 LangServe 时，如何实现 A/B 测试？即根据路由将请求分流到不同的链。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F9EA 使用 LangServe 时，如何实现 A/B 测试？即根据路由将请求分流到不同的链。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    A/B 测试在生产中非常关键，LangServe 本身没有内建分流机制，但可以灵活实现。
+
+    方案一：在 LangServe 上层使用 Nginx/Envoy 按权重分流
+    这是最推荐的方式，因为它对应用无侵入。例如，使用 Nginx 的 split_clients 模块，根据用户 IP 或自定义 Header 将流量按比例分发到两个不同的 LangServe 实例（或同一实例的不同路由）。
+
+    ```nginx
+    split_clients "${remote_addr}" $variant {
+        50%    variant_a;
+        50%    variant_b;
+    }
+    location /chat {
+        proxy_pass http://backend_$variant;
+    }
+    ```
+
+    其中 backend_a 和 backend_b 分别指向部署了不同版本链的 LangServe 服务。这种方式对客户端透明，且支持复杂的规则（如按 User-Agent、Cookie 等）。
+
+    方案二：在 FastAPI 路由层面动态选择链
+
+    你可以编写一个包装端点，内部根据一定逻辑（如用户 ID 哈希、配置中心）决定调用哪条链。
+
+    ```python
+    @app.post("/ab_chat")
+    async def ab_chat(request: ChatRequest):
+        # 根据用户ID尾号分流
+        if request.user_id[-1] in "01":
+            chain = chain_v1
+        else:
+            chain = chain_v2
+        return await chain.ainvoke(request.dict())
+    ```
+
+    然后将此自定义端点与 add_routes 共存。这种方式灵活性高，但需要自行处理输入输出。
+
+    方案三：利用 LangServe 的 per_req_config_modifier 动态切换链
+    你可以在配置函数里根据请求参数（如 Header 中的 x-experiment）修改 configurable 字段，从而让同一条 LCEL 链依据配置选择不同的子链（通过 RunnableBranch 实现）。这要求你的链在设计时就支持分支。
+
+    ```python
+    chain = RunnableBranch(
+        (lambda x: x["config"]["experiment"] == "A", chain_a),
+        chain_b  # 默认
+    ).with_config(...)
+    ```
+
+    然后在 per_req_config_modifier 中注入实验标识。
+
+    实践建议：在线服务我首选网关分流，因为它不占用应用资源，且重启服务不会影响分流规则。对于内部测试，我会用路由层面的动态选择，方便随时调整。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K973wYln7iD4oCkYW2acmsT4nke
+  block_id: ZMLvdyZVpoavyAxp419cDwgJnTh
+  page_token: K973wYln7iD4oCkYW2acmsT4nke
+  original_title: "\U0001F9EA 使用 LangServe 时，如何实现 A/B 测试？即根据路由将请求分流到不同的链。"
+  imported_at: '2026-09-21'

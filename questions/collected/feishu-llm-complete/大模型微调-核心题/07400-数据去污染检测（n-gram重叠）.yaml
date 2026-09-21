@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2e9b144537a2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 数据去污染检测（n-gram重叠）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 数据去污染检测（n-gram重叠）
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    from typing import List, Tuple
+
+    def get_ngrams(text: str, n: int = 13) -> set:
+        """返回文本的n-gram集合（字符级）"""
+        text = text.lower()
+        return set(text[i:i+n] for i in range(len(text) - n + 1))
+
+    def detect_contamination(train_samples: List[str], eval_samples: List[str], n: int = 13, threshold: float = 0.6) -> List[Tuple[int, int, float]]:
+        """
+        检查每个训练样本与评测样本的最大n-gram重叠率。
+        返回可疑污染列表，包含 (train_idx, eval_idx, overlap_ratio)。
+        """
+        eval_ngrams = [get_ngrams(s, n) for s in eval_samples]
+        suspicious = []
+        for i, train_text in enumerate(train_samples):
+            train_ngrams = get_ngrams(train_text, n)
+            if not train_ngrams:
+                continue
+            for j, e_ng in enumerate(eval_ngrams):
+                overlap = train_ngrams & e_ng
+                ratio = len(overlap) / len(train_ngrams)
+                if ratio >= threshold:
+                    suspicious.append((i, j, ratio))
+        return suspicious
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: FC0GdwJtTocXgGxBPwGcvTlOnZf
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: 数据去污染检测（n-gram重叠）
+  imported_at: '2026-09-21'

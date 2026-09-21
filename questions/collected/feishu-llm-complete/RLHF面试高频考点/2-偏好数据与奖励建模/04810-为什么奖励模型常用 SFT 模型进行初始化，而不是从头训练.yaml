@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c44bf94d3fc6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么奖励模型常用 SFT 模型进行初始化，而不是从头训练？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 2-偏好数据与奖励建模
+tags: &1
+- RLHF面试高频考点
+- 2-偏好数据与奖励建模
+content:
+  prompt: 为什么奖励模型常用 SFT 模型进行初始化，而不是从头训练？
+answer:
+  mode: rubric
+  reference_answer: |-
+    直接原因：从头训练一个与 SFT 模型同等规模的 RM，需要海量的偏好数据，且在自然语言理解能力上会存在巨大差距。SFT 模型已经是一个语言专家。
+
+    深层原因分析：
+
+    - 自然语言理解的迁移：SFT 模型已经通过预训练和指令微调，掌握了语法、语义、常识、推理以及遵循指令的能力。这些能力是判断一个回答是否“有用”、“连贯”、“符合指令”的绝对基础。一个从随机初始化开始的模型，即使给它再多的偏好数据，也需要在训练前期耗费大量容量去重新学习这些基础语言技能，效率极低。
+
+    - 特征空间的共享与稳定：在 PPO 阶段，Actor 网络同样是从 SFT 模型初始化的。这意味着 RM 和 Actor 初始时拥有完全相同的“世界观”和“语言理解框架”。当 Actor 生成一个略微偏离常规表达但语义正确的句子时，RM 能够因为共享的底层表示而正确理解它，而不是因为“没见过这种说法”而打出低分。这种表示空间的同源性对于 RL 训练的稳定性至关重要。如果 RM 从零训练，它对 Actor 生成的各种分布外样本的泛化能力会极差。
+
+    - 计算与数据效率的极致优化：训练一个上百亿参数的 Transformer 极其昂贵，而偏好数据的获取成本又远高于预训练文本。让 RM 继承 SFT 模型的所有权重，相当于让偏好数据只负责调整模型顶层的“价值观判断”，而无需重塑底层的“语言理解通路”。这使得我们仅需数万至数十万条偏好数据，就能训练出一个相当有效的奖励模型。如果从零开始，可能需要上千万条高质量偏好数据才能达到类似水平。
+
+    - 防止灾难性遗忘的天然优势：RM 训练如果不从 SFT 初始化，它可能会在一个完全由偏好数据构建的分布上过拟合，成为一个只懂“裁判”但不那么懂“语言”的模型。SFT 初始化相当于施加了一个强正则化，保证 RM 在优化偏好排序的同时，不会丧失对语言本身的深刻理解，缓解了对偏好数据的过拟合倾向。
+
+    结论：SFT 初始化是为了用最低的标注成本，将一个强大的语言模型快速转变为精确的“价值裁判”，同时确保与后续 PPO 优化对象在认知架构上的同源性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KFgpwxoYei4VBPkDUJfcFKLLnVf
+  block_id: CD7adydDfoPgcmxEYYBcnZlyn2b
+  page_token: KFgpwxoYei4VBPkDUJfcFKLLnVf
+  original_title: 为什么奖励模型常用 SFT 模型进行初始化，而不是从头训练？
+  imported_at: '2026-09-21'

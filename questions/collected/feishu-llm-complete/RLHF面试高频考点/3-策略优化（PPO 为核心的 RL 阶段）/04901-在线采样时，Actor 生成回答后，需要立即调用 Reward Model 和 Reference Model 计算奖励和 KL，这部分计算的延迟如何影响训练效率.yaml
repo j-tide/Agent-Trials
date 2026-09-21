@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a934760573c9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在线采样时，Actor 生成回答后，需要立即调用 Reward Model 和 Reference Model 计算奖励和 KL，这部分计算的延迟如何影响训练效率？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: 在线采样时，Actor 生成回答后，需要立即调用 Reward Model 和 Reference Model 计算奖励和 KL，这部分计算的延迟如何影响训练效率？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在线采样后的奖励和 KL 计算是一个典型的串行瓶颈，对训练效率有显著影响，因为它打断了 Actor 的采样流水线。
+
+    延迟的具体体现：
+
+    Actor 的生成是逐 token 自回归的，速度较慢，但完成后是一口气生成一个完整的序列。紧接着，系统必须阻塞等待 Reference 和 RM 的前向传播结果，才能组装出完整的训练数据。
+
+    - RM 的推理：RM 需要对完整的序列进行一次深度 Transformer 编码，对于长序列，这需要不小的计算和显存。
+
+    - Reference 的推理：同样是一次完整的编码，并且需要逐 token 地输出对数概率，计算量更大。
+    这两个模型的计算都是必须的，且通常是在相同的 GPU 上以串行方式执行（除非用多 GPU 流水线）。此时，Actor 是空闲的，GPU 计算资源在 RM 和 Reference 之间切换，导致了计算核心的空泡和利用率下降。
+
+    对训练效率的冲击：
+
+    - 墙钟时间增加：在千亿参数模型下，RM 和 Reference 的一次前向传播可能耗时零点几秒到数秒。如果 batch size 较大，累积的推理时间会显著拖慢单次迭代的周期。
+
+    - 通信开销：如果使用分布式训练，生成的序列数据可能需要在 GPU 间复制或广播，增加了通信延迟。
+
+    - 优化手段：
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UCjewCVubi1tThkQzKzczCP2nyc
+  block_id: SkjQdcq6voPRKDxfMI8cODAqnXd
+  page_token: UCjewCVubi1tThkQzKzczCP2nyc
+  original_title: 在线采样时，Actor 生成回答后，需要立即调用 Reward Model 和 Reference Model 计算奖励和 KL，这部分计算的延迟如何影响训练效率？
+  imported_at: '2026-09-21'

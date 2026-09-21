@@ -1,0 +1,158 @@
+---
+schema_version: 1
+id: feishu-llm-complete-38c31dbdf68d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 'Q18: 如何在 K8s 中部署一个支持长连接/流式输出的 Agent 服务？'
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: AI 最前线 (Harness|沙箱部署|K8s)篇
+tags: &1
+- AI Agent精选八股文
+- AI 最前线 (Harness|沙箱部署|K8s)篇
+content:
+  prompt: 'Q18: 如何在 K8s 中部署一个支持长连接/流式输出的 Agent 服务？'
+answer:
+  mode: rubric
+  reference_answer: |-
+    ⭐⭐⭐（实战经验类：SSE/WebSocket 长连接部署、Ingress 超时配置、会话保持、优雅关闭与连接排空）
+
+    1️⃣ Common Answer
+
+    在 K8s 中部署长连接服务，主要使用 WebSocket 协议。因为 WebSocket 支持双向通信，适合实时交互场景。部署时需要注意配置 Ingress 的超时时间，避免连接被中断。Service 使用 ClusterIP 类型，Deployment 配置多个副本。主要就是确保 WebSocket 连接能够稳定保持，不会因为网络波动或负载均衡策略而频繁断开。
+
+    2️⃣ Impressive Answer
+
+    在 K8s 中部署支持长连接/流式输出的 Agent 服务，需要从协议选型、Ingress 配置、会话保持、连接管理、优雅关闭五个维度系统设计。
+
+    - 流式输出协议选型
+
+    - SSE（Server-Sent Events）：单向推送，适合 LLM token 流式输出，基于 HTTP，穿透性好，浏览器原生支持
+
+    - WebSocket：双向通信，适合交互式 Agent（如用户打断、实时反馈），需要额外处理连接状态
+
+    - gRPC Streaming：内部服务间流式调用，性能高，基于 HTTP/2
+
+    对于 LLM 场景，优先选择 SSE，简单且足够；需要用户实时交互的 Agent，使用 WebSocket。
+
+    - Ingress 超时配置（关键！）
+
+    Nginx Ingress 默认超时 60s，必须显式配置：
+
+    ```text
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: agent-ingress
+      annotations:
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+        nginx.ingress.kubernetes.io/proxy-buffering: "off"
+        nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+        nginx.ingress.kubernetes.io/websocket-services: "agent-service"
+    spec:
+      rules:
+      - host: agent.example.com
+        http:
+          paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: agent-service
+                port:
+                  number: 8080
+    ```
+
+    关键注解：
+
+    - proxy-read-timeout：读取后端响应超时，流式输出必须设置 600s+
+
+    - proxy-buffering: off：关闭缓冲，确保流式数据实时推送
+
+    - websocket-services：声明支持 WebSocket 的 Service
+
+    - 负载均衡会话保持
+
+    长连接需要会话保持，避免请求分发到不同 Pod 导致状态丢失：
+
+    ```text
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: agent-service
+    spec:
+      sessionAffinity: ClientIP
+      sessionAffinityConfig:
+        clientIP:
+          timeoutSeconds: 10800
+      ports:
+      - port: 8080
+        targetPort: 8080
+      selector:
+        app: agent
+    ```
+
+    - 连接数限制与背压
+
+    - 单 Pod 最大连接数限制（如 1000），防止 OOM
+
+    - 当连接数达到上限时，返回 503 触发 LB 流量切换
+
+    - 通过 Prometheus 监控连接数，超过 800 时触发 HPA 自动扩容
+
+    - 优雅关闭
+
+    ```text
+    spec:
+      terminationGracePeriodSeconds: 300
+      containers:
+      - name: agent
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 15 && curl -X POST http://localhost:8080/stop"]
+    ```
+
+    优雅关闭流程：
+
+    - K8s 发送 SIGTERM → preStop hook 执行（sleep 15s 等待 Ingress 规则更新）
+
+    - 应用标记为不可用，停止接受新连接
+
+    - 等待活跃连接完成或超时（GRACEFUL_SHUTDOWN_TIMEOUT）
+
+    - 超时后强制退出（terminationGracePeriodSeconds 最长 300s）
+
+    我的实践：在 Agent 对话服务中，初期遇到连接频繁断开，排查发现是 Nginx Ingress 默认 60s 超时导致。配置 proxy-read-timeout 为 600s、proxy-buffering: off 后解决。应用层实现心跳机制，30s 无数据自动重连。滚动更新时配置 terminationGracePeriodSeconds 300s 和 preStop hook，实测 99% 的对话能平滑迁移，用户无感知。单 Pod 最大连接数 1000，配合 HPA 自动扩容，连接数超 800 时自动扩容。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M0n4w1EKwiQwxKkHxMvc4LZUn7p
+  block_id: doxcnwcgNfmNsoCHNHy6fPEeS3d
+  page_token: M0n4w1EKwiQwxKkHxMvc4LZUn7p
+  original_title: 'Q18: 如何在 K8s 中部署一个支持长连接/流式输出的 Agent 服务？'
+  imported_at: '2026-09-21'

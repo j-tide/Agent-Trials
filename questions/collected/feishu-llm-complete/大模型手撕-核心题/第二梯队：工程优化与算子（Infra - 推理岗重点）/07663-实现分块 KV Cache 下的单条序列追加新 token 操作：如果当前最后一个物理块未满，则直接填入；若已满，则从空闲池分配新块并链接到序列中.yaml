@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1f7132cd6cde
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现分块 KV Cache 下的单条序列追加新 token 操作：如果当前最后一个物理块未满，则直接填入；若已满，则从空闲池分配新块并链接到序列中。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现分块 KV Cache 下的单条序列追加新 token 操作：如果当前最后一个物理块未满，则直接填入；若已满，则从空闲池分配新块并链接到序列中。
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    追加单个 token 的 K/V（形状 [num_heads, 1, head_dim]）时，检查序列当前长度 seq_len：
+
+    - 若 seq_len % block_size == 0，说明最后一个逻辑块已满（或尚无块），需分配新物理块。
+
+    - 否则，直接写入最后一个块的 offset = seq_len % block_size 位置。
+
+    物理块的存储假定为全局大张量 kv_cache（形状 [2, num_blocks, num_heads, block_size, head_dim]），我们需要一个全局函数完成写入。
+
+    实现
+
+    ```python
+    def append_token(block_table, seq_len, kv_cache, allocator, new_k, new_v, block_size):
+        """
+        block_table: list[int] （会被原地修改）
+        seq_len: 当前序列长度（写入前）
+        kv_cache: 全局物理存储
+        allocator: BlockAllocator 实例
+        new_k, new_v: [num_heads, 1, head_dim]
+        返回: 更新后的 seq_len
+        """
+        if seq_len % block_size == 0:
+            # 需要新块
+            blk = allocator.allocate()
+            block_table.append(blk)
+        logic_idx = seq_len // block_size
+        offset = seq_len % block_size
+        phy_idx = block_table[logic_idx]
+        # 写入
+        kv_cache[0, phy_idx, :, offset, :] = new_k[:, 0, :]
+        kv_cache[1, phy_idx, :, offset, :] = new_v[:, 0, :]
+        return seq_len + 1
+    ```
+
+    扩展：若一次追加多个 token（如 prefill），可循环调用此函数，或批量处理整个块，提高效率。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IhgfwCPtoif3TWkyezuc4sW9nbg
+  block_id: S7jEdtkGuoR0s5xnGTDcqMi4n5b
+  page_token: IhgfwCPtoif3TWkyezuc4sW9nbg
+  original_title: 实现分块 KV Cache 下的单条序列追加新 token 操作：如果当前最后一个物理块未满，则直接填入；若已满，则从空闲池分配新块并链接到序列中。
+  imported_at: '2026-09-21'

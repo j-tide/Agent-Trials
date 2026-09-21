@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e92dae70cd69
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001FA9F ConversationBufferWindowMemory 只保留最近 K 轮对话，这个 K 如何设置？过小会怎样？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001FA9F ConversationBufferWindowMemory 只保留最近 K 轮对话，这个 K 如何设置？过小会怎样？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    ConversationBufferWindowMemory 通过一个滑动窗口来限制对话历史的长度。它只保留最近的 K 轮（每一轮包含一个 Human 输入和一个 AI 回复）完整对话记录。
+
+    如何设置 K？
+    K 的设定是一个平衡艺术，需要根据你的LLM 上下文窗口大小、每轮对话的平均长度以及任务对上下文的依赖程度来决定。
+
+    - 经验法则：通常取 K=3 到 K=10。如果你的应用是闲聊或简单问答，K=3-5 足够；如果是辅导、代码调试等需要长程理解的任务，则需要更大的 K。
+
+    - 精确控制：更科学的做法是基于 Token 来限制。先估算每轮对话消耗的平均 Token 数 T_avg，然后用 (模型最大上下文 - 预期回复Token数) / T_avg 来估算 K。但这样比较麻烦，后来就直接有 ConversationTokenBufferMemory 了。
+
+    - 动态调整：你可以根据用户的行为或对话状态动态调整 K，比如在用户提出“回顾一下之前”时临时增大 K。
+
+    过小的 K 会怎样？
+
+    - 模型“失忆”：当 K=1 时，模型只有金鱼般的7秒记忆。如果你进行了如下对话：
+    用户：我想去北京旅游。
+    AI：北京的故宫和长城非常值得去。
+    用户：那里有什么特色小吃吗？
+    如果 K 太小，模型可能忘记了“北京”，就会回答“请问您指的是哪里？”，导致对话无法进行。
+
+    - 无法进行多轮指代：任何超过窗口的指代对象都会丢失，导致理解错误。
+
+    - 任务失败：需要多轮收集信息的任务（如保险理赔问答）会中断，因为之前的收集过程被遗忘。
+
+    配置示例：
+
+    ```python
+    from langchain.memory import ConversationBufferWindowMemory
+    memory = ConversationBufferWindowMemory(k=3)
+    # 这将只保留最近3轮对话。内存使用量恒定，但早期对话会被遗忘。
+    ```
+
+    记忆的权衡是“信息的保留”与“资源的消耗”之间的取舍。K 就像是相机的取景框，框越小，能看到的画面就越少。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H3N3wvSCiibLlPk5ZpjcveFHnNb
+  block_id: JcjadgfuwokVj1xfoi0c8S98nzd
+  page_token: H3N3wvSCiibLlPk5ZpjcveFHnNb
+  original_title: "\U0001FA9F ConversationBufferWindowMemory 只保留最近 K 轮对话，这个 K 如何设置？过小会怎样？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-553898e60fe7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练 LLM 时，如何检测数据中的异常样本导致的不稳定？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 训练 LLM 时，如何检测数据中的异常样本导致的不稳定？
+answer:
+  mode: rubric
+  reference_answer: |-
+    预训练语料规模庞大，难免混入异常样本。这些“脏数据”可能引发Loss Spike、梯度爆炸等问题。因此，需要建立一套从预处理到训练中的全流程异常检测体系。
+
+    训练前-数据预处理阶段的检测：
+
+    - 长度过滤：统计文本长度分布，剔除过长（如超过100k字符）或过短（如少于10个字符）的样本。异常长度往往是噪声。
+
+    - 字符集和语言检测：使用fastText或langdetect等工具检测文本语言，剔除与目标语言不符或包含大量乱码、特殊字符的文本。
+
+    - 困惑度过滤：使用一个小的预训练语言模型（如GPT-2）计算文本的困惑度。困惑度过高说明文本流畅性差，很可能是随机字符或格式错乱。
+
+    - 重复文本检测：使用MinHash或SimHash算法识别近乎重复的文档或段落，去重以避免模型记忆。
+
+    - 规则清洗：移除HTML标签、多余空行、非文本符号等。
+
+    训练中-动态异常检测：
+
+    - 记录每个batch的损失和梯度范数：如果某个batch的损失显著高于近N步的平均值（如超过3倍标准差），标记该batch为异常。可以当即丢弃该batch的梯度，不更新模型。
+
+    - 梯度裁剪触发分析：记录哪些batch触发了梯度裁剪（即梯度范数超过阈值）。如果同一类数据频繁触发裁剪，说明这类数据可能含有大量异常样本。
+
+    - 保留异常样本索引：在发生Loss Spike或梯度异常时，将该batch的样本索引或内容摘要保存到日志，供事后人工审查。
+
+    - 嵌入异常检测：利用模型中间层的输出（如[CLS]向量）进行聚类，检测离群点。异常样本的嵌入往往远离正常数据簇。
+
+    持续迭代：将检测到的异常样本收集起来，分析其共性（如特定来源、特定模式），更新预处理规则。这是一个“检测-分析-改进”的闭环，能够逐步提升数据质量，保障训练稳定。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: LzbGdJyO1opgE2x37recv5HDnh3
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: 训练 LLM 时，如何检测数据中的异常样本导致的不稳定？
+  imported_at: '2026-09-21'

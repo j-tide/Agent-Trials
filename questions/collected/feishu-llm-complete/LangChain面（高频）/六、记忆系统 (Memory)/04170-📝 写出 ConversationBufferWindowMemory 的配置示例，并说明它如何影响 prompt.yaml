@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8dbdabef0c1c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DD 写出 ConversationBufferWindowMemory 的配置示例，并说明它如何影响 prompt。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F4DD 写出 ConversationBufferWindowMemory 的配置示例，并说明它如何影响 prompt。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    from langchain.memory import ConversationBufferWindowMemory
+    from langchain.chains import ConversationChain
+    from langchain.llms import OpenAI
+
+    # 创建只保留最近2轮对话的窗口记忆
+    memory = ConversationBufferWindowMemory(k=2)
+
+    # 创建对话链
+    conversation = ConversationChain(
+        llm=OpenAI(temperature=0),
+        memory=memory,
+        verbose=True
+    )
+
+    # 模拟多轮对话
+    conversation.predict(input="你好，我是小明")       # 轮次1
+    conversation.predict(input="帮我查一下天气")        # 轮次2
+    conversation.predict(input="刚才我说我叫什么名字？")  # 轮次3
+    ```
+
+    如何影响 Prompt：
+    在第三轮时，Memory 只会包含最近两轮（即第2和第3轮）的完整对话。Prompt 中 {history} 部分会被填充为：
+
+    ```text
+    Human: 帮我查一下天气
+    AI: 好的，请问您想查询哪个城市的天气？
+    Human: 刚才我说我叫什么名字？
+    AI:
+    ```
+
+    由于第一轮对话（包含“我是小明”的信息）已被移出窗口，LLM 完全无法得知用户的名字，因此无法正确回答。其影响就是：早期上下文丢失，导致记忆缺失。
+
+    这就是窗口记忆的典型行为和局限性：严格控制资源消耗，但牺牲长期记忆。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H3N3wvSCiibLlPk5ZpjcveFHnNb
+  block_id: SkdVdb1H5oPzGCxI7plc3vUxn4c
+  page_token: H3N3wvSCiibLlPk5ZpjcveFHnNb
+  original_title: "\U0001F4DD 写出 ConversationBufferWindowMemory 的配置示例，并说明它如何影响 prompt。"
+  imported_at: '2026-09-21'

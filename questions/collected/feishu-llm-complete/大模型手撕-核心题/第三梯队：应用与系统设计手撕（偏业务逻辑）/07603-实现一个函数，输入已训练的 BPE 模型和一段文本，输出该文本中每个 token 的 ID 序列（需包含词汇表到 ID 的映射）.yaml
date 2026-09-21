@@ -1,0 +1,105 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e1b9a5f397a9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个函数，输入已训练的 BPE 模型和一段文本，输出该文本中每个 token 的 ID 序列（需包含词汇表到 ID 的映射）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 实现一个函数，输入已训练的 BPE 模型和一段文本，输出该文本中每个 token 的 ID 序列（需包含词汇表到 ID 的映射）
+answer:
+  mode: rubric
+  reference_answer: |-
+    此函数的目标是将文本转化为 token ID 列表，以便喂给下游模型。为此，需要一个完整的词汇表到 ID 的映射（vocab_to_id）。该映射在训练后确定，包含所有最终符号（初始字符/字节、结束符、合并产生的新符号）。对于 Byte-Level BPE，符号是整数 ID，但通常模型输入需要连续的 token ID（从 0 到 vocab_size-1）。我们需要输出从子词符号到 ID 的映射，以及编码得到的 ID 序列。
+
+    实现思路：
+
+    - 训练完成后，我们拥有所有合法符号及其对应的 ID（symbol_to_id）。对于字符级 BPE，符号是字符串；对于 Byte-Level BPE，符号最终是整数 ID（代表字节或合并的 token）。为了统一，我们构建一个字典，将每个 token 的字符串表示（或整数 ID）映射到一个整数索引。
+
+    - 编码函数 encode_to_ids 首先调用已有的 encode 得到 token 序列（符号列表），然后通过映射表转为 ID 序列。如果使用的是 Byte-Level BPE，encode 返回的可能已经是整数 ID，但那些 ID 是合并过程中分配的原始值（从 0 开始的字节、结束符 256、新 ID 257+）。我们可以选择将这些原始 ID 直接作为模型输入的 token ID（此时映射表就是原始 ID 到自身的映射），但更常见的是重新映射到连续的 0..V-1。不管哪种，都需要生成映射表。
+
+    - 此函数要求“需包含词汇表到 ID 的映射”，因此我们应该返回 token ID 列表以及映射字典。
+
+    示例实现（基于字符级 BPE 和词汇表）：
+
+    ```python
+    def encode_with_ids(encoded_tokens: list, token_to_id: dict) -> tuple:
+        """
+        将 token 序列转换为 ID 序列，同时返回映射表。
+        参数：
+            encoded_tokens: 编码后的 token 列表（字符串）
+            token_to_id: {token: id} 映射字典
+        返回：
+            ids: 整数 ID 列表
+            vocab_to_id: 词汇表到 ID 的映射（与输入相同，便于调用者获取）
+        """
+        ids = [token_to_id[token] for token in encoded_tokens]
+        return ids, token_to_id
+    ```
+
+    如果尚未建立映射，可在 BPE 训练结束时构建：
+
+    ```python
+    def build_vocab_map(word_symbols, merges, end_token='</w>'):
+        """构建最终词汇表到 ID 的映射"""
+        vocab = set()
+        for syms, _ in word_symbols:
+            for s in syms:
+                vocab.add(s)
+        # 也加入所有合并产生的新符号（已在 word_symbols 中体现，但以防万一）
+        for (a, b), new_sym in merges:
+            vocab.add(new_sym)
+        # 按某种顺序排序，例如按长度然后字典序
+        sorted_vocab = sorted(list(vocab), key=lambda x: (len(x) if isinstance(x, str) else 0, x))
+        token_to_id = {tok: i for i, tok in enumerate(sorted_vocab)}
+        return token_to_id
+    ```
+
+    对于 Byte-Level BPE，符号本身就是整数 ID，可将其直接作为模型输入，但需确保 ID 连续。通常原始合并中 ID 从 0 到 vocab_size-1 连续，可以不加转换。此时 token_to_id 就是恒等映射 {i: i for i in range(vocab_size)}。
+
+    完整函数示例：
+
+    ```python
+    def encode_text_to_ids(text: str, tokenizer) -> tuple:
+        """
+        使用训练好的 tokenizer 编码文本，返回 ID 序列和词汇表映射。
+        tokenizer 需提供 encode 方法返回 token 列表，以及 vocab_to_id 属性。
+        """
+        tokens = tokenizer.encode(text)  # 返回 token 列表（字符串或整数）
+        ids = [tokenizer.token_to_id[tok] for tok in tokens]
+        return ids, tokenizer.token_to_id
+    ```
+
+    注意：特殊 token（如 [CLS], [SEP]）也需要在映射表中，可在训练后添加。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XDqKw0GPGi6JvkkfpwUcqpdAndd
+  block_id: UbHxdZ1LYo8oUbxUaULcLDSqnxc
+  page_token: XDqKw0GPGi6JvkkfpwUcqpdAndd
+  original_title: 实现一个函数，输入已训练的 BPE 模型和一段文本，输出该文本中每个 token 的 ID 序列（需包含词汇表到 ID 的映射）
+  imported_at: '2026-09-21'

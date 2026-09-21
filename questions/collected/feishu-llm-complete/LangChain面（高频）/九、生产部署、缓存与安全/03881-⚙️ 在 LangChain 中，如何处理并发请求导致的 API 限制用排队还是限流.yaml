@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4900992f8099
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚙️ 在 LangChain 中，如何处理并发请求导致的 API 限制？用排队还是限流？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "⚙️ 在 LangChain 中，如何处理并发请求导致的 API 限制？用排队还是限流？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    并发请求超过API速率限制会导致大面积429错误，需要结合限流和排队两种策略。
+
+    - 限流（Rate Limiting）：主动控制发送速率，确保请求速率低于API限额。使用 asyncio.Semaphore 限制并发数，同时配合令牌桶算法限制每秒请求数。我通常使用 aiolimiter 库实现速率限制，将其集成到LLM调用前。
+
+    ```python
+    from aiolimiter import AsyncLimiter
+    limiter = AsyncLimiter(max_rate=10, time_period=1)  # 每秒10个请求
+
+    async def rate_limited_call(prompt):
+        async with limiter:
+            return await llm.ainvoke(prompt)
+    ```
+
+    - 排队：当并发超过限制时，将多余请求放入队列，有序处理。可以使用 asyncio.Queue 配合后台消费者协程，实现请求的缓冲和顺序执行。流式请求不适合长期排队，因为客户端期望实时响应，此时应优先限流并配合重试。
+
+    选择策略：对于实时交互应用（如聊天），优先使用限流+快速失败。当超出限制时，立即返回429错误给客户端，由客户端稍后重试，而不是在服务端排队增加延迟。对于离线批处理任务，可以使用排队，保证所有请求最终都能执行，但整体时间拉长。
+
+    在LangChain中，通常将限流逻辑放在LLM实例的包装器中，或者通过回调在 on_llm_start 时获取令牌。分布式场景下，需要基于Redis的分布式限流器（如 redis-rate-limiter）来保证多实例下的总速率不超限。
+
+    实践：我们构建了一个LLM网关服务，所有LangChain应用通过该网关调用LLM，网关内部使用令牌桶算法进行全局限流，并实现了优先级排队。高优先级请求（如付费用户）插队执行，低优先级请求（后台任务）则排队等待。这样既保证了API限制不超，又提升了核心用户体验。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WzEDwedwxiXAD4kdXdjcKjdQnCe
+  block_id: XYaedMrgwo1BtoxP3RucPbdGnH2
+  page_token: WzEDwedwxiXAD4kdXdjcKjdQnCe
+  original_title: "⚙️ 在 LangChain 中，如何处理并发请求导致的 API 限制？用排队还是限流？"
+  imported_at: '2026-09-21'

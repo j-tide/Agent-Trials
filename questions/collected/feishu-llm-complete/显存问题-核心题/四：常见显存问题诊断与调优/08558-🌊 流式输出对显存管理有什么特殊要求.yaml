@@ -1,0 +1,49 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0cc555f85228
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F30A 流式输出对显存管理有什么特殊要求？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F30A 流式输出对显存管理有什么特殊要求？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 流式输出（streaming）下，生成 token 是逐步产生的，每个新 token 都会追加 KV
+    Cache，导致显存占用随时间动态增长。管理上需要动态分配 block，并防范“长生成”耗尽资源。\n\n\U0001F50D 特殊要求与对策：\n\n-
+    动态分配与回收\n必须使用像 PagedAttention 这样的分页机制，按需从池中取 block，而不是预先分配连续空间。生成结束或中断时立即回收全部
+    block。\n\n- 限制最大生成长度\n必须设置 max_tokens 硬限制，防止单个请求无限增长撑爆显存。vLLM/TGI 都支持。\n\n- 抢占与交换\n由于流式请求可能长时间占用
+    GPU，若期间无新 block 可用，调度器需要能抢占低优先级流式请求，将其 KV Cache swap 到 CPU，或直接中止并返回部分结果。\n\n-
+    公平调度\n长流式输出不应阻塞短请求。可以使用时间片轮转或多优先级队列，确保短请求也能及时完成。\n\n- 内存压力下的 early stopping\n当系统检测到空闲
+    block 过低时，可主动终止某些流式请求（尤其是接近最大长度的），返回已生成内容并说明原因。\n\n✅ 结论：流式输出的显存管理核心是“弹性分配 + 严格的长度限制
+    + 抢占”，以保证系统稳定。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tr76wMZZwibI1ikxqpEcjhJtnZc
+  block_id: EEpld1bwzo9jMNxdY4tcmw8wncf
+  page_token: Tr76wMZZwibI1ikxqpEcjhJtnZc
+  original_title: "\U0001F30A 流式输出对显存管理有什么特殊要求？"
+  imported_at: '2026-09-21'

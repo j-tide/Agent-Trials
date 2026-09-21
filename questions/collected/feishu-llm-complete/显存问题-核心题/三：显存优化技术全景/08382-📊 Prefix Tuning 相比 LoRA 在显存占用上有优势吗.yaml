@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8d9f61e339c9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA Prefix Tuning 相比 LoRA 在显存占用上有优势吗？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F4CA Prefix Tuning 相比 LoRA 在显存占用上有优势吗？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 在绝大多数配置下，Prefix Tuning 的可训练参数量远小于 LoRA，因此优化器状态和梯度显存更小，但它的激活显存会因前缀向量而略微增加，且生成任务中占用了宝贵的上下文长度。整体显存优势通常逊于
+    LoRA+量化，但在极度资源受限时有用。\n\n\U0001F50D 显存占用分析：\n\n- 可训练参数数量\nPrefix Tuning 只在每层前添加可学习的前缀向量（例如长度
+    10-100，维度=hidden），总参数量 = 层数 × 前缀长度 × hidden。\n例：7B 模型 32 层，hidden=4096，前缀长度 20，参数量
+    = 32 × 20 × 4096 ≈ 2.6 M。\nLoRA r=8 时参数量约 15 M（如前估算）。可见 Prefix 参数更少，所以优化器和梯度更小（~10
+    MB 级别）。\n\n- 激活显存\nPrefix 向量会参与注意力计算，在前向传播时，它们作为额外的 key-value 被所有 token 看到。这实质上增加了序列长度（因为每个
+    token 都要和前缀交互），导致注意力矩阵从 [L, L] 变为 [L, L+P]。当序列很长时，这个增量可忽略；但短序列时，增量比例大。不过，Prefix
+    本身并不产生大量中间激活，激活显存增量较小。\n\n- 与 LoRA 的对比\n纯 LoRA (FP16 基础) 的优化器+梯度约 150 MB，Prefix
+    约 30 MB，显存略省。但 QLoRA (4-bit 基础) 已把模型权重压缩到 3.5 GB，这时 LoRA 的开销比例也很小。因此 Prefix Tuning
+    的显存优势在 GPU 极小时（如 4-8 GB）才突显。\n但 Prefix 会减少可用的上下文长度，这对长文本任务不利；且训练不稳定，生成质量通常不如 LoRA。所以目前工业界首选
+    LoRA/QLoRA，Prefix 退居其次。\n\n✅ 结论：Prefix Tuning 在绝对显存极小（<8GB）且任务为短文本时可能有微弱优势，但综合考虑效果和灵活性，LoRA/QLoRA
+    是更优选择。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QBvawndcciP8mqkRKr0cKS3Cnzb
+  block_id: NpZhdQoEroQie8ximU6cpo18nec
+  page_token: QBvawndcciP8mqkRKr0cKS3Cnzb
+  original_title: "\U0001F4CA Prefix Tuning 相比 LoRA 在显存占用上有优势吗？"
+  imported_at: '2026-09-21'

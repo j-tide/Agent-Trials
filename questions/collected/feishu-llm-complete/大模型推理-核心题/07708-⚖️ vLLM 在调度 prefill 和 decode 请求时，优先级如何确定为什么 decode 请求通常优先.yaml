@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c8327aec543b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚖️ vLLM 在调度 prefill 和 decode 请求时，优先级如何确定？为什么 decode 请求通常优先？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: "⚖️ vLLM 在调度 prefill 和 decode 请求时，优先级如何确定？为什么 decode 请求通常优先？"
+answer:
+  mode: rubric
+  reference_answer: "vLLM 采用 Continuous Batching，允许请求在 prefill 和 decode 阶段动态切换。其调度器需要决定在每一轮迭代中，处理哪些请求的哪些阶段。其优先级确定主要围绕最大化吞吐量和保证用户体验这两个核心目标。\n\n\U0001F3AF
+    decode 请求通常优先\n\n在 vLLM 的默认调度策略中，decode 请求（生成中的 token）的优先级高于 prefill 请求（新到达的 Prompt）。具体逻辑是：\n\n-
+    保证连续生成：对于已经在生成回答的请求，用户正在实时接收 token。如果 decode 请求被挂起，流式输出就会卡顿，直接损害用户体验。因此，调度器会尽量确保所有
+    active decode 请求在每个 step 都能被调度执行，保持低延迟。\n\n- 避免“饿死”decode：如果任由 prefill 请求插入，由于
+    prefill 计算量大、耗时长，可能会长时间占用 GPU，导致正在生成的请求迟迟得不到执行，产生严重延迟抖动。\n\n- 资源利用考量：decode 阶段每次只处理一个
+    token，矩阵运算规模小，对 GPU 的占用是带宽密集型的，可以快速完成。先快速处理完一批 decode 请求（比如几个 token 的生成），然后再插入一个
+    prefill 请求，可以更平稳地利用 GPU 资源，避免 prefill 独占 GPU 导致其他请求等太久。\n\n\U0001F504 prefill
+    请求的调度时机\n\nprefill 请求不是完全被阻塞，它们会在以下时机被调度：\n\n- GPU 有空闲时：当当前批次的 decode 请求数量较少，GPU
+    计算资源有剩余时，调度器会从等待队列中拉取一个或多个 prefill 请求加入批次。\n\n- 显存充足时：调度器会检查剩余显存是否足够容纳新请求的 KV
+    Cache。如果不够，即使 GPU 有空闲也不会调度 prefill，以防 OOM。\n\n- 分段 prefill（Split Prefill）：对于特别长的
+    Prompt，vLLM 会将其 prefill 拆分成多个小块，分摊到多个 step 中执行，避免单次 prefill 占用过长时间导致 decode 请求饥饿。这平衡了长
+    Prompt 和短 Prompt 的处理。\n\n\U0001F4CA 实际调度策略\n\nvLLM 的实际调度器采用启发式算法，综合考虑：\n\n- 请求的到达时间（FIFO
+    基本公平）\n\n- 请求类型（decode 优先）\n\n- 显存水位（低于阈值才接纳新请求）\n\n- 长请求惩罚（避免长 Prompt 阻塞短 Prompt）\n\n通过这种“decode
+    优先 + 显存感知 + 分段 prefill”的组合策略，vLLM 在保证低 TTFT 和流式流畅性的同时，最大化整体吞吐。\n\n\U0001F4A1 简单记忆：decode
+    就像正在打电话的人，不能打断；prefill 像刚拨号的人，可以稍等片刻，有空再接进来。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTNrwT2t1iCzbMkI7FZc3sj5nBb
+  block_id: QUc0dK6OqoZDBxxkSV6cE8rAnEf
+  page_token: QTNrwT2t1iCzbMkI7FZc3sj5nBb
+  original_title: "⚖️ vLLM 在调度 prefill 和 decode 请求时，优先级如何确定？为什么 decode 请求通常优先？"
+  imported_at: '2026-09-21'

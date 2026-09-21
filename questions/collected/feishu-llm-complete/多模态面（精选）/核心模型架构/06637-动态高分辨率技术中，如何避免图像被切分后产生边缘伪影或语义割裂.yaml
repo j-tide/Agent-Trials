@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b427a1b23c8d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 动态高分辨率技术中，如何避免图像被切分后产生边缘伪影或语义割裂？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 核心模型架构
+tags: &1
+- 多模态面（精选）
+- 核心模型架构
+content:
+  prompt: 动态高分辨率技术中，如何避免图像被切分后产生边缘伪影或语义割裂？
+answer:
+  mode: rubric
+  reference_answer: |-
+    动态高分辨率（如 LLaVA-1.5-HD、DeepSeek-VL）为了处理大尺寸或宽高比极端的图像，会将原图切分成多个局部子块，每个子块独立编码，最后将全局缩略图和所有子块的视觉 token 拼接送入 LLM。这种物理切分容易引入边缘伪影和语义割裂（一个物体被切到两个子块中，失去整体性）。
+
+    避免和缓解方法：
+
+    - 重叠切分：子块之间设置一定的重叠区域（如 10-20%），这样跨边界的物体在相邻子块中都有部分出现，模型通过学习可以重建其整体性。重叠区域内的信息冗余也能帮助模型识别子块间的关系。
+
+    - 全局视图引导：始终保留一个全局缩略图（将原图 resize 到标准尺寸，如 336×336）的视觉 token，与所有子块 token 拼接。全局图提供整体布局和物体间关系的粗糙信息，帮助模型将各个子块的内容在空间上拼接起来。
+
+    - 子块位置编码：为每个子块添加明确的位置编码（如表示该子块在原图的行列坐标），让模型知道子块之间的空间相对位置。这类似告诉模型拼图块的位置，从而恢复整体语义。
+
+    - 跨子块的自注意力：将所有子块的 token 拼接后，不做隔离，而是让它们在同一自注意力层中交互。由于位置编码的存在，模型可以学会关注相邻子块中属于同一物体的特征，实现隐式的软对齐。
+
+    - 模型内的特征插值/融合：在将子块 token 送入 LLM 之前，可以用一个小型融合网络（如 Transformer 层）对不同子块的 token 进行交互，主动弥合边界。或者利用可学习的“边界 token”插入到子块之间，专门负责传递跨块信息。
+
+    - 随机切分数据增强：在训练阶段，故意使用随机的切分位置和尺寸，迫使模型学会处理各种切分情况，从而在推理时对不同切分策略更加鲁棒。
+
+    通过这些策略的组合，动态高分辨率技术能够在保留局部细节的同时，很大程度上避免边缘伪影和语义断裂，但并不能完全根除。对于需要极其精确的跨块连续性任务（如 OCR 长文本行），仍可能有问题，这是该方法的内在局限性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YRX9wk77WiOH3KkAnedcnJEanwc
+  block_id: WyIddUZ7YorQdHxXDNrcl5M8nge
+  page_token: YRX9wk77WiOH3KkAnedcnJEanwc
+  original_title: 动态高分辨率技术中，如何避免图像被切分后产生边缘伪影或语义割裂？
+  imported_at: '2026-09-21'

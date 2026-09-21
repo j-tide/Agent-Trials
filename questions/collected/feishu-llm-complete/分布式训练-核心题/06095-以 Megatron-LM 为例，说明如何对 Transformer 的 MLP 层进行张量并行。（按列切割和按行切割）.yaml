@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-304f78a89022
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 以 Megatron-LM 为例，说明如何对 Transformer 的 MLP 层进行张量并行。（按列切割和按行切割）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 以 Megatron-LM 为例，说明如何对 Transformer 的 MLP 层进行张量并行。（按列切割和按行切割）
+answer:
+  mode: rubric
+  reference_answer: |-
+    Megatron-LM是NVIDIA开源的张量并行框架，对Transformer的MLP层和自注意力层提供了标准的切分方案。MLP层由两个全连接层组成：第一层从hidden_dim升维到intermediate_dim（通常是4倍），经GeLU激活；第二层从intermediate_dim降维回hidden_dim。
+
+    切分方法：
+
+    - 第一层（升维层）按列切割：将权重矩阵W1 [hidden_dim, intermediate_dim]沿列方向（输出维度）切分为TP份。例如TP=2，则切分为W1_a [hidden_dim, intermediate_dim/2]和W1_b [hidden_dim, intermediate_dim/2]。输入X [batch, seq_len, hidden_dim]被广播到所有TP卡上。每张卡独立计算Y_a = GeLU(X @ W1_a)，Y_b = GeLU(X @ W1_b)。此时中间激活Y的维度从intermediate_dim降为intermediate_dim/TP。
+
+    - 第二层（降维层）按行切割：将权重矩阵W2 [intermediate_dim, hidden_dim]沿行方向（输入维度）切分。对应第一层的列切分，W2_a [intermediate_dim/2, hidden_dim]和W2_b [intermediate_dim/2, hidden_dim]分别放在两张卡上。每张卡计算Z_a = Y_a @ W2_a，Z_b = Y_b @ W2_b。此时每张卡的输出Z形状为[batch, seq_len, hidden_dim]，但只是部分和，需要将两张卡的结果通过AllReduce求和，得到完整的MLP输出。
+
+    通信模式：前向传播中，第二层按行切割后需要一次AllReduce来合并部分和。反向传播时，梯度∂L/∂Z本身就是完整的（因为AllReduce得到完整输出），但计算∂L/∂W2时每张卡只需本地梯度，计算∂L/∂W1时则需要将梯度通过AllReduce或ReduceScatter进行聚合。具体通信次数：前向1次AllReduce，反向1次AllReduce（或等效通信）。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: C4JJdNKaVoTPpPxqRtCcxUcInBg
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: 以 Megatron-LM 为例，说明如何对 Transformer 的 MLP 层进行张量并行。（按列切割和按行切割）
+  imported_at: '2026-09-21'

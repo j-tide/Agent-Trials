@@ -1,0 +1,231 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8a9fc798a466
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 4.1 千万级大表治理
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 4.1 千万级大表治理
+answer:
+  mode: rubric
+  reference_answer: "### 大表治理全链路方案\n\n1、基础题：千万级大表治理的思路是什么？有哪些治理手段？\n\n⭐（治理思路、治理手段）\n\n千万级大表治理思路：\n\n-
+    诊断分析：识别慢查询、锁竞争、DDL 阻塞等问题\n\n- 优化索引：添加合适索引，删除冗余索引\n\n- 分区归档：按时间分区，定期归档历史数据\n\n-
+    分库分表：水平拆分，分散压力\n\n- 读写分离：主库写，从库读\n\n- 架构升级：引入缓存、搜索引擎\n\n2、进阶题：如何制定大表治理方案？治理的优先级如何排序？\n\n⭐⭐（治理方案、优先级排序）\n\n1️⃣
+    Common Answer 大表治理方案就是先诊断问题，然后优化索引，再考虑分区归档。如果还不行，就分库分表。优先级的话，先做成本低的，比如优化索引，然后再做成本高的，比如分库分表。还有就是要看业务场景，如果是读多写少，就用读写分离。如果是写多，就考虑分库分表。\n\n2️⃣
+    Impressive Answer 大表治理方案制定流程：\n\n第一步：诊断分析\n\n-- 慢查询分析\npt-query-digest /var/lib/mysql/mysql-slow.log
+    --limit 10\n\n-- 索引使用情况\nSELECT * FROM sys.schema_unused_indexes;\n\n-- 表空间分析\nSELECT
+    \n    table_name,\n    ROUND(data_length / 1024 / 1024, 2) AS data_mb,\n    ROUND(index_length
+    / 1024 / 1024, 2) AS index_mb\nFROM information_schema.tables\nWHERE table_schema
+    = 'your_db'\nORDER BY data_length DESC;\n\n第二步：制定治理方案\n\ngraph TD\n    A[诊断分析]
+    --> B{问题类型}\n    B -->|慢查询| C[优化索引]\n    B -->|数据量大| D[分区归档]\n    B -->|写入压力大|
+    E[分库分表]\n    B -->|读取压力大| F[读写分离]\n    C --> G[验证效果]\n    D --> G\n    E --> G\n
+    \   F --> G\n    G --> H{效果是否达标}\n    H -->|是| I[监控维护]\n    H -->|否| J[架构升级]\n\n第三步：治理优先级排序\n\n[嵌入表格未展开]\n\n第四步：执行治理方案\n\nP0：优化索引\n\n--
+    添加索引\nCREATE INDEX idx_user_time ON orders (user_id, create_time);\n\n-- 删除冗余索引\nDROP
+    INDEX idx_user ON orders;\n\n-- 验证索引使用\nSELECT * FROM sys.schema_unused_indexes;\n\nP1：分区归档\n\n--
+    创建分区表\nCREATE TABLE orders_partitioned LIKE orders;\nALTER TABLE orders_partitioned
+    PARTITION BY RANGE (TO_DAYS(create_time)) (\n    PARTITION p202401 VALUES LESS
+    THAN (TO_DAYS('2024-02-01')),\n    PARTITION p202402 VALUES LESS THAN (TO_DAYS('2024-03-01')),\n
+    \   PARTITION p_future VALUES LESS THAN MAXVALUE\n);\n\n-- 迁移数据\nINSERT INTO orders_partitioned
+    SELECT * FROM orders;\n\n-- 归档历史数据\npt-archiver \\\n  --source h=127.0.0.1,D=your_db,t=orders
+    \\\n  --dest h=127.0.0.1,D=your_db,t=orders_archive \\\n  --where \"create_time
+    < '2023-01-01'\" \\\n  --execute\n\nP2：读写分离\n\n// 配置主从数据源\n@Bean\n@Primary\npublic
+    DataSource masterDataSource() {\n    return DataSourceBuilder.create().url(masterUrl).build();\n}\n\n@Bean\npublic
+    DataSource slaveDataSource() {\n    return DataSourceBuilder.create().url(slaveUrl).build();\n}\n\n//
+    读操作走从库\n@ReadOnly\npublic List<Order> selectByUserId(Long userId) {\n    return
+    orderMapper.selectByUserId(userId);\n}\n\n// 写操作走主库\npublic void insert(Order
+    order) {\n    orderMapper.insert(order);\n}\n\nP3：缓存优化\n\n// Redis 缓存热点数据\n@Cacheable(value
+    = \"orders\", key = \"#userId\")\npublic List<Order> selectByUserId(Long userId)
+    {\n    return orderMapper.selectByUserId(userId);\n}\n\n// 缓存预热\n@PostConstruct\npublic
+    void warmUpCache() {\n    List<Long> hotUserIds = getHotUserIds();\n    hotUserIds.forEach(userId
+    -> selectByUserId(userId));\n}\n\nP4：分库分表\n\n// ShardingSphere 配置\n@Bean\npublic
+    DataSource shardingDataSource() {\n    ShardingRuleConfiguration shardingRuleConfig
+    = new ShardingRuleConfiguration();\n    \n    // 订单表分片规则\n    TableRuleConfiguration
+    orderRuleConfig = new TableRuleConfiguration(\"orders\", \"ds${0..1}.orders_${0..3}\");\n
+    \   \n    // 分库策略：user_id % 2\n    orderRuleConfig.setDatabaseShardingStrategyConfig(\n
+    \       new InlineShardingStrategyConfiguration(\"user_id\", \"ds${user_id % 2}\")\n
+    \   );\n    \n    // 分表策略：user_id % 4\n    orderRuleConfig.setTableShardingStrategyConfig(\n
+    \       new InlineShardingStrategyConfiguration(\"user_id\", \"orders_${user_id
+    % 4}\")\n    );\n    \n    shardingRuleConfig.getTableRuleConfigs().add(orderRuleConfig);\n
+    \   \n    return ShardingDataSourceFactory.createDataSource(\n        createDataSourceMap(),\n
+    \       shardingRuleConfig,\n        new Properties()\n    );\n}\n\nP5：架构升级\n\n//
+    使用 Elasticsearch 处理复杂查询\npublic List<Order> search(OrderSearchRequest request)
+    {\n    SearchRequest searchRequest = new SearchRequest(\"orders\");\n    SearchSourceBuilder
+    builder = new SearchSourceBuilder();\n    \n    // 构建查询条件\n    BoolQueryBuilder
+    boolQuery = QueryBuilders.boolQuery();\n    if (request.getUserId() != null) {\n
+    \       boolQuery.must(QueryBuilders.termQuery(\"user_id\", request.getUserId()));\n
+    \   }\n    if (request.getStartTime() != null && request.getEndTime() != null)
+    {\n        boolQuery.must(QueryBuilders.rangeQuery(\"create_time\")\n            .gte(request.getStartTime())\n
+    \           .lte(request.getEndTime()));\n    }\n    \n    builder.query(boolQuery);\n
+    \   builder.from((request.getPageNum() - 1) * request.getPageSize());\n    builder.size(request.getPageSize());\n
+    \   \n    searchRequest.source(builder);\n    \n    SearchResponse response =
+    restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);\n    return
+    parseResponse(response);\n}\n\n第五步：监控维护\n\n-- 慢查询监控\nSELECT * FROM performance_schema.events_statements_summary_by_digest\nWHERE
+    SCHEMA_NAME = 'your_db' \n  AND SUM_TIMER_WAIT > 500000000000;\n\n-- 索引使用监控\nSELECT
+    * FROM sys.schema_unused_indexes;\n\n-- 表空间监控\nSELECT \n    table_name,\n    ROUND(data_length
+    / 1024 / 1024, 2) AS data_mb,\n    ROUND(index_length / 1024 / 1024, 2) AS index_mb\nFROM
+    information_schema.tables\nWHERE table_schema = 'your_db'\nORDER BY data_length
+    DESC;\n\n最佳实践：\n\n- 优先使用低成本、高收益的治理手段\n\n- 治理后持续监控，验证效果\n\n- 定期复盘，优化治理方案\n\n- 建立大表治理规范，预防问题发生\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n3、场景题：一个 8000 万行的订单表，查询慢、写入慢，如何综合治理？\n\n⭐⭐⭐（综合治理、全链路优化）\n\n1️⃣
+    Common Answer 这个表太大了，需要综合治理。先优化索引，把常用的查询条件都加上索引。然后分区，按月分区，方便归档。历史数据归档到归档表。如果是读写都慢，考虑分库分表，按
+    user_id 哈希分表。还有就是加缓存，热点数据缓存到 Redis。复杂查询用 ES。监控要做好，定期检查慢查询和索引使用情况。\n\n2️⃣ Impressive
+    Answer 针对 8000 万行订单表查询慢、写入慢的问题，我建议采用分级综合治理方案：\n\n第一步：诊断分析\n\n-- 表空间分析\nSELECT
+    \n    table_name,\n    ROUND(data_length / 1024 / 1024, 2) AS data_mb,\n    ROUND(index_length
+    / 1024 / 1024, 2) AS index_mb,\n    table_rows\nFROM information_schema.tables\nWHERE
+    table_schema = 'your_db' AND table_name = 'orders';\n-- 假设结果：data_mb=8000, index_mb=4000,
+    table_rows=80000000\n\n-- 慢查询分析\npt-query-digest /var/lib/mysql/mysql-slow.log
+    --limit 10\n\n-- 索引使用情况\nSELECT * FROM sys.schema_unused_indexes WHERE object_schema
+    = 'your_db';\n\n-- 锁等待分析\nSELECT * FROM information_schema.INNODB_LOCKS;\nSELECT
+    * FROM information_schema.INNODB_LOCK_WAITS;\n\n第二步：P0 优化索引\n\n-- 分析高频查询\nSELECT
+    \n    digest_text,\n    count_star,\n    avg_timer_wait / 1000000000000 AS avg_time_ms\nFROM
+    performance_schema.events_statements_summary_by_digest\nWHERE schema_name = 'your_db'
+    AND digest_text LIKE '%orders%'\nORDER BY count_star DESC\nLIMIT 10;\n\n-- 添加索引\nCREATE
+    INDEX idx_user_time ON orders (user_id, create_time);\nCREATE INDEX idx_status_time
+    ON orders (status, create_time);\nCREATE INDEX idx_composite ON orders (user_id,
+    status, create_time);\n\n-- 删除冗余索引\nDROP INDEX idx_user ON orders;\nDROP INDEX
+    idx_time ON orders;\n\n-- 验证索引使用\nSELECT * FROM sys.schema_unused_indexes WHERE
+    object_schema = 'your_db';\n\n第三步：P1 分区归档\n\n-- 创建分区表\nCREATE TABLE orders_partitioned
+    (\n    id BIGINT NOT NULL,\n    user_id BIGINT NOT NULL,\n    create_time DATETIME
+    NOT NULL,\n    status TINYINT NOT NULL,\n    amount DECIMAL(10,2),\n    PRIMARY
+    KEY (id, create_time)\n) PARTITION BY RANGE (TO_DAYS(create_time)) (\n    PARTITION
+    p202401 VALUES LESS THAN (TO_DAYS('2024-02-01')),\n    PARTITION p202402 VALUES
+    LESS THAN (TO_DAYS('2024-03-01')),\n    PARTITION p202403 VALUES LESS THAN (TO_DAYS('2024-04-01')),\n
+    \   PARTITION p202404 VALUES LESS THAN (TO_DAYS('2024-05-01')),\n    PARTITION
+    p202405 VALUES LESS THAN (TO_DAYS('2024-06-01')),\n    PARTITION p202406 VALUES
+    LESS THAN (TO_DAYS('2024-07-01')),\n    PARTITION p_future VALUES LESS THAN MAXVALUE\n);\n\n--
+    迁移数据（分批执行）\nINSERT INTO orders_partitioned SELECT * FROM orders WHERE create_time
+    >= '2024-01-01';\n\n-- 重命名表\nRENAME TABLE orders TO orders_old, orders_partitioned
+    TO orders;\n\n-- 归档历史数据\npt-archiver \\\n  --source h=127.0.0.1,D=your_db,t=orders_old
+    \\\n  --dest h=127.0.0.1,D=your_db,t=orders_archive \\\n  --where \"create_time
+    < '2024-01-01'\" \\\n  --limit=1000 \\\n  --bulk-insert \\\n  --bulk-delete \\\n
+    \ --progress=5000 \\\n  --execute\n\n-- 删除旧表\nDROP TABLE orders_old;\n\n第四步：P2
+    读写分离\n\n// 配置主从数据源\n@Configuration\npublic class DataSourceConfig {\n    \n    @Bean\n
+    \   @Primary\n    public DataSource masterDataSource() {\n        HikariDataSource
+    dataSource = new HikariDataSource();\n        dataSource.setJdbcUrl(\"jdbc:mysql://master-db:3306/your_db\");\n
+    \       dataSource.setUsername(\"root\");\n        dataSource.setPassword(\"password\");\n
+    \       dataSource.setMaximumPoolSize(20);\n        return dataSource;\n    }\n
+    \   \n    @Bean\n    public DataSource slaveDataSource() {\n        HikariDataSource
+    dataSource = new HikariDataSource();\n        dataSource.setJdbcUrl(\"jdbc:mysql://slave-db:3306/your_db\");\n
+    \       dataSource.setUsername(\"root\");\n        dataSource.setPassword(\"password\");\n
+    \       dataSource.setMaximumPoolSize(50);\n        dataSource.setReadOnly(true);\n
+    \       return dataSource;\n    }\n    \n    @Bean\n    public DataSource routingDataSource(\n
+    \       DataSource masterDataSource,\n        DataSource slaveDataSource\n    )
+    {\n        Map<Object, Object> targetDataSources = new HashMap<>();\n        targetDataSources.put(\"master\",
+    masterDataSource);\n        targetDataSources.put(\"slave\", slaveDataSource);\n
+    \       \n        RoutingDataSource routingDataSource = new RoutingDataSource();\n
+    \       routingDataSource.setTargetDataSources(targetDataSources);\n        routingDataSource.setDefaultTargetDataSource(masterDataSource);\n
+    \       \n        return routingDataSource;\n    }\n}\n\n// 使用注解控制读写路由\n@Target(ElementType.METHOD)\n@Retention(RetentionPolicy.RUNTIME)\npublic
+    @interface ReadOnly {\n}\n\n// AOP 切面\n@Aspect\n@Component\npublic class ReadOnlyAspect
+    {\n    \n    @Autowired\n    private DataSource routingDataSource;\n    \n    @Around(\"@annotation(readOnly)\")\n
+    \   public Object around(ProceedingJoinPoint joinPoint, ReadOnly readOnly) throws
+    Throwable {\n        try {\n            DataSourceContextHolder.setDataSourceType(\"slave\");\n
+    \           return joinPoint.proceed();\n        } finally {\n            DataSourceContextHolder.clearDataSourceType();\n
+    \       }\n    }\n}\n\n// Service 层使用\n@Service\npublic class OrderService {\n
+    \   \n    @ReadOnly\n    public List<Order> selectByUserId(Long userId) {\n        return
+    orderMapper.selectByUserId(userId);\n    }\n    \n    public void insert(Order
+    order) {\n        orderMapper.insert(order);\n    }\n}\n\n第五步：P3 缓存优化\n\n// Redis
+    配置\n@Configuration\npublic class RedisConfig {\n    \n    @Bean\n    public RedisTemplate<String,
+    Object> redisTemplate(RedisConnectionFactory factory) {\n        RedisTemplate<String,
+    Object> template = new RedisTemplate<>();\n        template.setConnectionFactory(factory);\n
+    \       template.setKeySerializer(new StringRedisSerializer());\n        template.setValueSerializer(new
+    GenericJackson2JsonRedisSerializer());\n        return template;\n    }\n}\n\n//
+    缓存热点数据\n@Service\npublic class OrderService {\n    \n    @Autowired\n    private
+    RedisTemplate<String, Object> redisTemplate;\n    \n    @Autowired\n    private
+    OrderMapper orderMapper;\n    \n    @Cacheable(value = \"orders\", key = \"#userId\",
+    unless = \"#result == null || #result.isEmpty()\")\n    public List<Order> selectByUserId(Long
+    userId) {\n        return orderMapper.selectByUserId(userId);\n    }\n    \n    //
+    缓存预热\n    @PostConstruct\n    public void warmUpCache() {\n        List<Long>
+    hotUserIds = getHotUserIds();\n        hotUserIds.forEach(userId -> {\n            List<Order>
+    orders = orderMapper.selectByUserId(userId);\n            String cacheKey = \"orders:user:\"
+    + userId;\n            redisTemplate.opsForValue().set(cacheKey, orders, 5, TimeUnit.MINUTES);\n
+    \       });\n    }\n    \n    private List<Long> getHotUserIds() {\n        //
+    查询最近 7 天活跃用户\n        return orderMapper.selectActiveUsers(LocalDateTime.now().minusDays(7));\n
+    \   }\n}\n\n第六步：P4 分库分表\n\n// ShardingSphere 配置\n@Configuration\npublic class
+    ShardingConfig {\n    \n    @Bean\n    public DataSource shardingDataSource()
+    throws SQLException {\n        ShardingRuleConfiguration shardingRuleConfig =
+    new ShardingRuleConfiguration();\n        \n        // 订单表分片规则\n        TableRuleConfiguration
+    orderRuleConfig = new TableRuleConfiguration(\n            \"orders\",\n            \"ds${0..1}.orders_${0..3}\"\n
+    \       );\n        \n        // 分库策略：user_id % 2\n        orderRuleConfig.setDatabaseShardingStrategyConfig(\n
+    \           new InlineShardingStrategyConfiguration(\"user_id\", \"ds${user_id
+    % 2}\")\n        );\n        \n        // 分表策略：user_id % 4\n        orderRuleConfig.setTableShardingStrategyConfig(\n
+    \           new InlineShardingStrategyConfiguration(\"user_id\", \"orders_${user_id
+    % 4}\")\n        );\n        \n        shardingRuleConfig.getTableRuleConfigs().add(orderRuleConfig);\n
+    \       \n        // 创建数据源\n        Map<String, DataSource> dataSourceMap = new
+    HashMap<>();\n        dataSourceMap.put(\"ds0\", createDataSource(\"jdbc:mysql://db0:3306/your_db\"));\n
+    \       dataSourceMap.put(\"ds1\", createDataSource(\"jdbc:mysql://db1:3306/your_db\"));\n
+    \       \n        Properties props = new Properties();\n        props.setProperty(\"sql.show\",
+    \"true\");\n        \n        return ShardingDataSourceFactory.createDataSource(\n
+    \           dataSourceMap,\n            shardingRuleConfig,\n            props\n
+    \       );\n    }\n    \n    private DataSource createDataSource(String url) {\n
+    \       HikariDataSource dataSource = new HikariDataSource();\n        dataSource.setJdbcUrl(url);\n
+    \       dataSource.setUsername(\"root\");\n        dataSource.setPassword(\"password\");\n
+    \       dataSource.setMaximumPoolSize(20);\n        return dataSource;\n    }\n}\n\n第七步：P5
+    架构升级\n\n// Elasticsearch 配置\n@Configuration\npublic class ESConfig {\n    \n    @Bean\n
+    \   public RestHighLevelClient restHighLevelClient() {\n        return new RestHighLevelClient(\n
+    \           RestClient.builder(\n                new HttpHost(\"es-node1\", 9200,
+    \"http\"),\n                new HttpHost(\"es-node2\", 9200, \"http\"),\n                new
+    HttpHost(\"es-node3\", 9200, \"http\")\n            )\n        );\n    }\n}\n\n//
+    复杂查询使用 ES\n@Service\npublic class OrderSearchService {\n    \n    @Autowired\n
+    \   private RestHighLevelClient restHighLevelClient;\n    \n    public List<Order>
+    search(OrderSearchRequest request) throws IOException {\n        SearchRequest
+    searchRequest = new SearchRequest(\"orders\");\n        SearchSourceBuilder builder
+    = new SearchSourceBuilder();\n        \n        // 构建查询条件\n        BoolQueryBuilder
+    boolQuery = QueryBuilders.boolQuery();\n        \n        if (request.getUserId()
+    != null) {\n            boolQuery.must(QueryBuilders.termQuery(\"user_id\", request.getUserId()));\n
+    \       }\n        \n        if (request.getStatus() != null) {\n            boolQuery.must(QueryBuilders.termQuery(\"status\",
+    request.getStatus()));\n        }\n        \n        if (request.getStartTime()
+    != null && request.getEndTime() != null) {\n            boolQuery.must(QueryBuilders.rangeQuery(\"create_time\")\n
+    \               .gte(request.getStartTime())\n                .lte(request.getEndTime()));\n
+    \       }\n        \n        if (request.getKeyword() != null) {\n            boolQuery.must(QueryBuilders.multiMatchQuery(\n
+    \               request.getKeyword(),\n                \"remark\", \"ext_data\"\n
+    \           ));\n        }\n        \n        builder.query(boolQuery);\n        \n
+    \       // 分页\n        builder.from((request.getPageNum() - 1) * request.getPageSize());\n
+    \       builder.size(request.getPageSize());\n        \n        // 排序\n        if
+    (\"create_time\".equals(request.getSortField())) {\n            builder.sort(\"create_time\",
+    SortOrder.DESC);\n        }\n        \n        searchRequest.source(builder);\n
+    \       \n        // 执行查询\n        SearchResponse response = restHighLevelClient.search(searchRequest,
+    RequestOptions.DEFAULT);\n        \n        // 解析结果\n        return parseResponse(response);\n
+    \   }\n}\n\n第八步：监控维护\n\n-- 慢查询监控\nSELECT \n    digest_text,\n    count_star,\n
+    \   avg_timer_wait / 1000000000000 AS avg_time_ms,\n    sum_timer_wait / 1000000000000
+    AS total_time_ms\nFROM performance_schema.events_statements_summary_by_digest\nWHERE
+    schema_name = 'your_db' \n  AND sum_timer_wait > 1000000000000\nORDER BY sum_timer_wait
+    DESC\nLIMIT 10;\n\n-- 索引使用监控\nSELECT * FROM sys.schema_unused_indexes WHERE object_schema
+    = 'your_db';\n\n-- 表空间监控\nSELECT \n    table_name,\n    ROUND(data_length / 1024
+    / 1024, 2) AS data_mb,\n    ROUND(index_length / 1024 / 1024, 2) AS index_mb,\n
+    \   table_rows\nFROM information_schema.tables\nWHERE table_schema = 'your_db'\nORDER
+    BY data_length DESC;\n\n-- 分区监控\nSELECT \n    partition_name,\n    table_rows,\n
+    \   ROUND(data_length / 1024 / 1024, 2) AS data_mb\nFROM information_schema.partitions\nWHERE
+    table_schema = 'your_db' AND table_name = 'orders';\n\n治理效果：\n\n- 查询性能：5-10s →
+    50-200ms（提升 50-200 倍）\n\n- 写入性能：1000 QPS → 5000 QPS（提升 5 倍）\n\n- 系统负载：CPU 80%
+    → 30%，IO 100% → 40%\n\n- 业务影响：几乎无影响，可平滑迁移\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n4、容易一起考的题\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IKZ3wmrGRip21hkBhZHc4rARnKe
+  block_id: doxcnuFQf3so1wY43JmZlDY5k97
+  page_token: IKZ3wmrGRip21hkBhZHc4rARnKe
+  original_title: 4.1 千万级大表治理
+  imported_at: '2026-09-21'

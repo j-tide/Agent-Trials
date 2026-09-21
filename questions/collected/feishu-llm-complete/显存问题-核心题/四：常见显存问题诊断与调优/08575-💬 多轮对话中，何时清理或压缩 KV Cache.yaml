@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2edb44506197
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4AC 多轮对话中，何时清理或压缩 KV Cache？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F4AC 多轮对话中，何时清理或压缩 KV Cache？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    多轮对话中，KV Cache 随对话历史不断增长，必须在适当时机清理或压缩，否则会耗尽显存。
+
+    - 达到最大上下文长度时
+    当总 token 数超过模型最大长度（或预设的 max_model_len），框架可以：
+
+    - 滑动窗口丢弃：只保留最近的 token，剔除最早的 KV 块（如 Mistral 的 sliding window attention）。
+
+    - 截断历史：重置对话，仅保留系统提示的 KV Cache，并重新编码最近的几轮。
+
+    - 显存压力触发 swap 或 eviction
+
+    - vLLM 支持将不活跃的对话 KV Cache 块交换到 CPU 内存，释放 GPU 块给新请求。
+
+    - 当 GPU 块池空闲率低于阈值时，可选择暂停最旧的对话，将其 KV 块换出，待 GPU 有空时再换回继续生成。
+
+    - 对话轮次或 token 限制
+
+    - 主动设定每对话最多保留 N 轮历史，超过则删除最早轮次的 KV。
+
+    - 或限制总 token 数，达到上限后清除所有历史（除 system prompt 外）重新开始。
+
+    - 请求完成后立即回收
+
+    对话结束时，该请求的所有 KV 块被归还池中，显存瞬间释放。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tr76wMZZwibI1ikxqpEcjhJtnZc
+  block_id: JWzIdvMiSo215nxY0UrclPsdngb
+  page_token: Tr76wMZZwibI1ikxqpEcjhJtnZc
+  original_title: "\U0001F4AC 多轮对话中，何时清理或压缩 KV Cache？"
+  imported_at: '2026-09-21'

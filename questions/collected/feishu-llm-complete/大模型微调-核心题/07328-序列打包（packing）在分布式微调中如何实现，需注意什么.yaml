@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0959789323ad
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 序列打包（packing）在分布式微调中如何实现，需注意什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 序列打包（packing）在分布式微调中如何实现，需注意什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    序列打包是将多个较短的训练样本（指令-回答对）拼接成一个接近模型最大长度的长序列，从而大幅减少padding token的比例，提高每次迭代中有效token的计算占比。在分布式微调中，序列打包需要在数据加载器中实现，并同步到所有rank。
+
+    实现方式：
+
+    - 离线打包：在数据预处理阶段，将多条短样本拼接成一个个pack，并存储为新的训练样本。这是最高效的方式，避免了训练时的反复拼接。但缺乏灵活性，无法动态调整。
+
+    - 在线打包：在DataLoader的collate_fn中动态完成。从数据集中取出样本，不断拼接直到达到最大长度或无法容纳下一个样本。为每个pack生成4D的分块对角注意力掩码，确保不同样本间的注意力互相隔离。
+
+    - 分布式同步：所有数据并行rank使用相同的数据集和相同的DistributedSampler，确保每个rank获取不同的样本。在线打包是每个rank独立对其拿到的样本进行拼接，不会跨rank交换数据。
+
+    注意事项：
+
+    - 注意力掩码的正确性：必须构造精确的block‑diagonal causal mask，让每个样本内部保持因果注意力，但不同样本之间的注意力权重被置为-inf。这是保证模型正确理解语义边界的关键。
+
+    - 位置编码的适应性：对于RoPE等相对位置编码，由于注意力已被隔离在各自块内，连续的绝对位置编码不会造成样本间的干扰，通常无需特殊处理。
+
+    - 填充与截断：如果剩余空间装不下一个完整样本，可选择用[PAD]填充（不参与loss计算），或截断该样本（可能丢失信息），或将该样本移至下一个pack。需要权衡效率和信息完整性。
+
+    - 序列长度分布：需确保训练数据集中有足够多的短样本，否则打包效果不佳。对于多轮对话，整个对话应视为一个不可分割的单元，避免将同一对话的不同轮次打包到不同pack中。
+
+    - 与ZeRO/FSDP的兼容性：打包后的序列长度变长，激活显存增加，需要相应调整梯度检查点和ZeRO配置。通常开启梯度检查点来控制峰值。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: VCb2dzetaoPGhyxQOKqcGtlSncc
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 序列打包（packing）在分布式微调中如何实现，需注意什么？
+  imported_at: '2026-09-21'

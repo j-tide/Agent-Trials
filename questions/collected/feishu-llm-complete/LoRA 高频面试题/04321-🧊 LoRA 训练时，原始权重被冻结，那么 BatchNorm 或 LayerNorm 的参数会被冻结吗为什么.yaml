@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fc0d371a4714
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "3. \U0001F9CA LoRA 训练时，原始权重被冻结，那么 BatchNorm 或 LayerNorm 的参数会被冻结吗？为什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LoRA 高频面试题
+derived_topic: 
+tags: &1
+- LoRA 高频面试题
+content:
+  prompt: "3. \U0001F9CA LoRA 训练时，原始权重被冻结，那么 BatchNorm 或 LayerNorm 的参数会被冻结吗？为什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    默认情况下不会冻结，通常需要训练。 这主要基于以下原因：
+
+    - 参数量极小，冻结无必要
+
+    以LLaMA-7B为例，所有LayerNorm参数（每层2个，共64个参数）加起来也不过几十万，相比7B的基座权重微不足道。训练这些参数所需的显存和计算开销极小，因此不必为了节省资源而冻结它们。
+
+    - 任务分布偏移需要适配
+
+    预训练数据分布与微调数据分布存在差异，归一化层需要学习新的统计量（均值和方差）。如果冻结LayerNorm，模型可能会因为归一化参数不合适而难以收敛。相比之下，LoRA矩阵可以通过训练来适应新的分布，但LayerNorm作为归一化层，对整体稳定性和收敛速度影响较大，通常需要一起更新。
+
+    3. Hugging Face PEFT 默认行为
+    在HuggingFace的PEFT库中，当使用Lora对模型进行包装时，默认会只冻结线性层（如q_proj, v_proj）的权重，而LayerNorm和偏置项保持可训练状态。你可以通过设置 modules_to_save 参数来控制是否训练LayerNorm。在实际微调中，保持LayerNorm可训练能够带来更快的收敛和更好的效果，因此这是默认选项。
+
+    实际经验：我们曾经尝试冻结LayerNorm以追求极致的显存节省，结果发现模型收敛速度明显变慢，且最终性能下降约1-2个点。所以除非在极特殊的资源受限场景，否则建议保持LayerNorm可训练。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MUH8wwD1nigAKikWjdJc1MHjn8f
+  block_id: XrZIdUEs3o02vwxhsgJcs4oVnVc
+  page_token: MUH8wwD1nigAKikWjdJc1MHjn8f
+  original_title: "3. \U0001F9CA LoRA 训练时，原始权重被冻结，那么 BatchNorm 或 LayerNorm 的参数会被冻结吗？为什么？"
+  imported_at: '2026-09-21'

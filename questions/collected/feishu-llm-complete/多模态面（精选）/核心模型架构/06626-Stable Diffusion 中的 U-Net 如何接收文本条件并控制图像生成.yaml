@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ffc934224386
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Stable Diffusion 中的 U-Net 如何接收文本条件并控制图像生成？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 核心模型架构
+tags: &1
+- 多模态面（精选）
+- 核心模型架构
+content:
+  prompt: Stable Diffusion 中的 U-Net 如何接收文本条件并控制图像生成？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Stable Diffusion 的控制核心在于其 U-Net 架构中融入的交叉注意力机制。文本条件通过一个预训练的文本编码器（通常是 CLIP 的文本编码器）转化为语义向量，然后以交叉注意力的方式在 U-Net 的多个层级注入，从而引导模型生成与文本描述匹配的图像。
+
+    具体工作流程：
+
+    - 文本编码：用户输入的文本提示首先被分词，并送入冻结的 CLIP 文本编码器。编码器为每个 token 输出一个上下文相关的嵌入向量，最终得到一个长度为 NN、维度为 dd 的文本特征序列（通常取编码器最后一层的输出，并在末尾附加一个特殊的 EOS token 的嵌入）。
+
+    - U-Net 内部结构：Stable Diffusion 的 U-Net 由一系列下采样块、中间块和上采样块组成，每个块中都包含 ResNet 卷积层、自注意力层和交叉注意力层。
+
+    - 交叉注意力的计算：在交叉注意力层中，来自 U-Net 上一个层的特征图（经过 ResNet 和自注意力处理后的空间潜在表示）被用作查询（Query），而文本特征序列同时作为键（Key）和值（Value）。对于空间潜在表示中的每一个像素位置（或更准确地说，每一个潜在 token），它都会去“关注”文本序列中的各个单词，并根据相似度分配注意力权重，然后将单词的值向量加权聚合到自己身上。其公式为：
+
+    [图片内容未导入]
+
+    - 多层级注入：这种交叉注意力不仅出现在 U-Net 的底层（处理最粗粒度的特征），也出现在更高分辨率的层中。因此，文本语义可以在不同的抽象层次上影响图像生成：粗层控制全局场景布局和主体，细层影响纹理、颜色和细节。通过这种层层渗透的机制，文本条件能够精确地调控整个生成过程。
+
+    此外，某些实现中还会将时间步嵌入与文本的全局池化向量（如 EOS 对应的输出）结合，作为一种整体条件加入，但交叉注意力是目前实现细粒度文本控制最主流和有效的方式。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MxkKw28Vhifwx1kXK2tcufpanqf
+  block_id: EgRFdFw6YofBM4xvgajcpBHKnE2
+  page_token: MxkKw28Vhifwx1kXK2tcufpanqf
+  original_title: Stable Diffusion 中的 U-Net 如何接收文本条件并控制图像生成？
+  imported_at: '2026-09-21'

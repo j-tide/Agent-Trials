@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ffe5530cbd0d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何从断点恢复一个多节点分布式微调训练？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如何从断点恢复一个多节点分布式微调训练？
+answer:
+  mode: rubric
+  reference_answer: |-
+    断点恢复的关键在于保存和加载完整的训练状态，包括模型参数、优化器状态、学习率调度器、随机数状态以及数据迭代器位置。
+
+    保存内容（以DeepSpeed为例）：
+
+    - 模型分片权重（各rank持有自己的分片）
+
+    - 优化器状态（动量和方差等）
+
+    - 学习率调度器状态
+
+    - 数据加载器的sampler和dataloader迭代状态（如DistributedSampler的epoch和随机种子）
+
+    恢复步骤：
+
+    - 重建分布式环境：使用相同数量的GPU和并行配置（TP/PP/DP度必须与保存时一致）。
+
+    - 加载分片检查点：每个rank使用model.load_checkpoint(load_dir, tag=tag)加载自己对应的分片。框架会自动处理分片到当前rank的映射。
+
+    - 恢复数据迭代器：如果保存了dataloader状态，需要重新初始化DataLoader并跳转到上次中断的位置。对于DistributedSampler，设置正确的epoch并调用set_epoch。对于IterableDataset流式数据，可能需要在文件级别记录偏移量。
+
+    - 恢复随机种子：将保存的全局随机种子广播给所有rank，确保后续的数据增强和dropout与中断前一致。
+
+    - 验证：恢复后，用一小批数据前向传播，检查损失是否与中断前大致连续（因为数值精度可能有微小差异）。
+
+    实践注意：保存时确保所有rank同步写入完毕。可以每N步保存一次，并保留最新的K个检查点，以防某个检查点损坏。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: QQraddZtdoXDbqxL7FBc2tb2nWg
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 如何从断点恢复一个多节点分布式微调训练？
+  imported_at: '2026-09-21'

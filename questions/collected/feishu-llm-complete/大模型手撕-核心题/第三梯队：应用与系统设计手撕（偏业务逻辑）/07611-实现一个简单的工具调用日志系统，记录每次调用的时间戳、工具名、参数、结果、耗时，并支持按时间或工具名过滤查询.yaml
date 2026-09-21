@@ -1,0 +1,111 @@
+---
+schema_version: 1
+id: feishu-llm-complete-06aac3044ffc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个简单的工具调用日志系统，记录每次调用的时间戳、工具名、参数、结果、耗时，并支持按时间或工具名过滤查询。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 实现一个简单的工具调用日志系统，记录每次调用的时间戳、工具名、参数、结果、耗时，并支持按时间或工具名过滤查询。
+answer:
+  mode: rubric
+  reference_answer: |-
+    实现
+
+    ```python
+    import time
+    from datetime import datetime
+    from typing import List, Dict, Any, Optional
+
+    class ToolLogger:
+        def __init__(self):
+            self.records: List[Dict[str, Any]] = []
+
+        def log(self, tool_name: str, params: Dict, result: Any, duration: float):
+            record = {
+                "timestamp": datetime.now().isoformat(),
+                "tool": tool_name,
+                "params": params,
+                "result": result,
+                "duration": duration
+            }
+            self.records.append(record)
+
+        def query(
+            self,
+            tool_name: Optional[str] = None,
+            start_time: Optional[str] = None,
+            end_time: Optional[str] = None
+        ) -> List[Dict]:
+            """按条件过滤记录"""
+            results = self.records
+            if tool_name:
+                results = [r for r in results if r["tool"] == tool_name]
+            if start_time:
+                results = [r for r in results if r["timestamp"] >= start_time]
+            if end_time:
+                results = [r for r in results if r["timestamp"] <= end_time]
+            return results
+
+        def summary(self) -> str:
+            """生成简要统计信息"""
+            lines = ["工具调用统计:"]
+            tool_counts = {}
+            total_duration = 0.0
+            for r in self.records:
+                tool_counts[r["tool"]] = tool_counts.get(r["tool"], 0) + 1
+                total_duration += r["duration"]
+            lines.append(f"总调用次数: {len(self.records)}, 总耗时: {total_duration:.2f}s")
+            for tool, count in tool_counts.items():
+                lines.append(f"  {tool}: {count}次")
+            return "\n".join(lines)
+
+    # 示例
+    logger = ToolLogger()
+    logger.log("search", {"query": "天气"}, "搜索结果...", 0.5)
+    logger.log("search", {"query": "AI"}, "搜索结果...", 0.3)
+    logger.log("calculator", {"expr": "1+1"}, 2, 0.01)
+
+    print(logger.query(tool_name="search"))
+    print(logger.summary())
+    ```
+
+    说明
+
+    - log 方法通常在工具调用的包装器（如第15题的超时装饰器）中调用，自动记录耗时。
+
+    - 查询支持多种组合过滤，方便调试和性能分析。
+
+    - 可以扩展为将日志持久化到文件或数据库。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  block_id: TkApdPJO1oOCmhxpLXKcnE5on5e
+  page_token: Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  original_title: 实现一个简单的工具调用日志系统，记录每次调用的时间戳、工具名、参数、结果、耗时，并支持按时间或工具名过滤查询。
+  imported_at: '2026-09-21'

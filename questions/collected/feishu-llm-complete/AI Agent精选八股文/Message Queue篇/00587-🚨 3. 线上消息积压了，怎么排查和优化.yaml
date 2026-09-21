@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7967851e78a3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6A8 3. 线上消息积压了，怎么排查和优化？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: "\U0001F6A8 3. 线上消息积压了，怎么排查和优化？"
+answer:
+  mode: rubric
+  reference_answer: "消息积压意味着消费者的处理速度跟不上生产者的发送速度，消息在 MQ 中越堆越多，最终可能导致系统不可用。排查和优化需要有条不紊地进行。\n\n\U0001F50D
+    排查步骤\n\n第一步：查看消费积压量\n\n```text\n# Kafka 查看消费者组的积压情况\nkafka-consumer-groups.sh
+    --bootstrap-server localhost:9092 --group your-group --describe\n\n# 关注 LAG 列，表示每个分区还有多少消息未消费\n#
+    如果 LAG 持续增长，说明积压严重\n```\n\n第二步：确认是生产突增还是消费变慢\n\n- 生产端：检查上游系统的 QPS 是否突然暴涨（例如营销活动开始）。如果是，可以通过限流或增加分区数来缓解，但分区数调整需要评估对顺序性的影响。\n\n-
+    消费端：检查消费者线程的 CPU、内存、GC 情况。是否有线程卡死、频繁 Full GC、或者外部调用（如 DB、Redis）超时导致处理变慢。\n\n第三步：分析消费逻辑\n\n查看消费者处理单条消息的耗时。可以增加日志记录处理时间，或者使用
+    APM 工具追踪。如果是因为消费逻辑中调用了一个慢 SQL 或没有设置超时的 HTTP 请求，那就是根因。\n\n\U0001F6E0️ 解决方案\n\n①
+    临时应急：扩容消费者\n\n如果消费能力不足，可以增加消费者实例数量，但前提是分区数足够（Kafka 的分区数决定了消费者的最大并行度）。如果是 RocketMQ，则直接加机器即可。\n\n②
+    临时应急：跳过非关键消息\n\n如果积压已经严重影响到核心业务，可以临时编写消费者程序，快速消费掉积压的消息，只处理核心消息（比如支付成功的），其余消息直接丢弃或转存到日志系统，待高峰期过后再慢慢补偿。\n\n```java\n//
+    应急消费者：只处理核心消息，其余跳过\nif (record.value().contains(\"\\\"type\\\":\\\"PAYMENT_SUCCESS\\\"\"))
+    {\n    process(record);\n} else {\n    // 直接提交偏移量，不处理\n    consumer.commitSync();\n}\n```\n\n③
+    长期优化：消费逻辑提速\n\n- 批量处理：将逐条更新数据库改为批量 update，减少 IO 次数。\n\n- 异步化：如果消费逻辑中有通知、记录日志等非关键操作，可以放入本地队列异步处理，让
+    poll 循环快速返回。\n\n- 合并写入：例如对同一个 Key 的数据做本地聚合，减少数据库写入频率。\n\n④ 长期优化：增加资源与分区\n\n- 如果
+    CPU 或内存确实不足，增加消费者实例的硬件配置。\n\n- 如果分区数不足以支撑更多消费者并行处理，谨慎评估后增加分区数（注意：Kafka 分区数只能增加不能减少，且会影响顺序性）。\n\n⑤
+    限流与熔断\n\n在生产者端引入限流，比如令牌桶算法，控制每秒发送到 MQ 的消息数量，防止突发流量冲垮消费者。同时，消费者端对下游依赖做熔断保护，当下游不可用时，暂停消费或快速失败，避免资源耗尽。\n\n```python\n#
+    生产者限流示例：令牌桶\nfrom time import time, sleep\nclass TokenBucket:\n    def __init__(self,
+    rate, capacity):\n        self.rate = rate\n        self.capacity = capacity\n
+    \       self.tokens = capacity\n        self.last = time()\n    def consume(self,
+    tokens=1):\n        now = time()\n        self.tokens = min(self.capacity, self.tokens
+    + (now - self.last) * self.rate)\n        self.last = now\n        if self.tokens
+    >= tokens:\n            self.tokens -= tokens\n            return True\n        return
+    False\n\nbucket = TokenBucket(100, 200)  # 每秒100条，突发200条\nwhile True:\n    if
+    bucket.consume():\n        producer.send(msg)\n    else:\n        sleep(0.01)\n```\n\n收束：
+    线上积压的排查就像抢险——先看水位（LAG），再查上游是否暴雨（生产量），下游是否河道淤塞（消费慢）。临时措施是增泵（扩容）、引流（跳过非关键），长期治理是拓宽河道（优化逻辑、增加分区）和加固堤坝（限流熔断）。只有把这整套动作练熟，才能让消息队列成为可靠的泄洪渠，而不是决堤口。\n\n---\n\n###
+    6.4 消费者组与重平衡"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcnKSfCLY6rivcDefQ7FveWJb
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: "\U0001F6A8 3. 线上消息积压了，怎么排查和优化？"
+  imported_at: '2026-09-21'

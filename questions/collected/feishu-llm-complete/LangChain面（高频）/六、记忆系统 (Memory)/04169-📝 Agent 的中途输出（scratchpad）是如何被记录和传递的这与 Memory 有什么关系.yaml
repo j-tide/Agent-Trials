@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9c12faac7cd1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DD Agent 的中途输出（scratchpad）是如何被记录和传递的？这与 Memory 有什么关系？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F4DD Agent 的中途输出（scratchpad）是如何被记录和传递的？这与 Memory 有什么关系？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Scratchpad 是 Agent 在一次任务执行中产生的“草稿纸”，记录了它多步推理的完整轨迹，包括 Thought, Action, Action Input, Observation。它的生命周期仅限于单次 agent_executor.run() 调用。一旦 Agent 输出 Final Answer，scratchpad 就会被丢弃。
+
+    记录与传递机制：
+
+    - 当你调用 AgentExecutor.run() 时，LangChain 内部会启动一个循环（最多 max_iterations 次）。
+
+    - 在每次循环中，Agent 根据当前 Prompt（包含用户输入、可用工具、以及所有之前的 scratchpad 内容）调用 LLM，LLM 返回下一步的 Thought/Action/Action Input。
+
+    - 如果 LLM 输出的是 Action，AgentExecutor 执行相应工具，得到 Observation。
+
+    - 这个 (Thought, Action, Observation) 三元组会被追加到 scratchpad 列表中。
+
+    - 在下一次循环开始时，更新后的 scratchpad 会再次被格式化并注入 Prompt。因此，Agent 能看到自己“刚才想了什么、做了什么、结果如何”，从而进行连贯的多步推理。
+
+    与 Memory 的关系：
+
+    - Memory（如 ConversationBufferMemory）存储的是跨轮次的对话历史。比如上一轮用户问了天气，这一轮问“那明天呢？”，Memory 使得 Agent 知道“那”指的是天气。
+
+    - Scratchpad 是轮次内的推理轨迹。即使没有 Memory（如单次任务），Agent 也需要 scratchpad 来完成多步操作。两者共同构成 Agent 的上下文窗口。
+
+    - 在 Prompt 组装时，LangChain 通常将 Memory 的历史放在前面，scratchpad 紧接其后，再是用户的最新输入。这样 Agent 既了解对话背景，也清楚当前任务的进展。
+
+    “坑”与思考：如果 Memory 过长，会挤压 scratchpad 的可用空间，导致 Agent 在长对话中失去推理能力。因此需要限制 Memory 大小，或使用摘要记忆，为 scratchpad 留足 token 预算。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PGF2wlLMeiiO4SkG7iycSQbwnNf
+  block_id: BaTOdfSFzozqvbxH2W6cYnI8nDb
+  page_token: PGF2wlLMeiiO4SkG7iycSQbwnNf
+  original_title: "\U0001F4DD Agent 的中途输出（scratchpad）是如何被记录和传递的？这与 Memory 有什么关系？"
+  imported_at: '2026-09-21'

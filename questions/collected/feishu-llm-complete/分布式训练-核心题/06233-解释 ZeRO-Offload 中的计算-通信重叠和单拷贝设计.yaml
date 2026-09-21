@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c8400390ce77
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 ZeRO-Offload 中的“计算-通信重叠”和“单拷贝”设计。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 解释 ZeRO-Offload 中的“计算-通信重叠”和“单拷贝”设计。
+answer:
+  mode: rubric
+  reference_answer: |-
+    计算-通信重叠：
+
+    - 传统数据加载中，CPU 和 GPU 之间的数据传输往往是阻塞的。ZeRO-Offload 使用CUDA Stream和异步内存拷贝，将梯度从 GPU 到 CPU 的传输、优化器更新、以及参数从 CPU 回传 GPU 的操作，与 GPU 上的计算（下一层的反向传播或下一轮的前向传播）并发执行。
+
+    - 例如，当 GPU 正在计算第 N 层的反向梯度时，CPU 已经在处理第 N+1 层的优化器更新。两者流水线化，使得 CPU 的慢速计算和 PCIe 传输被部分隐藏在 GPU 计算时间之后。
+
+    单拷贝设计：
+
+    - ZeRO-Offload 在 CPU 和 GPU 之间只保留一份数据副本，避免不必要的重复拷贝。例如，FP16 参数在 GPU 上，FP32 主权重在 CPU 上，不会在 GPU 上同时保留一份 FP32 主权重。梯度从 GPU 传输到 CPU 后，GPU 上的梯度即可释放，不保留冗余。
+
+    - 这种精简的内存管理减少了内存占用，也减少了数据移动的次数，从而提升效率。
+
+    通过这两项设计，尽管引入了 CPU 参与计算，但训练速度的下降被控制在 30%~50% 左右，而不是数倍的性能损失。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: Eb3WdVo3Lo47O7xUxxXcgZArnpd
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: 解释 ZeRO-Offload 中的“计算-通信重叠”和“单拷贝”设计。
+  imported_at: '2026-09-21'

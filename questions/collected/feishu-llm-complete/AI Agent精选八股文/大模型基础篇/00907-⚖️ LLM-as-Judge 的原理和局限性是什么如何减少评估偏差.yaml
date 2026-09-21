@@ -1,0 +1,111 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a84f91192d6f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚖️ LLM-as-Judge 的原理和局限性是什么？如何减少评估偏差？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "⚖️ LLM-as-Judge 的原理和局限性是什么？如何减少评估偏差？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理：用更强的模型（或同一模型自身）充当裁判，对生成内容按预设量规打分、对比或分类。
+
+    典型流程如下：
+
+    输入 (Prompt + 待评回答) → 裁判 Prompt 模板 → 裁判 LLM → 评分/评语
+
+    裁判 Prompt 通常定义好了评估维度（准确性、完整性、流畅性、安全性），并要求输出结构化结果（JSON 分数 + 理由）。
+
+    示例：一个简单的裁判调用
+
+    def llm_judge(question, answer, reference=None, model="gpt-4o-mini"):
+        judge_template = """
+        你是一个严格的评估专家。根据以下标准对回答评分(1-5)：
+        - 准确性：信息是否与事实/参考一致
+        - 完整性：是否覆盖问题的所有要点
+        - 流畅性：语言是否通顺自然
+        参考回答：{reference}
+        问题：{question}
+        回答：{answer}
+        请输出JSON：{"准确性": int, "完整性": int, "流畅性": int, "理由": str}
+        """
+        prompt = judge_template.format(question=question, answer=answer, reference=reference or "无")
+        response = call_llm(prompt, model=model)
+        return json.loads(response)
+
+    当人类标注成本过高时，LLM-as-Judge 提供了快速、可扩展的自动化评估，这也是 MT-Bench、Chatbot Arena 等榜单的核心机制。
+
+    局限性与偏差来源：
+
+    - 位置偏差（Position Bias）
+    当要求裁判在两个回答中选优时，它系统性地偏好第一个或第二个位置。有时简单互换顺序，胜负就逆转。
+
+    - 自我增强偏好（Self-enhancement Bias）
+    同一家族的模型倾向于给自家生成的回答打高分，例如 GPT-4 给 GPT-4 的回答评分高于人类评价。
+
+    - 长度偏差
+    裁判倾向于认为更长的回答更好，即便内容冗余。
+
+    - 评估不一致
+    同一裁判对同一回答在不同时刻可能打出不同分数，温度系数和随机种子导致波动。
+
+    - 对量规的理解偏差
+    模糊的量规（如“创意性”）让裁判难以稳定执行，导致评分不可比。
+
+    减少偏差的工程实践：
+
+    - 交换位置 + 多次投票：对比较类评估，每个 pair 正反各评一次，若结果矛盾则标记为争议。
+
+    def robust_pairwise(a, b, question, judge_model):
+        score1 = judge(question, a, b)  # a 在位置1
+        score2 = judge(question, b, a)  # b 在位置1
+        if (score1 > 0 and score2 > 0) or (score1 < 0 and score2 < 0):
+            return "draw" if abs(score1 - score2) < threshold else ...
+
+    - 校准参考基线：在评测集中混入已知质量的人类标注样本，校准裁判的分数分布，消除系统性偏高/偏低。
+
+    - 细粒度量规 + 思维链：强制裁判先逐条列出证据再打分，显著减少“一眼看感觉”造成的偏差。
+
+    rubric = """
+    第一步：检查回答是否提到了“成本公式”。
+    第二步：检查是否解释了 Prefill 和 Decode 的技术差异。
+    ... 最后根据每步结果计算总分。
+    """
+
+    - 多裁判集成：使用 GPT-4、Claude 3.5 等不同模型家族进行打分，取中位数或加权平均，抵消单模型的族内偏爱。
+
+    - 盲审：去除输出中的身份标识（如“作为AI…”），防止裁判因格式或角色标签预判。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcn0nBXjJggCVAqAJLNeLjlKb
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "⚖️ LLM-as-Judge 的原理和局限性是什么？如何减少评估偏差？"
+  imported_at: '2026-09-21'

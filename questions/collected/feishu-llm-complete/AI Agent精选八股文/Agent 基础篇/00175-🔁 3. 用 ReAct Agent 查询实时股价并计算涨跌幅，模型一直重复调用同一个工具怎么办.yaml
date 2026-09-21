@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-47e0d16eef03
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F501 3. 用 ReAct Agent 查询实时股价并计算涨跌幅，模型一直重复调用同一个工具怎么办？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F501 3. 用 ReAct Agent 查询实时股价并计算涨跌幅，模型一直重复调用同一个工具怎么办？"
+answer:
+  mode: rubric
+  reference_answer: "现象还原：\n\n根因分析（三个字：没认出来任务已完成）：\n\n- 模型没意识到数据已经够了：模型期望输出“涨跌幅”，结果工具直接返回了
+    change_percent 字段。如果 prompt 里没有明确告诉它“工具可能直接给百分比”，模型会以为还要自己再算，于是再调一次确认。\n\n- Observation
+    格式触发了模型的继续调用模式：某些训练样本里，Observation 总是跟着下一轮 Action。模型习惯性地“再来一次”。\n\n- 输出解析不完整：工具返回的数据里混入了无关文本（如
+    HTML 标签），模型觉得“不干净”，想重新获取。\n\n工程上的三层防御：\n\n第一层：协议终止条件（Prompt 工程）\n\n在系统提示词里明确规则：\n\n第二层：硬编码护栏（循环内检测）\n\ndef
+    detect_repeat_action(action_history, action_name, action_args, threshold=3):\n
+    \   # 对最近几次 action 做指纹（工具名+参数哈希）\n    fingerprint = f\"{action_name}:{json.dumps(action_args,
+    sort_keys=True)}\"\n    recent = action_history[-threshold:]\n    if recent.count(fingerprint)
+    >= threshold:\n        return True\n    return False\n\n# 在 Agent 循环中：\nif detect_repeat_action(history,
+    action_name, action_args):\n    # 强制引导模型进入总结模式\n    messages.append({\"role\":
+    \"system\", \n                     \"content\": \"检测到重复调用，如果你已有数据请直接回答。\"})\n
+    \   continue  # 下一轮让模型看到这个提示\n\n第三层：结果直推\n如果工具返回的数据已经包含用户要的答案（比如直接有 change_percent
+    字段），可以直接拼一个最终答案注入上下文：\n\nif action_name == \"get_stock_price\" and \"change_percent\"
+    in observation:\n    final_answer = f\"苹果当前股价 {observation['price']} 美元，今日涨跌幅
+    {observation['change_percent']}。\"\n    # 直接返回，不走模型\n    return final_answer\n\n但这属于业务强耦合，更通用的做法还是靠护栏。\n\n组合方案落地：\n\nMAX_STEPS
+    = 10\naction_history = []\nfor step in range(MAX_STEPS):\n    response = llm(messages)\n
+    \   thought, action_name, action_args = parse(response)\n    if action_name ==
+    \"FINISH\":\n        return action_args[\"answer\"]\n    # 重复检测\n    fingerprint
+    = f\"{action_name}:{json.dumps(action_args, sort_keys=True)}\"\n    if action_history[-3:].count(fingerprint)
+    >= 3:\n        messages.append({\"role\": \"user\", \"content\": \"请直接根据已有信息回答用户。\"})\n
+    \       continue\n    observation = tools[action_name](**action_args)\n    action_history.append(fingerprint)\n
+    \   messages.append({\"role\": \"assistant\", \"content\": response})\n    messages.append({\"role\":
+    \"user\", \"content\": f\"Observation: {observation}\"})\n# 若超步数，强制总结\nreturn
+    force_summarize(messages)\n\n通过“协议约定 + 实时检测 + 超限打断”，那个死循环就解开了。更重要的是，这些护栏让 Agent
+    不止是在你盯着的时候表现好，而是在凌晨三点没人值守的时候，也不会傻乎乎地把 API 额度耗尽。\n\n---\n\n理解 ReAct，其实就是理解一种“带着脑子去做事”的模式：思考指导行动，行动带回新知，新知重塑思考。而解决重复调用等工程问题，核心就是给这套“智能循环”加上确定的边界——让它既保留了灵活思考的美，又不掉进自己织的网里去。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcnF7JiK1QSWwecwh6MFb94MS
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: "\U0001F501 3. 用 ReAct Agent 查询实时股价并计算涨跌幅，模型一直重复调用同一个工具怎么办？"
+  imported_at: '2026-09-21'

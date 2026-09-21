@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-aba8404e9bf3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F310 5. 如何从网页（URL）加载文档？有哪些注意事项（如反爬、动态内容）？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F310 5. 如何从网页（URL）加载文档？有哪些注意事项（如反爬、动态内容）？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangChain 提供了 WebBaseLoader 进行简单的网页抓取：
+
+    ```python
+    from langchain_community.document_loaders import WebBaseLoader
+
+    loader = WebBaseLoader("https://example.com/article")
+    docs = loader.load()
+    # docs[0].page_content 包含网页的文本内容，metadata 里有 source, title, language 等
+    ```
+
+    注意事项与踩坑记录：
+
+    - 反爬虫措施：WebBaseLoader 默认使用 requests 库，User-Agent 为 Python-urllib，很容易被 Cloudflare 等拦截。可以传入自定义 header 来伪装：
+
+    ```python
+    loader = WebBaseLoader(
+        "https://...",
+        header_template={"User-Agent": "Mozilla/5.0 ..."}
+    )
+    ```
+
+    - 更稳健的做法是配置 requests 的 Session，处理 cookies、重试等。
+
+    - 动态内容（JavaScript 渲染）：WebBaseLoader 无法执行 JavaScript，SPA（单页应用）或依赖 JS 加载内容的页面只能抓到空壳。针对这类网站，你可以用 SeleniumURLLoader 或 PlaywrightURLLoader：
+
+    ```python
+    from langchain_community.document_loaders import PlaywrightURLLoader
+    loader = PlaywrightURLLoader(urls=["https://example.com"])
+    docs = loader.load()  # 会启动 headless 浏览器渲染页面
+    ```
+
+    - 内容提取质量：默认提取器会移除 <script>、<style> 标签，但页眉、侧边栏、广告等噪声依然可能混入。可以通过 bs_kwargs 指定 BeautifulSoup 的解析参数，或者继承 WebBaseLoader 重写 _scrape 方法，用更精准的 CSS 选择器只提取正文区域。
+
+    - 礼貌与合规：注意 robots.txt 的限制，不要对目标网站造成过大的请求压力。可以增加 requests_per_second 限速。另外，抓取的内容要遵守网站的服务条款和版权法规。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EY1lwce7uiXgPpklg8tcoBj6nNg
+  block_id: IpOzdYkdooFgthx0OfRc6KJKn9g
+  page_token: EY1lwce7uiXgPpklg8tcoBj6nNg
+  original_title: "\U0001F310 5. 如何从网页（URL）加载文档？有哪些注意事项（如反爬、动态内容）？"
+  imported_at: '2026-09-21'

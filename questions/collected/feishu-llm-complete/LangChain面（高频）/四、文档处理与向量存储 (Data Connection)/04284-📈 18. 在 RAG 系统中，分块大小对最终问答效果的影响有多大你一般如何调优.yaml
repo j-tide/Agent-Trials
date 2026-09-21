@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-085ad77736fd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4C8 18. 在 RAG 系统中，分块大小对最终问答效果的影响有多大？你一般如何调优？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F4C8 18. 在 RAG 系统中，分块大小对最终问答效果的影响有多大？你一般如何调优？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    分块大小可以说是 RAG 系统里影响最大的超参数之一，直接关联到检索的精度和生成答案的完整度。
+
+    影响机制：
+
+    - 太小（如 64 token）：语义碎片化，一个完整的概念被拆成多个块，检索可能只命中其中一块，导致上下文缺失。LLM 需要从多个孤岛中拼凑答案，很容易“脑补”或遗漏。
+
+    - 太大（如 2048 token）：一个块包含了过多无关内容（稀释），检索相似度计算被噪声淹没，真正相关的块可能排名下降。同时，LLM 处理大量无关文本不仅浪费 token，还容易分散注意力（lost in the middle）。
+
+    - 最佳点：在 embedding 模型的上下文窗口内（通常 512–1024 token），找到一个在语义完整性和检索分辨率之间的平衡点。
+
+    调优流程：
+
+    - 准备评估集：收集 50–100 个真实用户问题及标准答案（或相关文档片段）。
+
+    - 基线实验：固定 embedding 模型和 LLM，分别测试 chunk_size=256, 512, 768, 1024（token 计数），overlap=10%。
+
+    - 评估指标：
+
+    - 分析：绘制 chunk_size vs Recall 曲线，通常 Recall 会在某个点达到峰值后缓慢下降。选择峰值偏左一点（略小）的值，因为小 chunk 的成本更低且响应更快。
+
+    - overlap 微调：在选定 chunk_size 后，再对 overlap 做小范围调整（5%, 10%, 20%），观察检索重复率和答案连贯性。
+
+    个人经验：
+
+    - 中文长文本（如知乎文章）：512 token (约 350-400 汉字) 表现最好。
+
+    - 英文技术文档：256-384 token。
+
+    - 对话摘要：可以使用更大的 1024 token，因为对话上下文关联紧密。
+
+    - 使用 tiktoken 精确计数，坚决不用字符数。
+
+    实用技巧：如果不方便做大规模评估，可以用“人工抽查法”：从知识库随机抽 10 篇文档，用不同 chunk size 分割后，浏览生成的 chunk 内容，凭直觉判断是否语义完整、有无截断。虽然主观，但能快速排除极差参数。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/O97CwA74Ji4ZHWkDTIRcb7OanUg
+  block_id: H0NCd6uQAo3YDdxMDt5cx1kcn1e
+  page_token: O97CwA74Ji4ZHWkDTIRcb7OanUg
+  original_title: "\U0001F4C8 18. 在 RAG 系统中，分块大小对最终问答效果的影响有多大？你一般如何调优？"
+  imported_at: '2026-09-21'

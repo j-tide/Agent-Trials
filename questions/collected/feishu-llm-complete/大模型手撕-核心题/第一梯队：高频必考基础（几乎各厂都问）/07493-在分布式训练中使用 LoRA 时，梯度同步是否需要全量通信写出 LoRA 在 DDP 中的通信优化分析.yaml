@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-126ecb3e9c18
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在分布式训练中使用 LoRA 时，梯度同步是否需要全量通信？写出 LoRA 在 DDP 中的通信优化分析。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 在分布式训练中使用 LoRA 时，梯度同步是否需要全量通信？写出 LoRA 在 DDP 中的通信优化分析。
+answer:
+  mode: rubric
+  reference_answer: |-
+    19.1 分析
+
+    在 PyTorch 的分布式数据并行（DDP）中，每个设备持有完整的模型副本，梯度同步通过 AllReduce 通信来平均所有 rank 的梯度。标准 DDP 会对所有 requires_grad=True 的参数的梯度进行通信。
+
+    对于 LoRA：
+
+    - 可训练参数仅 A 和 B，总参数量极小（相比全模型）。
+
+    - 冻结的原始权重 W0 不需要梯度，因此 DDP 不会为其分配梯度桶，也不参与通信。
+
+    - 因此，LoRA 的梯度同步通信量极低，仅与可训参数量成正比。
+
+    19.2 通信优化
+
+    - 通信量计算：假设应用 LoRA 的所有层可训参数总数为 M（通常远小于模型大小），则每步 AllReduce 的通信量为 2 * M * sizeof(gradient)（FP16 梯度时约 2 bytes）。例如，若 M=1M 参数，通信量仅约 2MB，与模型并行中的海量通信相比可忽略。
+
+    - 通信频率：与标准 DDP 一致，每步一次。
+
+    - 优化：可进一步使用 gradient_as_bucket_view 和 bucket_cap_mb 调整桶大小以匹配 LoRA 的梯度规模，但通常默认设置已足够高效。
+
+    19.3 代码示例
+
+    ```python
+    import torch.distributed as dist
+    from torch.nn.parallel import DistributedDataParallel as DDP
+
+    model = get_lora_model(...)
+    model = DDP(model, device_ids=[local_rank])  # LoRA 适配器自动被 DDP 识别
+    ```
+
+    由于只有 LoRA 参数需要同步，DDP 内部会忽略那些 requires_grad=False 的参数。因此，LoRA 在分布式训练中通信开销极小，扩展性极佳。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LZxww5JuBif3JAkuCoIcuqRenuf
+  block_id: CDnsdqWl1oQZEIxqLi2cEi53nib
+  page_token: LZxww5JuBif3JAkuCoIcuqRenuf
+  original_title: 在分布式训练中使用 LoRA 时，梯度同步是否需要全量通信？写出 LoRA 在 DDP 中的通信优化分析。
+  imported_at: '2026-09-21'

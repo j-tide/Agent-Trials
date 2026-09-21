@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fbae0a317b0b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6A8 压测时发现 TPOT 的 P99 很高但平均值正常，可能是什么原因？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: "\U0001F6A8 压测时发现 TPOT 的 P99 很高但平均值正常，可能是什么原因？"
+answer:
+  mode: rubric
+  reference_answer: "这种现象明确指示了长尾延迟，是系统存在偶发性瓶颈的典型信号。\n\n\U0001F50D 可能原因\n\n- 显存分配风暴：当大量请求并发且生成长度不一，PagedAttention
+    需要频繁分配物理页，或在显存紧张时进行碎片整理，导致某些decode步骤被长时间阻塞。\n\n- Prefill 抢占：大Prompt的prefill占用了大量计算资源，导致同时进行的decode请求被短暂阻塞（即使使用了分段prefill，仍可能因调度粒度产生毛刺）。\n\n-
+    Python GC / CUDA 同步：PyTorch 或 vLLM 内部偶尔触发 CUDA 同步点，等待所有 GPU 操作完成，瞬间卡住所有请求。\n\n-
+    操作系统调度：CPU 密集型任务（如数据预处理）与 GPU 内核竞争 CPU 时间，导致 GPU 内核提交延迟。\n\n- 网络抖动：虽然不直接影响TPOT，但如果测量在客户端进行，网络延迟也会贡献P99。\n\n\U0001F6E0️
+    排查与解决\n\n- Profiling：使用 Nsight Systems 抓取发生P99高峰时段的Timeline，找出是哪个 kernel 或 CUDA
+    API 调用特别长。\n\n- 服务日志：检查vLLM的调度日志，看是否频繁出现 “preempt” 或 “block table overflow”。\n\n-
+    调整配置：降低 gpu_memory_utilization，留出更多空闲显存给物理页分配缓冲；减小 max_num_batched_tokens 限制prefill的规模。\n\n-
+    拆分服务：将大prompt的请求路由到单独的计算池，避免干扰实时decode。\n\n\U0001F4A1 案例：我们曾发现vLLM的block manager在物理页用完时，会触发一次全局的碎片整理，耗时数百毫秒，导致P99飙升。通过降低并发数和增加显存池大小解决了问题。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZkhswRgRhiL6ulk6lKOcEU8Inse
+  block_id: ArQNdwklMoiVsmxUQsbcogkqnog
+  page_token: ZkhswRgRhiL6ulk6lKOcEU8Inse
+  original_title: "\U0001F6A8 压测时发现 TPOT 的 P99 很高但平均值正常，可能是什么原因？"
+  imported_at: '2026-09-21'

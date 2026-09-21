@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cc9b7998822f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4E6 如何为不同的下游任务管理多个 LoRA 权重？你设计过类似 LoRA Hub 的系统吗？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LoRA 高频面试题
+derived_topic: 
+tags: &1
+- LoRA 高频面试题
+content:
+  prompt: "\U0001F4E6 如何为不同的下游任务管理多个 LoRA 权重？你设计过类似 LoRA Hub 的系统吗？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    为不同下游任务管理多套 LoRA 权重，是模型服务化必须解决的工程问题。我曾设计并实现过一个简易的内部“LoRA Hub”系统，其核心思想是基座模型权重与任务适配器分离，并通过一个注册中心统一管理。
+
+    系统设计核心要素：
+
+    - 标准化存储与命名规范
+    强制所有 LoRA 权重文件遵循统一的目录结构和命名规范：/hub/{task_name}/{version}/adapter_config.json 和 adapter_model.safetensors。task_name 由业务线定义（如 customer_service_tone_v1），version 用于支持迭代和回滚。同时，一个核心的 registry.yaml 文件充当路由表，记录了每个任务的名称、最新版本、存储路径、适用的基座模型 ID 以及加载优先级等元信息。
+
+    - 动态加载与缓存机制
+    推理服务在启动时并不加载任何 LoRA 权重。当请求到来时，根据请求头中的 task_id 查询注册表，获取 LoRA 文件的存储路径。系统会先检查本地缓存，如果命中则直接加载到 GPU 内存中；否则从对象存储拉取到本地缓存后加载。为了进一步加速切换，系统中维护一个“热加载池”（LRU 策略），将最近使用的 LoRA 权重保持在 GPU 显存中。当新请求切换任务时，如果目标 LoRA 已在热加载池中，切换几乎是瞬时的（毫秒级）；否则需要从 CPU 内存或本地磁盘加载，耗时也仅为秒级。
+
+    - 版本管理与回滚
+    每次训练产出新 LoRA 权重时，注册表会新增一个版本条目，并将 latest 指针指向它。如果新版本效果不佳，只需在注册表中将流量权重调整回旧版本，即可实现秒级回滚，无需重启服务或重新加载模型。A/B 测试也变得极为简单：在注册表中为新旧两个版本的 LoRA 配置流量比例，通过网关随机将请求分配到不同的版本路径上。
+
+    实际演进：最初，我们每个任务都独立部署一个完整的 70B 基座模型和 LoRA 的合并镜像，显存成本极高。采用 LoRA Hub 后，所有任务共享同一个基座模型，只需动态挂载不同的 LoRA 插件，显存占用从一个任务的 ~140GB 降至共享基座 ~140GB + 热加载 LoRA ~1GB，硬件成本大幅下降。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XjiewYcvci750Gkvcqyc01XBnDc
+  block_id: N621dzAFSoFTFpxvZ7Jcyxwfnkf
+  page_token: XjiewYcvci750Gkvcqyc01XBnDc
+  original_title: "\U0001F4E6 如何为不同的下游任务管理多个 LoRA 权重？你设计过类似 LoRA Hub 的系统吗？"
+  imported_at: '2026-09-21'

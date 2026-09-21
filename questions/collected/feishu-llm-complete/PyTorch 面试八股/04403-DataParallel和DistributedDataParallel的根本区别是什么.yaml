@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8c3a8326da06
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: DataParallel和DistributedDataParallel的根本区别是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: DataParallel和DistributedDataParallel的根本区别是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    DataParallel（DP）和DistributedDataParallel（DDP）是PyTorch中两种实现数据并行的方式，但它们在设计哲学和实现机制上有本质的不同。
+
+    根本区别：DP采用单进程多线程架构，在一台机器的一个Python进程中通过多线程管理多张GPU；而DDP采用多进程架构，为每一张GPU启动一个独立的Python进程，进程间通过NCCL/GLOO等集合通信库进行消息传递。
+
+    这一区别决定了它们在性能、灵活性、扩展性上的巨大差异：
+
+    [嵌入表格未展开]
+
+    深度解析：
+
+    DP模式下，每进行一次前向传播，主GPU都会将整个模型的参数通过Python线程广播（scatter）给其他GPU，处理完各自的batch后，其他GPU将梯度传回主GPU（gather），由主GPU统一进行参数更新，再将更新后的模型广播出去。整个过程存在大量的Python线程间数据搬运和同步，受GIL限制，且主GPU承担了过多的通信和存储压力。
+
+    DDP则彻底抛弃了Python多线程。它通过外部进程启动器（如torchrun）为每张GPU创建一个独立的Python进程，每个进程拥有独立的解释器和GIL。进程间利用NCCL（GPU之间）或GLOO（CPU之间）进行高效的C++实现集合通信，梯度同步通过All-Reduce直接完成，无需经过某个“主”GPU。这使得DDP在多卡和多机上的扩展性极佳。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KwdbwAt6ziL8zKkU7VMcVNEin8d
+  block_id: BVcPd75F8oy15yxH06Bcd6TSnIh
+  page_token: KwdbwAt6ziL8zKkU7VMcVNEin8d
+  original_title: DataParallel和DistributedDataParallel的根本区别是什么？
+  imported_at: '2026-09-21'

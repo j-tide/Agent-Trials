@@ -1,0 +1,106 @@
+---
+schema_version: 1
+id: feishu-llm-complete-066f508fabde
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3F7️ 5. 如何通过标签 (tags) 和元数据 (metadata) 对链的调用进行分类和后续分析？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "\U0001F3F7️ 5. 如何通过标签 (tags) 和元数据 (metadata) 对链的调用进行分类和后续分析？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    标签和元数据是 LangChain 可观测性体系的两大支柱。它们被设计成附着在每一次 Runnable 调用上，并贯穿整个执行树（trace），最终输出到 LangSmith、自定义日志系统或者监控平台。
+
+    分类与分析的具体做法：
+
+    ① 打标签（tags）做粗粒度分类
+    标签是 List[str]，适合对调用进行分组。通常我会构建一套标签体系，例如：
+
+    - 环境："production", "staging", "dev"
+
+    - 实验："exp_v1", "exp_v2", "control"
+
+    - 功能模块："chatbot", "summarizer", "code_review"
+
+    - 紧急程度："critical", "low_priority"
+
+    在配置中传入：
+
+    ```python
+    config = {"tags": ["production", "chatbot", "exp_v2"]}
+    chain.invoke(input, config)
+    ```
+
+    然后，在 LangSmith 的 Runs 页面里，你可以用过滤器 tags:production AND tags:chatbot 直接筛选出所有生产环境下的聊天机器人调用。你也可以通过 LangSmith 的 SDK 拉取这些数据做离线分析，比如统计不同实验组的成功率、延迟、成本。
+
+    ② 元数据（metadata）记录细粒度上下文
+    元数据是 Dict[str, Any]，适合记录和业务紧密相关的信息，比如：
+
+    - 用户标识：user_id, tenant_id
+
+    - 会话 ID：session_id
+
+    - 请求来源：source_app, platform
+
+    - 业务参数：order_amount, document_type
+
+    - 自定义维度：prompt_version, model_name
+
+    ```python
+    config = {"metadata": {"user_id": "u123", "session_id": "sess-001"}}
+    ```
+
+    在 LangSmith 中，metadata 的每一个键都可以作为过滤和分组维度。更重要的是，你可以基于 metadata 做成本归因：通过统计 user_id 维度下的 token 消耗总量，算出每个用户花了多少钱。
+
+    ③ 结合回调进行自定义分析
+    除了 LangSmith，你也可以写一个自定义的 BaseCallbackHandler，在 on_chain_start 事件里读取 tags 和 metadata 并写入自己的分析系统（如 Prometheus + Grafana）。例如，我可以统计带 production 标签的链的平均耗时：
+
+    ```python
+    class MetricsHandler(BaseCallbackHandler):
+        def on_chain_end(self, output, **kwargs):
+            tags = kwargs.get("tags", [])
+            if "production" in tags:
+                duration = ...  # 计算耗时
+                prometheus_histogram.observe(duration)
+    ```
+
+    最佳实践：
+
+    - 在应用入口（FastAPI 中间件、消息队列消费者）统一注入 tags 和 metadata，保证所有调用都有基础标签。
+
+    - 标签用于聚合和路由，metadata 用于下钻和关联。不要在 metadata 里放高基数值（如请求 ID）作为分组依据，那会让分析系统爆炸。
+
+    - 保持标签和 metadata 的键名一致，用 enum 管理，避免拼写错误。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GVyNwmUlOitEZBkWqxUchfRtnfh
+  block_id: DXHFdTQ0BoWBphxsshxceAkYnZe
+  page_token: GVyNwmUlOitEZBkWqxUchfRtnfh
+  original_title: "\U0001F3F7️ 5. 如何通过标签 (tags) 和元数据 (metadata) 对链的调用进行分类和后续分析？"
+  imported_at: '2026-09-21'

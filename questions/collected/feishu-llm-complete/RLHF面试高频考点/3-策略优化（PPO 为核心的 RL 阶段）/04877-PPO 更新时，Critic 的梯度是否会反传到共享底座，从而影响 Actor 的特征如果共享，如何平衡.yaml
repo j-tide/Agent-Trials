@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-110be0dc1098
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: PPO 更新时，Critic 的梯度是否会反传到共享底座，从而影响 Actor 的特征？如果共享，如何平衡？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: PPO 更新时，Critic 的梯度是否会反传到共享底座，从而影响 Actor 的特征？如果共享，如何平衡？
+answer:
+  mode: rubric
+  reference_answer: |-
+    是的，当 Actor 和 Critic 共享底座时，Critic 的梯度会直接反传到共享底座，深刻地影响 Actor 使用的特征表示。 这种影响既可能是正面的促进作用，也可能是毁灭性的干扰。
+
+    影响的本质：
+
+    共享底座意味着特征空间同时用于两个目标：生成下一个 token（Actor）和评估当前状态的价值（Critic）。Critic 的损失优化会“拉扯”底座参数，使其学习到的特征对 Critic 的价值回归任务更有利。如果这些特征对 Actor 的决策也有帮助，那就形成了双赢。但现实中，二者经常冲突：Critic 可能需要一些与内容质量间接相关但易于回归的特征（如长度、某些标识词的出现频率），而 Actor 为了生成有创造性、精确的回答，可能需要更精细的语义特征。Critic 的梯度会不断将底座朝其偏好方向修正，可能“洗掉”对 Actor 至关重要的特征。
+
+    如何平衡这种冲突？
+
+    - 差异化学习率：对共享底座使用一个极小的学习率（例如是独立头学习率的 1/10），减缓 Critic 对底座的修改速度。让底座主要追随 Actor 的更新，而 Critic 主要调整自己的独立价值头来适应底座。
+
+    - 梯度缩放与掩码：在反向传播时，对来自 Critic 的梯度乘以一个小于 1 的系数（如 0.5），削弱其对共享参数的牵引力。极端情况下，可以让 Critic 的梯度完全不更新共享底座，只更新其独立的价值头。这牺牲了 Critic 的表征适应性，但保护了 Actor 的特征稳定性。
+
+    - 交替训练：不进行联合更新，而是在几个 mini-batch 中只更新 Critic（冻结共享底座），接着在几个 mini-batch 中只更新 Actor（冻结共享底座）。这避免了梯度在同一更新步中发生直接冲突，但实现复杂，且可能降低数据利用效率。
+
+    - 正则化解耦：在损失函数中加入鼓励底座特征正交或解耦的正则项，促使 Actor 和 Critic 使用底座特征的不同子空间，但这在实践中较难实现且效果不一定理想。
+
+    经验法则：在显存受限必须共享时，最常用且有效的平衡手段是给共享底座设置一个远小于独立头部学习率的学习率，并可以适当缩放来自 Critic 的梯度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UCjewCVubi1tThkQzKzczCP2nyc
+  block_id: CppKdhuu7olkg0xJbSqcLFBznRR
+  page_token: UCjewCVubi1tThkQzKzczCP2nyc
+  original_title: PPO 更新时，Critic 的梯度是否会反传到共享底座，从而影响 Actor 的特征？如果共享，如何平衡？
+  imported_at: '2026-09-21'

@@ -1,0 +1,94 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8705e47b9b7c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F524 15. 你如何确保加载的文档编码正确？遇到乱码一般怎么排查？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F524 15. 你如何确保加载的文档编码正确？遇到乱码一般怎么排查？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    编码问题是我在数据加载阶段碰到的最多、也最烦人的坑之一。经验总结三步走：
+
+    ① 预防：明确指定编码
+    对于 TextLoader，养成传 encoding 参数的习惯：
+
+    ```python
+    loader = TextLoader("doc.txt", encoding="utf-8")
+    ```
+
+    很多国产系统导出的 CSV、TXT 可能是 GBK 或 GB2312，默认 UTF-8 一定乱码。
+
+    ② 出现乱码时的排查流程：
+
+    - 二进制窥探：用 Python 读取文件的前几个字节，看有没有 BOM（如 \xef\xbb\xbf 表示 UTF-8 BOM），或有规律的双字节特征（GBK）。
+
+    ```python
+    with open("unknown.txt", "rb") as f:
+        raw = f.read(200)
+        print(raw)
+    ```
+
+    自动检测编码：使用 chardet 库猜测编码。
+
+    ```python
+    import chardet
+    with open("unknown.txt", "rb") as f:
+        raw = f.read()
+        result = chardet.detect(raw)
+        print(result)  # {'encoding': 'GB2312', 'confidence': 0.99}
+    ```
+
+    - 然后重新加载：TextLoader("unknown.txt", encoding="GB2312")。
+
+    - 尝试多种编码兜底：如果文件来源复杂，可以写一个 try-except 链条，依次尝试 utf-8, gbk, latin-1, cp1252，但要注意性能。
+
+    ③ 对于无法完美解码的文件：
+
+    - 使用 errors="ignore" 跳过无法解码的字节，但可能丢失信息。
+
+    - 使用 errors="replace" 用 � 替代，保留位置。
+
+    - 如果文件轻微损坏，可以先用 iconv 或 ftfy 库修复。
+
+    实战中的小技巧：
+
+    - 对大文件，读取前几 KB 来猜编码通常准确度很高，不必全读。
+
+    - 如果是 CSV，pandas.read_csv 的 encoding 参数同样重要，而且它支持更多编码别名。
+
+    - 我通常会在加载流程里加一个 encoding_sniffer 函数，若用户没指定编码就自动探测，避免反复手工排查。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EY1lwce7uiXgPpklg8tcoBj6nNg
+  block_id: SBpQdSGL2onfS4xTzSJccmcInDc
+  page_token: EY1lwce7uiXgPpklg8tcoBj6nNg
+  original_title: "\U0001F524 15. 你如何确保加载的文档编码正确？遇到乱码一般怎么排查？"
+  imported_at: '2026-09-21'

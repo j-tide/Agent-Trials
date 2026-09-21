@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bbaed09e66ff
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E0️你们项目用的是什么 AI 框架？为什么选它？有什么踩坑经验？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F6E0️你们项目用的是什么 AI 框架？为什么选它？有什么踩坑经验？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    （这是一个典型的面试反问，你需要展示出 “在约束下做决策” 的工程思维。我以一个通用的“企业内部知识库问答”项目为例来说明，你可以替换成自己的真实经验。）
+
+    项目背景：为某金融机构构建内部合规知识库问答系统，需要对接已有的微服务、严格的安全审计、以及对延迟和吞吐的高要求。
+
+    我们选了 Spring AI + LangGraph 的组合。
+
+    为什么选 Spring AI？
+
+    - 团队技术栈：团队全员 Java/Spring 背景，Spring AI 让我们无需学习 Python 生态就能快速构建 AI 应用。引入成本极低。
+
+    - 生态集成：需要无缝对接已有的 Spring Cloud（服务发现、配置中心）、Spring Security（OAuth2 鉴权）、Micrometer（指标监控）。Spring AI 把这些能力天然带入了 AI 调用链，而不是另起炉灶。
+
+    - 生产级特性：Advisor 机制让我们轻松实现 RAG、限流、审计日志等横切关注点，所有 AI 调用都是 Spring 管理的 Bean，行为可预测、可观测。
+
+    为什么还需要 LangGraph？
+
+    - Spring AI 解决的是“怎么调模型”，但我们的合规问答涉及多轮检索、结果校验、人工审批等复杂流程，不是一个简单的“查→答”链路。
+
+    - 我们用 LangGraph 把这些流程建模为状态图：检索 → 校验 → 生成 → 人工复核 → 终稿。每一步的状态都可以被 Checkpoint 持久化，支持中断和恢复（比如复核人过了一天才批准）。
+
+    - LangGraph 的 StateGraph 让我们能够精确控制“校验不通过就回到检索”这种循环逻辑，而不仅仅是线性执行。
+
+    踩坑经验：三个真实教训
+
+    - RAG 检索结果的“看似相关实则无用”问题
+    直接用向量相似度检索回来的文档片段，经常不是回答问题真正需要的那段。例如用户问“合同违约金的法定上限是多少”，检索回来的是“违约金条款的定义”。我们的解决方式是：先让 LLM 改写用户问题为检索关键词（Query Rewriting），再检索；检索后又用一个轻量级 LLM 做相关性过滤，把不相关的片段直接在注入 Prompt 前剔除。这大幅提升了答案的准确率。
+
+    - 大模型延迟不可预测，需要完善的超时与降级
+    生产环境中 GPT-4 的响应时间从 2 秒到 30 秒不等。我们在 Spring AI 的 RestTemplate 层面设置了 connect timeout 和 read timeout，并用 Resilience4j 的 断路器 和 舱壁模式 隔离调用。当 OpenAI 不可用时，断路器打开，自动降级到本地的 Qwen 模型（通过 Ollama 部署）。降级后的回答质量虽有下降，但系统依然可用，而不是直接报错。
+
+    - 上下文窗口管理的“沉默成本”
+    多轮对话中，我们把对话历史全量塞进 Prompt，很快 token 消耗飞涨且模型开始“遗忘”早期指令。后来实现了 滑动窗口 + 摘要混合记忆：最近 3 轮保留原文，更早的历史由一个小模型生成 50 字的摘要。这在 Spring AI 中通过自定义 ConversationMemoryAdvisor 实现，token 成本降低了 60%，同时保持了对话连贯性。
+
+    一句话总结：选型不是选“最好的”框架，而是选“在当前团队技能、已有基础设施、任务复杂性三个约束下的最优解”。 我们选 Spring AI 是为了低摩擦上生产，选 LangGraph 是为了管好复杂流程，两者互补，缺一不可。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AuVxwYFDWiT663kKLskczm8mnIh
+  block_id: doxcnwGc0xwhRkH01aY9viLHFWf
+  page_token: AuVxwYFDWiT663kKLskczm8mnIh
+  original_title: "\U0001F6E0️你们项目用的是什么 AI 框架？为什么选它？有什么踩坑经验？"
+  imported_at: '2026-09-21'

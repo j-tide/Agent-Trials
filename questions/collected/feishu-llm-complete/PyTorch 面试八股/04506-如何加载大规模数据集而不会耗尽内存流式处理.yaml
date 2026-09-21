@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-819cfd00479b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何加载大规模数据集而不会耗尽内存？流式处理。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何加载大规模数据集而不会耗尽内存？流式处理。
+answer:
+  mode: rubric
+  reference_answer: |-
+    对于无法一次性装入内存的数据集，使用可迭代数据集（IterableDataset）进行流式加载。torchdata和WebDataset是常用工具，但纯PyTorch也能实现。
+
+    关键策略：
+
+    - 使用IterableDataset：继承它并实现iter方法，每次仅加载并返回一个样本，不将所有数据保存在内存中。
+
+    - 配合DataLoader：设置num_workers并行预取，避免I/O瓶颈。
+
+    - 流式读取文件：例如，逐行读取大的JSONL文件，而不是一次性json.load整个文件。
+
+    ```python
+    from torch.utils.data import IterableDataset, DataLoader
+
+    class StreamingDataset(IterableDataset):
+        def __init__(self, file_path):
+            self.file_path = file_path
+        def __iter__(self):
+            with open(self.file_path, 'r') as f:
+                for line in f:
+                    # 解析每一行，返回一个样本
+                    sample = process(line)
+                    yield sample
+
+    dataset = StreamingDataset('huge_data.jsonl')
+    loader = DataLoader(dataset, batch_size=32, num_workers=4)
+    ```
+
+    注意：在分布式环境中，IterableDataset的数据分片需要特别处理，通常使用torch.utils.data.get_worker_info()来分配不同的数据块。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  block_id: TbQgdgoEUox1oAxMgu3cw8EOn7f
+  page_token: AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  original_title: 如何加载大规模数据集而不会耗尽内存？流式处理。
+  imported_at: '2026-09-21'

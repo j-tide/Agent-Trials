@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-08c22468ffc8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚖️ 2. 什么是混合检索？BM25 与稠密向量各有什么优劣？如何通过 RRF 融合？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "⚖️ 2. 什么是混合检索？BM25 与稠密向量各有什么优劣？如何通过 RRF 融合？"
+answer:
+  mode: rubric
+  reference_answer: "混合检索 就是把稀疏检索和稠密检索的结果“取长补短”，融合出一份既精准又相关的结果列表。\n\n2.1 BM25 与稠密向量的优劣势对比\n\n[嵌入表格未展开]\n\n2.2
+    RRF（倒数排名融合）：无痛的混合检索\n\n混合检索的关键是融合算法。RRF (Reciprocal Rank Fusion) 是最简单但也最有效的方案之一。它不关心每个检索源的具体分数（因为稀疏和稠密的分数含义完全不同，不可直接加权），只看每条结果在各自列表中的排名。\n\nRRF
+    公式：\n对于每条文档 dd，在多个检索器 r∈Rr∈R 中的排名为 rankr(d)rankr(d)，其融合得分为\n\n[图片内容未导入]\n\n其中
+    kk 是平滑常数，通常取 60。排名越靠前，得分越高。\n\n代码示例：用 Python 实现 RRF 融合\n\n```python\nfrom typing
+    import List, Dict\n\ndef reciprocal_rank_fusion(\n    bm25_results: Dict[str,
+    float],  # doc_id -> BM25 score\n    dense_results: Dict[str, float], # doc_id
+    -> Dense score\n    k: int = 60\n) -> List[str]:\n    \"\"\"\n    根据两路检索的分数（或排名）进行RRF融合，返回按融合得分降序的文档ID列表。\n
+    \   这里假设输入已经是排序好的排名，1为最高排名。\n    \"\"\"\n    # 将分数转换为排名（1-based）\n    bm25_ranked
+    = sorted(bm25_results.items(), key=lambda x: x[1], reverse=True)\n    dense_ranked
+    = sorted(dense_results.items(), key=lambda x: x[1], reverse=True)\n    \n    bm25_ranks
+    = {doc_id: i+1 for i, (doc_id, _) in enumerate(bm25_ranked)}\n    dense_ranks
+    = {doc_id: i+1 for i, (doc_id, _) in enumerate(dense_ranked)}\n    \n    # 融合\n
+    \   all_docs = set(bm25_ranks.keys()) | set(dense_ranks.keys())\n    rrf_scores
+    = {}\n    for doc in all_docs:\n        rrf = 0\n        if doc in bm25_ranks:\n
+    \           rrf += 1 / (k + bm25_ranks[doc])\n        if doc in dense_ranks:\n
+    \           rrf += 1 / (k + dense_ranks[doc])\n        rrf_scores[doc] = rrf\n
+    \   \n    # 按RRF得分降序排序\n    return sorted(rrf_scores, key=rrf_scores.get, reverse=True)\n```\n\n在
+    LangChain 中，可以直接使用 EnsembleRetriever 封装多种检索器，内部支持权重或 RRF 融合。例如：\n\n```python\nfrom
+    langchain.retrievers import EnsembleRetriever\nensemble = EnsembleRetriever(\n
+    \   retrievers=[bm25_retriever, dense_retriever],\n    weights=[0.4, 0.6],  #
+    权重分配，也可使用RRF\n)\n```\n\n调优经验：通常先给稠密检索稍高权重（0.6-0.7），因为它对自然语言更友好。但如果用户反馈“专有名词搜不到”，就适当提高
+    BM25 权重，或改用 RRF 不依赖分数的方式。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcnKol4yb1e4YTGs5prc8Mf4b
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "⚖️ 2. 什么是混合检索？BM25 与稠密向量各有什么优劣？如何通过 RRF 融合？"
+  imported_at: '2026-09-21'

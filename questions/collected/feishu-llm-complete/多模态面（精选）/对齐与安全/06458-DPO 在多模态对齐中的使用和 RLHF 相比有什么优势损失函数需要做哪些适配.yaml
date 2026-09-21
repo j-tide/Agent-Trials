@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e7a4003d17ca
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: DPO 在多模态对齐中的使用和 RLHF 相比有什么优势？损失函数需要做哪些适配？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 对齐与安全
+tags: &1
+- 多模态面（精选）
+- 对齐与安全
+content:
+  prompt: DPO 在多模态对齐中的使用和 RLHF 相比有什么优势？损失函数需要做哪些适配？
+answer:
+  mode: rubric
+  reference_answer: |-
+    如果说 PPO 是“胡萝卜加大棒”的强化学习，那 DPO 就是更精巧的“榜样学习”。它不需要显式训练一个奖励模型，而是直接在偏好数据上优化策略模型。
+
+    DPO 的优势：
+
+    - 流程更简单：DPO 砍掉了训练奖励模型和 PPO 强化学习这两个相对独立的阶段。我们不再需要维护一个单独的、跟策略模型一样大的奖励模型，也不需要去处理 PPO 训练中那些令人头疼的超参数调优和不稳定性。
+
+    - 训练更稳定：PPO 训练中，策略模型可能会通过“奖励黑客”行为来钻空子拿高分，而不是真正提升回答质量。DPO 直接在偏好对上做二元分类，梯度信号直接而稳定。
+
+    - 计算成本更低：相比需要同时加载策略模型、参考模型、奖励模型和价值模型的 PPO，DPO 只需要策略模型和参考模型，显存占用和训练时间都显著减少。
+
+    损失函数的适配：
+
+    原生 DPO 损失是：
+
+    [图片内容未导入]
+
+    其中 xx 是输入（图像+指令），ywyw 是 Chosen 回答，ylyl 是 Rejected 回答。在多模态对齐中，直接套用这个公式是不够的，需要适配。
+
+    首先，DPO 假设“更好”是一个单一的偏好轴。但在多模态中，有用性和真实性经常冲突。比如一个有用但失真 vs 一个真实但简略的回答。解决方法是解耦的多维度偏好。一种做法是，训练时用不同的系统提示来区分维度：[Faithfulness] 提示下的偏好数据只优化真实性，[Helpfulness] 提示下的偏好数据只优化有用性。另一种做法是，对损失函数加权，用不同权重的 DPO 损失项对应不同维度的偏好。
+
+    其次，由于视觉 token 带来了额外的信息复杂性，\beta 值的设定可能需要比纯文本模型更小的值，以避免模型对某个维度的偏好变化过于剧烈，导致灾难性遗忘。训练过程需要更精细的监控。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/R2oOwlZ2GiMrQSkuLbBcNBtInEh
+  block_id: McEvdsrBSoPGbXxSAFNcXrjdnh1
+  page_token: R2oOwlZ2GiMrQSkuLbBcNBtInEh
+  original_title: DPO 在多模态对齐中的使用和 RLHF 相比有什么优势？损失函数需要做哪些适配？
+  imported_at: '2026-09-21'

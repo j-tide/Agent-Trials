@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f7453a7af6cf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用torch.nn.utils.prune对一个卷积网络进行全局剪枝？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何使用torch.nn.utils.prune对一个卷积网络进行全局剪枝？
+answer:
+  mode: rubric
+  reference_answer: |-
+    全局剪枝（Global Pruning）是对整个模型的所有参数统一设定一个稀疏度目标，自动去除那些全局重要性最低的连接，而不仅仅是逐层剪枝。PyTorch提供了torch.nn.utils.prune.global_unstructured函数来实现。
+
+    步骤：
+
+    - 定义需要剪枝的参数列表：收集模型中所有你想要参与剪枝的层（通常是卷积层和全连接层的权重）。
+
+    ```python
+    params_to_prune = []
+    for name, module in model.named_modules():
+        if isinstance(module, torch.nn.Conv2d):
+            params_to_prune.append((module, 'weight'))
+    ```
+
+    - 指定剪枝方法：例如使用L1范数衡量重要性。
+
+    ```python
+    from torch.nn.utils import prune
+    prune.global_unstructured(
+        params_to_prune,
+        pruning_method=prune.L1Unstructured,
+        amount=0.5,  # 稀疏度：50%的权重将被置零
+    )
+    ```
+
+    - 验证稀疏度：剪枝后，权重的weight_mask属性会保存掩码。可以通过torch.sum(module.weight == 0)查看零元素数量。
+
+    注意
+
+    - 全局剪枝一次性去除所有层中不重要的权重，能实现更好的压缩率，但可能导致某些层被过度剪枝。
+
+    - 剪枝后需要微调以恢复精度。
+
+    - 如果希望永久移除剪枝带来的掩码和计算图开销，可调用prune.remove(module, 'weight')，但这样会将零权重物理保留（仍为零），后续通常需转换为稀疏格式才能真正加速。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  block_id: MaoGdeoD5onQClxzuzTcMqFbnte
+  page_token: AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  original_title: 如何使用torch.nn.utils.prune对一个卷积网络进行全局剪枝？
+  imported_at: '2026-09-21'

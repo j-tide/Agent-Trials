@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5d740662c670
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3D7️ 18. 在项目里，你一般把文档加载的逻辑放在哪里？是一次性脚本还是实时服务？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F3D7️ 18. 在项目里，你一般把文档加载的逻辑放在哪里？是一次性脚本还是实时服务？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这取决于数据源的更新频率和应用场景，我的习惯是混合使用：
+
+    ① 静态 / 低频更新的知识库 → 一次性脚本或定时批处理
+
+    比如公司制度、产品手册、历史档案，可能几周甚至几个月才更新一次。我会写一个独立的 Python 脚本（或 Airflow DAG），每周日凌晨跑一次：
+
+    - 从 S3/本地目录加载文件
+
+    - 执行加载、分割、嵌入
+
+    - 存入向量数据库（覆盖旧索引或增量更新）
+
+    - 脚本执行完毕就退出，不在服务里常驻
+
+    这种方式简单、可控、资源消耗低，而且很容易和 CI/CD 集成（比如文档更新后触发流水线重建索引）。
+
+    ② 高频实时数据 → 常驻服务 + 事件驱动
+
+    比如用户实时上传的 PDF、客服对话记录、实时日志。通常会在后端 API 服务（如 FastAPI）里，上传文件后同步或异步触发加载与索引更新。一般会：
+
+    - 在文件上传接口中，使用 lazy_load 流式加载并写入消息队列（Kafka/Redis Stream）
+
+    - 下游消费者完成分割和嵌入，更新向量库
+
+    - 或者使用 LangChain 的 Indexing API + RecordManager，自动管理增量写入和清理
+
+    对于这种场景，loader.load() 直接写在请求处理里可能有风险（大文件会阻塞），所以常放在后台任务（Celery / FastAPI BackgroundTasks）中执行。
+
+    ③ 我的一般原则：
+
+    - 加载逻辑要独立于 Web 服务主线程，避免影响响应延迟。
+
+    - 能用离线批处理就不用实时加载，减少并发压力。
+
+    - 为加载过程添加完整的日志和告警，因为数据加载失败会导致知识库“降智”，比服务宕机更隐蔽。
+
+    因此，我很少在关键的在线服务代码里直接调 loader.load()，而是将加载封装成一个可被调用的“数据刷洗 Job”，根据策略调度执行。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EY1lwce7uiXgPpklg8tcoBj6nNg
+  block_id: MDMaduaUgok69Xx3dfjcKDvInEb
+  page_token: EY1lwce7uiXgPpklg8tcoBj6nNg
+  original_title: "\U0001F3D7️ 18. 在项目里，你一般把文档加载的逻辑放在哪里？是一次性脚本还是实时服务？"
+  imported_at: '2026-09-21'

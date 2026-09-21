@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-70a6cddd6214
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 动态分辨率输入的多模态模型，推理时如何有效处理不同大小的图像？批处理如何做 Padding？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 动态分辨率输入的多模态模型，推理时如何有效处理不同大小的图像？批处理如何做 Padding？
+answer:
+  mode: rubric
+  reference_answer: |-
+    动态分辨率技术（如LLaVA-1.5-HD）将大尺寸图像切分为多个子块，每个子块独立编码，最终所有子块token和全局缩略图token拼接送入LLM。不同图像切分后的子块数量不同，导致视觉token数量可变。这对批处理带来挑战：batch内样本的视觉token长度不一致。
+
+    处理方法：
+
+    - 动态Padding与Attention Mask
+
+    将batch内所有样本的视觉token padding到最大长度，文本token也padding到该batch的最大长度。同时构造attention mask屏蔽掉padding位置。这是最通用的方法，但浪费计算和显存，当长度差异大时效率很低。
+
+    - 分组Batch（Bucketing）
+
+    根据视觉token数量将请求分组：比如分成token数1-128、129-256、257-512等。每个batch内长度相近，padding浪费少。推理服务维护多个batch队列，动态组装。
+
+    - 不合并Batch，使用连续批处理
+
+    现代推理引擎如vLLM、SGLang支持连续批处理（Continuous Batching），每个请求单独调度，不强制物理上的batch拼接。每个序列的key-value缓存独立管理，传入新请求时直接追加到运行batch中。这样就避免了padding问题，因为每个序列的视觉token只需在prefill阶段一次性编码，生成阶段KV缓存长度已固定。
+
+    - 视觉Token数量上限裁剪
+
+    设定最大视觉token数（如1024），超出部分进行空间下采样或重要性筛选，强制截断。这牺牲了极端高分辨率下的细节，但保障了系统稳定。
+
+    - 自适应分辨率选择
+
+    根据图像实际内容动态决定是否使用高分辨率模式。简单图像（大面积纯色）不用切块，复杂文档才启用。这可以在源头减少token数量差异。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RRQVwfGDQiejs6kBW04ch16ynHe
+  block_id: P3yedXxHOooqsIxMKlLcjr9Xn3c
+  page_token: RRQVwfGDQiejs6kBW04ch16ynHe
+  original_title: 动态分辨率输入的多模态模型，推理时如何有效处理不同大小的图像？批处理如何做 Padding？
+  imported_at: '2026-09-21'

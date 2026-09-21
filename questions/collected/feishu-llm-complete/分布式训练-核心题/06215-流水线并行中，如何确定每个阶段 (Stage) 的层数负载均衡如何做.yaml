@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9d3a34839ec3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 流水线并行中，如何确定每个阶段 (Stage) 的层数？负载均衡如何做？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 流水线并行中，如何确定每个阶段 (Stage) 的层数？负载均衡如何做？
+answer:
+  mode: rubric
+  reference_answer: |-
+    目标：使各流水线阶段的总计算时间尽可能相等，以减少气泡。
+
+    方法：
+
+    - Profiling：在单卡上运行完整的模型前向和反向，精确测量每一层的计算耗时（FLOPs或实际时间）。同时考虑不同层之间的激活值大小差异可能带来的通信时间。
+
+    - 按计算量均分：将模型所有层的计算时间累加，除以流水线阶段数P，得到每个阶段的目标计算时间。然后通过动态规划或贪心算法寻找分割点，使得每个阶段的总计算时间尽可能接近该目标值。动态规划可以精确求解最小化最大阶段时间问题（类似于“划分数组为P份使最大和最小”）。
+
+    - 考虑首尾特殊层：嵌入层和输出层通常参数量大但计算模式不同。可以将它们单独分配给第一个和最后一个阶段，并相应调整其分配的Transformer层数量。
+
+    - 显存约束：某些层可能需要更多显存（如注意力矩阵大的层），可能导致OOM。因此，划分时还需考虑每阶段的峰值显存，确保不超过设备显存。
+
+    - 交错调度下的负载均衡：如果使用交错流水线，每个设备负责多个不连续的模型块，负载均衡可以在更细粒度进行。
+
+    Megatron-LM的实现：提供了--num_layers_per_virtual_pipeline_stage等参数，允许用户手动指定层分配，或者使用自动搜索脚本找到最优划分。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: BWbcd1QEsoKLaJxBzEbc0N81n6e
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: 流水线并行中，如何确定每个阶段 (Stage) 的层数？负载均衡如何做？
+  imported_at: '2026-09-21'

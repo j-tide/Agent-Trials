@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f0408fe26ee4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F399️ 16. 语音交互SFT需要处理哪些特殊数据格式？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F399️ 16. 语音交互SFT需要处理哪些特殊数据格式？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    语音交互SFT的目标是让模型能够直接理解和生成语音，而不仅仅是文本。这要求SFT数据处理能够处理语音的连续性、副语言信息（如语调、情感）和流式交互等特点。特殊的数据格式和处理需求主要包括：
+
+    一、语音Token化：离散单元表示
+
+    语音是连续的波形信号，无法直接输入到基于离散token的LLM中。因此，第一步必须将语音转换为离散的token序列，这个序列要尽量无损地保留语音内容、音色、情感和语速等信息。
+
+    - 语义Token与声学Token：通常使用一个语音Tokenizer（如EnCodec, SpeechTokenizer）将语音波形转化为两组token。
+
+    - 交错或融合序列：在SFT数据中，语音最终被表示为一个语义token和声学token的交错或融合序列。模型需要同时学习预测这些token，从而在生成语音时既能说出正确的内容，又能模仿特定的音色和情感。
+
+    二、多模态对话的序列组织
+
+    一段包含语音的对话，其SFT序列格式非常复杂。假设用户输入的是语音，模型输出的是语音，但中间可能夹杂文本：
+
+    ```text
+    <|user_audio_start|> {语义Token序列} {声学Token序列} <|user_audio_end|>
+    <|assistant_text_start|> 好的，我明白了。让我为你查询一下。 <|assistant_text_end|>
+    <|tool_call_start|> ... <|tool_call_end|>
+    <|tool_response_start|> ... <|tool_response_end|>
+    <|assistant_audio_start|> {语义Token序列} {声学Token序列} <|assistant_audio_end|>
+    ```
+
+    这种格式需要在文本对话模板（如ChatML）的基础上，定义新的语音特定标记（如<|user_audio_start|>），并精确地将音频token流注入到序列的正确位置。模型必须学会这些标记的含义，并知道何时生成文本token，何时生成音频token。
+
+    三、流式交互数据的处理
+
+    语音交互是天生流式的，用户边说，模型就应该边听边思考，甚至可能打断。SFT数据需要模拟这种分块输入的场景。
+
+    - 用户的语音不会等到全部结束才被送入模型。数据可能被组织成：第一块语音输入 -> 模型内部思考或空输出 -> 第二块语音输入 -> 模型开始生成文本或语音回应。
+
+    - 这要求数据中包含时间对齐信息，并且SFT训练时需要对这种分块序列格式进行特殊处理，让模型学会在信息不完整时进行“等待”或“预测”。
+
+    四、副语言信息的显式标注
+
+    在某些场景下，我们需要模型对语调或情感做出反应。SFT数据可以直接在文本指令或回答中引入对副语言信息的描述。
+
+    - 用户指令（文本）：“（语气：愤怒）为什么快递还没到？”
+
+    - 模型回答（文本）：“非常抱歉给您带来了不好的体验。我听到您语气很着急，我立刻为您查询。”
+    这种数据形式使得模型不需要从原始音频中隐式学习情感，而是可以直接通过自然语言理解并响应副语言信息。
+
+    ✅ 总结：语音交互SFT需要处理的核心数据格式包括语音内容的离散语义/声学Token、融合多模态的复杂对话序列、模拟流式交互的分块数据，以及显式标注副语言信息的文本。这些格式共同构成了连接连续语音世界与离散语言模型的桥梁。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QxC9wMhjZi9E20kUA1TcTNQTnSh
+  block_id: H3mVdaZfbo7FLxxZViocjbPtnmf
+  page_token: QxC9wMhjZi9E20kUA1TcTNQTnSh
+  original_title: "\U0001F399️ 16. 语音交互SFT需要处理哪些特殊数据格式？"
+  imported_at: '2026-09-21'

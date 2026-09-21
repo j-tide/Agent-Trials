@@ -1,0 +1,94 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1105e82ac6f6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BB 5. SFT能否让模型学会使用代码解释器？需要怎样的数据？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F4BB 5. SFT能否让模型学会使用代码解释器？需要怎样的数据？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    SFT完全可以教会模型使用代码解释器，但这需要超越简单的“代码生成”，将代码执行、结果反馈和后续修正融入对话流。SFT数据需要精确地模拟整个“编写-执行-观察-迭代”的交互循环。
+
+    一、核心能力拆解
+
+    要让模型使用代码解释器，SFT必须注入以下几种能力：
+
+    - 识别何时需要代码：并非所有问题都需要代码。模型必须学会判断问题是纯粹的知识问答，还是需要精确计算、数据分析、可视化、文件处理等。
+
+    - 编写可执行代码：生成的代码必须语法正确，能够处理边界情况，并输出期望的结果。
+
+    - 理解执行结果：能够解析解释器返回的标准输出、错误信息（traceback）、文件输出等。
+
+    - 错误调试与修正：当执行错误时，能够根据错误信息分析原因，并修正代码重新尝试。
+
+    - 基于结果生成最终回答：将代码执行产生的数值、图表、数据框等，转化为用户能理解的自然语言总结。
+
+    二、SFT数据应包含的循环结构
+
+    训练数据必须模拟完整的、可能包含多次尝试的“代码交互循环”。一种典型的数据结构如下：
+
+    - 用户提出任务：“帮我分析这个CSV文件里销售额的月度趋势，并画一张折线图。”（文件已提前提供）
+
+    - 模型生成代码：模型输出一个<tool_call>块，调用code_interpreter函数，参数是包含完整的Python代码的字符串。
+
+    ```text
+    <tool_call>
+    {"name": "code_interpreter", "arguments": {"code": "import pandas as pd\nimport matplotlib.pyplot as plt\n..."}}
+    </tool_call>
+    ```
+
+    - 解释器返回结果：工具返回的消息可以是标准输出、错误信息，或者生成图片的引用。例如，tool返回：{"stdout": "", "error": "ModuleNotFoundError: No module named 'matplotlib'", "images": []}
+
+    - 模型识别错误并修正：模型分析出缺少matplotlib库，于是修正代码，尝试使用内置的绘图库，或添加安装指令（如果环境允许），并再次发起调用。
+
+    - 成功执行与结果输出：修正后代码成功执行，tool返回：{"stdout": "图表已生成", "images": ["fig1.png"], "error": ""}。
+
+    - 模型生成最终回答：模型根据成功结果，生成自然语言总结，并引用生成的图片。
+
+    这个循环展示了“尝试-错误-修正-成功”的完整过程。SFT数据必须包含大量此类多轮交互的样本，尤其是包含错误和修正的样本，否则模型面对执行错误时会束手无策。
+
+    三、关键数据细节
+
+    - 代码格式：代码必须放在特殊标记（如<tool_call>）内，并且经过转义以符合JSON字符串规范。模型需要学会生成符合JSON规范的代码块，包括对引号、换行符的处理。
+
+    - 错误信息的多样性：数据中应覆盖各种常见的错误类型：语法错误、导入错误、类型错误、超时错误、内存不足等。每种错误都应配有正确的分析和修正策略。
+
+    - 结果的多模态性：代码执行不仅返回文本，还可能产生图片、CSV文件等。数据中需要包含模型如何利用这些多模态输出的示例（例如，引用生成的图片进行描述）。
+
+    - 安全性约束：代码解释器通常运行在沙箱环境中，但模型仍可能被要求执行危险代码。SFT数据中应包含模型拒绝执行危险代码的示例（如“删除系统文件”），并解释拒绝原因，以建立安全边界。
+
+    ✅ 总结：SFT教会模型使用代码解释器，关键在于训练数据包含了“编写代码-执行失败-解读错误-修正代码-最终成功”的完整循环，并覆盖了多样的错误类型和多模态输出处理，将模型从单纯的代码生成器提升为能自主解决问题的智能体。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QxC9wMhjZi9E20kUA1TcTNQTnSh
+  block_id: TR9FdvrpmohNLdxg4mhcEXeMnnd
+  page_token: QxC9wMhjZi9E20kUA1TcTNQTnSh
+  original_title: "\U0001F4BB 5. SFT能否让模型学会使用代码解释器？需要怎样的数据？"
+  imported_at: '2026-09-21'

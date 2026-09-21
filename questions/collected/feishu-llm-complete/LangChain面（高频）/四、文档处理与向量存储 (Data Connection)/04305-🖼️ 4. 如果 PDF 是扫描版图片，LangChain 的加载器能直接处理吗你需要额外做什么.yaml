@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d79ce7f748f9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F5BC️ 4. 如果 PDF 是扫描版图片，LangChain 的加载器能直接处理吗？你需要额外做什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F5BC️ 4. 如果 PDF 是扫描版图片，LangChain 的加载器能直接处理吗？你需要额外做什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    直接回答：绝大多数纯文本提取加载器（如 PyPDFLoader）处理不了扫描版 PDF，因为它们只是从 PDF 的文本层提取字符，而扫描件只有一张大图片，没有文本层，结果常常是空字符串或乱码。
+
+    你需要引入 OCR（光学字符识别）。LangChain 里有几个路径：
+
+    - 使用 UnstructuredPDFLoader + strategy="ocr_only"
+    unstructured 库集成了对 pytesseract 和 tesseract 的调用。只要你安装了 tesseract 并配置好语言包（如 chi_sim），就可以这样用：
+
+    ```python
+    from langchain_community.document_loaders import UnstructuredPDFLoader
+
+    loader = UnstructuredPDFLoader(
+        "scanned.pdf",
+        mode="elements",
+        strategy="ocr_only",          # 完全只用 OCR
+        languages=["eng", "chi_sim"], # 英文和简体中文
+    )
+    docs = loader.load()
+    ```
+
+    - 注意：strategy="hi_res" 也会在需要时自动触发 OCR，但 "ocr_only" 强制走全 OCR，确保扫描件不会漏掉。
+
+    - 先 OCR 后加载
+    你也可以完全脱离 LangChain，自己用 pytesseract 或云服务（如 Azure Document Intelligence、AWS Textract）将 PDF 转成可搜索 PDF 或直接提取文本，再把文本喂给 TextLoader。这种方式的优点是可控性强，可以针对特定版式调优 OCR 参数。
+
+    - 使用云文档解析服务
+    AzureAIDocumentIntelligenceLoader、AmazonTextractPDFLoader 等加载器直接封装了云端 OCR 服务，只需传入凭证，它们会处理扫描件并返回结构化的文档，支持表格、键值对等。这是企业级项目最省心的方案，但需要额外成本。
+
+    我的实践经验：如果扫描质量较高（300dpi 以上），本地 tesseract 效果不错；但如果文档有水印、印章、模糊文字，本地 OCR 可能产生大量噪音。此时云端 OCR 模型的准确率优势就体现出来了。同时，OCR 后的文本通常需要做一定的后处理（去噪、纠正常见识别错误），以免影响检索和 LLM 理解。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EY1lwce7uiXgPpklg8tcoBj6nNg
+  block_id: Nqs0dsn5ioXCH4xhDb4cWtF2nWe
+  page_token: EY1lwce7uiXgPpklg8tcoBj6nNg
+  original_title: "\U0001F5BC️ 4. 如果 PDF 是扫描版图片，LangChain 的加载器能直接处理吗？你需要额外做什么？"
+  imported_at: '2026-09-21'

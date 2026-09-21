@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8d1e4532ca5d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用DeepSpeed配置文件启动SFT训练，写出命令行和关键配置。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 使用DeepSpeed配置文件启动SFT训练，写出命令行和关键配置。
+answer:
+  mode: rubric
+  reference_answer: |-
+    配置文件 ds_config.json：
+
+    ```json
+    {
+      "train_batch_size": 16,
+      "gradient_accumulation_steps": 4,
+      "optimizer": {
+        "type": "AdamW",
+        "params": {
+          "lr": 2e-5,
+          "weight_decay": 0.1
+        }
+      },
+      "fp16": {
+        "enabled": false
+      },
+      "bf16": {
+        "enabled": true
+      },
+      "zero_optimization": {
+        "stage": 2,
+        "offload_optimizer": {
+          "device": "cpu",
+          "pin_memory": true
+        },
+        "overlap_comm": true,
+        "contiguous_gradients": true
+      },
+      "gradient_clipping": 1.0,
+      "steps_per_print": 10
+    }
+    ```
+
+    启动命令：
+
+    ```bash
+    deepspeed --num_gpus=4 train_sft.py \
+        --deepspeed ds_config.json \
+        --model_name_or_path meta-llama/Llama-2-7b-hf \
+        --data_path ./sft_data.jsonl \
+        --output_dir ./output \
+        --per_device_train_batch_size 4 \
+        --gradient_accumulation_steps 4 \
+        --learning_rate 2e-5 \
+        --num_train_epochs 2 \
+        --bf16 \
+        --logging_steps 10
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: UqDedMC3lo8E2hxAh8Vc4OjJnEc
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: 使用DeepSpeed配置文件启动SFT训练，写出命令行和关键配置。
+  imported_at: '2026-09-21'

@@ -1,0 +1,94 @@
+---
+schema_version: 1
+id: feishu-llm-complete-48ecad1442ef
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 1. MongoDB 的分片集群是如何工作的？如何选择分片键？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F9E9 1. MongoDB 的分片集群是如何工作的？如何选择分片键？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    当单台服务器的内存、磁盘或 CPU 无法承载数据量和吞吐量时，就需要将数据水平拆分到多台服务器上。MongoDB 的分片集群正是为此而生。
+
+    分片集群的三大组件
+
+    [图片内容未导入]
+
+    - mongos：无状态的路由节点，负责接收客户端请求，根据分片键和配置信息将请求路由到对应的 Shard，并合并结果。可以部署多实例实现负载均衡。
+
+    - Config Server：存储集群的元数据，包括数据如何分布（分片键范围与 Shard 的映射）。必须是副本集以保证高可用。
+
+    - Shard：真正存储数据的单元。每个 Shard 是一个独立的副本集，拥有完整的数据副本和高可用能力。
+
+    数据分布与 Chunk 机制
+
+    数据根据分片键的值被切分成一个个 Chunk（默认大小 64MB）。当一个 Chunk 过大或数据分布不均时，MongoDB 会在 Shard 之间自动迁移 Chunk，这个过程叫做自动均衡。
+
+    ```text
+    分片键: user_id (范围分片)
+    ═════════════════════════════════
+    Shard A: user_id [ minKey  ─── 1000 ]
+    Shard B: user_id [ 1001   ─── 2000 ]
+    Shard C: user_id [ 2001   ─── maxKey ]
+    ```
+
+    如何选择分片键？选择分片键是分片集群设计中最关键的决策，一旦选定很难更改。 需要同时考虑两个目标：数据均匀分布和查询隔离。
+
+    高效分片键的四个黄金法则
+
+    - 高基数：分片键的值应有足够多的不同取值。比如 country 只有几十个值，数据最多分布在几十个 Chunk，无法实现真正的水平扩展。
+
+    - 均匀分布：写入操作应尽可能均匀地分散到所有 Shard，避免某个 Shard 成为热点。哈希分片或复合分片键可以有效解决递增键的热点问题。
+
+    - 查询隔离：绝大多数查询应能根据分片键定位到单个 Shard（称为定向查询），而不是广播到所有 Shard。比如一个 SaaS 系统，查询总是带上 company_id，那么用 company_id 做分片键就很理想。
+
+    - 避免单调递增：ObjectId 和自增 ID 的前缀具有时间单调性，如果直接作为范围分片键，所有最新写入都会打到同一个 Shard。应改用哈希分片，或组合上另一个高基数前缀字段。
+
+    示例代码：创建分片集群并指定分片键
+
+    ```javascript
+    // 1. 连接到 mongos
+    mongos> sh.addShard("shard1/localhost:27018")
+    mongos> sh.addShard("shard2/localhost:27019")
+
+    // 2. 对数据库启用分片
+    mongos> sh.enableSharding("agent_db")
+
+    // 3. 选择哈希分片键 (user_id)
+    mongos> sh.shardCollection("agent_db.sessions", { "user_id": "hashed" })
+
+    // 4. 或选择复合范围分片键 (tenant_id + created_at)
+    mongos> sh.shardCollection("agent_db.tasks", { "tenant_id": 1, "created_at": 1 })
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BXVdwSFoCiy4apkiMglchiTGnmh
+  block_id: doxcnBcth6Gq3cTWhXmoKmElXSh
+  page_token: BXVdwSFoCiy4apkiMglchiTGnmh
+  original_title: "\U0001F9E9 1. MongoDB 的分片集群是如何工作的？如何选择分片键？"
+  imported_at: '2026-09-21'

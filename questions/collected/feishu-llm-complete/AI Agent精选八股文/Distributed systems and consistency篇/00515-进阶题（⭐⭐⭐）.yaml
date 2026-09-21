@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-317152744f4f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 2、进阶题（⭐⭐⭐）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Distributed systems and consistency篇
+tags: &1
+- AI Agent精选八股文
+- Distributed systems and consistency篇
+content:
+  prompt: 2、进阶题（⭐⭐⭐）
+answer:
+  mode: rubric
+  reference_answer: "题目：BASE 理论在实际系统中怎么落地？举例说明最终一致性的工程实现\n\n1️⃣ Common Answer BASE
+    理论是 Basically Available、Soft state、Eventually consistent。它是对 CAP 的补充，强调最终一致性。在实际系统中，可以通过消息队列、异步处理、补偿机制来实现最终一致性。比如电商订单系统，下单后先返回成功，然后异步处理库存和支付，最终保证数据一致。\n\n2️⃣
+    Impressive Answer BASE 理论是分布式系统设计的实践指南，通过柔性事务实现高可用和最终一致性：\n\nBASE 理论核心要素：\n\n-
+    Basically Available（基本可用）：\n\n- 系统在出现故障时，允许损失部分可用性\n\n- 降级策略：功能降级、限流、熔断\n\n- 示例：双十一期间，非核心服务降级，保证核心交易链路可用\n\n-
+    Soft State（软状态）：\n\n- 允许系统中的数据存在中间状态\n\n- 不要求强一致性，允许数据在不同节点间存在延迟\n\n- 示例：订单状态从\"待支付\"到\"已支付\"到\"已完成\"的流转\n\n-
+    Eventually Consistent（最终一致性）：\n\n- 系统保证在没有新更新的情况下，最终所有副本的数据一致\n\n- 一致性窗口的时间取决于系统设计和网络延迟\n\n-
+    示例：DNS 解析的最终一致性，通常在几分钟内全球同步\n\n最终一致性的工程实现：\n\n- 基于 MQ 的异步消息（消息队列模式）：\n\n```text\n订单服务
+    → MQ → 库存服务\n           → 支付服务\n           → 物流服务\n```\n\n- 实现要点：\n\n- 代码示例：`java@Transactionalpublic
+    void createOrder(Order order) {// 1. 保存订单orderMapper.insert(order);\n\n```text\n//
+    2. 发送消息到 MQ\n  Message message = MessageBuilder\n      .withPayload(order)\n      .setHeader(\"orderId\",
+    order.getId())\n      .build();\n  rocketMQTemplate.send(\"order-created\", message);\n```\n\n}\n\n@RocketMQMessageListener(topic
+    = \"order-created\") public class OrderConsumer implements RocketMQListener<Order>
+    {\n\n```text\n@Override\n  public void onMessage(Order order) {\n      // 幂等性检查\n
+    \     if (isProcessed(order.getId())) {\n          return;\n      }\n      \n
+    \     // 扣减库存\n      inventoryService.deduct(order.getProductId(), order.getQuantity());\n
+    \     \n      // 标记已处理\n      markProcessed(order.getId());\n  }\n```\n\n} `\n\n-
+    补偿事务模式（Saga 模式）：\n\n- 将长事务拆分为多个本地事务\n\n- 每个本地事务都有对应的补偿操作\n\n- 失败时按相反顺序执行补偿\n\n-
+    实现示例：`javapublic class OrderSaga {public void execute(Order order) {try {// 步骤1：创建订单orderService.create(order);\n\n```text\n//
+    步骤2：扣减库存\n          inventoryService.deduct(order);\n          \n          //
+    步骤3：创建支付\n          paymentService.create(order);\n          \n      } catch (Exception
+    e) {\n          // 补偿：回滚支付\n          paymentService.cancel(order);\n          \n
+    \         // 补偿：恢复库存\n          inventoryService.restore(order);\n          \n
+    \         // 补偿：取消订单\n          orderService.cancel(order);\n          \n          throw
+    e;\n      }\n  }\n```\n\n} `\n\n- TCC（Try-Confirm-Cancel）模式：\n\n- Try：资源预留和检查\n\n-
+    Confirm：确认执行业务操作\n\n- Cancel：取消执行，释放资源\n\n- 实现示例：`javapublic interface InventoryTCCService
+    {// Try：冻结库存@Compensableboolean freezeInventory(String productId, int quantity);\n\n```text\n//
+    Confirm：扣减库存\n  boolean deductInventory(String productId, int quantity);\n  \n
+    \ // Cancel：释放冻结库存\n  boolean releaseInventory(String productId, int quantity);\n```\n\n}
+    `\n\n- 本地消息表模式（基于数据库的可靠消息）：\n\n- 将消息和业务操作在同一事务中写入本地消息表\n\n- 定时任务扫描消息表，发送消息到 MQ\n\n-
+    消息发送成功后更新消息状态\n\n- 实现要点：\n\n- 读写分离 + 最终一致性：\n\n- 主库负责写操作，从库负责读操作\n\n- 主从复制存在延迟，允许短暂的数据不一致\n\n-
+    适用于读多写少的场景（如电商商品信息）\n\n工程实践：\n\n一致性监控：\n\n- 监控数据不一致的窗口时间\n\n- 告警机制：不一致时间超过阈值时告警\n\n-
+    数据对账：定期比对主从数据，修复不一致\n\n一致性级别选择：\n\n- 强一致性：金融交易、库存扣减（使用 CP 模式、分布式事务）\n\n- 最终一致性：订单状态更新、用户资料修改（使用
+    MQ、异步处理）\n\n- 弱一致性：缓存数据、推荐结果（允许过期）\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YhRxwgmAsiJbzZktG6wcNPNznyg
+  block_id: doxcnOPa1dL2y8auExR8MFvOwlf
+  page_token: YhRxwgmAsiJbzZktG6wcNPNznyg
+  original_title: 2、进阶题（⭐⭐⭐）
+  imported_at: '2026-09-21'

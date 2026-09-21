@@ -1,0 +1,90 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ac86df6980dc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50D 14. 如何检测SFT数据集与评测基准的重叠？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F50D 14. 如何检测SFT数据集与评测基准的重叠？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    检测SFT数据集与评测基准的重叠，需要构建一个从粗筛到精判、从表面到语义、可规模化执行的多级检测管道。单一方法都有效率和准确性的局限，组合使用才能平衡去污质量和计算成本。
+
+    一、多级检测管道设计表
+
+    [嵌入表格未展开]
+
+    二、粗筛：n-gram重叠检测
+
+    这是第一道防线。将每条SFT训练样本的指令部分和评测集的每道题目分别切分为13-gram（经验值，能在覆盖度和特异性之间取得平衡）。计算每个训练样本与整个评测集中所有题目的最大n-gram重叠率。
+
+    - 重叠率 = 共现的13-gram数量 / 训练样本的13-gram总数
+
+    - 如果最大重叠率超过阈值（如0.6），标记为“疑似污染”
+
+    - 阈值可调：学术研究中常采用更严格的值（如0.3-0.5），工业应用可根据可接受的风险水平调整
+
+    n-gram方法的局限是无法检测被大量改写后的样本，因此需要后续的语义检测。
+
+    三、中筛：嵌入相似度
+
+    将每条训练样本的指令和评测集中的题目分别通过句子嵌入模型（如all-MiniLM-L6-v2或text-embedding-3-small）转换为固定维度的向量。对于每个训练样本，计算其与所有评测题目的余弦相似度，取最大值。如果最大相似度超过阈值（如0.85），标记为可疑。
+
+    为了提高效率，可以使用FAISS等向量索引加速最近邻搜索，避免暴力全量比对。对于百万级SFT数据和数万条评测题，全量比对在GPU上可以在数小时内完成。
+
+    四、精筛：强模型逐对评判
+
+    对于前两步标记为“可疑”的样本对，抽取一定比例（或全部）进行人工审核或使用强模型（如GPT-4）自动评判。评判prompt设计如下：
+
+    请判断以下两个问题是否在测试相同的核心知识和能力。
+    如果是，回答“重叠”；如果不是，回答“不重叠”。
+
+    问题A：{训练样本指令}
+    问题B：{评测题目}
+
+    仅回答“重叠”或“不重叠”。
+
+    如果强模型判断为“重叠”，则该训练样本从SFT数据集中移除。这一步能有效过滤掉语义等价但措辞完全不同的间接污染，也避免了误杀正常的常识重叠。
+
+    五、跨语言重叠检测
+
+    对于多语言SFT，还需要检测训练数据中是否包含评测题的翻译版本。方法是将训练数据中的非英语指令翻译为英语，然后与英文评测集进行嵌入相似度比较。或者直接使用多语言嵌入模型（如paraphrase-multilingual-MiniLM-L12-v2）在同一向量空间中比较。
+
+    六、避免过度去污的校验机制
+
+    去污完成后，需要验证是否误删了合理数据。随机抽取被删除的样本，人工判断是否真的构成污染。如果误删率过高，说明阈值设置过严，需要调松参数。另一个实用的验证是：在去污后的SFT数据上训练一个小模型，在评测集的一个不参与比较的子集上测试，看是否有异常高分现象。
+
+    ✅ 总结：检测SFT数据与评测基准重叠，应采用“n-gram粗筛→嵌入精筛→强模型终审”的多级管道。这兼顾了计算效率与判断准确性，并需要配合跨语言检测和误删校验，才能实现可靠的数据去污染。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tx5MwZddviIdFJkeUJbc7HEvnWe
+  block_id: U17tdpqGdo9f3kxtM1QcOewSn4d
+  page_token: Tx5MwZddviIdFJkeUJbc7HEvnWe
+  original_title: "\U0001F50D 14. 如何检测SFT数据集与评测基准的重叠？"
+  imported_at: '2026-09-21'

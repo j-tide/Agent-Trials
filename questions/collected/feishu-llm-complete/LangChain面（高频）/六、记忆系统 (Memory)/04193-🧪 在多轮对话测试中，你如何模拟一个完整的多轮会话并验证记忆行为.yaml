@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5f9122e7bb77
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EA 在多轮对话测试中，你如何模拟一个完整的多轮会话并验证记忆行为？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F9EA 在多轮对话测试中，你如何模拟一个完整的多轮会话并验证记忆行为？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    手动进行多轮测试效率低且不可靠。我们需要编写脚本来自动模拟多轮会话，并在关键节点断言记忆状态。
+
+    设计模拟脚本
+
+    - 定义对话流程：预先设计好一系列用户消息，以及对应的预期行为（比如“记住名字”、“遗忘超出窗口的信息”）。
+
+    - 使用固定种子和 Mock LLM：
+
+    - 分轮执行并断言：
+
+    ```python
+    memory = ConversationBufferWindowMemory(k=2, return_messages=True)
+    chain = ConversationChain(llm=FakeLLM(responses=["好的", "记住了"]), memory=memory)
+
+    # 第1轮
+    chain.predict(input="我叫小明")
+    assert len(memory.chat_memory.messages) == 2
+    assert memory.chat_memory.messages[0].content == "我叫小明"
+
+    # 第2轮
+    chain.predict(input="我喜欢红色")
+    # 第3轮
+    chain.predict(input="我刚才说我叫什么？")
+    # 断言记忆是否仍然包含第1轮的信息（取决于k值）
+    ```
+
+    - 验证记忆加载：不仅验证存储，还要验证加载。在最后一步，直接调用 memory.load_memory_variables({})，检查返回的历史是否包含“我叫小明”，以及它的位置。
+
+    测试持久化记忆：
+
+    - 在模拟的中间步骤，故意模拟服务重启（重新创建 Memory 对象，使用相同的 session_id），然后继续对话，验证历史是否被正确恢复。
+
+    测试摘要记忆：
+
+    - 设置较小的 max_token_limit，模拟超长对话，然后检查是否触发了摘要，以及摘要内容是否包含了关键信息（如人名）。
+
+    - 可以通过捕获 LLM 调用来验证摘要是否被触发（使用 mock 或回调）。
+
+    经验之谈：不要只测试“记住”，还要测试“遗忘”（窗口记忆的淘汰、摘要记忆的压缩）。一个健康的记忆系统既要能记住重要的，也要能优雅地遗忘次要的。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BfIEwdkqoidvoVkJcU4cu44enYf
+  block_id: JEOAdHPsNod8eqxNhGKc9X9unIg
+  page_token: BfIEwdkqoidvoVkJcU4cu44enYf
+  original_title: "\U0001F9EA 在多轮对话测试中，你如何模拟一个完整的多轮会话并验证记忆行为？"
+  imported_at: '2026-09-21'

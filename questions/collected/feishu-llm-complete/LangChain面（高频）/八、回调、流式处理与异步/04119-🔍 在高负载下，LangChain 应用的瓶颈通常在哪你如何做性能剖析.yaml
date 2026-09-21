@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4c9620b243b3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50D 在高负载下，LangChain 应用的瓶颈通常在哪？你如何做性能剖析？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F50D 在高负载下，LangChain 应用的瓶颈通常在哪？你如何做性能剖析？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    高负载下的瓶颈按常见程度排序：
+
+    - LLM API 调用延迟与限流：这是最大瓶颈。外部 API 的响应时间不可控，且通常有 RPM/TPM 限制。表现：大量请求排队，TTFT 升高。
+
+    - 同步阻塞工具：如果 Agent 的工具使用了同步 I/O（如同步数据库查询、HTTP 请求），它们在线程池中执行，高并发时线程池耗尽，导致请求阻塞。
+
+    - 回调与日志 I/O：不合理的回调（如每个 token 写磁盘、同步网络上报）会严重拖慢生成速度。
+
+    - 检索/向量数据库：高并发下，向量数据库的查询延迟和连接池限制成为瓶颈，尤其是 CPU 密集型索引。
+
+    - Python 全局解释器锁（GIL）：对于 CPU 密集操作（如嵌入计算），GIL 会限制多线程并发。
+
+    - 内存/GC：大量对象创建导致频繁 GC，尤其是 Agent 的 scratchpad 和长对话历史。
+
+    性能剖析方法：
+
+    - 使用 py-spy 采样：py-spy top --pid <PID> 实时查看 CPU 占用最高的函数。可以发现是否卡在同步 I/O 或正则解析上。
+
+    - asyncio 慢回调检测：开启 PYTHONASYNCIODEBUG=1 或使用 loop.slow_callback_duration 检测阻塞协程。
+
+    - 集成 OpenTelemetry：在调用链中各环节添加 Span，Jaeger 中直接看到各步骤耗时瀑布图，一目了然。
+
+    - 自定义 @timeit 装饰器：在关键函数（_acall, _atool_execute）上打印耗时和参数。
+
+    - 压力测试工具：用 locust 模拟并发用户，观察系统瓶颈。逐渐增加并发数，当延迟陡增时，查看各监控指标（API 响应时间、线程池使用率、CPU/内存），确定饱和点。
+
+    案例：一次高负载下，我们 Agent 的端到端延迟高达 20s。通过 Jaeger 发现，大部分时间耗在 sql_query 工具上——它使用了同步的 psycopg2。改为 asyncpg 异步驱动后，延迟降至 3s，吞吐量提升 5 倍。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LxvJw0LsmisXN7ksYtecakVunBc
+  block_id: SrNWdCFLuoRWdgxP6MwclGQ0nwb
+  page_token: LxvJw0LsmisXN7ksYtecakVunBc
+  original_title: "\U0001F50D 在高负载下，LangChain 应用的瓶颈通常在哪？你如何做性能剖析？"
+  imported_at: '2026-09-21'

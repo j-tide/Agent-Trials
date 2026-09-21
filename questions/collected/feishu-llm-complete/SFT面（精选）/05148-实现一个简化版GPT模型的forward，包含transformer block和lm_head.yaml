@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d95bcdb693e3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个简化版GPT模型的forward，包含transformer block和lm_head
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 实现一个简化版GPT模型的forward，包含transformer block和lm_head
+answer:
+  mode: rubric
+  reference_answer: "下面实现一个简易的 Transformer 解码器层和完整的 GPT 模型前向传播，包括词嵌入、位置编码（这里简单用可学习位置编码）、多层
+    transformer block 和 lm_head。\n\n```python\nimport torch.nn as nn\nimport torch\n\nclass
+    TransformerBlock(nn.Module):\n    def __init__(self, d_model: int, n_heads: int,
+    d_ff: int, dropout: float = 0.1):\n        super().__init__()\n        self.attn
+    = MultiHeadSelfAttention(d_model, n_heads, dropout)\n        self.ln1 = nn.LayerNorm(d_model)\n
+    \       self.ffn = nn.Sequential(\n            nn.Linear(d_model, d_ff),\n            nn.GELU(),\n
+    \           nn.Linear(d_ff, d_model),\n            nn.Dropout(dropout)\n        )\n
+    \       self.ln2 = nn.LayerNorm(d_model)\n        self.dropout = nn.Dropout(dropout)\n
+    \       \n    def forward(self, x, mask=None):\n        x = x + self.dropout(self.attn(self.ln1(x),
+    mask))\n        x = x + self.dropout(self.ffn(self.ln2(x)))\n        return x\n\nclass
+    SimpleGPT(nn.Module):\n    def __init__(self, vocab_size, d_model=512, n_heads=8,
+    n_layers=6, d_ff=2048, max_len=1024, dropout=0.1):\n        super().__init__()\n
+    \       self.token_embed = nn.Embedding(vocab_size, d_model)\n        self.pos_embed
+    = nn.Embedding(max_len, d_model)\n        self.blocks = nn.ModuleList([TransformerBlock(d_model,
+    n_heads, d_ff, dropout) for _ in range(n_layers)])\n        self.ln_f = nn.LayerNorm(d_model)\n
+    \       self.lm_head = nn.Linear(d_model, vocab_size, bias=False)\n        self.max_len
+    = max_len\n        self.dropout = nn.Dropout(dropout)\n        \n    def forward(self,
+    input_ids, attention_mask=None):\n        B, T = input_ids.shape\n        # 构造因果掩码\n
+    \       causal_mask = torch.tril(torch.ones(T, T, device=input_ids.device)).view(1,
+    1, T, T)\n        if attention_mask is not None:\n            # attention_mask
+    形状 (B, T)，需要扩展并合并\n            mask = attention_mask[:, None, None, :] * causal_mask\n
+    \       else:\n            mask = causal_mask\n        \n        # Token Embedding
+    + Position Embedding\n        positions = torch.arange(0, T, device=input_ids.device).unsqueeze(0).expand(B,
+    -1)\n        tok_emb = self.token_embed(input_ids)\n        pos_emb = self.pos_embed(positions)\n
+    \       x = self.dropout(tok_emb + pos_emb)\n        \n        # 通过 transformer
+    blocks\n        for block in self.blocks:\n            x = block(x, mask)\n        x
+    = self.ln_f(x)\n        logits = self.lm_head(x)  # (B, T, vocab_size)\n        return
+    logits\n```\n\n说明：\n\n- 该简化版模型省略了权重复用等细节，但清晰展示了整体流程。\n\n- 因果掩码确保每个位置只能注意到它前面的位置。\n\n-
+    lm_head 输出 logits，可直接用于交叉熵损失计算。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JFt9wvuo1ijVfLktrcDcfTR8nTd
+  block_id: FL2kdVDw3ohLFrxUTD1c4NpLnee
+  page_token: JFt9wvuo1ijVfLktrcDcfTR8nTd
+  original_title: 实现一个简化版GPT模型的forward，包含transformer block和lm_head
+  imported_at: '2026-09-21'

@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fff0de837c44
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在训练中实现“梯度中心化”来提升训练稳定性？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何在训练中实现“梯度中心化”来提升训练稳定性？
+answer:
+  mode: rubric
+  reference_answer: |-
+    梯度中心化 (Gradient Centralization, GC) 是一种计算量极小的优化技术，可以直接嵌入到优化器中。它的核心思想是：在计算完每个权重矩阵的梯度后，将该梯度在其自身的行或列方向上减去均值，使其中心化。
+
+    原理：中心化后的梯度具有零均值，可以有效约束损失函数曲面的几何形态，使其更平滑，从而加速收敛并提升模型的泛化能力，尤其对微调大模型时稳定训练有帮助。
+
+    实现方法：通过自定义优化器或直接在backward()之后修改梯度。
+
+    ```python
+    # 在 optimizer.step() 之前，对所有二维权重梯度进行中心化
+    for param in model.parameters():
+        if param.grad is not None and param.grad.dim() > 1:
+            # 沿列方向求均值并减去 (也可以沿行方向，取决于偏好)
+            param.grad.data -= param.grad.data.mean(dim=1, keepdim=True)
+    ```
+
+    注意：
+
+    - GC 通常只应用于二维权重矩阵（如卷积层和全连接层的权重），而不应用于偏置项（bias）或一维的BatchNorm参数。
+
+    - 它几乎不增加计算开销，可以无缝集成到现有训练流程中。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  block_id: K0ogdET0poq3kGx9U2bc0VBJnVC
+  page_token: Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  original_title: 如何在训练中实现“梯度中心化”来提升训练稳定性？
+  imported_at: '2026-09-21'

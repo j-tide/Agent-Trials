@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6a23a9341b30
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 9. Reduce-Scatter 的原理，以及在 ZeRO-2 中的应用。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 9. Reduce-Scatter 的原理，以及在 ZeRO-2 中的应用。
+answer:
+  mode: rubric
+  reference_answer: |-
+    Reduce-Scatter 的操作语义：每个节点拥有一个完整的待归约数据张量。经过Reduce-Scatter后，所有节点的数据被逐元素归约（如求和），然后归约结果被均匀切分为N块，每个节点只获得其中一块。即“先合后分，各取一片”。
+
+    原理：可以看作是Reduce和Scatter的组合，但通过一体化算法（如Ring）高效实现。在Ring算法中，就是AllReduce的第一阶段：数据在环上传递N-1步，每步累加接收到的数据块，最后每个节点持有归约结果的1/N。
+
+    在 ZeRO-2 中的应用：
+
+    - ZeRO-2将梯度分片，每张GPU只负责更新一部分参数，因此每张GPU只需要对应那部分参数的梯度。
+
+    - 反向传播完成后，每张GPU都有完整的局部梯度。如果直接AllReduce，所有GPU都会得到完整全局梯度，造成显存浪费。
+
+    - ZeRO-2使用Reduce-Scatter替代AllReduce：各GPU的梯度在环上归约，最后每张GPU只保留自己负责那部分参数的全局梯度（1/N），其余丢弃。这大幅节省了梯度显存。
+
+    - 与AllReduce相比，Reduce-Scatter的通信量相同，但更符合分片存储的需求。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XxBHwhYPNiVrDYkSIHCccehWn72
+  block_id: MgP2dnVmIoru1wxYGY5cs9kVnMb
+  page_token: XxBHwhYPNiVrDYkSIHCccehWn72
+  original_title: 9. Reduce-Scatter 的原理，以及在 ZeRO-2 中的应用。
+  imported_at: '2026-09-21'

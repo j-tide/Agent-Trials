@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a4fcd18b37e0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: MoE模型中，路由机制在微调时如何调整？需要特殊技巧吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: MoE模型中，路由机制在微调时如何调整？需要特殊技巧吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    MoE模型的路由器（Gate/Router）通常是一个或多个线性层，负责为每个token分配top-k个专家。在微调时，路由器参数可以与其他参数一同更新，也可以采用特殊策略单独调整。
+
+    路由机制的调整方式：
+
+    - 联合微调（默认）
+    在标准SFT中，将路由器参数视为模型的一部分，与专家和注意力层一起参与反向传播和梯度更新。此时，路由器的学习完全由下游任务的数据分布驱动。这是最简单直接的方法，但可能带来负载不均衡的风险。
+
+    - 固定路由 + 微调专家
+    冻结路由器参数，只微调专家权重和/或注意力层。这样可以保持原有的专家分工不被破坏，避免微调数据分布过窄导致路由坍塌。但缺点是无法根据新任务优化路由决策，可能导致某些专家始终被低效利用。
+
+    - 分离学习率
+    对路由器参数设置一个远小于专家参数的学习率（如1/10），以减缓路由器对数据分布的适应速度，防止其在少量数据上过拟合，维持一定的负载均衡。这是实践中常用的折中技巧。
+
+    - 渐进式解冻
+    先冻结路由器，训练专家数步；待专家对新任务有了一定适应之后，再以极低的学习率解冻路由器，进行联合微调。这有助于在专家能力建立后再优化分配。
+
+    需要特殊技巧吗？
+
+    是的，尤其是数据量较小时。主要有以下几点：
+
+    - 保持辅助负载均衡损失：预训练中常用的负载均衡损失（如Switch Transformer的auxiliary loss）在微调时不应被移除，而是应继续保留并适当调整其权重。这是因为微调数据分布往往更窄，如果去掉平衡约束，路由器很容易坍塌到只激活少数几个“通才”专家。通过监控各专家的token分配比例，可以动态调整辅助损失的系数。
+
+    - 专家容量限制与溢出策略：设置每个专家能够处理的最大token数（capacity），当某专家超载时，多余的token可以传递给下一层或直接通过残差连接跳过。这能避免某些专家因处理过多token导致显存峰值和计算延迟，同时也隐式地迫使路由器寻找次优专家。
+
+    - 正则化与对抗扰动：对路由器输入添加微小噪声，或对路由概率施加熵正则化（鼓励分布更均匀），以提升路由的鲁棒性和泛化能力。
+
+    - 数据多样性的重要性：微调数据应尽量覆盖广泛的任务类型，防止模型只在一个狭窄领域上训练导致路由偏见。可以在SFT数据中混入少量通用预训练数据或多样化的任务数据，维持路由器的均衡性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RK7mw2OHeiOHyEkfsfXcDkH1nRh
+  block_id: DrW4dfeuWo63rVx2lOScV68xnlb
+  page_token: RK7mw2OHeiOHyEkfsfXcDkH1nRh
+  original_title: MoE模型中，路由机制在微调时如何调整？需要特殊技巧吗？
+  imported_at: '2026-09-21'

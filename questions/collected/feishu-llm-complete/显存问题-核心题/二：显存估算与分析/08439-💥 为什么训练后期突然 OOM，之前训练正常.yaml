@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-08a046cf2b44
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4A5 为什么训练后期突然 OOM，之前训练正常？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "\U0001F4A5 为什么训练后期突然 OOM，之前训练正常？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 训练后期突然 OOM 往往不是因为模型权重变化，而是由于训练过程中动态变化的资源占用——比如激活增加、显存碎片累积、数据处理逻辑变化或框架缓存膨胀。\n\n\U0001F50E
+    常见原因：\n\n- 动态序列长度或 Padding 策略变化\n如果数据预处理时未严格截断，训练后期可能遇到了更长的样本，导致序列长度增加，激活与 KV
+    Cache 随之暴涨，撑破显存。或者动态 padding 导致某个 batch 的序列长度远超平均。\n\n- 显存碎片不断积累\n训练过程中不断分配/释放临时张量，PyTorch
+    的 CUDA 缓存分配器可能产生大量碎片。起初碎片少，剩余连续显存足够；运行数小时后，虽然总空闲显存看似不少，但无足够连续大块满足新的分配请求（如一次大的激活张量），从而触发
+    OOM。这在开启梯度检查点或频繁生成临时张量的模型中尤为常见。\n\n- 缓存或日志占用递增\n训练日志、eval 时的缓存、或者某些监控 Hook 可能无意中保存了历史张量（如记录
+    grad norm），导致显存缓慢泄露。使用 torch.cuda.memory_summary() 可以查看缓存分配器状态，观测 reserved 与 allocated
+    的差异是否持续扩大。\n\n- 优化器状态膨胀\n某些优化器（如带 weight decay 的实现）可能在内部分配额外缓冲区；或者混合精度训练的 loss
+    scaler 相关开销。多数是固定的，但部分实现存在随时间增长的风险。\n\n- checkpoint 保存与加载\n保存模型检查点时会申请额外显存放序列化的中间对象。如果主进程在保存时
+    OOM，可能误导。\n\n- 学习率调度或动量累积\n不会直接导致 OOM，但可能改变 loss 形态，间接影响部分框架的异常检测。\n\n\U0001F527
+    排查步骤：\n\n- 在 OOM 前立即使用 torch.cuda.empty_cache() 观察是否恢复，若恢复则可能是碎片。\n\n- 使用 PyTorch
+    Profiler 记录内存分配历史，定位 OOM 时刻哪个算子申请了大块显存。\n\n- 检查数据集中最大序列长度分布，在训练后期是否出现了极端长样本。\n\n-
+    检查代码中是否有列表或缓存不断增长（如存储验证集预测结果）。\n\n✅ 因此，训练后期 OOM 通常不是模型本身变大了，而是动态行为或碎片导致。监控分配记录并加入定期缓存清理是有效预防手段。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C7vaw6NlnicTRUkFemecRp3jnLd
+  block_id: A1qXdcSO0oA8aExCVaZct65SnUe
+  page_token: C7vaw6NlnicTRUkFemecRp3jnLd
+  original_title: "\U0001F4A5 为什么训练后期突然 OOM，之前训练正常？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f839524fc15c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么需要非常大的 batch size？小 batch 下的逼近方法
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 训练方法与策略
+tags: &1
+- 多模态面（精选）
+- 训练方法与策略
+content:
+  prompt: 为什么需要非常大的 batch size？小 batch 下的逼近方法
+answer:
+  mode: rubric
+  reference_answer: |-
+    为什么需要大 batch size？
+
+    InfoNCE 损失的负样本来自同一个 batch 内的其他图文对。当 batch size 较小时，负样本数量有限，且容易缺乏多样性。具体问题包括：
+
+    - 负样本不足：较小的 NN 意味着较少的负样本，softmax 的分母中只有很少的干扰项，模型很容易将正样本区分出来，导致损失下降快但学到的特征判别力不足。
+
+    - 泛化能力弱：训练中模型可能只记忆了局部的 batch 分布，对全局的区分能力差。
+
+    - 梯度噪声大：当 batch size 太小时，正负样本对比的统计量波动剧烈，训练不稳定。
+
+    因此在 CLIP 等工作中，通常使用 N=32,768N=32,768 甚至更大的 batch，以提供足够多且多样的负样本，迫使模型学习更鲁棒的跨模态语义对齐。
+
+    小 batch 下的逼近方法：
+
+    - 动量队列（Momentum Queue）：如 MoCo 使用一个维护大量历史样本特征的队列作为额外的负样本。队列容量远大于 batch size（如 65,536），通过动量更新的编码器保持队列特征的一致性。这样可以在小 batch 下提供大量负样本，解耦负样本数量与 batch size。
+
+    - 记忆库（Memory Bank）：存储所有样本的最新特征，训练时从中采样负样本。缺点是特征会过时，降低训练一致性。Momentum Queue 是其改进。
+
+    - 梯度累积：通过累积多个小 batch 的梯度模拟大 batch 的效果，但不增加显存占用。这虽然不能直接增加负样本数量（因为每次 forward 仍是一个小 batch），但在优化层面可以稳定梯度。
+
+    - 假负样本校正：在小 batch 下，假阴性（语义相同但被误认为负样本）的比例相对增高，可以用额外的软标签或校正权重来缓解。
+
+    目前最有效的方案是引入动量队列，这也是 BLIP-2 等模型在资源受限时保持性能的手段。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NvYhwlwcniIUV0k2aSZc8fCKnOe
+  block_id: IphGdhbsNo6F7Bxqk28cljFZnwf
+  page_token: NvYhwlwcniIUV0k2aSZc8fCKnOe
+  original_title: 为什么需要非常大的 batch size？小 batch 下的逼近方法
+  imported_at: '2026-09-21'

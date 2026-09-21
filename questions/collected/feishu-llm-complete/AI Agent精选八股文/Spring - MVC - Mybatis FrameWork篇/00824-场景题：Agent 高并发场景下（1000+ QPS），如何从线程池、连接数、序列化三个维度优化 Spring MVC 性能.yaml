@@ -1,0 +1,121 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e7fb49c647d9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 高并发场景下（1000+ QPS），如何从线程池、连接数、序列化三个维度优化 Spring MVC 性能？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 高并发场景下（1000+ QPS），如何从线程池、连接数、序列化三个维度优化 Spring MVC 性能？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐⭐（性能优化、高并发、Agent 场景）\n\n1️⃣ Common Answer\n\n线程池调大一点，连接数也调大。序列化用
+    Protobuf 比 JSON 快。\n\n2️⃣ Impressive Answer\n\n我给出完整的三维优化方案：\n\n- 线程池优化：\n\n```text\n@Configuration\npublic
+    class ThreadPoolOptimizationConfig {\n    \n    // Tomcat 线程池（IO 线程）\n    @Bean\n
+    \   public WebServerFactoryCustomizer<TomcatServletWebServerFactory> tomcatCustomizer()
+    {\n        return factory -> {\n            factory.addConnectorCustomizers(connector
+    -> {\n                Http11Nio2Protocol protocol = (Http11Nio2Protocol) connector.getProtocolHandler();\n
+    \               \n                // 根据 CPU 核数计算\n                int cpuCores
+    = Runtime.getRuntime().availableProcessors();\n                int maxThreads
+    = cpuCores * 100; // 8核 → 800线程\n                \n                protocol.setMaxThreads(maxThreads);\n
+    \               protocol.setMinSpareThreads(maxThreads / 10); // 80线程\n                protocol.setAcceptCount(maxThreads
+    / 4); // 200队列\n                protocol.setMaxConnections(10000);\n                protocol.setConnectionTimeout(30000);\n
+    \           });\n        };\n    }\n    \n    // Agent 任务线程池（业务线程）\n    @Bean(\"agentTaskExecutor\")\n
+    \   public Executor agentTaskExecutor() {\n        ThreadPoolTaskExecutor executor
+    = new ThreadPoolTaskExecutor();\n        \n        int cpuCores = Runtime.getRuntime().availableProcessors();\n
+    \       int corePoolSize = cpuCores * 10; // 8核 → 80线程\n        int maxPoolSize
+    = cpuCores * 50; // 8核 → 400线程\n        \n        executor.setCorePoolSize(corePoolSize);\n
+    \       executor.setMaxPoolSize(maxPoolSize);\n        executor.setQueueCapacity(1000);\n
+    \       executor.setThreadNamePrefix(\"agent-task-\");\n        executor.setKeepAliveSeconds(60);\n
+    \       executor.setAllowCoreThreadTimeOut(true);\n        \n        // 拒绝策略：调用者运行\n
+    \       executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());\n
+    \       \n        executor.initialize();\n        return executor;\n    }\n    \n
+    \   // LLM 调用线程池（IO 密集型）\n    @Bean(\"llmExecutor\")\n    public Executor llmExecutor()
+    {\n        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();\n        \n
+    \       // IO 密集型：更多线程\n        int cpuCores = Runtime.getRuntime().availableProcessors();\n
+    \       int maxPoolSize = cpuCores * 200; // 8核 → 1600线程\n        \n        executor.setCorePoolSize(maxPoolSize
+    / 2);\n        executor.setMaxPoolSize(maxPoolSize);\n        executor.setQueueCapacity(2000);\n
+    \       executor.setThreadNamePrefix(\"llm-call-\");\n        executor.setRejectedExecutionHandler(new
+    ThreadPoolExecutor.AbortPolicy());\n        \n        executor.initialize();\n
+    \       return executor;\n    }\n}\n```\n\n- 连接数优化：\n\n```text\n@Configuration\npublic
+    class ConnectionOptimizationConfig {\n    \n    // HTTP 客户端连接池\n    @Bean\n    public
+    RestTemplate restTemplate() {\n        HttpComponentsClientHttpRequestFactory
+    factory = \n            new HttpComponentsClientHttpRequestFactory();\n        \n
+    \       // 超时配置\n        factory.setConnectTimeout(3000); // 连接超时 3秒\n        factory.setReadTimeout(30000);
+    // 读取超时 30秒\n        factory.setConnectionRequestTimeout(1000); // 获取连接超时 1秒\n
+    \       \n        // 连接池配置\n        PoolingHttpClientConnectionManager connectionManager
+    = \n            new PoolingHttpClientConnectionManager();\n        connectionManager.setMaxTotal(500);
+    // 最大连接数\n        connectionManager.setDefaultMaxPerRoute(100); // 单路由最大连接数\n
+    \       connectionManager.setValidateAfterInactivity(30000); // 30秒后验证连接\n        \n
+    \       CloseableHttpClient httpClient = HttpClients.custom()\n            .setConnectionManager(connectionManager)\n
+    \           .setKeepAliveStrategy((response, context) -> 60000) // 60秒 Keep-Alive\n
+    \           .evictIdleConnections(30000, TimeUnit.SECONDS) // 30秒清理空闲连接\n            .build();\n
+    \       \n        factory.setHttpClient(httpClient);\n        return new RestTemplate(factory);\n
+    \   }\n    \n    // 数据库连接池（HikariCP）\n    @Bean\n    @ConfigurationProperties(prefix
+    = \"spring.datasource.hikari\")\n    public DataSource dataSource() {\n        return
+    DataSourceBuilder.create().type(HikariDataSource.class).build();\n    }\n    \n
+    \   // Redis 连接池（Lettuce）\n    @Bean\n    public RedisConnectionFactory redisConnectionFactory()
+    {\n        LettuceConnectionFactory factory = new LettuceConnectionFactory();\n
+    \       \n        LettuceClientConfiguration config = LettuceClientConfiguration.builder()\n
+    \           .commandTimeout(Duration.ofSeconds(5))\n            .shutdownTimeout(Duration.ZERO)\n
+    \           .poolConfig(new GenericObjectPoolConfig<>() {{\n                setMaxTotal(200);\n
+    \               setMaxIdle(50);\n                setMinIdle(10);\n                setTestOnBorrow(true);\n
+    \               setTestWhileIdle(true);\n            }})\n            .build();\n
+    \       \n        factory.setClientConfiguration(config);\n        return factory;\n
+    \   }\n}\n```\n\n- 序列化优化：\n\n```text\n@Configuration\npublic class SerializationOptimizationConfig
+    implements WebMvcConfigurer {\n    \n    @Override\n    public void extendMessageConverters(List<HttpMessageConverter<?>>
+    converters) {\n        // 1. Protobuf 转换器（优先级最高）\n        ProtobufHttpMessageConverter
+    protobufConverter = new ProtobufHttpMessageConverter();\n        converters.add(0,
+    protobufConverter);\n        \n        // 2. 优化后的 JSON 转换器\n        MappingJackson2HttpMessageConverter
+    jsonConverter = \n            new MappingJackson2HttpMessageConverter();\n        \n
+    \       ObjectMapper objectMapper = new ObjectMapper();\n        \n        //
+    性能优化配置\n        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);\n
+    \       objectMapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);\n
+    \       objectMapper.registerModule(new JavaTimeModule());\n        \n        //
+    使用 FastJson2（可选）\n        // objectMapper = new com.alibaba.fastjson2.JSONMapper();\n
+    \       \n        jsonConverter.setObjectMapper(objectMapper);\n        converters.add(1,
+    jsonConverter);\n    }\n    \n    // Kryo 序列化（用于缓存）\n    @Bean\n    public SerializationPair<Object>
+    kryoSerializationPair() {\n        return SerializationPair.fromSerializer(new
+    KryoSerializer());\n    }\n    \n    @Bean\n    public RedisCacheConfiguration
+    redisCacheConfiguration() {\n        return RedisCacheConfiguration.defaultCacheConfig()\n
+    \           .serializeValuesWith(\n                RedisSerializationContext.SerializationPair.fromSerializer(\n
+    \                   new KryoRedisSerializer<>(Object.class)\n                )\n
+    \           );\n    }\n}\n```\n\n- 性能监控：\n\n```text\n@Configuration\npublic class
+    PerformanceMonitorConfig {\n    \n    @Bean\n    public MeterRegistryCustomizer<MeterRegistry>
+    metricsCommonTags() {\n        return registry -> registry.config()\n            .commonTags(\"application\",
+    \"agent-platform\");\n    }\n    \n    @Bean\n    public TomcatMetricsBinder tomcatMetricsBinder()
+    {\n        return new TomcatMetricsBinder();\n    }\n    \n    @Bean\n    public
+    ExecutorServiceMetrics executorServiceMetrics(\n        @Qualifier(\"agentTaskExecutor\")
+    Executor executor) {\n        return new ExecutorServiceMetrics(\n            (ThreadPoolTaskExecutor)
+    executor,\n            \"agent.task.executor\",\n            Collections.emptyList()\n
+    \       );\n    }\n}\n```\n\n- Agent 场景优化总结：\n\n[嵌入表格未展开]\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EvyJwQ60XiC313kQqbUcyFhEnAh
+  block_id: doxcnZGP4vY70Wyt5RXLaSfk2zf
+  page_token: EvyJwQ60XiC313kQqbUcyFhEnAh
+  original_title: 3、场景题：Agent 高并发场景下（1000+ QPS），如何从线程池、连接数、序列化三个维度优化 Spring MVC 性能？
+  imported_at: '2026-09-21'

@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e47563bf1a02
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当你发现模型训练时某个参数矩阵的梯度一直为零，可能是什么原因？如何排查？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 八：手推与细节
+tags: &1
+- Transfomer精选面试
+- 八：手推与细节
+content:
+  prompt: 当你发现模型训练时某个参数矩阵的梯度一直为零，可能是什么原因？如何排查？
+answer:
+  mode: rubric
+  reference_answer: |-
+    可能原因：
+
+    - 该矩阵所在层被冻结：如微调时只训练部分层，检查参数 requires_grad 设置。
+
+    - 学习率为零：优化器中该参数组的学习率设为了 0。
+
+    - 梯度流中断：该层之前的计算图断裂，例如使用了 .detach() 或 inplace 操作覆盖了需要梯度的变量。
+
+    - 激活函数饱和或死区：比如 ReLU 输入全为负，导致梯度为零；或者前面的网络输出恒为常数，使得该层输入无变化。
+
+    - 该层没有参与损失计算：例如在多任务中，某些输出头未被使用。
+
+    - 混合精度下梯度下溢：小梯度在 FP16 下变为零。
+
+    - 条件计算中该 token 未被路由到该专家（MoE）。
+
+    排查步骤：
+
+    - 检查参数的 requires_grad 和优化器参数组设置。
+
+    - 在反向传播后打印该参数的 .grad 是否为 None 或全零。
+
+    - 使用 torch.autograd 的 register_hook 检查梯度流。
+
+    - 检查前向输出是否异常（如恒定值），逐层排查数据流。
+
+    - 尝试关闭混合精度或增大 loss scale 看梯度是否出现。
+
+    - 简化模型或输入，确认是否数据导致。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DAhYw2E2HiB2RsksUMUc8vZDn6g
+  block_id: Aoi9d0BJ0oUjv1xvuwMchGMNnrb
+  page_token: DAhYw2E2HiB2RsksUMUc8vZDn6g
+  original_title: 当你发现模型训练时某个参数矩阵的梯度一直为零，可能是什么原因？如何排查？
+  imported_at: '2026-09-21'

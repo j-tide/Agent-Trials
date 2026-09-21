@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8c01000f6215
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 全参数微调时，可以使用序列打包（packing）吗？怎么做？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 全参数微调时，可以使用序列打包（packing）吗？怎么做？
+answer:
+  mode: rubric
+  reference_answer: |-
+    可以使用，且序列打包是提高长文本训练效率、减少padding浪费的重要手段。但在全参数微调中，由于需要计算每个token的损失，packing的实现需格外小心，尤其是注意力掩码（attention mask）和损失掩码（loss mask） 的构造。
+
+    一、序列打包的原理
+    将多个较短的样本拼接成一个长度为max_seq_len的序列，从而让GPU的每次前向/反向传播处理尽可能多的有效token。不同样本之间通过特殊的分隔符（如EOS token）和分块对角注意力掩码（block-diagonal attention mask） 来隔离，防止它们互相关注。
+
+    二、全参数微调中的实现步骤
+
+    - 数据准备：将每个样本的input_ids（指令+回答）和labels准备好。注意，labels中已对prompt部分做了-100掩码。
+
+    - 拼接策略：维护一个缓冲区，将样本逐一加入。当加入下一个样本会超出max_seq_len时，将当前缓冲区的样本拼接为一个pack，送入模型；清空缓冲区，开始新pack。
+
+    - 插入分隔符：在每个样本的末尾插入一个EOS token（或特殊分隔符），其input_ids为EOS id，labels为-100（不计算损失），以保证样本边界明确。
+
+    - 构造注意力掩码：必须构造4D的block-diagonal causal mask。对于每个pack内的每个样本，只允许它内部的token相互关注（且遵循因果掩码），完全屏蔽对其他样本token的注意力。
+
+    - 计算损失：由于labels中非回答部分已被掩码，损失仅计算在实际回答token上。不同样本的回答不会互相干扰。
+
+    三、关键注意事项
+
+    - 数据顺序：由于SFT数据常有主题聚集性，为增加随机性，应在打包前对数据集进行充分混洗。
+
+    - 位置编码：RoPE等相对位置编码在打包场景下仍有效，因为注意力被限制在各自块内，位置连续性不影响语义。
+
+    - 填充与截断：如果最后剩余空间放不下一个完整样本，可选择截断该样本（可能丢失信息），或用[PAD]填充，让模型忽略。
+
+    - 训练效率：打包能大幅提升有效token的利用率，训练吞吐量可提升2~5倍，尤其适合短文本多的数据集。
+
+    全参数微调下的大规模实现：可使用HuggingFace的DataCollatorForSeq2Seq的扩展，或自定义DataCollator实现packing。在数据加载前完成打包（离线打包）可以进一步减少训练时的CPU开销。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: VzBadRYLhoKA5dxSuuiclV6bnLd
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 全参数微调时，可以使用序列打包（packing）吗？怎么做？
+  imported_at: '2026-09-21'

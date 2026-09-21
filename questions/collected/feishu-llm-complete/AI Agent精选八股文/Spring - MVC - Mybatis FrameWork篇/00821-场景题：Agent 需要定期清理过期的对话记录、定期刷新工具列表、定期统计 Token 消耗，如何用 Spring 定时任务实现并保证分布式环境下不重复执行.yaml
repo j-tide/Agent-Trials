@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3d42c7eebe25
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 需要定期清理过期的对话记录、定期刷新工具列表、定期统计 Token 消耗，如何用 Spring 定时任务实现并保证分布式环境下不重复执行？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 需要定期清理过期的对话记录、定期刷新工具列表、定期统计 Token 消耗，如何用 Spring 定时任务实现并保证分布式环境下不重复执行？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（多任务调度、分布式锁、故障转移、监控）\n\n1️⃣ Common Answer\n\n可以写三个 @Scheduled
+    方法，分别执行清理、刷新、统计。用 Redis 分布式锁保证不重复执行。如果任务失败可以记录日志。\n\n2️⃣ Impressive Answer\n\n-
+    定时任务设计：\n\n@Component\npublic class AgentScheduledTasks {\n        \n    // 每天凌晨
+    3 点清理过期对话（保留 30 天）\n    @Scheduled(cron = \"0 0 3 * * ?\")\n    @SchedulerLock(name
+    = \"cleanupExpiredConversations\", \n                  lockAtMostFor = \"2h\",
+    lockAtLeastFor = \"1h\")\n    public void cleanupExpiredConversations() {\n        LocalDateTime
+    cutoff = LocalDateTime.now().minusDays(30);\n        int deleted = conversationRepository.deleteByCreatedAtBefore(cutoff);\n
+    \       log.info(\"Deleted {} expired conversations\", deleted);\n    }\n        \n
+    \   // 每小时刷新工具列表\n    @Scheduled(cron = \"0 0 * * * ?\")\n    @SchedulerLock(name
+    = \"refreshToolList\", \n                  lockAtMostFor = \"55m\", lockAtLeastFor
+    = \"50m\")\n    public void refreshToolList() {\n        List<ToolDefinition>
+    tools = toolRegistry.fetchLatestTools();\n        toolRegistry.updateTools(tools);\n
+    \       log.info(\"Refreshed {} tools\", tools.size());\n    }\n        \n    //
+    每天凌晨 4 点统计 Token 消耗\n    @Scheduled(cron = \"0 0 4 * * ?\")\n    @SchedulerLock(name
+    = \"aggregateTokenUsage\", \n                  lockAtMostFor = \"1h\", lockAtLeastFor
+    = \"50m\")\n    public void aggregateTokenUsage() {\n        LocalDate yesterday
+    = LocalDate.now().minusDays(1);\n        TokenUsageReport report = tokenUsageService.aggregate(yesterday);\n
+    \       reportService.save(report);\n        log.info(\"Token usage report: {}\",
+    report);\n    }\n}\n\n- 分布式锁实现（使用 Shedlock）：\n\n@Configuration\n@EnableSchedulerLock(defaultLockAtMostFor
+    = \"1h\", defaultLockAtLeastFor = \"50m\")\npublic class ShedlockConfig {\n    @Bean\n
+    \   public LockProvider lockProvider(DataSource dataSource) {\n        return
+    new JdbcTemplateLockProvider(\n            JdbcTemplateLockProvider.Configuration.builder()\n
+    \               .withJdbcTemplate(new JdbcTemplate(dataSource))\n                .usingDbTime()\n
+    \               .build()\n        );\n    }\n}\n\n- 故障转移与重试：\n\n@Scheduled(cron
+    = \"0 0 3 * * ?\")\n@Retryable(maxAttempts = 3, backoff = @Backoff(delay = 1000))\npublic
+    void cleanupExpiredConversations() {\n    try {\n        // 执行任务\n    } catch
+    (Exception e) {\n        log.error(\"Task failed, will retry\", e);\n        throw
+    e;  // 触发重试\n    }\n}\n    \n@Recover\npublic void recover(Exception e) {\n    log.error(\"Task
+    failed after 3 retries, sending alert\", e);\n    alertService.send(\"Scheduled
+    task failed: \" + e.getMessage());\n}\n\n- 监控与告警：\n\n@Scheduled(cron = \"0 0 3
+    * * ?\")\npublic void cleanupExpiredConversations() {\n    Timer.Sample sample
+    = Timer.start(meterRegistry);\n    try {\n        // 执行任务\n        sample.stop(Timer.builder(\"scheduled.task.duration\")\n
+    \           .tag(\"task\", \"cleanupConversations\")\n            .register(meterRegistry));\n
+    \       meterRegistry.counter(\"scheduled.task.success\", \n            \"task\",
+    \"cleanupConversations\").increment();\n    } catch (Exception e) {\n        meterRegistry.counter(\"scheduled.task.failure\",
+    \n            \"task\", \"cleanupConversations\").increment();\n        throw
+    e;\n    }\n}\n\n- 优雅停机：配置 setWaitForTasksToCompleteOnShutdown(true)，停机时等待正在执行的任务完成。\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcnfpyAc3eYqUNv4nFKdNkrkb
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 3、场景题：Agent 需要定期清理过期的对话记录、定期刷新工具列表、定期统计 Token 消耗，如何用 Spring 定时任务实现并保证分布式环境下不重复执行？
+  imported_at: '2026-09-21'

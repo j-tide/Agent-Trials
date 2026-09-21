@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e3e6d26d35c0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果 KL 散度过大，除了增大 β，还可以采取什么措施？（如减少 PPO 更新轮数）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: 如果 KL 散度过大，除了增大 β，还可以采取什么措施？（如减少 PPO 更新轮数）
+answer:
+  mode: rubric
+  reference_answer: |-
+    当 KL 散度超出安全范围，说明策略正在发生危险的偏移。增大 β 是最直接的“加强引力”手段，但它往往有滞后性。一个完整的防御体系应当是多层次的。
+
+    6.1 减少 PPO 更新轮数（K 值）
+
+    PPO 允许对同一批采样数据重复利用多次（例如 4 个 epoch）。每次更新，策略都在远离旧策略。如果 KL 散度飙升，首要措施之一就是立刻减少甚至暂停本批数据的重复利用。将训练 epoch 从 4 降为 2 或 1，甚至提前终止当前批次的更新。这直接从源头切断了导致偏离的过拟合过程，是代价最小的紧急措施。
+
+    6.2 降低 Actor 的学习率
+
+    高学习率是导致策略快速漂移的元凶之一。当检测到 KL 过大时，立即将 Actor 的学习率按比例缩小（例如减半），可以让参数更新的步长变小，将策略稳定在当前位置附近。
+
+    6.3 缩小 PPO 裁剪范围 ε
+
+    将 PPO 的裁剪率 ε 从 0.2 调整为 0.1 或 0.05，进一步收紧信任区域。这确保即使在同一个 batch 内继续更新，每一次的策略变化也不会过于剧烈。
+
+    6.4 回滚到上一个检查点
+
+    如果 KL 散度已经大到了出现 NaN 或奖励、文本质量开始崩坏的程度，最稳妥的做法是立刻停止训练，将 Actor 回滚到上一个 KL 散度正常的检查点。重新评估问题原因（例如是否是 RM 漏洞、是否 β 设置过低）后再启动。
+
+    6.5 调整奖励模型的评分尺度
+
+    如果 RM 给出的奖励在数值上远大于 KL 惩罚项，即使 β 很大也可能不足以平衡。此时可以对 RM 的输出进行 Z-score 标准化，或者对最终奖励进行裁剪，使其数值范围与 KL 惩罚的尺度相匹配，恢复 β 的控制力。
+
+    6.6 增强参考模型的先验强度
+
+    在极端情况下，可以考虑更换一个更强大或更保守的参考模型，例如使用一个更大规模或经过更强正则化的 SFT 模型，从根上提高“正常语言分布”的引力。
+
+    6.7 对 Actor 进行重锚定微调
+
+    如果策略已经漂移，但尚未崩溃，可以在正式继续 RL 之前，将 Actor 在通用 SFT 数据上微调几个 epoch，把它先“拉回”正常的语言流形上，然后再调整参数重新开始 RL。
+
+    结论：KL 过大是一个综合性信号，需要从优化器、数据利用、模型初始化、奖励尺度等多个维度协同应对，构建“探测-减速-回滚-加固”的纵深防御体系。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BAN9wgGBJiVSTWkpMHXcKrxFn7f
+  block_id: UG02dKAQqoYsW6xpNX2cQdC6nbd
+  page_token: BAN9wgGBJiVSTWkpMHXcKrxFn7f
+  original_title: 如果 KL 散度过大，除了增大 β，还可以采取什么措施？（如减少 PPO 更新轮数）
+  imported_at: '2026-09-21'

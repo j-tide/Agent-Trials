@@ -1,0 +1,98 @@
+---
+schema_version: 1
+id: feishu-llm-complete-23353b1277e8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 GQA 或 MQA 下的 KV Cache，确保缓存的 key/value 形状与 query 头数正确广播。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 实现 GQA 或 MQA 下的 KV Cache，确保缓存的 key/value 形状与 query 头数正确广播。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 GQA/MQA 下，缓存的 K、V 头数少于 Q 头数，推理时需正确广播。
+
+    ```python
+    class GQAWithCache(nn.Module):
+        def __init__(self, hidden_dim, num_query_heads, num_kv_heads, dropout=0.1):
+            super().__init__()
+            # ... 同 GQA 初始化
+            self.k_cache = None
+            self.v_cache = None
+
+        def init_cache(self, batch_size, max_len, device):
+            self.k_cache = torch.zeros(batch_size, self.num_kv_heads, max_len, self.head_dim, device=device)
+            self.v_cache = torch.zeros_like(self.k_cache)
+
+        def forward(self, x, step):
+            B, seq_len, _ = x.shape
+            # Q投影: 正常分头
+            q = self.q_proj(x).view(B, seq_len, self.num_query_heads, self.head_dim).transpose(1, 2)
+            # K,V投影: 分头到 num_kv_heads
+            k = self.k_proj(x).view(B, seq_len, self.num_kv_heads, self.head_dim).transpose(1, 2)
+            v = self.v_proj(x).view(B, seq_len, self.num_kv_heads, self.head_dim).transpose(1, 2)
+
+            # 更新缓存
+            if step == 0:
+                self.k_cache[:, :, :seq_len] = k
+                self.v_cache[:, :, :seq_len] = v
+            else:
+                self.k_cache[:, :, step:step+seq_len] = k
+                self.v_cache[:, :, step:step+seq_len] = v
+
+            # 广播 KV 到 query 头数
+            k_all = self.k_cache[:, :, :step+seq_len]  # (B, KV_H, L, D)
+            v_all = self.v_cache[:, :, :step+seq_len]
+            # 复制
+            k_all = k_all.unsqueeze(2).expand(-1, -1, self.num_groups, -1, -1)
+            k_all = k_all.reshape(B, self.num_query_heads, -1, self.head_dim)
+            v_all = v_all.unsqueeze(2).expand(-1, -1, self.num_groups, -1, -1)
+            v_all = v_all.reshape(B, self.num_query_heads, -1, self.head_dim)
+
+            scale = math.sqrt(self.head_dim)
+            attn_scores = torch.matmul(q, k_all.transpose(-2, -1)) / scale
+            attn_weights = F.softmax(attn_scores, dim=-1)
+            attn_output = torch.matmul(attn_weights, v_all)
+            attn_output = attn_output.transpose(1, 2).contiguous().view(B, seq_len, -1)
+            return self.out_proj(attn_output)
+    ```
+
+    18.1 关键点
+
+    - 缓存保持原始 KV 头数，节省显存。
+
+    - 每步解码时，将缓存的 K、V 动态广播至 query 头数，无需重复存储多份。
+
+    - 实际部署中，广播可通过 torch.repeat_interleave 或在注意力核函数内部实现，以进一步优化。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTpnwxWMsiVDwIkIoX0c1TU4ned
+  block_id: Cz9gdryHoo3N1Ex6hXqcrEponse
+  page_token: QTpnwxWMsiVDwIkIoX0c1TU4ned
+  original_title: 实现 GQA 或 MQA 下的 KV Cache，确保缓存的 key/value 形状与 query 头数正确广播。
+  imported_at: '2026-09-21'

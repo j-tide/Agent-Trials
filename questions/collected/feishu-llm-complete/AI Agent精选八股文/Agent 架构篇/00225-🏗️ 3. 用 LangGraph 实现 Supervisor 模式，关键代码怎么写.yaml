@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e4a7fd1c8294
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3D7️ 3. 用 LangGraph 实现 Supervisor 模式，关键代码怎么写？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+content:
+  prompt: "\U0001F3D7️ 3. 用 LangGraph 实现 Supervisor 模式，关键代码怎么写？"
+answer:
+  mode: rubric
+  reference_answer: "LangGraph 的状态图机制天生适合 Supervisor 模式。关键在于：\n\n- 定义一个包含next_worker的共享状态。\n\n-
+    Supervisor 节点是一个 LLM 调用，它根据当前状态决定下一个应该执行的 Worker。\n\n- 用条件边根据next_worker的值动态路由。\n\n架构图（LangGraph
+    视角）：\n\n[图片内容未导入]\n\n关键代码实现：\n\nfrom typing import TypedDict, Literal, List\nfrom
+    langgraph.graph import StateGraph, END\nfrom langgraph.checkpoint.memory import
+    MemorySaver\nfrom langchain_core.messages import HumanMessage, AIMessage\n\n#
+    1. 定义全局状态\nclass SupervisorState(TypedDict):\n    messages: List[dict]          #
+    全局对话历史\n    next_worker: str              # Supervisor 决策：下一个 Worker 名称\n    task:
+    str                     # 初始任务\n\n# 2. 定义各 Worker 节点（示例简化，实际每个都是完整的 LLM 调用）\ndef
+    analyst_worker(state: SupervisorState):\n    # 这里实际会用 LLM + 工具执行分析任务\n    result
+    = f\"[Analyst] 完成市场分析，发现3个关键趋势\"\n    state[\"messages\"].append({\"role\": \"assistant\",
+    \"name\": \"Analyst\", \"content\": result})\n    return state\n\ndef writer_worker(state:
+    SupervisorState):\n    result = f\"[Writer] 根据分析报告，生成初稿...\"\n    state[\"messages\"].append({\"role\":
+    \"assistant\", \"name\": \"Writer\", \"content\": result})\n    return state\n\ndef
+    reviewer_worker(state: SupervisorState):\n    result = f\"[Reviewer] 审核完成，通过。\"\n
+    \   state[\"messages\"].append({\"role\": \"assistant\", \"name\": \"Reviewer\",
+    \"content\": result})\n    return state\n\n# 3. 定义 Supervisor 节点（LLM 决策大脑）\ndef
+    supervisor(state: SupervisorState):\n    # 构造决策 prompt，让 LLM 根据历史消息决定下一步\n    system_prompt
+    = \"\"\"\n你是项目 Supervisor。根据当前任务和对话历史，决定下一步应该激活哪个 Worker。\n可选 Worker：\n- Analyst:
+    负责分析研究\n- Writer: 负责撰写内容\n- Reviewer: 负责审核内容\n- FINISH: 任务完成，结束\n\n请只输出下一个 Worker
+    的名字，不要输出其他内容。\n\"\"\"\n    messages = [{\"role\": \"system\", \"content\": system_prompt}]
+    + state[\"messages\"]\n    response = llm.invoke(messages)  # 假设 llm 已定义\n    \n
+    \   next_action = response.content.strip()\n    state[\"next_worker\"] = next_action\n
+    \   return state\n\n# 4. 定义路由函数（条件边）\ndef route_to_worker(state: SupervisorState)
+    -> str:\n    next_worker = state[\"next_worker\"]\n    if next_worker == \"FINISH\":\n
+    \       return END\n    return next_worker\n\n# 5. 构建图\nbuilder = StateGraph(SupervisorState)\n\n#
+    添加节点\nbuilder.add_node(\"Supervisor\", supervisor)\nbuilder.add_node(\"Analyst\",
+    analyst_worker)\nbuilder.add_node(\"Writer\", writer_worker)\nbuilder.add_node(\"Reviewer\",
+    reviewer_worker)\n\n# 设置入口\nbuilder.set_entry_point(\"Supervisor\")\n\n# 添加条件边：Supervisor
+    决策后路由到具体 Worker\nbuilder.add_conditional_edges(\n    \"Supervisor\",\n    route_to_worker,\n
+    \   {\n        \"Analyst\": \"Analyst\",\n        \"Writer\": \"Writer\",\n        \"Reviewer\":
+    \"Reviewer\",\n        END: END\n    }\n)\n\n# 添加普通边：每个 Worker 执行完后，无条件返回 Supervisor\nfor
+    worker_name in [\"Analyst\", \"Writer\", \"Reviewer\"]:\n    builder.add_edge(worker_name,
+    \"Supervisor\")\n\n# 编译（可加 checkpointer 做持久化/人工介入）\napp = builder.compile(checkpointer=MemorySaver())\n\n#
+    6. 运行示例\nconfig = {\"configurable\": {\"thread_id\": \"1\"}}\ninitial_state =
+    {\n    \"messages\": [{\"role\": \"user\", \"content\": \"分析新能源汽车市场并生成报告\"}],\n
+    \   \"next_worker\": \"\",\n    \"task\": \"分析新能源汽车市场并生成报告\"\n}\nresult = app.invoke(initial_state,
+    config)\n\n关键设计解读：\n\n- 路由归 Supervisor 独有：只有 Supervisor 节点后有条件边，Worker 节点后都是无条件的回到
+    Supervisor。这严格保证了控制流不失控。\n\n- 状态透明：SupervisorState 是整个图的全局状态，任何节点都能读写它。这让你可以在任何时候（如人工介入）暂停并检查当前所有信息。\n\n-
+    持久化与暂停：通过 checkpointer，你可以序列化整个状态到数据库。这意味着如果 Supervisor 在等待人工审批，系统可以暂停，几小时后从断点完美恢复。\n\n-
+    易于扩展：新增一个 Worker 只需 1) 实现它的节点函数，2) 在 Supervisor 的决策 prompt 里加上它的名字和能力描述，3) 在条件边的映射字典里加上它的路由，4)
+    添加一条它返回 Supervisor 的边。完全不需要改动其他 Worker 的逻辑。\n\n混合扩展：在 Worker 内部使用自己的工具\n\n每个 Worker
+    节点内可以有自己的工具调用循环。比如 Analyst 内部可以用 ReAct 模式调用数据库和搜索引擎，而 Supervisor 完全不关心这些细节。Supervisor
+    只看 Analyst 最终输出的摘要。这种分层设计是真正生产可用的架构。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JcycwopI3iq7iOk1kBJcuICVnOg
+  block_id: doxcnCDlJZ7UQ7ysxSNkIISFege
+  page_token: JcycwopI3iq7iOk1kBJcuICVnOg
+  original_title: "\U0001F3D7️ 3. 用 LangGraph 实现 Supervisor 模式，关键代码怎么写？"
+  imported_at: '2026-09-21'

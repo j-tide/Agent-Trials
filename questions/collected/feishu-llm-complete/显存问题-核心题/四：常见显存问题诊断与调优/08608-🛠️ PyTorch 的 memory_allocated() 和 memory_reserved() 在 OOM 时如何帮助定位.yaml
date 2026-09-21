@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-56a4601cf570
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E0️ PyTorch 的 memory_allocated() 和 memory_reserved() 在 OOM 时如何帮助定位？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F6E0️ PyTorch 的 memory_allocated() 和 memory_reserved() 在 OOM 时如何帮助定位？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 当 OOM 发生时，torch.cuda.memory_allocated() 告诉你 PyTorch
+    实际在张量上占用了多少显存，memory_reserved() 告诉你 PyTorch 缓存分配器总共向 CUDA 驱动申请了多少显存。两者之差就是分配器内部的“空闲但不归还”的缓存。分析这两个值能区分是真实显存不足还是碎片/缓存导致的
+    OOM。\n\n\U0001F50D 具体诊断方法\n\n- torch.cuda.memory_allocated(device)：返回当前所有活的张量占用的字节数。如果你在
+    OOM 前调用它，发现它接近 GPU 总显存，说明确实是模型、优化器、激活等太大，需要减少 batch/序列或使用并行/offload。\n\n- torch.cuda.memory_reserved(device)：返回缓存分配器持有的总字节数。如果
+    reserved 远大于 allocated，比如 allocated=15GB, reserved=23GB（24GB 卡），意味着大量显存被分配器缓存但未被实际张量使用。此时
+    nvidia-smi 显示 Used 约 23GB，而实际需要的张量只有 15GB。这时候如果发生 OOM，很可能是因为碎片：缓存池里没有足够大的连续块来满足新分配请求，尽管总空闲（reserved
+    - allocated）有 8GB，但无法利用。\n\n\U0001F9EA 使用方式\n\n- 在代码中插入监控点\n\n```python\nprint(f\"Allocated:
+    {torch.cuda.memory_allocated()/1024**3:.2f} GB\")\nprint(f\"Reserved:  {torch.cuda.memory_reserved()/1024**3:.2f}
+    GB\")\n```\n\n可以在每个训练步或每个 epoch 后记录，观察趋势。\n\n- 定位碎片化\n\n- OOM 后捕获分析\n虽然 OOM 异常无法完全避免，但可以使用
+    try-except 包裹训练步骤，在捕获到 RuntimeError: out of memory 时打印 memory_allocated() 和 memory_reserved()，然后
+    torch.cuda.empty_cache() 释放缓存。通过对比前后值，判断此次分配请求的大小。例如分配前 allocated=20GB，请求一个 2GB
+    张量报 OOM，reserved=23GB，那表明碎片导致无 2GB 连续块。\n\n\U0001F4CA 实战案例\n训练 7B 模型，单卡 24GB，开启梯度检查点后依然
+    OOM。打印发现 allocated 仅 18GB，但 reserved 达 23.5GB。进一步 memory_summary 显示最大连续空闲块只有 300MB，尽管总空闲
+    5.5GB。结论：碎片严重。解决方案：设置 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True，显存碎片消除，训练顺利进行。\n\n✅
+    因此，这两个函数是深入 PyTorch 显存管理的探针，OOM 时务检查之，区分真性不足与假性不足。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BbCrwkO3wiWmAikFy0zc2OK6nPg
+  block_id: KCF5dMCEoo7KovxKJ0kcLbdAnKg
+  page_token: BbCrwkO3wiWmAikFy0zc2OK6nPg
+  original_title: "\U0001F6E0️ PyTorch 的 memory_allocated() 和 memory_reserved() 在
+    OOM 时如何帮助定位？"
+  imported_at: '2026-09-21'

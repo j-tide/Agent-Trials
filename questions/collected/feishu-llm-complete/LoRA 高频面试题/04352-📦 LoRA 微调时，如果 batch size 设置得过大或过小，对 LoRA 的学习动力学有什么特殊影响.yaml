@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-06d78b5066da
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4E6 LoRA 微调时，如果 batch size 设置得过大或过小，对 LoRA 的学习动力学有什么特殊影响？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LoRA 高频面试题
+derived_topic: 
+tags: &1
+- LoRA 高频面试题
+content:
+  prompt: "\U0001F4E6 LoRA 微调时，如果 batch size 设置得过大或过小，对 LoRA 的学习动力学有什么特殊影响？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    batch size 的选择对 LoRA 的影响比全参数微调更为敏感，因为它与 LoRA 的低秩约束和极小的可训练参数规模紧密耦合。
+
+    ① 过大的 batch size 会带来什么？
+
+    - 梯度估计过于平滑，丧失探索多样性：LoRA 的可训练参数极少（例如仅占全参数的 0.1%），当 batch size 非常大时，梯度估计变得极其准确且平滑，优化过程会沿着一条非常“干净”的梯度方向前进。这听起来是好事，但实际上，大 batch 会让模型倾向于收敛到尖锐极小值（sharp minima），而尖锐极小值的泛化能力通常较差。全参数微调由于参数空间巨大，即便大 batch 也还有一些噪声；但 LoRA 由于参数空间已经被低秩约束极大地压缩，大 batch 会让模型迅速锁定在一个狭窄的解空间内，丧失对下游任务细微变化的适应能力。
+
+    [图片内容未导入]
+
+    ② 过小的 batch size 会带来什么？
+
+    - 梯度噪声过大，训练震荡：由于 LoRA 可训练参数少，每个参数对损失的影响相对集中。小 batch 带来的高方差梯度会使优化过程剧烈震荡，甚至可能导致训练不稳定（损失突然飙升）。虽然微量的噪声有助于逃离局部极小，但过大的噪声会让模型难以收敛。
+
+    - BatchNorm 统计失准（若存在 BN）：虽然现代 LLM 大多使用 LayerNorm，但在某些视觉或混合架构中仍可能使用 BatchNorm。极小 batch 会导致 BN 统计量估计极不准确，严重损害性能。即便对于 LayerNorm，其本身的归一化不依赖于 batch，但小 batch 可能使得 LayerNorm 的可训练参数难以学到稳定的缩放和平移。
+
+    ③ 实践中的平衡
+
+    LoRA 训练通常推荐的 global batch size 与全参数微调类似，但更倾向于使用适中的 batch size（如 16~64），因为 LoRA 本身已经提供了很强的正则化（低秩约束），不需要像全参数那样依赖大 batch 来稳定训练。同时，配合较小的学习率（如 1e‑4 量级）和余弦退火调度，能够在稳定性和泛化能力之间取得良好平衡。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MUH8wwD1nigAKikWjdJc1MHjn8f
+  block_id: H7FIdeVaYobMmLxbDk3cr07rnbc
+  page_token: MUH8wwD1nigAKikWjdJc1MHjn8f
+  original_title: "\U0001F4E6 LoRA 微调时，如果 batch size 设置得过大或过小，对 LoRA 的学习动力学有什么特殊影响？"
+  imported_at: '2026-09-21'

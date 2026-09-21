@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3c0fd9f25964
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 13.2 代码演示
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: 13.2 代码演示
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    from langchain_core.output_parsers import PydanticOutputParser
+    from langchain_core.prompts import ChatPromptTemplate
+    from pydantic import BaseModel, Field
+
+    # 1. 定义数据模型和解析器
+    class BookInfo(BaseModel):
+        title: str = Field(description="书名")
+        author: str = Field(description="作者")
+
+    parser = PydanticOutputParser(pydantic_object=BookInfo)
+
+    # 2. 获取格式指令
+    format_instructions = parser.get_format_instructions()
+    print("生成的格式指令：\n", format_instructions)
+    # 输出类似：
+    # The output should be a JSON object with the following keys:
+    # - "title": 书名
+    # - "author": 作者
+
+    # 3. 设计 Prompt，使用 {format_instructions} 占位符
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "你是一个图书信息提取助手。请严格按照以下JSON格式输出提取结果：\n{format_instructions}"),
+        ("human", "请从以下文本中提取图书信息：\n{text}")
+    ])
+
+    # 4. 组装链并调用
+    chain = prompt | model | parser
+    result = chain.invoke({
+        "text": "《三体》是刘慈欣创作的科幻小说。",
+        "format_instructions": format_instructions  # 注入格式指令
+    })
+    print(result)  # BookInfo(title='三体', author='刘慈欣')
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/FkhTw9yBsiro60k5CSIcZezcnj6
+  block_id: W7MDdkBdgo7NraxIDBRctsNgn5b
+  page_token: FkhTw9yBsiro60k5CSIcZezcnj6
+  original_title: 13.2 代码演示
+  imported_at: '2026-09-21'

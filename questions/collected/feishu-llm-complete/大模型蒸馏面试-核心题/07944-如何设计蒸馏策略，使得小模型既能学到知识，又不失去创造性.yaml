@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8e45288a041e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何设计蒸馏策略，使得小模型既能学到知识，又不失去创造性？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型蒸馏面试-核心题
+derived_topic: 
+tags: &1
+- 大模型蒸馏面试-核心题
+content:
+  prompt: 如何设计蒸馏策略，使得小模型既能学到知识，又不失去创造性？
+answer:
+  mode: rubric
+  reference_answer: |-
+    平衡知识学习与创造性，本质上是防止模型在蒸馏时发生“多样性崩塌”。知识蒸馏通过匹配教师分布，天然具有让学生的输出分布“坍缩”到教师分布中心的趋势。因此，需要在优化过程中施加“反坍缩”力。
+
+    一、数据层面的多样性注入
+
+    这是最根本的解决方法。在蒸馏数据集中，必须刻意混入大量开放式、创意性任务的样本（如写诗、写故事、头脑风暴），并且这些样本的教师输出是风格迥异、充满创造性的。这让学生“看到”创造性的范例，并学习到创造性是其任务的一部分。
+
+    二、训练策略层面的“反坍缩”设计
+
+    - 高温度软标签：使用相对较高的蒸馏温度（如 T > 4），使教师的软标签包含更平滑、更丰富的类别间信息，而不是尖锐的one-hot。这相当于告诉学生“世界是多元的”，而不是“只有一个正确答案”。
+
+    - 引入熵正则化（Entropy Regularization）：在损失函数中加入一个负熵项 −H(Ps)−H(Ps)，鼓励学生模型的输出分布具有更高的熵，即对多种可能性保持开放。
+
+    - 使用反向KL散度：经典蒸馏使用的是正向KL散度 DKL(Pt∣∣Ps)DKL(Pt∣∣Ps)，它是“模式寻求”的，易导致坍缩。改用反向KL散度 DKL(Ps∣∣Pt)DKL(Ps∣∣Pt) 则具有“覆盖寻求”的性质，会强制学生去覆盖教师的所有可能模式，从而保留多样性。这在实际训练中需要技巧，因为反向KL散度要求学生分布能够覆盖教师分布，否则梯度会不稳定。
+
+    - 多教师集成蒸馏：使用多个具有不同风格的教师模型进行集成。它们的集成软标签会天然地更平滑、多样，能有效缓解过拟合单一教师的风格。
+
+    三、后训练恢复
+
+    在蒸馏后，可以在一个专门的、强调创造性的文本数据集上，对学生进行轻量级的微调（Fine-tuning），恢复其在蒸馏过程中被压抑的创造力。这相当于对模型进行一次“创意唤醒”。
+
+    核心思想：让蒸馏过程本身成为一种正则化，而不是过拟合。目标是学习教师的知识广度与多样性，而不是狭隘的平均行为。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M1CpweEIOiIE8FkxjTvcpAQ7nof
+  block_id: FC8zdAQFlozzMVxlir8cjFPZnWe
+  page_token: M1CpweEIOiIE8FkxjTvcpAQ7nof
+  original_title: 如何设计蒸馏策略，使得小模型既能学到知识，又不失去创造性？
+  imported_at: '2026-09-21'

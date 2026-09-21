@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-38f080914b23
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 4. torch.nn.Module 的 train() 和 eval() 模式分别影响了哪些层？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块六：深度学习基础训练与推理部署
+tags: &1
+- 深度学习面（精选）
+- 模块六：深度学习基础训练与推理部署
+content:
+  prompt: 4. torch.nn.Module 的 train() 和 eval() 模式分别影响了哪些层？
+answer:
+  mode: rubric
+  reference_answer: |-
+    model.train() 和 model.eval() 切换的是模块内部的 self.training 标志，会影响所有依赖该标志的层。主要包括：
+
+    - Dropout 层
+
+    - train() 模式：随机将部分神经元输出置零，防止过拟合。
+
+    - eval() 模式：关闭随机失活，等价于恒等映射，输出直接等于输入。
+
+    - Batch Normalization (BN) 层
+
+    - train() 模式：使用当前 mini-batch 的均值和方差进行归一化，并更新全局运行均值/方差（指数移动平均）。
+
+    - eval() 模式：固定使用训练期间统计的运行均值和方差，不再计算 batch 统计，保证推理结果确定且与训练行为一致。
+
+    - 其他受影响的层
+
+    - LayerNorm、GroupNorm：通常不受 training 标志影响（因为没有运行时统计量），但在一些实现中可能仍有行为差异（如某些变体）。
+
+    - InstanceNorm：通常也独立于 training 标志。
+
+    - 自定义层：可通过 if self.training 实现训练/测试的不同行为。
+
+    切换的重要性
+
+    - 在评估/推理时必须调用 model.eval()，否则 BN 会因推理 batch 统计量引入噪声并影响后续 batch；Dropout 继续生效导致输出随机，精度无法保证。
+
+    - 微调或某些特殊场景下，即使训练也可能希望 BN 统计固定（如冻结 BN），需要精确控制模式。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/G5aLwkRfZiCljDklteBcxFZhnfe
+  block_id: PzzLdSk70oZIkDxwur2cBySFnbb
+  page_token: G5aLwkRfZiCljDklteBcxFZhnfe
+  original_title: 4. torch.nn.Module 的 train() 和 eval() 模式分别影响了哪些层？
+  imported_at: '2026-09-21'

@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ae5aba583572
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果让你从头设计一个轻量级的奖励模型，以减少 RLHF 显存，你会怎么做？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 2-偏好数据与奖励建模
+tags: &1
+- RLHF面试高频考点
+- 2-偏好数据与奖励建模
+content:
+  prompt: 如果让你从头设计一个轻量级的奖励模型，以减少 RLHF 显存，你会怎么做？
+answer:
+  mode: rubric
+  reference_answer: |-
+    RLHF 阶段显存爆炸的核心是同时加载了 Actor、Critic、RM、Ref 四个大模型。轻量化 RM 可大幅节省资源。
+
+    设计策略：
+
+    - 极小化 RM 参数规模
+
+    - 共享底座 (Shared Backbone)
+    让 RM 与 Actor 共享 Transformer 底座的大部分层。仅在最后几层分叉，Actor 接语言模型头，RM 接标量头。这样只需加载一份底座参数，极大节省显存。但需注意梯度冲突，需精细设计训练策略（如交替训练）。
+
+    - 量化与低精度推理
+    对 RM 进行 INT8 甚至 INT4 量化。由于 RM 仅需进行单次前向传播（不需要自回归生成），推理速度极快且对量化噪声的容忍度比生成模型高。
+
+    - 非自回归的打分架构
+
+    - 去除冗余组件
+    RM 不需要自回归生成，因此可以去掉所有与生成相关的缓存和优化（如 KV Cache）。只保留纯粹的前向推理图。
+
+    - 使用池化结构
+    不保留整个序列的隐藏状态，仅保留池化后的向量，极大节省后续计算。
+
+    一个轻量级 RM 的蓝图：
+
+    底座：一个 300M 参数的 Bert 模型，用 SFT 数据进行领域微调。顶部：取 [CLS] token 的隐藏状态，通过一个 LayerNorm -> 2层 MLP -> 标量输出。训练时使用 BT 损失 + 长度对抗训练。推理时使用 FP16 精度。这样一个 RM 所占显存不足 1GB，却足以在多数场景提供合格的奖励信号。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KFgpwxoYei4VBPkDUJfcFKLLnVf
+  block_id: FPHedoGbtoRp8axvR2NcKnUNnGb
+  page_token: KFgpwxoYei4VBPkDUJfcFKLLnVf
+  original_title: 如果让你从头设计一个轻量级的奖励模型，以减少 RLHF 显存，你会怎么做？
+  imported_at: '2026-09-21'

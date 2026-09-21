@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5ffab98dd783
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在训练时，如何调整 ZeRO stage 和 offload 参数以获得最佳性价比？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 在训练时，如何调整 ZeRO stage 和 offload 参数以获得最佳性价比？
+answer:
+  mode: rubric
+  reference_answer: |-
+    “性价比”指在给定硬件预算下，达到最高的训练吞吐或训练最大规模模型。调整策略如下：
+
+    步骤一：优先使用 ZeRO-2（或 ZeRO-1）
+
+    - 如果单卡显存足以容纳模型参数 + 梯度 + 激活值（但不足以容纳优化器状态），则使用 ZeRO-1 或 ZeRO-2。它们通信量小，训练速度接近标准 DP。
+
+    - ZeRO-2 通常是最佳平衡点，节省了梯度显存，而额外通信开销可以忽略。
+
+    步骤二：显存仍不足，启用 ZeRO-3
+
+    - 当 ZeRO-2 下激活值或参数显存溢出时，升级到 ZeRO-3。其参数分片大幅削减显存，但通信量增加约 50%。如果希望保速，可配合梯度检查点进一步压缩激活值。
+
+    步骤三：CPU Offload 作为最后手段
+
+    - 如果 ZeRO-3 仍 OOM，或硬件显存太小（如消费级 24 GB），开启 offload_optimizer 或 offload_param。
+
+    - 优先卸载优化器（offload_optimizer），因为优化器状态最大，且更新计算可以移出 GPU，速度损失通常在 30%-40%。卸载参数（offload_param）损失更大（50%+），仅当显存极度紧缺时使用。
+
+    步骤四：权衡 Micro Batch Size 和 Gradient Accumulation
+
+    - 卸载后，GPU 显存压力减小，可以适当增大 micro batch size，提高 GPU 利用率，补偿部分速度损失。
+
+    推荐配置模板（以 8×A100 80GB 训练 13B 模型为例）：
+
+    - 高性价比：stage=2, offload_optimizer=false，TP=1, PP=1，ZeRO-2 即可。
+
+    - 平衡：stage=3, offload_optimizer=false，TP=1, ZeRO-3，显存充裕。
+
+    - 极限大模型（如 30B）：stage=3, offload_optimizer=true，TP=2，PP=2，结合卸载与模型并行。
+
+    通过“先 ZeRO-2，再 ZeRO-3，最后 Offload”的渐进式策略，可以在保持训练速度的前提下，最大化利用现有硬件。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: Nh1adcRYloJzc6xRA4vcRwa5nCc
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: 在训练时，如何调整 ZeRO stage 和 offload 参数以获得最佳性价比？
+  imported_at: '2026-09-21'

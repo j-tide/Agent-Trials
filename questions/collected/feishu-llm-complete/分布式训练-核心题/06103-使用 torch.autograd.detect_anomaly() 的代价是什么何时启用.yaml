@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bdfcfce82451
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 torch.autograd.detect_anomaly() 的代价是什么？何时启用？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 使用 torch.autograd.detect_anomaly() 的代价是什么？何时启用？
+answer:
+  mode: rubric
+  reference_answer: |-
+    detect_anomaly()会开启autograd的异常检测模式。它的工作原理是：在前向传播时记录每个操作的函数信息，并在反向传播时对每个操作的输出梯度进行数值检查（是否为NaN/Inf）。一旦发现异常，抛出RuntimeError并显示完整的调用栈。
+
+    代价非常明显：
+
+    - 训练速度大幅下降：通常慢2-3倍，因为每个操作的梯度都要额外检查，且autograd需要保留更多调试信息。
+
+    - 显存占用增加：为了能够回溯定位，autograd需要保留额外的中间状态。
+
+    - 破坏异步计算：检测是同步的，会打断CUDA流的并行执行，降低GPU利用率。
+
+    何时启用：
+
+    - 调试阶段：当训练出现NaN，且其他方法无法定位时。通常只在几百步内使用，找到问题后立即关闭。
+
+    - 模型修改后的验证：对模型结构做了较大改动后，可以在初期几个epoch启用，确保新结构没有引入数值问题。
+
+    - 不建议在生产训练中开启：大规模训练时，detect_anomaly的开销不可接受。
+
+    替代方案：PyTorch也提供了torch.autograd.gradcheck用于单元测试级别的梯度检查，以及torch.autograd.profiler用于性能分析。日常训练中，更推荐用梯度范数监控和手动插入检查点来替代detect_anomaly。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: Clk2duYy4ovR9px2iuCcvFzDnug
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: 使用 torch.autograd.detect_anomaly() 的代价是什么？何时启用？
+  imported_at: '2026-09-21'

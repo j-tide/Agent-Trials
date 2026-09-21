@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-620129af5f3d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F7E0RLHF 中的 Reward Model 是怎么训练的？DPO 相比 PPO 有什么优势？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F7E0RLHF 中的 Reward Model 是怎么训练的？DPO 相比 PPO 有什么优势？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    ▪ Reward Model 训练过程
+
+    Reward Model（RM）本质上就是一个打分器，它的训练流程大致如下：
+
+    - 底座模型：通常从 SFT 模型初始化，去掉语言模型头，换成一个标量输出头（例如一个线性层）。
+
+    - 训练数据：人类标注员对同一个 prompt 下的多个回答进行“偏好排序”，形成成对数据 (prompt, 好回答, 差回答)，一般记作 (x, y_w, y_l)。
+
+    - 损失函数：使用经典的 Bradley-Terry 偏好模型，最大化好回答与差回答奖励值之差的概率：
+    Loss = -E[ log σ( r(x, y_w) - r(x, y_l) ) ]
+    其中 σ 是 sigmoid 函数，r 是 RM 输出的奖励值。有时还会加一个很小的正则项来防止奖励分数整体漂移。
+
+    - 训练完成后，这个 RM 就会被冻结，作为 PPO 阶段的环境奖励信号。
+
+    ▪ DPO 相比 PPO 的优势
+
+    PPO 的流程比较重：先训练 RM，再用 RM 去给模型在线的生成结果打分，然后通过强化学习更新策略，同时还需要一个参考模型来计算 KL 惩罚，防止策略跑偏。整个过程需要同时维护多个模型，调参复杂，训练也容易不稳定（奖励 hacking、策略崩溃）。
+
+    DPO 就优雅很多，它直接把偏好对齐变成了一个 “带参考模型的分类问题”。
+    DPO 重参数化了奖励函数，使得可以直接在偏好数据上优化策略，不需要显式训练 RM，也不需要做任何强化学习的在线采样。它的损失函数形式大概是这样：
+    L_DPO = -E[ log σ( β log(π(y_w|x)/π_ref(y_w|x)) - β log(π(y_l|x)/π_ref(y_l|x)) ) ]
+    这里 π 是我们要优化的策略，π_ref 是初始 SFT 模型（冻结），β 是温度系数。整个优化过程只有一个模型在变，稳定得多，还避免了 RM 过拟合和 reward over-optimization 的问题。
+
+    所以，如果偏好数据质量有保证，现在很多实践都会优先用 DPO，因为它在工程落地时更简洁、更稳定，效果也完全不输 PPO。这是目前对齐技术里一个很明显的趋势。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcnhomPhfnX3BHiarkfZcZhGu
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "\U0001F7E0RLHF 中的 Reward Model 是怎么训练的？DPO 相比 PPO 有什么优势？"
+  imported_at: '2026-09-21'

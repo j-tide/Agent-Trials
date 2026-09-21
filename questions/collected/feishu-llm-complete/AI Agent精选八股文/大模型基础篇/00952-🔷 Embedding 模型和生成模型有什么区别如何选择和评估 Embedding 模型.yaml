@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5b257ad78554
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F537 Embedding 模型和生成模型有什么区别？如何选择和评估 Embedding 模型？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F537 Embedding 模型和生成模型有什么区别？如何选择和评估 Embedding 模型？"
+answer:
+  mode: rubric
+  reference_answer: "本质区别一句话：一个负责“理解并压缩”，一个负责“理解并延展”。\n\nEmbedding 模型:  文本 → [编码器]
+    → 稠密向量 (表示)\n生成模型:        文本/向量 → [解码器/自回归] → 文本 (续写/回答)\n\n\U0001F539 架构与工作方式上的核心差异\n\nEmbedding
+    模型（如 BGE、E5、OpenAI text-embedding-3）通常只保留 Transformer 的编码器。输入一段文本，将所有 token 的表示做池化（平均或取
+    CLS），压缩成一个固定维度的向量。这个向量承载了文本的语义信息，但不具备生成能力。\n\n生成模型（如 GPT-4、LLaMA、DeepSeek）则基于解码器架构，以自回归方式一个
+    token 接一个 token 地生成文本。它可以产生 Embedding（取最后一层隐藏状态并池化），但它的原始使命是“续写”。因此，生成模型也能做表示，只是效率通常比专用
+    Embedding 模型低。\n\n一图对比：\n\n[图片内容未导入]\n\n\U0001F539 何时用哪个？\n\n[嵌入表格未展开]\n\n---\n\n\U0001F539
+    如何选择和评估 Embedding 模型？\n\n选择维度：\n\n- 语言与领域：是否需要中英双语、多语言？是否覆盖你的垂直领域（法律、医疗、代码）？\n\n-
+    最大长度：模型能处理 512 token 还是 8192 token？长文档可能需要长窗口。\n\n- 输出维度：768维、1024维还是更小？维数越高信息越多，但存储和相似度计算成本也高。很多生产场景会再上
+    PCA 降维。\n\n- 编码效率：是否支持 FP16/INT8 量化推理？每秒能编码多少篇文档？\n\n- 指令感知：模型是否支持 instruction-aware
+    的 Embedding？即添加指令前缀（如“为搜索段落：”），这能大幅提升特定任务质量。\n\n评估框架：MTEB（Massive Text Embedding
+    Benchmark）\n\nMTEB 用多个任务来综合评价 Embedding 模型，主要包括：\n\n- 分类：情感分析、主题分类等\n\n- 聚类：新闻分组、论坛帖子去重\n\n-
+    配对：句子相似度（STS）、释义检测\n\n- 重排序：检索后重排\n\n- 检索：在文档集合中寻找相关文档\n\n- 摘要：对 Embedding 质量与人工摘要的一致性打分\n\n代码示例：用
+    MTEB 评估你的 Embedding 模型\n\nfrom mteb import MTEB\nfrom sentence_transformers import
+    SentenceTransformer\n\nmodel = SentenceTransformer(\"BAAI/bge-large-zh-v1.5\")\nevaluation
+    = MTEB(tasks=[\"T2Reranking\", \"Retrieval\", \"STSBenchmark\"], task_langs=[\"zh\"])\nresults
+    = evaluation.run(model, output_folder=\"results\")\nprint(results)\n\n业务级评估更关键：
+    MTEB 分数高不代表在你的业务场景好。一定要构建领域内测试集，比如把真实用户 query 和人工标注的相关文档做成检索测试，计算 Recall@K 和 MRR。这是最终的决策依据。\n\n简单实用选型示例：\n\n#
+    快速对比两个 Embedding 模型的检索能力\ndef evaluate_retrieval(model, queries, corpus, relevant_docs_ids):\n
+    \   # 1. 对整个语料编码\n    corpus_embeddings = model.encode(corpus)\n    # 2. 对查询编码\n
+    \   query_embeddings = model.encode(queries)\n    # 3. 计算相似度并取 top-K\n    scores
+    = query_embeddings @ corpus_embeddings.T\n    top_k_indices = np.argsort(-scores,
+    axis=1)[:, :10]\n    # 4. 计算 Recall@10\n    hits = 0\n    for i, ids in enumerate(top_k_indices):\n
+    \       if any(doc_id in relevant_docs_ids[i] for doc_id in ids):\n            hits
+    += 1\n    return hits / len(queries)"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcn0eF3sQTiKg9H7hjHVRqwMe
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "\U0001F537 Embedding 模型和生成模型有什么区别？如何选择和评估 Embedding 模型？"
+  imported_at: '2026-09-21'

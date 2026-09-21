@@ -1,0 +1,120 @@
+---
+schema_version: 1
+id: feishu-llm-complete-acecc2490102
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CC 1. 什么时候用嵌套文档，什么时候用引用？各有什么优缺点？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F4CC 1. 什么时候用嵌套文档，什么时候用引用？各有什么优缺点？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是 MongoDB 文档设计中最根本的权衡。本质上是“数据在一起”和“数据分开”两种哲学的对决。
+
+    ```text
+    嵌套文档 (Embedding)                    引用 (Referencing)
+    ┌─────────────────────────┐      ┌──────────┐    ┌──────────┐
+    │  用户文档               │      │  用户     │    │  订单     │
+    │  {                      │      │  _id: 1   │    │  user_id:1│
+    │    _id: 1,              │      │  name:"张"│◄───│  amount:99│
+    │    name: "张三",         │      └──────────┘    └──────────┘
+    │    orders: [            │
+    │      { amount: 99 },    │      数据逻辑独立，通过外键关联
+    │      { amount: 150 }    │
+    │    ]                    │
+    │  }                      │
+    │  一次查询取全部           │      需要两次查询或 $lookup
+    └─────────────────────────┘
+    ```
+
+    嵌套文档 (Embedding)
+
+    何时使用？
+
+    - 数据之间是“包含”或“一对一”的紧密关系：比如用户和他的收货地址。地址脱离了用户就毫无意义。
+
+    - 数据总是一起被读取：取出用户信息时，几乎总是需要他的头像、昵称、简介，这些就应该嵌在一起。
+
+    - 子数据量小且有限：一个博客文章的几条标签，一个产品的几个变体规格。如果子数组可能无限增长（比如用户的浏览历史），就不适合内嵌。
+
+    - 需要原子性操作：同时更新用户信息和其订单状态，内嵌在一个文档里天然就是原子的。
+
+    优点：
+
+    - 读性能极高：一次磁盘 I/O 就能拿到全部关联数据，无需 JOIN。
+
+    - 原子性：单文档操作天然 ACID，更新用户信息的同时修改其内嵌文档，要么全成功，要么全失败。
+
+    缺点：
+
+    - 文档可能过大：内嵌数据膨胀会导致超过 16MB 的 BSON 限制，且频繁 IO 大文档影响性能。
+
+    - 数据冗余：同一份数据可能内嵌在多个文档里，更新它就要更新所有副本，容易产生不一致。
+
+    - 查询内嵌细节不便：想查“所有购买了某商品的用户”时，内嵌在用户文档里的订单就非常难查了，这违背了“数据跟着查询走”的原则。
+
+    引用 (Referencing)
+
+    何时使用？
+
+    - 多对多关系：学生和课程，一个学生选多门课，一门课被多个学生选。
+
+    - 独立生命周期：订单和商品，订单可以独立于商品存在，删除商品不影响历史订单。
+
+    - 子集合可能无限增长：用户的消息列表、操作日志。这些数据无限增长，必然要单独存一个集合。
+
+    优点：
+
+    - 文档瘦身：用户文档保持轻量，更新用户信息不影响其成千上万的订单。
+
+    - 数据一致性高：商品信息只存一份，修改后所有引用它的订单都能看到最新数据（在应用层处理）。
+
+    - 灵活查询：可以独立对子集合做复杂的聚合、排序和分页。
+
+    缺点：
+
+    - 读性能开销：通常需要多次查询或使用 $lookup 进行关联，消耗更多 IO 和 CPU。
+
+    - 缺乏原子性：跨文档的更新需要事务支持，MongoDB 4.0+ 虽然支持多文档事务，但性能和易用性不如单文档操作。
+
+    选择决策树：
+
+    ```text
+    数据关系是"包含"吗？
+    ├─ 是 → 子数据量固定且小吗？
+    │   ├─ 是 → 内嵌 (如用户地址)
+    │   └─ 否 → 引用 (如用户操作日志)
+    └─ 否 → 是"多对多"或独立生命周期吗？
+        └─ 是 → 引用 (如订单与商品)
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BXVdwSFoCiy4apkiMglchiTGnmh
+  block_id: doxcnm8hhuYkIYdI2HXkX080Kyf
+  page_token: BXVdwSFoCiy4apkiMglchiTGnmh
+  original_title: "\U0001F4CC 1. 什么时候用嵌套文档，什么时候用引用？各有什么优缺点？"
+  imported_at: '2026-09-21'

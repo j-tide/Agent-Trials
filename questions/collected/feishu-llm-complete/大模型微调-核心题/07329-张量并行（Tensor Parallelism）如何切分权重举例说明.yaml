@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ea261ae01187
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 张量并行（Tensor Parallelism）如何切分权重？举例说明。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 张量并行（Tensor Parallelism）如何切分权重？举例说明。
+answer:
+  mode: rubric
+  reference_answer: |-
+    张量并行的核心思想是将大矩阵运算拆解为可并行的小矩阵运算。以Transformer中的核心组件多头注意力（MHA）和FFN为例：
+
+    多头注意力（MHA）的切分
+
+    MHA有四个投影矩阵：Q, K, V, O。每个头的计算本质上是独立的。
+
+    - 切分策略：将Q, K, V的权重矩阵按列（head维度）切分。例如，原本模型有32个头，我们用2路TP，则GPU0负责计算前16个头的Q, K, V，GPU1负责后16个头的Q, K, V。输入X复制给两张卡。
+
+    - 通信：各自计算完16个头的注意力输出后，通过一次All-Reduce将两个GPU的结果相加，再送给O矩阵。O矩阵则按行切分，各自完成投影后，再次All-Reduce得到最终结果。
+
+    FFN的切分
+
+    [图片内容未导入]
+
+    举例：一个 [4096, 4096] 的FP16权重矩阵，不做TP需要 32 MB 显存。用2路TP切分后，每张卡上只需存储 [4096, 2048] 或 [2048, 4096] 的矩阵，显存占用减半至 16 MB。张量并行度越高，单卡显存越低，代价是通信次数和通信量成比例增加。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: SCpddq1VyoXBvCxef7ycwl1hnEe
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 张量并行（Tensor Parallelism）如何切分权重？举例说明。
+  imported_at: '2026-09-21'

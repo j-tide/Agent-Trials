@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c09342c5558b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 带梯度累积、裁剪和调度器的微调训练循环
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 带梯度累积、裁剪和调度器的微调训练循环
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    import torch
+    from torch.optim import AdamW
+    from torch.optim.lr_scheduler import CosineAnnealingLR
+    from tqdm import tqdm
+
+    def train_one_epoch(model, dataloader, optimizer, scheduler, accumulation_steps, max_grad_norm):
+        model.train()
+        total_loss = 0
+        optimizer.zero_grad()
+        for step, batch in enumerate(tqdm(dataloader)):
+            outputs = model(**batch)
+            loss = outputs.loss / accumulation_steps
+            loss.backward()
+            total_loss += loss.item() * accumulation_steps
+
+            if (step + 1) % accumulation_steps == 0:
+                # 梯度裁剪
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+                optimizer.step()
+                scheduler.step()
+                optimizer.zero_grad()
+
+        return total_loss / len(dataloader)
+    ```
+
+    使用示例：
+
+    ```python
+    optimizer = AdamW(model.parameters(), lr=2e-5)
+    scheduler = CosineAnnealingLR(optimizer, T_max=num_training_steps)
+    train_one_epoch(model, train_loader, optimizer, scheduler, accumulation_steps=4, max_grad_norm=1.0)
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: Rw2edXTlfoZ47XxjvMRcQbLjnmg
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: 带梯度累积、裁剪和调度器的微调训练循环
+  imported_at: '2026-09-21'

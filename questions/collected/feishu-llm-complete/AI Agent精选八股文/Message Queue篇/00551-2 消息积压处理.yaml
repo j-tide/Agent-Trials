@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4af025e7ed5a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 5.2 消息积压处理
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 5.2 消息积压处理
+answer:
+  mode: rubric
+  reference_answer: "### 消息积压的解决方案\n\n1、基础题：消息积压的原因有哪些？\n\n⭐（消费速度慢、消费者故障、生产者发送过快）\n\n消息积压的常见原因：\n\n-
+    消费者消费速度慢，处理不过来\n\n- 消费者故障或宕机，无法消费\n\n- 生产者发送消息速度过快，超过消费者处理能力\n\n- 网络问题导致消息传输延迟\n\n2、进阶题：如何处理消息积压？\n\n⭐⭐（增加消费者、优化消费逻辑、临时方案）\n\n1️⃣
+    Common Answer 增加消费者数量，提高并发。或者优化消费逻辑，让消费更快。如果积压太多，可以临时建一个大的Topic，把消息转发过去，然后用很多消费者快速消费。\n\n2️⃣
+    Impressive Answer 消息积压是常见的生产问题，需要分层处理。我来详细说明解决方案：\n\n方案一：增加消费者数量\n\n- 横向扩展：增加消费者实例，提高并发消费能力\n\n-
+    分区扩容：如果Partition数量不足，先增加Partition，再增加消费者\n\n- 注意事项：消费者数量不要超过Partition数量，否则会有闲置\n\n方案二：优化消费逻辑\n\n-
+    批量处理：改为批量消费，减少网络开销和数据库操作 `java@RabbitListener(queues = \"orderQueue\")public void
+    consume(List<Message> messages) {// 批量插入数据库orderRepository.batchInsert(messages);}\n\n`\n\n-
+    异步处理：耗时操作异步化，使用线程池 `java@Async(\"consumerExecutor\")public void processAsync(Message
+    message) {// 耗时操作}\n\n`\n\n- 减少IO操作：减少日志打印、远程调用等\n\n方案三：临时扩容方案（适用于大量积压）\n\n- 创建临时Topic：新建一个Partition数量多的Topic\n\n-
+    转发消息：写一个转发程序，将积压消息转发到临时Topic\n\n- 大量消费者：启动大量消费者（如100个）快速消费临时Topic\n\n- 恢复消费：积压清理完后，恢复正常消费\n\n//
+    转发程序\npublic void forwardMessages() {\n    while (true) {\n        List<Message>
+    messages = consumer.poll(1000);\n        if (messages.isEmpty()) break;\n        //
+    转发到临时Topic\n        producer.send(tempTopic, messages);\n    }\n}\n\n方案四：降级处理\n\n-
+    丢弃非核心消息：如果积压的是非核心消息（如日志），可以临时丢弃\n\n- 降低消费质量：跳过耗时操作，快速消费\n\n- 延迟处理：将消息延迟到低峰期处理\n\n监控和预警：\n\n-
+    实时监控：监控队列长度、消费延迟、消费者状态\n\n- 告警机制：队列长度超过阈值时自动告警\n\n- 自动扩容：结合K8s实现自动扩容消费者\n\n预防措施：\n\n-
+    容量规划：评估峰值流量，预留足够容量\n\n- 压测验证：定期压测，验证消费能力\n\n- 限流保护：生产者限流，避免突发流量\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n3、场景题：你的Kafka消费者积压了1000万条消息，如何快速处理？\n\n⭐⭐⭐（紧急处理实战）\n\n1️⃣
+    Common Answer 赶紧增加消费者吧，多开几个实例。或者把消息转发到一个新的Topic，然后用很多消费者快速消费。还要检查为什么积压这么多，避免再发生。\n\n2️⃣
+    Impressive Answer 1000万条消息积压是紧急事故，需要快速响应。我会按照以下步骤处理：\n\n第一步：紧急评估\n\n- 确认积压量：1000万条，按每条处理100ms计算，需要约11.5天（1000万×0.1秒/3600/24）\n\n-
+    评估业务影响：是否有订单超时、用户投诉等\n\n- 确认当前消费者：假设有10个消费者，每个消费速度1000条/秒，总速度1万条/秒，需要1000秒（约17分钟）\n\n第二步：临时扩容方案
+    如果17分钟可接受，直接增加消费者。如果需要更快，采用转发方案：\n\n- 创建临时Topic：\n\n- 开发转发程序：\n\npublic class
+    MessageForwarder {\n       private KafkaConsumer<String, String> consumer;\n       private
+    KafkaProducer<String, String> producer;\n       \n       public void forward()
+    {\n           consumer.subscribe(Collections.singletonList(\"original-topic\"));\n
+    \          while (true) {\n               ConsumerRecords<String, String> records
+    = consumer.poll(Duration.ofMillis(1000));\n               if (records.isEmpty())
+    break;\n               \n               for (ConsumerRecord<String, String> record
+    : records) {\n                   producer.send(new ProducerRecord<>(\n                       \"original-topic-temp\",
+    \n                       record.key(), \n                       record.value()\n
+    \                  ));\n               }\n           }\n       }\n   }\n\n- 启动大量消费者：\n\n第三步：监控和调整\n\n-
+    实时监控：监控原Topic和临时Topic的积压量\n\n- 调整消费者数量：如果速度不够，继续增加消费者\n\n- 资源监控：监控CPU、内存、网络，避免资源耗尽\n\n第四步：恢复和清理\n\n-
+    清理积压：临时Topic消费完后，恢复原消费者\n\n- 删除临时Topic：确认无误后删除临时Topic\n\n- 总结复盘：分析积压原因，制定预防措施\n\n真实案例：
+    某大促期间订单Topic积压2000万条，采用转发方案：\n\n- 创建100个Partition的临时Topic\n\n- 启动200个消费者\n\n-
+    耗时5分钟清理完毕\n\n- 事后分析：原因是数据库慢查询导致消费变慢，优化SQL后解决\n\n注意事项：\n\n- 转发程序要保证不丢消息，记录转发日志\n\n-
+    大量消费者要注意资源限制，避免压垮Broker\n\n- 临时方案结束后要及时清理，避免资源浪费\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n4、容易一起考的题\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/OKxBw38EbiXvoAksf2jc1fn6nMh
+  block_id: doxcnpHrQHnCJznF4wnUu75V4Vc
+  page_token: OKxBw38EbiXvoAksf2jc1fn6nMh
+  original_title: 5.2 消息积压处理
+  imported_at: '2026-09-21'

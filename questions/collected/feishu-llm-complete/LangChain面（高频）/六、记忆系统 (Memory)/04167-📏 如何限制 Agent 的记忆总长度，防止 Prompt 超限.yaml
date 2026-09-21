@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1a1e297166a2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CF 如何限制 Agent 的记忆总长度，防止 Prompt 超限？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F4CF 如何限制 Agent 的记忆总长度，防止 Prompt 超限？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Agent 的记忆（包括对话历史和 scratchpad）随着运行不断膨胀，很容易超出 LLM 的上下文窗口。限制方法如下：
+
+    - 使用窗口或摘要记忆
+    用 ConversationBufferWindowMemory(k=5) 只保留最近 5 轮对话；或用 ConversationSummaryMemory 压缩早期对话。这是最直接的控制手段。
+
+    - 限制 scratchpad 长度
+
+    - 设置 max_iterations：Agent 最多执行 N 步，超过后强制停止，防止无限推理。
+
+    - 在 Prompt 中要求 LLM 精简 Thought：例如“请用一句话写出你的思考”。
+
+    - 对 scratchpad 进行后期处理：如果中间步骤过多，在注入前只保留最近的 M 步，或对早期步骤进行摘要。
+
+    - 动态 Token 预算管理
+
+    编写自定义逻辑，在每次 Agent 循环前计算当前 Prompt 的总 token 数。如果接近上限，则：
+
+    - 自动裁剪 Memory 中的早期消息。
+
+    - 对 scratchpad 中过长的 Observation 进行截断或摘要。
+
+    - 如果依然超限，提前终止并返回“任务过于复杂，请简化问题”。
+
+    - 选择高上限模型或拆分任务
+
+    使用支持更大上下文的模型（如 gpt-4-1106-preview 支持 128K），或将复杂任务拆分为多个子任务，分别由不同的 Agent 实例执行，每个实例拥有独立的短期记忆。
+
+    经验之谈：我通常采用“窗口记忆 + max_iterations=5”组合，在多数场景下有效。如果 Agent 频繁因超限而失败，那往往是提示词不够精炼，或者工具返回的信息太多。应该优化工具，让它们只返回最关键的内容。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PGF2wlLMeiiO4SkG7iycSQbwnNf
+  block_id: Yo8FduqNmosBxIxqlepcBB3qnSc
+  page_token: PGF2wlLMeiiO4SkG7iycSQbwnNf
+  original_title: "\U0001F4CF 如何限制 Agent 的记忆总长度，防止 Prompt 超限？"
+  imported_at: '2026-09-21'

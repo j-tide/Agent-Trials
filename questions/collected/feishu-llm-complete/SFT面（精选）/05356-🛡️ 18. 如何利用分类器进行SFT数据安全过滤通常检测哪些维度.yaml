@@ -1,0 +1,87 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d3f33e11363e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E1️ 18. 如何利用分类器进行SFT数据安全过滤？通常检测哪些维度？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F6E1️ 18. 如何利用分类器进行SFT数据安全过滤？通常检测哪些维度？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    利用分类器进行SFT数据安全过滤，本质上是构建一个自动化的“内容审核员”，在模型训练前就将不安全样本拦截。这比关键词匹配更智能，能识别隐晦的、变形的有害内容。
+
+    一、安全过滤的检测维度表
+
+    [嵌入表格未展开]
+
+    二、分类器的构建与使用方式
+
+    方式一：微调专门的安全分类器
+
+    基于BERT、RoBERTa等预训练编码器，使用人工标注的安全/不安全样本对进行微调。输入为指令文本（通常只看user部分，因为危险来自用户请求），输出为二分类（安全/不安全）或多分类（具体的违规类别）。典型流程：
+
+    - 收集大规模安全标注数据集（如OpenAI Moderation API的训练数据、Anthropic的红队数据、或自建标注数据）
+
+    - 微调一个轻量级分类器（如BERT-base），使其在验证集上达到高准确率和召回率
+
+    - 在SFT数据管道中，每条样本的指令部分先通过分类器打分
+
+    - 设定阈值：高于某分数标记为不安全，或直接剔除；中等分数送入人工复审队列
+
+    方式二：使用现成的安全分类API
+
+    OpenAI Moderation API、Perspective API等提供了可直接调用的安全分类服务。优点是零训练成本、持续更新；缺点是成本较高、可能有数据隐私顾虑、且对中文等非英语内容的覆盖可能不足。对于商业SFT项目，使用API作为第一道筛选，再用自建分类器复核，是常见做法。
+
+    方式三：基于强模型的零样本分类
+
+    将安全检测任务化为一个prompt，交给GPT-4等强模型进行判断。典型prompt：
+
+    请判断以下用户请求是否包含任何不安全内容（暴力、色情、仇恨、自残、违法、儿童不安全、隐私侵犯等）。如果安全，回答“安全”；如果不安全，回答“不安全，类别：XXX”。
+    用户请求：{instruction}
+
+    这种方式对隐晦、新型不安全内容检测能力最强，但成本和延迟较高。通常用于抽检、校准或复审自动分类器的边界案例。
+
+    三、安全过滤的实施策略
+
+    [嵌入表格未展开]
+
+    第四种“改写保留”尤其值得注意：对于检测到的不安全指令，不是简单丢弃，而是将其与正确的安全拒绝回复配对，作为SFT中的安全训练样本。这远比单纯删除更有价值——它教会模型面对危险请求时如何拒绝，而不是期待模型永远遇不到危险请求。
+
+    四、检测维度之外的上下文考量
+
+    安全分类器不能只看单条指令，还需要考虑上下文。例如，“如何制作炸弹”在讨论电影特效的上下文中可能是合理的。因此，高级的安全过滤会结合对话历史和角色设定进行上下文感知的评分，避免误杀合法请求。
+
+    ✅ 总结：利用分类器进行SFT安全过滤，是构建安全对齐模型的第一道防线。通过微调专用模型、调用API或强模型零样本判断，从暴力、色情、仇恨、违法等多维度检测危险内容，并采用硬过滤、改写保留等灵活策略，在保证数据安全性的同时最大化训练数据的价值。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tx5MwZddviIdFJkeUJbc7HEvnWe
+  block_id: Tycodl8RXou8Z1xx5l7cJwqEnqf
+  page_token: Tx5MwZddviIdFJkeUJbc7HEvnWe
+  original_title: "\U0001F6E1️ 18. 如何利用分类器进行SFT数据安全过滤？通常检测哪些维度？"
+  imported_at: '2026-09-21'

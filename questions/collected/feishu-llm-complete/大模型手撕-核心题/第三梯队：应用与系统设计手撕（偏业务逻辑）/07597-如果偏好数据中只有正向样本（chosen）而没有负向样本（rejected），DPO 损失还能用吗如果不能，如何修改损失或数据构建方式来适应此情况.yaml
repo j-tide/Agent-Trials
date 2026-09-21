@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b9bf42de145c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果偏好数据中只有正向样本（chosen）而没有负向样本（rejected），DPO 损失还能用吗？如果不能，如何修改损失或数据构建方式来适应此情况？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 如果偏好数据中只有正向样本（chosen）而没有负向样本（rejected），DPO 损失还能用吗？如果不能，如何修改损失或数据构建方式来适应此情况？
+answer:
+  mode: rubric
+  reference_answer: |-
+    直接使用原始 DPO 损失是不可行的。
+    DPO 损失的核心是对比 chosen 和 rejected 的隐含奖励。如果数据中只包含 chosen 回答（例如，只收集了“点赞”或“优质”回答，而没有“点踩”或对比对），则无法构造 reward margin rw−rl，损失函数将无法计算。
+
+    解决方案：
+
+    可以通过以下两种途径将单向数据转化为成对偏好数据，从而适配 DPO：
+
+    方案一：构造“拒绝”样本（Synthetic Rejected）
+
+    利用参考模型（或策略模型自身）为每个 prompt 生成多个回答，然后根据某种准则（如人工评分、规则）选出较好的作为 chosen，较差的作为 rejected。常见方法：
+
+    - 对同一 prompt，用初始 SFT 模型采样多条回答。
+
+    - 使用奖励模型或人工标注对这些回答打分。
+
+    - 选择得分最高的作为 chosen，得分最低的（或随机选一个低分）作为 rejected。
+
+    - 用这些 (prompt, chosen, rejected) 三元组训练 DPO。
+    这种方式被称为 "Rejection Sampling" 或 "Synthetic Preference"，已被广泛使用（例如 UltraFeedback 数据集）。
+
+    方案二：设计仅使用正向样本的损失变体
+    如果无法获得 rejected 样本，可以尝试将 DPO 损失修改为仅优化正向概率，同时加入正则项防止模型偏离参考模型太远。例如，最大化 log π_θ(y_chosen|x) - β KL(π_θ || π_ref)，但这实际上等同于监督微调（SFT）加上 KL 惩罚，已经退化为 SFT，失去了对比学习的优势。
+
+    另一种思路是构造一个虚拟的 rejected 样本：将参考模型在该 prompt 下的生成结果视为“rejected”，而将人工标注的优质回答作为 chosen。但这要求参考模型生成的回答质量较低且与 chosen 存在明显差距，否则训练信号会很弱。
+
+    方案三：迭代 DPO（Iterative DPO）
+
+    - 先用现有的 chosen 数据对模型进行 SFT，得到一个初始策略。
+
+    - 用该策略为训练集中的每个 prompt 生成多个回答。
+
+    - 用外部的奖励模型（或人工）对这些回答评分，选出 chosen 和 rejected，构造偏好对。
+
+    - 用这些偏好对训练 DPO，得到新的策略。
+
+    - 重复步骤 2-4 多次。
+    这种方法能够自我生成高质量的偏好数据，已在实践中被证明非常有效。
+
+    总结：原始 DPO 必须依赖成对的偏好数据。当只有正向样本时，需要通过生成对比样本（如采样+评分）来构造 rejected 样本，从而形成三元组。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  block_id: JWKCdkjPQoT63RxMHOgcs11yn5g
+  page_token: Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  original_title: 如果偏好数据中只有正向样本（chosen）而没有负向样本（rejected），DPO 损失还能用吗？如果不能，如何修改损失或数据构建方式来适应此情况？
+  imported_at: '2026-09-21'

@@ -1,0 +1,103 @@
+---
+schema_version: 1
+id: feishu-llm-complete-88b595e9a2b0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E0 什么是幻觉（Hallucination）？有哪些检测和缓解手段？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F9E0 什么是幻觉（Hallucination）？有哪些检测和缓解手段？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    幻觉的定义： 模型生成的内容与事实、给定上下文或逻辑相悖，但表达得流畅自信，令使用者难以察觉。
+
+    三种主要类型：
+
+    - 事实不一致幻觉：捏造人名、日期、引用、不存在的 API。
+
+    - 忠诚度幻觉：偏离用户提供的上下文或文档，凭空添加信息。
+
+    - 逻辑幻觉：推理步骤表面通顺，但结论错误（如数学计算错误）。
+
+    检测手段（从轻到重）：
+
+    - 基于模型自身不确定度
+    获取生成每个 token 时的 log probability，熵值高的片段往往是“瞎编”区域。
+
+    def uncertainty_detection(model, tokenizer, prompt, threshold=0.2):
+        inputs = tokenizer(prompt, return_tensors="pt")
+        with torch.no_grad():
+            outputs = model(**inputs, labels=inputs["input_ids"])
+        # 计算每个 token 的负对数似然
+        nll = torch.nn.functional.cross_entropy(
+            outputs.logits[0, :-1], inputs.input_ids[0, 1:], reduction='none'
+        )
+        uncertain_mask = nll > threshold
+        return uncertain_mask  # True 表示该位置可能幻觉
+
+    - 缺点：低不确定性不代表正确，模型可能对自己编造的事实极度自信。
+
+    - 基于检索的事实验证
+    把回答中的关键主张抽取出来，用搜索引擎或知识库逐条核实。
+
+    def fact_check(claim, search_engine):
+        snippet = search_engine.search(claim)  # 返回 top snippet
+        verification_prompt = f"根据以下证据，判断主张是否成立。\n主张：{claim}\n证据：{snippet}\n回答：是/否"
+        result = call_llm(verification_prompt)
+        return result == "是"
+
+    自一致性（Self-Consistency）
+
+    用高温度多次采样，若多个样本对同一事实的描述高度一致，则可能正确；若各说各话，则存在幻觉。
+
+    def self_consistency(model, prompt, n=5):
+        answers = [model.generate(prompt, temperature=0.7) for _ in range(n)]
+        # 抽取事实关键点，投票
+        facts = [extract_claims(a) for a in answers]
+        consensus = {claim: count for claim, count in votes(facts).items() if count > n//2}
+        return consensus
+
+    缓解手段（预防胜于治疗）：
+
+    - RAG 第一道防线：提供真实文档作为上下文基础，限制模型只根据检索内容回答。
+
+    - 指令约束：在 System Prompt 中明确“若不确定，请说‘不知道’”。
+
+    - SFT 与 RLHF 对齐：训练阶段使用事实性奖励信号，惩罚幻象。
+
+    - 解码控制：降低温度，使用 nucleus sampling 并设置重复惩罚，减少天马行空。
+
+    - 后处理校验：输出前用规则/NER 模型验证关键实体（日期、金额）是否合法。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcnn2TD92J5RbKInyWdoUaq4d
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "\U0001F9E0 什么是幻觉（Hallucination）？有哪些检测和缓解手段？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-59767e418480
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何计算微调中需要的总batch size和global batch size？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如何计算微调中需要的总batch size和global batch size？
+answer:
+  mode: rubric
+  reference_answer: |-
+    总batch size（Global Batch Size） 是指模型一次参数更新所依据的样本总数，它直接影响训练稳定性和泛化。通常根据模型规模、下游任务、数据集大小等经验确定，LLM微调常见范围是64~512。
+
+    计算步骤：
+
+    - 经验选定目标global batch size：参考类似开源工作（如LLaMA2微调用了128），或通过小规模实验在训练速度和收敛质量之间寻找最优值。
+
+    - 确定单卡可承受的最大micro-batch size：通过测试，在开启混合精度和梯度检查点后，逐步增大micro-batch直到刚好不OOM。
+
+    - 计算所需梯度累积步数和数据并行度：根据公式反推。若已有固定数量的GPU，且可并行处理数据（如FSDP组），则数据并行度已知。设目标global batch size = B，micro-batch = b，数据并行卡数 = D，则累积步数 = B/(b×D)。如果结果不是整数，调整B或b。
+
+    - 验证：用算出的配置运行少量步数，监控显存和损失，确保不OOM且梯度范数稳定。
+
+    举例：目标B=128，用4卡DDP（D=4），测试后单卡micro-batch最大b=8，则累积步数 = 128 / (8×4) = 4。于是每4个micro-batch更新一次参数。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: SjFkdBXoFoYV40xc13Gcxo2hnNb
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 如何计算微调中需要的总batch size和global batch size？
+  imported_at: '2026-09-21'

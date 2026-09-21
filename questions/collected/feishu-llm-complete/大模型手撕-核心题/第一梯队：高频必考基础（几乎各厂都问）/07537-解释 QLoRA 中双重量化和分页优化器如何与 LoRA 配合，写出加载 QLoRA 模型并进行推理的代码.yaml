@@ -1,0 +1,88 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cecdd640f9ec
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 QLoRA 中双重量化和分页优化器如何与 LoRA 配合，写出加载 QLoRA 模型并进行推理的代码。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 解释 QLoRA 中双重量化和分页优化器如何与 LoRA 配合，写出加载 QLoRA 模型并进行推理的代码。
+answer:
+  mode: rubric
+  reference_answer: |-
+    21.1 QLoRA 原理
+
+    QLoRA (Quantized LoRA) 将 LoRA 与 4-bit 量化（通常使用 NormalFloat4 数据类型）结合，进一步大幅降低显存占用。其核心组件：
+
+    - 4-bit 基础模型权重：模型权重以 4-bit 格式存储，在计算时反量化为 BF16/FP16。
+
+    - 双重量化：对第一次量化的缩放常数再次进行量化（如 8-bit），减少量化常数的存储开销。
+
+    - 分页优化器：当 GPU 显存不足时，将优化器状态自动分页到 CPU 内存，以避免 OOM。
+
+    - LoRA 适配器：以全精度（FP16/BF16）添加在需要微调的层上。
+
+    21.2 加载 QLoRA 模型并进行推理
+
+    使用 bitsandbytes 和 peft 库可以轻松实现。
+
+    ```python
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from peft import PeftModel
+
+    # 加载基座模型（4-bit 量化）
+    model = AutoModelForCausalLM.from_pretrained(
+        "meta-llama/Llama-2-7b-hf",
+        load_in_4bit=True,
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+        bnb_4bit_compute_dtype=torch.bfloat16,
+        bnb_4bit_use_double_quant=True,  # 双重量化
+    )
+    tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
+
+    # 加载训练好的 LoRA 权重
+    model = PeftModel.from_pretrained(model, "path/to/lora-adapter")
+
+    # 推理
+    inputs = tokenizer("Hello, how are you?", return_tensors="pt").to(model.device)
+    outputs = model.generate(**inputs)
+    print(tokenizer.decode(outputs[0]))
+    ```
+
+    QLoRA 训练时，bnb_4bit_use_double_quant=True 开启双重量化；分页优化器通过 paged_adamw 或在 TrainingArguments 中设置 optim="paged_adamw_32bit" 实现。
+
+    21.3 合并 QLoRA 权重
+
+    如第 9 题所述，需要反量化基础权重，加上 LoRA 增量，再选择重新量化或直接使用浮点模型。推荐使用 model.merge_and_unload() 自动完成此过程，得到合并后的浮点模型，然后可进行推理。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LZxww5JuBif3JAkuCoIcuqRenuf
+  block_id: BLgndhnJgogj1YxyDUjc1u2Ankd
+  page_token: LZxww5JuBif3JAkuCoIcuqRenuf
+  original_title: 解释 QLoRA 中双重量化和分页优化器如何与 LoRA 配合，写出加载 QLoRA 模型并进行推理的代码。
+  imported_at: '2026-09-21'

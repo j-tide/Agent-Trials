@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-59d705a08354
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 批量工具调用如何用 @Async + CompletableFuture 实现并发执行，控制超时和异常？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 批量工具调用如何用 @Async + CompletableFuture 实现并发执行，控制超时和异常？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐⭐（并发控制、超时处理、异常处理、CompletableFuture）\n\n1️⃣ Common Answer\n\n用
+    @Async 异步调用每个工具，用 CompletableFuture 收集结果，用 allOf 等待所有完成，用 orTimeout 设置超时。\n\n2️⃣
+    Impressive Answer\n\n- 异步工具调用：\n\n@Service\npublic class ToolService {\n    @Async(\"toolExecutor\")\n
+    \   public CompletableFuture<ToolResponse> callAsync(ToolRequest request) {\n
+    \       try {\n            ToolResponse response = doCall(request);\n            return
+    CompletableFuture.completedFuture(response);\n        } catch (Exception e) {\n
+    \           return CompletableFuture.failedFuture(e);\n        }\n    }\n}\n\n-
+    批量并发调用：\n\n@Service\npublic class AgentService {\n    @Autowired\n    private
+    ToolService toolService;\n        \n    public Map<String, ToolResponse> batchCall(List<ToolRequest>
+    requests, long timeout, TimeUnit unit) {\n        // 1. 提交所有异步任务\n        List<CompletableFuture<ToolResponse>>
+    futures = requests.stream()\n            .map(toolService::callAsync)\n            .toList();\n
+    \           \n        // 2. 等待所有完成，设置超时\n        CompletableFuture<Void> allFutures
+    = CompletableFuture.allOf(\n            futures.toArray(new CompletableFuture[0])\n
+    \       );\n            \n        try {\n            allFutures.get(timeout, unit);\n
+    \       } catch (TimeoutException e) {\n            // 超时处理\n            futures.forEach(f
+    -> f.cancel(true));\n            throw new AgentException(\"Tool call timeout\",
+    e);\n        } catch (Exception e) {\n            throw new AgentException(\"Tool
+    call failed\", e);\n        }\n            \n        // 3. 收集结果\n        Map<String,
+    ToolResponse> results = new HashMap<>();\n        for (int i = 0; i < requests.size();
+    i++) {\n            ToolRequest request = requests.get(i);\n            CompletableFuture<ToolResponse>
+    future = futures.get(i);\n            try {\n                ToolResponse response
+    = future.get();\n                results.put(request.getToolId(), response);\n
+    \           } catch (Exception e) {\n                // 单个工具失败，记录但不影响其他工具\n                log.error(\"Tool
+    {} failed: {}\", request.getToolId(), e.getMessage());\n                results.put(request.getToolId(),
+    ToolResponse.failed(e));\n            }\n        }\n            \n        return
+    results;\n    }\n}\n\n- 超时控制：\n\n@Service\npublic class ToolService {\n    @Async(\"toolExecutor\")\n
+    \   public CompletableFuture<ToolResponse> callAsyncWithTimeout(ToolRequest request,
+    long timeout, TimeUnit unit) {\n        return CompletableFuture.supplyAsync(()
+    -> doCall(request))\n            .orTimeout(timeout, unit)  // 单个调用超时\n            .exceptionally(e
+    -> {\n                if (e instanceof TimeoutException) {\n                    return
+    ToolResponse.timeout();\n                }\n                return ToolResponse.failed(e);\n
+    \           });\n    }\n}\n\n- 异常处理：\n\n@Service\npublic class AgentService {\n
+    \   public Map<String, ToolResponse> batchCallWithErrorHandling(List<ToolRequest>
+    requests) {\n        List<CompletableFuture<ToolResponse>> futures = requests.stream()\n
+    \           .map(toolService::callAsync)\n            .toList();\n            \n
+    \       CompletableFuture<Void> allFutures = CompletableFuture.allOf(\n            futures.toArray(new
+    CompletableFuture[0])\n        ).exceptionally(e -> {\n            // 全局异常处理\n
+    \           log.error(\"Batch tool call failed: {}\", e.getMessage());\n            return
+    null;\n        });\n            \n        allFutures.join();  // 等待所有完成\n            \n
+    \       // 收集结果，处理异常\n        return futures.stream()\n            .collect(Collectors.toMap(\n
+    \               f -> f.join().getToolId(),\n                f -> {\n                    try
+    {\n                        return f.join();\n                    } catch (Exception
+    e) {\n                        return ToolResponse.failed(e);\n                    }\n
+    \               }\n            ));\n    }\n}\n\n- Agent 场景实战：Agent 需要同时调用搜索工具、计算工具、天气工具获取信息，使用
+    @Async 并发执行，设置 5 秒超时，单个工具失败不影响其他工具，最后聚合所有结果返回给 LLM。\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcnD349dzjviReqNDWDIwp6Ie
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 3、场景题：Agent 批量工具调用如何用 @Async + CompletableFuture 实现并发执行，控制超时和异常？
+  imported_at: '2026-09-21'

@@ -1,0 +1,151 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0deeea86c0f8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 问题 22：消息队列如何实现 Saga 分布式事务编排？与 TCC、本地消息表方案有什么区别？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 问题 22：消息队列如何实现 Saga 分布式事务编排？与 TCC、本地消息表方案有什么区别？
+answer:
+  mode: rubric
+  reference_answer: "难度：⭐⭐⭐⭐（Saga 编排式 vs 协同式、补偿事务、与 TCC 对比、Seata 集成）\n\n1️⃣ Common
+    Answer 嗯...Saga 是一种分布式事务模式，通过一系列本地事务和补偿操作实现最终一致性。TCC 是 Try-Confirm-Cancel，需要三个接口。本地消息表是先写消息再发
+    MQ。Saga 可以用消息队列实现，每个服务消费上游消息，执行本地事务，再发下游消息。\n\n2️⃣ Impressive Answer 我会从这几个角度思考：\n\n-
+    Saga 模式的两种实现\n\n编排式（Orchestration）：\n\n- 由一个中心协调器（Saga Coordinator）控制整个流程\n\n-
+    协调器调用各个服务的正向操作和补偿操作\n\n- 优点：流程清晰、易于监控、补偿逻辑集中\n\n- 缺点：协调器单点、耦合度高\n\n协同式（Choreography）：\n\n-
+    没有中心协调器，各服务通过事件驱动协作\n\n- 每个服务消费上游事件，执行本地事务，发布下游事件\n\n- 优点：去中心化、松耦合、扩展性好\n\n- 缺点：流程分散、难以追踪、补偿逻辑分散\n\n-
+    基于消息队列的协同式 Saga\n\n架构设计：\n\n```text\n订单服务 → MQ → 库存服务 → MQ → 支付服务 → MQ → 物流服务\n
+    \  ↓          ↓          ↓          ↓\n补偿订单   补偿库存   补偿支付   补偿物流\n```\n\n流程说明：\n\n-
+    订单服务创建订单 → 发布 OrderCreated 事件\n\n- 库存服务消费 OrderCreated → 扣减库存 → 发布 InventoryReserved
+    事件\n\n- 支付服务消费 InventoryReserved → 扣款 → 发布 PaymentCompleted 事件\n\n- 物流服务消费 PaymentCompleted
+    → 创建物流单 → 发布 ShipmentCreated 事件\n\n补偿流程（任一步骤失败）：\n\n- 支付失败 → 发布 PaymentFailed
+    事件\n\n- 库存服务消费 PaymentFailed → 回滚库存 → 发布 InventoryReleased 事件\n\n- 订单服务消费 InventoryReleased
+    → 取消订单 → 发布 OrderCancelled 事件\n\n- 补偿事务设计\n\n正向操作 + 逆向补偿：\n\n```text\n// 正向操作：扣减库存\npublic
+    void reserveInventory(String orderId, List<OrderItem> items) {\n    // 执行本地事务\n
+    \   transactionTemplate.execute(status -> {\n        for (OrderItem item : items)
+    {\n            inventoryRepository.decrease(item.getProductId(), item.getQuantity());\n
+    \       }\n        // 记录操作日志（用于补偿）\n        sagaLogRepository.save(new SagaLog(orderId,
+    \"INVENTORY_RESERVED\", items));\n        return null;\n    });\n    \n    //
+    发布下游事件\n    eventPublisher.publish(new InventoryReservedEvent(orderId, items));\n}\n\n//
+    逆向补偿：回滚库存\npublic void releaseInventory(String orderId) {\n    // 查询操作日志\n    SagaLog
+    log = sagaLogRepository.findByOrderIdAndOperation(orderId, \"INVENTORY_RESERVED\");\n
+    \   List<OrderItem> items = log.getItems();\n    \n    // 执行补偿事务\n    transactionTemplate.execute(status
+    -> {\n        for (OrderItem item : items) {\n            inventoryRepository.increase(item.getProductId(),
+    item.getQuantity());\n        }\n        return null;\n    });\n    \n    // 发布补偿事件\n
+    \   eventPublisher.publish(new InventoryReleasedEvent(orderId));\n}\n```\n\n补偿原则：\n\n-
+    补偿操作必须是幂等的（可能重复执行）\n\n- 补偿操作必须能回滚正向操作的所有影响\n\n- 补偿操作本身也可能失败，需要重试或人工介入\n\n- 与 TCC
+    的对比\n\n[嵌入表格未展开]\n\n对比示例：\n\n```text\n// Saga：扣减库存（直接扣减，失败时补偿）\npublic void reserveInventory(String
+    orderId, int productId, int quantity) {\n    inventoryRepository.decrease(productId,
+    quantity); // 直接扣减\n}\n\n// TCC：Try 阶段（预留库存）\npublic boolean tryReserveInventory(String
+    orderId, int productId, int quantity) {\n    return inventoryRepository.reserve(productId,
+    quantity); // 预留\n}\n\n// TCC：Confirm 阶段（确认扣减）\npublic boolean confirmReserveInventory(String
+    orderId, int productId, int quantity) {\n    return inventoryRepository.decreaseReserved(productId,
+    quantity); // 扣减预留\n}\n\n// TCC：Cancel 阶段（释放预留）\npublic boolean cancelReserveInventory(String
+    orderId, int productId, int quantity) {\n    return inventoryRepository.releaseReserved(productId,
+    quantity); // 释放预留\n}\n```\n\n- 与本地消息表的对比\n\n[嵌入表格未展开]\n\n本地消息表示例：\n\n```text\n//
+    本地消息表实现\n@Transactional\npublic void createOrder(Order order) {\n    // 1. 写入订单\n
+    \   orderRepository.save(order);\n    \n    // 2. 写入本地消息表\n    messageRepository.save(new
+    LocalMessage(\n        order.getId(), \n        \"ORDER_CREATED\", \n        JSON.toJSONString(order)\n
+    \   ));\n}\n\n// 定时任务：扫描消息表并发送 MQ\n@Scheduled(fixedDelay = 5000)\npublic void
+    scanAndSendMessages() {\n    List<LocalMessage> messages = messageRepository.findByStatusAndSendTimeBefore(\n
+    \       \"PENDING\", \n        new Date()\n    );\n    \n    for (LocalMessage
+    message : messages) {\n        try {\n            rocketMQTemplate.send(message.getTopic(),
+    message.getContent());\n            message.setStatus(\"SENT\");\n            messageRepository.save(message);\n
+    \       } catch (Exception e) {\n            log.error(\"Send message failed\",
+    e);\n        }\n    }\n}\n```\n\n- 实战：订单 → 库存 → 支付的 Saga 编排完整 Java 代码示例\n\n订单服务：\n\n```text\n@Service\npublic
+    class OrderService {\n    \n    @Autowired\n    private RocketMQTemplate rocketMQTemplate;\n
+    \   \n    @Autowired\n    private OrderRepository orderRepository;\n    \n    @Autowired\n
+    \   private SagaLogRepository sagaLogRepository;\n    \n    @Transactional\n    public
+    void createOrder(CreateOrderRequest request) {\n        // 1. 创建订单\n        Order
+    order = new Order(request.getUserId(), request.getItems());\n        orderRepository.save(order);\n
+    \       \n        // 2. 记录 Saga 日志\n        sagaLogRepository.save(new SagaLog(\n
+    \           order.getId(), \n            \"ORDER_CREATED\", \n            JSON.toJSONString(order)\n
+    \       ));\n        \n        // 3. 发布订单创建事件\n        rocketMQTemplate.convertAndSend(\n
+    \           \"order-created-topic\", \n            new OrderCreatedEvent(order.getId(),
+    order.getItems())\n        );\n    }\n    \n    @RocketMQMessageListener(\n        topic
+    = \"inventory-released-topic\",\n        consumerGroup = \"order-consumer-group\"\n
+    \   )\n    public class OrderCompensationListener implements RocketMQListener<InventoryReleasedEvent>
+    {\n        \n        @Override\n        public void onMessage(InventoryReleasedEvent
+    event) {\n            // 补偿：取消订单\n            Order order = orderRepository.findById(event.getOrderId());\n
+    \           order.setStatus(\"CANCELLED\");\n            orderRepository.save(order);\n
+    \           \n            // 记录补偿日志\n            sagaLogRepository.save(new SagaLog(\n
+    \               event.getOrderId(), \n                \"ORDER_CANCELLED\", \n
+    \               JSON.toJSONString(order)\n            ));\n        }\n    }\n}\n```\n\n库存服务：\n\n```text\n@Service\npublic
+    class InventoryService {\n    \n    @Autowired\n    private InventoryRepository
+    inventoryRepository;\n    \n    @Autowired\n    private SagaLogRepository sagaLogRepository;\n
+    \   \n    @Autowired\n    private RocketMQTemplate rocketMQTemplate;\n    \n    @RocketMQMessageListener(\n
+    \       topic = \"order-created-topic\",\n        consumerGroup = \"inventory-consumer-group\"\n
+    \   )\n    public class OrderCreatedListener implements RocketMQListener<OrderCreatedEvent>
+    {\n        \n        @Override\n        public void onMessage(OrderCreatedEvent
+    event) {\n            try {\n                // 1. 扣减库存\n                transactionTemplate.execute(status
+    -> {\n                    for (OrderItem item : event.getItems()) {\n                        inventoryRepository.decrease(\n
+    \                           item.getProductId(), \n                            item.getQuantity()\n
+    \                       );\n                    }\n                    return
+    null;\n                });\n                \n                // 2. 记录 Saga 日志\n
+    \               sagaLogRepository.save(new SagaLog(\n                    event.getOrderId(),
+    \n                    \"INVENTORY_RESERVED\", \n                    JSON.toJSONString(event.getItems())\n
+    \               ));\n                \n                // 3. 发布库存预留事件\n                rocketMQTemplate.convertAndSend(\n
+    \                   \"inventory-reserved-topic\", \n                    new InventoryReservedEvent(event.getOrderId(),
+    event.getItems())\n                );\n                \n            } catch (InsufficientStockException
+    e) {\n                // 库存不足，发布失败事件\n                rocketMQTemplate.convertAndSend(\n
+    \                   \"inventory-failed-topic\", \n                    new InventoryFailedEvent(event.getOrderId(),
+    e.getMessage())\n                );\n            }\n        }\n    }\n    \n    @RocketMQMessageListener(\n
+    \       topic = \"payment-failed-topic\",\n        consumerGroup = \"inventory-consumer-group\"\n
+    \   )\n    public class PaymentFailedListener implements RocketMQListener<PaymentFailedEvent>
+    {\n        \n        @Override\n        public void onMessage(PaymentFailedEvent
+    event) {\n            // 补偿：回滚库存\n            SagaLog log = sagaLogRepository.findByOrderIdAndOperation(\n
+    \               event.getOrderId(), \n                \"INVENTORY_RESERVED\"\n
+    \           );\n            List<OrderItem> items = JSON.parseArray(log.getContent(),
+    OrderItem.class);\n            \n            transactionTemplate.execute(status
+    -> {\n                for (OrderItem item : items) {\n                    inventoryRepository.increase(\n
+    \                       item.getProductId(), \n                        item.getQuantity()\n
+    \                   );\n                }\n                return null;\n            });\n
+    \           \n            // 发布库存释放事件\n            rocketMQTemplate.convertAndSend(\n
+    \               \"inventory-released-topic\", \n                new InventoryReleasedEvent(event.getOrderId())\n
+    \           );\n        }\n    }\n}\n```\n\n支付服务：\n\n```text\n@Service\npublic
+    class PaymentService {\n    \n    @Autowired\n    private PaymentRepository paymentRepository;\n
+    \   \n    @Autowired\n    private RocketMQTemplate rocketMQTemplate;\n    \n    @RocketMQMessageListener(\n
+    \       topic = \"inventory-reserved-topic\",\n        consumerGroup = \"payment-consumer-group\"\n
+    \   )\n    public class InventoryReservedListener implements RocketMQListener<InventoryReservedEvent>
+    {\n        \n        @Override\n        public void onMessage(InventoryReservedEvent
+    event) {\n            try {\n                // 1. 扣款\n                Payment
+    payment = new Payment(\n                    event.getOrderId(), \n                    calculateTotalAmount(event.getItems())\n
+    \               );\n                paymentRepository.save(payment);\n                \n
+    \               // 2. 发布支付完成事件\n                rocketMQTemplate.convertAndSend(\n
+    \                   \"payment-completed-topic\", \n                    new PaymentCompletedEvent(event.getOrderId(),
+    payment.getId())\n                );\n                \n            } catch (PaymentException
+    e) {\n                // 支付失败，发布失败事件\n                rocketMQTemplate.convertAndSend(\n
+    \                   \"payment-failed-topic\", \n                    new PaymentFailedEvent(event.getOrderId(),
+    e.getMessage())\n                );\n            }\n        }\n    }\n}\n```\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n---\n\n### 6.23 消息队列实现缓存一致性"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcnkFjGA3LZMmi9YGN3EJuj1e
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: 问题 22：消息队列如何实现 Saga 分布式事务编排？与 TCC、本地消息表方案有什么区别？
+  imported_at: '2026-09-21'

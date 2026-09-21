@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d43686fdfbce
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多轮对话SFT数据如何组织？loss mask如何处理不同轮次？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 多轮对话SFT数据如何组织？loss mask如何处理不同轮次？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多轮对话 SFT 数据的组织，核心是保持对话的时序连贯性，并在 loss mask 上精确控制每一轮 assistant 回复的学习信号。
+
+    数据组织：一条多轮对话 SFT 样本通常是一个完整的对话历史，包含交替出现的 user 和 assistant 消息，以及可选的开头 system 消息。例如在 ChatML 格式中，它会被拼接成一个长序列：
+
+    ```text
+    <|im_start|>system
+    {system_prompt}<|im_end|>
+    <|im_start|>user
+    {第一轮用户消息}<|im_end|>
+    <|im_start|>assistant
+    {第一轮助手回复}<|im_end|>
+    <|im_start|>user
+    {第二轮用户消息}<|im_end|>
+    <|im_start|>assistant
+    {第二轮助手回复}<|im_end|>
+    ```
+
+    所有轮次按顺序连接，形成一个完整的训练样本。这样模型就能在上下文中学习到指代消解、状态跟踪等能力。
+
+    loss mask 处理：对于每一轮 assistant 回复，都需要计算损失；而所有的 system、user 消息，以及所有的特殊 token（如 <|im_start|>、<|im_end|>），都需要被 mask 掉（设置为 -100）。因此，一个多轮样本的 labels 数组中，会有多个分散的连续有效区域（各轮 assistant 回复），其余部分全是 -100。
+
+    在训练时，模型会对整个序列进行自回归预测，但只有那些未被 mask 的位置才会贡献梯度。这意味着模型能够学会在任何一轮对话中，基于之前的完整历史，生成恰当的回复。如果只对最后一轮 assistant 回复计算损失，模型在中间轮次可能就会表现得敷衍或错误，因为缺乏中间监督。
+
+    实践中需要注意，各轮 assistant 回复通常都会参与训练，因为它们都是高质量的示范。但有时为了避免训练信号重复，也可以对历史轮次进行截断或采样，不过最标准的方法是全部保留并全部计算损失。此外，当多轮对话过长超过模型最大上下文时，可以采用滑动窗口或丢弃最早轮次的方式来截断，但要保证最近的对话轮次完整。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PMU2wL6MLiKo4yk5L39cu6vqnIc
+  block_id: GOLodQO9Co7bcXx6dSRcd02Gn5e
+  page_token: PMU2wL6MLiKo4yk5L39cu6vqnIc
+  original_title: 多轮对话SFT数据如何组织？loss mask如何处理不同轮次？
+  imported_at: '2026-09-21'

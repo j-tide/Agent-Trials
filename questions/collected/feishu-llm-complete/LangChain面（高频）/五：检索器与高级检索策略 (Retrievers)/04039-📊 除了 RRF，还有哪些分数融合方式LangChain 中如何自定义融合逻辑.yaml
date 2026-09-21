@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d0d44a366cb2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 除了 RRF，还有哪些分数融合方式？LangChain 中如何自定义融合逻辑？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F4CA 除了 RRF，还有哪些分数融合方式？LangChain 中如何自定义融合逻辑？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    除了 RRF，常见的分数融合方式包括：
+
+    - 线性加权（Linear Combination）：归一化各检索器的分数后，按权重线性相加。需要分数具有可比性，因此必须做 Min-Max 或 Z-score 归一化。
+
+    - CombSUM / CombMNZ：信息检索领域的经典融合算法。CombSUM 直接对各检索器的分数求和；CombMNZ 在求和的基础上乘以“命中该文档的检索器数量”，鼓励多个检索器都认可的文档。
+
+    - 基于概率的融合：例如使用逻辑回归模型，以各检索器的分数作为特征，学习一个融合函数。
+
+    - 基于排序的投票：如 Borda Count，按排名给分。
+
+    LangChain 中自定义融合逻辑：
+    可以通过子类化 EnsembleRetriever 并重写 _get_relevant_documents 或 weighted_reciprocal_rank 方法来实现。下面是一个自定义线性加权的例子：
+
+    from langchain.retrievers import EnsembleRetriever
+    from sklearn.preprocessing import MinMaxScaler
+
+    class LinearEnsembleRetriever(EnsembleRetriever):
+        def _get_relevant_documents(self, query):
+            # 假设每个检索器都返回带有分数的文档（需要检索器支持）
+            all_docs = []
+            for retriever in self.retrievers:
+                docs = retriever.get_relevant_documents(query)  # 需修改为返回分数
+                all_docs.append(docs)
+            # 融合逻辑
+            doc_scores = {}
+            for docs, weight in zip(all_docs, self.weights):
+                scores = [doc.metadata.get("score", 0) for doc in docs]
+                # 归一化
+                scaler = MinMaxScaler()
+                norm_scores = scaler.fit_transform([[s] for s in scores]).flatten()
+                for doc, score in zip(docs, norm_scores):
+                    doc_scores[doc.page_content] = doc_scores.get(doc.page_content, 0) + weight * score
+            sorted_items = sorted(doc_scores.items(), key=lambda x: x[1], reverse=True)
+            return [self._doc_map[key] for key, _ in sorted_items]
+
+    更简单的是，在 EnsembleRetriever 基础上，封装一个 _combine_results 方法替换。但最灵活的方式是不依赖 EnsembleRetriever，自己写一个完全自定义的 HybridRetriever 类，直接实现自己的融合策略。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TYm8wI1HmiQSuPkpe81c9XYanHb
+  block_id: Fc87dIuHWo3ctoxCmDrc1WrMnGc
+  page_token: TYm8wI1HmiQSuPkpe81c9XYanHb
+  original_title: "\U0001F4CA 除了 RRF，还有哪些分数融合方式？LangChain 中如何自定义融合逻辑？"
+  imported_at: '2026-09-21'

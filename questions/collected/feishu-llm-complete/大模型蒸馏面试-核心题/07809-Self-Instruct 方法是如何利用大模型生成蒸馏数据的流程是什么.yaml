@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-11afaaeb9fb4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Self-Instruct 方法是如何利用大模型生成蒸馏数据的？流程是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型蒸馏面试-核心题
+derived_topic: 
+tags: &1
+- 大模型蒸馏面试-核心题
+content:
+  prompt: Self-Instruct 方法是如何利用大模型生成蒸馏数据的？流程是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Self-Instruct 是由 Stanford Alpaca 项目推广的一种半自动化数据生成方法。它让大模型自己给自己“出题”并“解答”，从而生成海量的指令微调数据。
+
+    核心思想：利用少量人工编写的种子指令作为 Few-shot 示例，引导大模型不断生成新的、不同的指令及其对应的回答，形成一个自我循环的数据增强过程。
+
+    具体流程：
+
+    - 准备种子任务池：由人类专家精心编写175条左右高质量的（指令，回答）对，覆盖希望模型学会的核心任务类型。这个种子池是数据质量的基因。
+
+    - 指令生成（Instruction Generation）：
+
+    - 从种子池中随机抽取6-8条指令作为 Few-shot 示例。
+
+    - 将这些示例拼接成一个专门的Prompt，要求大模型“生成一条全新的、与示例不同的指令，且该指令应能由一个AI助手合理回答”。
+
+    - 模型生成新指令后，计算其与池中已有指令的 ROUGE-L 相似度，若相似度过高则丢弃，以保证多样性。
+
+    - 指令分类（Classification）：使用另一个 Few-shot Prompt，让大模型判断新生成的指令属于“分类任务”还是“生成任务”。这一步有助于后续生成回答时施加不同的格式约束。
+
+    - 回答生成（Instance Generation）：将新指令（连同其分类标签）输入给同一个（或更强的）大模型，让它给出高质量的回答。对于分类任务，通常要求直接输出标签；对于生成任务，输出完整回答。
+
+    - 过滤与后处理（Filtering & Post-processing）：对生成的（指令，回答）对进行多级过滤：
+
+    - 格式检查：回答是否符合指令分类的格式要求。
+
+    - 困惑度过滤：用基座模型计算回答的PPL，过高或过低都可能质量不佳。
+
+    - 安全与内容过滤：剔除包含有害、偏见、事实错误的内容。
+
+    - 去重：与已有数据做语义相似度去重。
+
+    - 迭代扩展（Iteration）：将通过过滤的新数据加入任务池。从扩大的池中再次采样，重复步骤2-5。通过多轮迭代，任务池从最初的175条扩展到数千乃至数万条。
+
+    通过这种方式，仅需少量人工种子，就能“自举”出一个大规模、多样化的指令微调数据集，用于蒸馏学生模型。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LjfGwN95livJFZkv1WJcPZvun4e
+  block_id: GBc2dKiVUo0YktxnGgAckKLknqc
+  page_token: LjfGwN95livJFZkv1WJcPZvun4e
+  original_title: Self-Instruct 方法是如何利用大模型生成蒸馏数据的？流程是什么？
+  imported_at: '2026-09-21'

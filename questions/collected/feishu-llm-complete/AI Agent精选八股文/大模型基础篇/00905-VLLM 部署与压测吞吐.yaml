@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ee9893aeb836
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: VLLM 部署与压测吞吐
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: VLLM 部署与压测吞吐
+answer:
+  mode: rubric
+  reference_answer: |-
+    部署命令：
+
+    ```bash
+    python -m vllm.entrypoints.openai.api_server \
+        --model meta-llama/Meta-Llama-3-8B \
+        --tensor-parallel-size 1 \
+        --max-model-len 4096 \
+        --gpu-memory-utilization 0.95
+    ```
+
+    压测脚本（使用 vllm 的 benchmark）：
+
+    ```python
+    from vllm import LLM, SamplingParams
+    import time
+
+    llm = LLM(model="meta-llama/Meta-Llama-3-8B")
+    prompts = ["Explain the theory of relativity."] * 100
+    sampling_params = SamplingParams(temperature=0, max_tokens=256)
+    start = time.time()
+    outputs = llm.generate(prompts, sampling_params)
+    end = time.time()
+    tokens = sum(len(out.outputs[0].token_ids) for out in outputs)
+    print(f"Throughput: {tokens/(end-start):.2f} tokens/s")
+    ```
+
+    关键点：Continuous batching 动态合并请求，gpu-memory-utilization 控制显存使用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AxkEwVG8kibSjokIPVEc6aggnjo
+  block_id: doxcnPNXBYnbbFib0dRuupOinNf
+  page_token: AxkEwVG8kibSjokIPVEc6aggnjo
+  original_title: VLLM 部署与压测吞吐
+  imported_at: '2026-09-21'

@@ -1,0 +1,105 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bef19550d377
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现GPT-as-judge的评估脚本，包含比较两个模型回复的逻辑
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 实现GPT-as-judge的评估脚本，包含比较两个模型回复的逻辑
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    import openai
+    import json
+    import random
+    from typing import List, Dict
+
+    openai.api_key = "your-api-key"
+
+    def gpt_judge_compare(prompt: str, response_a: str, response_b: str,
+                          model="gpt-4", temperature=0.0) -> Dict:
+        """
+        使用GPT模型比较两个回复，返回评判结果。
+        输出格式: {'winner': 'A'/'B'/'tie', 'reason': '...'}
+        """
+        # 随机交换顺序以避免位置偏差
+        if random.random() < 0.5:
+            first, second = "A", "B"
+            resp1, resp2 = response_a, response_b
+        else:
+            first, second = "B", "A"
+            resp1, resp2 = response_b, response_a
+
+        judge_prompt = f"""请作为一个公正的评判者，比较以下两个AI助手对用户问题的回复。
+    用户问题: {prompt}
+
+    助手{first}的回复: {resp1}
+
+    助手{second}的回复: {resp2}
+
+    请从准确性、有用性、流畅度和完整性等方面综合评判。
+    只输出JSON格式: {{"winner": "{first}"或"{second}"或"tie", "reason": "简要理由"}}
+    """
+        response = openai.ChatCompletion.create(
+            model=model,
+            messages=[{"role": "user", "content": judge_prompt}],
+            temperature=temperature,
+            max_tokens=256
+        )
+        content = response.choices[0].message.content.strip()
+        try:
+            result = json.loads(content)
+            # 如果因为顺序交换，需要将winner映射回原始的A/B
+            if result['winner'] == first:
+                result['winner'] = 'A'
+            elif result['winner'] == second:
+                result['winner'] = 'B'
+        except json.JSONDecodeError:
+            result = {'winner': 'error', 'reason': content}
+        return result
+
+
+    def batch_compare(prompts: List[str], responses_a: List[str], responses_b: List[str]) -> Dict:
+        """批量比较，统计胜率"""
+        stats = {'A_wins': 0, 'B_wins': 0, 'ties': 0}
+        for p, ra, rb in zip(prompts, responses_a, responses_b):
+            judge = gpt_judge_compare(p, ra, rb)
+            if judge['winner'] == 'A':
+                stats['A_wins'] += 1
+            elif judge['winner'] == 'B':
+                stats['B_wins'] += 1
+            else:
+                stats['ties'] += 1
+        return stats
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JFt9wvuo1ijVfLktrcDcfTR8nTd
+  block_id: QL0ldLWN1oZBsmx98j0cSr40n1S
+  page_token: JFt9wvuo1ijVfLktrcDcfTR8nTd
+  original_title: 实现GPT-as-judge的评估脚本，包含比较两个模型回复的逻辑
+  imported_at: '2026-09-21'

@@ -1,0 +1,88 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c8f45b38a904
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 2、进阶题：大文件上传的分片处理方案？MultipartResolver 的两种实现（CommonsMultipartResolver vs StandardServletMultipartResolver）？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 2、进阶题：大文件上传的分片处理方案？MultipartResolver 的两种实现（CommonsMultipartResolver vs StandardServletMultipartResolver）？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（分片上传、MultipartResolver 对比）\n\n1️⃣ Common Answer\n\n大文件可以分片上传，前端切成小块，后端合并。MultipartResolver
+    有两种，Commons 和 Standard，区别不太清楚。\n\n2️⃣ Impressive Answer\n\n我从 3 个维度解析：\n\n- MultipartResolver
+    对比：\n\n[嵌入表格未展开]\n\n- CommonsMultipartResolver 配置：\n\n```text\n@Configuration\npublic
+    class WebConfig implements WebMvcConfigurer {\n    \n    @Bean\n    public MultipartResolver
+    multipartResolver() {\n        CommonsMultipartResolver resolver = new CommonsMultipartResolver();\n
+    \       resolver.setMaxUploadSize(100 * 1024 * 1024); // 100MB\n        resolver.setMaxUploadSizePerFile(10
+    * 1024 * 1024); // 单文件 10MB\n        resolver.setMaxInMemorySize(1024 * 1024);
+    // 1MB 内存缓冲\n        resolver.setDefaultEncoding(\"UTF-8\");\n        return resolver;\n
+    \   }\n}\n```\n\n- StandardServletMultipartResolver 配置：\n\n```text\n@Configuration\npublic
+    class WebConfig implements WebMvcConfigurer {\n    \n    @Bean\n    public MultipartResolver
+    multipartResolver() {\n        return new StandardServletMultipartResolver();\n
+    \   }\n}\n\n// application.yml\nspring:\n  servlet:\n    multipart:\n      enabled:
+    true\n      max-file-size: 10MB\n      max-request-size: 100MB\n      file-size-threshold:
+    1MB\n```\n\n- 分片上传方案：\n\n```text\n@RestController\n@RequestMapping(\"/api/file/chunk\")\npublic
+    class ChunkUploadController {\n    \n    // 上传分片\n    @PostMapping(\"/upload\")\n
+    \   public ResponseEntity<ChunkUploadResult> uploadChunk(\n        @RequestParam(\"file\")
+    MultipartFile file,\n        @RequestParam(\"chunkNumber\") int chunkNumber,\n
+    \       @RequestParam(\"totalChunks\") int totalChunks,\n        @RequestParam(\"identifier\")
+    String identifier) throws IOException {\n        \n        String chunkPath =
+    \"/tmp/chunks/\" + identifier + \"/\" + chunkNumber;\n        File chunkFile =
+    new File(chunkPath);\n        chunkFile.getParentFile().mkdirs();\n        file.transferTo(chunkFile);\n
+    \       \n        return ResponseEntity.ok(ChunkUploadResult.builder()\n            .chunkNumber(chunkNumber)\n
+    \           .identifier(identifier)\n            .uploaded(true)\n            .build());\n
+    \   }\n    \n    // 合并分片\n    @PostMapping(\"/merge\")\n    public ResponseEntity<MergeResult>
+    mergeChunks(\n        @RequestParam(\"identifier\") String identifier,\n        @RequestParam(\"filename\")
+    String filename,\n        @RequestParam(\"totalChunks\") int totalChunks) throws
+    IOException {\n        \n        String outputPath = \"/tmp/uploads/\" + filename;\n
+    \       File outputFile = new File(outputPath);\n        outputFile.getParentFile().mkdirs();\n
+    \       \n        try (FileOutputStream fos = new FileOutputStream(outputFile))
+    {\n            for (int i = 1; i <= totalChunks; i++) {\n                File
+    chunkFile = new File(\"/tmp/chunks/\" + identifier + \"/\" + i);\n                Files.copy(chunkFile.toPath(),
+    fos);\n                chunkFile.delete(); // 删除分片\n            }\n        }\n
+    \       \n        return ResponseEntity.ok(MergeResult.builder()\n            .filename(filename)\n
+    \           .path(outputPath)\n            .success(true)\n            .build());\n
+    \   }\n}\n```\n\n- Agent 场景：知识库文档上传\n\n```text\n@Service\npublic class AgentDocumentService
+    {\n    \n    @Async(\"docUploadExecutor\")\n    public CompletableFuture<UploadResult>
+    uploadAndIndex(\n        MultipartFile file,\n        String agentId) {\n        \n
+    \       try {\n            // 1. 保存文件\n            String filePath = saveFile(file);\n
+    \           \n            // 2. 提取文本\n            String text = extractText(filePath);\n
+    \           \n            // 3. 向量化\n            List<Float> embedding = embeddingService.embed(text);\n
+    \           \n            // 4. 入库\n            documentService.index(Document.builder()\n
+    \               .agentId(agentId)\n                .filename(file.getOriginalFilename())\n
+    \               .content(text)\n                .embedding(embedding)\n                .build());\n
+    \           \n            return CompletableFuture.completedFuture(\n                UploadResult.success(file.getOriginalFilename()));\n
+    \           \n        } catch (Exception e) {\n            return CompletableFuture.failedFuture(e);\n
+    \       }\n    }\n}\n```\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EvyJwQ60XiC313kQqbUcyFhEnAh
+  block_id: doxcniMn4gFWve4Z2WuGQpJpKxd
+  page_token: EvyJwQ60XiC313kQqbUcyFhEnAh
+  original_title: 2、进阶题：大文件上传的分片处理方案？MultipartResolver 的两种实现（CommonsMultipartResolver
+    vs StandardServletMultipartResolver）？
+  imported_at: '2026-09-21'

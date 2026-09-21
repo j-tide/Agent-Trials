@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8eca42f282d3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F310 12. 对于多语言文档，Text Splitter 需要注意哪些问题？比如中文和英文的标点差异。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F310 12. 对于多语言文档，Text Splitter 需要注意哪些问题？比如中文和英文的标点差异。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    多语言分割最容易踩的三个坑：分隔符不适配、token 计数不准、混合语言切换。
+
+    ① 分隔符必须匹配语言特性
+    英文的天然分割点是空格（单词之间），所以默认 separators ["\n\n", "\n", " ", ""] 效果很好。但中文没有空格，用空格切分就会把整句切碎，因为中文字间通常无空格。所以中文的分隔符应该以标点为主：["\n\n", "\n", "。", "！", "？", "，", "、", "；", " ", ""]。
+    对于日文，同样依赖标点（「。」、「、」）。对于阿拉伯语等从右向左的文字，还要注意字符方向。
+
+    ② token 计数的差异
+    RecursiveCharacterTextSplitter 默认用 len() 计算字符数，对于中文，一个字符通常是一个 token（或 subword），但英文一个单词可能对应 1-3 个 token。直接用字符数会严重低估英文的 token 消耗，导致 chunk 过大。解决方法是使用对应模型的 tokenizer 作为 length_function：
+
+    ```python
+    import tiktoken
+    tokenizer = tiktoken.encoding_for_model("gpt-4o")
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500,
+        chunk_overlap=50,
+        length_function=lambda text: len(tokenizer.encode(text)),
+        separators=["\n\n", "\n", "。", "，", " ", ""]
+    )
+    ```
+
+    ③ 混合语言文档的处理
+    如果一段文本中既有中文又有英文（如技术博客），分隔符列表要同时包含中文标点和英文空格。上述自定义 separators 已经覆盖。但更精细的做法是先用语言检测将文本分片，不同语言段落用不同策略分割。也可以使用 SemanticChunker，它天然语言无关，因为依赖 embedding 语义而非固定分隔符。
+
+    ④ Unicode 规范化和全半角问题
+    中文常混有全角符号和半角符号（如英文逗号 , 和中文逗号 ，）。在分割前进行 Unicode 规范化（NFC/NFKC）可以统一一些字符，但可能会改变语义（如全角数字转半角）。我选择保留原样，但在 separators 里同时加入全角和半角版本。
+
+    实践总结：多语言支持的核心就是把 token 计数器和分隔符列表都做成语言感知的，并在分割器初始化时动态选择。现在我的项目里，所有分割器都强制传入 length_function，避免字符数假象。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/O97CwA74Ji4ZHWkDTIRcb7OanUg
+  block_id: YTWwdCYM6oeJZXx8rZKcE5lmn8f
+  page_token: O97CwA74Ji4ZHWkDTIRcb7OanUg
+  original_title: "\U0001F310 12. 对于多语言文档，Text Splitter 需要注意哪些问题？比如中文和英文的标点差异。"
+  imported_at: '2026-09-21'

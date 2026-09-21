@@ -1,0 +1,93 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3efc8673f301
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3AF 3. 专有名词召回效果很差，怎么优化？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "\U0001F3AF 3. 专有名词召回效果很差，怎么优化？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    当用户搜索“请解释 X-9000 的校准流程”时，理想结果是精确命中产品手册的那一页，现实却是返回一堆泛泛的“校准说明”。专有名词召回差，通常是稠密检索为主导的架构出了问题。
+
+    解决路径：从单一向量到多重保障
+
+    ① 升级到混合检索（最快见效）
+
+    立刻引入 BM25 检索器，并与现有稠密检索融合。BM25 对于“X-9000”这种独特字符串极其敏感，只要文档里有，几乎一定能排到前面。这是最低成本、最高收益的一步。
+
+    ② 增加静态词典 + 精确匹配查询
+    对于极高频的专有名词（如产品型号、API 名称、错误码），在检索前做一次简单的字符串匹配扫描。如果用户问题中匹配到预设的专有名词，直接构造一个 term 查询，到向量库的元数据中精确匹配，然后把精确匹配的文档排在结果最前面。
+
+    ```python
+    # 简单示意：基于元数据过滤精确搜索
+    def search_with_synonyms(query: str, vectorstore, synonyms_map: dict):
+        # 对已知专有名词，同时做精确元数据过滤
+        exact_docs = []
+        for term, field in synonyms_map.items():
+            if term.lower() in query.lower():
+                # 精确匹配元数据中的字段
+                exact_docs.extend(vectorstore.filter({field: term}))
+        # 常规向量检索
+        semantic_docs = vectorstore.similarity_search(query, k=5)
+        # 将精确结果去重后放在最前面
+        final_docs = exact_docs + [d for d in semantic_docs if d not in exact_docs]
+        return final_docs[:5]
+    ```
+
+    ③ 微调 Embedding 模型（长期方案）
+    如果你的领域有大量特有术语（如医药、法律、芯片设计），用通用 Embedding 模型效果肯定打折扣。收集一份领域相关的“术语-同义词-上下文”数据集，对 Embedding 模型做对比学习微调（如使用 sentence-transformers 的 MultipleNegativesRankingLoss），让模型学会将术语与其正确文档拉近，与无关文档推远。这是成本最高但效果最彻底的方案。
+
+    ④ Query 改写 + 同义词扩展
+
+    在检索前，用 LLM 或规则把用户问题里的专有名词进行扩展。例如将“X9K”扩展为“X9K (产品全称: X9-Krypton, 型号代码: X9K-2026)”。扩展后的查询同时送入 BM25 和稠密检索，增加命中概率。
+
+    ```python
+    # 利用小模型或规则扩展查询
+    def expand_query(query: str) -> str:
+        expansions = {
+            "X9K": "X9K 产品全称 X9-Krypton 型号代码 X9K-2026",
+            "API v2": "API v2 也叫 REST v2 旧版接口",
+        }
+        for term, expansion in expansions.items():
+            if term in query:
+                query += " " + expansion
+        return query
+    ```
+
+    ⑤ 预处理索引，注入元数据
+    在文档入库时，就从内容中自动抽取专有名词（可用正则、NER 模型或关键词提取器），并将它们作为独立的元数据字段（如 product_id, error_code）存入。这样在检索时，可以针对这些字段做精确过滤或提升权重。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcnqYU2pbLVBak3MvolCNCd5b
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "\U0001F3AF 3. 专有名词召回效果很差，怎么优化？"
+  imported_at: '2026-09-21'

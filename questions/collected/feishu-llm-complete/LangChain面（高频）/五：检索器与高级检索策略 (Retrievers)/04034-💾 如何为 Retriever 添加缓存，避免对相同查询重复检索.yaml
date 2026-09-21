@@ -1,0 +1,99 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a67243e41ec1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BE 如何为 Retriever 添加缓存，避免对相同查询重复检索？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F4BE 如何为 Retriever 添加缓存，避免对相同查询重复检索？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    缓存可以大幅降低检索延迟和成本。实现方式有多种：
+
+    方案一：使用 LangChain 的缓存抽象（最简单）
+    LangChain 提供了 BaseCache 用于缓存 LLM 调用，但 Retriever 不直接受其管辖。不过，我们可以自定义一个带缓存的 Retriever 包装器。
+
+    ```python
+    from langchain.schema import BaseRetriever, Document
+    from typing import List
+    from functools import lru_cache
+
+    class CachedRetriever(BaseRetriever):
+        base_retriever: BaseRetriever
+
+        def __init__(self, base_retriever):
+            super().__init__(base_retriever=base_retriever)
+
+        @lru_cache(maxsize=128)
+        def _get_relevant_documents(self, query: str) -> List[Document]:
+            return self.base_retriever.get_relevant_documents(query)
+    ```
+
+    使用 lru_cache 是内存缓存，重启即消失。对于持久化，可以用 Redis：
+
+    ```python
+    import redis
+    import pickle
+
+    class RedisCachedRetriever(BaseRetriever):
+        base_retriever: BaseRetriever
+        redis_client: redis.Redis
+
+        def __init__(self, base_retriever, redis_client):
+            super().__init__(base_retriever=base_retriever, redis_client=redis_client)
+
+        def _get_relevant_documents(self, query: str) -> List[Document]:
+            key = f"retriever_cache:{hash(query)}"
+            cached = self.redis_client.get(key)
+            if cached:
+                return pickle.loads(cached)
+            docs = self.base_retriever.get_relevant_documents(query)
+            self.redis_client.setex(key, 3600, pickle.dumps(docs))  # 1小时过期
+            return docs
+    ```
+
+    方案二：使用 VectorStore 自带的缓存
+
+    某些向量数据库（如 Redis、Pinecone）本身就支持查询缓存。可以在数据库配置中开启，无需在应用层实现。
+
+    注意事项：
+
+    - 缓存键的设计要唯一，可以包含查询字符串的规范化（如去空格、小写）。
+
+    - 设置合理的过期时间，避免知识库更新后缓存未失效。
+
+    - 对于需要高实时性的场景，可以采用“写后失效”策略：当文档更新时，主动清除相关缓存。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YrNHwdqUUiHr0JkXRNrc4c0kn5d
+  block_id: KoSId1Fk9opg3BxnDXzciSi1n7g
+  page_token: YrNHwdqUUiHr0JkXRNrc4c0kn5d
+  original_title: "\U0001F4BE 如何为 Retriever 添加缓存，避免对相同查询重复检索？"
+  imported_at: '2026-09-21'

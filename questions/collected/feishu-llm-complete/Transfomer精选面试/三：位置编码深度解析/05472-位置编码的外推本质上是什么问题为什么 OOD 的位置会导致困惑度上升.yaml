@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4af1fcb3f3b6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 位置编码的外推本质上是什么问题？为什么 OOD 的位置会导致困惑度上升？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 三：位置编码深度解析
+tags: &1
+- Transfomer精选面试
+- 三：位置编码深度解析
+content:
+  prompt: 位置编码的外推本质上是什么问题？为什么 OOD 的位置会导致困惑度上升？
+answer:
+  mode: rubric
+  reference_answer: |-
+    位置编码的外推本质上是一个分布外泛化问题。训练时，位置变量 pospos 采样自一个有限区间 [0,Ltrain)[0,Ltrain)。推理时，模型需要处理 pos≥Ltrain的位置。模型从未在这些新位置上学习过，因此这是一个典型的分布外推理场景。
+
+    困惑度上升的深层原因可以从几个层面来理解：
+
+    输入表示的失真。对于可学习的位置编码，新位置的嵌入是未训练的随机向量。当这些随机噪声被加到词嵌入上时，破坏了词向量的语义结构。原本在语义空间中相近的词向量，因为加上了不同的随机位置噪声，可能变得分散。模型后续的自注意力和前馈网络都是基于训练分布内的表示模式工作的，面对被噪声污染的输入，它们无法做出准确的预测，导致输出概率降低，困惑度上升。
+
+    注意力权重的扭曲。注意力机制的核心是计算 token 之间的相关性。当位置编码失效时，模型无法正确判断两个 token 的相对位置关系。该关注的不关注，不该关注的乱关注。注意力矩阵变得混乱，信息聚合的效率大幅下降。每一层的表示质量都在恶化，经过多层传播后，高层表示几乎变成了噪声。
+
+    频率不匹配。以正弦位置编码为例，其高频分量对位置变化非常敏感。在训练长度内，模型学会了如何利用这些高频信号来精确区分邻近 token 的顺序。但当外推到更长序列时，某些高频分量的周期性会导致不同绝对位置产生相似的编码，模型可能混淆远距离的不同位置。低频分量虽然在训练范围内变化缓慢，但外推后可能超出其设计范围，导致绝对位置的单调性丧失。
+
+    序列长度带来的统计偏移。语言模型的困惑度与上下文长度有关。更长的上下文理论上应该降低困惑度，因为模型看到了更多信息。但当位置编码失效时，长上下文不仅没有提供有用信息，反而引入了噪声。模型在噪声中迷失，困惑度不降反升。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HasJwmdu6iV0FTkkaEOchy7on5e
+  block_id: JPZkdLLUDonB9dxCHT5cPhc9nEe
+  page_token: HasJwmdu6iV0FTkkaEOchy7on5e
+  original_title: 位置编码的外推本质上是什么问题？为什么 OOD 的位置会导致困惑度上升？
+  imported_at: '2026-09-21'

@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fc97610f1815
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“Auto Mixed Precision” (AMP)？PyTorch 中如何使用？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 什么是“Auto Mixed Precision” (AMP)？PyTorch 中如何使用？
+answer:
+  mode: rubric
+  reference_answer: |-
+    AMP（自动混合精度）是 PyTorch 提供的自动化混合精度训练方案。它自动决定哪些操作应使用 FP16/BF16 以加速，哪些操作（如归一化、softmax）应保留 FP32 以保持数值稳定。
+
+    PyTorch 中使用 AMP 的基本流程：
+
+    import torch
+    from torch.cuda.amp import autocast, GradScaler
+
+    model = MyModel().cuda()
+    optimizer = torch.optim.AdamW(model.parameters())
+    scaler = GradScaler()  # 用于 FP16 的梯度缩放，BF16 不需要
+
+    for data in dataloader:
+        optimizer.zero_grad()
+        with autocast():  # 自动将支持的操作转为 FP16/BF16
+            output = model(data)
+            loss = criterion(output)
+        scaler.scale(loss).backward()  # 缩放loss并反向
+        scaler.step(optimizer)         # 更新参数（自动unscale梯度）
+        scaler.update()                # 更新scale因子
+
+    - autocast 上下文管理器自动将符合条件的大型矩阵乘法、卷积等操作转为 FP16/BF16 执行，而 LayerNorm、Softmax 等操作保持 FP32。
+
+    - GradScaler 用于 FP16 训练时的梯度缩放，防止小梯度在 FP16 下下溢。如果使用 BF16，则不需要 GradScaler，因为 BF16 的动态范围与 FP32 一致，不会出现下溢问题。
+
+    AMP 的好处：无需手动修改模型代码，开箱即用；自动规避易出问题的操作；与 Tensor Cores 无缝配合。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HfoZwdjz1iRNmPkiI3icQQafnve
+  block_id: MeT7d7eokoTkX2xKF7hcbIGanfd
+  page_token: HfoZwdjz1iRNmPkiI3icQQafnve
+  original_title: 什么是“Auto Mixed Precision” (AMP)？PyTorch 中如何使用？
+  imported_at: '2026-09-21'

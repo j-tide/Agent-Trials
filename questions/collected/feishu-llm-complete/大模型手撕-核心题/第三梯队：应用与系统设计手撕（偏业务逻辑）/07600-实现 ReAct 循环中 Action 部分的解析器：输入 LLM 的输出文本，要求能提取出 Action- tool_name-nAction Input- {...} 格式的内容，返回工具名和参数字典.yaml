@@ -1,0 +1,140 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6566c6b67aee
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: '实现 ReAct 循环中 Action 部分的解析器：输入 LLM 的输出文本，要求能提取出 “Action: tool_name\nAction
+  Input: {...}” 格式的内容，返回工具名和参数字典。'
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: '实现 ReAct 循环中 Action 部分的解析器：输入 LLM 的输出文本，要求能提取出 “Action: tool_name\nAction
+    Input: {...}” 格式的内容，返回工具名和参数字典。'
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+    在 ReAct 框架中，LLM 的响应通常包含 Action: 和 Action Input: 字段。我们需要从可能包含多余文本的输出中精确提取这两个字段。解析器需支持：
+
+    - Action: 后跟工具名，直到行尾。
+
+    - Action Input: 后跟 JSON 对象（可能跨行，也可能在同一行）。
+
+    - 健壮处理空白、换行以及可能的 Markdown 格式。
+
+    实现
+
+    ```python
+    import re
+    import json
+    from typing import Tuple, Dict
+
+    def parse_react_action(text: str) -> Tuple[str, Dict]:
+        """
+        从 ReAct 输出中提取 Action 工具名和参数字典。
+        格式要求：Action: tool_name\nAction Input: {...}
+        Args:
+            text: LLM 的原始输出字符串
+        Returns:
+            (tool_name, arguments_dict)
+        Raises:
+            ValueError: 解析失败
+        """
+        # 提取 Action 行
+        action_match = re.search(r'Action:\s*(.+?)\s*(?:\n|$)', text)
+        if not action_match:
+            raise ValueError("未找到 'Action:' 字段")
+        tool_name = action_match.group(1).strip()
+
+        # 提取 Action Input：可能是一行 JSON，也可能是多行直到下一个 "Action:" 或文本结束
+        # 这里采用从 "Action Input:" 开始提取直到遇到新的 "Action" 或结束
+        input_pattern = r'Action Input:\s*([\s\S]*?)(?=\n\s*Action:|\Z)'
+        input_match = re.search(input_pattern, text)
+        if not input_match:
+            raise ValueError("未找到 'Action Input:' 字段")
+        input_str = input_match.group(1).strip()
+
+        # 尝试解析 JSON
+        # 移除可能的 Markdown 代码块包裹
+        if input_str.startswith('```json'):
+            input_str = input_str[7:]
+            if input_str.endswith('```'):
+                input_str = input_str[:-3]
+        elif input_str.startswith('```'):
+            if input_str.endswith('```'):
+                input_str = input_str[3:-3]
+
+        input_str = input_str.strip()
+        try:
+            arguments = json.loads(input_str)
+        except json.JSONDecodeError:
+            # 尝试在输入中寻找 JSON 对象
+            start = input_str.find('{')
+            end = input_str.rfind('}')
+            if start != -1 and end != -1:
+                try:
+                    arguments = json.loads(input_str[start:end+1])
+                except json.JSONDecodeError as e:
+                    raise ValueError(f"Action Input JSON 解析失败: {e}")
+            else:
+                raise ValueError("Action Input 不包含有效的 JSON 对象")
+        return tool_name, arguments
+
+    # 示例
+    text1 = """
+    Thought: 我需要搜索天气。
+    Action: search_weather
+    Action Input: {"city": "北京", "date": "2025-01-01"}
+    """
+    tool, args = parse_react_action(text1)
+    print(tool, args)  # search_weather {'city': '北京', 'date': '2025-01-01'}
+
+    # 处理多行JSON
+    text2 = """
+    Action: query_database
+    Action Input: {
+        "table": "users",
+        "columns": ["name", "age"]
+    }
+    """
+    tool2, args2 = parse_react_action(text2)
+    print(tool2, args2)
+    ```
+
+    说明
+
+    - 使用正则 [\s\S]*? 进行非贪婪匹配，(?=\n\s*Action:|\Z) 前瞻断言防止跨 Action 提取。
+
+    - 对 Action Input 尝试多种 JSON 提取方式，增强健壮性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  block_id: XPKqdyKhOogkx6xIpcCcqmRsnNb
+  page_token: Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  original_title: '实现 ReAct 循环中 Action 部分的解析器：输入 LLM 的输出文本，要求能提取出 “Action: tool_name\nAction
+    Input: {...}” 格式的内容，返回工具名和参数字典。'
+  imported_at: '2026-09-21'

@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-52bdae78b52b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 3. 解释 invoke 和 batch 的区别，batch 在后台是如何调度的？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "\U0001F4CA 3. 解释 invoke 和 batch 的区别，batch 在后台是如何调度的？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    invoke 和 batch 是 LangChain Runnable 协议中最基础的两个执行方法，但它们的定位完全不同。
+
+    - invoke(input, config)：处理单个输入，返回单个输出。同步阻塞，适合实时请求（比如聊天对话）。
+
+    - batch(inputs, config)：接收一个输入列表，返回一个输出列表。它的核心能力是并发处理多个输入，从而提升吞吐量。
+
+    batch 的后台调度机制
+    当你调用 batch 时，LangChain 并不是简单地 for 循环调 invoke，而是将输入按批次组织，利用多线程（同步）或异步协程（异步）并发执行。具体流程如下：
+
+    - 输入分组：如果你设置了 batch_size（默认不分组），输入列表会被切成更小的批次，逐批处理。这在输入量巨大且内存敏感时有用。
+
+    - 并发执行：对当前批次里的每一个输入，框架会提交给一个执行器。同步 batch 使用 ThreadPoolExecutor，每个输入跑在一个独立线程里；异步 abatch 则使用 asyncio.gather 在事件循环中并发执行多个协程。
+
+    - 遵守 max_concurrency：内部维护信号量，保证同时执行的线程/协程数不超过 max_concurrency。
+
+    - 结果收集与排序：无论并发执行的完成顺序如何，batch 的输出列表严格按输入顺序排列，所以你不必担心顺序错乱。
+
+    举个例子，如果你有一条翻译链，要对 100 句话做翻译：
+
+    ```python
+    results = chain.batch(input_texts, config={"max_concurrency": 10})
+    ```
+
+    框架会同时翻译 10 句，当某一句完成时立即启动下一句，始终保持 10 个并发槽位被占满，直到全部完成。最终返回的 results 列表和你输入的列表顺序完全一致。
+
+    和 invoke 的对比：
+
+    [嵌入表格未展开]
+
+    一个进阶用法：如果你需要批处理，但某些输入可能失败且不想中断整个批处理，可以传 config={"max_concurrency": 5} 并设置 return_exceptions=True（在 batch 的参数里），这样失败项对应的输出会是一个 Exception 对象，你可以在收集结果后统一处理。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GVyNwmUlOitEZBkWqxUchfRtnfh
+  block_id: CRmIdJvsdoLB9PxGh3SclpEtnxh
+  page_token: GVyNwmUlOitEZBkWqxUchfRtnfh
+  original_title: "\U0001F4CA 3. 解释 invoke 和 batch 的区别，batch 在后台是如何调度的？"
+  imported_at: '2026-09-21'

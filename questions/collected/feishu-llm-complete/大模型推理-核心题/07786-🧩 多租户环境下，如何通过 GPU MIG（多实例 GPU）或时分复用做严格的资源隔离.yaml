@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-07b4c02d3747
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 多租户环境下，如何通过 GPU MIG（多实例 GPU）或时分复用做严格的资源隔离？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: "\U0001F9E9 多租户环境下，如何通过 GPU MIG（多实例 GPU）或时分复用做严格的资源隔离？"
+answer:
+  mode: rubric
+  reference_answer: "在多租户场景中，需要保证不同用户/团队的推理任务不互相干扰，尤其是显存和算力。两种常用硬件隔离方式是 MIG（Multi‑Instance
+    GPU） 和 时分复用（Time‑Slicing）。\n\n\U0001F532 MIG（多实例 GPU）—— 物理隔离\n\nNVIDIA 从 Ampere
+    架构（A100/A30）开始支持 MIG，可以将一张物理 GPU 划分为多个独立的 GPU 实例，每个实例拥有专用的显存、计算核心和缓存。例如，一块 A100‑40GB
+    可划分为 1 个 20GB + 2 个 10GB 实例。每个实例对上层操作系统可见为独立的 GPU（/dev/nvidia0, /dev/nvidia1）。\n\n实现方式\n\n-
+    用 nvidia-smi mig 命令配置 MIG 模式，创建 GPU 实例和计算实例。\n\n- 在 K8s 中，通过 NVIDIA Device Plugin
+    将每个 MIG 实例作为一个独立的 GPU 资源暴露。\n\n- 将推理 Pod 的 resources.limits 设置为 nvidia.com/mig-1g.10gb:
+    1，即可将特定大小的 MIG 实例分配给该 Pod。\n\n- 这样，每个租户的 Pod 运行在专属的 GPU 实例上，互不干扰。显存越界或算力超限都不会影响其他实例。\n\n优点：硬件级强隔离，故障不蔓延。缺点：资源划分不灵活，一旦划分很难动态调整；可能降低整体
+    GPU 利用率（碎片化）。\n\n⏳ 时分复用（Time‑Slicing）—— 逻辑隔离\n\n对于不支持 MIG 的 GPU（如 T4、V100），或者需要更细粒度的资源划分，可以使用时分复用。NVIDIA
+    的 GPU Operator 支持 Time‑Slicing 配置，允许多个 Pod 共享同一张 GPU，并由 GPU 调度器在时间片上交替执行不同 Pod
+    的内核。\n\n实现方式\n\n- 在 GPU Operator 中配置 Time‑Slicing，定义时间片数量（如 4 个），则每个 Pod 最多获得
+    1/4 的 GPU 时间。\n\n- 这提供了软隔离：算力被公平分配，但显存并没有物理隔离，一个 Pod 可能因申请过多显存导致其他 Pod 失败。\n\n-
+    通常需要配合应用层的显存限制（如限制 max_model_len、gpu_memory_utilization）来间接控制。\n\n对比：\n\n\U0001F4A1
+    实际策略：对于需要严格 SLA 的关键租户，分配独立的 MIG 实例或整卡；对于开发/测试等低优先级任务，使用时分复用提高资源利用率。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTNrwT2t1iCzbMkI7FZc3sj5nBb
+  block_id: IQ6kdMPKQo4RD4xHRkpcLjWtnq4
+  page_token: QTNrwT2t1iCzbMkI7FZc3sj5nBb
+  original_title: "\U0001F9E9 多租户环境下，如何通过 GPU MIG（多实例 GPU）或时分复用做严格的资源隔离？"
+  imported_at: '2026-09-21'

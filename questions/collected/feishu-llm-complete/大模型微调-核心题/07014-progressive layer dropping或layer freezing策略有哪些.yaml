@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1cc1cd87f175
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "“progressive layer dropping”或“layer freezing”策略有哪些？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: "“progressive layer dropping”或“layer freezing”策略有哪些？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在全参数微调中，渐进式层冻结（progressive layer freezing） 和 层丢弃（layer dropping） 是两种通过限制参数更新范围来降低计算开销、抑制过拟合和遗忘的策略。
+
+    一、渐进式层冻结（Progressive Freezing）
+    这种方法在训练过程中由顶至底逐步冻结模型层。训练开始时所有层都可训练，然后按预定计划或根据验证指标，从底层开始逐层或逐组将层冻结（requires_grad=False），只保留高层和任务相关头继续更新。
+
+    常见策略：
+
+    - 按时间步冻结：设定冻结计划表，例如第1 000步冻结最底层2层，第2 000步再冻结接下来的2层，直到只剩最后几层可训练。
+
+    - 按指标冻结：监控底层参数的梯度范数或Fisher信息，当它们变化很小时认为该层已“收敛”，将其冻结。
+
+    - 分层冻结与解冻：也可以先冻结所有层，只训练顶层；然后每轮解冻一组更低的层（与progressive unfreezing相反），但在全参数微调中更常见的是由底向上冻结。
+
+    优势：
+
+    - 节省计算：被冻结的层不再需要梯度计算和优化器状态更新，前向反向速度提升，显存压力降低。
+
+    - 抑制遗忘：底层通用特征被尽早锁定，防止微调数据冲刷预训练基础。
+
+    - 正则化效应：减少可训练参数数量，降低过拟合风险。
+
+    二、层丢弃（Layer Dropping）
+
+    这不是严格意义上的冻结，而是在训练过程中随机丢弃某些层，即跳过它们的计算。它在推理时也常用于加速，但在微调中通常作为正则化手段。
+
+    常见策略：
+
+    - 随机层丢弃：每个训练step以一定概率（如0.1）随机选择一些Transformer层，将其输出直接设为输入（残差连接直接传过），不进行计算。
+
+    - 结构化丢弃：专门针对高层或低层进行丢弃，或者逐渐增加丢弃概率。
+
+    优势：
+
+    - 极强的正则化：迫使模型不依赖任何单一层，学习到更鲁棒的表示。
+
+    - 模拟较浅网络：有助于在微调数据稀缺时减少过拟合。
+
+    微调中的实际应用：
+
+    全参数微调时，通常会将渐进式冻结与分层学习率结合使用。例如，前几个epoch所有层参与训练，但底层使用极小学习率；随后直接将底层冻结，加速后续训练。层丢弃更多见于预训练或极低资源微调，工业界全参数微调中较少单独使用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: BPmQdBhHdoEg7WxL3SkcOL5qn2e
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: "“progressive layer dropping”或“layer freezing”策略有哪些？"
+  imported_at: '2026-09-21'

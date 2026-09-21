@@ -1,0 +1,118 @@
+---
+schema_version: 1
+id: feishu-llm-complete-786b36aa6d5b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4D1 6. 如果你想按照 Markdown 标题层级进行分割（例如将每个 ## 标题及其下属内容作为一个块），该怎么做？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F4D1 6. 如果你想按照 Markdown 标题层级进行分割（例如将每个 ## 标题及其下属内容作为一个块），该怎么做？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是一个非常实用的需求：把 Markdown 文档按照其本身的层级结构拆分，每个块带有所属的标题上下文，这样检索时就不会丢失“这段话属于哪个章节”的信息。LangChain 提供了专门的工具：MarkdownHeaderTextSplitter。
+
+    它可以根据你指定的标题层级（如 #, ##, ###）对 Markdown 文本进行拆分，并自动将标题链作为 metadata 注入到每一个 chunk 中。
+
+    ```python
+    from langchain.text_splitter import MarkdownHeaderTextSplitter
+
+    markdown_text = """
+    # 第一章：引言
+    这是引言内容...
+
+    ## 1.1 背景
+    背景介绍段落...
+
+    ## 1.2 目标
+    目标描述段落...
+
+    # 第二章：方法
+    方法内容...
+    """
+
+    headers_to_split_on = [
+        ("#", "header_1"),
+        ("##", "header_2"),
+        ("###", "header_3"),
+    ]
+
+    splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
+    docs = splitter.split_text(markdown_text)
+
+    for doc in docs:
+        print(doc.metadata)
+        print(doc.page_content[:100])
+        print("---")
+    ```
+
+    输出（示意）：
+
+    ```text
+    {'header_1': '第一章：引言', 'header_2': '1.1 背景'}
+    这是引言内容... 背景介绍段落...
+    ---
+    {'header_1': '第一章：引言', 'header_2': '1.2 目标'}
+    目标描述段落...
+    ---
+    {'header_1': '第二章：方法'}
+    方法内容...
+    ---
+    ```
+
+    工作原理：
+    MarkdownHeaderTextSplitter 会扫描 Markdown 源码，根据指定的标题符号识别文档的层级结构树，然后按照“叶节点”将内容切分成块，同时将当前块从根到叶的所有标题组合成一个 metadata 字典。这意味着每个块都知道自己完整的章节路径。
+
+    与 RecursiveCharacterTextSplitter 配合：
+    通常单独用标题分割出来的块可能还是太长（比如一个 ## 下面有几万字），这时可以先按标题粗切，再对每个块用 RecursiveCharacterTextSplitter 进行二次细切。但二次切分时要注意保持 metadata 继承。可以使用 split_documents 方法：
+
+    ```python
+    header_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
+    header_docs = header_splitter.split_text(markdown_text)
+
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+    final_docs = text_splitter.split_documents(header_docs)
+    # 每个子文档会继承父文档的 header metadata
+    ```
+
+    实践中的坑：
+
+    - MarkdownHeaderTextSplitter 要求 Markdown 格式非常规范，标题必须在一行开头。如果文档里用 # 只是普通注释，会被误判，需要提前清洗。
+
+    - 如果 Markdown 来自网络抓取，可能混入了 HTML 或其他标记，建议先用 markdownify 等工具清理。
+
+    - 对于特别大的 Markdown（比如整本电子书），层级会非常深，要小心 metadata 字典膨胀和检索过滤时的效率。
+
+    总之，这种“带结构的分割”比无脑等长切分在知识库问答中能显著提升引用准确率和回答上下文的连贯性，是高级 RAG 的标配技巧。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/O97CwA74Ji4ZHWkDTIRcb7OanUg
+  block_id: N6hPdEMZVo1ktXxkFJecm7NPnSb
+  page_token: O97CwA74Ji4ZHWkDTIRcb7OanUg
+  original_title: "\U0001F4D1 6. 如果你想按照 Markdown 标题层级进行分割（例如将每个 ## 标题及其下属内容作为一个块），该怎么做？"
+  imported_at: '2026-09-21'

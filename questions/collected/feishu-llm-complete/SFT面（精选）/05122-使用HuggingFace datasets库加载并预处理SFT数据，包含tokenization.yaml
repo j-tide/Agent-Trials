@@ -1,0 +1,101 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c058607aa1db
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用HuggingFace datasets库加载并预处理SFT数据，包含tokenization
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 使用HuggingFace datasets库加载并预处理SFT数据，包含tokenization
+answer:
+  mode: rubric
+  reference_answer: |-
+    此示例展示如何加载 jsonl 文件，将 Alpaca 格式转换为 ChatML，并进行 tokenization，最后生成input_ids 和 labels。
+
+    ```python
+    from datasets import Dataset
+    from transformers import AutoTokenizer
+
+    def preprocess_sft_data(file_path: str, tokenizer: AutoTokenizer, max_length: int = 2048):
+        # 定义 ChatML 格式化函数
+        def format_chatml(example):
+            instruction = example['instruction']
+            input_text = example.get('input', '')
+            output = example['output']
+            if input_text:
+                user_content = f"{instruction}\n{input_text}"
+            else:
+                user_content = instruction
+            # 构建 ChatML 文本
+            text = f"<|im_start|>user\n{user_content}<|im_end|>\n<|im_start|>assistant\n{output}<|im_end|>"
+            return {'text': text}
+
+        # 加载数据集
+        dataset = Dataset.from_json(file_path)
+        dataset = dataset.map(format_chatml)
+
+        # tokenize 函数
+        def tokenize_function(examples):
+            tokenized = tokenizer(
+                examples['text'],
+                truncation=True,
+                max_length=max_length,
+                padding=False,
+                return_tensors=None
+            )
+            # 构造 labels：复制 input_ids，然后将 prompt 部分 mask 掉
+            labels = []
+            for i, ids in enumerate(tokenized['input_ids']):
+                # 找到 assistant 部分开始的位置（例如 <|im_start|>assistant 后的第一个 token）
+                # 简单做法：利用 tokenizer 找到 'assistant' 的位置，但这里提供一种通用方法
+                # 我们可以先 tokenize "assistant" 得到它的 token ids，但为简化，这里假设
+                # 整个序列中 assistant 部分在最后一个 <|im_start|>assistant 之后。
+                # 更精确的实现需要解析文本，此处略。
+                # 下面的示例仅将所有非 -100 的设为真实 token，但在实际中应精确 mask。
+                lab = ids.copy()
+                # 暂时将全部设为 -100，然后根据规则取消 assistant 部分的 mask
+                # 这只是一个示意，正确实现应解析 text。
+                labels.append(lab)
+            tokenized['labels'] = labels
+            return tokenized
+
+        tokenized_dataset = dataset.map(tokenize_function, batched=True, remove_columns=dataset.column_names)
+        return tokenized_dataset
+    ```
+
+    说明：
+
+    - 精确的 loss masking 需要识别 <|im_start|>assistant 的位置，可使用 tokenizer 的 encode 找到分隔 token 的索引，然后对索引后的部分保留 label，前面置为 -100。
+
+    - 上述代码仅提供了框架，实际使用时应根据模型和模板进行完善。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JFt9wvuo1ijVfLktrcDcfTR8nTd
+  block_id: UZyQdxu4qoblslxItJ7cKIR5n9g
+  page_token: JFt9wvuo1ijVfLktrcDcfTR8nTd
+  original_title: 使用HuggingFace datasets库加载并预处理SFT数据，包含tokenization
+  imported_at: '2026-09-21'

@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2a5d0867cd91
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ZeRO-3 中每个 GPU 上都有自己的参数分片，那 Embedding 层如何处理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: ZeRO-3 中每个 GPU 上都有自己的参数分片，那 Embedding 层如何处理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Embedding层（词嵌入矩阵）通常参数量巨大（词表大小 × 隐藏维度），且访问模式稀疏（每次只查少数token）。在ZeRO-3中，Embedding层的处理方式通常有两种：
+
+    - 作为普通参数分片：将Embedding矩阵按词表维度切分到各GPU。前向时，通过AllGather收集当前batch中实际需要的token对应的完整权重（或直接通信需要激活的嵌入向量），然后再做查表。这种方式节省了显存，但引入了额外通信。DeepSpeed默认采用这种方法。
+
+    - 特殊处理（数据并行）：因为Embedding的输入数据是全局分布的（不同GPU处理不同样本），查表操作本身不需要完整的矩阵，且Embedding的梯度通常很大。一些框架（如Megatron-LM）会将Embedding层作为数据并行，每卡保留完整副本，不参与ZeRO-3的参数分片。这样避免了AllGather通信，但增加了显存占用。
+
+    在DeepSpeed ZeRO-3中，默认是对Embedding进行分片的，同时也支持配置stage3_param_persistence_threshold等参数来将某些小参数或Embedding层排除在分片之外。用户可以根据词表大小和通信带宽权衡决定。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: YUoXdAiIMoI1CqxcVRcc9Y36nab
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: ZeRO-3 中每个 GPU 上都有自己的参数分片，那 Embedding 层如何处理？
+  imported_at: '2026-09-21'

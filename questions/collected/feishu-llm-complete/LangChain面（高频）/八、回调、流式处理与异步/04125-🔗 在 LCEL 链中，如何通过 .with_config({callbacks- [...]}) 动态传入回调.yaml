@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f0ad96732707
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F517 在 LCEL 链中，如何通过 .with_config({\"callbacks\": [...]}) 动态传入回调？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F517 在 LCEL 链中，如何通过 .with_config({\"callbacks\": [...]}) 动态传入回调？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LCEL 链支持通过 config 动态传入回调，这是实现“一次调用使用特定监控”的最优雅方式。
+
+    使用 with_config
+
+    from langchain_core.runnables import RunnableLambda
+
+    my_chain = prompt | llm | output_parser
+    # 创建一个携带回调的新链副本
+    monitored_chain = my_chain.with_config(callbacks=[MyHandler()])
+    result = monitored_chain.invoke({"question": "..."})
+
+    with_config 返回一个新的 Runnable，它会在执行时将指定的 callbacks 合并到运行上下文中。
+
+    直接在 invoke 时传递 config
+
+    result = my_chain.invoke(
+        {"question": "..."},
+        config={"callbacks": [MyHandler()]}
+    )
+
+    这两种方式效果相同，都会在这次调用中激活回调，且不会影响其他并发调用。
+
+    原理：LCEL 在执行时，会从 config 中提取 callbacks，并与当前已有的全局回调合并，生成一个 CallbackManager。这个管理器会被传递给当前调用树中的所有子 Runnable。
+
+    最佳实践：
+
+    - 对于需要不同监控策略的请求（例如 VIP 用户的请求需要详细追踪），使用 invoke 时动态传入回调。
+
+    - 避免在 with_config 中硬编码复杂回调逻辑，保持配置简洁。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  block_id: Ps4mdEIp7o9vPQxZIHLcee1MnPe
+  page_token: LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  original_title: "\U0001F517 在 LCEL 链中，如何通过 .with_config({\"callbacks\": [...]})
+    动态传入回调？"
+  imported_at: '2026-09-21'

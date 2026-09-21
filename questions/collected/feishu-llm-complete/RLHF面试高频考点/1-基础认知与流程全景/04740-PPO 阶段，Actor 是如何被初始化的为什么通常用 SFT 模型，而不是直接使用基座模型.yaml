@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ac6225d54a68
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: PPO 阶段，Actor 是如何被初始化的？为什么通常用 SFT 模型，而不是直接使用基座模型？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 1-基础认知与流程全景
+tags: &1
+- RLHF面试高频考点
+- 1-基础认知与流程全景
+content:
+  prompt: PPO 阶段，Actor 是如何被初始化的？为什么通常用 SFT 模型，而不是直接使用基座模型？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Actor 的初始化：
+
+    Actor 直接加载 SFT 阶段产出的 π_SFT 权重。它的网络结构与 SFT 模型完全一致（都是带语言模型头的 Transformer），所以权重可以直接继承。
+
+    为什么用 SFT 模型而非基座模型：
+
+    - 基座模型不懂指令格式
+    基座模型是在任意文本上预训练的，它不理解“user: ... assistant: ...”这样的角色格式，也不知道何时应该停止生成。直接从基座模型开始 RL，Actor 生成的文本常常是混乱的续写，而不是有结构的回答。奖励模型几乎无法给这些胡言乱语打出有意义的分数，RL 会陷入随机探索的黑暗期。
+
+    - 基座模型的行为空间太大
+    基座模型的输出分布覆盖了所有可能的文本形式。RL 的奖励信号在这种极其广阔的搜索空间中极其稀疏，要搜索到第一个“看起来像个回答”的样本可能需要天文数字的试错。SFT 模型已将行为空间收缩到“高质量回答”的流形附近，RL 只需在这片“高原”上进行微调和优化即可。
+
+    - SFT 提供了良好的自然语言先验
+    即使没有奖励信号，SFT 模型本身也能生成相对通顺、相关的回答。这意味着 PPO 初期就能获得非零的奖励，优化过程能够平稳起步。基座模型可能初始奖励几乎为 0，导致梯度消失。
+
+    - SFT 模型更容易约束
+    KL 惩罚需要 Reference Model。SFT 模型作为 Reference，能精确约束 Actor 不要偏离“正常回答”的模式。如果以基座模型作为 Ref，则 Ref 本身都不是一个合格的回答生成器，其约束意义大打折扣。
+
+    - 实践中，如果省略 SFT 直接 RLHF，结果通常是灾难性的语言崩溃或无法收敛。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TopFwyc4Si1SxFkkfQlc4kXxnJd
+  block_id: Ft0mdVDQ9osrjExGXZzczcgknxh
+  page_token: TopFwyc4Si1SxFkkfQlc4kXxnJd
+  original_title: PPO 阶段，Actor 是如何被初始化的？为什么通常用 SFT 模型，而不是直接使用基座模型？
+  imported_at: '2026-09-21'

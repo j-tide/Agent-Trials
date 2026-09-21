@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dd7f15635ac8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F527 17. 你如何避免分割后产生的文档块中只有不完整的句子开头或结尾？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F527 17. 你如何避免分割后产生的文档块中只有不完整的句子开头或结尾？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    出现不完整句子的根本原因，是切分点落在了句子中间。要彻底解决，需要在切分算法中加入“句子边界检测”的约束。
+
+    方法一：后处理裁剪
+
+    在得到 chunk 后，检查其首尾是否是完整的句子。对于开头，可以向前搜索最近的句子起始符（如大写字母、前一个句号），将前面不完整的部分丢弃（或并入上一个 chunk）。对于结尾，向后找到最近的句子结束标点（。！？. ! ?），将多余的部分截断，并把被截掉的部分交给下一个 chunk 的开头。这需要重叠机制配合。
+
+    方法二：基于句子合并（推荐）
+    如第 14 题所述，先分句，再将句子作为不可分割的原子进行合并。这样 chunk 的边界天然就在句号处，绝不会出现“半个句子”。代价是 chunk 长度不那么精确，但可以通过 chunk_size 的软限制实现。
+
+    方法三：滑动窗口补偿
+    设置适当的 chunk_overlap 可以掩盖不完整问题。即使 chunk 边界切碎了某个句子，重叠区域通常能覆盖完整句子。但这治标不治本，如果句子刚好被切在重叠区域之外，仍然会丢失。
+
+    方法四：Refine 步骤（动态补全）
+
+    在分块后，遍历所有 chunk，用规则（如检查句尾是否有结束标点）找到末尾不完整的 chunk，将其与下一个 chunk 的开头部分拼接，直到补齐完整句子，然后把多余的字符移回下一个 chunk。这种“推土机”式调整能让所有块都变得完整。
+
+    实际中我的选择：
+    一律使用句子感知分割器。如果项目不允许引入 NLP 依赖，我会用简单的正则 [。！？.!?] 近似句子边界。对于英文，则直接用 nltk.sent_tokenize。同时，将 chunk_overlap 设置为 1-2 句话的长度（约 20-50 token），作为双保险。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/O97CwA74Ji4ZHWkDTIRcb7OanUg
+  block_id: RMIOd5AXdoBUXyxQ9LTcqFf1nvh
+  page_token: O97CwA74Ji4ZHWkDTIRcb7OanUg
+  original_title: "\U0001F527 17. 你如何避免分割后产生的文档块中只有不完整的句子开头或结尾？"
+  imported_at: '2026-09-21'

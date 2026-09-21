@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-27ce48ac6a17
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何实现一个支持条件分支的提示模板？即根据输入不同，使用不同的提示段。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: 如何实现一个支持条件分支的提示模板？即根据输入不同，使用不同的提示段。
+answer:
+  mode: rubric
+  reference_answer: "\U0001F500 在 LangChain 中，Prompt 模板本身是无状态的，不支持直接的条件分支。但可以通过 LCEL
+    的条件路由（RunnableBranch）或自定义 RunnableLambda 来实现根据输入动态选择不同的提示段。\n\n\U0001F3AF 方案一：使用
+    RunnableBranch 选择不同的链\n\n为每个分支定义完整的提示链，然后通过条件路由。\n\n```python\nfrom langchain_core.runnables
+    import RunnableBranch\n\n# 分支1：技术问题\ntech_prompt = ChatPromptTemplate.from_template(\"作为技术专家，回答：{question}\")\ntech_chain
+    = tech_prompt | model\n\n# 分支2：生活问题\nlife_prompt = ChatPromptTemplate.from_template(\"作为生活顾问，回答：{question}\")\nlife_chain
+    = life_prompt | model\n\n# 路由函数\ndef is_tech(question):\n    tech_keywords = [\"代码\",
+    \"算法\", \"Python\"]\n    return any(kw in question for kw in tech_keywords)\n\nbranch_chain
+    = RunnableBranch(\n    (lambda x: is_tech(x[\"question\"]), tech_chain),\n    life_chain
+    \ # 默认\n)\n\nresult = branch_chain.invoke({\"question\": \"Python怎么读文件？\"})\n```\n\n\U0001F3AF
+    方案二：在自定义函数中动态构建 Prompt\n\n```python\ndef build_prompt(question: str):\n    if
+    \"翻译\" in question:\n        template = \"将以下内容翻译成英文：{question}\"\n    else:\n
+    \       template = \"回答以下问题：{question}\"\n    return PromptTemplate.from_template(template)\n\ndynamic_prompt
+    = RunnableLambda(lambda x: build_prompt(x[\"question\"]).invoke(x))\nchain = dynamic_prompt
+    | model | parser\n```\n\n\U0001F3AF 方案三：使用 Jinja2 模板的条件逻辑\n\nLangChain 支持 Jinja2
+    模板引擎，可以在模板内部使用 {% if %} 语句，实现条件渲染（需要在 PromptTemplate 中设置 template_format=\"jinja2\"）。\n\n```python\ntemplate
+    = PromptTemplate.from_template(\n    \"{% if is_tech %}你是技术专家。{% else %}你是生活助手。{%
+    endif %}\\n问题：{question}\",\n    template_format=\"jinja2\"\n)\n# 调用时传入 is_tech
+    变量\nresult = template.invoke({\"is_tech\": True, \"question\": \"Python...\"})\n```\n\n⚠️
+    注意：Jinja2 模板会增加一定的复杂度，且需要安装 jinja2 库，但对于复杂的条件渲染非常灵活。\n\n选择哪种方案取决于你的复杂度：简单的二选一用
+    RunnableBranch，需要更复杂的逻辑（循环、嵌套）用 Jinja2 或自定义函数。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Plx9wADndiq3tMkxjC6csYJOnXr
+  block_id: CfondMAsHor7qEx9bHDcafoInKT
+  page_token: Plx9wADndiq3tMkxjC6csYJOnXr
+  original_title: 如何实现一个支持条件分支的提示模板？即根据输入不同，使用不同的提示段。
+  imported_at: '2026-09-21'

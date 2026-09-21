@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5eff70de5021
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9F9 19. 如何对加载后的文档列表进行基本的预处理（如去重、过滤空文档）？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F9F9 19. 如何对加载后的文档列表进行基本的预处理（如去重、过滤空文档）？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    加载后的原始 Document 列表往往很“脏”，包含空白页、重复内容、页眉页脚残留等，直接拿去 embedding 会浪费 token 并降低检索质量。我通常会写一个专门的预处理函数，包含以下几个操作：
+
+    ```python
+    from langchain_core.documents import Document
+    from typing import List
+    import hashlib
+
+    def preprocess_documents(docs: List[Document]) -> List[Document]:
+        seen = set()
+        cleaned = []
+        for doc in docs:
+            content = doc.page_content.strip()
+            # 1. 过滤空内容或过短内容
+            if not content or len(content) < 10:
+                continue
+            # 2. 基于内容哈希去重（也可用 metadata['source']+page 组合去重）
+            content_hash = hashlib.md5(content.encode()).hexdigest()
+            if content_hash in seen:
+                continue
+            seen.add(content_hash)
+            # 3. 可选：去除特定噪声（页眉页脚、版权声明）
+            content = remove_noise(content)  # 自定义函数
+            # 4. 更新 document 的内容
+            cleaned.append(Document(page_content=content, metadata=doc.metadata))
+        return cleaned
+    ```
+
+    常用策略：
+
+    - 去重：除了按内容哈希，更稳健的是按 (source, page, chunk_index) 组合去重，适用于分块后的文档。直接用 set 可能因 whitespace 差异漏网，可考虑先用 re.sub(r'\s+', ' ', content) 规范化空白。
+
+    - 过滤：长度过滤（太短没信息，太长可能影响检索精度），也可以按语言过滤（如只保留中文/英文）。
+
+    - 清洗：用正则删除明显的页眉页脚模式（如“第 x 页”）、电子邮箱、URL（看场景）。我见过有人用一个小型的 NER 模型来删除无关实体，但代价较高。
+
+    - 元数据清理：移除不必要或敏感的 metadata 字段，仅保留 source, page, title 等，减少向量数据库的存储压力。
+
+    注意事项：
+
+    - 去重要在分块之前还是之后？如果分块后去重，可能把相似的上下文丢失，我倾向于在加载后、分块前做一次按页/段落的粗粒度去重，分块后不再去重，除非确实存在大量重复块。
+
+    - 使用 LangChain 的 DocumentTransformer（如 docclean 相关）也可以，但目前社区更常用自定义函数，灵活性高。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EY1lwce7uiXgPpklg8tcoBj6nNg
+  block_id: FgXbd4Ojronvf9xNUbacmZLinug
+  page_token: EY1lwce7uiXgPpklg8tcoBj6nNg
+  original_title: "\U0001F9F9 19. 如何对加载后的文档列表进行基本的预处理（如去重、过滤空文档）？"
+  imported_at: '2026-09-21'

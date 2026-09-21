@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-446e4792ed9e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 14.2 应对超长文本的挑战
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: 14.2 应对超长文本的挑战
+answer:
+  mode: rubric
+  reference_answer: |-
+    合同文本很长，直接输入会超出模型的上下文窗口。我们采用 RunnableLambda 对文本进行分段处理，但解析器本身并不需要修改。关键技巧是在 Prompt 中利用 format_instructions 自动注入完整的 JSON Schema，让模型明白期望的复杂结构。
+
+    ```python
+    from langchain_core.runnables import RunnableLambda
+
+    parser = PydanticOutputParser(pydantic_object=ContractExtraction)
+
+    # 针对长文本，可以先用 LangChain 的 TextSplitter 分块，再逐块提取，最后合并
+    def extract_from_long_text(text: str, chain) -> dict:
+        # 这里是分块逻辑的示意
+        chunks = split_text(text)
+        results = []
+        for chunk in chunks:
+            res = chain.invoke({"text": chunk, "format_instructions": parser.get_format_instructions()})
+            results.append(res)
+        return merge_results(results)
+
+    # 链定义
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "你是法律合同审查专家。请提取合同信息。{format_instructions}"),
+        ("human", "{text}")
+    ])
+    chain = prompt | model | parser
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/FkhTw9yBsiro60k5CSIcZezcnj6
+  block_id: ZE0odY8Rfoo8oYxxkEAclE51njg
+  page_token: FkhTw9yBsiro60k5CSIcZezcnj6
+  original_title: 14.2 应对超长文本的挑战
+  imported_at: '2026-09-21'

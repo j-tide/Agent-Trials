@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-64a29af7e504
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何将 DPO 损失扩展为支持多对偏好数据（如 n 个排列）？写出 k 个排序样本的 Listwise DPO 损失函数形式，并实现（假设输入为排序分数列表）。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 如何将 DPO 损失扩展为支持多对偏好数据（如 n 个排列）？写出 k 个排序样本的 Listwise DPO 损失函数形式，并实现（假设输入为排序分数列表）。
+answer:
+  mode: rubric
+  reference_answer: |-
+    背景：
+
+    原始 DPO 处理两两偏好。当有多个回答的排序（如 A > B > C > D）时，可以将其分解为多个两两比较对（A>B, A>C, A>D, B>C, B>D, C>D），并累加损失。更常见的 Listwise 方法是基于 Plackett-Luce 模型或直接扩展 DPO：
+
+    Listwise DPO 损失（基于所有排序对的 DPO 损失之和）：
+    假设对于同一个 prompt x，我们有 K 个回答，并已知其偏好排序 y1≻y2≻⋯≻yK。则损失可以写为所有高阶对低阶的 DPO 损失之和：
+
+    [图片内容未导入]
+
+    或者可以采用更高效的 Listwise 损失，例如对排序列表应用 Plackett-Luce 模型，但上述成对分解简单且容易实现。
+
+    实现：
+
+    ```python
+    def listwise_dpo_loss(sorted_policy_logps, sorted_ref_logps, beta):
+        """
+        sorted_policy_logps: (B, K) 已按偏好降序排列（第一个是最优）
+        sorted_ref_logps: (B, K)
+        """
+        B, K = sorted_policy_logps.shape
+        loss = 0.0
+        count = 0
+        for i in range(K-1):
+            for j in range(i+1, K):
+                chosen_logp = sorted_policy_logps[:, i]
+                rejected_logp = sorted_policy_logps[:, j]
+                ref_chosen = sorted_ref_logps[:, i]
+                ref_rejected = sorted_ref_logps[:, j]
+                chosen_ratio = chosen_logp - ref_chosen
+                rejected_ratio = rejected_logp - ref_rejected
+                reward_diff = beta * (chosen_ratio - rejected_ratio)
+                loss += -F.logsigmoid(reward_diff).sum()
+                count += 1
+        return loss / (B * count)  # 平均到每个样本和每个对
+    ```
+
+    [图片内容未导入]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  block_id: YJ6rd4a5ooGm81xSo0Ec6ewrn9b
+  page_token: Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  original_title: 如何将 DPO 损失扩展为支持多对偏好数据（如 n 个排列）？写出 k 个排序样本的 Listwise DPO 损失函数形式，并实现（假设输入为排序分数列表）。
+  imported_at: '2026-09-21'

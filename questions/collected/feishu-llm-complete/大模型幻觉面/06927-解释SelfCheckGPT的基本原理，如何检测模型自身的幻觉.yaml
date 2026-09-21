@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-eb5419c4e959
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释“SelfCheckGPT”的基本原理，如何检测模型自身的幻觉？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型幻觉面
+derived_topic: 
+tags: &1
+- 大模型幻觉面
+content:
+  prompt: 解释“SelfCheckGPT”的基本原理，如何检测模型自身的幻觉？
+answer:
+  mode: rubric
+  reference_answer: |-
+    SelfCheckGPT 是一种无需外部知识的黑盒幻觉检测方法，利用大模型自身多次采样生成的一致性来发现幻觉。其核心思想：如果模型对某个事实不确定或该事实是编造的，那么多次随机采样中该事实的出现情况会有较大波动。
+
+    基本原理与步骤：
+
+    - 多次采样：对于同一个用户查询，使用较高温度或 top-p 采样生成 N 个不同的回复（如 N=5~20）。每次采样独立，随机性来自模型内部的 dropout 和采样策略。
+
+    - 目标回复选定：通常选择其中一个回复作为“主回答”（例如贪心解码的回复，或与其他回答最相似的那个），其余回复作为“参考回答”。
+
+    - 事实原子分解：将主回答分解为多个原子事实（陈述句），每个原子事实等待验证。
+
+    - 一致性度量：对于每个原子事实，计算它在各个参考回答中的“支持度”。支持度可以通过以下方式衡量：
+
+    - 幻觉评分：综合所有原子事实的一致性得分，若低于阈值，判定为幻觉。也可以直接输出每个事实的幻觉概率。
+
+    SelfCheckGPT 的变种：
+
+    - 使用检索增强的对比：如果允许使用外部知识，可将参考回答换成检索到的支持文档，类似操作。
+
+    - 直接计算 N 个回答中某个关键实体、数值的一致性：如某个日期在不同回答中多次变化，则该信息不确定。
+
+    为什么有效：
+
+    - 当模型“知道”某个事实时，多次采样会稳定输出相同或等价的陈述；当模型在“编造”时，它每次可能随机填补不同的细节，导致事实内容不一致。
+
+    - 该方法利用了模型自身的集成不确定性，巧妙地将幻觉检测转化为一致性检测，无需外部知识库，非常适合隐私敏感或知识不可用的场景。
+
+    局限性：
+
+    - 计算开销大：需要多次生成，每次生成可能很长，且需要 NLI 或相似度计算。
+
+    - 对确定性幻觉效果减弱：如果模型非常确定某个错误事实（高置信幻觉），多次采样可能每次都生成相同错误，此时 SelfCheckGPT 可能失效。因此它更适合检测模型的“不确定性幻觉”。
+
+    - 依赖基础模型的生成多样性；若温度不够，采样多样性不足，则方法失敏。
+
+    应用：SelfCheckGPT 可以作为无外部知识时的幻觉风险评估工具，辅助用户判断模型回答的可靠性，或用于标记潜在幻觉用于人工复核。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NovwwCvuyiHnmDka5CpcaQzunnc
+  block_id: VRSidF87goxbkcxIUWqc1zjyn45
+  page_token: NovwwCvuyiHnmDka5CpcaQzunnc
+  original_title: 解释“SelfCheckGPT”的基本原理，如何检测模型自身的幻觉？
+  imported_at: '2026-09-21'

@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c81fa11d8630
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: SFT Data Collator（带 loss masking）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: SFT Data Collator（带 loss masking）
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    from typing import List, Dict
+
+    class SFTDataCollator:
+        """
+        将对话样本转换为训练批次，并对 prompt 部分进行 loss masking。
+        要求每个样本包含 'input_ids' 和 'labels'，其中 prompt 部分 labels 已设为 -100。
+        在 batch 内进行右侧填充，填充 token 的 label 也设为 -100。
+        """
+        def __init__(self, pad_token_id: int = 0):
+            self.pad_token_id = pad_token_id
+
+        def __call__(self, features: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
+            max_len = max(f['input_ids'].size(0) for f in features)
+
+            padded_input_ids, padded_labels, attention_masks = [], [], []
+            for f in features:
+                input_ids = f['input_ids']
+                labels = f['labels']
+                seq_len = input_ids.size(0)
+                pad_len = max_len - seq_len
+
+                # 右侧填充
+                padded_input = torch.cat([input_ids, torch.full((pad_len,), self.pad_token_id, dtype=input_ids.dtype)])
+                padded_label = torch.cat([labels, torch.full((pad_len,), -100, dtype=labels.dtype)])
+                attn_mask = torch.cat([torch.ones(seq_len, dtype=torch.long), torch.zeros(pad_len, dtype=torch.long)])
+
+                padded_input_ids.append(padded_input)
+                padded_labels.append(padded_label)
+                attention_masks.append(attn_mask)
+
+            return {
+                'input_ids': torch.stack(padded_input_ids),
+                'labels': torch.stack(padded_labels),
+                'attention_mask': torch.stack(attention_masks)
+            }
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: FVQvd6pBmoGBL7xauu2cwG8Rnqe
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: SFT Data Collator（带 loss masking）
+  imported_at: '2026-09-21'

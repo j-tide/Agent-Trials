@@ -1,0 +1,100 @@
+---
+schema_version: 1
+id: feishu-llm-complete-47ea1aeafd4f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F504 1. MongoDB 的事务支持（4.0+）是怎样的？和 MySQL 事务有什么区别？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F504 1. MongoDB 的事务支持（4.0+）是怎样的？和 MySQL 事务有什么区别？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    从 4.0 版本开始，MongoDB 正式支持多文档 ACID 事务，打破了“NoSQL 无事务”的刻板印象。但它的实现方式和 MySQL 有显著不同，这些差异会直接影响你在 Agent 系统中如何设计数据一致性方案。
+
+    MongoDB 事务的核心特征：
+
+    [图片内容未导入]
+
+    代码示例：一个简单的转账事务
+
+    ```javascript
+    const session = client.startSession();
+
+    try {
+        session.startTransaction({
+            readConcern: { level: "snapshot" },
+            writeConcern: { w: "majority" }
+        });
+
+        const accounts = session.getDatabase("bank").collection("accounts");
+
+        // 扣减 A 账户
+        const resultA = await accounts.updateOne(
+            { _id: "A", balance: { $gte: 100 } },
+            { $inc: { balance: -100 } },
+            { session }
+        );
+
+        if (resultA.modifiedCount === 0) {
+            throw new Error("A 账户余额不足");
+        }
+
+        // 增加 B 账户
+        await accounts.updateOne(
+            { _id: "B" },
+            { $inc: { balance: 100 } },
+            { session }
+        );
+
+        await session.commitTransaction();
+        console.log("转账成功");
+    } catch (error) {
+        await session.abortTransaction();
+        console.log("转账失败，已回滚:", error.message);
+    } finally {
+        session.endSession();
+    }
+    ```
+
+    与 MySQL 事务的核心区别：
+
+    选型建议：
+
+    - MongoDB 事务适合低频但需要跨多文档原子性的场景，比如年终奖结算、复杂的库存转移。
+
+    - 如果是对事务性能要求极高的 OLTP 系统（如高频订单），建议仍用 MySQL。
+
+    - 在 AI Agent 场景中，事务常用于保证任务状态与执行记录的一致性，比如同时更新任务状态和写入操作日志。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BXVdwSFoCiy4apkiMglchiTGnmh
+  block_id: doxcn22RmiZgk8R7uul2oeVkb9f
+  page_token: BXVdwSFoCiy4apkiMglchiTGnmh
+  original_title: "\U0001F504 1. MongoDB 的事务支持（4.0+）是怎样的？和 MySQL 事务有什么区别？"
+  imported_at: '2026-09-21'

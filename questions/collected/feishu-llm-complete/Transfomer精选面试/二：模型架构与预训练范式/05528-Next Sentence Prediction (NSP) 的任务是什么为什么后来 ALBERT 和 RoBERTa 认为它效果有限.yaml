@@ -1,0 +1,91 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2ab88d63f39b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Next Sentence Prediction (NSP) 的任务是什么？为什么后来 ALBERT 和 RoBERTa 认为它效果有限？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 二：模型架构与预训练范式
+tags: &1
+- Transfomer精选面试
+- 二：模型架构与预训练范式
+content:
+  prompt: Next Sentence Prediction (NSP) 的任务是什么？为什么后来 ALBERT 和 RoBERTa 认为它效果有限？
+answer:
+  mode: rubric
+  reference_answer: |-
+    NSP的任务设计
+
+    NSP是BERT作者为增强模型对句子间关系的理解而设计的辅助预训练任务。具体做法是：
+
+    - 从语料中选取两个句子A和B。
+
+    - 50%的情况下，B是A在原始文档中的真实下一句（正样本，标签为“IsNext”）。
+
+    - 50%的情况下，B是从语料中随机抽取的其他句子（负样本，标签为“NotNext”）。
+
+    - 模型需要在[CLS] token的最终表示上做一个二分类，判断A和B的连贯性。
+
+    设计初衷是好的：让模型具备判断句子间逻辑关系的能力，这对于问答（判断哪个句子是答案）、自然语言推理（判断前提和假设的关系）、文本摘要等下游任务都有帮助。
+
+    为什么后来被质疑
+
+    RoBERTa论文通过系统实验发现，NSP的贡献远不如预期。原因可以拆解为几个层面：
+
+    第一层：任务太简单，模型在“作弊”
+
+    随机抽取的负样本通常与正样本A在主题上毫无关联。比如A句在讲“苹果发布了新手机”，随机抽取的B句可能来自一篇完全不相关的体育新闻。模型根本不需要学习精细的句子间逻辑关系（如因果关系、转折关系、时间顺序），它只需要判断“两个句子的话题是否一致”就能答对绝大多数情况。实际上，模型学会的是一个粗粒度的“主题检测器”，而非NSP设计者期望的“关系推理器”。
+
+    实验证据是：如果仅仅把负样本改成“从同一文档中随机抽取但与A不连贯的句子”（即主题相同但逻辑不连贯），NSP的准确率会大幅下降。这说明原始NSP中的高准确率是靠主题差异“作弊”获得的。
+
+    第二层：与MLM的竞争关系
+
+    NSP和MLM共享同一个输入序列，但关注点不同。MLM需要模型理解token级别的上下文，而NSP需要模型捕捉句子级别的连贯性。在有限的序列长度（BERT使用512个token）和模型容量下，两个任务存在竞争：
+
+    - NSP占用了两个句子的拼接空间，导致MLM能处理的连续文本长度减半。
+
+    - 如果去掉NSP，模型可以用整段连续文本进行MLM训练，从更长的上下文中学习更丰富的语义。
+
+    RoBERTa的实验直接验证了这一点：去掉NSP、只保留MLM，并在更长的连续文本上训练，下游任务性能全面提升。
+
+    第三层：NSP信号与MLM信号重叠
+
+    在MLM任务中，如果掩码位置恰好需要跨句子推理（比如代词指向前一句的实体），MLM本身就已经在隐式地学习句子间关系。NSP提供的额外信号与MLM的这部分信号高度重叠，边际收益低。
+
+    ALBERT的反思与SOP
+
+    ALBERT没有完全否定句子间关系预训练的价值，而是认为NSP的问题在于任务设计不够精细。ALBERT提出了Sentence Order Prediction（SOP），用更难的任务替代NSP：
+
+    - 正样本：两个连续句子A→B（正确顺序）。
+
+    - 负样本：将A和B的顺序颠倒（B→A），但保证两个句子来自同一文档（主题一致）。
+
+    SOP的巧妙之处在于：它彻底堵死了“靠主题差异作弊”的路。正负样本的主题完全相同，模型必须学会判断“哪个句子应该在前”——这需要理解时序、因果、逻辑连贯等真正的句子间关系。实验证明SOP比NSP对下游任务（尤其是需要关系推理的任务）的提升更大。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IvhswLbEUiXCsXkJOiNcgAn0n1x
+  block_id: TkITdcUtLoIq2OxvsUfc4YDFnmd
+  page_token: IvhswLbEUiXCsXkJOiNcgAn0n1x
+  original_title: Next Sentence Prediction (NSP) 的任务是什么？为什么后来 ALBERT 和 RoBERTa 认为它效果有限？
+  imported_at: '2026-09-21'

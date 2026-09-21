@@ -1,0 +1,128 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2f20a91b749a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E0 14. LangChain 的 Memory 机制有哪几种？各自适用什么场景？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F9E0 14. LangChain 的 Memory 机制有哪几种？各自适用什么场景？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Memory 是 LangChain 中负责跨轮次保持状态的模块。它的本质是把历史对话或摘要注入到 LLM 的上下文窗口，让无状态的模型“记住”之前发生的事情。
+
+    ```text
+    用户输入 → [Memory 注入历史] → 完整 Prompt → LLM → 回复 → [Memory 更新]
+    ```
+
+    六种常用 Memory 及适用场景：
+
+    ① ConversationBufferMemory（全量缓存）
+
+    原理：原封不动地存储所有对话消息，每次请求时把完整历史注入 prompt。
+
+    适用场景：短对话、原型开发、token 预算充裕时。
+
+    局限：对话一长就会撑爆上下文窗口。
+
+    ```python
+    from langchain.memory import ConversationBufferMemory
+    memory = ConversationBufferMemory(return_messages=True)
+    ```
+
+    ② ConversationBufferWindowMemory（滑动窗口）
+
+    原理：只保留最近 K 轮对话，旧消息自动丢弃。
+    适用场景：中等长度对话，关心近期上下文，不想为远古历史浪费 token。
+    配置：k=5 表示保留最近 5 轮。
+
+    ```python
+    from langchain.memory import ConversationBufferWindowMemory
+    memory = ConversationBufferWindowMemory(k=5, return_messages=True)
+    ```
+
+    ③ ConversationSummaryMemory（摘要记忆）
+
+    原理：用 LLM 将对话历史压缩成一段摘要，只存摘要不存原文。
+
+    适用场景：长对话、用户和助手交互非常多轮，需要保留全局脉络但不想逐字存储。
+
+    代价：每次都需要额外调用 LLM 做摘要，增加延迟和费用。
+
+    ```python
+    from langchain.memory import ConversationSummaryMemory
+    memory = ConversationSummaryMemory(llm=llm)
+    ```
+
+    ④ ConversationSummaryBufferMemory（混合记忆）
+
+    原理：结合滑动窗口和摘要。最近 K 轮保留原文，更早的历史用摘要压缩。
+    适用场景：生产环境长对话的最佳平衡方案——既有近期的细节，又有远期的脉络，同时严格控制 token 消耗。
+    配置：max_token_limit 控制最大 token 数。
+
+    ```python
+    from langchain.memory import ConversationSummaryBufferMemory
+    memory = ConversationSummaryBufferMemory(llm=llm, max_token_limit=500)
+    ```
+
+    ⑤ ConversationTokenBufferMemory（Token 限额缓存）
+
+    原理：和 BufferWindow 类似，但按 token 数量而非轮次来截断。
+
+    适用场景：模型有严格 token 上限，需要精准控制 prompt 长度。
+
+    ```python
+    from langchain.memory import ConversationTokenBufferMemory
+    memory = ConversationTokenBufferMemory(llm=llm, max_token_limit=1000)
+    ```
+
+    ⑥ VectorStoreRetrieverMemory（向量记忆）
+
+    原理：把对话片段存入向量数据库，每次根据当前问题检索最相关的历史记忆片段。
+
+    适用场景：长期、跨会话的记忆。Agent 需要从很久以前的对话中回忆起用户偏好、历史决策等。
+
+    ```python
+    from langchain.memory import VectorStoreRetrieverMemory
+    memory = VectorStoreRetrieverMemory(retriever=vectorstore.as_retriever())
+    ```
+
+    选型速查表：
+
+    [嵌入表格未展开]
+
+    核心设计思想： 上下文窗口是 LLM 最稀缺的资源。Memory 的本质就是用工程手段在有限窗口里装下最有价值的历史信息。选择哪一种，取决于你更看重“近期细节”还是“全局脉络”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SuxqwVBLli4q94kJFBAcOLkFnZc
+  block_id: doxcnRlu4tNAXWIIAz6rk6b8UYg
+  page_token: SuxqwVBLli4q94kJFBAcOLkFnZc
+  original_title: "\U0001F9E0 14. LangChain 的 Memory 机制有哪几种？各自适用什么场景？"
+  imported_at: '2026-09-21'

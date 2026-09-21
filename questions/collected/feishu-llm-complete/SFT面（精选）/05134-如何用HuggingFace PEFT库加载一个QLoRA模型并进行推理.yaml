@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2f5620ab0fa7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何用HuggingFace PEFT库加载一个QLoRA模型并进行推理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 如何用HuggingFace PEFT库加载一个QLoRA模型并进行推理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+    from peft import PeftModel, PeftConfig
+
+    # 1. 加载基座模型（量化）
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.bfloat16,
+        bnb_4bit_use_double_quant=True
+    )
+    model = AutoModelForCausalLM.from_pretrained(
+        "meta-llama/Llama-2-7b-hf",
+        quantization_config=bnb_config,
+        device_map="auto"
+    )
+    tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
+
+    # 2. 加载LoRA适配器
+    peft_model = PeftModel.from_pretrained(model, "path/to/lora-adapter")
+
+    # 3. 推理
+    inputs = tokenizer("你是谁？", return_tensors="pt").to("cuda")
+    outputs = peft_model.generate(**inputs, max_new_tokens=100)
+    print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JFt9wvuo1ijVfLktrcDcfTR8nTd
+  block_id: YAaudBe15oBZQcxkjBPcwFwGncK
+  page_token: JFt9wvuo1ijVfLktrcDcfTR8nTd
+  original_title: 如何用HuggingFace PEFT库加载一个QLoRA模型并进行推理？
+  imported_at: '2026-09-21'

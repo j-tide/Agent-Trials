@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e3f45dd0019c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 用 Megatron-LM 训练 GPT 模型，数据格式要求是什么？(二进制格式？)
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 用 Megatron-LM 训练 GPT 模型，数据格式要求是什么？(二进制格式？)
+answer:
+  mode: rubric
+  reference_answer: |-
+    Megatron-LM 使用高效的预处理二进制格式存储训练数据，以减少 I/O 瓶颈并支持快速随机访问。具体格式为：
+
+    - Binary tokenized files：文本经过分词后，被转换为整数 token ID 序列，直接保存为连续的二进制文件（例如 .bin）。每个文件包含多个文档，文档之间用特殊 token 分隔。
+
+    - Index file：配套的索引文件记录了每个文档在二进制文件中的偏移量和长度，方便数据加载器进行高效的随机采样和排序。
+
+    数据预处理脚本 (tools/preprocess_data.py) 将原始文本语料（如 JSON 或 TXT）转换为这种格式。例如：
+
+    ```bash
+    python tools/preprocess_data.py \
+      --input my_corpus.json \
+      --output-prefix my_gpt_dataset \
+      --vocab tokenizer.json \
+      --dataset-impl mmap \
+      --tokenizer-type GPT2BPETokenizer \
+      --merge-file merges.txt \
+      --append-eod
+    ```
+
+    --dataset-impl mmap 表示使用内存映射方式读取，提高性能。训练时，Megatron 的 gpt_dataset.py 会加载这些索引和二进制文件，根据全局 rank 和微批次大小抽取样本。
+
+    这种格式的优势是读取极快，消除了在线分词的 CPU 开销，非常适合大规模预训练。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GSO0wLgvGi8yaCktRbBc92Dbnhh
+  block_id: Q10DdYoRroqYZnxf2NLcL2M7nDc
+  page_token: GSO0wLgvGi8yaCktRbBc92Dbnhh
+  original_title: 用 Megatron-LM 训练 GPT 模型，数据格式要求是什么？(二进制格式？)
+  imported_at: '2026-09-21'

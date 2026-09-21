@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2e6fa11c873e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 19.什么是梯度 Top-k 稀疏化？如何只传输重要的梯度？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 19.什么是梯度 Top-k 稀疏化？如何只传输重要的梯度？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Top-k 稀疏化是指：在每个训练迭代中，每个 worker 只选取其本地梯度中绝对值最大的 k 个元素进行传输，其他梯度置为 0 并累积起来。这样通信量从完整的梯度大小降低到只传输 k 个元素及其索引。
+
+    实现机制：
+
+    - 反向传播计算出完整梯度张量 g。
+
+    - 对 g 取绝对值，找到第 k 大的值（阈值 τ）。
+
+    - 创建掩码 mask = (|g| >= τ)，保留达到阈值的元素，其余设为 0。
+
+    - 只传输 g[mask]（非零值）及其对应的索引位置。
+
+    - 接收方收到这些非零值后，根据索引恢复稀疏梯度，用于更新。
+
+    由于每次只传输一小部分梯度，通信开销极低。但被丢弃的梯度会导致精度损失，因此通常配合局部误差累积：每个 worker 维护一个残差张量，记录每次被丢弃的梯度，累加到下一次的梯度中。这样，即使某个梯度在单次迭代中被丢弃，只要它持续存在，最终会被发送，保证了收敛性。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XxBHwhYPNiVrDYkSIHCccehWn72
+  block_id: DbbydR5Flos1yoxxFz6cqlIanUg
+  page_token: XxBHwhYPNiVrDYkSIHCccehWn72
+  original_title: 19.什么是梯度 Top-k 稀疏化？如何只传输重要的梯度？
+  imported_at: '2026-09-21'

@@ -1,0 +1,108 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bed2adafd13f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 8.2 实现
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 8.2 实现
+answer:
+  mode: rubric
+  reference_answer: |-
+    这里使用一个简单的相似度函数（如TF‑IDF余弦相似度）来模拟段落打分，实际应用中可替换为交叉编码器或稠密检索。
+
+    ```python
+    import numpy as np
+    from typing import List, Dict, Tuple
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics.pairwise import cosine_similarity
+
+    def maxp_retrieve(query: str, documents: Dict[int, str],
+                      segment_size: int = 200, overlap: int = 50) -> List[Tuple[int, float]]:
+        """
+        MaxP段落聚合检索
+        Args:
+            query: 查询字符串
+            documents: {doc_id: full_text} 字典
+            segment_size: 每个段落的字符数（或词语数）
+            overlap: 段落之间重叠字符数
+        Returns:
+            按分数降序的 (doc_id, max_score) 列表
+        """
+        # 1. 生成所有文档的段落，并记录每个段落所属文档
+        passages = []
+        passage_doc_map = []   # 段落索引 -> doc_id
+        for doc_id, text in documents.items():
+            # 简单按固定长度切分（可改用滑动窗口或按句子）
+            start = 0
+            while start < len(text):
+                end = start + segment_size
+                passage = text[start:end]
+                passages.append(passage)
+                passage_doc_map.append(doc_id)
+                if end >= len(text):
+                    break
+                start = end - overlap
+                if start < 0:
+                    start = 0
+
+        # 2. 使用TF‑IDF向量化所有段落和查询
+        #    （此处为了演示，实际可用预训练模型）
+        vectorizer = TfidfVectorizer().fit(passages + [query])
+        passage_vectors = vectorizer.transform(passages)
+        query_vector = vectorizer.transform([query])
+
+        # 3. 计算每个段落与查询的余弦相似度
+        scores = cosine_similarity(query_vector, passage_vectors).flatten()
+
+        # 4. 聚合：每个文档取最大段落分数
+        doc_max_scores: Dict[int, float] = defaultdict(float)
+        for idx, doc_id in enumerate(passage_doc_map):
+            score = scores[idx]
+            if score > doc_max_scores[doc_id]:
+                doc_max_scores[doc_id] = score
+
+        # 5. 排序返回
+        sorted_docs = sorted(doc_max_scores.items(), key=lambda x: x[1], reverse=True)
+        return sorted_docs
+
+    # 示例
+    docs = {
+        1: "The quick brown fox jumps over the lazy dog. " * 20,   # 长文档
+        2: "A fox is a wild animal. Dogs are domesticated pets.",
+        3: "Python programming is fun. " * 50
+    }
+    results = maxp_retrieve("fox dog", docs)
+    print("MaxP results:", results)
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/B7NGwDRMJiFVD6kB1QPckL5enLg
+  block_id: Ov8RdtKaVozz6JxfWyycb4dRnfc
+  page_token: B7NGwDRMJiFVD6kB1QPckL5enLg
+  original_title: 8.2 实现
+  imported_at: '2026-09-21'

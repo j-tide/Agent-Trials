@@ -1,0 +1,112 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b364c508d97d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 2. AI Agent 的核心定义是什么？它由哪四大核心组件构成？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F9E9 2. AI Agent 的核心定义是什么？它由哪四大核心组件构成？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    核心定义：
+
+    AI Agent 是一个能够感知环境、自主规划、决策并行动，以达成特定目标的智能系统。它不仅仅是语言理解，更是一个执行闭环：观察→思考→行动→再观察。
+
+    四大核心组件：
+
+    [图片内容未导入]
+
+    ① 大脑（Brain / Planner）
+
+    - 职责：负责理解任务、分解步骤、推理和决策。通常是一个 LLM（如 GPT-4、DeepSeek），在 ReAct、Plan-and-Execute 等范式下运行。
+
+    - 输出：下一步应该做什么——是调用一个工具，还是已经完成任务可以给出最终回答。
+
+    - 关键能力：指令遵循、常识推理、从反馈中学习调整。
+
+    ② 记忆（Memory）
+
+    - 短期记忆：对话历史和最近的操作结果，直接放在上下文窗口里，负责当前任务的连贯性。
+
+    - 长期记忆：跨会话的信息存储，如用户偏好、以往的经验教训、领域知识，通常借助向量数据库实现。
+
+    - 职责：让 Agent 不再“失忆”，能个性化、能累积经验。
+
+    ③ 工具（Tools）
+
+    - 定义：Agent 可以调用的外部能力，如搜索引擎、计算器、代码解释器、数据库查询、API 服务等。
+
+    - 职责：补足 LLM 本身不具备的能力：获取实时信息、执行精确计算、操作外部系统。
+
+    - 设计要求：每个工具必须有清晰的函数签名、参数 schema 和功能描述，供大脑正确调用。
+
+    ④ 编排引擎（Orchestrator）
+
+    - 职责：大脑、记忆、工具之间的“调度中心”。负责循环逻辑、状态管理、错误处理、并行工具调用、超时与重试。
+
+    - 核心机制：ReAct 循环（Thought→Action→Observation）、或更复杂的规划树/图执行。
+
+    - 关键点：决定什么时候停下来给用户最终答案，什么时候继续；如何处理工具调用失败。
+
+    骨架代码：展示四大组件如何协同
+
+    class Agent:
+        def __init__(self, brain, tools, memory, orchestrator):
+            self.brain = brain          # LLM
+            self.tools = tools          # Dict[str, callable]
+            self.memory = memory        # 短期+长期记忆
+            self.orchestrator = orchestrator  # 循环逻辑
+
+        def run(self, task):
+            self.memory.add_user_message(task)
+            while not self.orchestrator.is_finished():
+                # 1. 大脑思考
+                plan = self.brain.think(self.memory.get_context())
+                # 2. 编排器解析
+                if plan.action == "FINAL":
+                    return plan.answer
+                # 3. 调用工具
+                try:
+                    result = self.tools[plan.tool_name](**plan.args)
+                except Exception as e:
+                    result = f"工具执行错误: {e}"
+                # 4. 记忆更新
+                self.memory.add_observation(result)
+                # 5. 编排器更新状态
+                self.orchestrator.update(plan, result)
+
+    这里的 brain.think 返回一个结构化对象（如 JSON），orchestrator 负责检验合理性、处理失败。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcnTHrsUfCmHJKtsxFWKK5ryg
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: "\U0001F9E9 2. AI Agent 的核心定义是什么？它由哪四大核心组件构成？"
+  imported_at: '2026-09-21'

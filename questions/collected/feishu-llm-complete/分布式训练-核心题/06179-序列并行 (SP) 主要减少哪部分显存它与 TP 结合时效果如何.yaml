@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d42738c48140
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 序列并行 (SP) 主要减少哪部分显存？它与 TP 结合时效果如何？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 序列并行 (SP) 主要减少哪部分显存？它与 TP 结合时效果如何？
+answer:
+  mode: rubric
+  reference_answer: |-
+    序列并行将输入序列的长度维度切分到多张GPU上，主要减少的是激活值显存。
+
+    在标准Transformer中，自注意力需要计算整个序列的注意力矩阵（O(L²)显存），而序列并行后，每张卡只存储自己负责那部分序列的激活值。具体来说，激活张量（如Q、K、V、FFN中间输出）的形状 [batch, L, hidden_dim] 沿L维度被切分，每张卡只持有 L/N 长度的激活。注意力矩阵也被切分或重计算。因此，激活显存随序列长度L的减少而线性下降（若注意力矩阵通过重计算则更是如此）。
+
+    与TP结合时效果更佳：TP已经将hidden_dim维度切分，SP再将L维度切分，二者正交叠加。例如，TP=2将激活显存减半（沿hidden_dim），SP=2再将剩余的激活显存减半（沿L），总激活显存降至原来的1/4。这种组合极大提升了长序列训练的能力。Megatron-LM将TP和SP结合，在训练超长文本时显存占用大幅下降。
+
+    但SP会引入额外的通信：在注意力计算前需要AllGather收集完整序列的K和V（或使用Ring Attention避免全量收集）。这部分通信量与L成正比，因此SP更适合极长序列、计算量主要由注意力主导的场景。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: MDG8dk5MIov4dbxfSlYcgrARndc
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 序列并行 (SP) 主要减少哪部分显存？它与 TP 结合时效果如何？
+  imported_at: '2026-09-21'

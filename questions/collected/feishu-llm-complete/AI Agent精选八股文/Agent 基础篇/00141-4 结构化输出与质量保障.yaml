@@ -1,0 +1,171 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b009bcf3bb20
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3.4 结构化输出与质量保障
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: 3.4 结构化输出与质量保障
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### LLM 结构化输出的演进：JSON Mode vs Function Calling vs Structured Output
+
+    ---
+
+    1、基础题：LLM 结构化输出的 JSON Mode、Function Calling、Structured Output 三种方式分别是什么？
+
+    难度级别：⭐（LLM 输出格式控制、OpenAI API 基础）
+
+    JSON Mode 通过设置 response_format: json_object 保证输出是合法 JSON，但不保证字段符合预期 Schema。Function Calling 通过定义工具的 JSON Schema 引导模型输出特定结构，可靠性更高。Structured Output（Parse API）是最新方案，通过 RLHF 专项训练让模型严格遵循 Pydantic Schema，可靠性最高，三种方案代表了结构化输出能力的三代演进。
+
+    ---
+
+    2、进阶题：三种结构化输出方案的底层机制和可靠性边界分别是什么？校验失败时应如何设计重试策略？
+
+    难度级别：⭐⭐（约束解码、RLHF、ValidationError 处理、分层重试策略）
+
+    1️⃣ Common Answer
+
+    JSON Mode 让模型输出 JSON，Function Calling 通过定义函数让模型填参数，Structured Output 最准确。可靠性是依次递增的。如果输出校验失败，可以重试几次，或者在 Prompt 里加更严格的格式要求，让模型重新生成。
+
+    2️⃣ Impressive Answer
+
+    我会从三代方案的机制差异和重试策略设计两个角度来回答：
+
+    - 首先，三代方案的核心机制和边界。JSON Mode 用约束解码（constrained decoding）保证 token 序列语法合法，但字段名拼错、字段缺失、类型不匹配它一概不管，适合结构简单的场景。Function Calling 把 Schema 放进工具定义，让模型理解字段含义，可靠性显著提升，但嵌套深、枚举多时偶尔还是会漏字段；另外需要显式指定 tool_choice，否则模型可能输出普通文本而不触发工具调用。Structured Output（client.beta.chat.completions.parse()）通过 RLHF 专项训练，只要 Schema 合法，几乎可以保证字段完整性和类型正确性，是生产环境的首选。
+
+    - 其次，校验失败的分层重试策略。简单粗暴地盲重试效果有限，更有效的方式是"带错误信息回填的重试"——把 ValidationError 的具体内容追加到对话里，让模型知道哪里错了再修正。完整策略是：捕获异常 → 把错误原因回填 User 消息 → 指数退避重试（防止打爆限流） → 超过最大次数后降级返回空对象并记录日志。生产上推荐用 Instructor 库，它封装了这套逻辑并支持 Partial 模式（流式边生成边校验），比手写省心很多。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：生产环境中 Function Calling 偶尔出现模型输出普通文本而不触发工具调用，怎么处理？
+
+    难度级别：⭐⭐（Function Calling 配置细节、tool_choice 参数、降级策略）
+
+    1️⃣ Common Answer
+
+    可能是模型没理解要调用工具，可以在 Prompt 里强调"请使用工具回答"，或者把工具描述写得更清楚一些，多试几次应该就好了。
+
+    2️⃣ Impressive Answer
+
+    这个问题的根本原因是 tool_choice 参数没有显式设置，默认值 auto 允许模型自行决定是否调用工具。当模型"觉得"直接用文本回答更合适时，就会跳过工具调用。
+
+    修复方式分两层：
+
+    强制调用：将 tool_choice 设为 {"type": "function", "function": {"name": "your_tool"}} 或 required（强制必须调用某个工具），适合工具调用是必须路径的场景。
+
+    防御性兜底：即使设置了 required，也要在代码层面检查 response.choices[0].message.tool_calls 是否为空，为空时触发告警并降级处理，而不是让调用方拿到空结果却不知道原因。生产上如果用 Structured Output 替代 Function Calling，可以从根本上绕开这个问题。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+
+    ### Prompt 版本管理与 A/B 测试框架设计
+
+    ---
+
+    1、基础题：为什么 Prompt 需要版本管理？
+
+    难度级别：⭐（工程化思维、Prompt 生命周期管理）
+
+    Prompt 是影响 LLM 输出质量的核心资产，频繁迭代但缺乏追踪会导致"效果莫名变差却不知道是哪次改动引起的"。版本管理让每次 Prompt 变更有据可查、可回滚，结合自动化评估还能在变更前验证不会引起效果退化，是生产环境 Prompt 治理的基础设施。
+
+    ---
+
+    2、进阶题：在生产环境中，如何对 Prompt 进行版本管理和 A/B 测试？请从工程实践角度设计一套完整的方案。
+
+    难度级别：⭐⭐⭐（Prompt-as-Code、LangSmith/Langfuse、哈希稳定分组、统计显著性、灰度发布）
+
+    1️⃣ Common Answer
+
+    可以把 Prompt 存在数据库里，每次修改记录一个版本号。A/B 测试就是把用户随机分两组，一组用旧 Prompt，一组用新 Prompt，然后比较用户满意度或任务完成率。可以用 LangSmith 的 Prompt Hub 来管理，它支持查看版本历史。
+
+    2️⃣ Impressive Answer
+
+    我会从版本管理、工具选型和 A/B 测试设计三个维度来系统说明：
+
+    - 首先，Prompt-as-Code——把 Prompt 纳入 Git。把 Prompt 存成独立的 .yaml 或 .jinja2 文件，文件头带元数据（版本号、适用模型、修改人、变更说明），和业务代码一起走 Code Review 和 PR 流程。每次变更都有 commit message，回滚方便，CI 里可以跑自动化评估集确保没有退化。这是高风险核心 Prompt 的首选管理方式。
+
+    - 其次，在线动态场景用 LangSmith 或 Langfuse。如果运营同学需要频繁调整话术，Git 发布周期太重，可以把 Prompt 存在 LangSmith Prompt Hub 或 Langfuse 上，应用启动时 pull 指定版本，改 Prompt 不需要重新发布服务。两者的区别：LangSmith 与 LangChain 生态紧密，Langfuse 开源可自托管，数据合规要求高的场景选后者。
+
+    - 最后，A/B 测试的正确姿势是"先定指标再分流"。很多团队先跑测试再想看什么指标，结果数据采集不完整。正确顺序：先确定主指标（任务完成率、结构化成功率、用户显式反馈）→ 按 user_id 哈希取模稳定分组（保证同一用户始终落在同一组，避免体验漂移）→ 每次 LLM 调用打上 experiment_group 标签便于聚合分析 → 跑够足够样本后用 t 检验或 Chi-square 验证差异显著性，避免"感觉好像好一点"就仓促上线。高风险 Prompt 还可以走分阶段灰度：5% → 20% → 50% → 100%，每阶段观察一到两天，有问题立即回滚，和服务部署的金丝雀发布逻辑相同。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：线上 Prompt 被某个同学直接在 LangSmith 上改了，导致效果变差，且没有人知道是谁改的、改了什么，怎么从工程上避免这类问题？
+
+    难度级别：⭐⭐（Prompt 治理、权限控制、变更审计）
+
+    1️⃣ Common Answer
+
+    可以限制一下 LangSmith 的编辑权限，只让特定人员可以修改。或者改完之后发消息通知一下团队，让大家知道有变更。
+
+    2️⃣ Impressive Answer
+
+    这个问题的根本是 Prompt 变更缺乏"审计 + 卡点"的工程约束，解决要从三层入手：
+
+    变更审计：无论用 LangSmith 还是 Langfuse，所有变更操作都应该有操作人、时间戳和 diff 记录。平台本身支持版本历史，但要在团队规范里明确"Prompt 变更必须填写变更说明"，并接入告警（比如 Slack/钉钉通知 Prompt 有新版本发布）。
+
+    变更卡点：高风险 Prompt 的变更不应该直接上线，而是先发布到 Staging 环境，跑自动化评估集（预先标注好的测试用例）通过后再推生产。评估集是关键——没有评估集，任何卡点都是形式主义。
+
+    权限分层：普通成员只有读权限，变更需要 Review 后由 Prompt Owner 发布，类比代码的 PR 合并流程。对于允许运营直接改的场景，限定可编辑范围（比如只能改话术措辞，不能改结构和变量），用模板约束降低风险。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MtcJwOeh8il1EhkIooccEEwBntb
+  block_id: doxcnrpnFRcJfiqe5H19Mlgvbyc
+  page_token: MtcJwOeh8il1EhkIooccEEwBntb
+  original_title: 3.4 结构化输出与质量保障
+  imported_at: '2026-09-21'

@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-201d2311b6ca
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ZeRO-Offload 是如何将优化器状态和计算卸载到 CPU 的？会带来多大速度损失？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块六：深度学习基础训练与推理部署
+tags: &1
+- 深度学习面（精选）
+- 模块六：深度学习基础训练与推理部署
+content:
+  prompt: ZeRO-Offload 是如何将优化器状态和计算卸载到 CPU 的？会带来多大速度损失？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO-Offload 将优化器状态（以及梯度、参数，取决于 ZeRO 阶段）从 GPU 显存卸载到 CPU 内存，同时将一部分计算（如优化器的更新步骤）也迁移到 CPU 执行，从而极大地降低 GPU 显存占用，使得在有限 GPU 资源下训练巨大模型成为可能。
+
+    工作流程：
+
+    - 前向和反向传播仍在 GPU 上进行（计算密集部分）。
+
+    - 反向传播得到的梯度被传输到 CPU。
+
+    - 在 CPU 上执行优化器更新（如 Adam 的动量更新、权重衰减），更新参数。
+
+    - 更新后的参数传输回 GPU 用于下一轮迭代。
+
+    - 可以采用 CPU 与 GPU 计算重叠的策略（如 DeepSpeed 的 CPU-Adam），在 GPU 执行下一 micro-batch 前向的同时，CPU 进行优化器更新和参数传输，以隐藏部分延迟。
+
+    速度损失：
+
+    - 受限于 PCIe 带宽和 CPU 计算速度。如果模型极大，GPU 计算成为瓶颈，卸载带来的通信延迟可以被计算掩盖，整体吞吐量损失较小（可能 10-20% 或更低）。但如果模型相对较小，GPU 计算很快，则 CPU 卸载和传输可能成为瓶颈，吞吐量可能下降数倍。
+
+    - 实际效果依赖于硬件配置、模型大小、batch size 等。DeepSpeed 通过高效的流和缓存优化，尽力将开销降到最低。
+
+    ZeRO-Offload 结合 ZeRO-3 可以实现用单张或少数几张 GPU 训练超大模型。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ChO2w20yAiZl9Zko9tUc2plKnwe
+  block_id: BGpbdXlPcoEnwxxYkEIcKX2rnyu
+  page_token: ChO2w20yAiZl9Zko9tUc2plKnwe
+  original_title: ZeRO-Offload 是如何将优化器状态和计算卸载到 CPU 的？会带来多大速度损失？
+  imported_at: '2026-09-21'

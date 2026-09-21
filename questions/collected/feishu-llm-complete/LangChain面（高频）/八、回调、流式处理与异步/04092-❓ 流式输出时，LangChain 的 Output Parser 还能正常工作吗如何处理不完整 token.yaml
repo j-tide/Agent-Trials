@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-482bd4022be6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "❓ 流式输出时，LangChain 的 Output Parser 还能正常工作吗？如何处理不完整 token？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "❓ 流式输出时，LangChain 的 Output Parser 还能正常工作吗？如何处理不完整 token？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    可以，但有限制。 有些 Output Parser 需要看到完整的生成文本才能解析（例如 JSON 解析器），而流式模式下文本是逐步到达的，这就会出问题。
+
+    - 简单 Parser（如 StrOutputParser、PydanticOutputParser 的流式子类）：能够处理增量输入。StrOutputParser 在流式模式下会直接透传字符串 chunk，并在最终调用时拼接，所以没有问题。
+
+    - 结构化 Parser（如 JsonOutputParser、PydanticOutputParser）：默认不支持流式，因为它们需要完整 JSON 才能反序列化。强行在流式模式下使用，可能会在接收到不完整 JSON 时抛出解析错误。
+
+    如何处理不完整 token？
+
+    - 使用支持流式的 Parser：LangChain 提供了一些专为流式设计的输出解析器，例如 JsonOutputToolsParser、PydanticOutputParser 的流式变体（部分存在）。你可以在 langchain.output_parsers 中查找支持 stream 的解析器。
+
+    - 缓冲直到完整：在自定义流式处理中，收集所有 chunk，直到生成结束，再一次性解析。这牺牲了流式的即时性，但保证了解析正确。
+
+    - 增量解析器：对于一些格式（如 JSON Lines），可以实现一个状态机，每收到一行就解析一次。但 LangChain 目前没有内置通用的增量解析器。
+
+    - 后处理：在不改变 Parser 的情况下，前端可以累积字符，当检测到完整消息（例如 JSON 闭合、特定分隔符）后再渲染。但这样 Parsing 的负担转移到了客户端。
+
+    实践建议：对于需要结构化输出的场景，尽量让 LLM 返回简单文本，然后通过后续的链步骤或工具调用进行结构化，而不是依赖流式输出时的 Parser。如果必须流式输出 JSON，推荐使用 JsonOutputToolsParser，因为它基于工具调用的 JSON，天然适合流式。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CZWewxKPziW9NLkL7iBcV35cncy
+  block_id: ClpJdgcXgoHWU3xu5IUc36DYnNb
+  page_token: CZWewxKPziW9NLkL7iBcV35cncy
+  original_title: "❓ 流式输出时，LangChain 的 Output Parser 还能正常工作吗？如何处理不完整 token？"
+  imported_at: '2026-09-21'

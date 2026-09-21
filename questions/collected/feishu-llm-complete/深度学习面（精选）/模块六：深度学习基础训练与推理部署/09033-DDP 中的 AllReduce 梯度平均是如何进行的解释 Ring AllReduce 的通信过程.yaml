@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-15ec0035273f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: DDP 中的 AllReduce 梯度平均是如何进行的？解释 Ring AllReduce 的通信过程。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块六：深度学习基础训练与推理部署
+tags: &1
+- 深度学习面（精选）
+- 模块六：深度学习基础训练与推理部署
+content:
+  prompt: DDP 中的 AllReduce 梯度平均是如何进行的？解释 Ring AllReduce 的通信过程。
+answer:
+  mode: rubric
+  reference_answer: |-
+    DDP 中的梯度平均是通过 AllReduce 操作完成的。在训练中，每个 GPU 计算出的梯度是局部小批量的梯度，需要将所有 GPU 的梯度求和并取平均，以获得全局 batch 的梯度。AllReduce 就是所有进程各自提供数据，经过规约（求和）后，所有进程都得到相同的结果。DDP 随后将结果除以 world_size 得到平均梯度。
+
+    Ring AllReduce 是实现 AllReduce 的一种高效算法，尤其适用于大规模分布式系统。其通信过程分为两个阶段：Scatter-Reduce 和 AllGather。假设有 N 个 GPU 排成一个逻辑环，每个 GPU 的待规约数据（如梯度）被切分为 N 个块。
+
+    - 第一阶段：Scatter-Reduce
+    进行 N−1 次迭代。每次迭代中，每个 GPU 将本地的一个数据块发送给环上的下一个 GPU，同时从上一个 GPU 接收一个数据块，并与自己的对应块累加。经过 N−1 次后，每个 GPU 上都持有一块完整的规约结果（即该块在所有 GPU 上的和）。此时，梯度块分散在不同的 GPU 上。
+
+    - 第二阶段：AllGather
+    同样进行 N−1 次迭代。每个 GPU 将自己在第一阶段结束时持有的完整规约块发送给下一个 GPU，并接收上一个 GPU 传来的另一个已规约块。最终，每个 GPU 都收集到所有块的规约结果，即完整的全局梯度。
+
+    特点：Ring AllReduce 的通信量每个 GPU 为 2(N−1)/N×总数据量2(N−1)/N×总数据量，带宽利用率高，且每个 GPU 的通信负载均衡，是 DDP 默认通信算法之一。
+
+    DDP 通过 torch.distributed.all_reduce 调用 NCCL 实现这一操作，并可以对梯度张量进行分桶，实现通信与反向传播的并行。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ChO2w20yAiZl9Zko9tUc2plKnwe
+  block_id: PuS7dgl5ooJ1QOxCbbXco4JcnUh
+  page_token: ChO2w20yAiZl9Zko9tUc2plKnwe
+  original_title: DDP 中的 AllReduce 梯度平均是如何进行的？解释 Ring AllReduce 的通信过程。
+  imported_at: '2026-09-21'

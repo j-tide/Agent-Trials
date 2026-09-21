@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dc5e6de2e8b4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 TP 中的“f 操作”和“g 操作”，分别对应什么通信？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 解释 TP 中的“f 操作”和“g 操作”，分别对应什么通信？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 Megatron-LM 的张量并行（Tensor Parallelism, TP）实现中，为了统一描述前向和反向传播中的通信模式，定义了f 操作和g 操作。这两个操作是构成张量并行的基本单元。
+
+    f 操作（前向传播中的恒等操作）：
+
+    - 前向传播时，f 操作就是不进行任何通信。输入张量直接复制到所有 TP 组的设备上，每张卡独立计算自己负责的部分输出。例如在 MLP 的第一层（升维层）按列切分时，输入 X 广播到所有卡，每张卡计算 Y_i = GeLU(X @ W1_i)，此时不需要通信，就属于 f 操作。
+
+    - 反向传播时，f 操作对应的反向是AllReduce。因为前向时数据被复制，反向时各卡计算的梯度是部分贡献（例如 ∂L/∂X 的部分和），必须通过 AllReduce 求和得到完整的梯度。
+
+    g 操作（前向传播中的 AllReduce 操作）：
+
+    - 前向传播时，g 操作是AllReduce。例如在 MLP 的第二层（降维层）按行切分时，每张卡计算 Z_i = Y_i @ W2_i，这些 Z_i 是部分和，需要 AllReduce 求和得到完整的输出 Z。这就是 g 操作。
+
+    - 反向传播时，g 操作对应的反向是恒等操作（不通信）。因为前向已经通过 AllReduce 得到了完整输出，反向时每张卡都持有完整的 ∂L/∂Z，可以直接本地计算梯度。
+
+    总结：f 操作和 g 操作是互为“镜像”的。前向的 f 对应反向的 AllReduce；前向的 g（AllReduce）对应反向的恒等。这种设计使得每层 Transformer 的前向只需要一次 AllReduce（在 MLP 的第二层和自注意力的输出投影后），反向也只需要一次 AllReduce（在 MLP 的第一层和自注意力的 QKV 投影后），通信次数最小化。
+
+    在自注意力层中：
+
+    - Q、K、V 投影按列切分（f 操作），前向无通信；输出投影按行切分（g 操作），前向需要 AllReduce。
+
+    - 反向时，输出投影的梯度计算无需通信（因为前向 g 操作的反向是恒等）；Q、K、V 投影的梯度计算需要 AllReduce（因为前向 f 操作的反向是 AllReduce）。
+
+    通过这种统一的 f/g 抽象，Megatron 可以灵活组合 TP 的各种切分策略，并自动推导所需的通信。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: WLhidwu1gofSnBxFwI0cT9Gbnxb
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: 解释 TP 中的“f 操作”和“g 操作”，分别对应什么通信？
+  imported_at: '2026-09-21'

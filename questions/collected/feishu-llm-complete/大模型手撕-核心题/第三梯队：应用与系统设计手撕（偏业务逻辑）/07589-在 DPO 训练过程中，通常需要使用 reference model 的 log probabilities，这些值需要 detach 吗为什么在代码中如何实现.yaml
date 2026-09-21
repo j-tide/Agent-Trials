@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-54c08870a36b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 DPO 训练过程中，通常需要使用 reference model 的 log probabilities，这些值需要 detach 吗？为什么？在代码中如何实现？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 在 DPO 训练过程中，通常需要使用 reference model 的 log probabilities，这些值需要 detach 吗？为什么？在代码中如何实现？
+answer:
+  mode: rubric
+  reference_answer: |-
+    是否需要 detach？必须 detach。
+
+    [图片内容未导入]
+
+    更具体地说，在损失函数中，ref_chosen_logps 和 ref_rejected_logps 应当被视为常数（尽管它们是从参考模型计算得来的）。因此，必须在将这些值传入 DPO 损失函数之前，调用 .detach() 来切断与参考模型计算图的连接。
+
+    代码实现
+
+    ```python
+    # 假设 reference_model 和 policy_model 是两个相同的结构，但 reference_model 参数冻结
+    with torch.no_grad():
+        ref_chosen_logps = reference_model(chosen_inputs).logprobs  # 已经是 no_grad，不需要额外 detach
+        # 或者如果在 torch.enable_grad() 上下文中计算，则需要：
+        # ref_chosen_logps = reference_model(chosen_inputs).logprobs.detach()
+
+    # 但在实际中，通常直接让 reference_model 在 eval 模式且不计算梯度：
+    reference_model.eval()
+    for param in reference_model.parameters():
+        param.requires_grad = False
+
+    # 计算参考模型的 log probs 时，不需要 with torch.no_grad() 也行，因为参数 requires_grad=False，
+    # 但为了明确和性能，最好用 torch.no_grad()。
+    with torch.no_grad():
+        ref_chosen_logps = reference_model(chosen_inputs).logprobs
+        ref_rejected_logps = reference_model(rejected_inputs).logprobs
+    ```
+
+    当传递给 DPO 损失函数时，这些张量的 requires_grad 属性已经是 False，因此不会对参考模型产生梯度。
+
+    在 DPO 损失的内部，尽管 ref_chosen_logps 参与了计算（如 chosen_log_ratios = policy_chosen_logps - reference_chosen_logps），但由于 reference_chosen_logps 没有梯度，梯度只会通过 policy_chosen_logps 反向传播。这是完全正确的。
+
+    总结：一定要保证参考模型的输出在送入损失函数前是 detached 的，最简单的方式是使用 torch.no_grad() 上下文或显式调用 .detach()。同时冻结参考模型的所有参数。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  block_id: KR7zdCTAFoUvuixcUYCchXoMnMe
+  page_token: Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  original_title: 在 DPO 训练过程中，通常需要使用 reference model 的 log probabilities，这些值需要 detach
+    吗？为什么？在代码中如何实现？
+  imported_at: '2026-09-21'

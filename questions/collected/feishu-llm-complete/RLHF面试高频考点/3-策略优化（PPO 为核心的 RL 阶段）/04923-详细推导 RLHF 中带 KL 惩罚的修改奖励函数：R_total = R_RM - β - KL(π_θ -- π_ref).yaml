@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-32063c04a051
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 详细推导 RLHF 中带 KL 惩罚的修改奖励函数：R_total = R_RM - β * KL(π_θ || π_ref)
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: 详细推导 RLHF 中带 KL 惩罚的修改奖励函数：R_total = R_RM - β * KL(π_θ || π_ref)
+answer:
+  mode: rubric
+  reference_answer: |-
+    1.1 从原始优化目标谈起
+
+    RLHF 的终极目标是训练一个语言模型策略 πθπθ，使其能生成符合人类偏好的回答。最直接的想法是最大化奖励模型的期望评分：
+
+    [图片内容未导入]
+
+    [图片内容未导入]
+
+    1.3 转化为无约束的拉格朗日对偶问题
+
+    使用拉格朗日乘子法，我们将约束优化转化为无约束的极大化问题。引入拉格朗日乘子 β>0，得到：
+
+    [图片内容未导入]
+
+    由于 δ 是常数，在优化时不影响梯度，因此等价于最大化：
+
+    [图片内容未导入]
+
+    这里的 β 就扮演了 KL 惩罚系数的角色。它控制着约束的强度：ββ 越大，惩罚越强，策略越不敢偏离参考模型；β 越小，惩罚越弱，策略越倾向于最大化奖励而可能远离参考模型。
+
+    1.4 展开到 token 级别的强化学习
+
+    [图片内容未导入]
+
+    但在实际 PPO 训练中，由于我们已经在采样阶段获得了具体的 token 序列，我们可以使用该序列下每个 token 的对数概率来近似 KL 散度。于是，对于每个 token at，定义即时 KL 惩罚：
+
+    [图片内容未导入]
+
+    注意这里是对数比率，不是真正的 KL 散度（KL 需要加期望），但在给定样本下，它提供了无偏的梯度估计。因此，token 级别的总即时奖励变为：
+
+    [图片内容未导入]
+
+    1.5 推导总结
+
+    因此，最终在 PPO 中使用的修改奖励函数为：
+
+    [图片内容未导入]
+
+    其中 KL 项在实际计算中由所有生成 token 的对数概率比之和近似，除以序列长度或保持为总和，这取决于实现。这个目标完美地平衡了“追求高奖励”与“保持语言流畅性”之间的矛盾。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BAN9wgGBJiVSTWkpMHXcKrxFn7f
+  block_id: Bg53dFSIwoSg1MxtOrWclqQpn8g
+  page_token: BAN9wgGBJiVSTWkpMHXcKrxFn7f
+  original_title: 详细推导 RLHF 中带 KL 惩罚的修改奖励函数：R_total = R_RM - β * KL(π_θ || π_ref)
+  imported_at: '2026-09-21'

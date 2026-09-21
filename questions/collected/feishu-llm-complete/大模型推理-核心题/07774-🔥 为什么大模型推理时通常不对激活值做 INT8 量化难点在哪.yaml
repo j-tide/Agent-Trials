@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-450fe04aa6a8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F525 为什么大模型推理时通常不对激活值做 INT8 量化？难点在哪？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: "\U0001F525 为什么大模型推理时通常不对激活值做 INT8 量化？难点在哪？"
+answer:
+  mode: rubric
+  reference_answer: "在大模型推理中，权重量化（W4A16 或 W8A16）已经非常普遍，但将激活值也量化到 INT8（W8A8）却很少用于生产。根本原因在于激活值的动态性和极端分布使得低精度量化极易造成不可接受的精度损失，而工程实现也远较权重量化复杂。\n\n\U0001F4CA
+    激活值的独特难题\n\n- 动态范围与离群值\n\n激活值是每个输入样本实时计算出来的，其数值分布随输入数据、序列位置和模型层数剧烈变化。Transformer
+    层中常出现通道级离群值——某些隐藏维度的激活值比其他维度大几十倍，甚至出现固定的“离群 token”（如第一个 token 的激活异常高）。如果对整个激活张量采用统一的
+    INT8 量化尺度，离群值会撑大尺度因子，导致绝大多数正常值被量化到极低的分辨率（甚至全部变为 0），信息严重丢失。而权重量化可以离线、逐通道地精细校准，不存在这种动态离群值问题。\n\n-
+    校准数据的代表性\n\n激活值的量化参数（scale、zero point）必须通过校准数据集统计得到。然而，校准数据只是真实世界数据的一个子集，永远无法覆盖线上可能出现的所有分布。一旦线上输入分布与校准集偏差较大，激活值的量化参数就会失效，导致精度雪崩。权重是静态的，不存在这种分布漂移风险。\n\n-
+    累积误差与层间漂移\n\n每一层的激活值都是下一层的输入。当所有层的激活都被量化时，量化误差会逐层累积并放大，深层网络的实际输入分布可能与校准时的统计完全偏离，产生“量化漂移”。这种累积效应使得即使每层单独校准时表现良好，整体模型却可能崩溃。要缓解这一现象，通常需要量化感知训练（QAT）或逐层误差补偿，这又失去了
+    PTQ 快速部署的优势。\n\n- 硬件与算子支持不成熟\n\n虽然现代 GPU（如 A100）的 Tensor Core 支持 INT8 矩阵乘法，但高效的
+    INT8 激活值推理需要将权重的反量化和激活值的量化融合进 kernel，并且与 FlashAttention、PagedAttention 等优化兼容。目前主流推理框架（vLLM、TensorRT‑LLM）对
+    W8A8 的支持仍不如 W4A16 成熟，尤其是处理动态批处理和变长序列时。\n\n- 延迟收益有限\n\n在自回归解码（Decode）阶段，瓶颈通常是显存带宽而非计算。量化激活值虽然可以减少部分计算数据搬运，但
+    KV Cache 的读取才是大头，激活值本身的数据量（每次只处理一个新 token）极小。因此 W8A8 带来的延迟降低在多数场景下并不明显，却要承担上述所有精度风险。\n\n\U0001F4A1
+    综上，激活值量化是一个“高风险、低回报”的选择。工业界更倾向于只量化权重，保持激活为 FP16/BF16，或者采用 SmoothQuant 等迁移量化方案，将激活值的量化难度部分转移给权重。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C0pNwQLAmiNN2tkVnWGccLYLns0
+  block_id: CNfGdkBCDofRz8xptKCcoiGQnZe
+  page_token: C0pNwQLAmiNN2tkVnWGccLYLns0
+  original_title: "\U0001F525 为什么大模型推理时通常不对激活值做 INT8 量化？难点在哪？"
+  imported_at: '2026-09-21'

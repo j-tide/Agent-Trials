@@ -1,0 +1,120 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6609fba4b616
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚙️ 2. AutoGen Group Chat 中，如何控制发言顺序和避免无限循环对话？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "⚙️ 2. AutoGen Group Chat 中，如何控制发言顺序和避免无限循环对话？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Group Chat 的发言由 GroupChatManager 控制，它内部通过一个 speaker_selection_method 来决定每一轮该谁说话。控制发言顺序和防止死循环，需要从发言规则、终止条件、消息约束三个层面设计。
+
+    ① 控制发言顺序：指定发言选择策略
+
+    默认情况下，Manager 使用 auto 模式，让内部的 LLM 根据对话历史决定下一个发言人。你可以把它改为 round_robin（轮询），或提供一个自定义的选择函数。
+
+    from autogen import GroupChat, GroupChatManager
+
+    groupchat = GroupChat(
+        agents=[agent_a, agent_b, agent_c],
+        messages=[],
+        max_round=10,
+        speaker_selection_method="round_robin"  # 严格按 agents 列表顺序轮流发言
+    )
+
+    如果需要更精细的控制，可以传入一个自定义函数：
+
+    def custom_speaker_selection(last_speaker, groupchat):
+        # 规则：B 发言后必须由 C 来总结，其他情况随机选 A
+        if last_speaker.name == "Agent_B":
+            return agent_c
+        else:
+            return agent_a
+
+    groupchat = GroupChat(
+        agents=[agent_a, agent_b, agent_c],
+        messages=[],
+        speaker_selection_method=custom_speaker_selection,
+        max_round=10
+    )
+
+    ② 设置硬边界：max_round 和终止消息
+
+    - max_round：限制整个群聊的发言轮次上限。到达上限后强制结束，这是最硬的兜底。
+
+    - termination_msg：当某个 Agent 的消息中包含指定关键词（如 "TERMINATE"）时，群聊自动终止。你可以在 System Prompt 中教导 Agent 在完成任务后输出该关键词。
+
+    agent_a = AssistantAgent(
+        name="研究员",
+        system_message="完成研究后，请在消息末尾说 'TERMINATE'。"
+    )
+
+    groupchat = GroupChat(
+        agents=[...],
+        messages=[],
+        max_round=20,
+        # 不设置 terminate_msg 则默认检查 'TERMINATE'
+    )
+
+    ③ 约束发言内容：避免“同意、收到”型循环
+
+    LLM 容易陷入礼貌性互聊（“谢谢”、“收到”、“已理解”）。解决办法是在 System Message 中明确禁止无实质内容的发言，并要求每个发言都必须有决策或产出。
+
+    system_message = """
+    你必须只在你拥有新的信息或需要做出决策时才发言。
+    禁止只为了确认上一条消息而发言，例如不要说“收到”、“了解”。
+    如果不需要补充任何信息，请直接让给下一个角色，或输出 TERMINATE。
+    """
+
+    ④ 使用 custom_speaker_selection 实现“跳过多余发言”
+
+    你可以在选择函数中检查最后几条消息的内容，如果发现某个 Agent 已经连续发言多次且没有进展，就强制切换或直接结束。
+
+    def adaptive_selection(last_speaker, groupchat):
+        # 如果最近 3 条消息都来自同一个 Agent，强制切换到另一个
+        recent_speakers = [msg["name"] for msg in groupchat.messages[-3:]]
+        if recent_speakers.count(last_speaker.name) == 3:
+            # 找一个其他 Agent 来打破循环
+            for agent in groupchat.agents:
+                if agent != last_speaker:
+                    return agent
+        # 否则让 LLM 决定
+        return "auto"
+
+    通过这些手段的组合：轮次上限兜底、TERMINATE 关键词主动结束、发言内容约束、自适应选择函数，你可以把 Group Chat 牢牢控制在一个高效、有限的讨论范围内。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MHAaw5sSsiptF5kxdKYcdIWfnze
+  block_id: doxcnYrrAb8GvfUN0Mubwl7eDXf
+  page_token: MHAaw5sSsiptF5kxdKYcdIWfnze
+  original_title: "⚙️ 2. AutoGen Group Chat 中，如何控制发言顺序和避免无限循环对话？"
+  imported_at: '2026-09-21'

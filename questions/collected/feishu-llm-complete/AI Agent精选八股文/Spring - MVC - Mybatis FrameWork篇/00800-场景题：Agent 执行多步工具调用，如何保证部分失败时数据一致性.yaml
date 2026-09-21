@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e204b499cbb1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 执行多步工具调用，如何保证部分失败时数据一致性？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 执行多步工具调用，如何保证部分失败时数据一致性？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐⭐⭐（分布式事务、Saga 模式、补偿机制、本地事务表）
+
+    1️⃣ Common Answer
+
+    可以用@Transactional 把整个流程包起来，失败了就回滚。但是如果调用了外部服务，本地事务管不到，这时候可以用 Seata 这样的分布式事务框架。
+
+    2️⃣ Impressive Answer
+
+    这个问题本质是长事务 + 跨服务的场景，我分三层设计：
+
+    - 本地事务兜底：单服务内多步操作（如写 DB + 发消息）用 @Transactional 保证原子性；消息发送用事务消息表，本地事务提交后由定时任务异步投递，保证最终一致。
+
+    - 跨服务 Saga 模式：Agent 多步工具调用涉及多个微服务时，用 Saga 编排：每个步骤有正向操作和补偿操作，步骤 3 失败则逆向执行步骤 2→1 的补偿。Spring Cloud State Machine 或自研引擎可实现。
+
+    - 幂等 + 重试：每个工具调用设计幂等性（唯一键/状态机），失败后安全重试；配合本地消息表 + 事务性轮询，确保补偿操作必然执行。
+
+    - 用户感知设计：长事务不阻塞 HTTP 响应，采用异步回调或 SSE 推送执行进度，用户可随时查看中间状态。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcndBNQxpa2WPmKvwX5LtPRld
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 3、场景题：Agent 执行多步工具调用，如何保证部分失败时数据一致性？
+  imported_at: '2026-09-21'

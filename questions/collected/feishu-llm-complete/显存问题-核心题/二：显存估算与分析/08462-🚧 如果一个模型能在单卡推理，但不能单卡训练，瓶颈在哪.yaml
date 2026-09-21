@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-97f514fc83c1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6A7 如果一个模型能在单卡推理，但不能单卡训练，瓶颈在哪？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "\U0001F6A7 如果一个模型能在单卡推理，但不能单卡训练，瓶颈在哪？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 瓶颈在于训练时额外需要的梯度、优化器状态和激活内存，这些在推理时不存在或极小。\n\n\U0001F4CA
+    具体差异：\n\n推理时显存占用：\n\n- 模型权重\n\n- KV Cache（与序列长度相关）\n\n- 少量中间激活（可优化）\n\n训练时显存额外需求：\n\n-
+    梯度：与权重同等精度（FP16/FP32），大小等于权重。\n\n- 优化器状态：如 Adam，需要存储动量（m）和方差（v），通常 FP32，每个参数 8
+    字节，是权重的 4 倍（假设权重 FP16）。\n\n- 激活值：反向传播需要保存中间激活用于梯度计算，即使有梯度检查点，也需存部分。在长序列、大 batch
+    下，激活显存可轻易达到权重的数倍。\n\n\U0001F4C8 举例：\n\n7B 模型，FP16 推理权重 = 14 GB。\n\n训练时（FP16 混合精度，Adam）：\n\n-
+    权重 FP16: 14 GB\n\n- 梯度 FP16: 14 GB\n\n- 优化器状态（FP32 m+v）: 56 GB\n\n- 仅这三项就 84 GB，远远超过单卡
+    80 GB。这还没算激活。\n所以即使单卡能推理，训练也完全不可能。\n\n\U0001F6E0️ 解决方案：\n\n- 参数高效微调 (LoRA/QLoRA)：冻结大部分参数，只训练少量适配器，大幅减少梯度和优化器状态。\n\n-
+    模型并行（ZeRO/TP/PP）：将上述组件分布到多卡。\n\n- 梯度检查点：减少激活显存，但不减少梯度和优化器。\n\n因此，训练比推理多了梯度、优化器和大量激活，显存需求通常是推理的
+    3-4 倍以上，这是单卡推理可行而单卡训练不可行的核心原因。\n\n- 单张 A100 80G 可用 INT4 量化勉强运行，但 batch 很小，吞吐低。\n\n-
+    2 张 A100 80G 可运行 FP16 或更大 batch，提升吞吐。\n\n- 4 张 A100 80G 可支持更大并发和长上下文。\n\n- 张量并行
+    (TP)：将层内权重矩阵切分，通信量大（all-reduce），适合节点内高带宽（NVLink）。通常 TP 度不宜超过单机卡数（如 8）。\n\n- 流水线并行
+    (PP)：将层间切分，通信量小但会有流水线气泡。适合跨节点，PP 度可较大。\n\n- 数据并行 (DP)：每卡持有完整模型，输入数据切分。必须单卡能装下模型，否则需
+    ZeRO 分片。数据并行度可扩展性最好，但受限于单卡显存。\n\n- TP 度越大，单卡权重和激活显存线性减小。\n\n- PP 度越大，单卡权重显存近似反比，但激活峰值取决于
+    micro-batch 数，不完全线性。\n\n- ZeRO 阶段 1/2/3 可以叠加在 DP 上，进一步分片优化器状态、梯度或权重，降低单卡显存。\n我们要选择最小的
+    TP/PP 满足单卡显存需求，保留最大的 DP 以提升吞吐和扩展性。\n\n- 100B，需要大规模 PP/TP 甚至 3D 并行。\n\n- 注意力头数与
+    KV Cache：多头注意力的 KV Cache 随序列长度线性增长。长上下文模型需要设计 GQA/MQA 来控制显存。如果在初期不规划，训练时可能 OOM，或无法支持目标上下文窗口。\n\n-
+    隐藏维度和层数：影响激活内存，进而影响训练批次大小和吞吐。需要针对目标 GPU（如 A100 80G）优化 layer 尺寸和序列长度，以最大化训练效率。\n\n-
+    FFN 膨胀率：MoE 模型中 expert 数量受显存约束，必须在路由策略和专家并行上妥协。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CkFiwxOtOi6QRJkPIPKcLENfndb
+  block_id: LPJddRdVqooQcfxFL0Xc2Flkngc
+  page_token: CkFiwxOtOi6QRJkPIPKcLENfndb
+  original_title: "\U0001F6A7 如果一个模型能在单卡推理，但不能单卡训练，瓶颈在哪？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5b426643cf54
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ECC 内存错误会导致训练静默数据损坏，如何应对？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: ECC 内存错误会导致训练静默数据损坏，如何应对？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ECC（Error Correction Code）内存是GPU显存的保护机制，能纠正单比特错误，检测双比特错误。但在大模型训练的巨大计算量下，ECC错误仍会发生，而且可能导致静默数据损坏（Silent Data Corruption, SDC）——计算出的数值是错的，但程序不报任何错误。这非常可怕，因为你会基于错误的结果继续训练，浪费无数资源。
+
+    应对策略：
+
+    - 监控ECC错误计数：nvidia-smi可以查询每个GPU的Volatile ECC计数（可纠正和不可纠正）。设置自动化监控，一旦发现不可纠正错误（Uncorrectable ECC error），立即告警并停止该卡上的训练。
+
+    - 主动验证：定期（如每个epoch）对模型参数做一次checksum（如逐层求和），然后通过AllReduce与其他卡比对。如果某张卡的值与其他卡显著不一致，说明该卡计算出现了SDC。这虽然会引入额外通信，但在关键训练中是值得的。
+
+    - 冗余计算：对同一批数据，让两张卡独立计算，然后比较结果（代价太高，极少使用）。或者依赖框架的浮点异常捕获。
+
+    - 硬件替换：一旦确认某卡存在不可纠正ECC错误，立即下线该卡并联系硬件团队更换。
+
+    - 使用确定性算法（见下题）：虽然不能防止ECC，但能避免因非确定性操作导致的微小差异，从而更容易识别真正的错误。
+
+    目前主流大模型训练中，对静默错误的防护仍是一个开放挑战。大多数团队依赖定期checkpoint和密集监控，出现问题后回滚。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: OjeidGnCKoUfZixZdw9ccki6nSe
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: ECC 内存错误会导致训练静默数据损坏，如何应对？
+  imported_at: '2026-09-21'

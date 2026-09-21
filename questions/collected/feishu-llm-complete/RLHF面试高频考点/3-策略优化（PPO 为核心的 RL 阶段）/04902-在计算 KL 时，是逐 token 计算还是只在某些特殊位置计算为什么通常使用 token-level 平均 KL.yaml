@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2e1b898a034b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在计算 KL 时，是逐 token 计算还是只在某些特殊位置计算？为什么通常使用 token-level 平均 KL？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: 在计算 KL 时，是逐 token 计算还是只在某些特殊位置计算？为什么通常使用 token-level 平均 KL？
+answer:
+  mode: rubric
+  reference_answer: |-
+    9.1 逐 token 计算是绝对必要的
+
+    RLHF 中的 KL 惩罚必须逐 token 计算，覆盖模型生成的每一个 token。这有几个根本原因：
+
+    - 细粒度的信用分配：语言生成是一个顺序决策过程，任何一个中间步骤的偏离，都可能导致后续文本走向奇怪的方向。如果只在句子末尾等特殊位置计算 KL，模型就会在生成本文过程中毫无约束，等到最后才被惩罚，但为时已晚，中间的错误决策已经无法纠正。
+
+    [图片内容未导入]
+
+    - 与架构的一致性：无论是 Actor、Reference 还是 Critic，它们都是 Transformer 模型，天然支持对输入序列的每个位置输出相应的 logits 或 value。因此逐 token 计算在工程上也是最高效、最自然的。
+
+    9.2 为什么是平均而不是求和？
+
+    在聚合损失时，我们计算的是序列中所有有效 token 的 KL 的平均值。理由如下：
+
+    - 长度无关的惩罚强度：如果采用求和，长序列的惩罚量级是短序列的数十倍。这会导致模型过度关注如何在长回复上压低 KL，而可能忽视短回复的优化。采用平均，确保了模型每个生成 token 的“偏离成本”是统一的，不受总长度影响。
+
+    - 超参数 β 的普适性：β 作为每个 token 的惩罚系数，在取平均的场景下，它天然具有“每单位偏离所支付的代价”的物理意义，这使得 β 在不同长度、不同 batch size 下都能保持稳定，极大方便了调参。
+
+    - 数值稳定性：平均后的损失值量级更稳定，有益于梯度更新，减少爆炸风险。
+
+    9.3 是否有只在特殊位置计算的场景？
+
+    在某些分析或调试场景中，可能会统计 EOS 位置的 KL，或者观察 KL 在生成过程中的动态变化曲线，但这仅用于监控和分析，而非作为训练的目标。训练时的 KL 惩罚，永远是基于所有生成 token 的平均值。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BAN9wgGBJiVSTWkpMHXcKrxFn7f
+  block_id: E3MZd92GZoHWr8xcGuycWiuhntb
+  page_token: BAN9wgGBJiVSTWkpMHXcKrxFn7f
+  original_title: 在计算 KL 时，是逐 token 计算还是只在某些特殊位置计算？为什么通常使用 token-level 平均 KL？
+  imported_at: '2026-09-21'

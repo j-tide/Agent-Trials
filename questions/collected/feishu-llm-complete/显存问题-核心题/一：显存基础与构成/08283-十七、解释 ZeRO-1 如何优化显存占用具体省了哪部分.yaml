@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-744a2f7b9e01
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 十七、解释 ZeRO-1 如何优化显存占用？具体省了哪部分？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 一：显存基础与构成
+tags: &1
+- 显存问题-核心题
+- 一：显存基础与构成
+content:
+  prompt: 十七、解释 ZeRO-1 如何优化显存占用？具体省了哪部分？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO（Zero Redundancy Optimizer）是 DeepSpeed 提出的分布式训练显存优化系列。ZeRO Stage 1 的核心思想是：在数据并行组内，将优化器状态（m 和 v）分片（partition）到各 GPU，而不是每张卡保存完整的全局优化器状态。 同时，每张卡仍然持有完整的模型权重和梯度（用于各自的数据批次），但优化器状态不再冗余。
+
+    原始 DDP 的显存状态
+
+    在标准数据并行中，每个 GPU 都有：
+
+    - 一份完整的模型权重（FP16 + FP32 主副本）
+
+    - 一份完整的梯度（用于各自 micro-batch 的累加）
+
+    - 一份完整的优化器状态（m 和 v，FP32）——这部分在所有 GPU 之间完全相同，是冗余。
+
+    因此，总的跨所有 GPU 的优化器状态存储为 N×8Φ 字节，其中 Φ 是参数量，N 是 GPU 数量。
+
+    ZeRO-1 如何消除冗余
+
+    - 在反向传播之后、优化器更新之前，所有 GPU 执行一次 Reduce-Scatter 通信，将各卡持有的完整梯度进行求和，同时各卡只保留与自己分片对应的梯度部分。
+
+    - 这样，每张 GPU 只持有一部分梯度的最终平均结果（即全局梯度的分片）。
+
+    - 然后，每张卡仅对自己持有的那一部分参数，更新其对应的优化器状态 m,v 和 FP32 主权重。
+
+    - 更新完成后，执行 All-Gather，将更新后的参数分片从各个 GPU 收集回完整的参数，供下一步前向使用。
+
+    显存节省：
+
+    - 优化器状态从每卡的 8Φ 降至 8Φ/N（精确分片）。
+
+    - 省了哪部分？：省去了 N−1 份冗余的优化器状态。对于 N=8 的情况，优化器状态显存降低为原来的 1/8。
+
+    - 权重和梯度的存储仍然是每卡完整持有（FP16 权重及梯度），因此它们不省。
+
+    通信代价
+
+    - 新增一次 Reduce-Scatter（梯度求和与分片）和一次 All-Gather（更新后参数收集），通信量与标准 DDP 的 AllReduce 梯度相当。总体通信量大约为 DDP 的 1.5 倍，但换来显著的显存节省。
+
+    一句话：ZeRO-1 只切优化器状态，不切权重和梯度，用少量额外通信打破了优化器状态的每卡冗余。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GR6GwGe1Hij4c3keg1Qckq5unRb
+  block_id: D8wNdSVP6obvwjxkeLlcbBYpnRc
+  page_token: GR6GwGe1Hij4c3keg1Qckq5unRb
+  original_title: 十七、解释 ZeRO-1 如何优化显存占用？具体省了哪部分？
+  imported_at: '2026-09-21'

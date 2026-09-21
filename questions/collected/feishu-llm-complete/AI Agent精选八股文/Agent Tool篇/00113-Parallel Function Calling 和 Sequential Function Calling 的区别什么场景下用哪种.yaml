@@ -1,0 +1,129 @@
+---
+schema_version: 1
+id: feishu-llm-complete-854c4e0b91b1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Parallel Function Calling 和 Sequential Function Calling 的区别？什么场景下用哪种？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent Tool篇
+tags: &1
+- AI Agent精选八股文
+- Agent Tool篇
+content:
+  prompt: Parallel Function Calling 和 Sequential Function Calling 的区别？什么场景下用哪种？
+answer:
+  mode: rubric
+  reference_answer: |-
+    并行调用：模型在一次回复中同时返回多个独立的 tool_calls，你的代码可以同时执行它们，互不依赖。
+    串行调用：模型先调用工具 A，等拿到 A 的结果后，再根据结果决定调用工具 B，依次进行。
+
+    ```text
+    并行 (独立任务):
+    用户: "北京和上海的天气分别怎么样？"
+    模型返回:
+      ├─ tool_call 1: get_weather("北京")
+      └─ tool_call 2: get_weather("上海")
+    → 这两个调用可以同时发出，不需要等待彼此。
+
+    串行 (依赖任务):
+    用户: "帮我查一下我最新订单的物流状态。"
+    模型第一轮: get_user_profile() → 拿到 user_id
+    模型第二轮: get_latest_order(user_id) → 拿到 order_id
+    模型第三轮: get_logistics(order_id) → 拿到物流信息
+    → 每一步都依赖上一步的结果，必须顺序执行。
+    ```
+
+    工程决策：用哪个？
+
+    你可以通过 tool_choice 和 parallel_tool_calls 参数来控制。但更重要的判断逻辑是：
+
+    用并行的情况：
+
+    - 多个工具调用之间完全没有数据依赖。
+
+    - 每个调用的参数都可以在用户输入中直接获取，不需要前一个工具的返回值。
+
+    - 你的目标是降低延迟：同时请求多个服务，等待最慢的那个完成即可。
+
+    - 注意： 即使模型返回了并行调用，你也要在你的代码里用 asyncio.gather 或线程池来真正并发执行，否则就浪费了这个优化。
+
+    用串行的情况：
+
+    - 任务有严格的先后顺序，后续调用需要前置调用返回的 ID、token 或其他数据。
+
+    - 你需要做条件判断：比如“先查用户会员等级，如果是 VIP 才查专属折扣，否则查普通价格”。
+
+    - 即使模型以并行方式返回了调用，但如果它们有隐性依赖，你的执行层也应强制串行化或建立依赖图。
+
+    一个实用的混合处理代码骨架：
+
+    ```python
+    async def execute_tool_calls(messages, tools, tool_map):
+        """处理单轮工具调用，支持并行执行"""
+        response = await client.chat.completions.create(
+            model="gpt-4o", messages=messages, tools=tools
+        )
+        msg = response.choices[0].message
+
+        if not msg.tool_calls:
+            return msg.content
+
+        # 检查是否所有调用都独立（无依赖关系）
+        tasks = []
+        for tc in msg.tool_calls:
+            args = json.loads(tc.function.arguments)
+            tasks.append(asyncio.create_task(
+                execute_one_tool(tc.function.name, args, tool_map)
+            ))
+
+        # 并行执行所有独立工具
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # 把结果追加回消息历史
+        messages.append(msg)
+        for tc, result in zip(msg.tool_calls, results):
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": str(result) if not isinstance(result, Exception) else f"Error: {result}"
+            })
+        return messages  # 返回更新后的消息，外层可继续循环
+    ```
+
+    什么场景下必须手动切换为串行？
+
+    如果你的工具之间有“隐式依赖”，比如一个工具返回文件 ID，另一个工具需要这个 ID 才能下载，但模型第一次就给出了并行调用，这时候你的执行器应该：
+
+    - 执行第一个调用。
+
+    - 把第一个调用返回的 ID 注入到第二个调用的参数中（或者让模型重新生成参数）。
+
+    - 再执行第二个调用。
+
+    换句话说，执行层永远是你说了算，模型只负责“提出调用意图”，最终的执行顺序和并发策略由你的代码编排。 不要在安全性和正确性上让步给模型。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/F5QpwqJp4i0pB3kmnPzcVpgGn19
+  block_id: doxcn1MPQSRwhb9jnZO702lbsEe
+  page_token: F5QpwqJp4i0pB3kmnPzcVpgGn19
+  original_title: Parallel Function Calling 和 Sequential Function Calling 的区别？什么场景下用哪种？
+  imported_at: '2026-09-21'

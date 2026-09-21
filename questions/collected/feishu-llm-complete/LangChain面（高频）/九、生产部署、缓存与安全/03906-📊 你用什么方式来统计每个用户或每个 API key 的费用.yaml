@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1bb4bc4a49de
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 你用什么方式来统计每个用户或每个 API key 的费用？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F4CA 你用什么方式来统计每个用户或每个 API key 的费用？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    统计每用户/每 Key 费用是计费系统的基础。我通常采用“日志 -> 聚合 -> 存储 -> 展示”的架构，并集成到 LangChain 的回调中。
+
+    - 数据采集
+    通过自定义 BaseCallbackHandler，在 on_llm_end 中捕获每次调用的详细信息：user_id（从 config 或 metadata 传入）、api_key_id、model、prompt_tokens、completion_tokens、timestamp、session_id 等。为了不影响主性能，回调内部使用异步方式（如 asyncio.create_task）将数据写入消息队列（如 Kafka）或直接发送到日志收集器。
+
+    - 数据传输与存储
+
+    - 直接写 Redis：适合实时计费需求，用 INCRBY 累加 token 数，定期（每分钟）由后台任务读取并入库。
+
+    - 写 ClickHouse / Elasticsearch：适合海量日志分析。结构化 JSON 直接写入，支持实时聚合查询。
+
+    - 写时序数据库（InfluxDB）：适合监控趋势，Grafana 直接可视化。
+
+    - 计费计算
+    后台定时任务（每分钟或每小时）从数据存储中聚合每个 user_id 的 token 消耗，根据模型定价表计算费用，并更新用户余额。定价表可以用配置文件管理，方便调价。
+
+    - 可视化
+
+    提供用户级别的费用仪表盘，展示今日消费、本月消费、消费趋势、各模型占比等。同时提供导出账单功能。
+
+    - API Key 维度统计
+    如果你作为平台方，需要统计不同 API Key 的消费（例如不同客户），只需将 api_key_id 作为统计维度。可以在 LangServe 的 per_req_config_modifier 中从请求头提取 API Key，并将其写入 config["metadata"]，回调中就能拿到。
+
+    多租户注意事项：
+
+    - 确保回调中拿到的用户标识是可信的（由认证层注入），不能由客户端随意传递。
+
+    - 对于流式请求，token 统计可能不完整，需要在流结束后通过估算或最终 chunk 获取精确值。
+
+    实践：我们构建了一个计费服务，LangChain 应用通过 gRPC 将每次调用的元信息发送到计费服务。计费服务使用 Redis 进行实时计数和限速，并通过定时任务将分钟级聚合数据写入 PostgreSQL。这样既保证了实时性，又能长期存储。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WzEDwedwxiXAD4kdXdjcKjdQnCe
+  block_id: GjTgdzYPDopUnjxa7eccUY0snke
+  page_token: WzEDwedwxiXAD4kdXdjcKjdQnCe
+  original_title: "\U0001F4CA 你用什么方式来统计每个用户或每个 API key 的费用？"
+  imported_at: '2026-09-21'

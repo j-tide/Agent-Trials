@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-abecf21a2340
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DB 使用 Redis 存储会话时，你会如何设计 key 的命名规则？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F4DB 使用 Redis 存储会话时，你会如何设计 key 的命名规则？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 Redis 中，key 的命名既影响可读性，也影响维护和集群分片。一个好的命名规则应该清晰、可扩展且易于管理。
+
+    推荐命名方案：{命名空间}:{资源类型}:{标识符}
+
+    对于聊天历史，常见的方式是：
+
+    - 按用户和会话隔离：chat:session:{user_id}:{session_id}
+    例如 chat:session:1001:d8f3a2b0。
+
+    - 仅按会话隔离（不显式包含用户 ID）：chat:session:{session_id}，但你需要保证 session_id 是全局唯一的，且在业务层处理用户隔离。
+
+    - 如果需要按时间清理，可以在 key 中加入日期：chat:session:2024-01-15:{session_id}，但这会使跨天会话管理复杂化。
+
+    设计考量：
+
+    - 避免 key 过大：过长的 key 会占用更多内存，影响性能。
+
+    - 使用冒号分隔：冒号是 Redis 的常用层级分隔符，在 Redis Desktop Manager 等工具中会以文件夹形式展示，便于浏览。
+
+    - 加入版本号：如果未来可能改变存储结构，可以在命名空间中加入版本，如 chat:v2:session:...。
+
+    - 便于批量操作：比如你想清理某个用户的所有会话，可以用 SCAN 命令扫描 chat:session:1001:* 并删除。
+
+    示例：
+
+    ```python
+    session_id = f"chat:session:{user_id}:{session_uuid}"
+    history = RedisChatMessageHistory(session_id=session_id, url="redis://...")
+    ```
+
+    这样的命名清晰明了，方便监控、调试和运维。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Dajiw8ewCiTjamklohBcMVI0nre
+  block_id: OcugdvQDwoPZEfxKal0cDggJnuc
+  page_token: Dajiw8ewCiTjamklohBcMVI0nre
+  original_title: "\U0001F4DB 使用 Redis 存储会话时，你会如何设计 key 的命名规则？"
+  imported_at: '2026-09-21'

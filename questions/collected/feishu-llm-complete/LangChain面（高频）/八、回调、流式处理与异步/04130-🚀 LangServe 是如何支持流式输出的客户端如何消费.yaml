@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-210dc5e0be33
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F680 LangServe 是如何支持流式输出的？客户端如何消费？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F680 LangServe 是如何支持流式输出的？客户端如何消费？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangServe 是 LangChain 的部署工具，能自动将链发布为 REST API。它原生支持流式输出，只需在链配置中启用。
+
+    服务端：使用 add_routes 注册链，LangServe 会自动为支持流式的链生成 /stream 端点。
+
+    ```python
+    from langserve import add_routes
+    from fastapi import FastAPI
+
+    app = FastAPI()
+    # 假设 chain 支持 stream（LLM 开启了 streaming）
+    add_routes(app, chain, path="/chat")
+    ```
+
+    LangServe 会暴露 POST /chat/stream 接口，接收 JSON 输入，返回 SSE 流。
+
+    客户端消费：LangServe 提供了 RemoteRunnable，可以像本地调用一样处理流式。
+
+    ```python
+    from langserve import RemoteRunnable
+
+    remote_chain = RemoteRunnable("http://localhost:8000/chat/")
+    for chunk in remote_chain.stream({"topic": "AI"}):
+        print(chunk)
+    ```
+
+    你也可以直接用 requests 库获取 SSE 流，解析 data: 行。
+
+    特点：
+
+    - LangServe 自动处理了序列化、错误传播、配置传递。
+
+    - 流式接口返回的是标准的 SSE 事件流，内容为 LangChain 的内部事件（如 AIMessageChunk），客户端需要解析。
+
+    - LangServe 的 playground (Swagger UI) 也支持流式测试。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CZWewxKPziW9NLkL7iBcV35cncy
+  block_id: B9U6dWsyKo5dXYxjVTLcro9rnib
+  page_token: CZWewxKPziW9NLkL7iBcV35cncy
+  original_title: "\U0001F680 LangServe 是如何支持流式输出的？客户端如何消费？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cd1c3eb736c6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: P-Tuning v2 给 ChatGLM 添加指令遵循
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: P-Tuning v2 给 ChatGLM 添加指令遵循
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理：在每层 Transformer 的输入前添加可训练的连续 prefix token，只优化这些 prefix。
+
+    核心代码（使用 transformers）：
+
+    ```python
+    from transformers import AutoModel, AutoConfig
+    import torch.nn as nn
+
+    class PtuningV2Model(nn.Module):
+        def __init__(self, model_name, pre_seq_len=128):
+            super().__init__()
+            config = AutoConfig.from_pretrained(model_name)
+            self.model = AutoModel.from_pretrained(model_name)
+            for param in self.model.parameters():
+                param.requires_grad = False
+            self.pre_seq_len = pre_seq_len
+            self.prefix_encoder = nn.Embedding(pre_seq_len, config.hidden_size)
+            self.dropout = nn.Dropout(0.1)
+
+        def forward(self, input_ids, attention_mask):
+            batch_size = input_ids.size(0)
+            prefix = self.prefix_encoder.weight.unsqueeze(0).expand(batch_size, -1, -1)
+            # 获取模型的嵌入层
+            inputs_embeds = self.model.embeddings(input_ids)
+            # 在序列前拼接 prefix
+            inputs_embeds = torch.cat([prefix, inputs_embeds], dim=1)
+            # 调整 attention_mask
+            prefix_mask = torch.ones(batch_size, self.pre_seq_len).to(input_ids.device)
+            attention_mask = torch.cat([prefix_mask, attention_mask], dim=1)
+            outputs = self.model(inputs_embeds=inputs_embeds, attention_mask=attention_mask)
+            return outputs
+    ```
+
+    关键点：prefix encoder 可更复杂（如 LSTM），但 Embedding 已可工作；训练时只更新 prefix 参数。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AxkEwVG8kibSjokIPVEc6aggnjo
+  block_id: doxcngepSOGSefZMmBbsxDJ1CkR
+  page_token: AxkEwVG8kibSjokIPVEc6aggnjo
+  original_title: P-Tuning v2 给 ChatGLM 添加指令遵循
+  imported_at: '2026-09-21'

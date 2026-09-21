@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-30842a8548b2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 将 Q、K、V 的线性投影合并为一个大矩阵乘法，再拆分，编写对应代码并分析计算效率。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 将 Q、K、V 的线性投影合并为一个大矩阵乘法，再拆分，编写对应代码并分析计算效率。
+answer:
+  mode: rubric
+  reference_answer: |-
+    22.1 原理
+
+    将三个独立的线性层 W_q, W_k, W_v 合并为一个大的权重矩阵 W_qkv，通过一次矩阵乘法计算所有投影，再沿特征维度分割为 Q、K、V。这减少了 GPU kernel launch 次数，提升了并行度和内存带宽利用率。
+
+    22.2 实现
+
+    ```python
+    class MergedQKVAttention(MultiHeadSelfAttention):
+        def __init__(self, hidden_dim, num_heads, dropout=0.1):
+            super().__init__(hidden_dim, num_heads, dropout)
+            # 合并投影矩阵
+            self.qkv_proj = nn.Linear(hidden_dim, 3 * hidden_dim, bias=False)
+
+        def forward(self, x, key_padding_mask=None, attn_mask=None):
+            B, seq_len, _ = x.shape
+            qkv = self.qkv_proj(x)  # (B, seq_len, 3*hidden_dim)
+            q, k, v = qkv.chunk(3, dim=-1)  # 每个 (B, seq_len, hidden_dim)
+
+            q = q.view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+            k = k.view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+            v = v.view(B, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+
+            scale = math.sqrt(self.head_dim)
+            attn_scores = torch.matmul(q, k.transpose(-2, -1)) / scale
+            # ... 掩码、softmax、加权求和、合并、输出投影
+            # 省略，同前
+    ```
+
+    22.3 计算效率分析
+
+    - FLOPs：合并后总计算量与三个独立线性层完全相同，因为都是 B * seq_len * hidden_dim * (3 * hidden_dim) 的矩阵乘法。
+
+    - 并行效率：合并后只需一次 GEMM 调用，减少了 GPU 调度开销，提高了计算强度。尤其在小 batch 或短序列时，kernel launch 开销占比高，合并优势明显。
+
+    - 内存访问：权重矩阵 W_qkv 只读取一次，而不是分别读取三次，减少了显存带宽消耗。
+
+    - 现代框架：HuggingFace Transformers 和许多自研模型都采用此优化。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTpnwxWMsiVDwIkIoX0c1TU4ned
+  block_id: DqMadL57xoKSfcx1FMQcD29wnic
+  page_token: QTpnwxWMsiVDwIkIoX0c1TU4ned
+  original_title: 将 Q、K、V 的线性投影合并为一个大矩阵乘法，再拆分，编写对应代码并分析计算效率。
+  imported_at: '2026-09-21'

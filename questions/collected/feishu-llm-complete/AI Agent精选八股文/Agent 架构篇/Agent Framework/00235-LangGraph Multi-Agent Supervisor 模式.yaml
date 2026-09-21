@@ -1,0 +1,114 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e86db2ac7c53
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: LangGraph Multi-Agent Supervisor 模式
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: LangGraph Multi-Agent Supervisor 模式
+answer:
+  mode: rubric
+  reference_answer: |-
+    ---
+
+    1、Supervisor 模式和普通顺序图有什么区别？
+
+    难度级别：⭐（Supervisor 模式基本概念）
+
+    普通顺序图的执行路径是固定的，节点按预定顺序运行；Supervisor 模式引入一个中心协调节点，用 LLM 动态决策把任务路由给哪个子 Agent，子 Agent 执行完后结果返回 Supervisor，由 Supervisor 决定下一步——是继续调用其他 Agent 还是结束。这种模式把"决定做什么"和"怎么做"分离，适合任务类型多样、边界清晰的场景。
+
+    ---
+
+    2、LangGraph Multi-Agent Supervisor 模式的设计思路是什么？Supervisor 如何动态路由任务，子 Agent 如何返回结果？
+
+    难度级别：⭐⭐⭐（Supervisor 用结构化输出驱动路由、Command(goto=) 动态路由、子 Agent 固定返回 Supervisor、死循环防护）
+
+    1️⃣ Common Answer
+
+    Supervisor 是一个 LLM 节点，根据当前情况决定把任务给哪个子 Agent。子 Agent 执行完后通过条件边回到 Supervisor，Supervisor 再决定是否还需要调用其他 Agent 或者结束。这样 Supervisor 就能协调多个子 Agent 完成复杂任务。
+
+    2️⃣ Impressive Answer
+
+    我会从架构设计、实现细节和生产注意事项三个层面来讲：
+
+    - 架构本质：用 LLM 作为动态路由器，分离决策和执行。Supervisor 只管协调，子 Agent 只管执行。整体是一个以 Supervisor 为中心的星形结构：所有子 Agent 执行完后都固定返回 Supervisor，由 Supervisor 判断任务完成还是继续调度下一个子 Agent。
+
+    - Supervisor 节点的实现：结构化输出驱动路由。Supervisor 调用 LLM 并用 with_structured_output 得到结构化的路由决策（下一个 Agent 名称 + 推理原因），然后用 Command(goto=agent_name) 动态跳转：
+
+    def supervisor_node(state: AgentState) -> Command:
+        response = llm.with_structured_output(RouteDecision).invoke([
+            SystemMessage(f"可用 Agent：{', '.join(MEMBERS)}，完成时返回 FINISH"),
+            *state["messages"]
+        ])
+        goto = response.next_agent if response.next_agent != "FINISH" else END
+        return Command(goto=goto, update={"current_agent": response.next_agent})
+
+    - 子 Agent 执行完后固定用 Command(goto="supervisor") 返回，把结果写入 messages。
+
+    - 生产关键：防死循环 + 失败处理。Supervisor 可能在两个子 Agent 之间反复横跳，需要在 State 里记录调用次数，超过阈值强制走 FINISH 或抛错。子 Agent 内部捕获异常，把错误信息写入 messages 让 Supervisor 决策（重试/换方案/报失败）。当任务可拆分时，Supervisor 可以返回 Command(goto=["agent_a", "agent_b"]) 触发并行执行。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、自动化研究报告生成系统需要搜索、分析、写作三类能力，如何用 Supervisor 模式设计？
+
+    难度级别：⭐⭐⭐（多子 Agent 任务分工、Supervisor 路由设计、死循环防护、结果汇总）
+
+    1️⃣ Common Answer
+
+    建三个子 Agent 分别负责搜索、分析和写作，Supervisor 根据当前阶段决定调哪个，子 Agent 完成后返回 Supervisor，最后汇总出报告。
+
+    2️⃣ Impressive Answer
+
+    三个子 Agent 职责明确：research_agent 负责网络搜索和资料收集，analysis_agent 负责数据分析和洞察提取，writing_agent 负责报告撰写和格式化。
+
+    Supervisor 的系统 Prompt 告知可用的 Agent 和当前任务进展，LLM 根据 messages 历史决策下一步。典型的执行路径是：
+
+    关键工程细节：
+
+    - 死循环防护：State 里加 step_count: int，每次 Supervisor 调度 +1，超过 10 次强制 FINISH
+
+    - 子 Agent 消息命名：返回的 AIMessage 带 name="research_agent"，Supervisor 在 messages 历史里能清晰看到每个 Agent 的贡献
+
+    - 失败降级：research_agent 搜索失败时，把错误写入 messages，Supervisor 可以决定用缓存数据或跳过该步骤
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BGoPwvMLhic7wKkrioacP0oynIh
+  block_id: doxcnePkq5tmPbsCSa9mxNxTong
+  page_token: BGoPwvMLhic7wKkrioacP0oynIh
+  original_title: LangGraph Multi-Agent Supervisor 模式
+  imported_at: '2026-09-21'

@@ -1,0 +1,105 @@
+---
+schema_version: 1
+id: feishu-llm-complete-155719f3b9e8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F442 9. LangChain 的 with_listeners 可以做什么？如何用它来监控链执行的开始和结束？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "\U0001F442 9. LangChain 的 with_listeners 可以做什么？如何用它来监控链执行的开始和结束？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    .with_listeners() 是 LangChain 为每个 Runnable 提供的装饰方法，用来附加轻量级的事件监听器。它不需要你实现完整的 BaseCallbackHandler，只需传入几个回調函数，就能捕获该 Runnable 执行生命周期中的关键事件：on_start, on_end, on_error。
+
+    这个方法主要用于快速监控、调试和副作用处理。比如，在开发时你想看看某条链执行了多久，或者你想在链开始和结束时推送一条消息到 Slack 或打印日志。
+
+    基本用法：
+
+    ```python
+    def on_start(run_obj):
+        print(f"链开始执行，输入: {run_obj.inputs}")
+
+    def on_end(run_obj):
+        print(f"链执行结束，输出: {run_obj.outputs}")
+
+    def on_error(run_obj):
+        print(f"链执行出错: {run_obj.error}")
+
+    chain_with_monitor = chain.with_listeners(
+        on_start=on_start,
+        on_end=on_end,
+        on_error=on_error
+    )
+    # 现在任何对 chain_with_monitor 的调用都会触发这些函数
+    result = chain_with_monitor.invoke({"text": "hello"})
+    ```
+
+    监控链执行的开始和结束：
+
+    - on_start 回调会接收一个 Run 对象（不同版本可能是 Run 或类似的数据结构），里面包含 inputs, run_id, tags, metadata 等。你可以在此记录开始时间戳，或者发送“任务开始”事件到监控系统。
+
+    - on_end 回调接收包含 outputs 的 Run 对象，你可以计算耗时，记录成功指标。
+
+    - on_error 则是异常捕获点，可以上报错误。
+
+    一个更实际的监控例子，结合简单的耗时统计：
+
+    ```python
+    import time, logging
+    logger = logging.getLogger(__name__)
+
+    start_times = {}
+
+    def start_monitor(run):
+        start_times[run.run_id] = time.time()
+        logger.info(f"[{run.run_id}] 开始执行, tags={run.tags}")
+
+    def end_monitor(run):
+        duration = time.time() - start_times.pop(run.run_id, 0)
+        logger.info(f"[{run.run_id}] 执行完成, 耗时={duration:.2f}s")
+
+    chain = base_chain.with_listeners(on_start=start_monitor, on_end=end_monitor)
+    ```
+
+    注意事项：
+
+    - with_listeners 是懒人版的回调机制，适合简单场景。如果你的监控逻辑很复杂（如需要记录所有子步骤细节、操作数据库），最好还是写一个完整的 BaseCallbackHandler，因为它能接收到更细粒度的事件（on_llm_start, on_tool_end 等），并且可以通过 callback_manager 传递给所有子调用。
+
+    - 这些回调默认是同步执行的，所以不要在回调里做长时间阻塞操作，否则会拖慢链本身。如果要做重 IO，可以异步化或用消息队列解耦。
+
+    - with_listeners 只监听这个 Runnable 本身的开始和结束，并不会自动监听内部子链的细节，除非你把这个链作为整体。如果你想监控整个管道的每一步，还是得用全局回调。
+
+    总之，with_listeners 是临时监控、原型调试的利器，让我在不侵入链业务逻辑的前提下，快速获得执行反馈。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GVyNwmUlOitEZBkWqxUchfRtnfh
+  block_id: MsBVdB8d4oeHEVxOHSLcdwdBnKg
+  page_token: GVyNwmUlOitEZBkWqxUchfRtnfh
+  original_title: "\U0001F442 9. LangChain 的 with_listeners 可以做什么？如何用它来监控链执行的开始和结束？"
+  imported_at: '2026-09-21'

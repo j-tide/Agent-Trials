@@ -1,0 +1,98 @@
+---
+schema_version: 1
+id: feishu-llm-complete-487f1f7df811
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F5DC️ 19. MinHash和SimHash在SFT数据去重中怎么用？有什么区别？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F5DC️ 19. MinHash和SimHash在SFT数据去重中怎么用？有什么区别？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    MinHash和SimHash是两种局部敏感哈希（LSH）算法，专门用于在海量文本中快速发现近似重复的样本。在SFT数据去重中，它们能够以远超逐对比较的效率，找出那些措辞高度相似甚至语义重复的指令或回复，从而避免模型在相同或几乎相同的数据上反复训练，导致过拟合和泛化能力下降。
+
+    一、MinHash的工作原理与SFT应用
+
+    MinHash的核心思想是利用集合的Jaccard相似度来近似文本的相似度。具体做法：
+
+    - 将每条文本（指令或回复）表示为一个n-gram集合（通常使用1-gram到3-gram的混合，或者直接使用word-level的shingles）。
+
+    - 使用K个不同的哈希函数（K通常取128或256），对n-gram集合进行K次哈希，每次取最小哈希值，形成一个长度为K的MinHash签名。
+
+    - 两条文本的相似度 = 它们MinHash签名中对应位置相等的比例。这个比例是Jaccard相似度的无偏估计。
+
+    在SFT去重中的应用：
+
+    - 对SFT数据集中所有指令或回复计算MinHash签名
+
+    - 使用LSH分桶：将签名分割成多个band，每个band作为一个哈希键，放入哈希桶中。只有至少在一个band中完全相同的文本对才被认为是候选相似对
+
+    - 对候选对计算精确的MinHash相似度，超过阈值（如0.8）的标记为近似重复
+
+    - 从每组近似重复中，只保留一条（通常保留质量最高、长度最适中的那条）
+
+    二、SimHash的工作原理与SFT应用
+
+    SimHash的核心思想是利用加权哈希的汉明距离来近似文本的余弦相似度。具体做法：
+
+    - 将文本表示为特征向量（如TF-IDF向量，或者简单使用词频）。
+
+    - 对每个特征（词），计算其哈希值。对于哈希值的每一位，如果该位为1，则加权加上该特征的权重；如果为0，则减去权重。
+
+    - 最终，每个维度上的正负号决定SimHash签名的对应位是1还是0，得到一个固定长度（通常64位）的SimHash签名。
+
+    - 两条文本的相似度 = 签名汉明距离的反比。汉明距离越小，文本越相似。
+
+    在SFT去重中的应用：
+
+    - 计算每条文本的SimHash签名
+
+    - 对于每条文本，查找与其汉明距离在阈值内（如≤3）的所有其他文本作为候选
+
+    - 对候选对计算更精确的文本相似度（如余弦相似度或直接字符串比较），确认后去重
+
+    三、MinHash与SimHash的核心区别
+
+    [嵌入表格未展开]
+
+    四、在SFT中的选择与组合
+
+    - MinHash更适合指令级别的去重：因为指令通常较短（几十到几百字），n-gram集合能较好地捕捉措辞的重复。MinHash能有效找到“用不同措辞表达同一任务”的指令变体，因为它对词序不敏感。
+
+    - SimHash更适合长篇回复的去重：回复可能较长，SimHash的特征加权方式能更好地保留整体语义特征，且签名短、存储高效，适合大规模数据处理。
+
+    - 组合使用：大规模SFT去重的黄金实践是先用MinHash做粗筛（发现高度字面重合的样本对），再用SimHash做补充（发现语义相似但字面差异较大的样本对），最后对候选对进行精确比对（如计算ROUGE-L或BERT相似度），确认是否去重。
+
+    ✅ 总结：MinHash和SimHash是SFT数据去重中互补的两把利器。MinHash擅长发现n-gram级别的字面重复和轻微改写，SimHash擅长发现整体语义相似。它们通过牺牲一定的精度换取极高的比对效率，使得在数千万级别的SFT数据集中进行近似去重成为可能。在实际项目中，两者常配合使用，以覆盖从表面重复到深层语义重复的整个相似度光谱。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tx5MwZddviIdFJkeUJbc7HEvnWe
+  block_id: CvK9dt6Y6otCzHxXTmmcEyCYnKc
+  page_token: Tx5MwZddviIdFJkeUJbc7HEvnWe
+  original_title: "\U0001F5DC️ 19. MinHash和SimHash在SFT数据去重中怎么用？有什么区别？"
+  imported_at: '2026-09-21'

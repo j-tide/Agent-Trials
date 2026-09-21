@@ -1,0 +1,98 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c0375b0dc1a0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 DPO 损失基础上，增加一个 SFT 正则项（对 chosen 序列的交叉熵），修改损失函数并实现。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 在 DPO 损失基础上，增加一个 SFT 正则项（对 chosen 序列的交叉熵），修改损失函数并实现。
+answer:
+  mode: rubric
+  reference_answer: |-
+    动机
+
+    纯粹的 DPO 损失只优化 chosen 和 rejected 之间的相对顺序，可能忽略 chosen 本身的绝对质量，导致模型虽然偏好 chosen，但 chosen 的概率本身可能下降（例如模型整体输出概率变得分散）。加入对 chosen 的监督微调（SFT）正则项可以鼓励模型保持或提升 chosen 的生成概率，稳定训练。这在一些研究（如 DPO+、RSO）中被证明有益。
+
+    修改后的损失函数
+
+    [图片内容未导入]
+
+    其中 LSFT 是 chosen 序列的标准交叉熵损失（即平均负对数概率）。λ 是正则化系数，控制 SFT 项的强度。通常 λ 取较小的值（如 0.01~0.1）。
+
+    实现
+
+    ```python
+    def dpo_with_sft_loss(
+        policy_chosen_logits,
+        policy_rejected_logits,
+        ref_chosen_logps,
+        ref_rejected_logps,
+        chosen_labels,
+        chosen_mask,
+        beta,
+        sft_lambda=0.1
+    ):
+        # 1. 计算 DPO 损失部分
+        policy_chosen_logps = average_log_prob(policy_chosen_logits, chosen_labels, chosen_mask)
+        policy_rejected_logps = average_log_prob(policy_rejected_logits, rejected_labels, rejected_mask)
+
+        chosen_ratio = policy_chosen_logps - ref_chosen_logps
+        rejected_ratio = policy_rejected_logps - ref_rejected_logps
+        reward_diff = beta * (chosen_ratio - rejected_ratio)
+        dpo_loss = -F.logsigmoid(reward_diff).mean()
+
+        # 2. 计算 SFT 损失（chosen 序列的交叉熵，即负平均对数概率）
+        # 注意：这里的 sft_loss 就是 -policy_chosen_logps.mean()，因为 average_log_prob 返回的是平均对数概率
+        # 若要保持与 DPO 内部相同的计算方式，可以直接用 policy_chosen_logps 的负均值。
+        sft_loss = -policy_chosen_logps.mean()
+
+        # 3. 组合损失
+        total_loss = dpo_loss + sft_lambda * sft_loss
+        return total_loss
+    ```
+
+    说明
+
+    - 在某些实现中，SFT 损失可能直接复用 policy_chosen_logps（已经过归一化），因为 policy_chosen_logps = average_log_prob(...) 已经是平均对数概率，取负即交叉熵。
+
+    - λ 需要调整，过大会使训练退化为普通 SFT，DPO 对比作用减弱；过小则正则效果不明显。
+
+    - SFT 项只加在 chosen 上，因为我们的目标是保持 chosen 的质量，不应该增强 rejected。
+
+    - 该组合损失可以在一个 backward 中直接优化，无需分步。
+
+    实践建议
+    在训练早期，DPO 尚未稳定，可以适当增大 λ；后期可以逐渐减小甚至退化为纯 DPO。也可以使用动态的 λ 衰减策略。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  block_id: W88VdHdyLoWBgCxQfNMclDOfncf
+  page_token: Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  original_title: 在 DPO 损失基础上，增加一个 SFT 正则项（对 chosen 序列的交叉熵），修改损失函数并实现。
+  imported_at: '2026-09-21'

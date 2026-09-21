@@ -1,0 +1,90 @@
+---
+schema_version: 1
+id: feishu-llm-complete-89cd1c396696
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在注意力计算中引入 dropout，分别对注意力权重和输出进行 dropout，并注意训练/评估模式切换。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 在注意力计算中引入 dropout，分别对注意力权重和输出进行 dropout，并注意训练/评估模式切换。
+answer:
+  mode: rubric
+  reference_answer: |-
+    12.1 Dropout 作用
+
+    - 注意力权重 dropout：在 softmax 之后、与 V 相乘之前，随机将部分注意力权重置零，防止模型过度依赖特定 token。
+
+    - 输出 dropout：在输出投影之前（或之后）对多头合并后的特征进行 dropout，提升泛化性。
+
+    12.2 实现
+
+    ```python
+    class AttentionWithDropout(MultiHeadSelfAttention):
+        def __init__(self, hidden_dim, num_heads, attn_dropout=0.1, output_dropout=0.1):
+            super().__init__(hidden_dim, num_heads, dropout=0.0)  # 父类的 dropout 不用
+            self.attn_dropout = nn.Dropout(attn_dropout)
+            self.output_dropout = nn.Dropout(output_dropout)
+
+        def forward(self, x, key_padding_mask=None, attn_mask=None):
+            B, seq_len, _ = x.shape
+            # ... 投影、分头、计算 attn_scores
+
+            # 掩码
+            if key_padding_mask is not None:
+                attn_scores = attn_scores.masked_fill(
+                    key_padding_mask.unsqueeze(1).unsqueeze(2), float('-inf'))
+            if attn_mask is not None:
+                attn_scores = attn_scores.masked_fill(attn_mask == 0, float('-inf'))
+
+            attn_weights = F.softmax(attn_scores, dim=-1)
+            # 注意力权重 dropout
+            attn_weights = self.attn_dropout(attn_weights)
+
+            attn_output = torch.matmul(attn_weights, v)
+
+            # 合并多头
+            attn_output = attn_output.transpose(1, 2).contiguous().view(B, seq_len, -1)
+            # 输出 dropout
+            attn_output = self.output_dropout(attn_output)
+
+            output = self.out_proj(attn_output)
+            return output
+    ```
+
+    12.3 注意事项
+
+    - PyTorch 的 nn.Dropout 会根据 model.train() / model.eval() 自动切换行为。
+
+    - 注意力权重 dropout 是 Transformer 原始实现的重要正则化手段。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTpnwxWMsiVDwIkIoX0c1TU4ned
+  block_id: YiwEdoMR3oWGXZx9LmKcQ2UQndh
+  page_token: QTpnwxWMsiVDwIkIoX0c1TU4ned
+  original_title: 在注意力计算中引入 dropout，分别对注意力权重和输出进行 dropout，并注意训练/评估模式切换。
+  imported_at: '2026-09-21'

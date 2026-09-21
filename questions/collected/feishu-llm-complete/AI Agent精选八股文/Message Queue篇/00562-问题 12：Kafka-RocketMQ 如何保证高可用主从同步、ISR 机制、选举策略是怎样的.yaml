@@ -1,0 +1,235 @@
+---
+schema_version: 1
+id: feishu-llm-complete-53c083e36567
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 问题 12：Kafka/RocketMQ 如何保证高可用？主从同步、ISR 机制、选举策略是怎样的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 问题 12：Kafka/RocketMQ 如何保证高可用？主从同步、ISR 机制、选举策略是怎样的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度：⭐⭐⭐⭐（高可用架构、副本机制、ISR、Controller选举、Dledger、脑裂）
+
+    1️⃣ Common Answer
+
+    Kafka 和 RocketMQ 都有主从备份，主节点挂了从节点会顶上，保证消息不丢失。Kafka 用 ZooKeeper 做协调，RocketMQ 用 NameServer。
+
+    2️⃣ Impressive Answer
+
+    我会从这几个角度思考：Kafka 高可用全景、RocketMQ 高可用全景、两者高可用方案对比、脑裂问题及解决方案、实战故障恢复经验。
+
+    - Kafka 高可用全景
+
+    1.1 副本机制（Leader/Follower、ISR/OSR）
+
+    Kafka 的每个 Topic 分区有多个副本，分为 Leader 和 Follower：
+
+    - Leader：负责处理所有读写请求
+
+    - Follower：异步复制 Leader 数据，不处理客户端请求
+
+    - ISR（In-Sync Replicas）：与 Leader 保持同步的副本集合，只有 ISR 中的副本才有资格被选为新 Leader
+
+    - OSR（Out-of-Sync Replicas）：与 Leader 同步滞后的副本
+
+    ```text
+    # 副本配置示例
+    replication.factor=3          # 总副本数
+    min.insync.replicas=2         # 最小同步副本数
+    replica.lag.time.max.ms=10000 # 副本最大滞后时间
+    ```
+
+    1.2 ISR 收缩与扩展条件
+
+    ISR 的动态调整基于 replica.lag.time.max.ms 参数：
+
+    - 收缩条件：Follower 在 replica.lag.time.max.ms 时间内未与 Leader 同步完成，则从 ISR 中移除
+
+    - 扩展条件：OSR 中的副本追上 Leader 的 LEO（Log End Offset），则重新加入 ISR
+
+    1.3 min.insync.replicas 的作用
+
+    min.insync.replicas 确保消息的持久性和可用性：
+
+    - 当 ISR 中的副本数 < min.insync.replicas 时，生产者会收到 NotEnoughReplicasException
+
+    - 配合 acks=all 使用，确保消息至少写入 min.insync.replicas 个副本才认为发送成功
+
+    - 防止在 ISR 收缩时降低数据可靠性
+
+    1.4 Controller 选举
+
+    ZooKeeper 模式（旧版）：
+
+    - Controller 是 Kafka 集群的"大脑"，负责分区 Leader 选举、副本管理等
+
+    - 通过 ZooKeeper 的临时节点选举，第一个启动的 Broker 成为 Controller
+
+    - Controller 挂掉后，剩余 Broker 通过 ZooKeeper 重新选举
+
+    KRaft 模式（新版）：
+
+    - 移除 ZooKeeper，使用 Kafka 内部的 Raft 协议（Kafka Raft Metadata）
+
+    - Controller 从 Quorum Controller 集群中选举，元数据存储在内部 Topic __cluster_metadata
+
+    - 提高了性能和可维护性
+
+    1.5 Unclean Leader Election 的取舍
+
+    unclean.leader.election.enable 参数控制是否允许非 ISR 副本成为 Leader：
+
+    - 开启（true）：提高可用性，但可能丢失数据（OSR 副本数据不完整）
+
+    - 关闭（false）：保证数据一致性，但可能长时间不可用（ISR 副本全部挂掉）
+
+    - 推荐配置：生产环境建议关闭，优先保证数据一致性
+
+    - RocketMQ 高可用全景
+
+    2.1 主从同步（同步复制 vs 异步复制）
+
+    [嵌入表格未展开]
+
+    ```text
+    <!-- 同步复制配置 -->
+    <brokerRole>SYNC_MASTER</brokerRole>
+
+    <!-- 异步复制配置 -->
+    <brokerRole>ASYNC_MASTER</brokerRole>
+    ```
+
+    2.2 Dledger 自动选主（基于 Raft 协议）
+
+    RocketMQ 4.5+ 引入 Dledger（基于 Raft 协议）实现自动选主：
+
+    - Raft 协议：通过日志复制和投票机制保证一致性
+
+    - Leader 选举：
+
+    - 故障转移：Leader 挂掉后，剩余节点自动重新选举
+
+    - 脑裂防护：通过多数派投票机制避免脑裂
+
+    ```text
+    <!-- Dledger 配置 -->
+    <dledgerGroup>broker-a</dledgerGroup>
+    <dledgerPeers>n1@127.0.0.1:10911;n2@127.0.0.1:10912;n3@127.0.0.1:10913</dledgerPeers>
+    <dledgerSelfId>n1</dledgerSelfId>
+    ```
+
+    2.3 NameServer 无状态设计
+
+    NameServer 是 RocketMQ 的注册中心，采用无状态设计：
+
+    - 功能：管理 Broker 路由信息、Topic 路由信息
+
+    - 无状态：NameServer 之间不通信，各自独立存储路由信息
+
+    - 高可用：部署多个 NameServer 实例，任意一个挂掉不影响集群
+
+    - 客户端：随机选择一个 NameServer 查询路由信息
+
+    - 两者高可用方案对比
+
+    [嵌入表格未展开]
+
+    - 脑裂问题及解决方案
+
+    脑裂场景：网络分区导致集群出现多个"主节点"，导致数据不一致。
+
+    Kafka 解决方案：
+
+    - ZooKeeper 模式：通过临时节点的 Watch 机制，同一时刻只有一个 Controller
+
+    - KRaft 模式：Raft 协议的多数派投票机制，确保只有获得多数票的节点才能成为 Leader
+
+    RocketMQ 解决方案：
+
+    - Dledger 模式：Raft 协议的多数派投票机制
+
+    - 配置建议：集群节点数建议为奇数（3、5、7），避免偶数节点导致投票僵局
+
+    通用防护策略：
+
+    - 部署奇数个节点
+
+    - 配置合理的超时时间
+
+    - 监控网络分区和节点状态
+
+    - 使用 fencing token（围栏令牌）机制
+
+    - 实战：集群故障恢复经验
+
+    场景 1：Kafka Leader 挂掉
+
+    - Controller 检测到 Leader 挂掉
+
+    - 从 ISR 中选择 LEO 最高的副本作为新 Leader
+
+    - 更新 ZooKeeper 元数据
+
+    - 通知所有 Broker 和客户端
+
+    - 恢复时间：通常在 10-30 秒内
+
+    场景 2：RocketMQ Master 挂掉（Dledger 模式）
+
+    - 其他 Broker 检测到 Master 挂掉
+
+    - 触发 Raft 选举，选出新 Master
+
+    - 客户端自动切换到新 Master
+
+    - 恢复时间：通常在 5-15 秒内
+
+    优化建议：
+
+    - 监控 ISR/OSR 变化，及时处理副本滞后
+
+    - 配置合理的 replica.lag.time.max.ms 和 min.insync.replicas
+
+    - 定期演练故障恢复流程
+
+    - 使用 Prometheus + Grafana 监控集群健康度
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    ### 6.13 消息队列在微服务中的应用
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcnzCDZCgEY4AjGJdNOurbede
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: 问题 12：Kafka/RocketMQ 如何保证高可用？主从同步、ISR 机制、选举策略是怎样的？
+  imported_at: '2026-09-21'

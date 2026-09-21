@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4988a5a4381d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 Continuous Batching 中，如何处理不同序列长度和生成状态的请求？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 五：推理部署与高效化
+tags: &1
+- Transfomer精选面试
+- 五：推理部署与高效化
+content:
+  prompt: 在 Continuous Batching 中，如何处理不同序列长度和生成状态的请求？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Continuous Batching 需要高效管理大量可变长度的序列及其 KV cache。核心方法：
+
+    - PagedAttention（vLLM 提出）：将每个序列的 KV cache 划分为固定大小的 内存块（block），块之间通过页表映射，可以不连续存储。这类似于操作系统的虚拟内存：
+
+    - 批次的动态拼装：调度器在每次迭代时，从活跃请求池中选择一组请求构成 batch。由于每个序列长度不同，注意力计算需根据页表分别取用各自的 KV 块。内核层面通过传入块表（block table）实现可变长度注意力。
+
+    - 状态机管理：每个请求维护状态（prefill 阶段 / decode 阶段 / 完成）。prefill 可以单独调度或与 decode 混合，混合时需处理计算不均衡。
+
+    - Swap（换入换出）：当显存紧张时，可以将部分请求的 KV 块换出到 CPU 内存，等 GPU 空闲时再换回，实现优先级抢占和过载保护。
+
+    通过以上机制，不同长度、不同生成阶段的请求可以在一个批次中无冲突地高效执行。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XlvZwbMXgi5eebkXzxvcP7w4nnf
+  block_id: D0IYdvUY6oIviJx7AvicZEKmnmb
+  page_token: XlvZwbMXgi5eebkXzxvcP7w4nnf
+  original_title: 在 Continuous Batching 中，如何处理不同序列长度和生成状态的请求？
+  imported_at: '2026-09-21'

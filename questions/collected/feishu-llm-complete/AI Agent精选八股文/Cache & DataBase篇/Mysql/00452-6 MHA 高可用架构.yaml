@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1e7d97084a30
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 1.6 MHA 高可用架构
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 1.6 MHA 高可用架构
+answer:
+  mode: rubric
+  reference_answer: "### MHA 架构与切换流程\n\n1、基础题：什么是 MHA？MHA 的作用是什么？\n\n⭐（考察 MHA 概念、作用）\n\nMHA（Master
+    High Availability）是 MySQL 高可用解决方案，用于在主库故障时自动进行主从切换，确保数据库服务的高可用性。MHA 由 Manager
+    节点和 Node 节点组成，Manager 负责监控和切换，Node 负责执行具体操作。\n\n2、进阶题：详细说明 MHA 的架构组成和工作流程，并对比其他高可用方案\n\n⭐⭐（考察
+    MHA 架构、工作流程、与其他方案对比）\n\n1️⃣ Common Answer MHA 就是 MySQL 高可用工具，当主库挂了的时候，MHA 会自动把一个从库提升为主库，然后让其他从库指向新的主库。MHA
+    有一个 Manager 节点和多个 Node 节点，Manager 负责监控和切换，Node 负责执行操作。MHA 的好处是切换快，而且能尽量保证数据不丢失。其他的方案还有
+    MGR、Orchestrator 等。\n\n2️⃣ Impressive Answer MHA（Master High Availability）是 MySQL
+    业界广泛使用的高可用解决方案，我来详细说明：\n\nMHA 架构组成：\n\n- Manager 节点：\n\n- Node 节点：\n\n- 配置文件：\n\nMHA
+    工作流程：\n\n- 监控阶段：\n\n- 故障检测：\n\n- 主从切换：\n\n- 切换完成：\n\n```text\nsequenceDiagram\n
+    \   participant Manager\n    participant Master\n    participant Slave_New\n    participant
+    Slave_Other\n    \n    Manager->>Master: 定期 ping 检查\n    Master--xManager: 主库故障\n
+    \   Manager->>Slave_New: 选择最新从库\n    Manager->>Slave_New: 停止复制，提升为主库\n    Manager->>Slave_New:
+    同步差异 binlog\n    Manager->>Slave_Other: 停止复制，重新指向新主库\n    Manager->>Manager: 更新
+    VIP，通知应用\n```\n\nMHA 的优势：\n\n- 切换速度快：通常在 10-30 秒内完成切换\n\n- 数据丢失少：通过同步差异 binlog，尽量减少数据丢失\n\n-
+    自动化程度高：全自动监控和切换，无需人工干预\n\n- 支持 GTID：MySQL 5.6+ 支持 GTID，切换更简单\n\n- 社区活跃：开源免费，社区支持好\n\n与其他高可用方案对比：\n\n[嵌入表格未展开]\n\n生产环境使用建议：\n\n-
+    MHA 适用场景：\n\n- MHA 配置要点：\n\n- 注意事项：\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n3、场景题：生产环境
+    MHA 切换失败，如何排查和手动切换？\n\n⭐⭐⭐（考察 MHA 故障排查、手动切换流程、应急处理）\n\n1️⃣ Common Answer 如果 MHA
+    切换失败，首先看一下是什么错误，可能是 Manager 挂了，或者 SSH 连接不上。可以检查一下 Manager 的日志，看看具体的错误信息。手动切换的话，就是选一个从库，停止复制，提升为主库，然后让其他从库指向新的主库。还有就是更新
+    VIP，让应用层连接新的主库。\n\n2️⃣ Impressive Answer MHA 切换失败是生产环境严重问题，需要系统性地排查和手动切换：\n\n第一，MHA
+    切换失败排查：\n\n- 检查 Manager 状态：\n\n- 检查 SSH 连接：\n\n- 检查 MySQL 状态：\n\n- 常见失败原因：\n\n第二，手动主从切换流程：\n\n-
+    选择新主库：\n\n- 提升新主库：\n\n```text\n-- 1. 停止复制\n   STOP SLAVE;\n   \n   -- 2. 重置复制（如果使用
+    GTID）\n   RESET MASTER;\n   \n   -- 3. 开启只读模式（如果需要）\n   SET GLOBAL read_only =
+    OFF;\n```\n\n- 其他从库重新指向新主库：\n\n```text\n-- 1. 停止复制\n   STOP SLAVE;\n   \n   --
+    2. 重新指向新主库\n   CHANGE MASTER TO \n     MASTER_HOST='new_master_ip',\n     MASTER_USER='repl',\n
+    \    MASTER_PASSWORD='password',\n     MASTER_LOG_FILE='mysql-bin.000001',\n     MASTER_LOG_POS=123;\n
+    \  \n   -- 3. 启动复制\n   START SLAVE;\n```\n\n- 更新 VIP：\n\n```text\n# 1. 删除旧主库的
+    VIP\n   ip addr del 192.168.1.100/24 dev eth0\n   \n   # 2. 在新主库上绑定 VIP\n   ip
+    addr add 192.168.1.100/24 dev eth0\n```\n\n- 通知应用层：\n\n- 验证切换结果：\n\n第三，应急处理注意事项：\n\n-
+    快速恢复：优先保证服务可用，数据一致性可以后续修复\n\n- 记录操作：详细记录每一步操作，方便事后复盘\n\n- 告警通知：及时通知相关人员，避免恐慌\n\n-
+    事后复盘：分析 MHA 切换失败原因，优化配置\n\n第四，预防措施：\n\n- 定期演练：定期测试 MHA 切换，确保正常工作\n\n- 监控告警：监控
+    MHA 运行状态，及时发现问题\n\n- 备份配置：定期备份 MHA 配置文件\n\n- 文档完善：编写详细的切换手册，方便应急处理\n\n3️⃣ Key
+    Differences\n\n[嵌入表格未展开]\n\n4、容易一起考的题\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Lkf0w2Rj4iL8r4kgqkkcZt2WnIb
+  block_id: doxcnV8ggqOfMeEUxtdvIQASSZc
+  page_token: Lkf0w2Rj4iL8r4kgqkkcZt2WnIb
+  original_title: 1.6 MHA 高可用架构
+  imported_at: '2026-09-21'

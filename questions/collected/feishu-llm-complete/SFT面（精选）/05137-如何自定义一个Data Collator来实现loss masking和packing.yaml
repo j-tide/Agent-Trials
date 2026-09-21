@@ -1,0 +1,127 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a27e5b89324d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何自定义一个Data Collator来实现loss masking和packing？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 如何自定义一个Data Collator来实现loss masking和packing？
+answer:
+  mode: rubric
+  reference_answer: |-
+    自定义Data Collator可以精细控制批数据的组装过程，实现loss masking、packing等高级特性。以下是一个实现示例思路：
+
+    - 基本要求
+    Data Collator接收一个样本列表（每个样本通常包含input_ids, attention_mask, labels等字段），输出一个批次字典。我们需要：
+
+    - 将不同长度的序列通过padding对齐（若未使用packing变长格式）。
+
+    - 确保padding位置对应的labels为-100。
+
+    - 如果使用packing，则需拼接多个样本并生成对应的attention_mask和labels。
+
+    - 实现标准Loss Masking（无packing）的Collator
+    可以直接继承DataCollatorForSeq2Seq或DataCollatorWithPadding，它们已经处理了将labels中padding位置设为-100。只需确保在tokenization阶段已经将prompt部分的labels设为了-100。
+
+    示例：
+
+    from transformers import DataCollatorForSeq2Seq
+
+    data_collator = DataCollatorForSeq2Seq(
+        tokenizer=tokenizer,
+        model=model,
+        padding=True,
+        return_tensors="pt"
+    )
+
+    在train_dataset中，每条样本的labels已经正确设置了prompt位置的-100。DataCollatorForSeq2Seq会将所有样本的input_ids和labels填充到batch内最大长度，填充值在input_ids为tokenizer.pad_token_id，在labels中则为-100。这正是我们需要的。
+
+    - 实现Packing的Custom Collator
+
+    若要实现packing，需要自定义Collator。基本逻辑：
+
+    - 维护一个buffer列表，累积样本直到总长度接近max_seq_length。
+
+    - 对于每个样本，如果当前buffer中已有长度加上该样本长度超过max_seq_length，则将buffer中的样本拼接，作为一个pack，清空buffer，然后放入该样本。
+
+    - 拼接时，将多个样本的input_ids直接concat，labels也concat。在样本之间可选择插入分隔符（如EOS），并将该分隔符的label设为-100。
+
+    - 构造attention_mask：创建一个二维的注意力掩码矩阵，形状为[seq_len, seq_len]。首先创建一个全0的矩阵（或全-inf），然后将每个样本内部对应的子块设置为0（表示可以互相关注），且保持因果掩码。具体做法：先生成一个下三角因果掩码，然后将不属于同一样本的位置强制设为-inf。也可以使用变长注意力（通过flash_attn_varlen_func）来避免构造完整矩阵，但Trainer默认不支持。许多实现通过将attention_mask设置为一个表示样本边界的cu_seqlens，但这需要修改模型的前向。
+
+    - 简化方案：不使用二维掩码，而是让不同样本之间的注意力通过attention_mask的一维形式无法完全隔离，这可能导致小量信息泄露。更安全的做法是返回input_ids, labels, 以及一个attention_mask，该attention_mask不是简单的0/1序列，而是一个4D的因果掩码矩阵（可送入模型）。HuggingFace模型接受4D attention mask（bool tensor），形状为[batch, 1, seq_len, seq_len]。我们将每个pack的单个序列（batch_size=1）的掩码构造好即可。
+
+    - 实际上，由于Trainer默认使用batch_size，我们可以让每个pack就是一个独立样本，这样batch内是多个pack，它们之间无需掩码隔离，只在每个pack内部隔离样本。此时batch处理正常。
+
+    - 实例：简单packing collator（返回单序列，在batch中视为一个长序列）
+
+    class PackingCollator:
+        def __init__(self, tokenizer, max_length, pad_token_id=0):
+            self.tokenizer = tokenizer
+            self.max_length = max_length
+            self.pad_token_id = pad_token_id
+
+        def __call__(self, features):
+            # features: list of dicts with input_ids, labels, attention_mask
+            # 简单起见，这里只演示拼接多条样本，但不构造复杂掩码（实际应用需完善）
+            all_input_ids = []
+            all_labels = []
+            all_attn_mask = []  # 一维，标记哪些位置是真实token
+            for f in features:
+                # 假设已经截断至合适长度
+                input_ids = f['input_ids']
+                labels = f['labels']
+                # 添加分隔符等（省略）
+                all_input_ids.extend(input_ids)
+                all_labels.extend(labels)
+                all_attn_mask.extend([1]*len(input_ids))
+            # 截断或填充
+            if len(all_input_ids) > self.max_length:
+                all_input_ids = all_input_ids[:self.max_length]
+                all_labels = all_labels[:self.max_length]
+                all_attn_mask = all_attn_mask[:self.max_length]
+            else:
+                pad_len = self.max_length - len(all_input_ids)
+                all_input_ids.extend([self.pad_token_id]*pad_len)
+                all_labels.extend([-100]*pad_len)
+                all_attn_mask.extend([0]*pad_len)
+            return {'input_ids': torch.tensor(all_input_ids).unsqueeze(0),
+                    'labels': torch.tensor(all_labels).unsqueeze(0),
+                    'attention_mask': torch.tensor(all_attn_mask).unsqueeze(0)}
+
+    注意，这没有实现不同样本间的注意力隔离。要实现真正的隔离，需要返回完整的4D mask。
+
+    - 推荐方案：使用现有的经过验证的库，如trl的SFTTrainer，它内置了packing功能，并自动生成正确的attention_mask（3D或4D）。自定义实现复杂易错。
+
+    ✅ 总结：通过自定义Data Collator，可以实现灵活的padding和loss masking。对于packing，需要构造复杂的注意力掩码来隔离样本。最便捷的方式是使用已经支持packing的框架（如trl）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZYXSwaWATimyqQkmZm5cAPJHnoc
+  block_id: IWuvdmU12omJP9xic0Yc6fjAnQf
+  page_token: ZYXSwaWATimyqQkmZm5cAPJHnoc
+  original_title: 如何自定义一个Data Collator来实现loss masking和packing？
+  imported_at: '2026-09-21'

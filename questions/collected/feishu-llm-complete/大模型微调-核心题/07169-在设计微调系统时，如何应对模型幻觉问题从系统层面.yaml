@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-924e3a38abe7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在设计微调系统时，如何应对模型幻觉问题？从系统层面。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 在设计微调系统时，如何应对模型幻觉问题？从系统层面。
+answer:
+  mode: rubric
+  reference_answer: |-
+    微调无法根治幻觉，我们必须从系统架构层面构建一个“幻觉防火墙”，通过检索增强（RAG）、实时校验、输出护栏的组合拳来保障可靠性。
+
+    - 引入检索增强生成（RAG）作为“事实锚点”
+
+    - 架构设计：在模型推理网关层，前置一个RAG模块。对于事实性、知识密集型查询（可通过微调模型判断或意图分类实现），自动从企业知识库/向量数据库中检索相关文档。
+
+    - 强制引用：微调时，专门训练模型“基于提供的文档生成回答，并注明出处”。推理时，将检索到的文档片段与用户问题一起输入模型，指令其只依据这些材料回答。如果检索不到信息，模型会诚实地说“根据现有资料，无法回答”。
+
+    - 数据飞轮：线上用户对RAG回答的纠错反馈，可直接用于更新知识库，实现知识的热更新，无需重新微调模型。
+
+    - 构建独立的“事实校验器”
+
+    - 核心思想：部署一个与主生成模型解耦的、独立的幻觉检测模型或规则引擎，对生成内容进行事后审查。
+
+    - 实现方式：使用一个微调后的轻量级NLI（自然语言推理）模型，来判断生成的每一句话是否能从给定的上下文（RAG检索结果或原始输入）中“蕴含”。如果不能，则标记为潜在幻觉。对于高风险场景（医疗、金融），可将标记内容推送至人工审核，或直接拦截输出。
+
+    - 简单规则：对涉及具体数字、日期、人名的输出，用正则表达式或知识图谱进行快速匹配校验。
+
+    - 为输出设置“安全护栏”（Guardrails）
+
+    - 格式与事实校验：对要求输出JSON的，验证JSON Schema。对关键实体，如药品名、法律条文，进行知识库比对。
+
+    - 自我一致性检查（Self-Consistency）：对于重要决策，让模型生成多条推理路径，通过投票或校验模型选优。
+
+    - 用户反馈即时学习：当用户指出错误（点踩）时，模型能在同一会话内进行道歉和修正（通过微调注入该能力），并将该Bad Case作为实时数据，流入数据飞轮管道。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ty64w3f7OipOfgkdPWVcn8ganTf
+  block_id: R9IBdkvi0o5IuMxd03FcghwmnXe
+  page_token: Ty64w3f7OipOfgkdPWVcn8ganTf
+  original_title: 在设计微调系统时，如何应对模型幻觉问题？从系统层面。
+  imported_at: '2026-09-21'

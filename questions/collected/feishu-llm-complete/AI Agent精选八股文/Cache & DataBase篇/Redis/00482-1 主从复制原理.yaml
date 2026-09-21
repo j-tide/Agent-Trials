@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e823fc989234
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 1.1 主从复制原理
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Redis
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Redis
+content:
+  prompt: 1.1 主从复制原理
+answer:
+  mode: rubric
+  reference_answer: "### 主从复制机制\n\n### \U0001F4DC 1. Redis 主从复制的基本原理是什么？\n\nRedis
+    的主从复制，简单说就是 “从库认主、全量快照、命令追赶” 三个步骤。它让一个或多个从库（Replica）保持与主库（Master）的数据一致，是实现读写分离、数据冗余和故障转移的基础。\n\n整个复制过程可以分为四个阶段：\n\n[图片内容未导入]\n\n阶段一：握手与协商\n从库执行
+    REPLICAOF <master-ip> <master-port> 后，主动向主库发起连接。双方通过 REPLCONF 交换能力，从库发送 PSYNC
+    ? -1 表示要进行一次全量同步（因为不知道主库的 replication ID）。\n\n阶段二：主库生成 RDB 快照\n主库收到全量同步请求后，执行
+    fork() 创建一个子进程。子进程将当前内存数据写入一个 RDB 文件。在这个 fork 瞬间，主库还会创建一个 replication buffer（复制缓冲区），此后所有新的写命令都会被同时写入这个
+    buffer，防止快照期间的数据丢失。\n\n阶段三：RDB 传输与从库加载\n\n主库将生成的 RDB 文件通过网络发送给从库。从库收到后，先清空自己的旧数据，然后加载
+    RDB 文件到内存。此时从库的数据与主库 fork 瞬间一致。\n\n阶段四：增量命令追赶与命令传播\n主库将 replication buffer 中积压的增量命令发送给从库，从库逐条执行。当从库追赶上主库的那一刻，复制状态进入
+    实时命令传播：此后主库每执行一条写命令，都会异步地广播给所有从库。从库执行完这条命令后，会向主库发送 REPLCONF ACK <offset>，报告自己的复制偏移量。\n\n关键的偏移量（Replication
+    Offset）\n主库和从库各自维护一个偏移量。主库的 master_repl_offset 表示自己已经处理了多少字节的写命令；从库的 slave_repl_offset
+    表示自己追到了哪里。通过对比这两个值，我们可以监控复制延迟。\n\n# 在主库上查看复制状态\nredis-cli INFO replication\n#
+    master_repl_offset:1234567890\n\n# 在从库上查看\nredis-cli INFO replication\n# slave_repl_offset:1234567890
+    \ # 与主库一致则同步正常\n\n### \U0001F504 2. Redis 2.8 之后引入的 PSYNC2 相比 SYNC 有什么改进？\n\n在
+    2.8 之前，Redis 使用 SYNC 命令进行复制。SYNC 有一个致命缺陷：断线重连后，从库总是触发全量同步。哪怕只断开了 1 秒钟，从库也得重新接收整个
+    RDB 文件，主库也要 fork 子进程重新生成 RDB。在高并发下，这种频繁的 fork 和全量传输会严重消耗 CPU、内存和网络带宽，甚至可能导致主库
+    OOM。\n\nPSYNC2 的核心创新：部分重同步\n\n2.8 之后引入的 PSYNC 命令（以及后续 4.0 的 PSYNC2）让从库在断线重连后，可以只补发丢失的那一小段增量命令，而不必全量同步。这依赖于两个核心组件：\n\n[图片内容未导入]\n\n重连时的部分同步流程：\n\n1.
+    从库重连后发送 PSYNC <master_replid> <offset>\n   意思是：“我是上次跟着 ID 为 xxx 的主库的从库，我上次同步到了
+    offset = 5000”\n\n2. 主库收到后，做两次判断：\n   ├─ run_id 是否匹配？ 如果不匹配，说明主库换过，必须全量同步。\n   └─
+    backlog 中是否还保留着 offset=5000 之后的数据？\n       ├─ 是 → 从 backlog 中取出 5001 之后的所有命令，发送给从库（部分同步）\n
+    \      └─ 否 → backlog 已经被新命令覆盖，只能全量同步\n\n3. 如果部分同步成立，从库只需接收一小段增量命令即可追上主库，\n   避免了全量快照的生成和传输开销。\n\n改进效果对比：\n\n[嵌入表格未展开]\n\nPSYNC2
+    的进一步改进（Redis 4.0）：\n它解决了主库重启后 run_id 变化导致的全量同步问题。PSYNC2 引入 replid2（第二复制 ID），在主库发生故障切换、一台从库晋升为新主库时，新旧
+    run_id 会同时保留，从而让其他从库仍然可以和新主库进行部分重同步，而不会因为 run_id 改变而被迫全量同步。\n\n---\n\n### ⚡ 3.
+    生产环境中 Redis 主从复制断线 5 分钟后重连，会发生什么？\n\n答案是：取决于你的 repl-backlog-size 配置和这 5 分钟内的写入量。\n\n断线
+    5 分钟后重连，Redis 主从复制的行为完全取决于一个“缓冲区够不够大”的博弈：\n\n[图片内容未导入]\n\n场景分析：\n\n假设你的 repl-backlog-size
+    设置为 128MB。5 分钟内，主库平均每秒写入 100KB，总共写入约 30MB 数据。由于 30MB < 128MB，backlog 中仍然保留着从库断线那一刻之后的所有写命令，从库可以部分重同步。重连过程仅需几秒钟，对主库压力很小。\n\n如果这
+    5 分钟内主库有大量写入（例如一个大型的批量导入任务，瞬间写入了 500MB 数据），backlog 就会被写满并开始覆盖早期的命令。此时从库的偏移量对应的位置已经被新数据覆盖，主库无法接上，只能触发全量重同步。主库会
+    fork 子进程生成 RDB，消耗 CPU 和内存，同时将整个数据集重新传输给从库。\n\n全量重同步的影响：\n\n- 主库 fork 开销：fork 会创建一份内存页表的拷贝，当内存很大时（如
+    32GB），fork 可能耗时数百毫秒甚至秒级，期间主库无法处理请求。\n\n- 内存飙升：fork 采用写时复制（Copy-On-Write），如果在生成
+    RDB 期间有大量写入，主库内存使用可能瞬间翻倍甚至被 OOM Killer 杀掉。\n\n- 网络带宽占满：传输 RDB 文件会占满主库的出站带宽，影响其他从库的复制和客户端的响应延迟。\n\n如何让
+    5 分钟断线仍然能部分重同步？\n\n通过合理配置以下两个参数，将 backlog 变成一个足够大的“缓冲区水库”。\n\n# redis.conf\n\n#
+    复制积压缓冲区大小，默认只有 1MB，生产建议至少 64MB~256MB\nrepl-backlog-size 256mb\n\n# 从库断线后，backlog
+    的存活时间。默认 3600 秒（1小时）。\n# 只要从库在这个时间内重连，且 backlog 未被写满覆盖，就可以部分重同步。\nrepl-backlog-ttl
+    600\n\n监控与预警：\n\n你可以通过以下方式主动发现复制异常：\n\n# 在从库上检查复制状态\nredis-cli INFO replication
+    | grep master_link_status\n# master_link_status:up 表示连接正常，down 表示已断开\n\n# 检查主从偏移量差异\nredis-cli
+    INFO replication | grep master_repl_offset\n# 分别在主从执行，差值超过阈值则触发告警\n\n# 查看 backlog
+    的使用情况\nredis-cli INFO replication | grep repl_backlog\n# repl_backlog_active:1\n#
+    repl_backlog_size:268435456\n# repl_backlog_first_byte_offset: ...\n# repl_backlog_histlen:
+    ...\n\n生产最佳实践：\n\n- 将 repl-backlog-size 设置为 预期最大写入速率 × 可容忍断线秒数 的两倍。例如，峰值写入 50MB/分钟，最多容忍
+    10 分钟断线，那么 backlog 至少需要 500MB。留足余量，设置为 1GB。\n\n- 同时设置 repl-backlog-ttl 为一个合理的值（如
+    3600 秒），保证即使从库长时间连不上，backlog 也不会过早释放。\n\n- 为 RDB 的全量同步预留资源：即使部分重同步概率很高，也要保证全量同步时主库内存和
+    CPU 有足够余量。配置 repl-diskless-sync 可以减少磁盘 IO 开销。\n\n- 配置 Sentinel 或 Cluster 做自动故障切换，但要注意切换过程本身也会触发全量同步，确保新主库的
+    backlog 足够大。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WYybwaFDnib3uYkGNzpcRvJsnzd
+  block_id: doxcn47qMBh3dGaTa8UX7JzZANg
+  page_token: WYybwaFDnib3uYkGNzpcRvJsnzd
+  original_title: 1.1 主从复制原理
+  imported_at: '2026-09-21'

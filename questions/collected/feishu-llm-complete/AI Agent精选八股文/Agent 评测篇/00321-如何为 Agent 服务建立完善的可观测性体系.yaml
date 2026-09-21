@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-61ccf5c859af
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何为 Agent 服务建立完善的可观测性体系？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 评测篇
+tags: &1
+- AI Agent精选八股文
+- Agent 评测篇
+content:
+  prompt: 如何为 Agent 服务建立完善的可观测性体系？
+answer:
+  mode: rubric
+  reference_answer: "\U0001F52D Agent 的可观测性比传统服务复杂得多，因为它不仅有多轮 LLM 调用，还有工具调用、推理链、记忆读写等环节。核心思路是把
+    Agent 的一次用户请求看作一个分布式事务，围绕日志、指标、追踪三根支柱，让所有行为有迹可循、有量可算。\n\n### \U0001F4DD 日志（Logs）——
+    完整记录决策轨迹\n\nAgent 日志不能只打 “调用成功/失败”，必须记录思考链（Thought/Action/Observation）。我们采用结构化
+    JSON 日志，每条都带上 trace_id 和 span_id，方便与追踪系统串联。\n\n关键字段示例：\n\n{\n  \"timestamp\":
+    \"2026-07-03T10:23:11.123Z\",\n  \"trace_id\": \"abc123\",\n  \"span_id\": \"def456\",\n
+    \ \"event\": \"llm_call\",\n  \"model\": \"gpt-4\",\n  \"prompt_tokens\": 350,\n
+    \ \"completion_tokens\": 120,\n  \"latency_ms\": 812,\n  \"messages_snapshot\":
+    \"[...]\",\n  \"response_snapshot\": \"I need to use the search tool...\"\n}\n\n落地细节：\n\n-
+    在 Agent 循环入口生成 trace_id，通过 logging 的 extra 参数注入，所有下游日志自动继承。\n\n- 对 LLM 的 messages
+    做摘要化记录，避免日志爆炸；对工具的输入输出做脱敏和截断。\n\n- 所有错误和异常日志必须包含堆栈，同时绑定 trace_id，以支持快速定位。\n\n###
+    \U0001F4CA 指标（Metrics）—— 量化性能与成本\n\nAgent 的黄金指标我们分成四类，全部通过 Prometheus 采集：\n\n[嵌入表格未展开]\n\n核心代码示例：\n\nfrom
+    prometheus_client import Histogram, Counter\n\nllm_latency = Histogram(\n    'llm_call_duration_seconds',
+    'LLM call latency',\n    ['model', 'step']  # step: reason/act/reflect\n)\nllm_tokens
+    = Counter(\n    'llm_token_total', 'Token usage',\n    ['model', 'type']   # type:
+    prompt/completion\n)\n\ndef call_llm(model, messages):\n    start = time.time()\n
+    \   resp = openai.ChatCompletion.create(model=model, messages=messages)\n    lat
+    = time.time() - start\n    llm_latency.labels(model=model, step='reason').observe(lat)\n
+    \   llm_tokens.labels(model=model, type='prompt').inc(resp.usage.prompt_tokens)\n
+    \   llm_tokens.labels(model=model, type='completion').inc(resp.usage.completion_tokens)\n
+    \   return resp\n\n通过这些指标，我们搭了仪表盘，一眼能看到哪个 Agent 任务吞吐突然升高、哪个模型延迟抖动、成本是否异常。\n\n###
+    \U0001F517 追踪（Tracing）—— 串联调用拓扑\n\n分布式追踪是 Agent 可观测性的“骨架”。我们用 OpenTelemetry，把一次用户请求作为一个
+    SERVER span，每个 LLM 调用、工具调用、检索操作都作为子 span，同时注入 traceparent 在跨服务时传递。\n\n手动埋点示例：\n\nfrom
+    opentelemetry import trace\ntracer = trace.get_tracer(__name__)\n\ndef agent_orchestrator(query:
+    str):\n    with tracer.start_as_current_span(\"agent.request\") as span:\n        span.set_attribute(\"user.query\",
+    query)\n        # 思考步骤\n        thought = reason(query)\n        # 工具调用\n        result
+    = execute_tool(thought.action)\n        # 最终回复\n        answer = synthesize(thought,
+    result)\n        return answer\n\ndef reason(input: str):\n    with tracer.start_as_current_span(\"agent.reason\")
+    as span:\n        span.set_attribute(\"input.length\", len(input))\n        response
+    = call_llm(\"gpt-4\", input)\n        span.set_attribute(\"output.length\", len(response))\n
+    \       return response\n\n这样，在 Jaeger 里能清晰看到一次请求的火焰图，哪个步骤耗时最长、哪个工具调用出错一目了然。\n\n✅
+    这种组合拳下去，当用户反馈“回答不对”时，我们只要一个 trace_id，就能还原它完整的思考、工具调用序列，排障从小时级缩到分钟级。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EBEUwm9Tbio9C5kSaXBcx6DHn2b
+  block_id: doxcnmwdL13u2cWi5VzOpvn7BEz
+  page_token: EBEUwm9Tbio9C5kSaXBcx6DHn2b
+  original_title: 如何为 Agent 服务建立完善的可观测性体系？
+  imported_at: '2026-09-21'

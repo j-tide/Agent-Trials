@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8dd109000642
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 张量并行 (TP) 如何影响单卡显存？以 Megatron 的 MLP 切分为例说明。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 张量并行 (TP) 如何影响单卡显存？以 Megatron 的 MLP 切分为例说明。
+answer:
+  mode: rubric
+  reference_answer: |-
+    张量并行将单层内的参数矩阵切分到多张GPU上，从而降低单卡的参数和激活值存储。
+
+    以 Megatron-LM 对 MLP 层的切分为例。MLP 由两层全连接组成：第一层从 hidden_dim 升维到 4×hidden_dim，第二层再降维回来。设 hidden_dim=H，升维维度=4H。
+
+    不切分时，单卡存储完整的两个权重矩阵：W1: [H, 4H]，W2: [4H, H]，参数量为 H×4H + 4H×H = 8H²（忽略偏置）。
+
+    Megatron的切分方式：
+
+    - 将 W1 沿列切分成两个子矩阵 W1_a [H, 2H] 和 W1_b [H, 2H]，分别放在GPU0和GPU1上。输入X（形状为 [batch, L, H]）被广播到两张卡。
+
+    - 每张卡独立计算 Y_a = GeLU(X @ W1_a)，Y_b = GeLU(X @ W1_b)。
+
+    - 将 W2 沿行切分为 W2_a [2H, H] 和 W2_b [2H, H]。每张卡计算 Z_a = Y_a @ W2_a，Z_b = Y_b @ W2_b。
+
+    - 通过 AllReduce 将 Z_a 和 Z_b 相加，得到最终输出。
+
+    显存影响：
+
+    - 参数量：每张卡只存储 H×2H + 2H×H = 4H² 的参数，是原来的一半。
+
+    - 激活值：中间激活 Y 的形状从 [batch, L, 4H] 降为 [batch, L, 2H]，显存也减半。
+
+    - 梯度：每张卡只计算自己那部分参数的梯度，梯度显存也减半。
+
+    - 因此，TP=2 可将MLP层的参数和激活显存降低约50%。TP度越大，节省越多，但通信量也增大。通常TP只用在节点内（NVLink高速互联），跨节点通信会成为瓶颈。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: TTRodJNNooGiLlxBMsvc0yJrn6b
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 张量并行 (TP) 如何影响单卡显存？以 Megatron 的 MLP 切分为例说明。
+  imported_at: '2026-09-21'

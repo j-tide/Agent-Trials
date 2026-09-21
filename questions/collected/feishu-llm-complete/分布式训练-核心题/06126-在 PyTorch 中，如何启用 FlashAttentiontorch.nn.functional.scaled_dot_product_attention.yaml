@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1e527067611d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 PyTorch 中，如何启用 FlashAttention？torch.nn.functional.scaled_dot_product_attention。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 在 PyTorch 中，如何启用 FlashAttention？torch.nn.functional.scaled_dot_product_attention。
+answer:
+  mode: rubric
+  reference_answer: |-
+    PyTorch从2.0版本开始，提供了统一的注意力接口torch.nn.functional.scaled_dot_product_attention（简称SDPA）。该接口会自动根据输入张量的形状、CUDA能力、是否可用FlashAttention等条件，选择最优的底层实现。
+
+    启用步骤：
+
+    - 安装flash-attn库：pip install flash-attn --no-build-isolation。注意，FlashAttention对CUDA版本、GPU架构（Ampere以上，如A100、H100、RTX 3090/4090）有要求。
+
+    - 在代码中直接调用SDPA：
+
+    import torch
+    import torch.nn.functional as F
+
+    # Q, K, V 形状为 (batch, heads, seq_len, head_dim)
+    attn_output = F.scaled_dot_product_attention(Q, K, V, attn_mask=mask, dropout_p=0.0, is_causal=True)
+
+    - PyTorch会自动使用FlashAttention，前提是满足条件（如无自定义attn_mask的某些模式，或不支持某些参数组合）。你可以通过环境变量TORCH_LOGS="+graph_breaks"或torch.backends.cuda.sdp_kernel来查看或控制具体实现。
+
+    - 如果想强制使用FlashAttention，可设置：
+
+    torch.backends.cuda.enable_flash_sdp(True)
+
+    - 对于HuggingFace模型，很多已集成了use_flash_attention_2=True参数，只需在加载模型时指定即可。
+
+    SDPA的优势：它还能自动切换到其他高效实现，如xFormers的memory efficient attention，为不同的硬件和输入配置选择最合适的后端。这使得模型代码无需修改即可享受加速。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HfoZwdjz1iRNmPkiI3icQQafnve
+  block_id: GT9cdPheuoOh8ZxiPhhcnNzpnOa
+  page_token: HfoZwdjz1iRNmPkiI3icQQafnve
+  original_title: 在 PyTorch 中，如何启用 FlashAttention？torch.nn.functional.scaled_dot_product_attention。
+  imported_at: '2026-09-21'

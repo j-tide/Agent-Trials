@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d46e97ead44d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6A6 在服务高并发时，如何设置限流策略（令牌桶、滑动窗口）来保护推理服务不被压垮？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: "\U0001F6A6 在服务高并发时，如何设置限流策略（令牌桶、滑动窗口）来保护推理服务不被压垮？"
+answer:
+  mode: rubric
+  reference_answer: "高并发下，推理服务的显存和算力是有限的。限流（Rate Limiting）是防止服务过载的第一道防线。常见算法有令牌桶和滑动窗口。\n\n\U0001FA99
+    令牌桶\n\n- 原理：系统以固定速率往一个“桶”里放入令牌（例如每秒 100 个）。每个请求需要消耗一定数量的令牌（按请求的复杂度或 token 数计费）。如果桶内令牌不足，请求被拒绝或排队。\n\n-
+    优点：允许突发流量——如果桶容量足够大，短时间内可以处理超过平均速率的请求（消耗积累的令牌）。\n\n- 实现：可在 API 网关（如 Kong, Envoy）或应用层用
+    Redis 实现分布式令牌桶。\n\n\U0001FA9F 滑动窗口\n\n- 原理：记录最近一个窗口（如 1 秒）内的请求计数。当计数超过阈值（如 100
+    请求/秒），新请求被拒绝。\n\n- 优点：精确限制瞬时速率，避免长时间突发。\n\n- 缺点：实现稍复杂，需要维护窗口内的请求时间戳，且无法“借用”未来配额。\n\n⚖️
+    如何用于推理服务？\n\n- 按请求复杂度计费：不能仅按请求次数限流，因为一个短 Prompt 和一个 32k 长 Prompt 消耗的显存和时间天差地别。推荐使用加权令牌：每个请求消耗的令牌数
+    = prompt_token_count + max_tokens * weight。\n\n- 多层限流：在反向代理层（如 Nginx）进行简单的每秒连接数限流；在应用层，针对每个用户或每个
+    token 进行更细粒度的令牌桶限流。\n\n- 显存感知的动态限流：推理服务可以根据当前显存空闲量动态调整接受速率。当显存使用超过高水位线时，即使令牌充足也拒绝新请求，保护现有请求不
+    OOM。\n\n- 优先级与排队：高优请求可以“插队”，低优请求在令牌不足时排队等待，超时则丢弃。\n\n\U0001F4A1 推荐组合：令牌桶 + 加权
+    token 消耗，简单且有效。滑动窗口用于精确控制瞬时脉冲。在 vLLM 等框架中，可通过启动参数 --max-num-seqs 限制最大并发序列数，同时结合外部限流器。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTNrwT2t1iCzbMkI7FZc3sj5nBb
+  block_id: UJIddZFBconB7DxjzSfcbqwBnrh
+  page_token: QTNrwT2t1iCzbMkI7FZc3sj5nBb
+  original_title: "\U0001F6A6 在服务高并发时，如何设置限流策略（令牌桶、滑动窗口）来保护推理服务不被压垮？"
+  imported_at: '2026-09-21'

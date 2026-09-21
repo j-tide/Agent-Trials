@@ -1,0 +1,247 @@
+---
+schema_version: 1
+id: feishu-llm-complete-85c3c8c5021d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3.6 模型选型与工程基础设施
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: 3.6 模型选型与工程基础设施
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### LLM 网关（LiteLLM）的选型与统一调用接口设计
+
+    ---
+
+    1、基础题：为什么在生产环境中不建议直接调用单一 LLM 提供商的 API？
+
+    难度级别：⭐（单点依赖风险、限流问题、多模型组合需求）
+
+    直接依赖单一提供商存在三个问题：一是单点风险，API 故障或涨价没有备选；二是限流问题，高并发时单个 API Key 的 RPM/TPM 上限会成为瓶颈；三是不同任务适合不同模型，比如代码生成用 Claude、中文理解用 Qwen，单一提供商无法满足组合需求。因此生产环境通常需要一个统一的 LLM 网关层来屏蔽这些差异。
+
+    ---
+
+    2、进阶题：在需要接入多家 LLM 提供商的场景下，如何设计统一的调用接口？LiteLLM 是怎么解决这个问题的？
+
+    难度级别：⭐⭐（LiteLLM 统一 OpenAI 格式、多 Key 轮询防限流、模型降级策略、成本追踪回调）
+
+    1️⃣ Common Answer
+
+    在接入多家 LLM 时，可以封装一个统一的调用类，内部根据配置选择不同的 API。LiteLLM 是一个开源工具，能用 OpenAI 的接口格式调用 Anthropic、Google 等不同的模型，这样切换模型时不需要改太多代码。LiteLLM 还支持负载均衡，可以配置多个 API Key，在它们之间分发请求。如果一个模型出问题了，可以自动切换到备用模型。
+
+    2️⃣ Impressive Answer
+
+    我会从 LiteLLM 解决的四个核心问题来回答：
+
+    - 首先是统一接口，屏蔽各家 API 格式差异。LiteLLM 把 100+ 模型统一封装成 OpenAI Chat Completion 格式，切换模型只改 model 字符串，业务代码完全不动。Claude、Gemini、本地 Ollama 都能用同一套调用方式。
+
+    - 其次是多 Key 轮询防限流。单个 API Key 有 RPM 和 TPM 上限，多 Key 轮询是最简单的绕过手段。LiteLLM Router 支持 round-robin、least-busy、latency-based 三种策略，生产上推荐 least-busy，把请求打到当前负载最低的 Key。
+
+    - 再次是按优先级的模型降级（Fallback）。主模型限流或不可用时，自动按顺序切换到备用模型。LiteLLM 还支持 context_window_fallbacks——当请求超过主模型的 Context Window 时，自动切换到支持更长 Context 的备用模型，非常实用。
+
+    - 最后是成本追踪。LiteLLM 内置每次调用的 token 消耗和预估成本，通过注册 success_callback 可以把成本数据写入自己的数据库或监控系统，按用户、功能模块做成本分摊。如果用 LiteLLM Proxy 独立部署，还能在 Web UI 上查看成本报表。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：公司同时使用 GPT-4o 和 Claude，某天 OpenAI 服务出现大规模故障，如何保证业务不中断？
+
+    难度级别：⭐⭐（故障降级策略、LiteLLM Fallback 配置、业务影响最小化）
+
+    1️⃣ Common Answer
+
+    可以在代码里加 try-except，OpenAI 报错时换调 Claude 的 API。
+
+    2️⃣ Impressive Answer
+
+    如果是临时写 try-except 来切换，每个调用点都要改，而且切换逻辑散落在业务代码里，维护成本很高。正确的做法是在 LLM 网关层统一处理降级，业务代码完全感知不到切换。
+
+    用 LiteLLM Router 配置 fallbacks，把 OpenAI 的所有调用设置 Claude 为备用。故障发生时，Router 自动在重试超时后切换到 Claude，业务代码的调用接口不变。需要注意的是：Claude 和 GPT-4o 的某些参数行为不一致（比如 system message 的处理方式），Fallback 之前要确认 Prompt 兼容性。另外，降级后要立刻触发告警，通知团队当前在走备用路径，成本可能上升（Claude 和 GPT-4o 定价不同），避免事后账单超支。
+
+    # LiteLLM Router：网关层统一降级，业务代码零改动
+    from litellm import Router
+
+    router = Router(
+        model_list=[
+            {"model_name": "gpt-4o", "litellm_params": {"model": "openai/gpt-4o"}},
+            {"model_name": "gpt-4o", "litellm_params": {"model": "anthropic/claude-opus-4-6"}},
+        ],
+        fallbacks=[{"gpt-4o": ["claude-opus-4-6"]}],
+        num_retries=2,
+    )
+    # 业务代码接口不变，故障自动切换
+    response = await router.acompletion(model="gpt-4o", messages=[...])
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+
+    ### Embedding 模型选型：OpenAI vs BGE vs 本地模型的权衡
+
+    ---
+
+    1、基础题：Embedding 模型在 RAG 系统中的作用是什么？
+
+    难度级别：⭐（向量化文本、语义检索的基础原理）
+
+    Embedding 模型把文本转换成固定维度的向量，语义相近的文本在向量空间中距离更近。在 RAG 系统中，文档在入库时被 Embedding 模型向量化存入向量数据库，用户查询时同样被向量化，然后通过相似度搜索（如余弦相似度）找到最相关的文档块。Embedding 模型的质量直接决定了检索的准确率，是 RAG 系统的核心基础设施。
+
+    ---
+
+    2、进阶题：在 RAG 系统中，Embedding 模型的选型需要考虑哪些因素？请对比 OpenAI Embedding、BGE 和本地部署模型的核心差异。
+
+    难度级别：⭐⭐（向量维度与存储成本、BGE-M3 多语言多粒度优势、API 成本 vs 本地 GPU 成本的规模临界点、批量 Embedding 优化）
+
+    1️⃣ Common Answer
+
+    Embedding 模型选型主要看几个方面：检索质量、成本和部署难度。OpenAI 的 text-embedding-3-small 使用方便，直接调 API 就行；BGE 是国内智源研究院开源的，中文效果好；本地部署可以用 sentence-transformers 跑一些开源模型。如果数据合规有要求，不能调外部 API，就需要本地部署；如果要快速上线，OpenAI API 最省事；如果主要处理中文内容，BGE 效果更好。
+
+    2️⃣ Impressive Answer
+
+    我会从四个维度系统来回答选型决策：
+
+    - 首先是向量维度与存储成本的平衡。维度不是越高越好。text-embedding-3-small 是 1536 维，百万向量约占 6GB；BGE-M3 是 1024 维，约 4GB。OpenAI 的 text-embedding-3 系列支持 Matryoshka 缩维，通过 dimensions 参数把 1536 维截断到 256 维，存储成本降 6 倍，检索延迟也更快，在精度损失可接受的前提下很实用。
+
+    - 其次是中文场景 BGE-M3 的核心优势。BGE-M3 在中文任务上明显优于 OpenAI 通用 Embedding，有三点关键能力：支持 100+ 语言（中英混合文档不用分语言处理）；单模型同时支持 dense、sparse、ColBERT 三种检索模式；最长支持 8192 token 输入，对长文档有优势。
+
+    - 再次是 API 成本 vs 本地部署的规模临界点。OpenAI text-embedding-3-small 定价 $0.02/百万 token，适合小规模快速上线。本地一张 A10G 跑 BGE-M3，一次性处理大规模文档库后增量成本极低。经验规则：文档总量 < 5000 万 token 且无合规要求，用 API 最省事；超过这个量级或有数据出境限制，本地部署 ROI 更高。
+
+    - 最后是批量 Embedding 优化，无论哪种方案都要做。OpenAI API 单次最多 2048 个文本，本地 BGE-M3 在 24GB 显卡上 batch_size=32-64 比较稳。分批调用避免单次超限，同时最大化吞吐量。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：公司要做一个中文法律文档的 RAG 系统，文档总量约 2 亿 token，且有数据不出境的合规要求，Embedding 模型怎么选？
+
+    难度级别：⭐⭐（合规要求、中文优化、大规模文档的本地部署成本核算）
+
+    1️⃣ Common Answer
+
+    有数据合规要求就不能用 OpenAI API，只能本地部署，可以用 BGE 模型。
+
+    2️⃣ Impressive Answer
+
+    这道题有两个硬约束：数据不出境（排除所有云端 API），中文法律文档（需要强中文理解能力）。
+
+    模型选 BGE-M3：支持长文本（法律条款动辄上千字），中文效果领先，且支持 dense+sparse 混合检索，对法律文档的精确术语检索有帮助。
+
+    部署选本地推理服务（如 Xinference 或 FastEmbed）：2 亿 token 的初始建库，用 OpenAI API 需要 $4，但之后每次增量更新都要持续付费，而且合规上直接不可行；一张 A10G 建库完成后，增量成本仅是电费和硬件折旧，ROI 明显更高。工程上需要注意：批量建库时 batch_size 控制在 32-64，显存不够时用 fp16 推理；向量库选 Milvus 或 Qdrant（支持本地部署），不要用 Pinecone 云服务（同样有数据出境问题）。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    ---
+
+    ### LLM 可观测性：LangSmith 与 Langfuse 的接入与对比
+
+    ---
+
+    1、基础题：为什么 LLM 应用的可观测性比传统服务更难？
+
+    难度级别：⭐（LLM 输出不确定性、Prompt 变化的影响、调试手段的差异）
+
+    传统服务出问题看日志和指标就够了，但 LLM 应用出问题时，你需要知道的是"模型在第几步拿到了什么 Prompt、输出了什么、为什么跑偏了"。LLM 的输出具有不确定性，同一个 Prompt 不同时间可能输出不同结果，而且 Prompt 的微小改动可能引发大幅性能退化，这些都是传统监控指标无法捕捉的。因此 LLM 应用需要更细粒度的 Trace 体系，能还原完整的调用链路和每步的输入输出。
+
+    ---
+
+    2、进阶题：如何为 LLM 应用建立可观测性体系？请说明 Trace/Run/Span 的概念，以及 LangSmith 和 Langfuse 的核心差异。
+
+    难度级别：⭐⭐（Trace/Run/Span 树形结构、LangSmith 零代码接入、Langfuse 自托管、Token 成本统计与业务标签）
+
+    1️⃣ Common Answer
+
+    LLM 可观测性就是监控 LLM 应用的运行情况，包括每次调用的输入输出、耗时、token 消耗等。LangSmith 是 LangChain 官方的可观测性平台，接入方便，只需要设置几个环境变量就能自动追踪所有 LangChain 调用。Langfuse 是开源的替代方案，可以自托管，数据不需要上传到第三方。Trace 是一次完整的请求记录，Run 是其中某次 LLM 调用，可以通过这些记录来排查问题和分析成本。
+
+    2️⃣ Impressive Answer
+
+    我会从概念体系、工具接入和选型决策三个层面来回答：
+
+    - 首先是 Trace/Span/Run 的树形结构。一次用户请求对应一个 Trace（有唯一 ID），Trace 下是树状嵌套的 Span——AgentExecutor 是顶层 Span，下面挂着多个 LLM Call（Run）和 Tool Call（Span），Tool Call 下面还可以有 HTTP Request Span。这个树形结构还原了 Agent 的实际执行路径，定位问题时能一眼看到哪一步的输入输出出了问题。
+
+    - 其次是两个工具的接入方式。LangSmith 对 LangChain/LangGraph 项目是真正的零代码接入，设三个环境变量（LANGCHAIN_TRACING_V2、LANGCHAIN_API_KEY、LANGCHAIN_PROJECT），所有 Chain 和 Agent 调用自动被 Trace，不需要改业务代码。Langfuse 需要手动用 @observe() 装饰器标记函数，灵活度更高，非 LangChain 项目也能用，自托管时数据完全不出公司。
+
+    - 最后是成本统计和选型建议。两个平台都支持按时间、模型、用户、功能模块维度做 token 和成本聚合。实践中我会给每个 Trace 打业务标签（feature、user_id、experiment_group），这样能精确知道每个功能模块的 LLM 成本，方便做 ROI 分析。选型上：技术栈是 LangChain/LangGraph 且无数据合规要求，直接用 LangSmith；非 LangChain 项目或有合规要求，选 Langfuse 自托管。两者都要做的是在 CI 里跑冒烟测试时也开启 Trace，这样 Prompt 改动引发的性能退化能在上线前就发现。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：Agent 在生产环境中偶发性地给出错误答案，但复现不稳定，如何用可观测性工具定位问题？
+
+    难度级别：⭐⭐（利用 Trace 定位 Agent 执行路径异常、Prompt 版本对比、错误模式归因）
+
+    1️⃣ Common Answer
+
+    可以在代码里加日志，把每次 LLM 的输入输出打印出来，出错的时候查日志找原因。
+
+    2️⃣ Impressive Answer
+
+    偶发性错误最难排查，关键是建立"错误留痕"机制，而不是靠运气复现。
+
+    首先，确保每次请求都有完整的 Trace，包含 Agent 每步的完整 Prompt 和输出——这是 LangSmith/Langfuse 的核心价值。其次，给每个 Trace 打上用户 ID、请求类型、输入特征等标签，出现错误时在平台上按这些维度过滤，找出错误 Trace 的共同特征（比如是否集中在特定类型的输入、特定时间段、特定工具调用路径上）。
+
+    然后，对比错误 Trace 和正确 Trace 的执行路径差异：是哪个 LLM Call 的输出跑偏了？是工具返回的数据格式异常导致后续步骤出错？还是某个 Span 的延迟异常高导致超时？LangSmith 的 Playground 功能还支持直接拿错误 Trace 的 Prompt 做 Replay 测试，能快速验证修复效果。
+
+    最后，如果是 Prompt 改动引发的，通过 Trace 里的 Prompt 版本信息能精确定位到哪次发布引入了问题。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    - 信息密度管理：上下文窗口有限，堆砌所有信息不是最优策略，CE 要在有限空间里最大化信息价值密度——把最相关的内容放在注意力最集中的位置，对冗余历史做摘要压缩，对低相关检索结果做截断。
+
+    - 动态编排：Agent 执行过程中每一步之后上下文的组成都在变化，新工具结果进来了，旧历史要不要保留，CE 需要一套动态决策机制。
+
+    - 跨步推理一致性：前一步的结论会成为后一步的上下文，CE 要保证关键信息在整个推理链条中不丢失，同时又不让上下文随步骤增加无限膨胀。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MtcJwOeh8il1EhkIooccEEwBntb
+  block_id: doxcnAwVkR3KyaYhJIBlCc8ntSd
+  page_token: MtcJwOeh8il1EhkIooccEEwBntb
+  original_title: 3.6 模型选型与工程基础设施
+  imported_at: '2026-09-21'

@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-80efb200cbbb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么SFT时通常只计算assistant回复部分的损失？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 为什么SFT时通常只计算assistant回复部分的损失？
+answer:
+  mode: rubric
+  reference_answer: |-
+    只计算 assistant 回复部分的损失，是 SFT 训练中一项至关重要的设计决策，它直接决定了模型能否学会“遵循指令”，而不是“续写指令”。
+
+    根本原因：区分条件与目标
+    SFT 的优化目标是条件概率 P(response∣instruction)P(response∣instruction)，即给定指令，生成高质量的回答。指令是条件，回答是目标。如果对指令部分也计算损失，模型就会被要求去预测指令本身，相当于同时学习 P(instruction)P(instruction)。这会导致几个严重问题：
+
+    - 角色混乱：模型在推理时可能自行生成用户的问题，然后自问自答，打破对话结构。
+
+    - 学习信号稀释：指令通常占据序列的 30%~70%，计算这部分损失会浪费大量算力去学习无关的预测任务，而真正需要学习的“如何回答”的信号反而被削弱。
+
+    - 行为偏差：如果模型学会了生成指令，它可能会在对话中产生不合时宜的输出，比如在应该回答时却模仿用户继续提问。
+
+    实践中的必要性
+    从工程角度看，只计算 assistant 损失的实现非常直接：在构造 labels 时，将指令部分对应的 token 标签设置为 -100，PyTorch 的 CrossEntropyLoss 默认忽略 ignore_index=-100 的位置。这样，训练框架无需任何额外逻辑，就能精确控制梯度流向。这种做法也有助于维护对话的一致性：在多轮对话中，每一轮的 assistant 回复都被计算损失，而所有 user 和 system 消息都被掩码，模型学会严格遵循“看到 user 消息后生成 assistant 回复”的交互协议。
+
+    更深层的好处：防止过度模仿
+
+    如果不对指令掩码，模型可能会学到一种“抄袭”捷径：当被问到“法国的首都叫什么？”时，它可能直接复制指令中的“法国的首都”等词汇拼凑出回答，而不是真正理解问题。掩码迫使模型从指令中提取语义，再基于自身知识生成回答，从而培养真正的指令遵循能力。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PMU2wL6MLiKo4yk5L39cu6vqnIc
+  block_id: SxrXdsQmHo5nj7xsekecE2Qtnyd
+  page_token: PMU2wL6MLiKo4yk5L39cu6vqnIc
+  original_title: 为什么SFT时通常只计算assistant回复部分的损失？
+  imported_at: '2026-09-21'

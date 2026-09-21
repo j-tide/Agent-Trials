@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f0f76f13cec7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在多模态对话中，如何处理交错图文输入？即用户可能在文字中穿插图片。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 核心模型架构
+tags: &1
+- 多模态面（精选）
+- 核心模型架构
+content:
+  prompt: 在多模态对话中，如何处理交错图文输入？即用户可能在文字中穿插图片。
+answer:
+  mode: rubric
+  reference_answer: |-
+    [图片内容未导入]
+
+    交错图文输入（interleaved image-text）是多模态对话的自然需求，例如用户发一条消息：“这张图片 [img1] 是什么？再看看这张 [img2]，它们有什么区别？”模型需要理解每一张图片的语义，并将其与周围的文本上下文精确关联。
+
+    处理方案：
+
+    - 标记化插入：在文本序列中，为每张图片分配一个特殊占位 token（如 <image_1>）。视觉编码器先行将所有图片编码为视觉 token 序列。最终送入 LLM 的序列为：[文本token]... <image_1> [视觉token序列] </image_1> ... [更多文本token] <image_2> [视觉token序列2] ...。通过特殊标记，LLM 能够区分不同图片及其位置。
+
+    - 多模态位置编码：需要为每张图片的视觉 token 添加独立的位置编码，以区分它们属于不同的图像源。同时，文本 token 和视觉 token 在序列中的位置编码也应保持连续性，让模型感知图文穿插的顺序。
+
+    - 视觉特征的条件注入：另一种不拼接视觉 token 的方法是使用交叉注意力。在 LLM 的某些层，文本 token 作为 query，去关注当前上下文中的图片视觉特征。此时，需要根据输入中的 <image> 标记位置，决定哪些文本 token 应该关注哪张图片（或所有图片）。Flamingo 就采用了类似的门控交叉注意力机制，但其专门设计用于处理交错图文。
+
+    - 训练数据构造：为了让模型学会处理这种输入，必须使用交错图文数据进行预训练或指令微调。例如，从网页中提取图文混排内容，或者用大模型生成多轮交错图文对话。数据中需保留图文对应关系，以及图片在文本中的自然位置。
+
+    - 动态视觉 token 注入：在推理时，根据用户输入动态构建序列。当用户指定图片时，系统实时对图片编码，并将视觉 token 插入到指定的文本位置。LLM 以流式方式处理，如同处理纯文本一样，只不过在到达 <image> token 时，后续的特征已切换为视觉 token。
+
+    目前多数 MLLM（如 GPT-4o、Gemini 1.5）都支持某种形式的交错输入，实现的关键在于预训练阶段就引入了大量的交错图文数据，并设计了通用的多模态标记和位置编码方案。这使得模型能够像理解文本中的引用一样，自然地理解图文之间的指代关系。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YRX9wk77WiOH3KkAnedcnJEanwc
+  block_id: WMy1db88toVD2Fx7Tn6c11JrnPh
+  page_token: YRX9wk77WiOH3KkAnedcnJEanwc
+  original_title: 在多模态对话中，如何处理交错图文输入？即用户可能在文字中穿插图片。
+  imported_at: '2026-09-21'

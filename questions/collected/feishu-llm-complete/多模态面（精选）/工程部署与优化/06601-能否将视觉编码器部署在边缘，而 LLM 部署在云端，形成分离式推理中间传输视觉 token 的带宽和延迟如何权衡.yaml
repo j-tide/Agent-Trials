@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-759f3a57e159
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 能否将视觉编码器部署在边缘，而 LLM 部署在云端，形成分离式推理？中间传输视觉 token 的带宽和延迟如何权衡？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 能否将视觉编码器部署在边缘，而 LLM 部署在云端，形成分离式推理？中间传输视觉 token 的带宽和延迟如何权衡？
+answer:
+  mode: rubric
+  reference_answer: |-
+    完全可以，这种架构称为分离式多模态推理或云边协同推理。其优势是：边缘端处理原始高带宽图像数据，仅将压缩后的视觉token传输到云端，大幅降低上传带宽和隐私风险；云端运行大规模LLM，利用其强大算力。
+
+    权衡因素：
+
+    - 视觉token数据量：典型CLIP-ViT-L输出257个token（1个CLS + 256个patch），每个token维度1024（FP16占2KB）。总数据量约257×2KB≈514KB。相比原始图像（JPEG压缩后可能100KB~500KB，但原始RGB是数MB），视觉token的压缩率并不总是优势。如果图像已经是压缩格式，直接上传可能更小。
+
+    - 压缩与量化：可以对视觉token进一步压缩，如使用VQ-VAE离散化后用更少的码本索引传输，或使用Autoencoder降维。这能大幅减少数据量。
+
+    - 延迟模型：总延迟 = 边缘编码时间 + 网络传输时间 + 云端LLM时间。边缘设备算力弱，视觉编码可能较慢；但网络延迟取决于带宽和距离。需要根据具体场景计算。例如，边缘ViT-Small编码20ms，传输5ms，云端LLM生成200ms，总延迟225ms，低于上传原始大图再云端编码的方案。
+
+    适用场景：
+
+    - 带宽极低或流量昂贵（卫星通信、移动网络弱覆盖）。
+
+    - 隐私敏感数据（原始图像不出本地）。
+
+    - 边缘有较强AI芯片（如Jetson Orin），能负担视觉编码。
+
+    优化策略：
+
+    - 使用轻量视觉编码器（如MobileCLIP）在边缘部署。
+
+    - 对视觉token进行无损或有损压缩（如用Huffman编码差分）。
+
+    - 动态调整token数量（图像简单时仅传输少量重要token）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RRQVwfGDQiejs6kBW04ch16ynHe
+  block_id: HKU9dJZ0poKvPlxlALLcqSiFnjc
+  page_token: RRQVwfGDQiejs6kBW04ch16ynHe
+  original_title: 能否将视觉编码器部署在边缘，而 LLM 部署在云端，形成分离式推理？中间传输视觉 token 的带宽和延迟如何权衡？
+  imported_at: '2026-09-21'

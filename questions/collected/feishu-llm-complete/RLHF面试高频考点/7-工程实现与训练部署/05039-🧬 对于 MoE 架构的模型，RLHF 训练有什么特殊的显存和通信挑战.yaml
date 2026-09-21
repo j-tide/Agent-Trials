@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-adc398da471f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EC 对于 MoE 架构的模型，RLHF 训练有什么特殊的显存和通信挑战？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "\U0001F9EC 对于 MoE 架构的模型，RLHF 训练有什么特殊的显存和通信挑战？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    MoE（Mixture of Experts） 将 FFN 层替换为多个专家，通过门控路由激活一部分专家。
+
+    挑战：
+
+    - 显存：总参数量极大（如 Mixtral 8×7B 拥有 ~46B 参数），但每次激活仅约 14B。然而所有专家权重必须常驻显存，导致显存需求与总参数量成正比。RLHF 四个模型如果都用 MoE，显存压力巨大。
+
+    - 通信：MoE 需要将 token 路由到不同专家，如果专家分布在不同 GPU，会引入大量 all-to-all 通信。在 RLHF 的采样和训练阶段，这个通信量都很大。
+
+    - 负载均衡：门控可能偏爱某些专家，导致负载不均，需要辅助负载均衡损失，调参复杂。
+
+    缓解：
+
+    - 对 RLHF 的 Actor 使用 MoE，而 Ref、RM、Critic 使用稠密小模型。
+
+    - 将 MoE 的专家分布限制在同一节点内，利用 NVLink 减轻通信压力。
+
+    - 考虑使用专家参数的分片（类似 ZeRO）来降低显存。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NjChwugaCicZr4kcCfocK8KMnid
+  block_id: QDrGdJg75ospeyxbfitcdgy3nNe
+  page_token: NjChwugaCicZr4kcCfocK8KMnid
+  original_title: "\U0001F9EC 对于 MoE 架构的模型，RLHF 训练有什么特殊的显存和通信挑战？"
+  imported_at: '2026-09-21'

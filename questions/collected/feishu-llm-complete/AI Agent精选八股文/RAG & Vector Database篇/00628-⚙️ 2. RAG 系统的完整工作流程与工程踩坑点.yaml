@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-93b42687912b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚙️ 2. RAG 系统的完整工作流程与工程踩坑点"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "⚙️ 2. RAG 系统的完整工作流程与工程踩坑点"
+answer:
+  mode: rubric
+  reference_answer: "一个生产级 RAG 系统分两大步：离线索引（把知识灌进向量库）和在线检索生成（回答用户问题）。每一步都有容易踩的坑。\n\n[图片内容未导入]\n\n2.1
+    离线索引阶段\n\n工作流：\n\n- 文档清洗：去掉页眉页脚、特殊字符、多余空行，统一编码。\n\n- 文本切分：将长文档切成适合 LLM 上下文窗口的“chunk”。常用策略是基于固定长度（如
+    512 token）但有重叠（overlap）的滑动窗口，或按语义边界（如段落）切分。\n\n- 向量化：用 Embedding 模型把每个 chunk 转成向量。\n\n-
+    存入向量数据库：把向量 + 元数据（来源、页码）写入 Chroma / Milvus / Pinecone 等。\n\n示例代码：文档索引\n\n```python\nfrom
+    langchain.text_splitter import RecursiveCharacterTextSplitter\nfrom langchain.embeddings
+    import OpenAIEmbeddings\nfrom langchain.vectorstores import Chroma\n\n# 1. 切分\nsplitter
+    = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)\nchunks = splitter.create_documents([raw_text])\n\n#
+    2. 向量化并存储\nembeddings = OpenAIEmbeddings()\nvectorstore = Chroma.from_documents(chunks,
+    embeddings, persist_directory=\"./db\")\nvectorstore.persist()\n```\n\n常见踩坑点：\n\n-
+    切分太粗：一个 chunk 包含多个话题，检索到的内容里只有一句话相关，其余全是噪音，LLM 容易“看花眼”。\n\n- 切分太细：关键信息被切断，比如“根据《公司法》第三十八条……”和“……公司可以……”被分在了两个
+    chunk，检索只命中一半，导致回答不完整。\n\n- 元数据丢失：没有存下文档标题、页码、发布日期等，后续无法给用户引用来源，也无法做时效性过滤。\n\n-
+    Embedding 模型不匹配：用英文模型给中文做向量化，语义检索准确率会打折扣。\n\n2.2 在线检索生成阶段\n\n工作流：\n\n- 用户问题 →
+    用同一套 Embedding 模型向量化。\n\n- 在向量库中做相似度搜索，取 top-K（通常 K=3~5）。\n\n- 把检索到的文档片段拼接到 Prompt
+    中，明确告诉 LLM “基于以下资料回答，不知道就说不知道”。\n\n- LLM 生成答案，可选地附上引用来源。\n\n示例代码：在线问答\n\n```python\ndef
+    ask(question):\n    # 检索\n    docs = vectorstore.similarity_search(question, k=4)\n
+    \   context = \"\\n\\n\".join([f\"【来源{i+1}】{d.page_content}\" for i,d in enumerate(docs)])\n
+    \   \n    # 生成\n    prompt = f\"\"\"根据以下参考资料回答用户问题。如果资料中没有答案，请如实告知。\n---\n{context}\n---\n问题：{question}\"\"\"\n
+    \   return llm(prompt)\n```\n\n常见踩坑点：\n\n- 检索不准：用户问“苹果股价”，检索回来一堆“苹果水果”的文档。解决方案是引入
+    Query Rewriting（让 LLM 先改写用户问题为更精准的检索词），或使用混合检索（向量 + BM25 关键词）。\n\n- 上下文超窗口：K 设得太大，拼出来的
+    Prompt 超过了模型上下文限制。需要对检索结果做重排序（Rerank），只保留最相关的片段。\n\n- LLM 不听话：明明上下文有答案，模型还是自己编。这需要在
+    Prompt 中加强约束，比如“你必须引用来源编号”、“如果资料中没有，回答‘未找到’”。\n\n- 文档过时：索引没及时更新，用户问到最新政策却查不到。需要建立定时或事件驱动的索引更新管道。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcn21xHRKssBx9pOCNsutEKDc
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "⚙️ 2. RAG 系统的完整工作流程与工程踩坑点"
+  imported_at: '2026-09-21'

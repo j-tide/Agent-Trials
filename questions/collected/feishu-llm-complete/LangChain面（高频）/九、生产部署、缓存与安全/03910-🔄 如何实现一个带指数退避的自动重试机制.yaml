@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-18954718cb3b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F504 如何实现一个带指数退避的自动重试机制？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F504 如何实现一个带指数退避的自动重试机制？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    指数退避是指每次重试的等待时间以指数级增长，并加入随机抖动以避免“惊群效应”。在Python中，可以使用 tenacity 库轻松实现，也可以手动编写重试装饰器。
+
+    使用 tenacity 实现（推荐）：
+
+    ```python
+    from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+    import openai
+
+    @retry(
+        stop=stop_after_attempt(4),  # 最多重试4次
+        wait=wait_exponential(multiplier=1, min=2, max=30),  # 2,4,8,16...最多30秒
+        retry=retry_if_exception_type(openai.RateLimitError)
+    )
+    async def call_openai(prompt):
+        return await openai.ChatCompletion.acreate(...)
+    ```
+
+    这样，遇到 RateLimitError 时会自动重试，等待时间逐步拉长，给API恢复的时间窗口。
+
+    手动实现（不引入额外依赖）：
+
+    ```python
+    import asyncio, random
+    from openai import RateLimitError
+
+    async def call_with_retry(prompt, max_retries=4):
+        for attempt in range(max_retries):
+            try:
+                return await openai.ChatCompletion.acreate(...)
+            except RateLimitError as e:
+                if attempt == max_retries - 1:
+                    raise
+                wait = min(2 ** attempt + random.uniform(0, 1), 30)
+                await asyncio.sleep(wait)
+    ```
+
+    在 LangChain 中，可以将这个重试逻辑封装在自定义的 LLM 包装器或回调中。例如，继承 ChatOpenAI 并重写 _acall，在其中加入重试逻辑。这种方式比全局修改更精细。
+
+    要点：务必设置最大重试次数和最大等待时间，避免无限等待；记录每次重试日志，便于监控；区分可重试错误（429, 5xx）和不可重试错误（4xx参数错误）。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WzEDwedwxiXAD4kdXdjcKjdQnCe
+  block_id: Kz2fd1IDpolb6Jx0rqKciGitn6K
+  page_token: WzEDwedwxiXAD4kdXdjcKjdQnCe
+  original_title: "\U0001F504 如何实现一个带指数退避的自动重试机制？"
+  imported_at: '2026-09-21'

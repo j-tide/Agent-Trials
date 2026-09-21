@@ -1,0 +1,123 @@
+---
+schema_version: 1
+id: feishu-llm-complete-14c7e9f2a701
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 'Q14: 在同一个 Kubernetes 集群中混合部署多种类型的 Agent 时，如何设计资源隔离与调度策略？'
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: AI 最前线 (Harness|沙箱部署|K8s)篇
+tags: &1
+- AI Agent精选八股文
+- AI 最前线 (Harness|沙箱部署|K8s)篇
+content:
+  prompt: 'Q14: 在同一个 Kubernetes 集群中混合部署多种类型的 Agent 时，如何设计资源隔离与调度策略？'
+answer:
+  mode: rubric
+  reference_answer: |-
+    ⭐⭐⭐（架构设计类：多 Agent 混合部署、资源隔离、优先级调度、灰度发布、多模型共存）
+
+    1️⃣ Common Answer
+
+    将不同类型的 Agent 部署到不同的 Namespace 中，通过 Namespace 实现基本的资源隔离。每个 Namespace 有独立的资源配额，避免相互影响。部署时用不同的 Deployment 管理各自的副本数。
+
+    2️⃣ Impressive Answer
+
+    在同一个 K8s 集群部署多个不同类型的 Agent，需要从资源隔离、调度策略、发布策略和多模型共存四个方面系统化设计。
+
+    - 资源隔离方案——三层防护
+
+    - Namespace 隔离：按 Agent 类型划分——agent-chat（对话型）、agent-code（代码执行型）、agent-data（数据分析型），每个 Namespace 有独立的配额和策略
+
+    - ResourceQuota：为每个 Namespace 设置 CPU/内存/GPU 硬性上限，核心的 agent-chat 分配 50% 资源，实验性的 agent-code 分配 20%
+
+    - LimitRange：限制单个 Pod 的资源范围，避免某个 Agent 实例申请过多资源
+
+    - 调度策略——四维调度
+
+    - PriorityClass 优先级调度：核心 Agent（如客服）高优先级，实验性 Agent 低优先级，资源紧张时低优先级 Pod 被抢占
+
+    - 节点亲和性：GPU Agent 调度到 GPU 节点，CPU Agent 调度到 CPU 节点，避免资源浪费
+
+    - Pod 反亲和性：同类型 Agent 分散到不同节点，提高高可用性
+
+    - 拓扑分布约束（topologySpreadConstraints）：跨可用区均匀分布，提升容灾能力
+
+    ```text
+    apiVersion: scheduling.k8s.io/v1
+    kind: PriorityClass
+    metadata:
+      name: agent-high-priority
+    value: 1000
+    globalDefault: false
+    description: "核心 Agent 高优先级，资源紧张时优先保障"
+    ---
+    apiVersion: scheduling.k8s.io/v1
+    kind: PriorityClass
+    metadata:
+      name: agent-low-priority
+    value: 100
+    globalDefault: false
+    description: "实验性 Agent 低优先级，可被抢占"
+    ---
+    apiVersion: v1
+    kind: ResourceQuota
+    metadata:
+      name: agent-chat-quota
+      namespace: agent-chat
+    spec:
+      hard:
+        requests.cpu: "20"
+        requests.memory: 40Gi
+        limits.cpu: "40"
+        limits.memory: 80Gi
+        nvidia.com/gpu: "4"
+        pods: "100"
+    ```
+
+    - 发布策略——独立发布、安全上线
+
+    - 独立发布、独立回滚：每个 Agent 类型有独立的 Deployment 和 HPA，互不影响
+
+    - 金丝雀发布：Argo Rollouts 按比例切流，新版本先发布 10% 流量，观察指标正常后逐步提升到 50%、100%
+
+    - A/B 测试：基于 Header 路由到不同版本（如 X-Agent-Version: v2），并行测试多个版本
+
+    - 多模型共存——服务分离
+
+    - 模型服务与 Agent 服务分离：Agent → Model Service → 具体模型，多个 Agent 共享同一个模型实例，减少资源占用
+
+    - 模型热加载/热切换：通过 API 触发模型更新，更新过程中无缝切换，对业务无感知
+
+    我的实践：在实际项目中，我们部署了对话型、桌面操作型、数据分析型三种 Agent。通过 Namespace + ResourceQuota 实现资源隔离，PriorityClass 确保核心对话型 Agent 的优先调度。GPU Agent 使用节点亲和性调度到 A100 节点，CPU Agent 调度到通用节点，资源利用率提升 30%。发布策略采用 Argo Rollouts 金丝雀发布，新版本发布时间从 2 小时缩短到 30 分钟。模型服务分离后，10+ 个 Agent 共享模型资源，模型切换时间从 5 分钟降到 10 秒，系统稳定性提升 50%，资源成本降低 25%。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M0n4w1EKwiQwxKkHxMvc4LZUn7p
+  block_id: doxcn0ZElqxKOF4xb7bPCx99lNg
+  page_token: M0n4w1EKwiQwxKkHxMvc4LZUn7p
+  original_title: 'Q14: 在同一个 Kubernetes 集群中混合部署多种类型的 Agent 时，如何设计资源隔离与调度策略？'
+  imported_at: '2026-09-21'

@@ -1,0 +1,109 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f9c3ab467346
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DD 如果让你从零搭建一套检索评测集，你会如何构造问题和标注相关文档？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F4DD 如果让你从零搭建一套检索评测集，你会如何构造问题和标注相关文档？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    构建一个高质量的检索评测集是迭代优化 RAG 系统的基础。如果没有它，一切调优都如同盲人摸象。以下是完整的步骤：
+
+    - 确定评估目标
+
+    你需要评测什么？是整体召回率？还是重排序后的精确率？不同的目标决定了标注的粒度。通常我们评测的是给定查询，检索管道能够返回相关文档的能力。
+
+    - 收集代表性查询
+
+    查询必须来自真实场景或模仿真实场景。不能只凭空想，因为开发者的思维模式可能与最终用户完全不同。
+
+    - 来源一：历史日志。从你的应用中收集真实的用户查询（脱敏后）。这是最宝贵的资源。
+
+    - 来源二：专家生成。邀请领域专家，根据文档库内容，从不同角度编写常见问题。包括事实型、概念型、多跳型等。
+
+    - 来源三：合成生成。用 LLM 阅读文档后自动生成问题和答案。例如，给 GPT-4 一段文档，让它生成 10 个基于该文档的问题。这种方式效率高，但需要人工审核质量。
+
+    - 确定查询集规模和多样性
+
+    至少需要 200-500 个查询才能得到有统计意义的评估结果。查询集应覆盖：
+
+    - 不同长度：短关键词、完整句子。
+
+    - 不同类型：精确查找、概念解释、多跳推理。
+
+    - 不同领域：如果文档库涉及多个领域，需保证各领域均有覆盖。
+
+    - 标注相关文档（最关键、最耗时）
+
+    对于每个查询，需要确定文档库中哪些文档是“相关”的。这通常采用池化评估（Pooling） 方法减少工作量：
+
+    - 先用多个不同的检索器（向量检索、BM25、混合检索等）分别检索每个查询的前 k 个结果（比如 k=20）。
+
+    - 将这些结果合并去重，形成一个“候选池”。
+
+    - 人工标注员（或专家）对这个池中的每个文档进行相关性判断：相关（relevant）、部分相关（partially relevant）、不相关（non-relevant）。
+
+    - 未被纳入池中的文档默认视为不相关（这是近似假设，但工程上可接受）。
+
+    - 构建评测集
+    评测集包含一组 (查询, 相关文档列表) 的条目。可以采用 JSON 格式存储：
+
+    [
+      {
+        "query": "什么是量子计算？",
+        "relevant_docs": ["doc_123", "doc_456"],
+        "partially_relevant_docs": ["doc_789"]
+      },
+      ...
+    ]
+
+    - 评测指标计算
+
+    基于上述标注，可以计算：
+
+    - Recall@k：前 k 个检索结果中包含的相关文档数 / 全部相关文档数。
+
+    - Precision@k：前 k 个检索结果中相关文档的比例。
+
+    - MRR：第一个相关文档排名的倒数。
+
+    - NDCG@k：对于分等级的相关性（相关/部分相关），给予不同权重后计算。
+
+    - 持续迭代
+
+    评测集不是一成不变的。随着文档库更新、用户行为变化，需要定期补充新的查询和重新标注部分文档。好的评测集就像软件的单元测试，能够保障每次策略变更都是正向的。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HEY1ws44PidEGlkYttccK5AenXe
+  block_id: R2kvdW5qpoGf7VxlZ88ccsfsnZb
+  page_token: HEY1ws44PidEGlkYttccK5AenXe
+  original_title: "\U0001F4DD 如果让你从零搭建一套检索评测集，你会如何构造问题和标注相关文档？"
+  imported_at: '2026-09-21'

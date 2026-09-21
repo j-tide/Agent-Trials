@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3ec946631f82
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分布式微调中，数据加载如何避免成为瓶颈？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 分布式微调中，数据加载如何避免成为瓶颈？
+answer:
+  mode: rubric
+  reference_answer: |-
+    当训练速度很快时，数据加载（I/O、解码、预处理）很容易成为阻塞GPU计算的短板。避免瓶颈需要构建一个高效的、流水线化的数据供给系统。
+
+    优化策略：
+
+    - 使用高效的存储格式：将数据预转换为Parquet或Arrow列式格式，并预先做好tokenization和序列化，训练时直接加载张量，避免重复CPU计算。
+
+    - 增加数据加载worker数量：将num_workers设为4~16（取决于CPU核心数），利用多进程并行读取和预处理数据。
+
+    - 开启pin_memory=True：在DataLoader中，数据将被锁页到CPU内存，加速向GPU的传输。
+
+    - 使用prefetch_factor：让每个worker提前准备好多个batch，在GPU计算时预取下一批数据，实现加载与计算的重叠。
+
+    - 分布式数据分片与亲和性：利用DistributedSampler确保每个rank只加载自己那部分数据，避免重复I/O。将数据存储在本地高速SSD上，减少网络延迟。
+
+    - 流式加载与混洗：对于超大无法装入内存的数据集，使用流式加载（如Mosaic StreamingDataset、HuggingFace Datasets Streaming），并在流式管道中实现全局混洗。
+
+    - 避免动态padding过重：尽量使用packing等技术，让每个batch的序列长度相近，减少不必要的计算浪费；或者在collate_fn中进行轻量级动态padding。
+
+    监控手段：通过nvidia-smi观察GPU利用率，如果频繁出现0%且此时CPU占用高，通常意味着数据瓶颈。也可用profiling工具（如PyTorch Profiler）查看DataLoader的等待时间。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: UeQ3dzYREoUPG9x0WGqcxnAvnke
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 分布式微调中，数据加载如何避免成为瓶颈？
+  imported_at: '2026-09-21'

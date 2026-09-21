@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-727eea523f19
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 RLHF 中，如何将对话生成形式化为一个马尔可夫决策过程（MDP）？状态、动作、奖励分别是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: 在 RLHF 中，如何将对话生成形式化为一个马尔可夫决策过程（MDP）？状态、动作、奖励分别是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在强化学习的理论框架下，任何序贯决策问题都可以被建模为马尔可夫决策过程。将对话生成形式化为 MDP，是我们能够应用 PPO 等 RL 算法训练语言模型的基石。这个形式化的精妙之处在于，它将一个看似自由创作的文本生成任务，转变为一个逐 token 的、可优化的决策过程。
+
+    状态（State）：在 RLHF 的语境下，状态 st 被定义为到目前为止已经生成的全部文本序列，包括初始的用户 prompt 和模型已经吐出的所有 token，即 st=(x,y1,y2,…,yt−1)。这与传统强化学习中基于传感器读数的状态定义有本质区别。这里的“状态”是完全可观测的，因为文本本身就是其完整描述。但需要注意的是，对于后续的生成来说，真正起作用的是这个文本序列经过 Transformer 编码后得到的上下文表示，而不仅仅是原始的字符序列。因此，我们实际上是将这个离散的、高维的文本序列视为一个“信息状态”。初始状态 s0 就是用户给出的 prompt。这个状态会随着每一个新 token 的生成而不断向后延伸，直到生成终止符 EOS 或达到预设的最大长度。这种状态定义最核心的优势在于它完全复用了语言模型的因果注意力机制，模型天然就是基于所有历史 token 来预测下一个 token 的，因此状态转移和策略评估可以共用同一个网络。
+
+    [图片内容未导入]
+
+    动作（Action）：动作 at 是从预设的词汇表 V 中挑选下一个 token。词汇表的大小通常在 20,000 到 200,000 个 token 之间，这是一个规模极其庞大且离散的动作空间。在时刻 t，语言模型（即策略）会根据当前状态 stst，输出一个覆盖整个词表的概率分布 πθ(at∣st)，然后从这个分布中采样一个具体的 token 作为动作 at 执行。这个“执行”在环境中就是直接将该 token 追加到当前文本序列的末尾，从而产生新的状态 st+1。值得注意的是，这个动作不仅决定了当前时刻的输出，也彻底改变了未来的生成语境，因此它是一个具有长期影响的决策。
+
+    状态转移（State Transition）：状态转移是确定性的。给定当前状态 stst 和选择的动作 at，下一个状态 st+1 是唯一确定的，它就是 st 与 at 的简单拼接。这是一个无噪声、完全可控的环境，与机器人控制或游戏 AI 中充满随机性的物理环境截然不同。这种确定性转移极大地简化了模型的内部学习。
+
+    奖励（Reward）：RLHF 中的奖励是复杂且高度非线性的。最核心的奖励信号来自我们费心训练的奖励模型（Reward Model, RM）。RM 会在整个生成序列结束时给出一个标量rfinal，它代表了人类对整个回答有用性、无害性和诚实性的综合偏好。这使得 RLHF 的奖励是极端稀疏且延迟的，因为在整个生成过程的中间步骤，token 的选择得不到任何关于最终质量的直接反馈。为了解决这种稀疏性带来的训练困难，我们通常会在每个 token 处增加一个即时但人造的奖励信号——KL 散度惩罚。rt=−β⋅
+
+    [图片内容未导入]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/N1iEwZtKqi63XWkhV4ccypmRnkh
+  block_id: IBksd4wUJom4XixpjbTcBuZDnUb
+  page_token: N1iEwZtKqi63XWkhV4ccypmRnkh
+  original_title: 在 RLHF 中，如何将对话生成形式化为一个马尔可夫决策过程（MDP）？状态、动作、奖励分别是什么？
+  imported_at: '2026-09-21'

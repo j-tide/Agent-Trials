@@ -1,0 +1,90 @@
+---
+schema_version: 1
+id: feishu-llm-complete-aa775d228fd1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当链在执行过程中出现异常，LangChain 提供了哪些错误处理机制？（如 fallback、with_fallbacks）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: 当链在执行过程中出现异常，LangChain 提供了哪些错误处理机制？（如 fallback、with_fallbacks）
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangChain提供了声明式回退和自定义异常捕获两种主要机制。
+
+    ### with_fallbacks
+
+    每个Runnable（包括链、模型、工具）都有一个 with_fallbacks 方法。它接收一个或多个备用Runnable，当主Runnable抛出异常时，自动依次尝试备用Runnable。
+
+    ```python
+    from langchain_openai import ChatOpenAI
+
+    # 主模型
+    gpt4 = ChatOpenAI(model="gpt-4o")
+    # 备用模型
+    gpt35 = ChatOpenAI(model="gpt-3.5-turbo")
+
+    robust_model = gpt4.with_fallbacks([gpt35])
+    chain = prompt | robust_model | parser
+    ```
+
+    执行逻辑：如果 gpt4 因为网络超时、Rate Limit、API 500错误等抛出异常，robust_model 会自动捕获异常并调用 gpt35。如果 gpt35 也失败，异常会继续向上抛出。可以嵌套多个回退，例如：
+
+    ```python
+    gpt4.with_fallbacks([gpt35.with_fallbacks([local_llm])])
+    ```
+
+    适用场景：
+
+    - 模型服务降级（主模型不可用时切换备用模型）。
+
+    - 工具调用降级（主工具失败时使用备用工具）。
+
+    - 跨云容灾（Azure OpenAI失败时切换到OpenAI）。
+
+    ### 自定义异常捕获
+
+    如果需要在捕获异常后执行更复杂的逻辑（例如记录日志、清理状态、返回特定错误信息），可以使用 RunnableLambda 包裹一个带try/except的函数。
+
+    ```python
+    def safe_chain(input):
+        try:
+            return main_chain.invoke(input)
+        except SpecificError as e:
+            logger.error("Chain failed", error=e)
+            return fallback_response
+
+    robust_chain = RunnableLambda(safe_chain)
+    ```
+
+    这种方式更灵活，但失去了with_fallbacks的声明式简洁性。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ReT9wTqbnirxZnkOZZGcyGyynKc
+  block_id: EYVWdPPh8oBZgwx8miWccgsQn8g
+  page_token: ReT9wTqbnirxZnkOZZGcyGyynKc
+  original_title: 当链在执行过程中出现异常，LangChain 提供了哪些错误处理机制？（如 fallback、with_fallbacks）
+  imported_at: '2026-09-21'

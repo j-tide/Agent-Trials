@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-19d1aaad7071
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "✂️ 19. 为什么SFT通常只计算回复部分的损失，而不计算prompt部分？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "✂️ 19. 为什么SFT通常只计算回复部分的损失，而不计算prompt部分？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这个设计决策基于训练目标、效率和行为塑造的多重考量。
+
+    训练目标的聚焦
+
+    SFT的核心目标是让模型学习“以指令为条件，生成高质量回答”。这意味着指令的作用是条件变量，回答是目标变量。如果对指令部分也计算损失，模型就会被要求同时预测指令和回答，学习目标变成“如何生成整个对话”，而不仅仅是“如何回答”。这会导致模型角色混乱，可能学会扮演用户，或无法区分哪个部分是它应该生成的。只计算回答损失，将指令纯粹置于条件端，强化了“条件→生成”的因果结构，模型才可能学会遵循指令。
+
+    高效利用模型容量和计算资源
+
+    在一个指令-回答对中，指令部分往往占据总序列长度的30%~70%。如果对这部分也计算损失，梯度更新的信号将有很大一部分花在教会模型生成类似指令的文本，这显然不是我们想要的。这部分计算和梯度不仅浪费，还会稀释回答部分的学习信号。忽略指令损失让模型集中所有参数更新力量去改善回答质量，训练效率显著提升。
+
+    防止行为偏移
+
+    如果训练过程中允许模型预测指令，它就会学习指令的分布。在推理时，模型可能“自作主张”先生成一段指令，再自问自答。这在多轮对话中尤其致命，模型可能无端插入用户发言，破坏对话逻辑。只计算回答损失，使得模型在生成时永远不会尝试产生指令token（因为在它看到的训练模板中，指令token总是属于条件端），从而严格约束了其生成行为。
+
+    实现上的便利：loss masking
+
+    技术上，这一决策通过loss masking实现。将指令部分对应的target labels设置为-100（或ignore_index），损失函数在遇到这些标签时自动跳过，不计入损失和梯度。这种实现简单、高效，且与预训练的next-token prediction模式兼容。模型在预训练时学习的是预测序列中的每个下一个token，SFT通过mask只保留了回答部分的预测任务，是预训练目标的有条件延伸。
+
+    潜在的例外
+
+    在一些特定设置中，如果希望模型学习完整的对话生成（如构建一个能够生成完整对话的模型），则可能会对prompt也计算损失，但这已超出典型的SFT范畴。在标准的指令微调中，忽略prompt损失是保证模型行为正确性的基础做法。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KPIxw03EPiQ1rrkxrvUcqRIznBf
+  block_id: LTmsdvqfBohAmWxtQnUcbtGFnWe
+  page_token: KPIxw03EPiQ1rrkxrvUcqRIznBf
+  original_title: "✂️ 19. 为什么SFT通常只计算回复部分的损失，而不计算prompt部分？"
+  imported_at: '2026-09-21'

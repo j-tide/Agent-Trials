@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3effe18b09b0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: MoCo 中的动量更新公式是什么？动量系数设置有什么讲究？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块八：前沿与应用领域概览
+tags: &1
+- 深度学习面（精选）
+- 模块八：前沿与应用领域概览
+content:
+  prompt: MoCo 中的动量更新公式是什么？动量系数设置有什么讲究？
+answer:
+  mode: rubric
+  reference_answer: |-
+    动量更新公式
+
+    在 MoCo 中，键编码器 f_k 的参数 θ_k 不参与反向传播，而是通过查询编码器 f_q 的参数 θ_q 进行动量更新：
+
+    [图片内容未导入]
+
+    其中 m 为动量系数（通常设为 0.999）。初始化时 θ_k 直接复制 θ_q。
+
+    为什么需要动量更新
+
+    - 一致性：如果直接复制 θ_q 到 θ_k（即 m=0），键编码器每步都突变，导致队列中的键表示来自不同时刻、差异巨大的编码器，破坏了键的连续性，使对比学习任务变得混乱（查询需要匹配不断变化的键）。
+
+    - 缓慢进化：取极大的 m（接近 1）使得键编码器变化极其缓慢，队列中的键在短时间内几乎由同一个缓慢演化的编码器产生，彼此一致，对比学习可以专注于语义差异。
+
+    - 与反向传播解耦：由于梯度不流过键编码器，队列可以非常大，而无需存储对应的计算图，极大降低内存。
+
+    动量系数的设置
+
+    - 典型值：m = 0.999，意味着键编码器每一步仅向 θ_q 靠拢 0.1%。
+
+    - 过大（如 0.9999）：键编码器进化太慢，可能无法及时追上查询编码器学到的变化，导致正键与查询不同步，性能下降。
+
+    - 过小（如 0.9）：更新太快，键编码器特征剧烈变化，队列中键的一致性差，损失函数震荡，训练不稳定，收敛变差。
+
+    - 自适应策略：MoCo v3 等工作中采用余弦学习率衰减时，动量也可以固定；有些研究尝试使用从小到大的 m 调度，但通常固定为 0.999 即可稳定工作。
+
+    与 BN 的关系
+
+    MoCo 实验发现，标准 BN 会破坏键的一致性，因为键编码器的 BN 统计量会在训练中变化，而队列中的旧键使用了旧的 BN 统计量。解决方法：在键编码器中使用 Shuffle BN，或用全连接层替代 BN 的批级别依赖，MoCo v2 则在多卡训练中采用大小一致的分组。
+
+    动量更新是 MoCo 成功的关键，它以极其优雅的方式解决了一致性和大批量负样本的矛盾。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZXM6wIIg5iTGJ5kkNwAcdpHHnbg
+  block_id: Xgv7d37b1ohfWpxsNCVce2tan2i
+  page_token: ZXM6wIIg5iTGJ5kkNwAcdpHHnbg
+  original_title: MoCo 中的动量更新公式是什么？动量系数设置有什么讲究？
+  imported_at: '2026-09-21'

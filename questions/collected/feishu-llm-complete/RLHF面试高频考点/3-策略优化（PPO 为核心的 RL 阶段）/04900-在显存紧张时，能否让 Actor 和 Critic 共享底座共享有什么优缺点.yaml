@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-32134a5b4c4f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在显存紧张时，能否让 Actor 和 Critic 共享底座？共享有什么优缺点？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: 在显存紧张时，能否让 Actor 和 Critic 共享底座？共享有什么优缺点？
+answer:
+  mode: rubric
+  reference_answer: |-
+    完全可以，这是在显存受限下训练大语言模型 RLHF 时的常见妥协方案。
+
+    共享底座的做法：
+
+    Actor 和 Critic 使用同一个 Transformer 编码器作为主干网络，只是在顶层有所区别：Actor 接语言模型头（词表大小线性层），Critic 接标量输出头。在前向传播时，对于同一个序列，底座的计算只需要执行一次，同时产出 Actor 的 logits 和 Critic 的 value。
+
+    优点：
+
+    - 显存的极大节省：去掉了 Critic 的独立底座，节省了近一半的模型参数显存。这使得在相同硬件上可以使用更大的基础模型或处理更长的序列，效果立竿见影。
+
+    - 表示的同源性：Actor 和 Critic 共享完全相同的世界知识和语言理解，Critic 的价值估计和 Actor 的策略决策建立在完全相同的特征之上。这天然避免了因不同底座导致的认知偏差，可能使优势函数的估计在特征层面更加一致。
+
+    缺点：
+
+    - 梯度干扰：Actor 的 PPO 损失和 Critic 的 MSE 损失对共享参数可能会产生相互矛盾的梯度。例如，为了获得高奖励，Actor 希望底座学习某种特征表示，但 Critic 为了准确预测回报，可能希望底座学习另一种特征。这两种梯度在共享层上角力，可能导致两者都无法充分学习，收敛速度变慢甚至陷入局部最优。
+
+    - 灾难性遗忘加剧：Actor 的策略在持续变化，导致输入分布不断漂移。这迫使共享底座去适应 Actor 的变化，而 Critic 原本基于旧分布建立的价值认知会被迅速颠覆。Critic 需要不断追着 Actor 的屁股跑，价值估计的方差增大。
+
+    - 学习率匹配困难：Actor 和 Critic 通常需要不同的学习率来稳定训练（Critic 一般需要更小或更大的学习率，取决于具体环境）。共享底座使得两者无法独立调节学习率，通常需要折中，导致至少一方的训练效率受损。
+
+    - 价值函数裁剪的复杂性：如果底座更新过于剧烈，可能直接导致 Critic 的价值预测发生跳变，而价值裁剪通常只作用于最后的标量头，难以约束底座的变化。这增加了训练的不稳定性。
+
+    实践中的折中：如果非共享不可，建议不完全共享，而是保留少数几层独立的 Transformer 层（如最后 2-4 层分别独立），仅共享大部分底层。同时，对共享参数部分使用更小的学习率，并对来自 Actor 和 Critic 的梯度进行缩放或动态平衡。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UCjewCVubi1tThkQzKzczCP2nyc
+  block_id: GvOXdCTnRoZHsSxQ1nbcr7LXned
+  page_token: UCjewCVubi1tThkQzKzczCP2nyc
+  original_title: 在显存紧张时，能否让 Actor 和 Critic 共享底座？共享有什么优缺点？
+  imported_at: '2026-09-21'

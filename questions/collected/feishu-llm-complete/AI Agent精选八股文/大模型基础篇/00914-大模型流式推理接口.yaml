@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a63058715135
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 大模型流式推理接口
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: 大模型流式推理接口
+answer:
+  mode: rubric
+  reference_answer: |-
+    要求：逐 token 返回并用 SSE 推送。
+
+    代码（使用 FastAPI 示例）：
+
+    ```python
+    from fastapi import FastAPI, Request
+    from fastapi.responses import StreamingResponse
+    import asyncio
+    import torch
+
+    app = FastAPI()
+
+    async def token_generator(prompt: str):
+        # 模拟模型推理：每次产生一个token
+        inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
+        past_key_values = None
+        input_ids = inputs.input_ids
+        for _ in range(max_new_tokens):
+            with torch.no_grad():
+                outputs = model(input_ids, past_key_values=past_key_values, use_cache=True)
+            logits = outputs.logits[:, -1, :]
+            next_token_id = torch.argmax(logits, dim=-1).item()
+            # 当生成停止词时退出
+            if next_token_id == eos_token_id:
+                break
+            token_text = tokenizer.decode([next_token_id])
+            yield f"data: {token_text}\n\n"
+            # 更新past_key_values用于下一次迭代
+            past_key_values = outputs.past_key_values
+            input_ids = torch.tensor([[next_token_id]]).to("cuda")
+        yield "data: [DONE]\n\n"
+
+    @app.post("/stream")
+    async def stream(request: Request):
+        data = await request.json()
+        prompt = data["prompt"]
+        return StreamingResponse(token_generator(prompt), media_type="text/event-stream")
+    ```
+
+    关键点：SSE 格式为 data: ...\n\n，利用 KV Cache 避免重复计算，通过生成器实现流式。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AxkEwVG8kibSjokIPVEc6aggnjo
+  block_id: doxcno4GSWo07r0RnnqjuETWLib
+  page_token: AxkEwVG8kibSjokIPVEc6aggnjo
+  original_title: 大模型流式推理接口
+  imported_at: '2026-09-21'

@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c5e37bba662d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当你把模型从单卡扩展到多卡时，训练精度下降，可能是什么原因？如何保证精度对齐？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 八：手推与细节
+tags: &1
+- Transfomer精选面试
+- 八：手推与细节
+content:
+  prompt: 当你把模型从单卡扩展到多卡时，训练精度下降，可能是什么原因？如何保证精度对齐？
+answer:
+  mode: rubric
+  reference_answer: |-
+    精度下降（验证指标变差）可能源于：
+
+    - 通信延迟带来的异步更新：如果使用异步分布式训练（如异步 SGD），不同 worker 之间参数不一致可能导致精度下降。现代框架多采用同步训练，但若梯度累积步骤不同步仍可能出现类似问题。
+
+    - Batch Size 增加但学习率未正确缩放：多卡导致全局 batch size 变大，若学习率没有按比例增加（遵循线性缩放规则），训练动态改变，可能收敛到较差的点。有时即使按规则调整，大 batch 仍可能降低泛化，需微调 base lr 或使用 LARS 等优化器。
+
+    - 不同 GPU 上的数值精度差异：如 FP16 下，每个 GPU 计算的 partial softmax、Allreduce 的累积顺序可能造成微小差异，但一般不会导致显著精度下降。若使用了 BF16，则类似 FP32，影响更小。
+
+    - 数据加载分片不均或数据分布偏差：DistributedSampler 保证各卡数据不重复，但若某个卡的数据包含噪声或分布极端，全局梯度可能受影响。需确保 shuffle 种子一致，或采用全局洗牌。
+
+    - 归一化层统计问题：BatchNorm 在多卡上需同步统计量，LayerNorm 通常无需。若错误使用 SyncBN 或未正确实现，会导致统计不准。
+
+    - 随机种子未固定：导致各卡初始化和 dropout 模式不同，虽然影响不大，但完全对齐需要设置相同种子并确保确定性。
+
+    保证精度对齐的方法：
+
+    - 严格遵循学习率缩放规则，并可能微调 warmup。
+
+    - 使用同步 BatchNorm（如果模型包含），或一律用 LayerNorm/GroupNorm。
+
+    - 在多卡环境下进行小规模对齐实验：比如先用极小的 lr 在单卡跑若干步，记录 loss 和梯度；多卡跑相同全局 batch，验证 loss 和更新量一致。
+
+    - 保持 FP32 的主权重同步，定期保存检查点。
+
+    - 禁用异步梯度 allreduce，确保所有卡同步。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EBHXwK722iy3IFk6JHScIo6cn2g
+  block_id: LNDXdz8Qsoq36Fx3OqLcOu3hnHe
+  page_token: EBHXwK722iy3IFk6JHScIo6cn2g
+  original_title: 当你把模型从单卡扩展到多卡时，训练精度下降，可能是什么原因？如何保证精度对齐？
+  imported_at: '2026-09-21'

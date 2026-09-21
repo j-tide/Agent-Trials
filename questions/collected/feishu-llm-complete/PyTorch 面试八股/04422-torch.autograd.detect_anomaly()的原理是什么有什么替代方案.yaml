@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-debded0a7766
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: torch.autograd.detect_anomaly()的原理是什么？有什么替代方案？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: torch.autograd.detect_anomaly()的原理是什么？有什么替代方案？
+answer:
+  mode: rubric
+  reference_answer: |-
+    torch.autograd.detect_anomaly() 是一个上下文管理器或全局开关，开启后，autograd 引擎将在反向传播时对每个操作的梯度进行校验，并在发现产生 NaN 或 Inf 的第一个操作处抛出异常，附带该操作的 traceback。
+
+    原理：
+
+    - 正常模式：autograd 直接执行反向传播，遇到 NaN 时可能继续传播，导致错误定位困难。
+
+    - 检测模式：在反向传播的每个操作完成后，会检查其输出的梯度是否包含 NaN/Inf。一旦发现，立即中断，并打印出该操作的 Python 调用栈，从而精确定位到是哪个层或哪一步操作导致数值问题。
+
+    使用：
+
+    ```python
+    with torch.autograd.detect_anomaly():
+        loss.backward()
+    ```
+
+    或者全局启用：torch.autograd.set_detect_anomaly(True)。
+
+    替代方案：
+
+    - 梯度裁剪：torch.nn.utils.clip_grad_norm_() 可防止梯度爆炸，但无法检测 NaN 来源。
+
+    - 手动打印梯度统计：在训练循环中逐层检查 param.grad 的 min, max, mean。
+
+    - torch.autograd.gradcheck：用于测试自定义 Function 的梯度正确性，不适用于运行时检测。
+
+    - 混合精度训练时的 GradScaler：可以自动跳过产生 Inf/NaN 的更新。
+
+    - 使用 PyTorch Profiler 分析：查看操作时间线，结合数值变化，辅助判断。
+
+    注意：detect_anomaly() 会显著增加反向传播的耗时和内存，只应在调试时临时开启，生产环境中必须关闭。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  block_id: IIIPdV4QiopoIHxI8t0cooYxnfh
+  page_token: Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  original_title: torch.autograd.detect_anomaly()的原理是什么？有什么替代方案？
+  imported_at: '2026-09-21'

@@ -1,0 +1,115 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b5025dc9ed59
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 BPE 的分词器训练类，包含 train, encode, decode 方法，并支持设置词汇表大小上限
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 实现 BPE 的分词器训练类，包含 train, encode, decode 方法，并支持设置词汇表大小上限
+answer:
+  mode: rubric
+  reference_answer: "我们将实现一个完整的 BPETokenizer 类，整合上述所有内容，采用 Byte-Level 以彻底解决 OOV，并使用堆加速。支持设置词汇表大小上限（vocab_size），初始词汇表大小为
+    256（字节）+ 1（结束符）= 257，经过 vocab_size - 257 次合并后停止。\n\n类设计：\n\n- init(self, vocab_size=30000)：设置目标词汇表大小。\n\n-
+    train(self, text)：训练 BPE 分词器，生成 merges 和 vocab（id 到字节序列的映射）。\n\n- encode(self,
+    text)：将文本编码为 token ID 列表。\n\n- decode(self, ids)：将 token ID 列表解码为字符串。\n\n内部使用字节级初始化，合并时创建新
+    ID（从 258 开始）。为了能在 token ID 和字节序列间转换，需要维护一个 id2bytes 字典，记录每个 ID 对应的原始字节序列（便于解码）。合并时，new_id
+    对应的字节序列是 a_id 的字节序列 + b_id 的字节序列拼接。\n\n详细实现：\n\n```python\nimport heapq\nfrom
+    collections import Counter, defaultdict\n\nclass ByteLevelBPETokenizer:\n    def
+    __init__(self, vocab_size=30000):\n        self.vocab_size = vocab_size\n        self.end_id
+    = 256          # 结束符 ID\n        self.merges = []           # 合并规则：[(a_id, b_id,
+    new_id), ...]\n        self.id2bytes = {}         # ID -> bytes\n        self.unk_id
+    = None         # Byte-level 不需要 UNK，但可保留\n        \n    def train(self, text:
+    str):\n        # 1. 单词分词与频率统计\n        words = text.split()\n        word_freq
+    = Counter(words)\n        \n        # 2. 初始化字节序列\n        word_symbols = []   #
+    [[int_list], freq]\n        bigram_freq = Counter()\n        pair_to_indices =
+    defaultdict(set)\n        \n        # 初始化 id2bytes: 0-255 为单字节\n        for i
+    in range(256):\n            self.id2bytes[i] = bytes([i])\n        # 结束符用空字节表示，但为了方便解码，可以赋予一个特殊字节，这里我们不在
+    id2bytes 中存放结束符，解码时遇到结束符就忽略\n        # 也可以将结束符映射到一个不会出现的字节，但最终解码我们会处理。\n        \n
+    \       for word, freq in word_freq.items():\n            byte_seq = list(word.encode('utf-8'))
+    + [self.end_id]\n            word_symbols.append([byte_seq, freq])\n            for
+    i in range(len(byte_seq) - 1):\n                pair = (byte_seq[i], byte_seq[i+1])\n
+    \               bigram_freq[pair] += freq\n                pair_to_indices[pair].add(len(word_symbols)
+    - 1)\n        \n        # 3. 初始化堆\n        heap = []\n        for pair, f in bigram_freq.items():\n
+    \           heapq.heappush(heap, (-f, pair))\n        \n        # 当前最大 ID\n        next_id
+    = 257  # 0-256 保留\n        \n        # 目标合并次数\n        num_merges = self.vocab_size
+    - next_id  # 因为 257 是当前词汇量\n        if num_merges < 0:\n            num_merges
+    = 0\n        \n        for step in range(num_merges):\n            # 弹出有效最高频 pair\n
+    \           best_pair = None\n            while heap:\n                neg_f,
+    pair = heapq.heappop(heap)\n                if bigram_freq.get(pair, 0) == -neg_f:\n
+    \                   best_pair = pair\n                    break\n            if
+    best_pair is None:\n                break\n            \n            a, b = best_pair\n
+    \           new_id = next_id\n            next_id += 1\n            \n            #
+    记录合并规则\n            self.merges.append((a, b, new_id))\n            # 新 ID 的字节序列
+    = a 的字节序列 + b 的字节序列\n            self.id2bytes[new_id] = self.id2bytes[a] + self.id2bytes[b]\n
+    \           \n            # 更新受影响单词的 bigram 统计\n            affected = pair_to_indices.get(best_pair,
+    set()).copy()\n            changed_pairs = set()\n            \n            for
+    idx in affected:\n                symbols, freq = word_symbols[idx]\n                #
+    减去旧 bigram\n                for i in range(len(symbols) - 1):\n                    p
+    = (symbols[i], symbols[i+1])\n                    bigram_freq[p] -= freq\n                    if
+    bigram_freq[p] <= 0:\n                        del bigram_freq[p]\n                    if
+    p in pair_to_indices:\n                        pair_to_indices[p].discard(idx)\n
+    \                       if not pair_to_indices[p]:\n                            del
+    pair_to_indices[p]\n                    changed_pairs.add(p)\n                \n
+    \               # 合并\n                new_syms = []\n                i = 0\n                while
+    i < len(symbols):\n                    if i < len(symbols) - 1 and symbols[i]
+    == a and symbols[i+1] == b:\n                        new_syms.append(new_id)\n
+    \                       i += 2\n                    else:\n                        new_syms.append(symbols[i])\n
+    \                       i += 1\n                word_symbols[idx][0] = new_syms\n
+    \               \n                # 添加新 bigram\n                for i in range(len(new_syms)
+    - 1):\n                    p = (new_syms[i], new_syms[i+1])\n                    bigram_freq[p]
+    += freq\n                    if p not in pair_to_indices:\n                        pair_to_indices[p]
+    = set()\n                    pair_to_indices[p].add(idx)\n                    changed_pairs.add(p)\n
+    \           \n            # 清理 best_pair 的索引\n            if best_pair in pair_to_indices:\n
+    \               del pair_to_indices[best_pair]\n            changed_pairs.discard(best_pair)\n
+    \           \n            # 将改变的 pair 的新频率推入堆\n            for p in changed_pairs:\n
+    \               f = bigram_freq.get(p, 0)\n                if f > 0:\n                    heapq.heappush(heap,
+    (-f, p))\n        \n        # 最终词汇表大小\n        self.vocab = self.id2bytes.copy()
+    \ # 完整的 id -> bytes 映射\n    \n    def encode(self, text: str) -> list:\n        #
+    按单词处理，每个单词编码后拼接，插入结束符 ID\n        words = text.split()\n        token_ids = []\n
+    \       for word in words:\n            seq = list(word.encode('utf-8')) + [self.end_id]\n
+    \           for a, b, new_id in self.merges:\n                new_seq = []\n                i
+    = 0\n                while i < len(seq):\n                    if i < len(seq)-1
+    and seq[i] == a and seq[i+1] == b:\n                        new_seq.append(new_id)\n
+    \                       i += 2\n                    else:\n                        new_seq.append(seq[i])\n
+    \                       i += 1\n                seq = new_seq\n            token_ids.extend(seq)\n
+    \       return token_ids\n    \n    def decode(self, ids: list) -> str:\n        #
+    将所有 ID 转成字节序列，拼接，然后处理结束符\n        byte_list = []\n        for tid in ids:\n            if
+    tid == self.end_id:\n                # 词尾，添加空格\n                byte_list.append(b'
+    ')\n            else:\n                byte_list.append(self.id2bytes[tid])\n
+    \       full_bytes = b''.join(byte_list)\n        # 解码为 UTF-8，去除末尾多余空格\n        text
+    = full_bytes.decode('utf-8', errors='replace')\n        # 可能结尾有空格（最后一个词尾），strip
+    去掉首尾，但保留中间空格\n        text = ' '.join(text.split())\n        return text\n```\n\n测试：\n\n```python\ntokenizer
+    = ByteLevelBPETokenizer(vocab_size=300)\ntokenizer.train(\"low low low lower lowest\")\ntokens
+    = tokenizer.encode(\"lowest\")\nprint(tokens)\nprint(tokenizer.decode(tokens))\n```\n\n该类完整实现了训练、编码、解码，并支持词汇表大小上限，采用
+    Byte-Level 彻底解决 OOV。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XDqKw0GPGi6JvkkfpwUcqpdAndd
+  block_id: Bg72d6AY7o6QAwxGmtDccNomnKe
+  page_token: XDqKw0GPGi6JvkkfpwUcqpdAndd
+  original_title: 实现 BPE 的分词器训练类，包含 train, encode, decode 方法，并支持设置词汇表大小上限
+  imported_at: '2026-09-21'

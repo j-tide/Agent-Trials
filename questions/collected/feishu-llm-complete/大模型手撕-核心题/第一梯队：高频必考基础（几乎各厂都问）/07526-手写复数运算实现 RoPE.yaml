@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-22de057d95cc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 手写复数运算实现 RoPE
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 手写复数运算实现 RoPE
+answer:
+  mode: rubric
+  reference_answer: |-
+    题目：利用复数乘法（torch.polar / torch.view_as_complex）实现 RoPE，比较与实数方式（cos/sin 直接乘加）的效率和代码简洁性。
+
+    10.1 复数实现
+
+    ```python
+    def apply_rotary_pos_emb_complex(q, k, freqs_cis, position_ids):
+        """
+        q, k: (batch, num_heads, seq_len, head_dim)
+        freqs_cis: (max_seq_len, head_dim//2)  复数形式
+        """
+        # 根据 position_ids 索引频率
+        cis = freqs_cis[position_ids]  # (batch, seq_len, head_dim//2)
+        # 调整形状以匹配 q,k
+        cis = cis.unsqueeze(1)  # (batch, 1, seq_len, head_dim//2)
+
+        # 将 q,k 转为复数：每两个相邻维度作为实部/虚部
+        q_ = torch.view_as_complex(q.float().reshape(*q.shape[:-1], -1, 2))
+        k_ = torch.view_as_complex(k.float().reshape(*k.shape[:-1], -1, 2))
+
+        # 复数乘法旋转
+        q_rot = q_ * cis
+        k_rot = k_ * cis
+
+        # 转回实数
+        q_embed = torch.view_as_real(q_rot).flatten(-2)
+        k_embed = torch.view_as_real(k_rot).flatten(-2)
+        return q_embed.type_as(q), k_embed.type_as(k)
+    ```
+
+    10.2 对比
+
+    - 代码简洁性：复数版本更短，语义更清晰，避免了手动的 cos/sin 拼接。
+
+    - 效率：复数乘法底层调用优化过的复数运算库，在 GPU 上可能比手动拆分再乘加稍慢，但现代框架（如 PyTorch 2.0+）对其有良好支持。实际差异通常可忽略。
+
+    - 可读性：复数形式更贴近数学定义，易于理解。
+
+    两种实现在效果上完全等价，选择哪种取决于个人偏好和具体硬件优化情况。在生产环境中，LLaMA 等模型早期采用实数版本，后续也有复数版本的应用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VuccwPjSli6dm2kOTxJclpKdnhb
+  block_id: BMPUdc9kuoH62lx3AFDcuVManQg
+  page_token: VuccwPjSli6dm2kOTxJclpKdnhb
+  original_title: 手写复数运算实现 RoPE
+  imported_at: '2026-09-21'

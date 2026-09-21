@@ -1,0 +1,129 @@
+---
+schema_version: 1
+id: feishu-llm-complete-84855b85a3ab
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚙️ 2. 请详细说明 RocketMQ 事务消息的两阶段提交流程，以及如何保证消息不丢失？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: "⚙️ 2. 请详细说明 RocketMQ 事务消息的两阶段提交流程，以及如何保证消息不丢失？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    RocketMQ 事务消息采用 两阶段提交 + 事务回查 的机制。我把整个流程画成一张图，再逐步拆解。
+
+    [图片内容未导入]
+
+    步骤详解：
+
+    - 半消息发送：生产者发送一条“半消息”到 Broker。Broker 将消息持久化到磁盘（CommitLog），但将其标记为 “暂不可投递”，所以消费者完全看不到它。这是保证消息可靠的第一步，因为已经落盘了。
+
+    - 执行本地事务：半消息发送成功后，生产者执行本地数据库操作（例如插入订单）。
+
+    - 提交或回滚：根据本地事务的结果，生产者向 Broker 发送 Commit 或 Rollback 请求。
+
+    - 如果本地事务成功，Commit 后，Broker 将半消息标记为正常消息，下游消费者就可以消费了。
+
+    - 如果本地事务失败，Rollback 后，Broker 将删除这条半消息，下游永远感知不到。
+
+    - 事务回查：如果生产者因为网络超时、Full GC、或宕机，没有及时向 Broker 返回 Commit/Rollback，Broker 会定期（默认 6 秒起，指数退避）主动向生产者发起回查请求。
+    生产者在回查接口中，根据本地数据库的记录判断事务最终状态，然后返回 Commit 或 Rollback。
+
+    如何保证消息不丢失？
+
+    RocketMQ 通过多层防护确保消息从生产、存储到消费的可靠性：
+
+    - 同步刷盘：Broker 将半消息同步写入磁盘（CommitLog）后才返回成功，避免内存丢失。
+
+    - 主从复制：半消息会被同步到从节点（如果配置了 SYNC_MASTER），主宕机后从可接管。
+
+    - 事务回查兜底：对于长时间未确认的半消息，Broker 会以指数退避策略反复回查，直到拿到明确结果。这就覆盖了“生产者发半消息后立刻宕机”这种极端情况。
+
+    - 消费端确认：只有消费者主动返回消费成功，消息才会被标记为已消费，否则会重试。
+
+    示例代码：生产者发送事务消息（Spring Boot + RocketMQTemplate）
+
+    // 订单服务：发送事务消息
+    @Service
+    public class OrderService {
+
+        @Autowired
+        private RocketMQTemplate rocketMQTemplate;
+
+        @Transactional
+        public void createOrder(Order order) {
+            // 构造消息
+            String msg = JSON.toJSONString(order);
+            Message<String> message = MessageBuilder.withPayload(msg).build();
+
+            // 发送事务消息
+            TransactionSendResult result = rocketMQTemplate.sendMessageInTransaction(
+                "order_topic:inventory", message, order);
+
+            if (result.getLocalTransactionState() == LocalTransactionState.COMMIT_MESSAGE) {
+                log.info("订单创建成功，事务消息已提交");
+            } else {
+                throw new RuntimeException("订单创建失败，事务消息已回滚");
+            }
+        }
+    }
+
+    // 事务监听器：执行本地事务 + 回查
+    @RocketMQTransactionListener
+    public class OrderTransactionListener implements RocketMQLocalTransactionListener {
+
+        @Autowired
+        private OrderDao orderDao;
+
+        @Override
+        public RocketMQLocalTransactionState executeLocalTransaction(Message msg, Object arg) {
+            try {
+                Order order = (Order) arg;
+                orderDao.insert(order);          // 本地事务：插入订单
+                return RocketMQLocalTransactionState.COMMIT;
+            } catch (Exception e) {
+                return RocketMQLocalTransactionState.ROLLBACK;
+            }
+        }
+
+        @Override
+        public RocketMQLocalTransactionState checkLocalTransaction(Message msg) {
+            // Broker 回查时，根据订单是否存在来判断事务是否成功
+            Order order = JSON.parseObject(new String((byte[]) msg.getPayload()), Order.class);
+            if (orderDao.findById(order.getId()) != null) {
+                return RocketMQLocalTransactionState.COMMIT;
+            } else {
+                return RocketMQLocalTransactionState.ROLLBACK;
+            }
+        }
+    }
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JpfiwiBYoisbfUkjsLgcdTcHnTf
+  block_id: doxcnx3sDud7DcBtt4Lzy86PSSh
+  page_token: JpfiwiBYoisbfUkjsLgcdTcHnTf
+  original_title: "⚙️ 2. 请详细说明 RocketMQ 事务消息的两阶段提交流程，以及如何保证消息不丢失？"
+  imported_at: '2026-09-21'

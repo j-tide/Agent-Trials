@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-337a48842715
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4D0 如何估算 QLoRA 训练所需的最小 GPU 显存？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F4D0 如何估算 QLoRA 训练所需的最小 GPU 显存？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 QLoRA 最小显存 = 量化基础模型权重 + LoRA 参数与优化器 + 激活值（开启梯度检查点后）+
+    其他开销。以 7B 模型、r=8、seq=2048、batch=1 为例，约需 7-9 GB。\n\n\U0001F9EE 分项估算公式：\n\n- 基础模型权重\n使用
+    NF4 量化，每参数 0.5 字节 + 双重量化后量化常数 ≈ 0.55 字节/参数。\n7B → 7 × 10^9 × 0.55 ≈ 3.85 GB。\n\n-
+    LoRA 可训练参数及优化器\n参数量约 15 M，FP32 参数 + 梯度 + 优化器状态（Adam 2×动量方差）共需约 15 M × 12 字节 ≈
+    0.18 GB。若部分混合精度，可更小。\n\n- 激活显存\n这是最大变量。激活大小与 batch size、序列长度、隐藏维度和层数有关。\n粗略公式：激活
+    ≈ batch × seq_len × hidden × 层数 × (34~40) 字节（经验系数，含注意力和 FFN）。\n7B：hidden=4096,
+    层数=32。seq=2048, batch=1：\n激活 ≈ 1 × 2048 × 4096 × 32 × 40 / 1024^3 ≈ 10.2 GB。\n开启梯度检查点后，可降至约
+    1/√32 或约一个 Block 的激活大小。按每个 Block 输入 0.14 GB，加 Block 内部临时激活约 0.15 GB，则每个 Block
+    重计算峰值约 0.3 GB。整体驻留约 1-2 个 Block 的激活，约 0.3-0.6 GB。但实际框架开销会使激活约 2-4 GB。保守取 3 GB。\n\n-
+    其他（通信缓冲、框架预留）\n约 0.5-1 GB。\n\n\U0001F4CA 总最小显存 ≈ 3.85 + 0.18 + 3 + 0.5 ≈ 7.5 GB。实际可能因实现和优化在
+    7-9 GB 间浮动。\n\n\U0001F3AF 配置建议：若用 RTX 3060 12GB，qlora 7B seq=2048 轻松；若要 seq=4096，激活会加倍，需
+    10-12 GB，仍可行。13B 模型 seq=2048 约需 11-14 GB。\n\n✅ 因此，QLoRA 训练的最小显存估算核心是：量化权重 + 极小
+    LoRA + 梯度检查点后的激活，三者相加即为门槛。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QBvawndcciP8mqkRKr0cKS3Cnzb
+  block_id: WiKodVJNtoONkVxh1jKcUNEmndx
+  page_token: QBvawndcciP8mqkRKr0cKS3Cnzb
+  original_title: "\U0001F4D0 如何估算 QLoRA 训练所需的最小 GPU 显存？"
+  imported_at: '2026-09-21'

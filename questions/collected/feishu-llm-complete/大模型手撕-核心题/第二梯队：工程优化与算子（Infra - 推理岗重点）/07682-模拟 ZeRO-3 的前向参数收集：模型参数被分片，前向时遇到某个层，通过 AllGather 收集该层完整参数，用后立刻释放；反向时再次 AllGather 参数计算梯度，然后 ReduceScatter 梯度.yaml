@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b2d1dad06a31
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 模拟 ZeRO-3 的前向参数收集：模型参数被分片，前向时遇到某个层，通过 AllGather 收集该层完整参数，用后立刻释放；反向时再次 AllGather
+  参数计算梯度，然后 ReduceScatter 梯度。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 模拟 ZeRO-3 的前向参数收集：模型参数被分片，前向时遇到某个层，通过 AllGather 收集该层完整参数，用后立刻释放；反向时再次 AllGather
+    参数计算梯度，然后 ReduceScatter 梯度。
+answer:
+  mode: rubric
+  reference_answer: |-
+    18.1 ZeRO-3 原理
+
+    ZeRO-3 将模型参数也分片，每个节点只持有一部分参数。在计算某一层的前向时，该节点需要该层的完整参数，因此临时通过 AllGather 从所有节点收集该层的完整参数，计算完后立即释放（除非后续还需用）。反向时同样需要 AllGather 参数来计算梯度，得到完整梯度后，每个节点只保留自己负责的分片部分，通过 ReduceScatter 将梯度规约并分散到对应节点上，用于更新本地参数分片。
+
+    18.2 通信步骤模拟
+
+    ```python
+    def zero3_forward(layers, input_data, rank, world_size):
+        x = input_data
+        for layer in layers:
+            # 该层参数分片在各个节点上，需要收集完整参数
+            full_param = allgather_layer_param(layer.param_id, world_size)  # 每节点提供自己分片，组合成完整参数
+            # 前向计算
+            x = layer.forward(x, full_param)
+            # 释放完整参数（删除或标记为可回收）
+            del full_param
+        return x
+
+    def zero3_backward(layers, grad_output, rank, world_size):
+        gy = grad_output
+        for layer in reversed(layers):
+            # 再次收集完整参数
+            full_param = allgather_layer_param(layer.param_id, world_size)
+            # 反向计算得到对参数的梯度（完整）和对输入的梯度
+            gx, g_param_full = layer.backward(gy, full_param)
+            del full_param
+            # 对参数的完整梯度进行 ReduceScatter，每个节点只保留自己分片
+            local_grad_chunk = reduce_scatter_chunk(g_param_full, world_size, rank)
+            # 用 local_grad_chunk 更新本地参数分片
+            update_local_param(layer, local_grad_chunk)
+            gy = gx
+        return gy
+    ```
+
+    ZeRO-3 的通信量较大：每层前向一次 AllGather，反向一次 AllGather + 一次 ReduceScatter。但通过细粒度的分片和及时的释放，使得极大的模型能在有限的显存上训练。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: ME1Xd6K8mo75X8xWlw5cONyDnoh
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 模拟 ZeRO-3 的前向参数收集：模型参数被分片，前向时遇到某个层，通过 AllGather 收集该层完整参数，用后立刻释放；反向时再次
+    AllGather 参数计算梯度，然后 ReduceScatter 梯度。
+  imported_at: '2026-09-21'

@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-41fc845b8b15
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: SFT训练时，如何确保padding部分不参与loss计算？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: SFT训练时，如何确保padding部分不参与loss计算？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在SFT中，一个batch内的样本长度通常不统一，需要进行padding以对齐到相同长度。但模型不应该学习生成这些无意义的[PAD] token，因此必须确保padding部分对损失函数没有贡献。实现这一目标的标准方法是将padding位置的标签（label）设置为-100（PyTorch中CrossEntropyLoss的默认忽略索引）。
+
+    具体实现步骤：
+
+    - 构造输入序列：将每个样本的prompt和response拼接，并在末尾添加EOS token。同时，为每个样本创建一个相同长度的label序列，初始时response部分（包括EOS）的label设为对应的token ID，prompt部分的label设为-100（因为不对prompt计算loss）。
+
+    - Padding对齐：在DataCollator中，将batch内的所有序列填充到该batch的最大长度。通常在右侧填充（左边放内容，右边填充[PAD] token）。对于输入序列（input_ids），填充位置填入tokenizer.pad_token_id（通常为0或其他特殊ID）。对于label序列，填充位置统一填入-100。这是核心步骤。
+
+    - attention_mask：创建attention_mask，将实际token位置标记为1，padding位置标记为0，以确保模型在计算注意力时忽略padding位置。
+
+    - 损失计算：将处理好的input_ids和labels送入模型。模型内部会计算logits，然后与labels一起计算交叉熵损失。由于labels中padding位置的值为-100，PyTorch的CrossEntropyLoss（或HuggingFace的ForCausalLM内置loss）会自动忽略这些位置的损失，不产生梯度。
+
+    为什么填充label为-100？
+    这是PyTorch的默认忽略索引，可以在初始化损失函数时指定（ignore_index=-100）。任何标记为-100的标签都会被跳过。
+
+    注意事项：
+
+    - 填充方向：通常采用右侧填充，因为自回归语言模型从左到右生成，左侧填充会改变序列的起始位置，可能影响位置编码和生成。右侧填充不影响左侧的因果注意力。
+
+    - 确保attention_mask正确，否则即使label被忽略，模型可能仍会关注padding位置的信息，但至少不会学习生成padding。
+
+    - 在生成任务（如推理）中，通常不需要padding，可以使用batch_size=1或利用动态shape。
+
+    ✅ 总结：确保padding不参与loss计算的关键是将label填充为-100，并配合正确的attention_mask。这保证了模型只在有效的回答token上优化。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZYXSwaWATimyqQkmZm5cAPJHnoc
+  block_id: UeiWdRJ3wobBAcxA2VecG4I0nRw
+  page_token: ZYXSwaWATimyqQkmZm5cAPJHnoc
+  original_title: SFT训练时，如何确保padding部分不参与loss计算？
+  imported_at: '2026-09-21'

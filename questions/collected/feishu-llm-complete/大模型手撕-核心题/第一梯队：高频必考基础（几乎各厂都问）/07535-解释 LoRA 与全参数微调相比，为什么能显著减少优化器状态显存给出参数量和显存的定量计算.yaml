@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-180b3fbbbdcd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 LoRA 与全参数微调相比，为什么能显著减少优化器状态显存？给出参数量和显存的定量计算。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 解释 LoRA 与全参数微调相比，为什么能显著减少优化器状态显存？给出参数量和显存的定量计算。
+answer:
+  mode: rubric
+  reference_answer: |-
+    12.1 优化器状态显存的来源
+
+    在深度学习训练中，显存占用主要由模型参数、梯度、优化器状态（如 Adam 的一阶动量 m、二阶动量 v）以及中间激活组成。对于 Adam 优化器，每个可训练参数需要存储其梯度、m 和 v，因此优化器状态显存通常是参数显存的 2 倍（m 和 v 各一份，且梯度也占用一份显存，总计 3 倍参数显存）。
+
+    全参数微调时，所有模型参数都需要计算梯度并维护优化器状态。假设模型参数量为 P（以字节计），FP16 下参数本身占 2P 字节，梯度也占 2P 字节，Adam 状态（FP32 存储）占 4P × 2 = 8P 字节。总计约 12P 字节，但通常估算为参数显存的 3~4 倍。
+
+    12.2 LoRA 的显存节约
+
+    LoRA 仅训练低秩矩阵 A 和 B，而冻结原始权重 W₀。因此需要梯度计算和优化器状态的参数量仅为 A 和 B 的总参数量：
+
+    - 设秩为 r，原始权重尺寸为 d_in × d_out。
+
+    - LoRA 可训练参数量 = r × (d_in + d_out)。
+
+    - 若对所有 Q、K、V、O 及 FFN 层均应用 LoRA，总可训参数可能仅占原模型的千分之几。
+
+    例如，LLaMA-7B 模型参数约 7B。若只对 Attention 的 Q、V 投影添加 r=8 的 LoRA，可训参数约数十万，相比全参数微调，优化器状态显存从数十 GB 降至几十 MB。
+
+    定量计算示例：假设线性层 W ∈ R^{4096×4096}，参数量约 16.8M。应用 r=8 的 LoRA：A (8×4096), B (4096×8)，共 65,536 参数，仅为原参数的 0.39%。优化器状态显存从 16.8M × 12 ≈ 202M 字节降至 65K × 12 ≈ 0.78M 字节。
+
+    12.3 其他显存组成
+
+    - 激活显存：LoRA 前向额外计算了 A @ x 和 B @ (A @ x)，会增加少量中间激活，但相比全参数微调（需存储所有层的梯度计算图），激活显存也大幅减少，因为冻结层的激活不必保留其梯度图。
+
+    - 使用梯度检查点（gradient checkpointing）可进一步降低激活显存，而 LoRA 的少量额外计算几乎不影响吞吐。
+
+    因此，LoRA 通过极小化可训练参数，使微调在消费级 GPU 上成为可能。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LZxww5JuBif3JAkuCoIcuqRenuf
+  block_id: F80qdjAACoGIMtxIN66cf0BJn8g
+  page_token: LZxww5JuBif3JAkuCoIcuqRenuf
+  original_title: 解释 LoRA 与全参数微调相比，为什么能显著减少优化器状态显存？给出参数量和显存的定量计算。
+  imported_at: '2026-09-21'

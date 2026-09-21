@@ -1,0 +1,153 @@
+---
+schema_version: 1
+id: feishu-llm-complete-795f45670622
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F5C4️ 2. SpringAI 如何集成向量数据库？VectorStore 的抽象设计是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F5C4️ 2. SpringAI 如何集成向量数据库？VectorStore 的抽象设计是什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Spring AI 对向量数据库的集成遵循 “统一接口 + 适配器实现” 的经典 Spring 风格。
+
+    核心抽象：VectorStore 接口
+
+    ```java
+    public interface VectorStore {
+        void add(List<Document> documents);
+        Optional<Boolean> delete(List<String> idList);
+        List<Document> similaritySearch(SearchRequest request);
+        default List<Document> similaritySearch(String query) {
+            return similaritySearch(SearchRequest.query(query));
+        }
+    }
+    ```
+
+    设计要点：
+
+    - Document 是通用载体，包含文本内容、元数据 Map、以及可选的 Embedding 向量。
+
+    - SearchRequest 封装查询参数：查询文本、TopK、相似度阈值、过滤表达式等。
+
+    - add 方法内部会自动调用 Embedding 模型将文档向量化，再存入实际后端。
+
+    - 通过 @ConditionalOnClass 和 @EnableConfigurationProperties 实现自动配置，只要引入对应的 Starter，Spring Boot 就自动装配。
+
+    支持的向量数据库（部分）：
+
+    - Chroma：轻量级，适合本地开发。
+
+    - Pinecone：全托管，高性能。
+
+    - Weaviate：支持混合搜索。
+
+    - Milvus：开源，适合大规模生产。
+
+    - PGVector：基于 PostgreSQL，DBA 友好。
+
+    - Redis：支持向量索引的缓存。
+
+    - MongoDB Atlas：文档 + 向量一体化。
+
+    集成示例：以 Chroma 为例
+
+    依赖：
+
+    ```xml
+    <dependency>
+        <groupId>org.springframework.ai</groupId>
+        <artifactId>spring-ai-chroma-store-spring-boot-starter</artifactId>
+    </dependency>
+    ```
+
+    配置：
+
+    ```yaml
+    spring:
+      ai:
+        vectorstore:
+          chroma:
+            host: http://localhost:8000
+            collection-name: my-knowledge-base
+        embedding:
+          openai:
+            api-key: ${OPENAI_API_KEY}
+    ```
+
+    使用：
+
+    ```java
+    @RestController
+    public class KnowledgeController {
+
+        @Autowired
+        private VectorStore vectorStore;
+
+        // 入库
+        @PostMapping("/ingest")
+        public void ingest(@RequestBody String text) {
+            Document doc = new Document(text, Map.of("source", "user_upload"));
+            vectorStore.add(List.of(doc));
+        }
+
+        // 查询
+        @GetMapping("/search")
+        public List<String> search(@RequestParam String q) {
+            return vectorStore.similaritySearch(
+                    SearchRequest.query(q).withTopK(5).withSimilarityThreshold(0.7)
+            ).stream().map(Document::getContent).toList();
+        }
+    }
+    ```
+
+    高级特性：元数据过滤
+
+    在检索时可以按元数据条件过滤，比如只搜索某个来源的文档：
+
+    ```java
+    SearchRequest request = SearchRequest.query("营收")
+            .withFilterExpression("source == 'financial_report'")
+            .withTopK(3);
+    List<Document> docs = vectorStore.similaritySearch(request);
+    ```
+
+    向量库选择指南：
+
+    [嵌入表格未展开]
+
+    Spring AI 的 VectorStore 抽象让切换向量数据库几乎零代码改动——改个配置和依赖即可，这正是 Spring 生态最擅长的事情：“换实现，不换代码”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AFyRwmNoZiYw94kQOOhc35Junpd
+  block_id: doxcntsKzuzH0dNcn5PmTdgUngb
+  page_token: AFyRwmNoZiYw94kQOOhc35Junpd
+  original_title: "\U0001F5C4️ 2. SpringAI 如何集成向量数据库？VectorStore 的抽象设计是什么？"
+  imported_at: '2026-09-21'

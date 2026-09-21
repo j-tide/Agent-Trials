@@ -1,0 +1,105 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fa520ffca486
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多 Agent 的可观测性：跨 Agent 调用链追踪
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+content:
+  prompt: 多 Agent 的可观测性：跨 Agent 调用链追踪
+answer:
+  mode: rubric
+  reference_answer: |-
+    ---
+
+    1、基础题：什么是 Trace ID？在多 Agent 系统中为什么必须有统一的 Trace ID？
+
+    难度级别：⭐（可观测性基础概念、分布式追踪原理）
+
+    Trace ID 是一次任务从开始到结束的唯一标识，所有 Agent 调用都携带同一个 Trace ID，形成完整的调用链。多 Agent 系统一次任务可能触发十几次 LLM 调用分散在不同 Agent，没有统一 Trace ID 就无法把它们关联起来，出了问题根本没法定位。
+
+    ---
+
+    2、进阶题：多 Agent 系统的可观测性如何建设？如何实现跨 Agent 的调用链追踪和 Token 消耗汇总？LangSmith 在其中扮演什么角色？
+
+    难度级别：⭐⭐⭐（统一 Trace ID 传播、LangSmith 父子 Trace 结构、跨 Agent Token 消耗汇总）
+
+    1️⃣ Common Answer
+
+    多 Agent 的调用链很复杂，要给每个任务生成一个唯一 ID，所有 Agent 调用时都带上这个 ID，这样就能在日志里找到同一个任务的所有调用。LangSmith 是 LangChain 的可观测性工具，能记录 LLM 的输入输出和 Token 消耗。
+
+    2️⃣ Impressive Answer
+
+    我会从 Trace ID 传播、LangSmith 父子结构、Token 汇总三个层次来回答：
+
+    - Trace ID 的正确传播方式。Trace ID 必须在任务入口统一生成，通过 Python 的 ContextVar 在异步环境中安全透传，不能让每个 Agent 自己生成——否则就失去了关联能力。每个子调用生成自己的 Span ID 并记录父 Span ID，整体形成树状结构。
+
+    - LangSmith 的父子 Trace 结构。给函数加 @traceable 装饰器，LangSmith 会自动识别调用栈中的嵌套关系，构建父子 Trace 树。在 UI 上可以直接看到完整调用链、每个节点的输入输出、耗时和 Token 消耗，调试效率远高于翻日志。
+
+    - 跨 Agent Token 消耗汇总。通过 LangSmith Client 的 list_runs API，按 Trace ID 聚合所有 run 的 usage_metadata，可以得到每个 Agent 的分项消耗和全局总量，用于成本分析和异常告警。生产中还需要把指标推送到 Prometheus + Grafana，并对失败 Trace 做 100% 采样、成功 Trace 做 10% 采样，平衡存储成本和调试需求。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：线上某个多 Agent 任务失败率突然升高，如何用可观测性手段快速定位问题？
+
+    难度级别：⭐⭐⭐（Trace 分析、错误采样、调用链定位）
+
+    1️⃣ Common Answer
+
+    去看日志，找报错信息。如果有 LangSmith 就去上面看一下哪个 Agent 出错了，然后针对那个 Agent 去排查。
+
+    2️⃣ Impressive Answer
+
+    利用完善的 Trace 体系，定位分三步走：
+
+    首先，通过 Grafana 看板定位失败率上升的时间窗口，对比该窗口内的 Trace 和正常时段的基线——找出失败 Trace 集中在哪个 Agent 节点（Span）。
+
+    其次，对失败的 Trace 做 100% 采样，在 LangSmith 里打开具体 Trace，查看每个 Span 的输入输出，重点看异常 Span 的 LLM 输入是否有上下文截断、工具调用参数是否异常、返回的 JSON 是否解析失败。
+
+    最后，如果是偶发性问题，检查是否有外部依赖（如检索服务、工具 API）的延迟或错误率同步升高，排除上下游影响，确认问题根因后修复并验证 Trace 恢复正常。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JcycwopI3iq7iOk1kBJcuICVnOg
+  block_id: doxcnOhDlkoTjtv1QzWQfNekHbc
+  page_token: JcycwopI3iq7iOk1kBJcuICVnOg
+  original_title: 多 Agent 的可观测性：跨 Agent 调用链追踪
+  imported_at: '2026-09-21'

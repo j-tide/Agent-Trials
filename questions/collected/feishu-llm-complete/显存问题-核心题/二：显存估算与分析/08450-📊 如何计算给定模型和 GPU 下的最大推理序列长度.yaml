@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5c1074e5bc0e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 如何计算给定模型和 GPU 下的最大推理序列长度？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "\U0001F4CA 如何计算给定模型和 GPU 下的最大推理序列长度？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    最大推理序列长度受限于显存容量减去权重和框架开销后，剩余可用于 KV Cache 的显存。步骤如下：
+
+    - 获取显存总量（GPU 总显存，如 24 GB）。
+
+    - 估算权重显存（根据精度：FP16 模型 2 字节/参数，INT4 0.5 字节/参数，INT8 1 字节/参数）。若有量化参数及混合精度，额外加上。
+
+    - 减去其他固定开销：CUDA context、框架内核、中间激活（通常 batch=1 时激活显存极小，但批处理增加时需要更多）。通常预留 0.5–2 GB。
+
+    - 剩余显存用于 KV Cache。
+
+    - 计算每 token 的 KV Cache 大小。公式：
+    per_token_kv_bytes = 2 × 层数 × KV 头数 × 头维度 × 元素大小(字节)
+    其中 2 表示 K 和 V。FP16 元素大小为 2。若是 FP8 KV Cache，元素大小为 1。
+
+    - 最大 token 数 = 剩余显存 / per_token_kv_bytes。
+    如果框架支持分页（PagedAttention），实际可用容量还会略高，因为没有碎片化损失，但仍可按此估算。
+
+    - 这个 token 数包括了输入和输出的总序列长度。因此最大序列长度 ≈ 该 token 数（如果 batch=1）。如果 batch > 1，则每个 batch 的序列共享 KV Cache 池，最大单序列长度需除以 batch size 的某种加权平均，但一般均匀分配就是剩余显存 / (batch_size × per_token_kv_bytes)。
+
+    举个例子：7B FP16，32 层，32 头，头维度 128，FP16。per_token_kv_bytes = 2 × 32 × 32 × 128 × 2 = 524,288 字节 = 0.5 MiB。如果 24GB 显卡，权重 14 GB，剩余约 9–10 GB 给 KV Cache，约能支持 9 GB / 0.5 MiB ≈ 18,000 token（实际可能稍低，有碎片）。所以最大可支持 18K 序列。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/U2u9wFuzEiPu2okJIcFcYZkUnhc
+  block_id: ApaRdx1hooOUm6x5FYLcjrXSnMb
+  page_token: U2u9wFuzEiPu2okJIcFcYZkUnhc
+  original_title: "\U0001F4CA 如何计算给定模型和 GPU 下的最大推理序列长度？"
+  imported_at: '2026-09-21'

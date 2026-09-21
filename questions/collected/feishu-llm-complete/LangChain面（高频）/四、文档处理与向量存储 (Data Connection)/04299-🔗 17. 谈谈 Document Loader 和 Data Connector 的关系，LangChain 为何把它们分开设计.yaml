@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a99d0f4fd70b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F517 17. 谈谈 Document Loader 和 Data Connector 的关系，LangChain 为何把它们分开设计？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F517 17. 谈谈 Document Loader 和 Data Connector 的关系，LangChain 为何把它们分开设计？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 LangChain 的早期版本中，这两者界限模糊，所有数据加载器都堆在 document_loaders 里。但从设计哲学演变来看，它们本质上对应两种不同的集成深度：
+
+    - Document Loader：一次性、单向的数据摄取器。它负责把某个数据源的内容“拉”出来，转成 Document 列表，然后就结束使命。典型的如 PyPDFLoader、TextLoader。它们通常无状态，不关注增量变化。
+
+    - Data Connector：持久的、双向的、可能带状态的数据通道。它不仅加载数据，还负责与数据源保持同步、处理权限、实现增量更新、甚至写回数据。例如 AirbyteLoader、NotionDBLoader、StripeLoader、GitHubLoader 等，背后往往连接着一个 SaaS 平台或数据库，支持持续同步。
+
+    分开设计的原因：
+
+    - 职责分离
+    加载器是“工具”，连接器是“集成”。加载器关注格式解析（PDF、HTML 等），连接器关注通信协议和同步逻辑。强行混合会让接口变得臃肿。
+
+    - 依赖管理
+    Document Loader 的依赖通常较轻（如 pypdf、beautifulsoup4），而 Data Connector 可能需要 airbyte、stripe、notion-client 等重量级 SDK。如果用户只需要加载本地 PDF，却被迫安装 Notion SDK 是不合理的。LangChain 通过拆分，让用户按需安装 langchain-community 的扩展。
+
+    - 生命周期不同
+    加载器通常在数据处理 pipeline 中被短暂使用，而连接器可能长期运行在后台服务中，需要监听 webhook、处理 OAuth 刷新等。分开后可以针对这两类场景分别优化。
+
+    社区现状：
+    LangChain 目前把很多 Data Connector 也放在了 langchain_community.document_loaders 下（如 ConfluenceLoader, SharePointLoader），但内部实现更偏向连接器模式。未来可能会抽象出统一的 BaseDataConnector 接口，让加载器成为其一种特化。理解这两者的差异，有助于在架构中做出正确选择：需要一次性批量导入用 Loader，需要持续同步用 Connector + 索引管理 API。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EY1lwce7uiXgPpklg8tcoBj6nNg
+  block_id: N3EsdTIVJorbASxBeQbc2QE3n8f
+  page_token: EY1lwce7uiXgPpklg8tcoBj6nNg
+  original_title: "\U0001F517 17. 谈谈 Document Loader 和 Data Connector 的关系，LangChain
+    为何把它们分开设计？"
+  imported_at: '2026-09-21'

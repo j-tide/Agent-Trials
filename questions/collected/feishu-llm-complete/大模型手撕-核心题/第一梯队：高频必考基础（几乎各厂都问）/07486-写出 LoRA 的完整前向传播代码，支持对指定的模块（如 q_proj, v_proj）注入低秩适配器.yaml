@@ -1,0 +1,112 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1ef0f9e6b1d5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出 LoRA 的完整前向传播代码，支持对指定的模块（如 q_proj, v_proj）注入低秩适配器。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 写出 LoRA 的完整前向传播代码，支持对指定的模块（如 q_proj, v_proj）注入低秩适配器。
+answer:
+  mode: rubric
+  reference_answer: |-
+    2.1 实现思路
+
+    我们设计一个 LoRALinear 类，它包装原始的线性层。在 init 中创建低秩矩阵 A 和 B，并根据配置决定是否应用 dropout。在前向传播中，计算 W0(x) + (α/r) * dropout( B( A( dropout(x) ) ) )（dropout 可选）。然后提供一个工具函数，可以将模型中的特定层（如所有 q_proj 和 v_proj）替换为 LoRALinear 实例。
+
+    2.2 完整代码
+
+    ```python
+    import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
+
+    class LoRALinear(nn.Module):
+        def __init__(self, original_linear: nn.Linear, r: int, alpha: float, dropout: float = 0.0):
+            super().__init__()
+            self.original_linear = original_linear  # 冻结的原始权重
+            self.r = r
+            self.alpha = alpha
+            self.scaling = alpha / r  # 缩放因子
+
+            in_features = original_linear.in_features
+            out_features = original_linear.out_features
+
+            # 低秩矩阵
+            self.lora_A = nn.Parameter(torch.randn(r, in_features) * 0.02)  # 高斯初始化
+            self.lora_B = nn.Parameter(torch.zeros(out_features, r))        # 零初始化
+
+            self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
+
+            # 冻结原始权重
+            self.original_linear.weight.requires_grad = False
+            if self.original_linear.bias is not None:
+                self.original_linear.bias.requires_grad = False
+
+        def forward(self, x):
+            # 原始输出
+            result = self.original_linear(x)
+            # LoRA 增量：dropout -> A -> dropout? -> B -> scaling
+            lora_x = self.dropout(x)               # (..., in_features)
+            lora_x = F.linear(lora_x, self.lora_A) # (..., r)
+            lora_x = F.linear(lora_x, self.lora_B) # (..., out_features)
+            result = result + self.scaling * lora_x
+            return result
+
+    def inject_lora(model, target_modules, r, alpha, dropout=0.0):
+        """将模型中指定的线性层替换为 LoRALinear"""
+        for name, module in model.named_children():
+            if isinstance(module, nn.Linear) and any(t in name for t in target_modules):
+                # 替换为 LoRA 版本
+                lora_module = LoRALinear(module, r=r, alpha=alpha, dropout=dropout)
+                setattr(model, name, lora_module)
+            else:
+                # 递归处理子模块
+                inject_lora(module, target_modules, r, alpha, dropout)
+
+    # 使用示例
+    # model = AutoModelForCausalLM.from_pretrained(...)
+    # inject_lora(model, target_modules=['q_proj', 'v_proj'], r=8, alpha=16)
+    ```
+
+    2.3 设计要点
+
+    - lora_A 用稍小的方差（如 0.02）进行高斯初始化，这与常见的 Transformer 权重初始化类似。
+
+    - lora_B 零初始化保证训练从原始模型开始。
+
+    - 冻结原始权重，仅优化 A 和 B。
+
+    - scaling = α / r 在 forward 中显式乘入。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LZxww5JuBif3JAkuCoIcuqRenuf
+  block_id: TCXgdILBaoBKk7xDQYGcRJoOnbg
+  page_token: LZxww5JuBif3JAkuCoIcuqRenuf
+  original_title: 写出 LoRA 的完整前向传播代码，支持对指定的模块（如 q_proj, v_proj）注入低秩适配器。
+  imported_at: '2026-09-21'

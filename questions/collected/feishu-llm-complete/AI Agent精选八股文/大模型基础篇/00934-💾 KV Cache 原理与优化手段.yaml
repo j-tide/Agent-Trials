@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5681366c1dd8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BE KV Cache 原理与优化手段"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F4BE KV Cache 原理与优化手段"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F539 原理：为什么需要 KV Cache？\n\n自回归生成时，每生成一个新 token，都要和前面所有
+    token 做注意力计算。如果没有缓存，每一步都要把整条序列重新喂给模型，计算所有 token 的 Key 和 Value，计算量随序列长度平方级增长。\n\nKV
+    Cache 的思路很直接：把每一层的 Key 和 Value 存下来，新 token 只算自己的 K、V，然后拼到缓存后面。\n\n数学上，注意力公式是：\n\n[图片内容未导入]\n\n有了缓存后：\n\n-
+    第 tt 步只需从输入 xtxt 算出 qt,kt,vtqt,kt,vt。\n\n- 更新 K_cache = concat(K_cache, k_t),
+    V_cache = concat(V_cache, v_t)。\n\n- 用 QtQt 和完整的 K_cache, V_cache 计算注意力。\n\n显存与计算的变化：\n\n-
+    无缓存：每步计算量 O(t2d)O(t2d)，显存 O(td)O(td)（但每次重新计算全部）。\n\n- 有缓存：每步计算量 O(td)O(td)，显存占用累计
+    O(2×层数×头数×头维度×最大长度)O(2×层数×头数×头维度×最大长度)，成为主要瓶颈。\n\n[图片内容未导入]\n\n\U0001F539 关键优化手段\n\n①
+    MHA → MQA / GQA：减少缓存体积\n\n- MHA（多头注意力）：每个头都有独立的 K 和 V，缓存很大。\n\n- MQA（多查询注意力）：所有头共享同一份
+    K 和 V，缓存大幅缩减，但模型容量略降。\n\n- GQA（分组查询注意力）：将头分成若干组，组内共享 K、V，在速度和效果间取平衡。LLaMA 2 70B
+    就用了 GQA。\n\n② PagedAttention（vLLM 的核心）\n\n把连续的 KV Cache 切成固定大小的 block，像操作系统的内存分页一样管理。好处：\n\n-
+    动态分配：只分配实际需要的块，消除预分配浪费。\n\n- 前缀共享：多个请求若共用同一个 system prompt，只需存一份 KV 块，显存节省巨大。\n\n-
+    无碎片：请求完成后立即回收 block 给其他请求复用。\n\n③ KV Cache 量化（KV8/ KV4）\n在推理时对 K、V 做 INT8 甚至 INT4
+    量化，进一步压缩缓存占用。例如 HuggingFace Transformers 可搭配 bitsandbytes 对 KV Cache 做量化。\n\n④
+    Flash Decoding / Split-K 技巧\n\n在 Decode 阶段，利用分块并行进一步榨取 GPU 带宽，让长序列生成更快。\n\n代码示例：手动实现
+    KV Cache（微型版）\n\nimport torch\nimport torch.nn.functional as F\n\ndef attention_with_cache(q,
+    k, v, k_cache=None, v_cache=None):\n    # q, k, v 形状: (batch, heads, 1, head_dim)\n
+    \   if k_cache is not None:\n        k = torch.cat([k_cache, k], dim=2)  # 沿序列维度拼接\n
+    \       v = torch.cat([v_cache, v], dim=2)\n    attn_scores = torch.matmul(q,
+    k.transpose(-2, -1)) / (q.shape[-1] ** 0.5)\n    attn_weights = F.softmax(attn_scores,
+    dim=-1)\n    output = torch.matmul(attn_weights, v)\n    return output, k, v  #
+    返回更新后的缓存\n\n# 自回归循环\nk_caches = [None] * num_layers\nv_caches = [None] * num_layers\nfor
+    step in range(max_new_tokens):\n    # ... 对每一层\n    q, k, v = proj_q(x), proj_k(x),
+    proj_v(x)\n    out, k_caches[i], v_caches[i] = attention_with_cache(q, k, v, k_caches[i],
+    v_caches[i])\n\n一句话收束：\n\nKV Cache 是自回归推理的基础，优化它的体积和访问效率，直接决定了我们能多快、多省地服务用户。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VZ8HwGCqEiUGiRkSmGfcRuNdnCg
+  block_id: doxcn0iQkIhCWh3dqU6B841qDrg
+  page_token: VZ8HwGCqEiUGiRkSmGfcRuNdnCg
+  original_title: "\U0001F4BE KV Cache 原理与优化手段"
+  imported_at: '2026-09-21'

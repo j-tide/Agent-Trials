@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-90eb4b52d6b8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: SP 与 TP 组合时，通信是如何优化的？减少冗余通信。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: SP 与 TP 组合时，通信是如何优化的？减少冗余通信。
+answer:
+  mode: rubric
+  reference_answer: |-
+    序列并行（SP）和张量并行（TP）组合使用时，核心优化目标是最大化激活值显存节省，同时最小化额外通信。两者结合可以叠加降低单卡显存：TP切分隐藏维度，SP切分序列维度，激活值在两个维度上同时被分片。
+
+    通信优化手段：
+
+    - 共享通信组：在Megatron-LM中，SP和TP使用相同的进程组。这意味着不需要为SP单独建立通信域，SP的通信操作（如AllGather、ReduceScatter）与TP的通信操作在同一个NCCL组内执行，避免了额外的组初始化和上下文切换开销。
+
+    - LayerNorm和MLP等token独立操作：这些操作在序列维度上是独立的（每个token单独归一化）。在SP模式下，每个设备只持有一部分序列的token，因此可以本地独立执行LayerNorm、Dropout和MLP，不需要任何跨设备通信。相比没有SP时，TP组内每张卡都需要处理完整序列的这些操作，SP让计算量也得到分摊，且没有通信开销。
+
+    - 自注意力层的通信融合：
+
+    - 消除冗余通信：如果不做优化，SP和TP可能会在不同阶段重复进行类似的AllReduce（如MLP的AllReduce和SP的AllGather可能各自独立）。通过统一通信调度，Megatron将SP的通信嵌入到TP的f/g操作框架中，使得每层总通信次数和通信量经过精心编排，避免重复。
+
+    通信模式对比表：
+
+    [嵌入表格未展开]
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: NyYid1wGzoa6d1xWRA3cjwEGn1b
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: SP 与 TP 组合时，通信是如何优化的？减少冗余通信。
+  imported_at: '2026-09-21'

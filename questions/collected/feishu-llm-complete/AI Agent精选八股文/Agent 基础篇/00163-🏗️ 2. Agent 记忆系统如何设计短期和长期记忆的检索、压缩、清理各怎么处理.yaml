@@ -1,0 +1,129 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b906dfeb4a08
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3D7️ 2. Agent 记忆系统如何设计？短期和长期记忆的检索、压缩、清理各怎么处理？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F3D7️ 2. Agent 记忆系统如何设计？短期和长期记忆的检索、压缩、清理各怎么处理？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    设计原则：
+
+    短期记忆保证当前任务流畅，长期记忆提供跨会话的个性化与知识；通过检索、压缩、清理三个机制维持记忆系统的健康。
+
+    2.1 记忆检索
+
+    目标：当新任务到来时，从长期记忆中捞取最相关的信息，注入短期记忆，让 LLM 获得上下文。
+
+    - 时机：每次用户输入，或 Agent 规划阶段。
+
+    - 实现：将用户当前意图或对话摘要向量化，在向量库中搜索 top-K 相关记忆。同时可结合元数据过滤（如时间范围、重要性评分）。
+
+    - 代码示例：
+
+    def retrieve_long_term_memory(query, top_k=3):
+        query_emb = get_embedding(query)
+        results = collection.query(query_embeddings=[query_emb], n_results=top_k)
+        return results["documents"][0]
+
+    # 使用：把检索到的记忆插入到 system prompt 或作为上下文
+    retrieved = retrieve_long_term_memory("用户询问机票价格")
+    short_term_memory.insert(1, {"role": "system", "content": f"相关记忆：{retrieved}"})
+
+    2.2 短期记忆压缩
+
+    问题：对话历史和工具结果不断膨胀，超出窗口。需要在不丢失关键信息的前提下压缩。
+
+    方法：
+
+    - 滑动窗口：只保留最近 N 轮对话，旧内容丢弃（简单粗暴，丢失上下文）。
+
+    - 摘要压缩：用 LLM 生成一段简洁的对话摘要，替换掉冗长的历史。
+
+    - 选择性保留：只保留关键的转折点、任务目标、最新状态，其余丢弃。
+
+    代码示例：基于 LLM 的对话摘要压缩
+
+    def compress_conversation(messages, max_summary_tokens=200):
+        # 取最近 N 轮之前的部分做摘要
+        to_summarize = messages[:-10]  # 保留最后 10 轮原文
+        if len(to_summarize) < 4:
+            return messages  # 不需要压缩
+        summary_prompt = f"请将以下对话压缩为一段简短摘要，保留关键事实和待办事项：\n{to_summarize}"
+        summary = llm(summary_prompt, max_tokens=max_summary_tokens)
+        # 新的记忆结构：系统提示 + 摘要 + 最近几轮原文
+        compressed = [
+            {"role": "system", "content": f"对话历史摘要：{summary}"}
+        ] + messages[-10:]
+        return compressed
+
+    压缩后，短期记忆从几千 token 降到几百，为后续交互腾出空间。
+
+    2.3 记忆清理
+
+    问题：长期记忆会不断累积，产生冗余、过时甚至矛盾的信息。
+
+    方法：
+
+    - 定期触发：每 N 次会话后，或在 Agent 空闲时。
+
+    - 规则清理：基于时间戳删除超过 T 天的记忆；基于访问频率清理冷数据。
+
+    - LLM 反思清理：让 LLM 阅读一批记忆，识别矛盾或重复的信息，合并或删除。
+
+    - 重要性评分：每次召回时记录是否被使用，未被使用的记忆逐步降低权重直至删除。
+
+    代码示例：基于时间戳的清理
+
+    import time
+
+    def clean_old_memories(max_age_days=30):
+        cutoff = time.time() - max_age_days * 86400
+        # 假设每个记忆存储时记录了 timestamp 元数据
+        old_ids = []
+        for mem in collection.get(include=["metadatas"]):
+            if mem["metadata"]["timestamp"] < cutoff:
+                old_ids.append(mem["id"])
+        if old_ids:
+            collection.delete(ids=old_ids)
+
+    记忆系统整体架构图：
+
+    [图片内容未导入]
+
+    好的记忆系统不是无限堆砌，而是像一个高效的个人秘书：随时记得当前在做什么（短期），关键信息存档（长期），定期整理文件夹（清理），开会前递上相关材料（检索）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcn4nx212XZQKe5xU6UA1I8zd
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: "\U0001F3D7️ 2. Agent 记忆系统如何设计？短期和长期记忆的检索、压缩、清理各怎么处理？"
+  imported_at: '2026-09-21'

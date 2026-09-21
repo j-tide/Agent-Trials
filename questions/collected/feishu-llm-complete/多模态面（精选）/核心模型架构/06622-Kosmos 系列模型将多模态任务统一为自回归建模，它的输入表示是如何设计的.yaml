@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-de51949a9adb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Kosmos 系列模型将多模态任务统一为自回归建模，它的输入表示是如何设计的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 核心模型架构
+tags: &1
+- 多模态面（精选）
+- 核心模型架构
+content:
+  prompt: Kosmos 系列模型将多模态任务统一为自回归建模，它的输入表示是如何设计的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Kosmos 将一切多模态输入视为统一的 token 序列，通过自回归 Transformer 进行 next-token prediction。其输入表示设计极为精巧：
+
+    - 文本 token：直接使用标准的文本分词器（如 SentencePiece），将文本转换为离散 token ID。
+
+    - 图像 token：图像通过一个冻结的 CLIP ViT 编码器提取连续特征，然后这些特征通过一个可训练的感知器重采样器或直接投影到 LLM 的嵌入空间，转化为“软 token”（连续向量而非离散 ID）。这些软 token 被视为与文本 token 等价的输入，直接参与 Transformer 的前向计算。
+
+    - 特殊标记与模态切换：序列中插入特殊 token，如 <image> 和 </image> 来包围图像 token 序列，以及 <grounding> 等标记。这告诉模型模态边界。
+
+    - 边界框与位置信息：对于需要定位的任务，Kosmos-2 引入离散化的位置 token。图像区域坐标被均匀量化到一定数量的 bin 中，每个坐标值用一个特殊的 token 表示（如 <x1>, <y15>）。这些 token 作为文本的一部分，在描述中被生成。这样，目标检测和定位问题就被统一为序列生成问题。
+
+    - 统一的多任务格式：所有任务（描述、问答、检测、定位）都被格式化为同一种自回归序列。例如，检测任务的输出序列为“<grounding> <p> a dog <box> <x1><y20><x45><y60> </box> </grounding>”。模型只需逐 token 预测这个序列即可。
+
+    通过将图像表征为连续软 token，将空间坐标离散化为 token，Kosmos 成功把多模态理解与生成统一到了纯自回归框架下。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZVxdwilOdisAVMkysX3c0vaDnfb
+  block_id: ONoxdgj26ovqRoxvIb0cenHPnOg
+  page_token: ZVxdwilOdisAVMkysX3c0vaDnfb
+  original_title: Kosmos 系列模型将多模态任务统一为自回归建模，它的输入表示是如何设计的？
+  imported_at: '2026-09-21'

@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-eb589326a30b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: PPO 训练的每一步都需要从 Actor 采样新的回答，这是在线策略还是离线策略？为什么不能完全离线？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 1-基础认知与流程全景
+tags: &1
+- RLHF面试高频考点
+- 1-基础认知与流程全景
+content:
+  prompt: PPO 训练的每一步都需要从 Actor 采样新的回答，这是在线策略还是离线策略？为什么不能完全离线？
+answer:
+  mode: rubric
+  reference_answer: |-
+    是在线策略（On-Policy）。PPO 属于 on-policy 的强化学习算法，其本质要求用于更新策略的数据必须由当前版本的策略（即当前的 Actor）与环境交互产生。在 RLHF 语境中，Actor 就是当前的策略，环境就是“给定 prompt 生成回答并接收奖励”的过程。
+
+    为什么不能完全离线？
+
+    [图片内容未导入]
+
+    - 奖励模型和 KL 惩罚的动态性：在 RLHF 中，虽然奖励模型是冻结的，但 Actor 生成的是什么风格、什么长度的回答，直接影响奖励分数和 KL 惩罚的计算。旧策略生成的回答分布（比如 SFT 模型生成的）与当前 RL 训练后的 Actor 生成的分布差异巨大。如果一直使用 SFT 阶段的离线数据，Actor 就永远学不到“我现在生成这种回答会得到什么奖励”。它必须通过在线采样，去探索那些能获得更高奖励但在 SFT 数据中从未出现过的回答模式（如更详细的解释、更安全的拒绝话术）。离线数据无法提供这种“因果反馈”。
+
+    - 分布偏移（Distribution Shift）：假设我们从 SFT 模型采样了大量 (prompt, response, reward) 三元组存储为离线数据集，然后用这些数据来训练 Actor。这本质上是 Behavior Cloning（行为克隆）而不是强化学习。Actor 很快会偏离数据集所覆盖的分布，但它的每一步更新都基于对分布外动作的过时价值估计，导致错误累积，最终策略崩溃。这被称为“离线强化学习的致命 triad”——分布偏移、函数近似误差和 bootstrapping 的相互加剧。
+
+    PPO 的折中：PPO 使用在线采样的数据，但允许在同一个 batch 的数据上做多轮梯度更新（通常 4 个 epoch）。它通过裁剪概率比率来惩罚那些使新旧策略差异过大的更新，保证在线数据在被重复使用几次期间，策略没有漂移太远。一旦用完这批数据，必须重新采样。因此，它是在线策略，但通过近端约束实现了部分数据复用，平衡了样本效率与稳定性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TopFwyc4Si1SxFkkfQlc4kXxnJd
+  block_id: FvGfdh9cdoxXNJxWQ8WcH2AQnSf
+  page_token: TopFwyc4Si1SxFkkfQlc4kXxnJd
+  original_title: PPO 训练的每一步都需要从 Actor 采样新的回答，这是在线策略还是离线策略？为什么不能完全离线？
+  imported_at: '2026-09-21'

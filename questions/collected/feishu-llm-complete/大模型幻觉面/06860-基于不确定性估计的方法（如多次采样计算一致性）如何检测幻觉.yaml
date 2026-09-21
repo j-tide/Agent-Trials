@@ -1,0 +1,90 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bf410a74a375
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 基于不确定性估计的方法（如多次采样计算一致性）如何检测幻觉？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型幻觉面
+derived_topic: 
+tags: &1
+- 大模型幻觉面
+content:
+  prompt: 基于不确定性估计的方法（如多次采样计算一致性）如何检测幻觉？
+answer:
+  mode: rubric
+  reference_answer: |-
+    基于不确定性估计的幻觉检测利用了这样一个假设：当模型对生成内容不确定时，更容易产生幻觉。通过量化模型的不确定性，可以预测哪些输出可能不可靠。
+
+    主要方法：
+
+    （1）多次采样一致性（Self-Consistency）
+
+    - 与 SelfCheckGPT 相似，生成多个回答，观察它们在关键事实上的语义一致性。如果各回答在某个事实点上语义分歧大（如使用聚类分析，发现多个簇），则该事实可能为幻觉。
+
+    - 常用的操作：将 N 个回答进行语义嵌入，聚类成若干观点，计算主回答所在簇的大小或与其他簇的远近。若主回答是孤立点，则高度可疑。
+
+    （2）基于 token 概率的不确定性
+
+    - 直接在生成过程中获取每个 token 的预测概率。对于关键事实 token（如实体、数字、日期），计算其条件概率或累积概率。概率越低的 token 越可能是幻觉，因为模型对它的选择犹豫不决。
+
+    - 可以更精细地计算序列的困惑度或熵：对于生成长度，计算平均对数概率或预测熵。高困惑度区域提示模型处于不确定状态，易产生幻觉。
+
+    - 但需要注意：模型可能对错误答案也赋予高概率（过度自信），因此仅概率不够。
+
+    （3）Monte Carlo Dropout / 贝叶斯近似
+
+    - 对白盒模型，可以在推理时启用 dropout（相当于贝叶斯神经网络近似），多次前向传播同一输入，得到不同的概率分布。计算这些分布在各个 token 上的方差。方差大的 token 对应高度不确定，可能幻觉。
+
+    - 由于大模型推理成本高，这种方法应用受限，但原理可行。
+
+    （4）基于隐层状态的不确定性
+
+    - 利用模型最后隐层表示的分布特性，如计算特征范数、距离超平面的距离等，训练一个不确定性估计器。在生成过程中，如果遇到异常表示，则判断可能幻觉。
+
+    （5）口头不确定性（Verbalized Uncertainty）
+
+    - 要求模型在生成答案时同时输出自身的置信度分数（如“置信度：90%”）。这种方法依赖模型的自我认知，但若模型校准不佳，则分数不准。可通过微调让模型学会输出较准确的置信度。
+
+    实际应用：
+
+    - 在对话系统中，对低一致性的回答进行拒答或给出提示“该信息可能不准确”。
+
+    - 结合外部知识：当一致性低时，触发外部检索验证，以节省资源。
+
+    局限性：
+
+    - 不确定性高不一定代表幻觉（可能是模型正确的表达了复杂多变的事实），存在误报。
+
+    - 计算成本高，不适合低延迟场景。
+
+    - 模型的高置信幻觉会使这类方法失效。
+
+    因此，不确定性估计通常与其他方法（如 NLI）结合使用，作为幻觉风险排序或触发深度检测的初筛机制。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NovwwCvuyiHnmDka5CpcaQzunnc
+  block_id: VEridE4vFofzEexex5hcD4ABnob
+  page_token: NovwwCvuyiHnmDka5CpcaQzunnc
+  original_title: 基于不确定性估计的方法（如多次采样计算一致性）如何检测幻觉？
+  imported_at: '2026-09-21'

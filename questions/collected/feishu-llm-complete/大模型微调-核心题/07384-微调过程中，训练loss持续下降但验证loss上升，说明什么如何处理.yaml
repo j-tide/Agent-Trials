@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6b821abe438e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 微调过程中，训练loss持续下降但验证loss上升，说明什么？如何处理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 微调过程中，训练loss持续下降但验证loss上升，说明什么？如何处理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是典型的过拟合（Overfitting）现象。训练loss持续下降，说明模型正在训练数据上不断优化，甚至开始“背诵”其中的细节和噪声；而验证loss上升，则表明模型对未见过的新数据的泛化能力正在变差。此时模型的表现通常是：在训练集上回答越来越完美，但对稍微改写过的指令或全新问题却表现糟糕，输出也变得僵化、模板化。
+
+    如何处理：
+
+    - 立即触发早停（Early Stopping）：这是最直接的措施。在训练过程中持续监控验证loss，一旦发现在设定的“耐心值”（如连续3个评估点）内验证loss不再下降甚至回升，立即停止训练，并回滚到验证loss最低的checkpoint。
+
+    - 增强数据规模与多样性：过拟合常因数据量太少、措辞过于单一所致。可通过回译、强模型改写、指令进化（Evol-Instruct）等方法快速生成大量语义相同但表达多样的新指令，有效扩充训练集，防止模型学习表面模板。
+
+    - 加强正则化约束：增加weight decay（如从0.01提高到0.1），或在LoRA适配器中启用更大的dropout（如0.1），以限制模型复杂度。对于全量微调，可考虑使用更小秩（r）的LoRA，减小可训练参数总量。
+
+    - 降低学习率：将当前学习率调低至原来的1/2甚至1/5，使参数更新更加细微，避免在训练集上“用力过猛”。
+
+    - 调整数据配比，混入通用数据：在SFT数据中混入5%~10%的预训练通用文本（如维基百科、书籍片段），这能在每个batch中提醒模型保持原有的语言能力和知识范围，有效防止分布坍缩。
+
+    - 减少训练轮次：SFT通常1~3个epoch就已足够。即使训练loss仍在下降，只要验证loss出现上升，就应果断停止，而不是等待epoch跑完。
+
+    - 检查验证集质量：确保验证集与训练集在分布上一致，且没有发生数据泄漏（如训练样本意外进入验证集）。验证集应能真实代表最终应用场景。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/W8ymwxsGKimT6Fk1YIOcORI9nLe
+  block_id: MKrYd3drLo3VKYxzS9kcW4GHn5b
+  page_token: W8ymwxsGKimT6Fk1YIOcORI9nLe
+  original_title: 微调过程中，训练loss持续下降但验证loss上升，说明什么？如何处理？
+  imported_at: '2026-09-21'

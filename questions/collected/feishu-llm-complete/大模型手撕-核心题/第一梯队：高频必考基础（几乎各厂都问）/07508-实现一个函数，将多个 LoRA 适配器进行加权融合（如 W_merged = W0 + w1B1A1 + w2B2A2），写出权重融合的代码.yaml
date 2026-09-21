@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8cad67f3d95c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个函数，将多个 LoRA 适配器进行加权融合（如 W_merged = W0 + w1B1A1 + w2B2A2），写出权重融合的代码。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 实现一个函数，将多个 LoRA 适配器进行加权融合（如 W_merged = W0 + w1B1A1 + w2B2A2），写出权重融合的代码。
+answer:
+  mode: rubric
+  reference_answer: |-
+    17.1 应用场景
+
+    多任务 LoRA 的集成：将针对不同任务训练的多个 LoRA 适配器加权组合，得到一个融合后的模型，无需显式切换适配器。权重 w_i 可以人工指定或通过学习得到。
+
+    17.2 实现
+
+    ```python
+    def merge_multiple_loras(model, lora_list, weights):
+        """
+        lora_list: 每个元素是保存的LoRA权重字典 {layer_name: {'A': A_tensor, 'B': B_tensor, 'alpha': val, 'r': val}}
+        weights: 与 lora_list 对应的融合权重列表，总和不需要为1。
+        操作：对于每个LoRA层，计算 ΔW_total = Σ w_i * (α_i / r_i) * B_i @ A_i
+        然后加到原始权重 W0 上。
+        """
+        # 首先收集所有LoRA层的名称（假设所有lora的层名称一致）
+        layer_names = lora_list[0].keys()
+        for name in layer_names:
+            delta_total = 0.0
+            for lora_weights, w in zip(lora_list, weights):
+                A = lora_weights[name]['A']
+                B = lora_weights[name]['B']
+                alpha = lora_weights[name]['alpha']
+                r = lora_weights[name]['r']
+                delta = (alpha / r) * (B @ A)
+                delta_total = delta_total + w * delta
+            # 找到对应的原始权重层并累加
+            target_module = dict(model.named_modules())[name]
+            if isinstance(target_module, LoRALinear):
+                target_module.linear.weight.data += delta_total.to(target_module.linear.weight.dtype)
+            elif isinstance(target_module, nn.Linear):
+                target_module.weight.data += delta_total.to(target_module.weight.dtype)
+    ```
+
+    17.3 注意事项
+
+    - 融合后模型变为普通线性层，不再包含 LoRA 参数。
+
+    - 可以指定融合哪些层，或者对所有层应用。
+
+    - 如果需要保留原 LoRA 结构以便后续调整，可创建新的适配器存储融合结果。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LZxww5JuBif3JAkuCoIcuqRenuf
+  block_id: N2nFdRIM0oeyeDxllBichrUGnSh
+  page_token: LZxww5JuBif3JAkuCoIcuqRenuf
+  original_title: 实现一个函数，将多个 LoRA 适配器进行加权融合（如 W_merged = W0 + w1B1A1 + w2B2A2），写出权重融合的代码。
+  imported_at: '2026-09-21'

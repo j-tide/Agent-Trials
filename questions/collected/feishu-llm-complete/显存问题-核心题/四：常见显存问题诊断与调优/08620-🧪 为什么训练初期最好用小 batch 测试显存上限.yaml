@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-11a563efd381
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EA 为什么训练初期最好用小 batch 测试显存上限？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F9EA 为什么训练初期最好用小 batch 测试显存上限？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 训练刚开始时，模型、数据、优化器等组件初次分配，显存碎片少，此时最能测得各组件实际占用的“冷启动”峰值。用小
+    batch 逐渐增加可以安全地探索显存上限，找到不会 OOM 的最大可行 batch size。\n\n\U0001F50D 理由：\n\n- 避免直接 OOM
+    导致不可恢复\n如果一开始就用大 batch，一旦 OOM，进程崩溃，无法获得任何有效信息。用小 batch 跑通一个 step 后，逐步增加，可以在 OOM
+    前记录下极限值。\n\n- 测量真实的静态占用\n训练初期没有碎片，分配器给出的 memory_allocated() 较为准确。运行几个 step 后，显存碎片会使得实际可用容量小于初期，导致后期
+    OOM。但初期测试可以给出理想上限，为后续留出余量。\n\n- 快速收敛到安全配置\n通过二分法增加 batch size：先跑通 batch=1，记录显存；倍增到
+    OOM，然后在前一个值与 OOM 值之间取折中，再结合梯度累积达到目标全局 batch。\n\n- 评估各项开销占比\n初期只加载模型和优化器，可以分别测量权重的显存、优化器显存，然后跑一个
+    step 得到激活显存。这有助于分析哪部分是瓶颈，从而针对性地选择优化方案（如是否需要梯度检查点、量化等）。\n\n\U0001F4CA 具体操作：\n\n-
+    启动训练脚本，设置一个很小的 per_device_train_batch_size=1，max_steps=3。\n\n- 在第一步前后打印 torch.cuda.memory_allocated()，记录激活开销。\n\n-
+    逐步提高 batch size，观察显存线性增长情况，直到接近显存上限的 90%。\n\n- 乘以一个安全系数（如 0.8），作为最终使用的 batch size。\n\n✅
+    因此，初期小 batch 测试是一种无损伤的显存容量探测，为后续稳定训练建立安全基线。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K8Caw8DYRifcnzkTTjUcLwE4ngd
+  block_id: P5kodu10yoqkyOxfH0rcQTMrnRe
+  page_token: K8Caw8DYRifcnzkTTjUcLwE4ngd
+  original_title: "\U0001F9EA 为什么训练初期最好用小 batch 测试显存上限？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,169 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f35903ec5fc5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 1.3 分布式锁
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: 1.3 分布式锁
+answer:
+  mode: rubric
+  reference_answer: "### 分布式锁实现方案\n\n1、Redis 实现分布式锁的常用命令是什么？如何避免死锁？\n\n⭐（SETNX、过期时间、解锁）\n\nRedis
+    实现分布式锁主要使用 SET key value NX PX timeout 命令：\n\n- SETNX：只在 key 不存在时设置，保证只有一个客户端能获取锁\n\n-
+    PX timeout：设置过期时间，避免客户端崩溃导致死锁\n\n避免死锁的方法：\n\n- 设置合理的过期时间\n\n- 使用 Lua 脚本保证解锁的原子性（先判断锁是否属于自己，再删除）\n\n-
+    守护线程自动续期（看门狗机制）\n\n2、对比 Redis SetNX、Redlock、ZooKeeper 临时节点、数据库乐观锁四种分布式锁实现方案的优缺点。\n\n⭐⭐（多种锁方案对比、适用场景）\n\n1️⃣
+    Common Answer Redis SetNX 简单好用，性能高。ZooKeeper 更可靠，但是慢。数据库乐观锁适合读多写少的场景。Redlock 是
+    Redis 的改进版。\n\n2️⃣ Impressive Answer 这四种分布式锁方案各有优缺点，我会从可靠性、性能、复杂度、适用场景四个维度来对比分析。\n\n-
+    Redis SetNX（单节点）：\n\n实现原理：\n\n// 加锁\npublic boolean tryLock(String lockKey, String
+    requestId, int expireTime) {\n    // SET key value NX PX expireTime\n    return
+    redisTemplate.opsForValue()\n        .setIfAbsent(lockKey, requestId, expireTime,
+    TimeUnit.MILLISECONDS);\n}\n\n// 解锁（Lua 脚本保证原子性）\npublic void unlock(String lockKey,
+    String requestId) {\n    String luaScript = \n        \"if redis.call('get', KEYS[1])
+    == ARGV[1] then \" +\n        \"    return redis.call('del', KEYS[1]) \" +\n        \"else
+    \" +\n        \"    return 0 \" +\n        \"end\";\n    redisTemplate.execute(new
+    DefaultRedisScript<>(luaScript, Long.class), \n                          Collections.singletonList(lockKey),
+    requestId);\n}\n\n优点：\n\n- 性能高：基于内存操作，响应快（毫秒级）\n\n- 实现简单：几行代码就能实现\n\n- 支持超时：自动过期，避免死锁\n\n缺点：\n\n-
+    单点故障：如果 Redis 节点宕机，锁会丢失\n\n- 时钟漂移：依赖系统时间，如果时钟不同步可能导致问题\n\n- 主从切换：Redis 主从异步复制，主节点宕机时，从节点可能还没同步锁信息\n\n适用场景：\n\n-
+    对可靠性要求不高的场景\n\n- 允许极小概率的锁失效\n\n- 高并发、低延迟要求\n\n- Redlock（Redis 分布式锁）：\n\n实现原理：\n\n-
+    同时向 N 个（通常是 5 个）独立的 Redis 节点申请锁\n\n- 如果超过半数（3 个）节点成功获取锁，且获取锁的时间小于锁的有效期，则认为加锁成功\n\n-
+    解锁时向所有节点发送解锁命令\n\npublic boolean tryLock(String lockKey, String requestId, int
+    expireTime) {\n    List<RedisTemplate> redisNodes = getRedisNodes();\n    int
+    successCount = 0;\n    long startTime = System.currentTimeMillis();\n    \n    for
+    (RedisTemplate redis : redisNodes) {\n        boolean success = redis.opsForValue()\n
+    \           .setIfAbsent(lockKey, requestId, expireTime, TimeUnit.MILLISECONDS);\n
+    \       if (success) {\n            successCount++;\n        }\n    }\n    \n
+    \   long elapsedTime = System.currentTimeMillis() - startTime;\n    // 超过半数成功，且耗时小于锁的有效期\n
+    \   if (successCount >= (redisNodes.size() / 2 + 1) \n        && elapsedTime <
+    expireTime) {\n        return true;\n    }\n    \n    // 获取失败，释放已获取的锁\n    unlockAll(lockKey,
+    requestId);\n    return false;\n}\n\n优点：\n\n- 高可用：即使部分节点故障，仍能正常工作\n\n- 避免单点：不依赖单个
+    Redis 节点\n\n缺点：\n\n- 性能较低：需要向多个节点发起请求\n\n- 实现复杂：需要管理多个 Redis 节点\n\n- 仍有争议：Martin
+    Kleppmann 认为它存在时序问题\n\n适用场景：\n\n- 对可靠性要求较高的场景\n\n- 可以接受稍差的性能\n\n- 需要避免单点故障\n\n-
+    ZooKeeper 临时节点：\n\n实现原理：\n\n- 使用 ZooKeeper 的临时顺序节点（EPHEMERAL_SEQUENTIAL）\n\n-
+    客户端创建临时节点，如果是最小的节点，则获取锁\n\n- 否则监听前一个节点的删除事件，前一个节点删除后唤醒自己\n\n- 客户端断开连接时，临时节点自动删除\n\npublic
+    boolean tryLock(String lockPath) throws Exception {\n    // 1. 创建临时顺序节点\n    String
+    currentNode = zkClient.createEphemeralSequential(lockPath + \"/\", \"\");\n    \n
+    \   // 2. 获取所有子节点\n    List<String> children = zkClient.getChildren(lockPath);\n
+    \   Collections.sort(children);\n    \n    // 3. 判断是否是最小的节点\n    if (currentNode.equals(lockPath
+    + \"/\" + children.get(0))) {\n        return true; // 获取锁成功\n    }\n    \n    //
+    4. 监听前一个节点\n    String previousNode = lockPath + \"/\" + children.get(Collections.binarySearch(children,
+    currentNode.substring(lockPath.length() + 1)) - 1);\n    final CountDownLatch
+    latch = new CountDownLatch(1);\n    zkClient.subscribeDataChanges(previousNode,
+    new IZkDataListener() {\n        @Override\n        public void handleDataDeleted(String
+    dataPath) {\n            latch.countDown();\n        }\n        \n        @Override\n
+    \       public void handleDataChange(String dataPath, Object data) {}\n    });\n
+    \   \n    latch.await(); // 等待前一个节点删除\n    return true;\n}\n\n优点：\n\n- 可靠性高：基于
+    CP 理论，强一致性\n\n- 自动释放：客户端断开连接时自动释放锁\n\n- 避免羊群效应：只监听前一个节点，而不是所有节点\n\n缺点：\n\n- 性能较差：每次操作都需要网络往返，响应慢（几十到几百毫秒）\n\n-
+    依赖 ZooKeeper：需要额外部署和维护 ZooKeeper 集群\n\n- 实现复杂：需要处理 Watcher 事件、重连等问题\n\n适用场景：\n\n-
+    对可靠性要求极高的场景\n\n- 可以接受较差的性能\n\n- 如金融交易、分布式协调\n\n- 数据库乐观锁：\n\n实现原理：\n\n- 使用版本号或时间戳\n\n-
+    更新时检查版本号是否变化\n\n- 使用 CAS（Compare And Swap）思想\n\n@Transactional\npublic boolean
+    deductStock(String productId, int count) {\n    // 1. 查询当前版本号\n    Product product
+    = productMapper.selectById(productId);\n    \n    // 2. 使用乐观锁更新\n    int updated
+    = productMapper.updateStockWithVersion(\n        productId, count, product.getVersion());\n
+    \   \n    if (updated == 0) {\n        // 版本号不匹配，更新失败\n        return false;\n
+    \   }\n    return true;\n}\n\n// SQL: UPDATE product SET stock = stock - ?, version
+    = version + 1 \n//      WHERE id = ? AND version = ?\n\n优点：\n\n- 实现简单：不需要额外组件\n\n-
+    无死锁：不会出现死锁问题\n\n- 适合读多写少：冲突少时性能好\n\n缺点：\n\n- 高并发下性能差：冲突频繁时，大量重试\n\n- 不适合长事务：持有锁的时间不能太长\n\n-
+    ABA 问题：如果版本号回绕，可能出现 ABA 问题\n\n适用场景：\n\n- 读多写少的场景\n\n- 冲突不频繁的业务\n\n- 如库存扣减、余额更新\n\n综合对比表：\n\n我的选择建议：\n\n-
+    大多数业务场景：选择 Redis SetNX\n\n- 核心业务场景：选择 Redlock 或 ZooKeeper\n\n- 读多写少场景：选择数据库乐观锁\n\n-
+    金融级场景：选择 ZooKeeper\n\n我在实际项目中的应用：\n\n在电商系统中，我采用了分层策略：\n\n- 秒杀扣库存：使用 Redis SetNX
+    + 降级方案（Redis 不可用时降级到数据库乐观锁）\n\n- 订单状态更新：使用数据库乐观锁\n\n- 分布式任务调度：使用 ZooKeeper\n\n这样既保证了性能，又兼顾了可靠性。\n\n3️⃣
+    Key Differences\n\n3、：设计一个秒杀系统的库存扣减方案，要求支持每秒 10 万 QPS，且不能出现超卖。如何选择和实现分布式锁？\n\n⭐⭐⭐（高并发、秒杀、库存扣减）\n\n1️⃣
+    Common Answer 用 Redis 做库存扣减，用 SETNX 加锁。如果 Redis 挂了，就用数据库。Lua 脚本保证原子性。\n\n2️⃣ Impressive
+    Answer 秒杀场景的核心挑战是高并发 + 强一致性，我会采用Redis Lua + 本地缓存 + 降级方案的组合策略。\n\n首先明确需求：\n\n-
+    QPS 要求：10 万+/秒\n\n- 一致性要求：绝对不能超卖\n\n- 可用性要求：Redis 故障时仍能提供服务\n\n- 响应时间：< 100ms\n\n整体架构设计：\n\ngraph
+    TD\n    A[用户请求] --> B[网关层]\n    B --> C[限流]\n    C --> D[本地库存缓存]\n    D --> E{库存充足?}\n
+    \   E -->|否| F[直接返回失败]\n    E -->|是| G[Redis Lua 脚本扣减]\n    G --> H{扣减成功?}\n    H
+    -->|是| I[创建订单]\n    H -->|否| J[降级到数据库]\n    J --> K[数据库乐观锁扣减]\n    K --> L{扣减成功?}\n
+    \   L -->|是| I\n    L -->|否| F\n    I --> M[返回成功]\n\n详细实现方案：\n\n- 本地库存缓存（第一道防线）：\n\n//
+    应用启动时预热库存到本地缓存\n@PostConstruct\npublic void initLocalStock() {\n    // 从数据库加载秒杀商品库存\n
+    \   List<SeckillProduct> products = seckillProductMapper.selectAll();\n    for
+    (SeckillProduct product : products) {\n        localStockCache.put(product.getId(),
+    product.getStock());\n    }\n    \n    // 启动定时任务，每 5 秒同步一次 Redis 库存\n    scheduledExecutor.scheduleAtFixedRate(this::syncLocalStock,
+    \n                                         5, 5, TimeUnit.SECONDS);\n}\n\n// 同步本地库存\nprivate
+    void syncLocalStock() {\n    for (String productId : localStockCache.keySet())
+    {\n        int redisStock = getStockFromRedis(productId);\n        localStockCache.put(productId,
+    redisStock);\n    }\n}\n\n// 本地库存检查\npublic boolean checkLocalStock(String productId,
+    int count) {\n    Integer stock = localStockCache.get(productId);\n    return
+    stock != null && stock >= count;\n}\n\n- Redis Lua 脚本扣减（核心逻辑）：\n\n-- seckill_deduct_stock.lua\nlocal
+    productId = KEYS[1]\nlocal userId = ARGV[1]\nlocal count = tonumber(ARGV[2])\nlocal
+    requestId = ARGV[3]\nlocal expireTime = tonumber(ARGV[4])\n\n-- 1. 检查库存是否充足\nlocal
+    stock = redis.call('GET', 'stock:' .. productId)\nif not stock then\n    return
+    -1  -- 商品不存在\nend\nstock = tonumber(stock)\nif stock < count then\n    return
+    0   -- 库存不足\nend\n\n-- 2. 检查用户是否已购买（防重）\nlocal userKey = 'user:' .. userId ..
+    ':' .. productId\nif redis.call('EXISTS', userKey) == 1 then\n    return -2  --
+    用户已购买\nend\n\n-- 3. 扣减库存\nredis.call('DECRBY', 'stock:' .. productId, count)\n\n--
+    4. 记录用户购买（防重）\nredis.call('SETEX', userKey, expireTime, '1')\n\n-- 5. 记录购买流水（用于对账）\nredis.call('LPUSH',
+    'purchase:log:' .. productId, \n           userId .. ':' .. count .. ':' .. requestId)\n\nreturn
+    1  -- 成功\n\nJava 调用代码：\n\npublic boolean deductStock(String productId, String
+    userId, \n                          int count, String requestId) {\n    // 1.
+    本地库存快速检查\n    if (!checkLocalStock(productId, count)) {\n        return false;\n
+    \   }\n    \n    // 2. 执行 Redis Lua 脚本\n    String luaScript = loadLuaScript(\"seckill_deduct_stock.lua\");\n
+    \   Long result = redisTemplate.execute(\n        new DefaultRedisScript<>(luaScript,
+    Long.class),\n        Collections.singletonList(productId),\n        userId, String.valueOf(count),
+    requestId, \"3600\"\n    );\n    \n    // 3. 处理结果\n    if (result == 1) {\n        //
+    扣减成功\n        return true;\n    } else if (result == 0) {\n        // 库存不足\n        return
+    false;\n    } else if (result == -1) {\n        // 商品不存在\n        throw new BusinessException(\"商品不存在\");\n
+    \   } else if (result == -2) {\n        // 用户已购买\n        throw new BusinessException(\"每人限购一件\");\n
+    \   }\n    \n    return false;\n}\n\n- 降级方案（Redis 不可用时）：\n\npublic boolean deductStockWithFallback(String
+    productId, String userId, \n                                      int count, String
+    requestId) {\n    try {\n        // 尝试 Redis 扣减\n        return deductStock(productId,
+    userId, count, requestId);\n    } catch (Exception e) {\n        // Redis 异常，降级到数据库\n
+    \       log.warn(\"Redis 扣减失败，降级到数据库\", e);\n        return deductStockFromDB(productId,
+    userId, count, requestId);\n    }\n}\n\n// 数据库乐观锁扣减\n@Transactional\npublic boolean
+    deductStockFromDB(String productId, String userId, \n                                int
+    count, String requestId) {\n    // 1. 查询库存\n    SeckillProduct product = seckillProductMapper.selectById(productId);\n
+    \   if (product == null || product.getStock() < count) {\n        return false;\n
+    \   }\n    \n    // 2. 检查用户是否已购买\n    SeckillOrder existOrder = seckillOrderMapper.selectByUserAndProduct(\n
+    \       userId, productId);\n    if (existOrder != null) {\n        throw new
+    BusinessException(\"每人限购一件\");\n    }\n    \n    // 3. 使用乐观锁更新库存\n    int updated
+    = seckillProductMapper.deductStockWithVersion(\n        productId, count, product.getVersion());\n
+    \   \n    if (updated == 0) {\n        // 版本号不匹配，库存已被其他请求扣减\n        return false;\n
+    \   }\n    \n    // 4. 创建订单\n    createOrder(productId, userId, count, requestId);\n
+    \   \n    return true;\n}\n\n- 性能优化措施：\n\nRedis 集群部署：\n\n- 使用 Redis Cluster，分片存储不同商品的库存\n\n-
+    每个分片部署主从节点，保证高可用\n\n本地缓存预热：\n\n- 应用启动时从数据库加载库存到本地\n\n- 使用 Caffeine 缓存，设置合理的过期时间\n\n-
+    定时任务同步 Redis 库存到本地\n\n异步写库：\n\n- Redis 扣减成功后，立即返回成功\n\n- 异步发送 MQ 消息，持久化到数据库\n\n-
+    MQ 消费失败时重试，超过阈值转入死信队列\n\n限流保护：\n\n- 网关层限流：令牌桶算法，限制总 QPS\n\n- 用户维度限流：每个用户每秒最多请求
+    1 次\n\n- 商品维度限流：每个商品每秒最多扣减 N 次\n\n- 一致性保障：\n\n对账机制：\n\n- 每分钟对比 Redis 库存和数据库库存\n\n-
+    发现不一致时，以数据库为准，修正 Redis 库存\n\n- 记录对账日志，便于排查问题\n\n补偿机制：\n\n- 定时任务扫描\"Redis 扣减成功但数据库未持久化\"的记录\n\n-
+    重新发送 MQ 消息，确保持久化\n\n- 超过 10 分钟仍未持久化，人工介入处理\n\n监控告警：\n\n- 实时监控 Redis 的 QPS、响应时间、错误率\n\n-
+    监控库存扣减的成功率\n\n- 监控降级到数据库的比例\n\n- 设置合理的告警阈值\n\n- 容灾设计：\n\nRedis 故障：\n\n- 自动降级到数据库\n\n-
+    限制数据库的 QPS（如 1000 QPS）\n\n- 前端提示\"系统繁忙，请稍后重试\"\n\n数据库故障：\n\n- 降级到只读模式\n\n- 仅允许查询，不允许下单\n\n-
+    快速修复数据库\n\n网络分区：\n\n- 使用 Redis Cluster 的自动故障转移\n\n- 保证至少一个分片可用\n\n我在上一个项目中就是这么实现的，支撑了双
+    11 秒杀活动，峰值 QPS 达到 15 万，库存准确率 100%，没有出现超卖情况。整个方案的响应时间控制在 80ms 以内，降级到数据库的比例低于 0.1%。\n\nKey
+    Differences\n\n- 中心库存服务维护一个逻辑总库存池。\n\n- 每个区域申请一批库存配额（如每次 1000 件），本地扣减配额的库存。\n\n-
+    当配额用尽，区域向中心异步申请下一批配额。\n\n- 订单提交时，若本地配额充足，扣减本地库存并落订单（本地事务）。若不足，先申请配额再扣减。\n\n- 用户取消订单或退货时，回补本地配额。\n\n-
+    同区域多节点：每个服务部署多个实例，数据库采用主从+哨兵。\n\n- 异地容灾：一个区域整体不可用时，GSLB 将用户流量切换到备用区域。对于已有数据，备用区域可从主区域的数据备份中恢复；对于新用户，直接路由到备用区域。\n\n-
+    降级开关：大促期间，非核心功能（如积分、推荐）可降级或关闭，优先保证下单链路。\n\n- 性能满足要求\n\n- 实现简单\n\n- 通过合理的过期时间和重试机制，可以满足大部分需求\n\n-
+    如订单支付、库存扣减等核心业务\n\n- 可以接受稍差的性能，但要求高可靠性\n\n- 如用户资料更新、配置修改\n\n- 冲突少，性能好\n\n- 如转账、结算等\n\n-
+    强一致性要求"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AGnfw5HNEiq7yikBWUvcMoK7nSb
+  block_id: doxcnSm3jR4EVPIBFJ3n6itCGed
+  page_token: AGnfw5HNEiq7yikBWUvcMoK7nSb
+  original_title: 1.3 分布式锁
+  imported_at: '2026-09-21'

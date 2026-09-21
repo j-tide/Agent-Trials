@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-eb128c187916
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 5.在构建可调用工具的Agent时，如何设计工具的描述与参数Schema，以提升大模型调用工具的准确率？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 
+tags: &1
+- AI Agent精选八股文
+content:
+  prompt: 5.在构建可调用工具的Agent时，如何设计工具的描述与参数Schema，以提升大模型调用工具的准确率？
+answer:
+  mode: rubric
+  reference_answer: "### 一、 设计工具描述：让模型知道“何时用”和“为何用”\n\n模型选择工具时，主要依据就是你的描述。描述模糊，模型就会乱用。\n\n-
+    明确、具体的语义命名\n\n- 差： get_data, process, run\n\n- 好： get_weather_by_location, send_slack_message_to_channel,
+    calculate_shipping_cost_based_on_weight\n\n- 技巧： 命名要包含动作+对象+条件/属性，模型更容易理解。\n\n-
+    强制使用“使用场景”字段（关键）\n\n在描述开头，明确告诉模型什么情况下必须或禁止使用本工具。\n\n# 好的描述示例\n\"description\":
+    \"仅在用户询问天气信息时使用此工具。如果用户询问温度、降雨、风速等，都应该使用此工具。\n不要将此工具用于查询时间或日期。\"\n\n- 说明工具的“副作用”与“限制”\n\n模型不知道你的工具会发邮件、写数据库。如果它有副作用，必须明确警告。\n\n-
+    示例： “此工具会向客户邮箱发送确认邮件。谨慎使用，除非用户明确要求‘立即发送’或‘确认订单’，否则只进行模拟调用。”\n\n- 提供成功与失败的边界案例\n\n-
+    示例： “当输入地点为‘火星’时，此工具会返回‘地点不支持’的错误。当网络超时时，会返回空列表。请不要将空列表解读为天气晴朗。”\n\n### 二、 设计参数
+    Schema：让模型知道“填什么”和“怎么填”\n\n参数 Schema 通常遵循 JSON Schema 标准。目标是减少模型的自由发挥空间。\n\n-
+    善用 enum（枚举值）—— 最强约束\n模型在有限选项中做选择，比凭空生成准确得多。\n\n// 差：模型可能输入 \"Cloudy\", \"cloudy\",
+    \"多云\"\n\"unit\": {\"type\": \"string\", \"description\": \"温度单位\"}\n\n// 好：给出唯一选项\n\"unit\":
+    {\n  \"type\": \"string\", \n  \"enum\": [\"celsius\", \"fahrenheit\"],\n  \"description\":
+    \"温度单位，可选摄氏或华氏\"\n}\n\n- 详细的 description 附带格式与示例\n这是最常用也最容易被低估的技巧。描述里可以写“潜台词”。\n\n\"date\":
+    {\n  \"type\": \"string\",\n  \"description\": \"查询日期，必须为 YYYY-MM-DD 格式，例如 '2024-05-24'。如果用户说‘明天’，\n
+    \ 请动态计算后填入具体日期，不要填‘明天’这个词。\"\n}\n\n- 明智使用 required 和默认值\n\n- required：只标记那些没有它工具就无法运行的绝对核心参数。\n\n-
+    默认值：提供默认值能显著减少模型遗漏参数的概率。例如，page_size 默认 20，sort_by 默认 \"time\"。\n\n- 利用 pattern（正则表达式）进行格式校验\n对于有规律的参数（如订单号、手机号），用正则表达式直接约束模型生成的格式。虽然不是所有模型都严格遵守，但能大幅提升遵循度。\n\n\"order_id\":
+    {\n  \"type\": \"string\",\n  \"pattern\": \"^ORD-[0-9]{9}$\",\n  \"description\":
+    \"订单ID，格式如 ORD-123456789\"\n}\n\n- 复杂对象与数组：提供 additionalProperties 和示例\n\n- 对于对象参数，设置
+    \"additionalProperties\": false 禁止模型添加未定义的字段。\n\n- 对于数组，明确 items 的类型。\n\n- 终极技巧：使用
+    examples 字段。很多模型（如 GPT-4、Claude 3）会优先参考你给的例子。\n\n\"filter\": {\n  \"type\": \"object\",\n
+    \ \"properties\": {\n    \"min_price\": {\"type\": \"number\", \"example\": 100},\n
+    \   \"category\": {\"type\": \"string\", \"example\": \"electronics\"}\n  },\n
+    \ \"additionalProperties\": false,\n  \"description\": \"筛选条件，只能包含 min_price 和
+    category\"\n}\n\n### 三、 高级技巧：超越 Schema 本身\n\n- 系统提示词中注入“工具使用准则”\n在 Agent 的系统提示词里，加入一段全局约束：\n\n-
+    “少样本示例” (Few-Shot) 嵌入上下文\n如果模型支持，在对话历史中加入几个完美的工具调用示例。模型有很强的上下文学习能力。\n\n- 后处理校验
+    + 重试机制\n模型有时就是会犯错。在代码层面，获取模型生成的参数后，进行强校验：\n\n- 分离“查询”与“操作”工具\n不要做一个“万能”工具。例如，search_and_update
+    比 search_database + update_database 更难描述，模型更容易混淆。工具粒度适中（单一职责）准确率最高。\n\n### 总结：一个设计检查清单\n\n在定义好一个工具后，你可以问自己这几个问题来检验：\n\n[嵌入表格未展开]\n\n按照这些原则设计，你会看到模型调用工具的准确率从“偶尔正确”提升到“高度可靠”。最有效的一招，就是把描述写成一个包含“条件-行动”的小文档，而不是一句简短的话。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M526wldNTiQFB3kmM2mcFsoaneh
+  block_id: RJptd2Wtao2p7UxG93mc70ZrnOe
+  page_token: M526wldNTiQFB3kmM2mcFsoaneh
+  original_title: 5.在构建可调用工具的Agent时，如何设计工具的描述与参数Schema，以提升大模型调用工具的准确率？
+  imported_at: '2026-09-21'

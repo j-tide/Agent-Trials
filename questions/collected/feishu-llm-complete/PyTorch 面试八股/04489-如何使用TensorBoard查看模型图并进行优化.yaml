@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cbe1ca5db910
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用TensorBoard查看模型图并进行优化？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何使用TensorBoard查看模型图并进行优化？
+answer:
+  mode: rubric
+  reference_answer: |-
+    TensorBoard 是可视化训练过程和模型结构的利器。在 PyTorch 中，通过 torch.utils.tensorboard.SummaryWriter 可以将模型图添加到 TensorBoard。
+
+    基本步骤：
+
+    ```python
+    from torch.utils.tensorboard import SummaryWriter
+    writer = SummaryWriter('runs/model_vis')
+    dummy_input = torch.randn(1, 3, 224, 224)
+    writer.add_graph(model, dummy_input)
+    writer.close()
+    ```
+
+    然后在命令行运行 tensorboard --logdir=runs，浏览器打开后即可看到模型的计算图。
+
+    查看与优化：
+
+    - 图结构分析：可以双击节点展开，观察数据流。检查是否有不必要的计算分支、重复的算子，或者存在计算瓶颈的层（如巨大的全连接层）。
+
+    - 识别算子融合机会：TensorBoard 不能直接建议融合，但通过图可以发现连续的 Conv2d -> BatchNorm2d -> ReLU，这些可以在导出或量化时融合为单一算子，减少内存访问和 kernel launch 开销。
+
+    - 量化前后的对比：分别记录浮点模型和量化模型的计算图，比较哪些层被替换为量化版本，确保量化正确。
+
+    - 性能瓶颈定位：结合 TensorBoard 的 Profile 功能，使用 torch.profiler 收集时间线，然后在 TensorBoard 的 trace 标签中查看各算子耗时、GPU 利用率等，找出最耗时的操作进行针对性优化（如替换为更高效的实现、调整 batch size 等）。
+
+    优化思路：
+
+    - 消除瓶颈层：如发现某个 Linear 层计算量极大，考虑剪枝、低秩分解或替换为更高效的卷积。
+
+    - 算子融合：手动或通过工具（如 torch.ao.quantization.fuse_modules）融合常见的组合。
+
+    - 内存优化：通过图分析，如果某些中间张量占用显存过多，可插入 checkpoint 或调整 batch_size。
+
+    - 量化感知：在 TensorBoard 中确认量化节点正确插入。
+
+    高级用法：使用 torch.fx 捕获的图也可以通过 torch.fx.passes 进行优化，然后将优化后的图导出为 ONNX 或 TensorRT，并可视化验证。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WSlbwtUNQiNbKakCLPDcsZ9Hnsg
+  block_id: TUGdd47FUoD7YrxIG9vc1WnDnlf
+  page_token: WSlbwtUNQiNbKakCLPDcsZ9Hnsg
+  original_title: 如何使用TensorBoard查看模型图并进行优化？
+  imported_at: '2026-09-21'

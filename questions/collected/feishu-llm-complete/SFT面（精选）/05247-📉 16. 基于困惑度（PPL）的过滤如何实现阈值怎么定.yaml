@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-06b63dbb96d6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4C9 16. 基于困惑度（PPL）的过滤如何实现？阈值怎么定？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F4C9 16. 基于困惑度（PPL）的过滤如何实现？阈值怎么定？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    基于困惑度的过滤，利用语言模型对“好文本”和“差文本”的似然估计差异，自动筛除低质量、不连贯或语法混乱的SFT样本。其核心假设是：高质量文本应该能被一个强大的语言模型以低困惑度预测，而低质量文本则会呈现异常高的困惑度。
+
+    一、PPL过滤的实现流程
+
+    - 选择一个评估模型：通常使用预训练基座模型（如LLaMA-7B）或专门的评估模型。注意不要使用正被SFT训练的模型本身，以防“自己考自己”的偏差。
+
+    - 逐样本计算困惑度：对SFT数据中需要评估的部分（通常是assistant回复）计算语言模型的困惑度。计算公式为：
+
+    [图片内容未导入]
+
+    - 设定阈值并过滤：确定一个困惑度阈值，丢弃PPL高于该阈值的样本（异常难预测，通常意味着文本混乱），同时也可丢弃PPL过低的样本（可能是过于简单或重复的模板文本）。
+
+    - 人工抽检验证：对过滤后的数据和被丢弃的数据分别抽样，人工判断过滤质量，据此调整阈值。
+
+    二、困惑度阈值的确定方法
+
+    困惑度阈值不能一刀切，因为不同任务、不同语言、不同模型计算出的PPL分布差异巨大。合理的做法是基于数据本身的PPL分布统计来确定阈值：
+
+    [嵌入表格未展开]
+
+    百分位法是最实用的起点：计算所有assistant回复的PPL，将PPL值从低到高排序，丢弃处于最高1%-5%的样本。这里假设训练数据中绝大多数是合理质量，只有少数极端异常值。如果数据整体质量较低（如大量合成数据），则需要更严格地截断（如丢弃最高10%-15%）。
+
+    三、需要警惕的陷阱
+
+    - PPL低≠质量高：过度简单的回复（如“谢谢”、“好的”）PPL极低，但对训练没有价值。因此通常需要结合长度过滤，或对PPL过低样本进行抽查。
+
+    - PPL高≠质量差：包含复杂推理、罕见词汇或专业术语的高质量回复，PPL可能天然偏高。因此不应使用过于激进的PPL阈值，避免误杀高价值但“看起来不常规”的样本。
+
+    - 模型选择的影响：评估模型如果与被训练的基座模型相同，PPL会偏向于基座模型擅长的文本风格，可能对SFT数据产生风格偏好过滤。
+
+    四、PPL过滤的增强：分块PPL与分段评估
+
+    对于多轮对话的长回复，整体PPL可能掩盖局部问题。更精细的做法是分块计算PPL：将回复按句子或段落切分，分别计算每段的PPL，如果某段PPL异常高（如突然出现乱码或逻辑断裂），标记该样本。这能捕获“部分崩溃”的长文本。
+
+    ✅ 总结：基于困惑度的过滤通过计算评估模型对回复的困惑度，识别出概率上异常的低质量文本。阈值建议基于数据自身分布（百分位法）确定，并辅以人工抽检调优。需注意PPL与质量的非单调关系，避免因过严阈值误杀高难度但高质量的训练样本。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tx5MwZddviIdFJkeUJbc7HEvnWe
+  block_id: R2a0dn07FoKQmZxWJvrcB4Rwnlf
+  page_token: Tx5MwZddviIdFJkeUJbc7HEvnWe
+  original_title: "\U0001F4C9 16. 基于困惑度（PPL）的过滤如何实现？阈值怎么定？"
+  imported_at: '2026-09-21'

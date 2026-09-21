@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-edd2837669c0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: MoE 的训练显存分析：所有专家的参数都必须常驻显存吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: MoE 的训练显存分析：所有专家的参数都必须常驻显存吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    不是。 在标准的 MoE 训练中，是否需要所有专家常驻显存完全取决于你采用的分布式并行策略。
+
+    - 无专家并行（纯数据并行）：如果只是简单地将 MoE 放在单卡或多卡数据并行但每张卡都拥有全部专家，那么所有专家的参数确实必须常驻在该 GPU 的显存中。因为路由网络可能将任意 token 分配给任意专家，GPU 必须随时准备好计算任何专家。这种模式下，MoE 的显存开销巨大，专家数量一多就无法承受。
+
+    - 专家并行 (Expert Parallelism, EP)：这是专门为 MoE 设计的分布式策略。将不同的专家放置在不同的 GPU 上，每张 GPU 只持有一部分专家的参数。当 token 需要被路由到专家时，通过 All-to-All 通信将 token 发送到对应的 GPU 上完成计算，再传回来。这样，单卡显存只需存储它负责的那部分专家，而不是全部专家。专家并行使得参数量可线性扩展，是训练超大 MoE 的基础。
+
+    - ZeRO-3 参数分片：更进一步，即使在同一张 GPU 上，也可以利用 ZeRO-3 的思想，将专家参数分片存储，前向时按需 AllGather。但通常 EP 已经极大降低了每卡参数，ZeRO-3 主要用来分片那些非专家参数（注意力层、嵌入层等）。
+
+    - 激活值显存：每个 token 只会激活少数专家，所以中间激活只需要为被选中的专家分配空间，而不是全部专家。因此激活显存并不会随专家数爆炸，主要取决于一个 batch 中的 token 总数和容量限制。
+
+    因此，通过 EP 和 ZeRO 的组合，只有每个 GPU 负责的那部分专家参数才需要常驻该卡显存，其余专家参数分布在其他 GPU 上，按需通信获取。这是 MoE 能扩展到数百个专家的关键。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQczwN8cliZ2XSkOI26ckCcPnuf
+  block_id: W1sMdChupop1XaxLFRXcIQ69nEc
+  page_token: GQczwN8cliZ2XSkOI26ckCcPnuf
+  original_title: MoE 的训练显存分析：所有专家的参数都必须常驻显存吗？
+  imported_at: '2026-09-21'

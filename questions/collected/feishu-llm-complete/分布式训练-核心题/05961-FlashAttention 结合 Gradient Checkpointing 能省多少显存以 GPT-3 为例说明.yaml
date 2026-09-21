@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ca5b99b8bcac
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: FlashAttention 结合 Gradient Checkpointing 能省多少显存？以 GPT-3 为例说明。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: FlashAttention 结合 Gradient Checkpointing 能省多少显存？以 GPT-3 为例说明。
+answer:
+  mode: rubric
+  reference_answer: |-
+    FlashAttention和Gradient Checkpointing是两种互补的显存优化技术，组合使用可以将激活显存压缩到极致。
+
+    - FlashAttention：消除注意力矩阵的O(L²)存储，仅保留Q、K、V等线性张量。
+
+    - Gradient Checkpointing：在前向传播时，只保留每个Transformer层的输入张量（检查点），丢弃层内所有中间激活。反向传播时，从检查点重新执行该层的前向计算来恢复这些激活。这进一步削减了Q、K、V、FFN中间输出等线性激活的存储。
+
+    以GPT-3 175B模型为例（L=2048, batch=1, 96层, hidden_dim=12288, 96头）：
+
+    - 无任何优化时：每层注意力矩阵约占用 96头 × 2048² × 2 bytes ≈ 768 MB，96层累计约72 GB（但实际因各层串行，峰值出现在单层，这里为总激活量）。加上QKV和FFN等线性激活，单层总激活峰值可能超过1 GB，全模型激活总量达数十GB。
+
+    - 仅FlashAttention：注意力矩阵存储降至0，线性激活仍保留。单层峰值降至约300-400 MB，全模型总激活量降为原来的40%~50%。
+
+    - 仅Gradient Checkpointing：注意力矩阵仍存在，但每层中间激活不存储，只保留层输入。单层激活峰值仍是注意力矩阵主导，但全模型总激活量大幅下降（因为不堆积各层中间结果）。
+
+    - 两者结合：注意力矩阵被FlashAttention消除，同时Gradient Checkpointing让每层仅需保存输入张量。单层激活峰值降到极低（仅层输入张量，约 batch×L×hidden_dim×2 bytes ≈ 8 MB），96层叠加的激活峰值也仅约为 96 × 8 MB ≈ 768 MB。相比无优化时数十GB的激活量，节省了约95%以上。这也是为什么大模型能在有限显存下训练的根本原因。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: UeUCdPxaco1Z4Fxvg9ncOWX0nCe
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: FlashAttention 结合 Gradient Checkpointing 能省多少显存？以 GPT-3 为例说明。
+  imported_at: '2026-09-21'

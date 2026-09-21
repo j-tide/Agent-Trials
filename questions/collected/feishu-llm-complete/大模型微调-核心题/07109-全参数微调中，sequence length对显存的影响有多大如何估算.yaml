@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-633a642b9fda
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 全参数微调中，“sequence length”对显存的影响有多大？如何估算？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 全参数微调中，“sequence length”对显存的影响有多大？如何估算？
+answer:
+  mode: rubric
+  reference_answer: |-
+    序列长度（Sequence Length, L）对显存的影响是线性与二次的叠加：中间激活（Q、K、V、FFN等）随L线性增长，而注意力矩阵的理论尺寸随L二次增长（不过使用FlashAttention后可控制在O(L)级别）。对全参数微调，激活显存往往是最大的可变部分。
+
+    一、激活显存估算公式
+
+    对于单个Transformer层，一次前向传播的中间激活显存大致为：
+
+    [图片内容未导入]
+
+    - H：隐藏维度
+
+    - num_layers：层数
+
+    - 系数 34~40：包含了Q、K、V、注意力输出、FFN中间结果等，这是经验值。使用FlashAttention后，系数可降至 20~30 左右。
+
+    更直观地，对于一个7B模型（H=4096，层数=32）：
+
+    - L=512，batch=1：激活显存约 1 × 512 × 4096 × 32 × 34 ≈ 2.1 GB（开启FlashAttention）。
+
+    - L=2048：约 8.5 GB。
+
+    - L=4096：约 17 GB。
+
+    二、注意力矩阵的显存陷阱
+
+    若不使用FlashAttention，标准的自注意力需要存储一个形状为 [batch, heads, L, L] 的注意力分数矩阵，FP16下占用 2 × heads × L² 字节。例如，32个头，L=4096时，该矩阵为 32 × 4096² × 2 ≈ 1 GB。这只是一个头的，多头求和会更大。FlashAttention通过分块计算完全消除了这个矩阵，是长序列训练的必备。
+
+    三、KV Cache的显存
+
+    微调时如果是自回归生成（如使用teacher forcing），同样需要存储KV Cache，但其大小在训练中通常被中间激活涵盖。在纯推理时它是主要瓶颈，但在微调中，我们更关注前向的激活。
+
+    如何估算整体显存？
+
+    总显存 = 模型状态（权重+梯度+优化器） + 激活。模型状态通常是固定的（70B模型约840GB），激活随L线性变化。通过上述公式估算激活，加上模型状态，可得到粗略的需求，再乘以1.2的系数覆盖碎片和框架开销。
+
+    控制方法：
+
+    - 减小batch size或使用梯度累积。
+
+    - 启用梯度检查点，将激活显存压至 1/√层数 级别。
+
+    - 使用FlashAttention。
+
+    - 使用序列并行（将序列维度切分到多卡）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: W1xedaiy6o4Pa0xGaPCciPzcn7f
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 全参数微调中，“sequence length”对显存的影响有多大？如何估算？
+  imported_at: '2026-09-21'

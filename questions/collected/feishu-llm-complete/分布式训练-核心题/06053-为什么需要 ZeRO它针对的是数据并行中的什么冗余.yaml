@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7053dab7de46
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么需要 ZeRO？它针对的是数据并行中的什么冗余？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 为什么需要 ZeRO？它针对的是数据并行中的什么冗余？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在标准数据并行训练中，每张GPU都拥有完整的模型副本。这个“完整”意味着每张卡都存储着完全相同的数据——模型参数、梯度、优化器状态（Adam的m和v）。当我们用8张卡训练同一个7B模型时，整个集群存储的模型状态总量是单卡需求的8倍，而其中7份是冗余的。这种冗余在小型模型上不是问题，但当模型参数量达到数十亿、数百亿时，单张GPU的80GB显存很快就不够用了。
+
+    具体来看这种冗余造成的浪费：7B模型在FP16混合精度下，参数占14GB，梯度占14GB，优化器状态（FP32的m和v）占56GB，FP32主权重占28GB，模型状态合计112GB。8张卡集群总存储达896GB，但有效信息只有112GB，冗余率高达87.5%。更致命的是，激活值还需要额外显存，导致单卡根本无法容纳完整状态。
+
+    ZeRO（Zero Redundancy Optimizer）正是针对这一痛点设计的。它的核心理念是消除数据并行中的内存冗余——不再让每张卡都存储完整的模型状态，而是将这些状态分布到所有卡上，每张卡只持有自己负责的那一部分。当需要访问不在本地的数据时，通过高速的集合通信（如AllGather、ReduceScatter）从其他卡获取。
+
+    这个思想的精妙之处在于：它既不改变数据并行的计算模式（每张卡仍然处理不同的微批次数据），也不改变模型结构，只是在底层改变了数据的存储和流动方式。通过消除冗余，ZeRO使得在相同硬件上训练大10倍甚至100倍的模型成为可能。DeepSpeed的实践表明，ZeRO-3可以在8张A100上训练13B甚至更大规模的模型，而标准数据并行连7B都无法承载。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: Cupvd2je8o4maaxU9wrcZU1Nn0d
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: 为什么需要 ZeRO？它针对的是数据并行中的什么冗余？
+  imported_at: '2026-09-21'

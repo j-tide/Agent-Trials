@@ -1,0 +1,90 @@
+---
+schema_version: 1
+id: feishu-llm-complete-45d364931949
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F5BC️ 16. 对于多模态文档（如包含图片和文字的 PPT），LangChain 的处理能力如何？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F5BC️ 16. 对于多模态文档（如包含图片和文字的 PPT），LangChain 的处理能力如何？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    坦白说，LangChain 原生对多模态（图文混合）的支持还比较早期。像 UnstructuredPowerPointLoader 可以提取 PPT 中的文本（标题、正文、表格），但图片通常会被直接忽略，或者只留下一个“占位符”文本。如果我们希望真正理解图片中的信息（图表、流程图、照片），就需要额外手段。
+
+    当前可行的方案：
+
+    - 先用加载器提取所有文本，再对图片单独处理
+    可以使用 python-pptx 直接提取每个幻灯片的图片，然后调用多模态模型（如 GPT-4o, Claude 3.5 Sonnet）描述图片，再将描述作为文本插入到对应位置。
+
+    ```python
+    from pptx import Presentation
+    import base64
+    from openai import OpenAI
+
+    prs = Presentation("demo.pptx")
+    docs = []
+    for i, slide in enumerate(prs.slides):
+        slide_text = []
+        # 提取所有文本
+        for shape in slide.shapes:
+            if shape.has_text_frame:
+                slide_text.append(shape.text)
+            if shape.shape_type == 13:  # 图片类型
+                image = shape.image
+                # 将图片转为 base64 发给视觉模型
+                b64_img = base64.b64encode(image.blob).decode()
+                description = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[{
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "请描述这张图片的内容"},
+                            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64_img}"}}
+                        ]
+                    }]
+                ).choices[0].message.content
+                slide_text.append(f"[图片描述]: {description}")
+        page_content = "\n".join(slide_text)
+        docs.append(Document(page_content=page_content, metadata={"source": "demo.pptx", "slide": i+1}))
+    ```
+
+    - 使用支持多模态的加载器
+    LangChain 有个实验性质的 UnstructuredImageLoader，可以结合 OCR 提取图片文字，但对图表语义理解仍然有限。云服务加载器如 AzureAIDocumentIntelligenceLoader 在解析 PDF/PPT 时可以识别图表并提取部分结构化信息，但仍非完美。
+
+    - 未来方向
+    随着多模态 embedding 模型（如 CLIP）和视觉语言模型的成熟，LangChain 可能会逐步内置处理多模态文档的能力，但目前如果你有大量图文混排的 PPT 或 Word 文档，最好的方式是自己组合工具，先将图片外挂解释，再将解释文本插入原文，构成增强版文档，然后再进行向量化。
+
+    个人看法：现阶段 LangChain 的主要优势在文本，多模态部分还属于“高级手工定制”阶段。项目里我一般把 PPT/PDF 当作纯文本处理，除非图片信息确实关键（如产品手册、医学影像报告），才会额外投入多模态能力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EY1lwce7uiXgPpklg8tcoBj6nNg
+  block_id: DysjdtzQmoVW82x52Rvcza01nkh
+  page_token: EY1lwce7uiXgPpklg8tcoBj6nNg
+  original_title: "\U0001F5BC️ 16. 对于多模态文档（如包含图片和文字的 PPT），LangChain 的处理能力如何？"
+  imported_at: '2026-09-21'

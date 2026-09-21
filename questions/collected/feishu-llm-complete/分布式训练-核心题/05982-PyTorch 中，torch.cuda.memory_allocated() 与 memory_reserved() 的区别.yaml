@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-80ab2dcd1e7f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: PyTorch 中，torch.cuda.memory_allocated() 与 memory_reserved() 的区别
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: PyTorch 中，torch.cuda.memory_allocated() 与 memory_reserved() 的区别
+answer:
+  mode: rubric
+  reference_answer: |-
+    在训练大模型时，我们经常调用这两个函数来监控GPU显存使用情况。它们的含义和指向的对象有本质区别，理解清楚对排查OOM和优化显存至关重要。
+
+    torch.cuda.memory_allocated() 返回的是当前实际被张量占用的显存总量。换句话说，你创建的每一个张量（包括模型参数、梯度、激活值、中间计算结果等）所占用的显存，都会被计入这个值。当一个张量被Python的垃圾回收机制回收后，这部分显存会被PyTorch的缓存分配器标记为空闲，此时memory_allocated()会下降。
+
+    torch.cuda.memory_reserved() 返回的是PyTorch的缓存分配器从CUDA驱动那里预先申请并保留的显存总量。PyTorch为了提高显存分配效率，不会在每次张量释放时立即将显存归还给CUDA驱动，而是将这些空闲显存保留在自己的缓存池中，以便下次创建新张量时快速复用。这部分保留但可能未被实际使用的显存，就被计入了memory_reserved()。
+
+    二者关系可以类比于餐馆经营：memory_reserved() 是餐厅从物业那里租下的整个店面面积，memory_allocated() 是当前正在用餐的顾客实际占据的座位面积。空闲座位虽然没被占用，但物业仍然会收取租金。
+
+    排查显存泄漏时，如果发现memory_reserved()持续增长且不回落，通常意味着PyTorch的缓存分配器在不断向CUDA驱动申请更多显存，这可能是因为训练循环中持续产生新的张量且未被及时释放，导致缓存池被耗尽后不得不扩张。而如果仅memory_allocated()增长，可能是因为某些张量被无意中保留（例如存储了loss history但未detach），导致分配器无法回收它们。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: Dxs1d1wVooLwigxzSFccfOQFn1f
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: PyTorch 中，torch.cuda.memory_allocated() 与 memory_reserved() 的区别
+  imported_at: '2026-09-21'

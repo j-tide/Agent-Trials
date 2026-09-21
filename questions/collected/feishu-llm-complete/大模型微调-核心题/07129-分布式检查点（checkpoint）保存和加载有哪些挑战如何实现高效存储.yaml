@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-42f9a4fae869
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分布式检查点（checkpoint）保存和加载有哪些挑战？如何实现高效存储？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 分布式检查点（checkpoint）保存和加载有哪些挑战？如何实现高效存储？
+answer:
+  mode: rubric
+  reference_answer: |-
+    分布式保存和加载大模型检查点面临海量数据、多节点协同、一致性和速度等挑战。
+
+    主要挑战：
+
+    - 单节点内存不足：大模型的全量参数无法在单个节点的CPU内存中放下，因此不能简单地在rank0上聚合后保存。
+
+    - 写带宽瓶颈：多个GPU同时向共享文件系统写入巨大文件，会严重拥塞网络和存储。
+
+    - 加载时的重组：从分片文件中恢复模型，需要精确匹配原始分布式拓扑（TP/PP/ZeRO分片布局），否则无法正确加载。
+
+    - 一致性：训练中断时，所有rank必须保存到同一个一致的状态点。
+
+    高效存储方案：
+
+    - 分片保存（Sharded Checkpoint）：每个rank只保存自己拥有的那部分参数和优化器状态。这是目前最主流的方式。DeepSpeed ZeRO和PyTorch FSDP均支持。
+
+    - 异步写入：将状态先拷贝到CPU内存，再由后台线程异步写入磁盘，不阻塞训练。
+
+    - 分布式文件系统：使用支持高吞吐的并行文件系统（如Lustre、GPFS），并确保每个节点写入不同的文件或文件区域，避免锁竞争。
+
+    - 合并保存用于推理：如果需要最终发布模型，可在训练完成后单独进行一次全局合并（如DeepSpeed的ds_to_hf.sh脚本），将分片检查点转换成HuggingFace格式。
+
+    配置示例（DeepSpeed）：
+
+    "checkpoint": {
+        "use_node_local_storage": true,
+        "tag": "step_{}",
+        "save_on_training_end": true
+    }
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: Uk6odmEBvozoYrx6Mzwcq2X1n7g
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 分布式检查点（checkpoint）保存和加载有哪些挑战？如何实现高效存储？
+  imported_at: '2026-09-21'

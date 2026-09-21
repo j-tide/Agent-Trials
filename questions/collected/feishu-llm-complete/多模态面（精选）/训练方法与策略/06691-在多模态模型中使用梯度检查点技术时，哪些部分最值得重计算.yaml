@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b2007c4f6af1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在多模态模型中使用梯度检查点技术时，哪些部分最值得重计算？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 训练方法与策略
+tags: &1
+- 多模态面（精选）
+- 训练方法与策略
+content:
+  prompt: 在多模态模型中使用梯度检查点技术时，哪些部分最值得重计算？
+answer:
+  mode: rubric
+  reference_answer: |-
+    梯度检查点通过在反向传播时重新计算部分激活值，来节省显存（用时间换空间）。选择重计算哪些部分要权衡计算开销和显存节省。
+
+    最值得重计算的部分：
+
+    - 视觉编码器的中间层激活：ViT/CNN的前向激活占用大量显存（尤其是高分辨率图像）。重计算视觉编码器是非常值得的，因为它相对文本模型较小，重计算开销可接受，而节省的显存可观。
+
+    - LLM的Transformer层：LLM层数多，每层的激活和注意力矩阵占用巨大显存。在LLM中应用梯度检查点已非常成熟。通常每隔1-2层设置一个检查点，让中间的激活被重计算。由于LLM的自注意力计算密集，重计算开销较大，但换来了成倍的显存节省，使得更大模型训练成为可能。
+
+    - 跨模态交叉注意力层：这些层通常输入序列长（视觉token+文本token），注意力矩阵巨大，显存消耗大，且其计算量相比LLM自注意力小，重计算代价不高，性价比极高。
+
+    - 投影层/适配器：参数量小，激活也小，重计算价值不高，可保留激活。
+
+    哪些部分不值得重计算：
+
+    - 嵌入层和输出层：通常激活尺寸小，重计算省不下太多显存，反而增加复杂性。
+
+    - 归一化层、Dropout：计算极其轻量，没有重计算必要。
+
+    策略：
+
+    - 对视觉编码器全部层开启梯度检查点。
+
+    - 对LLM使用非均匀的检查点布置：在显存消耗最大的层（如中间层、大注意力层）重点设置检查点，其他层不开。
+
+    - 使用activation_checkpointing库（如PyTorch的torch.utils.checkpoint或DeepSpeed的activation_checkpointing），可方便配置哪些模块启用。
+
+    - 在多机多卡训练时，重计算也会增加通信（因为重计算的前向需要重新进行部分计算），需与通信瓶颈权衡。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VC80wRxL0i553WkSOuIcjkHenRp
+  block_id: Mj2GdG6aHo3tLZx8YEHc7dmVnOc
+  page_token: VC80wRxL0i553WkSOuIcjkHenRp
+  original_title: 在多模态模型中使用梯度检查点技术时，哪些部分最值得重计算？
+  imported_at: '2026-09-21'

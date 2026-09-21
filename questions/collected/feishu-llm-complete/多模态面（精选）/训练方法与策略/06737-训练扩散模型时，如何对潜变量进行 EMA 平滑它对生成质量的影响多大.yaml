@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f9baeba8c21b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练扩散模型时，如何对潜变量进行 EMA 平滑？它对生成质量的影响多大？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 训练方法与策略
+tags: &1
+- 多模态面（精选）
+- 训练方法与策略
+content:
+  prompt: 训练扩散模型时，如何对潜变量进行 EMA 平滑？它对生成质量的影响多大？
+answer:
+  mode: rubric
+  reference_answer: |-
+    EMA（指数移动平均） 是一种对模型参数进行时间平滑的技术：θEMA←βθEMA+(1−β)θθEMA←βθEMA+(1−β)θ，其中 ββ 是衰减率（通常0.999-0.9999）。在推理时，使用EMA参数而不是原始训练参数。
+
+    对潜变量的EMA：
+
+    在扩散模型（如Stable Diffusion）中，EMA通常应用于UNet的所有参数，以及有时应用于VAE的解码器。不仅仅是潜变量本身，而是整个生成模型的权重。对于潜变量（latent），在反向扩散过程中，每一步的预测都在更新潜变量，不存在对潜变量做EMA，而是对预测噪声的模型（UNet） 做EMA。
+
+    影响：
+
+    - 生成质量稳定提升：EMA能平滑掉训练后期的高频参数波动，使模型更专注于低频的稳定特征，通常能带来FID（感知质量）和IS（多样性）指标的显著提升（FID可降低0.5-2点，取决于衰减率）。几乎所有扩散模型的SOTA结果都使用了EMA。
+
+    - 减少噪声和伪影：EMA减少了图像中的高频伪影和不自然的纹理，使生成图像更清晰、更真实。
+
+    - 牺牲少许多样性？：轻微地。EMA使模型趋向“平均”，可能略微降低生成的多样性，但在实践中通常可忽略不计。
+
+    - 衰减率的选择：ββ 越大，平滑越强，对最新梯度的响应越慢。对于大规模训练，β=0.9999β=0.9999 是常见选择。需要结合总训练步数调整。
+
+    实践：在训练循环中，每次更新完UNet权重后，立即用EMA公式更新EMA影子参数。推理时加载EMA参数。由于EMA参数是稳定的生成器，而原始参数可能在持续震荡，EMA已成为扩散模型训练的必备组件。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VC80wRxL0i553WkSOuIcjkHenRp
+  block_id: Z4TPd21FaoUOMHxGoJMc1auhnmc
+  page_token: VC80wRxL0i553WkSOuIcjkHenRp
+  original_title: 训练扩散模型时，如何对潜变量进行 EMA 平滑？它对生成质量的影响多大？
+  imported_at: '2026-09-21'

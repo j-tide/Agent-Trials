@@ -1,0 +1,91 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f96abfa0a835
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EC 2. 如何将 FSM 与事件驱动架构融合设计？在分布式环境下如何保证状态一致性和幂等性？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F9EC 2. 如何将 FSM 与事件驱动架构融合设计？在分布式环境下如何保证状态一致性和幂等性？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    融合设计模式：状态机作为事件处理器的核心
+
+    不要把状态机看作一个独立的“流程引擎服务”，而是将它嵌入到每个微服务的事件处理器里。
+
+    事件流 ──→ [事件处理器] ──→ 加载聚合根 (业务对象) ──→ 执行 FSM 转移 ──→ 发布新事件
+                    │
+                    └── 从事件存储重建 FSM 状态
+
+    具体设计步骤：
+
+    - 事件溯源：数据库里不直接存储“当前状态”，而是存储一系列不可变的事件。例如订单表不存 status = paid，而是存 [OrderCreated, OrderPaid]。
+
+    - 聚合根与状态机：订单就是一个聚合根，它内部内嵌一个 FSM。加载订单时，从事件存储读取该订单的所有事件，重放给 FSM，得到当前状态。
+
+    - 原子性发布：状态机转移时，必须同时满足两点：新状态被持久化、新事件被发布。通常用事务发件箱模式：把新事件写入数据库的 outbox 表，与业务数据在同一事务里提交。一个后台线程负责把 outbox 里的事件可靠地发送到 Kafka。
+
+    保证状态一致性的手段：
+
+    - 事务发件箱（原子性）：确保“状态转移”和“发事件”是原子操作，彻底杜绝状态变了事件没发出去、或者事件发出去了状态回滚的灾难。
+
+    - 幂等性：即使事件被投递多次，处理结果也像只投递了一次一样。实现方式：
+
+    代码骨架：事件溯源 + FSM + 发件箱
+
+    class Order:
+        def __init__(self, events):
+            self.state = None
+            self.version = 0
+            for e in events:
+                self.apply(e)
+
+        def apply(self, event):
+            if event.type == "OrderCreated":
+                self.state = "pending"
+            elif event.type == "OrderPaid":
+                if self.state == "pending":  # FSM 校验
+                    self.state = "paid"
+                    self.version += 1
+                else:
+                    raise InvalidTransition()
+
+        def pay(self, payment_id):
+            # 产生新事件
+            event = Event(type="OrderPaid", data={"payment_id": payment_id})
+            # 模拟原子写入：业务表 + outbox 表
+            with db.atomic():
+                db.execute("INSERT INTO events (order_id, type, data, version) VALUES (?,?,?,?)", ...)
+                db.execute("INSERT INTO outbox (event_id, payload) VALUES (?,?)", ...)
+            return event
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcnB7bnmLNzPepqDxHk0AOHge
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: "\U0001F9EC 2. 如何将 FSM 与事件驱动架构融合设计？在分布式环境下如何保证状态一致性和幂等性？"
+  imported_at: '2026-09-21'

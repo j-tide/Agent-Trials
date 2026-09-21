@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5d457aedf003
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚙️ ZeRO 配置不当导致 OOM，应该如何调整？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "⚙️ ZeRO 配置不当导致 OOM，应该如何调整？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 ZeRO 各阶段对显存的分片程度不同，配置不当主要表现为 stage 选低导致显存不足，或 offload
+    未开启导致 OOM。调整方法是：逐渐升级 ZeRO stage，适当开启 CPU/NVMe offload，同时调小通信相关缓冲区。\n\n\U0001F527
+    调整策略\n\n- 先从 ZeRO-1 开始，不够上 ZeRO-2，再不够上 ZeRO-3\n\n- 开启 CPU Offload\n在 DeepSpeed
+    配置中设置 \"offload_optimizer\": {\"device\": \"cpu\"} 将优化器状态移至 CPU，甚至 \"offload_param\":
+    {\"device\": \"cpu\"} 将参数也移至 CPU（ZeRO-3 下）。这会大幅降低 GPU 显存，但训练变慢。如果 ZeRO-3 仍然 OOM，开启
+    offload 是最后利器。\n\n- 调整 ZeRO-3 的参数获取策略\n\n- 优化通信缓冲\n\n- 减少 ZeRO 的中间分配\n在 DeepSpeed
+    配置中，\"reduce_bucket_size\" 和 \"allgather_bucket_size\" 控制通信时的临时缓冲区大小。减小这些值可降低瞬时显存峰值，但可能增加通信次数。\n\n-
+    使用 ZeRO++ 或优化内核\n若网络带宽有限，ZeRO++ 可通过量化通信减少缓冲区大小，间接缓解显存。\n\n\U0001F4CA 实例\n8 张 V100
+    32GB 训练 30B，ZeRO-3 默认配置 OOM。调整后：开启 CPU offload optimizer，关闭 overlap_comm，将 stage3_max_live_parameters
+    设为 1e8，训练正常运行。\n\n✅ 因此，ZeRO OOM 的调优是“分片深度+Offload+缓冲区调节”的组合拳，需根据模型和硬件逐步试验。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BbCrwkO3wiWmAikFy0zc2OK6nPg
+  block_id: CGExdW6bEoMyvhx0S71cttosnjg
+  page_token: BbCrwkO3wiWmAikFy0zc2OK6nPg
+  original_title: "⚙️ ZeRO 配置不当导致 OOM，应该如何调整？"
+  imported_at: '2026-09-21'

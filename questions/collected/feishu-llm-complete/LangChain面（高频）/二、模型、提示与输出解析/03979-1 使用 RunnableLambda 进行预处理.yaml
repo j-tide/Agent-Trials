@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1fdac43a5b67
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 9.1 使用 RunnableLambda 进行预处理
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: 9.1 使用 RunnableLambda 进行预处理
+answer:
+  mode: rubric
+  reference_answer: |-
+    最灵活的方法是利用 RunnableLambda 将自定义的清理函数嵌入到链中。清理函数的核心任务是提取出纯粹的 JSON 字符串。
+
+    ```python
+    from langchain_core.runnables import RunnableLambda
+    import re
+    import json
+
+    def extract_and_clean_json(text: str) -> str:
+        """
+        从包含解释文字的文本中提取并修复 JSON 字符串。
+        """
+        # 1. 尝试直接解析，如果成功则返回原始文本（可能已经是纯 JSON）
+        try:
+            json.loads(text)
+            return text
+        except json.JSONDecodeError:
+            pass
+
+        # 2. 使用正则查找第一个 '{' 和最后一个 '}' 之间的内容
+        start = text.find('{')
+        end = text.rfind('}')
+        if start != -1 and end != -1 and end > start:
+            json_candidate = text[start:end+1]
+            # 3. 可选：尝试修复常见的 JSON 错误
+            # 例如替换中文引号等
+            json_candidate = json_candidate.replace('“', '"').replace('”', '"')
+            return json_candidate
+
+        # 4. 如果仍然无法提取，抛出异常
+        raise ValueError(f"无法从文本中提取JSON: {text}")
+
+    # 将清理函数包装为 Runnable
+    cleanup_runnable = RunnableLambda(extract_and_clean_json)
+
+    # 集成到链中：prompt -> model -> cleanup -> parser
+    chain = prompt | model | cleanup_runnable | parser
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/FkhTw9yBsiro60k5CSIcZezcnj6
+  block_id: BNirdkaU7oWN7lxAdg9cUlpAnxc
+  page_token: FkhTw9yBsiro60k5CSIcZezcnj6
+  original_title: 9.1 使用 RunnableLambda 进行预处理
+  imported_at: '2026-09-21'

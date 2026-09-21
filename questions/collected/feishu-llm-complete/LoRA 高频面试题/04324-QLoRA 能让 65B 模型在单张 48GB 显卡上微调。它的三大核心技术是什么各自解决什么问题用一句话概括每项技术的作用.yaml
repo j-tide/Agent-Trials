@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c89a96c9ee60
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: QLoRA 能让 65B 模型在单张 48GB 显卡上微调。它的三大核心技术是什么？各自解决什么问题？用一句话概括每项技术的作用。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LoRA 高频面试题
+derived_topic: 
+tags: &1
+- LoRA 高频面试题
+content:
+  prompt: QLoRA 能让 65B 模型在单张 48GB 显卡上微调。它的三大核心技术是什么？各自解决什么问题？用一句话概括每项技术的作用。
+answer:
+  mode: rubric
+  reference_answer: |-
+    QLoRA（Quantized LoRA）之所以能让 65B 模型在单张 48GB 显卡上微调，依赖于三项核心技术的协同作用：4-bit NF4 量化、双重量化和分页优化器。
+
+    ① 4-bit NF4 量化
+
+    - 解决的问题：预训练模型权重的巨大显存占用。一个 65B 的模型，若以半精度（FP16/BF16）存储，仅权重就需要约 130GB 显存，远超单张 48GB 显卡的容量。
+
+    - 技术原理：QLoRA 使用一种称为 NormalFloat 4-bit (NF4) 的非均匀量化数据类型来存储原始权重。每个参数仅占用 0.5 字节，使得 65B 模型的权重存储量从 130GB 骤降至约 32.5GB，从而可以被加载到 48GB GPU 中。
+
+    - 一句话概括：将模型权重压缩到 4-bit，突破显存容量的硬限制。
+
+    ② 双重量化
+
+    - 解决的问题：量化过程本身会产生额外的“量化常数”（如每个量化块所需的缩放因子 scale 和零点 zero-point）。为追求精度，QLoRA 采用极小的块大小（如 64 个参数一块），导致量化常数总量庞大（例如 65B 模型可额外占用数 GB），这严重侵蚀了本就紧张的显存。
+
+    - 技术原理：双重量化对这些量化常数本身进行第二次量化。它将这些 32 位浮点常数量化为 8-bit 甚至更低精度的整数，使得这部分额外开销被压缩到几乎可以忽略不计的程度（例如从 ~3GB 压缩到 ~0.2GB）。
+
+    - 一句话概括：把量化常数再量化一次，榨干显存节约的每一滴空间。
+
+    ③ 分页优化器
+
+    - 解决的问题：微调过程中可能因长序列输入、梯度累积等操作出现显存峰值，导致 OOM（显存不足）错误，训练瞬间中断。
+
+    - 技术原理：借鉴操作系统的虚拟内存分页技术，分页优化器允许将优化器状态（如 Adam 的动量和方差）的一部分临时从 GPU 显存卸载到 CPU 内存中。当 GPU 显存吃紧时，自动将不常用的状态“换出”到 CPU；需要时再“换入”到 GPU。这保证了在显存容量边缘训练时不会因为偶发峰值而崩溃。
+
+    - 一句话概括：用 CPU 内存作 GPU 显存的“安全气囊”，防止 OOM 导致的训练中断。
+
+    协同工作流：首先，通过 NF4 量化和双重量化将模型总显存占用压到 35GB 以下，然后注入 FP16 精度的 LoRA 适配器（参数量极小），训练时利用分页优化器保障稳定性，最终实现在一张 48GB 显卡上完成 65B 模型的全量微调。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C6WowK2SVibRbyk8cUlcU3v1n1e
+  block_id: PIludwX16oycj3xDcNDc1GWynqh
+  page_token: C6WowK2SVibRbyk8cUlcU3v1n1e
+  original_title: QLoRA 能让 65B 模型在单张 48GB 显卡上微调。它的三大核心技术是什么？各自解决什么问题？用一句话概括每项技术的作用。
+  imported_at: '2026-09-21'

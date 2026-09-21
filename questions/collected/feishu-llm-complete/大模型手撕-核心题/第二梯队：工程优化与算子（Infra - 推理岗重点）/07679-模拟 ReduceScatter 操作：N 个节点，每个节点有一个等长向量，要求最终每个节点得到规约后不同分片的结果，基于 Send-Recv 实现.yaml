@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dba46b60e6a7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 模拟 ReduceScatter 操作：N 个节点，每个节点有一个等长向量，要求最终每个节点得到规约后不同分片的结果，基于 Send/Recv 实现。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 模拟 ReduceScatter 操作：N 个节点，每个节点有一个等长向量，要求最终每个节点得到规约后不同分片的结果，基于 Send/Recv
+    实现。
+answer:
+  mode: rubric
+  reference_answer: |-
+    3.1 原理
+
+    ReduceScatter 的结果是：将长度为 L 的向量分成 N 块，每个节点最终得到第 ii 块的规约和（所有节点对应块之和）。可通过环形规约类似 Ring AllReduce 的 Scatter-Reduce 阶段实现，但是不再进行 AllGather。经过 N−1 步后，每个节点上已累加了所有节点的一个分块，该分块就是全局和。
+
+    3.2 实现（环形 ReduceScatter）
+
+    ```python
+    def ring_reduce_scatter(vectors, num_nodes):
+        """
+        vectors: list of numpy arrays, 每个节点一个
+        返回: list of numpy arrays, 每个节点得到对应分片的规约结果
+        """
+        chunk_size = len(vectors[0]) // num_nodes
+        # 每个节点将自己的向量切分成 num_nodes 块
+        chunks = []
+        for v in vectors:
+            parts = [v[i*chunk_size:(i+1)*chunk_size] for i in range(num_nodes)]
+            chunks.append(parts)
+        # Scatter-Reduce 阶段（只累加，不 AllGather）
+        for step in range(num_nodes - 1):
+            new_chunks = [ [c.copy() for c in parts] for parts in chunks ]  # 深拷贝
+            for rank in range(num_nodes):
+                send_idx = (rank - step) % num_nodes
+                recv_idx = (rank - step - 1) % num_nodes
+                downstream = (rank + 1) % num_nodes
+                # 发送 send_idx 块给下游，下游接收后累加到自己的 recv_idx 块
+                data_to_send = chunks[rank][send_idx].copy()
+                new_chunks[downstream][recv_idx] += data_to_send
+            chunks = new_chunks
+        # 每个节点最终保留自己 rank 对应的分片（根据约定，通常是节点 rank 得到第 rank 块）
+        results = [ chunks[rank][rank].copy() for rank in range(num_nodes) ]
+        return results
+    ```
+
+    经过 N−1 步后，节点 rank 的第 rank 块已经累加了所有节点的对应块，因此 results[rank] 即为全局规约的第 rank 分片。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: LQ2GdHQx4o447WxgG54cTb4enJh
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 模拟 ReduceScatter 操作：N 个节点，每个节点有一个等长向量，要求最终每个节点得到规约后不同分片的结果，基于 Send/Recv
+    实现。
+  imported_at: '2026-09-21'

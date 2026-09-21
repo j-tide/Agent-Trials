@@ -1,0 +1,176 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ffc578ab4920
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 1.1 SQL 执行计划与慢查询优化
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 1.1 SQL 执行计划与慢查询优化
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### SQL 执行计划分析与优化策略
+
+    1、基础题：EXPLAIN 命令的各个字段分别代表什么含义？
+
+    ⭐（考察对执行计划字段的基本理解、type 类型的优先级认知）
+
+    EXPLAIN 命令的输出包含以下关键字段：
+
+    - id：SELECT 查询的序列号，表示查询中 SELECT 子句或操作表的顺序
+
+    - select_type：查询类型，如 SIMPLE（简单查询）、PRIMARY（最外层查询）、SUBQUERY（子查询）等
+
+    - table：当前行所引用的表
+
+    - partitions：匹配的分区信息
+
+    - type：访问类型，表示 MySQL 找到所需行的方式，从最优到最差依次为：system > const > eq_ref > ref > range > index > ALL
+
+    - possible_keys：可能使用的索引
+
+    - key：实际使用的索引
+
+    - key_len：使用的索引长度
+
+    - ref：索引比较的列
+
+    - rows：预估需要扫描的行数
+
+    - filtered：表数据过滤后的百分比
+
+    - Extra：额外信息，如 Using index（使用覆盖索引）、Using temporary（使用临时表）、Using filesort（使用文件排序）
+
+    2、进阶题：如何通过 EXPLAIN 分析并优化慢查询？请结合实际案例说明。
+
+    ⭐⭐（考察执行计划深度分析能力、索引优化策略、慢查询日志应用）
+
+    1️⃣ Common Answer 遇到慢查询的时候，我先看一下慢查询日志，找到哪些 SQL 比较慢。然后用 EXPLAIN 看一下执行计划，主要看 type 字段，如果是 ALL 就说明全表扫描了，需要加索引。如果 key_len 比较小，可能是索引没用到完整字段。Extra 里面有 Using filesort 就说明排序有问题。优化的话就是加索引、改 SQL 语句，比如避免 SELECT *，避免在 WHERE 子句中对字段做函数操作。还有就是看一下 rows 字段，扫描行数太多也不行。
+
+    2️⃣ Impressive Answer 慢查询优化是一个系统性的工作，我通常会按以下步骤进行：
+
+    首先，开启慢查询日志，设置 longquerytime=1，记录执行时间超过 1 秒的查询。通过分析慢查询日志，找出高频、高耗时的 SQL 语句。
+
+    然后，使用 EXPLAIN 深入分析执行计划，重点关注四个核心指标：
+
+    第一，type 字段，这是最关键的访问类型。最优的是 const（主键或唯一索引等值查询），其次是 eqref（连接查询时使用主键或唯一索引），ref（非唯一索引等值查询），range（范围查询）。如果出现 index（全索引扫描）或 ALL（全表扫描），通常意味着需要优化。比如我之前遇到一个订单查询，type 是 ALL，扫描了 100 万行，在 userid 和 order_time 上建了联合索引后，type 变成了 range，扫描行数降到 500 行，查询时间从 5 秒降到 0.1 秒。
+
+    第二，key 和 key_len，确认是否使用了正确的索引，以及索引的覆盖程度。keylen 越大越好，说明用到了索引的更多字段。如果 keylen 很小，可能存在索引失效的情况，比如对索引字段做了函数操作、使用了 LIKE 左模糊、OR 条件导致索引失效等。
+
+    第三，rows 字段，这是 MySQL 估算的扫描行数。如果 rows 很大，说明查询效率低。可以通过优化索引、调整查询条件来减少扫描行数。
+
+    第四，Extra 字段，重点关注 Using filesort、Using temporary、Using index 这三个。Using index 是好事，说明使用了覆盖索引，不需要回表。Using filesort 和 Using temporary 则需要优化，通常是因为 ORDER BY 或 GROUP BY 没有走索引。比如我之前优化过一个报表查询，Extra 出现 Using temporary，通过在 GROUP BY 字段上建索引，消除了临时表，性能提升了 10 倍。
+
+    在索引优化策略上，我遵循以下原则：
+
+    - 最左前缀原则：联合索引要按照区分度高的字段放在前面，查询条件要从左到右匹配索引字段。
+
+    - 覆盖索引：尽量让查询只使用索引，避免回表。比如 SELECT id, name FROM user WHERE age > 18，在 (age, id, name) 上建索引，可以直接从索引获取数据。
+
+    - 索引下推：MySQL 5.6+ 支持索引下推，可以在索引层面过滤数据，减少回表次数。
+
+    - 避免索引失效：不要在索引字段上做计算、函数、类型转换，避免使用 NOT IN、<>、!= 等操作符，避免 LIKE '%xxx' 左模糊查询。
+
+    最后，持续监控和优化。慢查询优化不是一次性的工作，业务数据量增长、索引选择性变化都会导致新的慢查询。我会定期分析慢查询日志，建立慢查询告警机制，确保系统性能稳定。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    3、场景题：线上某个订单查询接口突然变慢，从 200ms 涨到 5 秒，你会如何排查和优化？
+
+    ⭐⭐⭐（考察线上问题排查能力、系统化分析思维、实际优化经验）
+
+    1️⃣ Common Answer 首先看一下慢查询日志，找到这个 SQL。然后用 EXPLAIN 分析一下，看看是不是没走索引。如果有索引没走，就看看是不是索引失效了，比如做了函数操作或者类型转换。优化的话就是加索引或者改 SQL 语句。还有就是看看是不是数据量变大了，导致扫描行数变多。可能还需要看看数据库的负载，是不是有锁等待。
+
+    2️⃣ Impressive Answer 面对线上突发慢查询，我会按照系统化的排查流程进行处理：
+
+    第一步，快速定位问题。通过 APM 监控系统确认是哪个接口变慢，查看慢查询日志，找到具体的 SQL 语句和执行时间。同时检查数据库监控指标，确认是否有 CPU、IO、连接数等资源瓶颈。
+
+    第二步，分析执行计划。对慢 SQL 执行 EXPLAIN，重点关注：
+
+    - type 字段：如果是 ALL 或 index，说明全表扫描或全索引扫描，这是性能问题的根源。
+
+    - key 和 possible_keys：确认是否使用了合适的索引。如果 possible_keys 有索引但 key 为 NULL，说明索引失效了。
+
+    - rows：扫描行数是否合理。如果 rows 很大，说明查询效率低。
+
+    - Extra：是否有 Using filesort、Using temporary 等性能杀手。
+
+    第三步，分析索引失效原因。常见的索引失效场景包括：
+
+    - 对索引字段做函数操作，如 WHERE DATE(createtime) = '2024-01-01'，应该改为 WHERE createtime >= '2024-01-01 00:00:00' AND create_time < '2024-01-02 00:00:00'
+
+    - 类型转换，如 WHERE userid = '123'，如果 userid 是整型，会隐式转换导致索引失效
+
+    - LIKE 左模糊，如 WHERE name LIKE '%张%'，无法使用索引
+
+    - OR 条件，如果 OR 两边的字段不是同一个索引，索引会失效
+
+    - 联合索引不符合最左前缀原则
+
+    第四步，制定优化方案。根据分析结果选择合适的优化策略：
+
+    - 添加或优化索引：如果缺少索引或索引不合理，添加合适的索引。比如订单查询 WHERE userid = ? AND status = ? AND createtime > ?，建立 (userid, status, createtime) 联合索引。
+
+    - 优化 SQL 语句：避免 SELECT *，只查询需要的字段；避免子查询，改用 JOIN；避免大事务，减少锁持有时间。
+
+    - 使用覆盖索引：如果查询只需要索引字段，可以避免回表，大幅提升性能。
+
+    - 分页优化：对于深度分页，如 LIMIT 100000, 10，使用延迟关联优化，先通过覆盖索引找到主键，再 JOIN 回表。
+
+    第五步，验证和上线。在测试环境验证优化效果，确认性能提升明显且不影响其他功能后，灰度上线。上线后持续监控，确保问题解决且没有引入新的问题。
+
+    我之前处理过一个类似问题，订单列表查询从 200ms 涨到 5 秒。通过 EXPLAIN 发现 type 是 ALL，rows 是 50 万。分析发现原来是 WHERE 子句中对 createtime 做了 DATEFORMAT 函数，导致索引失效。将 SQL 改为范围查询后，type 变成 range，rows 降到 2000，查询时间恢复到 150ms。同时为了避免类似问题，我们在代码 review 中加入了 SQL 检查规则，禁止对索引字段做函数操作。
+
+    第六步，建立预防机制。慢查询优化不能只靠事后救火，更要建立预防机制：
+
+    - 开启慢查询日志并定期分析
+
+    - 建立慢查询告警机制，及时发现问题
+
+    - 在开发阶段使用 EXPLAIN 分析 SQL，避免上线后再优化
+
+    - 定期 review 索引使用情况，删除冗余索引，优化低效索引
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VG3nwfqrtiEE4KkcGCpcA5AEnPF
+  block_id: doxcnG7DcvINtdbkgaQy4pl3x9e
+  page_token: VG3nwfqrtiEE4KkcGCpcA5AEnPF
+  original_title: 1.1 SQL 执行计划与慢查询优化
+  imported_at: '2026-09-21'

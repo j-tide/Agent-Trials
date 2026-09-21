@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a39a9c27be13
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BB 推理时，除了权重和 KV Cache，还有哪些显存开销？大约占总显存的多少？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: "\U0001F4BB 推理时，除了权重和 KV Cache，还有哪些显存开销？大约占总显存的多少？"
+answer:
+  mode: rubric
+  reference_answer: "推理时的显存占用是一个多层次的结构，权重和 KV Cache 只是冰山露出水面的部分。其余的“隐藏”开销主要包括：\n\n-
+    \U0001F9E0 激活值/中间缓冲区\n\n在每一层的前向计算中，需要临时存储一些中间结果，比如 Attention 的 Q×K 得分矩阵、Softmax
+    输出、残差连接的中间值等。这些激活值的生命周期很短，只存在于当前层的计算过程中，但它们的峰值大小可能非常可观，尤其是在 Prefill 阶段，因为需要处理长序列的全部
+    token。\n\n- \U0001F4E6 CUDA 上下文与框架开销\n\nPyTorch 或 TensorFlow 框架本身需要占用几百 MB 的显存来维护
+    CUDA 上下文、内核缓存、内存分配器等。这部分通常是固定的。\n\n- \U0001F9E9 显存分配器碎片\n\n类似操作系统内存碎片，GPU 的显存分配器在频繁分配和释放大小不一的内存块时，会产生无法使用的小碎片。这部分虽然理论上是空闲的，但因为不连续，无法被大块请求利用。PagedAttention
+    正是为了缓解这个问题。\n\n- \U0001F4CA 输出 logits 和概率缓冲区\n在生成下一个 token 时，需要计算整个词表的 logits，这会产生一个
+    [batch_size, vocab_size] 的临时张量，对于大词表（如 32000），这个缓冲区的大小不可忽视。之后进行采样还会产生额外的临时张量。\n\n-
+    \U0001F9FE 输入嵌入和位置编码\n\n模型的嵌入层权重通常包含在总参数量中，但如果使用了共享的嵌入和输出头，这部分不算额外。对于 Transformer
+    架构，位置编码如果是可学习的，也会占用少量显存。\n\n- \U0001F501 梯度（仅训练时）\n\n推理时不涉及梯度和优化器状态，所以没有这部分的显存消耗。这也是推理显存远小于训练显存的原因。\n\n占比估算（以
+    7B 模型，FP16，短文本推理为例）：\n\n- 模型权重：~14 GB，约占 65%\n\n- KV Cache（batch=1, seq=2048,
+    GQA）：~0.25 GB，约占 1%\n\n- 激活值及临时缓冲区：~3‑5 GB，约占 15‑25%\n\n- 框架及碎片：~1‑2 GB，约占 5‑10%\n\n-
+    其他（logits 等）：~1 GB，约占 5%\n\n在长文本或大 batch 下，KV Cache 占比会急剧升高，甚至超过权重成为第一大户。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C0pNwQLAmiNN2tkVnWGccLYLns0
+  block_id: FiXudcLHVo57dTxfbEoczU9aneh
+  page_token: C0pNwQLAmiNN2tkVnWGccLYLns0
+  original_title: "\U0001F4BB 推理时，除了权重和 KV Cache，还有哪些显存开销？大约占总显存的多少？"
+  imported_at: '2026-09-21'

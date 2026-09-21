@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-843d9e191d0f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CB 4. LangChain 的 OutputParser 如何实现结构化输出？和 OpenAI 的 Function Calling
+  有什么区别？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F4CB 4. LangChain 的 OutputParser 如何实现结构化输出？和 OpenAI 的 Function Calling
+    有什么区别？"
+answer:
+  mode: rubric
+  reference_answer: "一句话概括：\n\nOutputParser 是在 LLM 的输出侧“套上一个格式化解析器”，强制把模型的自由文本转换成结构化的数据；而
+    Function Calling 是在 LLM 的输入侧“提前声明函数签名”，让模型自己输出一个结构化的函数调用请求。\n\n1.1 OutputParser
+    的工作方式\n\nLangChain 提供了多种解析器，核心思路是：你告诉模型“请按某种格式输出”，然后 Parser 把模型返回的原始字符串解析成你想要的数据结构。\n\n```text\nPrompt
+    (含格式指令) → LLM (输出符合指令的字符串) → OutputParser (解析为结构化对象)\n```\n\n三种典型实现：\n\n[嵌入表格未展开]\n\n代码示例：用
+    PydanticOutputParser 提取人物信息\n\n```python\nfrom langchain_core.output_parsers import
+    PydanticOutputParser\nfrom langchain_core.prompts import PromptTemplate\nfrom
+    langchain_openai import ChatOpenAI\nfrom pydantic import BaseModel, Field\n\n#
+    1. 用 Pydantic 定义目标结构\nclass Person(BaseModel):\n    name: str = Field(description=\"人物姓名\")\n
+    \   age: int = Field(description=\"年龄\")\n    city: str = Field(description=\"居住城市\")\n\nparser
+    = PydanticOutputParser(pydantic_object=Person)\n\n# 2. 在 Prompt 中注入格式指令\nprompt
+    = PromptTemplate(\n    template=\"从以下文本中提取人物信息。\\n{format_instructions}\\n文本：{text}\\n\",\n
+    \   input_variables=[\"text\"],\n    partial_variables={\"format_instructions\":
+    parser.get_format_instructions()},\n)\n\n# 3. 构建链并运行\nchain = prompt | ChatOpenAI(model=\"gpt-4o\")
+    | parser\nresult = chain.invoke({\"text\": \"张三今年30岁，住在上海。\"})\nprint(result)
+    \ # Person(name='张三', age=30, city='上海')\n```\n\nparser.get_format_instructions()
+    会自动生成一段“请输出如下格式的 JSON”的指令，注入 prompt。模型看到这段指令后，输出符合 Pydantic schema 的 JSON，Parser
+    再将其转换为 Person 对象。\n\n这就是 OutputParser 的本质：用 prompt 约束输出格式，再在代码层解析。\n\n1.2 与 OpenAI
+    Function Calling 的核心区别\n\n[嵌入表格未展开]\n\n一个直观的对比：\n\n```python\n# OutputParser 方式：模型输出文本，你解析\nresponse
+    = model.invoke(\"输出 JSON：姓名、年龄、城市\")  \n# response 是 \"{\\\"name\\\":\\\"张三\\\",\\\"age\\\":30,\\\"city\\\":\\\"上海\\\"}\"\n#
+    你需要自己 parse\n\n# Function Calling 方式：模型直接给出函数调用\nresponse = client.chat.completions.create(\n
+    \   model=\"gpt-4o\",\n    tools=[{\"type\":\"function\",\"function\":{\"name\":\"extract_person\",\"parameters\":{...}}}]\n)\n#
+    response.choices[0].message.tool_calls[0].function.arguments \n# 直接是 {\"name\":\"张三\",\"age\":30,\"city\":\"上海\"}，无需额外解析\n```\n\n选择建议：\n\n-
+    如果你用的是不支持 Function Calling 的开源模型，OutputParser 是唯一选择。\n\n- 如果你需要结构化输出，但不需要模型去“决策调用哪个函数”，用
+    Function Calling 中的 tool_choice: \"required\" 来做结构化输出，比 OutputParser 更可靠。\n\n-
+    如果你想提取一个固定 schema 的数据，且用 Function Calling 的模型，那直接用 Function Calling。OutputParser
+    更适合那种“不依赖特定模型、需要框架无关性”的场景。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SuxqwVBLli4q94kJFBAcOLkFnZc
+  block_id: doxcnmT5rynu0rA12M8tliVN7zb
+  page_token: SuxqwVBLli4q94kJFBAcOLkFnZc
+  original_title: "\U0001F4CB 4. LangChain 的 OutputParser 如何实现结构化输出？和 OpenAI 的 Function
+    Calling 有什么区别？"
+  imported_at: '2026-09-21'

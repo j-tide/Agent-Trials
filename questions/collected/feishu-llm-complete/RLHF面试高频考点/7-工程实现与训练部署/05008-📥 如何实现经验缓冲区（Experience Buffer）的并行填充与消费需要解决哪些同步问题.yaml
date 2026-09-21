@@ -1,0 +1,49 @@
+---
+schema_version: 1
+id: feishu-llm-complete-385795fe8e25
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4E5 如何实现经验缓冲区（Experience Buffer）的并行填充与消费？需要解决哪些同步问题？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "\U0001F4E5 如何实现经验缓冲区（Experience Buffer）的并行填充与消费？需要解决哪些同步问题？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F3D7️ 经验缓冲区的架构\n\n- 本质：一个支持多生产者（Rollout Workers）、多消费者（PPO
+    Trainer）的 FIFO 消息队列。\n\n- 物理实现：可以使用共享内存池（如 Ray Plasma）、Redis Streams、或自定义的 gRPC
+    流式队列。\n\n⚙️ 并行填充与消费机制\n\n- 生产者端：每个 Rollout Worker 生成完一批数据后，将数据序列化（或使用零拷贝引用）发送到缓冲区。Worker
+    之间无需通信，各自独立生产。\n\n- 消费者端：PPO Trainer 监听缓冲区，当队列中的数据量达到一个预设的 batch_size 时，便拉取一批数据进行一次
+    PPO 更新。\n\n- 多轮消费：PPO 允许同一批数据被重复消费多次（K 个 epoch）。因此，在消费前，缓冲区需要将数据“固定”下来，作为一个 dataset
+    供本地训练循环迭代。\n\n\U0001F512 同步问题\n\n- 数据一致性与新鲜度：消费者必须确保它拉取的数据都是由同一个版本的 Actor 生成的。因此，每当
+    Actor 权重更新后，缓冲区需要刷新或标记旧数据为“过期”。\n\n- 缓冲区溢出：如果采样速度远大于训练速度，缓冲区可能会爆满。需要设计反压机制——当缓冲区水位超过阈值时，暂停或减缓
+    Worker 的生产。\n\n- 读写冲突：在多轮训练期间，缓冲区的数据不能被新的 Worker 覆盖。解决方案是采用“快照”或“写入新页”的方式，训练期间锁住正在使用的数据块，新数据写入新块。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TWMuwtjygiXKQYkjGELcArHan1b
+  block_id: P0DedmvwBoB6uxx6VFTcnZBknBb
+  page_token: TWMuwtjygiXKQYkjGELcArHan1b
+  original_title: "\U0001F4E5 如何实现经验缓冲区（Experience Buffer）的并行填充与消费？需要解决哪些同步问题？"
+  imported_at: '2026-09-21'

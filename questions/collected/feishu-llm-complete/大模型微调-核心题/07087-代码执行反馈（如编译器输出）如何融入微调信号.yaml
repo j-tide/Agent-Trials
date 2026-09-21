@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c78205a0aab9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 代码执行反馈（如编译器输出）如何融入微调信号？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 代码执行反馈（如编译器输出）如何融入微调信号？
+answer:
+  mode: rubric
+  reference_answer: |-
+    编译器、解释器、测试框架等工具的输出是客观、无偏且可自动获取的反馈信号。将这种执行反馈融入微调，能显著提升模型生成正确、可运行代码的能力。
+
+    融入方式一：构造“尝试-错误-修正”的SFT数据
+
+    这是最直接的方式。构造包含完整错误和修正过程的对话数据。
+
+    - 用户指令：“写一个Python函数，计算两个数的最大公约数。”
+
+    - 模型初始回答：生成代码，但故意包含一个逻辑错误（例如，使用了整数除法 // 但在循环中处理不当）。
+
+    - 工具返回（模拟）：<tool_response> Traceback (most recent call last): ... ZeroDivisionError: division by zero </tool_response>
+
+    - 模型修正回答：“等等，我发现我的代码在处理0时出现了ZeroDivisionError。我应该先检查输入是否为0。修正后的代码如下：...”
+
+    - 训练要点：对“错误初始回答”进行Loss Masking（labels=-100），只让模型学习“根据错误信息分析并给出修正代码”这一过程。
+
+    融入方式二：强化学习（RLEF）
+
+    - 奖励信号：将生成的代码在沙箱中运行，根据单元测试的通过率、执行时间、内存消耗等给出一个客观的标量奖励。
+
+    - RL训练：使用PPO等算法，以这个奖励信号为目标微调模型。模型为了最大化奖励，会主动学习如何生成能通过测试的代码，并能理解错误信息以进行自我修正。
+
+    融入方式三：拒绝采样
+
+    - 生成大量代码候选。
+
+    - 运行所有代码，只保留那些成功通过所有测试用例的代码作为SFT训练目标。这样能简单粗暴地保证训练数据的绝对正确性。
+
+    核心价值：将抽象的语言模型训练与具体、可执行的物理世界反馈相结合，让模型学会对自己的输出“负责”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RK7mw2OHeiOHyEkfsfXcDkH1nRh
+  block_id: WzgIdd365oAJJbxvAMYcxnjSndQ
+  page_token: RK7mw2OHeiOHyEkfsfXcDkH1nRh
+  original_title: 代码执行反馈（如编译器输出）如何融入微调信号？
+  imported_at: '2026-09-21'

@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-814e60c12783
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 自定义autograd.Function时，如何定义反向传播并支持高阶导？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 自定义autograd.Function时，如何定义反向传播并支持高阶导？
+answer:
+  mode: rubric
+  reference_answer: |-
+    自定义 torch.autograd.Function 需要实现 forward 和 backward 两个静态方法。
+
+    - forward(ctx, *inputs)：执行前向计算，并通过 ctx.save_for_backward(*tensors) 保存反向传播所需的数据。
+
+    - backward(ctx, *grad_outputs)：接收输出端的梯度，利用 ctx.saved_tensors 取出保存的数据，计算并返回相对于各个输入的梯度。
+
+    支持高阶导：如果需要计算二阶导数，必须在 backward 中创建新的计算图，即使用 torch.autograd.grad 时设置 create_graph=True，或者在 backward 内部使用可导的操作，并且不破坏梯度流。自定义 Function 的 backward 必须返回与输入数量相同的梯度，且这些梯度可以是张量（需要进一步求导）或 None。
+
+    示例（自定义平方函数）：
+
+    ```python
+    class Square(torch.autograd.Function):
+        @staticmethod
+        def forward(ctx, x):
+            ctx.save_for_backward(x)
+            return x * x
+
+        @staticmethod
+        def backward(ctx, grad_output):
+            x, = ctx.saved_tensors
+            # 返回的梯度：2*x，并且这个操作会保留在计算图中（因为使用了x）
+            grad_input = grad_output * 2 * x
+            return grad_input  # 返回与输入数量相同的元组，这里只有一个
+
+    # 使用
+    x = torch.randn(3, requires_grad=True)
+    y = Square.apply(x)
+    # 一阶导
+    grad_x = torch.autograd.grad(y.sum(), x, create_graph=True)[0]
+    # 二阶导
+    grad2_x = torch.autograd.grad(grad_x.sum(), x)[0]
+    ```
+
+    关键点：
+
+    - ctx.save_for_backward 只能保存张量。
+
+    - backward 返回的梯度数量必须等于 forward 的输入张量数量（不包括 ctx）。
+
+    - 如果某个输入不需要梯度，返回 None。
+
+    - 高阶导数的支持需要 backward 内部的操作都是可微的，并且使用了 create_graph=True 来保留计算图。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  block_id: OnuGdpWdkoxKVAxah2lcoqZFn6e
+  page_token: Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  original_title: 自定义autograd.Function时，如何定义反向传播并支持高阶导？
+  imported_at: '2026-09-21'

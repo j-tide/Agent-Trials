@@ -1,0 +1,141 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ff9c058d8389
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现简单的 AdaRound 自适应舍入
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现简单的 AdaRound 自适应舍入
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    AdaRound (Adaptive Rounding) 是一种训练后量化的优化方法，旨在通过微调权重的舍入方向（向上或向下取整）来最小化量化误差。标准量化使用“四舍五入”（round-to-nearest），但这在均方误差意义上并不总是全局最优。AdaRound 将每个权重的舍入决策视为一个二值变量，并利用少量校准数据，通过优化层输出重构误差来学习最佳的舍入方式。
+
+    这里实现一个简化版：给定一个线性层的权重 W、初始量化 scale，以及一小批校准输入 X，我们对每个权重逐一决策：尝试向上取整（ceil）和向下取整（floor），计算两种情况下该层输出（对校准数据）的均方误差（MSE），选择误差较小的那个舍入方向。这本质上是一种贪婪的、基于数据影响的局部优化。
+
+    ```python
+    import torch
+    import torch.nn.functional as F
+
+    def ada_round_weight(W, scales, X, bits=8):
+        """
+        自适应舍入：对权重 W 进行逐元素量化，通过校准数据 X 优化舍入方向。
+        Args:
+            W: FP32 权重，形状 [out_features, in_features]
+            scales: per-channel scale，形状 [out_features]
+            X: 校准输入，形状 [N, in_features]   （假设 bias=None）
+            bits: 量化比特数
+        Returns:
+            W_int: 经过自适应舍入的 int8 权重
+        """
+        qmax = 2 ** (bits - 1) - 1
+        out_features, in_features = W.shape
+
+        # 首先计算每个权重的两个候选整数值：floor 和 ceil
+        W_div = W / scales.unsqueeze(1)          # [out, in]
+        W_floor = torch.floor(W_div)
+        W_ceil = torch.ceil(W_div)
+        # 钳制到量化范围
+        W_floor = torch.clamp(W_floor, -qmax, qmax)
+        W_ceil = torch.clamp(W_ceil, -qmax, qmax)
+
+        # 初始量化输出（使用四舍五入作为基准）
+        # 我们将逐个权重决定最终采用 floor 还是 ceil
+
+        # 为了计算每个权重对输出的影响，我们可以预计算 X 与单位权重的乘积，但这不太现实。
+        # 替代方案：利用线性层的性质：输出 Y = X W^T。
+        # 权重矩阵中位置 (i,j) 的改变对输出 Y 的第 i 列（特征）的影响为 delta_W[i,j] * X[:, j]。
+        # 因此，若我们将 W[i,j] 的舍入从 floor 改为 ceil，输出变化为：
+        #   delta_Y = (ceil_val - floor_val) * scales[i] * X[:, j:j+1]   （添加到第 i 个输出通道）
+        # 我们可以维护一个基准输出 Y_base（使用 floor 作为基准），然后对每个权重，判断改为 ceil 是否能降低 MSE。
+
+        # 计算基准输出（全部使用 floor）
+        W_base = W_floor * scales.unsqueeze(1)   # [out, in] 浮点
+        Y_base = torch.matmul(X, W_base.T)        # [N, out]
+
+        # 真实浮点输出作为目标
+        Y_true = torch.matmul(X, W.T)
+
+        # 初始化最佳舍入选择为 floor
+        best_choice = torch.zeros_like(W_div, dtype=torch.bool)   # False表示floor, True表示ceil
+
+        # 因为计算量很大（out * in 个权重），这里仅演示思路，实际可能采用迭代或分块。
+        # 为简化，我们逐个权重评估（仅适用于教学）。
+        for i in range(out_features):
+            for j in range(in_features):
+                if W_floor[i,j] == W_ceil[i,j]:
+                    continue   # 整数无需选择
+                # 当前 base 下，尝试改用 ceil 这个权重
+                delta_w = (W_ceil[i,j] - W_floor[i,j]) * scales[i]
+                # 计算 Y 的改变：仅第 i 个输出通道受影响
+                Y_candidate = Y_base.clone()
+                Y_candidate[:, i] += delta_w * X[:, j]
+                # 计算 MSE
+                mse_floor = F.mse_loss(Y_base, Y_true)
+                mse_ceil  = F.mse_loss(Y_candidate, Y_true)
+                if mse_ceil < mse_floor:
+                    best_choice[i,j] = True   # 选择 ceil
+                    Y_base = Y_candidate      # 更新基准
+
+        # 根据 best_choice 生成最终量化整数
+        W_final_int = torch.where(best_choice, W_ceil, W_floor).to(torch.int8)
+        return W_final_int
+
+    # 测试
+    if __name__ == "__main__":
+        torch.manual_seed(0)
+        out_f, in_f = 4, 8
+        W = torch.randn(out_f, in_f) * 0.5
+        X_calib = torch.randn(16, in_f)  # 16个校准样本
+        # 先计算初始 per-channel scale（minmax）
+        max_per_ch = torch.max(torch.abs(W), dim=1).values
+        scales = max_per_ch / 127.0
+        # 应用 AdaRound
+        W_int_ada = ada_round_weight(W, scales, X_calib, bits=8)
+        # 对比四舍五入的量化权重
+        W_int_nearest = torch.round(W / scales.unsqueeze(1)).clamp(-128,127).to(torch.int8)
+        # 计算反量化后与原始权重的 MSE
+        W_ada_fp = W_int_ada.float() * scales.unsqueeze(1)
+        W_near_fp = W_int_nearest.float() * scales.unsqueeze(1)
+        mse_ada = F.mse_loss(W_ada_fp, W)
+        mse_near = F.mse_loss(W_near_fp, W)
+        print(f"四舍五入 MSE: {mse_near.item():.6f}")
+        print(f"AdaRound MSE: {mse_ada.item():.6f}")
+    ```
+
+    说明：上述代码逐个权重地评估舍入选择，计算复杂度高，仅用于演示。实际 AdaRound 通常使用泰勒展开近似海森矩阵，并通过迭代优化连续松弛的舍入变量，然后舍入。但此实现清晰展示了“基于重构误差决定舍入”的核心思想。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: L1kmdbP30oMPlRxtOBtco48Nn2l
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 实现简单的 AdaRound 自适应舍入
+  imported_at: '2026-09-21'

@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-126fd000f3ce
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 微调过程中，如何动态调整数据混合比例？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 微调过程中，如何动态调整数据混合比例？
+answer:
+  mode: rubric
+  reference_answer: |-
+    动态调整数据混合比例是一种更精细的训练策略，它允许模型在训练的不同阶段关注不同的学习重点。这通常被称为动态采样（Dynamic Sampling） 或课程学习（Curriculum Learning）。
+
+    实现方法：
+
+    - 阶段式课程学习：
+    将训练过程显式地划分为几个阶段，每个阶段使用不同的数据混合比例。例如：
+
+    - 连续动态采样（基于训练步数）：
+    不划分明确阶段，而是根据当前的训练步数（global_step），通过一个函数（如线性插值或余弦函数）连续地改变各类数据的采样权重。例如，让安全数据的采样权重随训练步数呈余弦曲线从高处缓缓下降，同时让长文本数据的权重上升。这需要自定义一个在训练过程中接受global_step作为参数的Sampler。
+
+    - 基于反馈的动态采样：
+    在每个评估点，分析模型在各类任务上的表现。如果发现某类任务（如数学推理）性能停滞不前甚至下降，则在下个训练阶段自动提高该类数据的采样权重。如果某类任务已饱和，则降低其权重。这本质上构建了一个自动化的课程学习闭环。
+
+    在代码实现中：可以通过自定义HuggingFace Trainer的get_train_dataloader方法，或者使用更底层的PyTorch DataLoader + 自定义BatchSampler来实现。每次batch采样前，根据当前的采样权重分布随机选择一个数据源，然后再从该数据源中随机采样具体样本。
+
+    ✅ 总结：动态调整数据配比让微调从“静态灌输”变为“动态引导”，更符合学习规律，能更精细地平衡不同能力的习得和保持。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/W8ymwxsGKimT6Fk1YIOcORI9nLe
+  block_id: HYGwdbfEGokpRnxeb1Sc5QyInDb
+  page_token: W8ymwxsGKimT6Fk1YIOcORI9nLe
+  original_title: 微调过程中，如何动态调整数据混合比例？
+  imported_at: '2026-09-21'

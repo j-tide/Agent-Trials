@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fc2c1a734819
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 面试官问：一个团队协作 Agent 中，A 和 B 需要共享部分记忆，但私有记忆严格隔离，你怎么设计？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent Memory篇 / 跨会话记忆的用户隔离设计
+tags: &1
+- AI Agent精选八股文
+- Agent Memory篇
+- 跨会话记忆的用户隔离设计
+content:
+  prompt: 面试官问：一个团队协作 Agent 中，A 和 B 需要共享部分记忆，但私有记忆严格隔离，你怎么设计？
+answer:
+  mode: rubric
+  reference_answer: "你可以这样切入：\n\n“这个需求本质上是在同一个 Agent 实例或 Agent 组里，实现数据层面的多租户隔离。最核心的矛盾是‘共享’和‘隔离’必须共存。我会从数据模型、访问控制、共享机制三个层面来设计，确保这块逻辑不会随着记忆增长变成一锅粥。”\n\n---\n\n首先定数据模型：给每条记忆打上“归属标签”\n\n“我不会去建两套完全割裂的数据库，那样一旦需要共享，就得做数据迁移或跨库查询，成本太高。最简单的起点是：所有记忆存在一起，但每条记录强制带上
+    owner 和 visibility 标签。”\n\n数据结构示例：\n\ntext\n\n{  \"memory_id\": \"mem_001\",  \"content\":
+    \"用户偏好深色模式\",  \"owner\": \"agent_A\",  \"visibility\": \"private\",    // 私有
+    or 共享  \"shared_with\": [],          // 如果是共享，这里列出 [agent_B]  \"timestamp\": \"...\"}\n\n设计逻辑：这样，A
+    和 B 的私有记忆本质上是 owner=A, visibility=private 的数据。共享区则是 visibility=shared 且 shared_with
+    包含特定 Agent 的数据。这种打标方式最轻量，也为后续加入 Agent C 预留了扩展性——你只需要在 shared_with 里加人即可，不用动表结构。\n\n---\n\n再建访问控制：在检索入口卡死权限\n\n“数据打上标签只是第一步，关键是把权限校验硬编码进记忆的读写
+    API 里，让它成为基础设施的一部分，而不是依赖上层业务代码自觉。”\n\n读写操作的核心过滤逻辑：\n\n- 写入时：Agent A 调用 add_memory，参数里如果不传
+    visibility，默认就是 private，并且强制将 owner 设为当前 Agent ID。它想设为 shared，必须显式声明 shared_with:
+    [\"agent_B\"]。这是防止误操作的第一道闸门。\n\n- 检索时（最关键）：Agent A 去查记忆，底层查询必须变成一个带权限约束的查询，而不是裸查。伪代码逻辑是：\n\n```text\nSELECT
+    * FROM memories \nWHERE (owner = 'agent_A' AND visibility = 'private')   // 我的私有记忆\n
+    \  OR (visibility = 'shared' AND shared_with CONTAINS 'agent_A') // 共享给我的\n```\n\n深层解析：这个查询逻辑保证了
+    A 永远只能看见“自己的私有”加上“别人明确分享给它的”。即使 Agent B 有 10 万条私有记忆，只要权限过滤在数据库查询层就生效，A 就绝对接触不到。这是最底线的安全保障，不能依赖应用层
+    if-else。\n\n---\n\n设计共享机制：必须“显式传递”，拒绝沉默广播\n\n“共享记忆最怕两件事：一是误共享了敏感上下文，二是对方不知道你共享了。所以共享行为必须设计成一个原子化的、带通知的动作。”\n\n设计一个
+    share_memory 专有方法，而不是让 Agent 直接去改 visibility 字段：\n\n- 入参：memory_id、target_agent_ids、可选的
+    expire_time（共享过期时间，避免永久泄露）。\n\n- 内部逻辑：\n\n- 校验：当前 Agent 是不是这条记忆的 owner？不是则直接拒绝。这防止了
+    B 把 A 的记忆二次共享出去。\n\n- 更新：将这条记忆的 visibility 改为 shared，shared_with 追加目标 Agent。\n\n-
+    通知：生成一条系统级事件，比如“Agent A 共享了一条客户偏好记忆给你”，让 Agent B 在下次推理时能感知到上下文扩充了。这一条在 Agent 系统里尤为重要，因为
+    Agent 的记忆是其推理上下文的一部分，通知不到位，B 可能根本想不起来去检索这块新共享区。\n\n---\n\n多模态记忆的额外考虑（加分项）\n\n“如果记忆不只文本，还包含嵌入向量（Embedding）做语义检索，那事情会更复杂一点。你不能简单地在向量库里硬过滤权限，因为向量检索是近似搜索，先过滤再搜会严重影响效率。”\n\n-
+    工程方案：为每个 Agent 维护独立的向量命名空间（Namespace），私有记忆直接写入 namespace_agent_A_private。共享记忆则写入一个全局共享空间
+    namespace_shared，但在每条记录的元数据里仍保留 shared_with 标签，检索后做一次轻量级的后过滤。这是典型的“向量库分 namespace
+    + 元数据过滤”混合方案。\n\n---\n\n回应面试官可能的追问：一致性、冲突、删除\n\n面试官如果深入追问，你可以补这三刀，展示你考虑过生命周期：\n\n-
+    记忆更新冲突：如果 A 和 B 都能编辑共享记忆，怎么办？建议是：共享记忆通常是只读引用，或规定只有 owner 能修改。共享方可以“评论”但不能篡改原意。\n\n-
+    级联删除：如果 A 删除了某条记忆，且它已经被共享给 B，怎么处理？设计上通常是 B 那边的共享引用立即失效。B 如果觉得重要，应该在删除前被通知，或者做一个软删除加宽限期。\n\n-
+    记忆合并：A 的私有记忆和 B 的私有记忆在共享后产生矛盾（比如 A 记用户讨厌打折，B 记用户最近在找折扣券），这是业务层面的冲突，不应在存储层解决，而是应该抛给一个更高层的“记忆协调器”或让
+    Agent 在推理时自行判断优先级。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ptzqwxursi48uIk5aPrcSRcHnRh
+  block_id: doxcnFkpCnzj81b9o9NcZl77Ayh
+  page_token: Ptzqwxursi48uIk5aPrcSRcHnRh
+  original_title: 面试官问：一个团队协作 Agent 中，A 和 B 需要共享部分记忆，但私有记忆严格隔离，你怎么设计？
+  imported_at: '2026-09-21'

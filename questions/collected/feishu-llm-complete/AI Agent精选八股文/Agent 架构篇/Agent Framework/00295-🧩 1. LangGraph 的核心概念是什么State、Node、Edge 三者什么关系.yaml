@@ -1,0 +1,91 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ab5ae724057f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 1. LangGraph 的核心概念是什么？State、Node、Edge 三者什么关系？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F9E9 1. LangGraph 的核心概念是什么？State、Node、Edge 三者什么关系？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangGraph 是一个用有向图来编排 Agent 行为的框架。 它把 Agent 的每一次决策、每一个工具调用、每一段思考都抽象为图的 节点，把控制流和数据流抽象为图的 边。整张图共享一份 状态。
+
+    一图胜千言：
+
+    [图片内容未导入]
+
+    三者的职责与关系：
+
+    - State（状态）：一份贯穿全图的共享数据字典（TypedDict 或 Pydantic 模型）。每个节点都可以读它、写它。它承载了 Agent 的全部上下文：对话历史、中间结果、控制标志等。
+
+    - Node（节点）：一个 Python 函数，接收当前 State，返回更新后的 State（或部分更新）。它可以是一个 LLM 调用、一个工具执行、一段业务逻辑。
+
+    - Edge（边）：定义节点之间的流转规则。普通边就是“A 执行完一定去 B”；条件边是“A 执行完后，根据 State 的某个字段值决定去 B 还是去 C”。
+
+    关系一句话：State 是大脑的记忆，Node 是会做的事情，Edge 是做完一件事之后接着做什么的决定。
+
+    最简单的代码骨架：
+
+    from typing import TypedDict
+    from langgraph.graph import StateGraph, END
+
+    class AgentState(TypedDict):
+        messages: list
+        next_step: str
+
+    def node_a(state):
+        # 处理逻辑...
+        return {"messages": state["messages"] + ["A done"]}
+
+    def node_b(state):
+        return {"messages": state["messages"] + ["B done"]}
+
+    def router(state):
+        if "done" in state["messages"][-1]:
+            return END
+        return "node_b"
+
+    graph = StateGraph(AgentState)
+    graph.add_node("node_a", node_a)
+    graph.add_node("node_b", node_b)
+    graph.set_entry_point("node_a")
+    graph.add_conditional_edges("node_a", router, {"node_b": "node_b", END: END})
+    graph.add_edge("node_b", "node_a")  # 循环
+    app = graph.compile()
+
+    这就是 LangGraph 的世界观：用图来编程 Agent 的行为，而 State 是这张图的血液。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BGoPwvMLhic7wKkrioacP0oynIh
+  block_id: doxcnhkbEQ5hN6X4Sj1mMC7LcHc
+  page_token: BGoPwvMLhic7wKkrioacP0oynIh
+  original_title: "\U0001F9E9 1. LangGraph 的核心概念是什么？State、Node、Edge 三者什么关系？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d8559f2c209b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 接口需要同时支持 JSON 和 Protobuf 响应格式，如何配置 HttpMessageConverter？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 接口需要同时支持 JSON 和 Protobuf 响应格式，如何配置 HttpMessageConverter？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（HttpMessageConverter、Protobuf、多协议）\n\n1️⃣ Common Answer\n\n添加
+    Protobuf 的依赖，然后配置转换器。具体怎么配不太清楚，好像要实现 HttpMessageConverter 接口。\n\n2️⃣ Impressive
+    Answer\n\n我给出完整的多协议支持方案：\n\n- 依赖配置：\n\n```text\n<!-- pom.xml -->\n<dependency>\n
+    \   <groupId>com.google.protobuf</groupId>\n    <artifactId>protobuf-java</artifactId>\n
+    \   <version>3.21.0</version>\n</dependency>\n```\n\n- Protobuf 消息定义：\n\n```text\n//
+    agent.proto\nsyntax = \"proto3\";\n\nmessage AgentResponse {\n    string id =
+    1;\n    string name = 2;\n    repeated string tools = 3;\n}\n```\n\n- 配置 HttpMessageConverter：\n\n```text\n@Configuration\npublic
+    class WebConfig implements WebMvcConfigurer {\n    \n    @Override\n    public
+    void configureMessageConverters(List<HttpMessageConverter<?>> converters) {\n
+    \       // 保留默认转换器\n        converters.add(new MappingJackson2HttpMessageConverter());\n
+    \       \n        // 添加 Protobuf 转换器\n        ProtobufHttpMessageConverter protobufConverter
+    = new ProtobufHttpMessageConverter();\n        converters.add(protobufConverter);\n
+    \   }\n    \n    @Override\n    public void configureContentNegotiation(ContentNegotiationConfigurer
+    configurer) {\n        configurer\n            .favorParameter(true)\n            .parameterName(\"format\")\n
+    \           .defaultContentType(MediaType.APPLICATION_JSON)\n            .mediaType(\"json\",
+    MediaType.APPLICATION_JSON)\n            .mediaType(\"protobuf\", MediaType.parseMediaType(\"application/x-protobuf\"));\n
+    \   }\n}\n```\n\n- Controller 实现：\n\n```text\n@RestController\n@RequestMapping(\"/api/agent\")\npublic
+    class AgentController {\n    \n    // 方案一：根据 Accept 头自动选择\n    @GetMapping(\"/{id}\")\n
+    \   public ResponseEntity<Agent> getAgent(@PathVariable Long id) {\n        Agent
+    agent = agentService.findById(id);\n        // Accept: application/json → JSON\n
+    \       // Accept: application/x-protobuf → Protobuf\n        return ResponseEntity.ok(agent);\n
+    \   }\n    \n    // 方案二：手动指定格式\n    @GetMapping(\"/{id}/json\")\n    public ResponseEntity<Agent>
+    getAgentJson(@PathVariable Long id) {\n        Agent agent = agentService.findById(id);\n
+    \       return ResponseEntity.ok()\n            .contentType(MediaType.APPLICATION_JSON)\n
+    \           .body(agent);\n    }\n    \n    @GetMapping(\"/{id}/protobuf\")\n
+    \   public ResponseEntity<AgentResponse> getAgentProtobuf(@PathVariable Long id)
+    {\n        Agent agent = agentService.findById(id);\n        \n        // 转换为
+    Protobuf 消息\n        AgentResponse.Builder builder = AgentResponse.newBuilder()\n
+    \           .setId(agent.getId())\n            .setName(agent.getName());\n        agent.getTools().forEach(builder::addTools);\n
+    \       \n        return ResponseEntity.ok()\n            .contentType(MediaType.parseMediaType(\"application/x-protobuf\"))\n
+    \           .body(builder.build());\n    }\n    \n    // 方案三：统一接口，内部转换\n    @GetMapping(\"/{id}/unified\")\n
+    \   public ResponseEntity<?> getAgentUnified(\n        @PathVariable Long id,\n
+    \       @RequestHeader(\"Accept\") String accept) {\n        \n        Agent agent
+    = agentService.findById(id);\n        \n        if (accept.contains(\"application/x-protobuf\"))
+    {\n            AgentResponse protobuf = convertToProtobuf(agent);\n            return
+    ResponseEntity.ok()\n                .contentType(MediaType.parseMediaType(\"application/x-protobuf\"))\n
+    \               .body(protobuf);\n        }\n        \n        return ResponseEntity.ok()\n
+    \           .contentType(MediaType.APPLICATION_JSON)\n            .body(agent);\n
+    \   }\n    \n    private AgentResponse convertToProtobuf(Agent agent) {\n        AgentResponse.Builder
+    builder = AgentResponse.newBuilder()\n            .setId(agent.getId())\n            .setName(agent.getName());\n
+    \       agent.getTools().forEach(builder::addTools);\n        return builder.build();\n
+    \   }\n}\n```\n\n- Agent 场景实践：\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---\n\n###
+    异步请求处理"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EvyJwQ60XiC313kQqbUcyFhEnAh
+  block_id: doxcnx9KYgWKmsG7oX55j4BgcCc
+  page_token: EvyJwQ60XiC313kQqbUcyFhEnAh
+  original_title: 3、场景题：Agent 接口需要同时支持 JSON 和 Protobuf 响应格式，如何配置 HttpMessageConverter？
+  imported_at: '2026-09-21'

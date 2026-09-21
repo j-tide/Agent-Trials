@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-50e3bb04aa7f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 标准的 INT4 量化是均匀分布的，而 QLoRA 使用的 NF4 是非均匀的。为什么对模型权重来说，非均匀量化比均匀量化更好？权重分布通常长什么样？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LoRA 高频面试题
+derived_topic: 
+tags: &1
+- LoRA 高频面试题
+content:
+  prompt: 标准的 INT4 量化是均匀分布的，而 QLoRA 使用的 NF4 是非均匀的。为什么对模型权重来说，非均匀量化比均匀量化更好？权重分布通常长什么样？
+answer:
+  mode: rubric
+  reference_answer: |-
+    权重分布特征：经过大量实验观察，预训练语言模型的权重（尤其是 Transformer 的线性层）通常近似服从零均值的正态分布（高斯分布）或拉普拉斯分布。绝大部分权重值集中在 0 附近（例如 ±0.5 范围内），而离群值（绝对值较大的权重）虽然存在，但极其稀少。
+
+    均匀 INT4 量化的缺陷：标准的 INT4 均匀量化将权重的整个取值范围（例如 [-1.0, 1.0]）等分为 16 个区间，每个区间的宽度完全相同。这带来一个严重问题：在权重高度集中的零附近，16 个刻度中有大量刻度被浪费在了根本没有权重的区域（例如尾部），而零附近的密集区域却只分配了少数刻度，导致核心区域的表示精度不足。这就好比用一把刻度均匀的尺子去测量一个人的身高，却把很多刻度浪费在了他的头顶上空。
+
+    NF4 非均匀量化的优势：NF4 基于信息论最优原则——为了在量化后保留尽可能多的原始信息，量化台阶应该按照数据概率密度的累积分布函数（CDF）的分位数来设定。对于正态分布，这意味着：
+
+    - 在概率密度高的零附近，台阶密集，提供极细的粒度，精确区分细微的权重差异。
+
+    - 在概率密度低的尾部，台阶稀疏，用较少的刻度覆盖大范围，虽然尾部的量化误差会稍大，但由于出现概率极低，对整体模型质量影响微乎其微。
+
+    这种设计使得 NF4 在同等 4-bit 位宽下，信息损失远小于均匀量化，从而保证了量化后的模型仍能提供高质量的基座，为 LoRA 的微调打下坚实基础。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C6WowK2SVibRbyk8cUlcU3v1n1e
+  block_id: I6yBdSmn4oqsPCx8kXNct2lYnie
+  page_token: C6WowK2SVibRbyk8cUlcU3v1n1e
+  original_title: 标准的 INT4 量化是均匀分布的，而 QLoRA 使用的 NF4 是非均匀的。为什么对模型权重来说，非均匀量化比均匀量化更好？权重分布通常长什么样？
+  imported_at: '2026-09-21'

@@ -1,0 +1,87 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a85c81653dbf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 基于块分配器，实现一个序列的 KV Cache 管理器：当序列长度增长时自动分配新的物理块，并在逻辑块表中记录映射。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 基于块分配器，实现一个序列的 KV Cache 管理器：当序列长度增长时自动分配新的物理块，并在逻辑块表中记录映射。
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    PagedAttention 将每个序列的 KV Cache 划分为固定大小的“物理块”（如 16 个 token）。一个序列的逻辑 KV 序列通过“块表”（Block Table）映射到一组物理块。当序列长度增长时，如果当前最后一个物理块已满，需要从全局空闲块池中分配新的物理块，并将其索引追加到块表中。
+
+    实现
+
+    ```python
+    class SequenceKVCache:
+        def __init__(self, allocator, block_size, num_heads, head_dim):
+            self.allocator = allocator          # 全局块分配器
+            self.block_size = block_size        # 每个块容纳的 token 数
+            self.num_heads = num_heads
+            self.head_dim = head_dim
+            self.block_table = []               # 逻辑块 -> 物理块索引
+            self.seq_len = 0                    # 当前序列总长度（token数）
+            # 为简化，假设物理块存储由全局管理器统一维护，此处不持有块数据
+
+        def _ensure_capacity(self, required_tokens):
+            """确保有足够的物理块容纳 required_tokens 个 token"""
+            needed_blocks = (required_tokens + self.block_size - 1) // self.block_size
+            while len(self.block_table) < needed_blocks:
+                blk = self.allocator.allocate()
+                self.block_table.append(blk)
+
+        def append_tokens(self, k, v):
+            """
+            追加 K/V，形状 [num_heads, num_new_tokens, head_dim]。
+            该函数仅负责块分配与逻辑映射，实际写入需由外部配合物理块完成。
+            """
+            num_new = k.shape[1]
+            new_total = self.seq_len + num_new
+            self._ensure_capacity(new_total)
+            # 实际写入逻辑应在外部根据块表和偏移写入物理存储，此处省略
+            self.seq_len = new_total
+
+        def get_block_table(self):
+            return self.block_table
+
+        def get_num_blocks(self):
+            return len(self.block_table)
+    ```
+
+    关键点：_ensure_capacity 在每次追加前被调用，它依据所需的总 token 数计算所需块数，不足则分配。分配通过全局的 BlockAllocator 完成，它维护空闲物理块列表。实际物理块的 K/V 数据通常由全局大张量（如 kv_cache）统一存储，此处管理器只维护映射。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IhgfwCPtoif3TWkyezuc4sW9nbg
+  block_id: QGXdd2gPJo3jeIxWioqcUkRQnWe
+  page_token: IhgfwCPtoif3TWkyezuc4sW9nbg
+  original_title: 基于块分配器，实现一个序列的 KV Cache 管理器：当序列长度增长时自动分配新的物理块，并在逻辑块表中记录映射。
+  imported_at: '2026-09-21'

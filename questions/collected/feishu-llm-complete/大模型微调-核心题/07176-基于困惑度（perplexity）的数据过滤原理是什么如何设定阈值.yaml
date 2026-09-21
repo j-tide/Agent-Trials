@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-482d078b7927
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 基于困惑度（perplexity）的数据过滤原理是什么？如何设定阈值？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 基于困惑度（perplexity）的数据过滤原理是什么？如何设定阈值？
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理：困惑度（PPL）衡量的是语言模型对一段文本的“惊讶程度”。其核心假设是：高质量、自然流畅的文本，应该能被一个强大的语言模型以较低困惑度预测；而混乱、不通顺、逻辑断裂或包含大量随机噪声的文本，模型会感到非常“惊讶”，从而呈现出异常高的困惑度。
+
+    因此，我们可以利用一个独立于SFT训练模型的、预训练良好的语言模型（如LLaMA-7B基座）作为“评分器”，计算每条SFT数据中回复部分的PPL。PPL过高意味着文本质量可能很差，应当被过滤。
+
+    如何设定阈值：不能设定一个绝对的全局值（如“PPL>100就过滤”），因为不同任务、不同语言的文本，其合理的PPL分布差异巨大。一个科学的方法是基于数据自身分布的“百分位法”：
+
+    - 使用评估模型计算数据集中所有样本的PPL。
+
+    - 将所有样本的PPL值从小到大排序。
+
+    - 设定一个丢弃比例，例如，只丢弃PPL值处于最高1%~5%的样本（即PPL在99分位以上的样本）。
+
+    这个做法的假设是：数据集中绝大多数样本的质量是正常的，只有少数“离群值”是真正的垃圾。丢弃这些小比例的“最差”样本，能以最小的误伤代价，显著提升数据集的整体质量。
+
+    注意事项：
+
+    - PPL低不等于质量高：过度简单的回复（如“好的”、“谢谢”）PPL极低，但对模型训练价值很低，通常需要结合“最短长度过滤”一起使用。
+
+    - PPL高不等于质量差：包含复杂推理、罕见专业术语或诗歌等高难度文本，其PPL可能天然偏高。过于激进的过滤阈值（如丢弃10%以上）可能会误杀这些高价值样本。因此，结合人工抽检来校准阈值至关重要。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DPSewakAfi4q7rkB8nQcmT0onob
+  block_id: VBNrdLln0ogAnbxfruNcOUfCnQh
+  page_token: DPSewakAfi4q7rkB8nQcmT0onob
+  original_title: 基于困惑度（perplexity）的数据过滤原理是什么？如何设定阈值？
+  imported_at: '2026-09-21'

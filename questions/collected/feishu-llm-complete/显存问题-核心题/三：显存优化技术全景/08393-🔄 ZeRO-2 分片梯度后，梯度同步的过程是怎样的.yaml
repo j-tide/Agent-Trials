@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-05e23339885b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F504 ZeRO-2 分片梯度后，梯度同步的过程是怎样的？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F504 ZeRO-2 分片梯度后，梯度同步的过程是怎样的？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 ZeRO-2 在前向计算时各卡仍拥有完整参数，但在反向计算出梯度后，不再直接 All-Reduce
+    成完整梯度，而是对梯度进行 Reduce-Scatter，使得每张卡只持有与自己参数分片对应的那一部分完整梯度（即聚合好的部分梯度）。\n\n\U0001F50D
+    具体过程：\n\n- 反向传播：每张卡独立计算出完整梯度（针对整个模型），但此时各卡的梯度是基于不同 micro-batch 的，需要平均。\n\n- 梯度
+    Reduce-Scatter：各卡执行 Reduce-Scatter 操作。以参数分片为单位，例如 GPU0 负责第 1/4 的参数，则所有卡上该部分梯度将被求和（Reduce）并分散（Scatter）到
+    GPU0，最终 GPU0 拥有该部分参数的聚合梯度。其他部分类推。这样，每张卡只得到了自己负责那部分参数的完整梯度，不再存储其他部分的梯度，显存立刻节省。\n\n-
+    优化器更新：每张卡用自己持有的聚合梯度，更新自己负责的优化器状态和参数分片。\n\n- 参数全收集：更新后，每张卡只拥有部分更新后的参数，需要通过 All-Gather
+    将各卡的最新参数收集，组合成完整参数，供下一轮前向使用。\n\n\U0001F4CA 通信变化：ZeRO-2 将原 DP 的 All-Reduce 梯度，拆分成了
+    Reduce-Scatter 梯度 + All-Gather 参数，通信量仍为约 3×Φ（与 ZeRO-1 相近），但显存进一步节省了梯度冗余。\n\n✅
+    因此，ZeRO-2 通过 Reduce-Scatter 实现梯度分片，每卡仅存 1/N 的梯度，进一步降低单卡负载。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PfKUwsEL0iLM0ckIJbecd8xenxf
+  block_id: APTydHVmQoeOfUxG51WcQp90nbf
+  page_token: PfKUwsEL0iLM0ckIJbecd8xenxf
+  original_title: "\U0001F504 ZeRO-2 分片梯度后，梯度同步的过程是怎样的？"
+  imported_at: '2026-09-21'

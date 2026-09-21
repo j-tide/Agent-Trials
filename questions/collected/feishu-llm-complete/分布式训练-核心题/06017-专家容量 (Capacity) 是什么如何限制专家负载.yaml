@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2d243ac5393a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 专家容量 (Capacity) 是什么？如何限制专家负载？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 专家容量 (Capacity) 是什么？如何限制专家负载？
+answer:
+  mode: rubric
+  reference_answer: |-
+    专家容量是对每个专家能处理的 token 数量的硬性上限。设置容量的目的是防止某个专家负载过重，拖慢整个 batch 的训练速度，同时在分布式环境下避免某些 GPU 因接收过多 token 而显存爆炸。
+
+    容量公式：
+
+    capacity = (total_tokens / num_experts) * capacity_factor
+
+    其中 total_tokens 是整个 batch 的 token 总数，num_experts 是专家数，capacity_factor 是容量因子（通常设为 1.0~1.5）。容量因子 1.0 意味着每个专家只能处理平均分配量的 token。容量因子 1.5 允许单个专家处理 1.5 倍的均量，提供一定弹性。
+
+    如何限制负载：当某个专家收到的 token 数超过容量时，多余的 token 会被“溢出”。溢出的处理方式有几种：
+
+    - 直接丢弃：这些 token 不经过任何专家处理，直接跳过 MoE 层（残差连接会保留原始信息）。实现简单，但可能丢失重要信息。
+
+    - 路由到下一个专家：将溢出 token 重新分配给仍有容量的专家，但可能打乱原来的路由意图。
+
+    - 使用共享专家：额外设置一个不参与路由的“共享专家”，所有溢出 token 统一送到这里处理。
+
+    在实践中，容量因子通常设为 1.25~1.5，既能保证大部分 token 不被丢弃，又不让任何专家过载。监控指标是每个专家的实际 token 处理量，理想情况下应接近容量但不超过它。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQczwN8cliZ2XSkOI26ckCcPnuf
+  block_id: BOwNdum5TohWTbxawWCcNdcSnmd
+  page_token: GQczwN8cliZ2XSkOI26ckCcPnuf
+  original_title: 专家容量 (Capacity) 是什么？如何限制专家负载？
+  imported_at: '2026-09-21'

@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e6666ffbc1b6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 ZeRO-1 下，进行一次优化器更新需要哪些通信操作？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 在 ZeRO-1 下，进行一次优化器更新需要哪些通信操作？
+answer:
+  mode: rubric
+  reference_answer: |-
+    一次完整的ZeRO-1参数更新涉及两个集合通信操作，它们前后衔接，缺一不可：
+
+    操作一：ReduceScatter（梯度归约与分片）
+
+    这是更新流程的起点。此时每张卡都刚刚完成反向传播，持有基于本地微批次数据计算出的完整梯度。但每张卡的本地梯度只是全局梯度的一个部分贡献（因为它只处理了部分数据），需要将所有卡的梯度求和才能得到真正的全局梯度。
+
+    ReduceScatter完美地完成了“求和+按需分发”两个任务。它首先将所有卡的梯度在对应参数位置上求和（Reduce），然后将求和结果按照优化器状态的分片规则切分并分发（Scatter）——每张卡只收到自己负责更新的那部分参数的全局梯度。例如8卡训练7B模型，每张卡最终只保留约1/8的梯度。
+
+    这次通信的数据量等于梯度总大小：7B参数 × 2字节（FP16）= 14GB。通信后，每张卡的梯度显存占用从14GB降至1.75GB，释放的显存可以被后续计算复用。
+
+    操作二：AllGather（参数收集与同步）
+
+    每张卡用自己分到的梯度，更新本地优化器状态和对应的FP32主权重后，需要将更新后的FP16参数同步给所有其他卡，以便下一轮前向传播时所有卡都拥有完整的模型参数。
+
+    AllGather就是完成这个“广播+收集”的操作。每张卡贡献自己更新后的参数分片（约1/N的参数），同时从其他卡接收它们的分片。AllGather完成后，每张卡重新拥有完整的模型参数。
+
+    这次通信的数据量等于参数总大小：同样14GB。两次通信合计28GB，而标准DP仅需一次梯度AllReduce（14GB）。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: WI0xdmBXNo3UPqxyyszcNTjknFe
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: 在 ZeRO-1 下，进行一次优化器更新需要哪些通信操作？
+  imported_at: '2026-09-21'

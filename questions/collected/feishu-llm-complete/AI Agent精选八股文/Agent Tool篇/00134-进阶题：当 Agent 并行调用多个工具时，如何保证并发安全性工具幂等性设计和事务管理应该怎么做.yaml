@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d9c81b68e495
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 进阶题：当 Agent 并行调用多个工具时，如何保证并发安全性？工具幂等性设计和事务管理应该怎么做？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent Tool篇
+tags: &1
+- AI Agent精选八股文
+- Agent Tool篇
+content:
+  prompt: 进阶题：当 Agent 并行调用多个工具时，如何保证并发安全性？工具幂等性设计和事务管理应该怎么做？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐⭐（并发竞争场景、幂等键设计、单工具单事务原则、信号量限流）
+
+    1️⃣ Common Answer
+
+    并行调用工具时可能产生竞争条件，用锁保护共享资源就行。幂等性就是同一操作执行多次结果一样，查询天然幂等，写操作用唯一约束防重复。数据库操作要用事务保证原子性，出错了回滚。
+
+    2️⃣ Impressive Answer
+
+    我会从 3 个角度来分析：
+
+    - 常见竞争场景要心中有数。读-改-写竞争（两个工具并发读同一计数器各自加 1 写回，结果少加一次）；文件系统竞争（两个工具同时写同名临时文件互相覆盖）；外部 API 限流（多工具并发调同一第三方 API 触发频率限制）。不同场景对应不同的解法，不能一概而论。
+
+    - 幂等性设计要分层。天然幂等：GET 类查询无需处理。业务 ID 幂等：写操作携带 idempotency_key，服务端先查是否已存在，存在则返回已有结果，不存在才创建。条件写幂等：用乐观锁（UPDATE ... WHERE version = ?）或数据库唯一约束防止并发重复写入。事务管理上，遵循单工具单事务原则，不跨工具共享事务上下文，避免并发时事务边界混乱；只读工具显式用只读事务，数据库可做更好的并发优化。
+
+    - 框架层面用信号量控制并发数。用 asyncio.Semaphore 限制同时执行的工具数量（比如最多 5 个并发），防止资源过载。asyncio.gather 加 return_exceptions=True，保证某个工具失败不中断其他工具的执行，最后统一处理失败项。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/F5QpwqJp4i0pB3kmnPzcVpgGn19
+  block_id: doxcnvnCOOvwODOc4IgiwFSWBGb
+  page_token: F5QpwqJp4i0pB3kmnPzcVpgGn19
+  original_title: 进阶题：当 Agent 并行调用多个工具时，如何保证并发安全性？工具幂等性设计和事务管理应该怎么做？
+  imported_at: '2026-09-21'

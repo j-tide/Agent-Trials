@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-818664bc43fd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4C8 2. Scaling Law 的核心结论是什么？对模型训练和选型有什么指导意义？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F4C8 2. Scaling Law 的核心结论是什么？对模型训练和选型有什么指导意义？"
+answer:
+  mode: rubric
+  reference_answer: "Scaling Law 是 2020 年 OpenAI 提出的经验定律，它用幂律关系描述了模型性能（Loss）与参数量 N、数据量
+    D、计算量 C 之间的关系。\n\n\U0001F539 核心公式与结论\n\n在固定计算预算 CC 下，最终测试 Loss 大致满足：\n\n[图片内容未导入]\n\n其中
+    α≈0.34,β≈0.28α≈0.34,β≈0.28 （不同研究略有差异），L∞L∞ 是不可约减的损失下限（如数据噪声）。\n\n关键推论：\n\n- 同步扩大原则：模型大小和训练数据量应等比例扩大。参数量每翻一倍，训练
+    tokens 数量也应约翻一倍（Chinchilla 定律：最优比例约 20 tokens/参数）。\n\n- 算力分配：给定固定算力预算，存在唯一的最优参数规模
+    Nopt(C)Nopt(C) 和数据规模 Dopt(C)Dopt(C) 使得 Loss 最低。\n\n- 超越幂律：目前实践中，扩展数据量带来的收益持续时间可能长于扩展参数，且高质量数据可以上浮曲线。\n\n\U0001F539
+    对模型训练和选型的指导\n\n训练决策树：\n给定 $C$ 的预算\n    ├─ 用公式推算 N_opt 和 D_opt\n    ├─ 数据是否足够 D_opt？\n
+    \   │   ├─ 是 → 按 N_opt 设计模型，训练到 D_opt\n    │   └─ 否 → 退而求其次：缩小模型规模，保证数据充分\n    └─
+    选型时：同样性能，倾向参数小但训练数据足的模型\n                （推理成本低，部署快）\n\n实操中的衍生认识：\n\n- 小模型 + 多数据
+    策略，在推理成本敏感的场景下非常有效（如 Llama-3 8B 用 15T tokens 训练）。\n\n- 算力-数据-参数 三元组不是唯一优化维度，架构改进（MoE）、数据质量过滤、训练超参调优能显著抬升整条曲线。\n\n\U0001F539
+    代码示例：拟合 Scaling Law 并预测最优配置\n\nimport numpy as np\nfrom scipy.optimize import
+    minimize\n\ndef scaling_loss(params, N, D, L_actual):\n    A, B, alpha, beta,
+    L_inf = params\n    L_pred = A / (N ** alpha) + B / (D ** beta) + L_inf\n    return
+    np.mean((L_pred - L_actual) ** 2)\n\n# 假设有一组实验数据点 (N, D, 测量 Loss)\nexp_data =
+    [\n    (1e8, 2e9, 1.8),\n    (3e8, 6e9, 1.55),\n    (1e9, 2e10, 1.35)\n]\nN_vals,
+    D_vals, L_vals = zip(*exp_data)\ninit_params = [0.5, 0.5, 0.34, 0.28, 0.5]\nopt_params
+    = minimize(scaling_loss, init_params, args=(N_vals, D_vals, L_vals)).x\n\n# 给定算力预算
+    C = N * 6 * D (简化假设)，求最小 Loss 的 N 和 D\ndef loss_for_budget(C):\n    def f(N):\n
+    \       D = C / (6 * N)\n        A, B, alpha, beta, L_inf = opt_params\n        return
+    A / (N ** alpha) + B / (D ** beta) + L_inf\n    res = minimize(f, x0=1e8, bounds=[(1e6,
+    1e12)])\n    return res.x[0], C / (6 * res.x[0]), res.fun\n\nbest_N, best_D, best_loss
+    = loss_for_budget(1e23)\nprint(f\"最优参数量: {best_N:.2e}, 最优数据量: {best_D:.2e}, 预期Loss:
+    {best_loss:.3f}\")\n\n这个简单脚本演示了如何用实验点拟合幂律，进而指导资源分配。实际工程中还需要考虑 MoE 的稀疏性、多模态、以及数据重复等因素，Scaling
+    Law 是起点，不是答案。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcniZkq8pUlIQgHSKrV5G612g
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "\U0001F4C8 2. Scaling Law 的核心结论是什么？对模型训练和选型有什么指导意义？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5b6e068e7df5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚠️ 什么是工具的“错误处理”？如果工具执行失败，应该返回什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "⚠️ 什么是工具的“错误处理”？如果工具执行失败，应该返回什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    工具的错误处理是指当工具执行过程中发生异常（如网络超时、数据库宕机、参数非法）时，如何优雅地响应，而不是让整个 Agent 崩溃。
+
+    核心原则：工具应始终返回一个字符串信息，而非抛出未捕获的异常。 因为 Agent 依赖工具的返回值（Observation）来推理下一步。如果工具抛出异常，LangChain 默认会中断整个 Agent 执行，用户将得到一个冰冷的错误。
+
+    错误处理的最佳实践：
+
+    - 在工具函数内部使用 try...except 捕获所有异常，并返回一个描述清晰的错误信息字符串。例如：
+
+    ```python
+    @tool
+    def risky_tool(param: str) -> str:
+        try:
+            result = perform_network_call(param)
+            return result
+        except TimeoutError:
+            return "错误：网络请求超时，请稍后重试。"
+        except ValueError as e:
+            return f"错误：参数无效 - {e}"
+        except Exception as e:
+            return f"错误：工具执行失败，原因不明 - {e}"
+    ```
+
+    - 错误信息要具体：告诉 Agent 发生了什么，以及可能的解决方法。例如“API 密钥无效，请检查配置”，而不是简单的“失败”。这样 Agent 可以据此调整行为（比如不再重试，或者向用户询问密钥）。
+
+    - 区分可恢复错误与致命错误：对于临时性错误（如超时），可以提示 Agent “请稍后重试”；对于永久性错误（如权限不足），应明确告知“操作被拒绝”。
+
+    - 自定义错误处理回调：使用 on_tool_error 回调，可以在全局统一处理工具错误，例如发送告警、记录日志等。
+
+    ✅ 教训：早期我把工具写得很“脆”，一遇到问题就抛异常，结果 Agent 经常突然死亡，用户体验极差。后来所有工具都加上健壮的 try...except，并返回结构化错误信息（如 JSON），Agent 的执行稳定性大幅提升。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZZIjwAYoMiY0VEk7JiDcIuK3nPb
+  block_id: AgNjd6SNkolGCuxd2l3ckbn7neh
+  page_token: ZZIjwAYoMiY0VEk7JiDcIuK3nPb
+  original_title: "⚠️ 什么是工具的“错误处理”？如果工具执行失败，应该返回什么？"
+  imported_at: '2026-09-21'

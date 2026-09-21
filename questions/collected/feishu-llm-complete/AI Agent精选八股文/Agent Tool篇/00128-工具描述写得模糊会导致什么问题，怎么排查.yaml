@@ -1,0 +1,143 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a59fa61d3bc9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 工具描述写得模糊会导致什么问题，怎么排查？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent Tool篇
+tags: &1
+- AI Agent精选八股文
+- Agent Tool篇
+content:
+  prompt: 工具描述写得模糊会导致什么问题，怎么排查？
+answer:
+  mode: rubric
+  reference_answer: |-
+    工具描述（description 和 parameters 中的 description）是模型理解“这个函数是干什么的、参数该怎么填”的唯一依据。描述模糊，模型就会“猜”，而猜往往是错的。
+
+    模糊描述引发的三类典型问题：
+
+    - 选错工具：你写了两个工具 search_product 和 search_order，但描述都是“搜索”，模型面对“查一下手机订单”时，有一半概率选错。
+
+    - 参数胡填：参数 date 的描述是“日期”，模型可能填 "今天"、"2026/07/02"、"2026-07-02T00:00:00Z"，完全不可控。
+
+    - 该调不调，不该调瞎调：模型不确定这个工具到底能做什么，干脆不调；或者相反，对明显超出工具能力范围的请求也强行调用，产生幻觉。
+
+    排查方法：日志审计 + 回归分析
+
+    当你发现 Agent 的工具调用行为异常时，按以下步骤定位：
+
+    第一步：开启工具调用日志，锁定失败样本。
+
+    记录每一次工具调用的完整上下文：用户原始输入、模型生成的函数名和参数、执行结果、是否成功。
+
+    ```python
+    log_entry = {
+        "timestamp": now,
+        "user_input": user_msg,
+        "tool_name": func_name,
+        "arguments": arguments,
+        "success": False,
+        "error": str(e)
+    }
+    ```
+
+    每天或每周扫描这些日志，找出调用失败率最高的工具或参数。
+
+    第二步：将失败样本“喂回”给模型进行归因分析。
+
+    用另一个独立的 LLM 调用来诊断问题：
+
+    ```text
+    diagnose_prompt = f"""
+    你是一个工具调用诊断专家。下面是一次失败的工具调用记录：
+    用户需求：{user_msg}
+    调用的工具：{tool_name}
+    传入的参数：{arguments}
+    工具的描述：{tool_description}
+    失败原因：{error}
+
+    请分析：是工具描述不清晰导致参数填错，还是用户需求本身超范围？
+    如果是描述问题，请给出具体修改建议。
+    """
+    ```
+
+    这能快速区分是“描述模糊”还是“用户输入真的有问题”。
+
+    第三步：对比模糊描述和清晰描述的效果。
+
+    举个例子，一个模糊的工具定义：
+
+    ```json
+    // ❌ 模糊
+    {
+        "name": "get_report",
+        "description": "获取报告",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "type": {"type": "string", "description": "报告类型"},
+                "date": {"type": "string", "description": "日期"}
+            }
+        }
+    }
+    ```
+
+    模型可能把 type 填成 "销售"、"sales"、"销售报告" 等各种变体，你的后端代码需要写一堆兼容逻辑。
+
+    修改为清晰版本：
+
+    ```json
+    // ✅ 清晰
+    {
+        "name": "get_sales_report",
+        "description": "获取指定时间范围内的销售数据报表，返回总额、订单数和同比变化率。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "start_date": {
+                    "type": "string",
+                    "description": "报表开始日期，格式 YYYY-MM-DD，如 2026-07-01"
+                },
+                "end_date": {
+                    "type": "string",
+                    "description": "报表结束日期，格式 YYYY-MM-DD，不能早于 start_date"
+                }
+            },
+            "required": ["start_date", "end_date"]
+        }
+    }
+    ```
+
+    改动点：函数名具体化、描述说明输入输出、参数名无歧义、参数描述给出格式和约束。 这类调整能让工具调用的准确率从 70% 迅速提到 95% 以上。
+
+    最终结论： 工具描述的清晰度，直接等于模型调用工具的准确度。排查时不要瞎猜，去看日志、做归因、然后用更具体的描述逐步替换模糊的旧版本。这是一个低成本、高回报的优化手段。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/F5QpwqJp4i0pB3kmnPzcVpgGn19
+  block_id: doxcn8Ld3m2Eu3kZp6U7ZywumQd
+  page_token: F5QpwqJp4i0pB3kmnPzcVpgGn19
+  original_title: 工具描述写得模糊会导致什么问题，怎么排查？
+  imported_at: '2026-09-21'

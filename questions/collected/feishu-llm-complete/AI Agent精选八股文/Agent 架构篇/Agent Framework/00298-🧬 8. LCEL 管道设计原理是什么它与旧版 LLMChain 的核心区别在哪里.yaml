@@ -1,0 +1,91 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3d1b790b5281
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EC 8. LCEL 管道设计原理是什么？它与旧版 LLMChain 的核心区别在哪里？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F9EC 8. LCEL 管道设计原理是什么？它与旧版 LLMChain 的核心区别在哪里？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LCEL 的设计原理：一切皆 Runnable，统一接口，自由组合。
+
+    每个 LCEL 的组件（Prompt、LLM、Parser、Retriever、你自己写的函数）都遵循同一个 Runnable 协议：
+
+    - invoke(input) → output
+
+    - ainvoke(input) → output (异步)
+
+    - stream(input) → Iterator[output] (同步流)
+
+    - astream(input) → AsyncIterator[output] (异步流)
+
+    - batch(inputs) → list[output] (批量)
+
+    管道之所以能工作，是因为每个组件都有清晰的输入输出类型声明（通过 input_schema 和 output_schema）。| 操作符在组合时就会校验：前一个的输出模式是否和后一个的输入模式兼容。如果不兼容，会在链构建阶段直接报错，而不是等到运行时才挂。
+
+    核心区别：LCEL vs LLMChain
+
+    我用一张表格把它们的哲学差异说清楚：
+
+    [嵌入表格未展开]
+
+    直观例子：实现“先总结、再翻译”
+
+    LLMChain 做法（需要嵌套，且调试黑盒）：
+
+    ```python
+    # 1.0 风格
+    summary_chain = LLMChain(llm=llm, prompt=summary_prompt)
+    translate_chain = LLMChain(llm=llm, prompt=translate_prompt)
+    # 你需要再写一个顺序链把它们包起来，而且没办法直接看中间结果
+    ```
+
+    LCEL 做法（透明、可逐节测试）：
+
+    ```python
+    # 2.0 风格
+    summary_chain = summary_prompt | model | StrOutputParser()
+    translate_chain = translate_prompt | model | StrOutputParser()
+    full_chain = summary_chain | translate_chain  # 直接拼接
+    # 你可以单独测试 summary_chain 和 translate_chain，也可以从 full_chain 的 trace 里看到每一环的输入输出
+    ```
+
+    用 LCEL 的本质转变：从“调用一个函数”到“定义一条数据流水线”。
+
+    这条流水线的节点可以随时被替换、重组，而且天然支持流式传输。这种声明式的力量，在下面流式返回的实现中会完全展现出来。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SuxqwVBLli4q94kJFBAcOLkFnZc
+  block_id: doxcnbDd2YtTqD1ln1v7oeKmvjc
+  page_token: SuxqwVBLli4q94kJFBAcOLkFnZc
+  original_title: "\U0001F9EC 8. LCEL 管道设计原理是什么？它与旧版 LLMChain 的核心区别在哪里？"
+  imported_at: '2026-09-21'

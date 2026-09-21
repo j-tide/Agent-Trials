@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-20a1149c2f48
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分析使用 ZeRO-3 时，前向传播的一次 AllGather 通信量是多少。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 分析使用 ZeRO-3 时，前向传播的一次 AllGather 通信量是多少。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在ZeRO-3中，模型参数被分片到所有DP组内的GPU上。前向传播计算某一层时，该层的全部参数必须先在当前设备上可用。因此，需要执行一次AllGather操作，从组内所有GPU收集该层参数的各个分片，拼接成完整参数。
+
+    设模型总参数量为P（单位：参数个数），数据并行度为N，层数为L，且参数在各层间均匀分布。则每层参数量约为 P/L。在一次前向传播中，对于每一个Transformer层，都需要一次AllGather该层的完整参数。
+
+    单层 AllGather 通信量：每个GPU贡献该层参数的1/N（即 P/(LN) 个参数），并从其他N-1个GPU各接收同样大小的数据。AllGather通信的总数据量（所有GPU发送的数据总量）为 (N-1)/N * (P/L) * 参数字节数。对于单个GPU，它发送约 P/(LN) 的数据，接收约 (N-1)P/(LN) 的数据，单GPU收发总量约 P/L * (1 - 1/N) ≈ P/L（当N较大时）。
+
+    若参数以FP16存储，则每层AllGather的通信量约为 2 * P / L 字节。整个模型所有L层在前向传播中，总AllGather通信量约为 2 * P 字节。反向传播同样需要AllGather参数一次，因此前向+反向总AllGather通信量约为 4 * P 字节。
+
+    实例：训练30B模型，8卡ZeRO-3，P=30×10^9，则单层参数约P/L（假设L=48，约625M）。每层AllGather通信量约为 2 * 625e6 ≈ 1.25 GB。全模型前向AllGather总通信量约 2 * 30e9 * 2 bytes = 120 GB（注意单位：参数量×2字节）。反向同样120 GB，故AllGather合计约240 GB。此外还有梯度ReduceScatter通信。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: HKAEdPBHMotZF5xrArxcp5Kbnif
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 分析使用 ZeRO-3 时，前向传播的一次 AllGather 通信量是多少。
+  imported_at: '2026-09-21'

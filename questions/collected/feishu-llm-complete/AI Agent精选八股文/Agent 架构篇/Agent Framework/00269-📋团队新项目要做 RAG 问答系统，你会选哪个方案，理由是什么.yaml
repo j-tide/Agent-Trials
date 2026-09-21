@@ -1,0 +1,94 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c8e8d472f9c8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CB团队新项目要做 RAG 问答系统，你会选哪个方案，理由是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F4CB团队新项目要做 RAG 问答系统，你会选哪个方案，理由是什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    做这个决策之前，我会先看三个硬约束：
+
+    - 团队的技术栈（Java 还是 Python？前端同学能碰后端吗？）
+
+    - 项目的基础设施（已有 Spring Cloud 微服务？还是独立部署？）
+
+    - 对稳定性、权限、审计的要求（金融/医疗等强监管行业？）
+
+    基于这三条，我把市面上的主流方案拉出来，做一个快速的权衡分析。
+
+    方案一：Spring AI + LangGraph (Java 生态)
+      适合：团队以 Java/Spring 为主，已有微服务基础设施，对安全、审计、事务等有高要求。
+      优势：与 Spring Security/Cloud/Micrometer 无缝集成，Advisor 机制天然适合做 RAG 切面。
+             LangGraph 负责复杂流程（检索→校验→重试→审批），Spring AI 负责 AI 调用。
+      劣势：相比 Python 生态，前沿特性（如最新的 Multi-Vector Retriever）落地稍慢。
+
+    方案二：LangChain + LangGraph (Python 生态)
+      适合：团队 Python 能力强，希望快速迭代，愿意引入 Python 微服务。
+      优势：社区最活跃，组件最丰富，调试工具（LangSmith）成熟，大量现成模板可复用。
+      劣势：需要额外维护 Python 服务，与企业 Java 后端集成时要处理跨语言调用。
+
+    方案三：纯手工 + 向量库 SDK (如 Pinecone/Milvus)
+      适合：需求极其简单，只有一个“查文档→回答”的直线链路，且团队不想引入框架。
+      优势：无框架黑盒，完全掌控，包体小。
+      劣势：当需求演进到多路召回、混合检索、上下文压缩时，你会发现自己在重写半个 LangChain。
+
+    方案四：LlamaIndex (Python)
+      适合：项目以数据为中心，文档解析、索引结构是核心，RAG 链路重。
+      优势：对索引结构（树索引、关键词索引、知识图谱索引）的支持很强。
+      劣势：与 LangChain 功能重叠度高，社区略小，Agent 能力不如 LangChain。
+
+    我的推荐：对于大多数企业级 Java 项目，我会首选 Spring AI + LangGraph。
+
+    原因很直接：当公司已有的微服务体系、鉴权、配置中心都是 Spring 全家桶时，引入 Spring AI 的成本几乎为零——它就是一个 Starter，ChatModel、VectorStore 都是 Spring Bean，你可以用 @Service、@Transactional、@Cacheable 等所有你熟悉的注解去构建 AI 逻辑。而 LangGraph 弥补了 Spring AI 在“复杂流程编排”上的短板，比如“检索结果太差→自动改写查询→二次检索→仍为空→转人工”这种带循环和分支的逻辑，用 LangGraph 的 StateGraph 表达比写一堆 if-else 清晰得多。
+
+    // 用 Spring AI 的 Advisor 实现 RAG 切面
+    @Component
+    public class RagAdvisor implements RequestResponseAdvisor {
+        private final VectorStore vectorStore;
+
+        @Override
+        public AdvisedRequest adviseRequest(AdvisedRequest request, Map<String, Object> context) {
+            String query = request.userText();
+            List<Document> docs = vectorStore.similaritySearch(SearchRequest.query(query).withTopK(4));
+            String ctx = docs.stream().map(Document::getContent).collect(Collectors.joining("\n\n"));
+            return AdvisedRequest.from(request)
+                    .withSystemText("基于以下参考资料回答：\n" + ctx + "\n\n" + request.systemText())
+                    .build();
+        }
+        // ...
+    }
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AuVxwYFDWiT663kKLskczm8mnIh
+  block_id: doxcnjrhZlSs88x7xwnSxgFHjgg
+  page_token: AuVxwYFDWiT663kKLskczm8mnIh
+  original_title: "\U0001F4CB团队新项目要做 RAG 问答系统，你会选哪个方案，理由是什么？"
+  imported_at: '2026-09-21'

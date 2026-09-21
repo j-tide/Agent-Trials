@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9ee1951161bf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50C 8. 自定义链中如果需要访问外部资源（如数据库、API），你一般怎么初始化？在链的构造函数中传入吗？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "\U0001F50C 8. 自定义链中如果需要访问外部资源（如数据库、API），你一般怎么初始化？在链的构造函数中传入吗？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是一个设计哲学问题。我的原则是：依赖注入 > 内部硬编码。所以，访问外部资源（数据库连接、API 客户端、Redis 客户端等）都应该通过构造函数传入，而不是在链内部自行创建。
+
+    理由很充分：
+
+    - 测试友好：测试时你可以注入一个 mock 的数据库连接或假 API 客户端，而不用真的连外部服务。
+
+    - 配置集中管理：连接字符串、超时时间、池大小等配置集中在应用启动时处理，链本身无需关心。
+
+    - 资源生命周期：由外部管理连接池的开启和关闭，链不负责这些，避免资源泄漏。
+
+    - 复用：多个链实例可以共享同一个数据库连接池。
+
+    所以我会把外部资源定义为 Pydantic Field，类型用 Any 或具体的协议类：
+
+    ```python
+    class MyChain(Chain):
+        db_session: Any          # 可以是 sqlalchemy session
+        api_client: SomeApiClient
+        cache_client: Any = None
+        # ...
+    ```
+
+    然后在 _call 里直接使用 self.db_session.query(...)。这里要注意线程安全：如果你的链被用在多线程环境，而数据库 session 不是线程安全的，那就要在每次 _call 里创建新 session，但可以通过注入一个 session_factory 来避免硬编码：
+
+    ```python
+    class MyChain(Chain):
+        session_factory: Callable[[], Session]
+
+        def _call(self, inputs):
+            with self.session_factory() as session:
+                # 使用 session
+    ```
+
+    对于异步资源（比如 httpx.AsyncClient），一样通过构造函数注入，但需要确保调用方在应用生命周期内管理这个 client 的开启和关闭。如果链需要自己初始化一个轻量资源（比如每次调用都新建一个临时 API 客户端），那也可以，但要明确这个资源不是共享的，并且要注意开销。
+
+    一个反例：我见过有人在自定义链的 init 里直接 self.db = create_engine(...)，导致测试时疯狂连生产数据库，最后不得不 mock 整个类，非常痛苦。所以，务必依赖注入。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QpN4wGGTGiz4zzkOhzqc7iipn1e
+  block_id: QNHMd20r0oQzMbxSqVycWE3GnW5
+  page_token: QpN4wGGTGiz4zzkOhzqc7iipn1e
+  original_title: "\U0001F50C 8. 自定义链中如果需要访问外部资源（如数据库、API），你一般怎么初始化？在链的构造函数中传入吗？"
+  imported_at: '2026-09-21'

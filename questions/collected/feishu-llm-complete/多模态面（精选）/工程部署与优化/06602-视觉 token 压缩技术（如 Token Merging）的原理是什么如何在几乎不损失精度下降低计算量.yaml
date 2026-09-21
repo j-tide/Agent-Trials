@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0ca9538239c7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 视觉 token 压缩技术（如 Token Merging）的原理是什么？如何在几乎不损失精度下降低计算量？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 视觉 token 压缩技术（如 Token Merging）的原理是什么？如何在几乎不损失精度下降低计算量？
+answer:
+  mode: rubric
+  reference_answer: |-
+    视觉token数量是计算开销的主要来源（与序列长度的平方成正比）。Token Merging（ToMe）是一种无需训练、在推理时动态减少token数量的轻量技术。
+
+    原理：
+
+    ToMe基于一个观察：ViT的特征图中存在大量冗余patch，尤其是在背景或纹理均匀区域。它通过一种快速贪心算法，在每一层Transformer之后，将最相似的token合并为一个，从而逐步减少token总数。
+
+    算法步骤：
+
+    - 对当前层的所有patch token，计算它们之间的余弦相似度矩阵。
+
+    - 使用一种高效的二分图匹配（不是O(N²)全局计算，而是利用近似算法，复杂度O(N)），找到最相似的token对。
+
+    - 将这些token对合并：合并后的token是其组成token的加权平均（权重可以是两者的注意力权重之和），保留其位置编码的插值。
+
+    - 合并后的token进入下一层。每层可设定固定的合并比例r（如每层减少0.5-1%的token）。
+
+    为什么几乎不损失精度：
+
+    - 合并发生在各层，而不同层关注的语义粒度不同。浅层合并纹理相似的背景，深层合并语义相似的物体部分。
+
+    - 合并是软性的（加权平均），不是硬丢弃，信息仍然以压缩形式保留。
+
+    - 合并过程由模型自身的特征相似性驱动，是内容自适应的，而非盲目的均匀池化。
+
+    在多模态模型中的适用性：
+
+    ToMe可以直接应用在视觉编码器（ViT）内部，在提取视觉token的过程中就完成压缩，输出的token数减少，后续LLM的注意力计算量随之降低。需要确保合并后的token能保留关键物体的空间位置信息。实验表明，在ViT-L/14上应用ToMe将token从256减少到约196，对VQA和描述任务的影响极小（<0.5%准确率下降），但LLM推理速度可提升20-30%。
+
+    进阶：多模态感知的Token Merging
+
+    还可以根据下游任务需求指导合并：保留与用户问题相关的视觉token，更积极地合并无关区域。这需要轻量的相关性评分模块。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RRQVwfGDQiejs6kBW04ch16ynHe
+  block_id: KjL2dPANSog9ccxOHd0c6DrynRd
+  page_token: RRQVwfGDQiejs6kBW04ch16ynHe
+  original_title: 视觉 token 压缩技术（如 Token Merging）的原理是什么？如何在几乎不损失精度下降低计算量？
+  imported_at: '2026-09-21'

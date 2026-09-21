@@ -1,0 +1,97 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1790245e1fb6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F30A LangServe 支持流式输出吗？客户端应该如何消费流式响应？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F30A LangServe 支持流式输出吗？客户端应该如何消费流式响应？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    支持，且是原生支持。 LangServe 会为你的链自动生成 /stream 和 /stream_log 端点，只要你的链本身支持流式（即 LLM 组件开启了 streaming=True）。你不需要编写任何额外的流式处理逻辑。
+
+    服务端行为：
+
+    - POST /stream 端点接收同样的 JSON 输入，但返回一个 text/event-stream 流。每当链的 stream 方法产出新的事件（通常是 token），服务端就将其包装为 SSE 事件发送给客户端。
+
+    - POST /stream_log 则提供更详细的事件，包括 on_chain_start、on_llm_start、on_llm_new_token 等信息，适用于需要监控中间状态的场景。
+
+    客户端消费方式：
+
+    - 使用 RemoteRunnable（Python）
+
+    ```python
+    remote_chain = RemoteRunnable("http://localhost:8000/chat/")
+    for chunk in remote_chain.stream({"topic": "量子计算"}):
+        print(chunk, end="", flush=True)
+    ```
+
+    内部，RemoteRunnable.stream 会发送 POST 请求到 /stream，并逐行解析 SSE 响应，将每个 data 字段的内容反序列化为 Python 对象（例如字符串或 AIMessageChunk）并 yield。
+
+    - 使用 httpx 直接处理 SSE（Python）
+
+    ```python
+    import httpx, json
+    with httpx.stream("POST", "http://localhost:8000/chat/stream", json={"topic": "AI"}) as r:
+        for line in r.iter_lines():
+            if line.startswith("data:"):
+                payload = line[5:].strip()
+                if payload:  # 忽略空行
+                    print(json.loads(payload), end="")
+    ```
+
+    - 前端 JavaScript 消费（浏览器）
+    使用 EventSource API（注意：EventSource 只支持 GET，但 LangServe 的流式端点通常是 POST。你需要使用 fetch API 并手动处理 ReadableStream，或者使用支持 POST 的 SSE 库）。典型的 fetch 流式处理代码如下：
+
+    ```javascript
+    const response = await fetch("/chat/stream", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ topic: "AI" })
+    });
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value);
+        // 解析 SSE 格式并处理
+        document.getElementById("output").innerText += chunk;
+    }
+    ```
+
+    注意：流式端点要求链内部 LLM 启用 streaming=True，否则虽然端点存在，但会退化为一次返回全部内容，失去了流式的意义。另外，如果客户端断开连接，服务端应能感知并停止生成，这依赖于 Web 服务器的异步能力，FastAPI 可以优雅处理。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K973wYln7iD4oCkYW2acmsT4nke
+  block_id: PBiPdz2xco1LHOxTWGsc5AE2nWf
+  page_token: K973wYln7iD4oCkYW2acmsT4nke
+  original_title: "\U0001F30A LangServe 支持流式输出吗？客户端应该如何消费流式响应？"
+  imported_at: '2026-09-21'

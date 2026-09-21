@@ -1,0 +1,104 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0455830b3f68
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3.3 数据归档策略
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 3.3 数据归档策略
+answer:
+  mode: rubric
+  reference_answer: "### 数据归档工具与实践\n\n1、基础题：数据归档有哪些常用方法？pt-archiver 是什么？\n\n⭐（归档方法、工具介绍）\n\n数据归档常用方法：\n\n-
+    分区 DROP：分区表直接删除旧分区，秒级完成\n\n- pt-archiver：Percona 提供的归档工具，分批归档数据\n\n- INSERT +
+    DELETE：先复制到归档表，再删除原表数据\n\n- mysqldump + DELETE：导出数据后删除\n\npt-archiver 是 Percona
+    Toolkit 提供的数据归档工具，可以安全地将大表数据归档到另一个表或文件，支持分批处理，避免锁表。\n\n2、进阶题：pt-archiver 的工作原理是什么？如何配置参数？\n\n⭐⭐（工作原理、参数配置）\n\n1️⃣
+    Common Answer pt-archiver 的工作原理就是分批查询数据，然后插入到归档表，再删除原表数据。每次处理一批，比如 1000 条，这样就不会锁表太久。参数方面，--limit
+    控制每次处理的行数，--bulk-insert 批量插入，--where 指定归档条件。还有一些参数控制事务、锁什么的。\n\n2️⃣ Impressive
+    Answer pt-archiver 工作原理：\n\n- 分批查询：根据 --limit 参数，每次查询一批数据\n\n- 批量插入：使用 --bulk-insert
+    将数据插入归档表\n\n- 批量删除：使用 --bulk-delete 批量删除原表数据\n\n- 事务控制：使用 --txn-size 控制每个事务的行数\n\n-
+    进度监控：使用 --progress 输出执行进度\n\n- 断点续传：使用 --why-quit 记录退出原因\n\n核心参数配置：\n\n# 基本用法\npt-archiver
+    \\\n  --source h=127.0.0.1,D=db,t=orders \\\n  --dest h=127.0.0.1,D=db,t=orders_archive
+    \\\n  --where \"create_time < '2023-01-01'\" \\\n  --limit=1000 \\\n  --bulk-insert
+    \\\n  --bulk-delete \\\n  --progress=5000 \\\n  --statistics \\\n  --execute\n\n#
+    参数详解：\n# --source：源表配置（host、database、table）\n# --dest：目标表配置（可以是另一个数据库）\n# --where：归档条件（必须包含索引）\n#
+    --limit=1000：每次处理 1000 行\n# --bulk-insert：批量插入，提升性能\n# --bulk-delete：批量删除，减少锁竞争\n#
+    --progress=5000：每 5000 行输出进度\n# --statistics：输出统计信息\n\n高级参数配置：\n\n# 事务控制\npt-archiver
+    \\\n  --source h=127.0.0.1,D=db,t=orders \\\n  --dest h=127.0.0.1,D=db,t=orders_archive
+    \\\n  --where \"create_time < '2023-01-01'\" \\\n  --txn-size=5000 \\\n  --commit-each
+    \\\n  --execute\n\n# --txn-size=5000：每 5000 行提交一次事务\n# --commit-each：每个 chunk
+    提交一次\n\n# 并发控制\npt-archiver \\\n  --source h=127.0.0.1,D=db,t=orders \\\n  --dest
+    h=127.0.0.1,D=db,t=orders_archive \\\n  --where \"create_time < '2023-01-01'\"
+    \\\n  --limit=1000 \\\n  --max-lag=10 \\\n  --check-slave-lag=h=127.0.0.1 \\\n
+    \ --execute\n\n# --max-lag=10：主从延迟超过 10 秒暂停\n# --check-slave-lag：检查从库延迟\n\n# 文件归档\npt-archiver
+    \\\n  --source h=127.0.0.1,D=db,t=orders \\\n  --file /tmp/orders_archive.txt
+    \\\n  --where \"create_time < '2023-01-01'\" \\\n  --execute\n\n# --file：归档到文件，而不是表\n\n最佳实践：\n\n-
+    归档条件必须包含索引，避免全表扫描\n\n- 设置合理的 --limit（1000-5000），避免锁竞争\n\n- 使用 --bulk-insert 和
+    --bulk-delete 提升性能\n\n- 主从架构使用 --max-lag 控制复制延迟\n\n- 归档前备份，归档后验证数据一致性\n\n3️⃣ Key
+    Differences\n\n[嵌入表格未展开]\n\n3、场景题：一个 2 亿行的订单表需要归档 1 年前的数据，如何安全执行？\n\n⭐⭐⭐（归档策略、风险控制）\n\n1️⃣
+    Common Answer 用 pt-archiver 归档，先创建一个归档表，结构一样。然后用 --where 指定条件，比如 create_time <
+    '2023-01-01'。参数设置 --limit=1000，--bulk-insert，--bulk-delete。在业务低峰期执行，比如凌晨。执行之前要备份，万一失败了可以恢复。归档完成后，验证一下数据一致性。\n\n2️⃣
+    Impressive Answer 针对 2 亿行订单表归档 1 年前数据的任务，我建议采用分级归档策略：\n\n第一步：准备工作\n\n-- 创建归档表\nCREATE
+    TABLE orders_archive LIKE orders;\nALTER TABLE orders_archive ENGINE=InnoDB;\n\n--
+    检查索引\nSHOW INDEX FROM orders;\n-- 确保 create_time 有索引\n\n-- 检查数据量\nSELECT COUNT(*)
+    FROM orders WHERE create_time < '2023-01-01';\n-- 假设需要归档 5000 万行\n\n第二步：测试环境验证\n\n#
+    在测试环境执行\npt-archiver \\\n  --source h=127.0.0.1,D=test_db,t=orders \\\n  --dest
+    h=127.0.0.1,D=test_db,t=orders_archive \\\n  --where \"create_time < '2023-01-01'\"
+    \\\n  --limit=1000 \\\n  --bulk-insert \\\n  --bulk-delete \\\n  --progress=5000
+    \\\n  --dry-run \\\n  --execute\n\n# 验证数据一致性\nSELECT COUNT(*) FROM orders WHERE
+    create_time < '2023-01-01';\nSELECT COUNT(*) FROM orders_archive;\n\n第三步：生产环境执行\n\n#
+    完整执行命令\npt-archiver \\\n  --source h=127.0.0.1,D=your_db,t=orders \\\n  --dest
+    h=127.0.0.1,D=your_db,t=orders_archive \\\n  --where \"create_time < '2023-01-01'\"
+    \\\n  --limit=1000 \\\n  --bulk-insert \\\n  --bulk-delete \\\n  --txn-size=5000
+    \\\n  --commit-each \\\n  --max-lag=10 \\\n  --check-slave-lag=h=127.0.0.1 \\\n
+    \ --progress=5000 \\\n  --statistics \\\n  --why-quit \\\n  --execute\n\n# 参数说明：\n#
+    --limit=1000：每次处理 1000 行\n# --bulk-insert：批量插入\n# --bulk-delete：批量删除\n# --txn-size=5000：每
+    5000 行提交一次事务\n# --commit-each：每个 chunk 提交一次\n# --max-lag=10：主从延迟超过 10 秒暂停\n# --progress=5000：每
+    5000 行输出进度\n# --statistics：输出统计信息\n# --why-quit：记录退出原因\n\n第四步：执行监控\n\n# 监控执行进度\n#
+    工具会实时输出：\n# TIME   ELAPSED   ROWS    ROWS/s  TABLE\n# 12:00  00:00     5000    5000
+    \   orders\n# 12:01  00:01     10000   5000    orders\n\n# 监控数据库负载\nwatch -n 1
+    \"mysqladmin -uroot -p processlist | grep pt-archiver\"\n\n# 监控主从延迟（主从架构）\nwatch
+    -n 1 \"mysql -e 'SHOW SLAVE STATUS\\G' | grep Seconds_Behind_Master\"\n\n# 监控慢查询\ntail
+    -f /var/lib/mysql/mysql-slow.log | grep orders\n\n第五步：验证结果\n\n-- 检查归档数据量\nSELECT
+    COUNT(*) FROM orders_archive;\nSELECT COUNT(*) FROM orders WHERE create_time <
+    '2023-01-01';\n\n-- 检查数据一致性\nSELECT COUNT(*) FROM orders_archive \nWHERE create_time
+    < '2023-01-01';\n\n-- 检查原表数据量\nSELECT COUNT(*) FROM orders;\n\n第六步：清理归档表\n\n--
+    如果归档表数据量很大，考虑分区\nALTER TABLE orders_archive PARTITION BY RANGE (TO_DAYS(create_time))
+    (\n    PARTITION p2022 VALUES LESS THAN (TO_DAYS('2023-01-01')),\n    PARTITION
+    p2021 VALUES LESS THAN (TO_DAYS('2022-01-01')),\n    PARTITION p_old VALUES LESS
+    THAN MAXVALUE\n);\n\n-- 或者归档到其他存储\nmysqldump -h127.0.0.1 -uroot -p your_db orders_archive
+    \\\n  --single-transaction \\\n  | gzip > orders_archive.sql.gz\n\n风险控制措施：\n\n-
+    在业务低峰期执行（凌晨 2-6 点）\n\n- 设置合理的 --limit，避免锁竞争\n\n- 监控主从延迟，必要时暂停执行\n\n- 归档前完整备份\n\n-
+    归档后验证数据一致性\n\n执行效果：\n\n- 5000 万行归档：约 8-12 小时\n\n- 业务影响：负载增加 < 20%，可随时暂停\n\n- 风险：可断点续传，数据零丢失\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n4、容易一起考的题\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IKZ3wmrGRip21hkBhZHc4rARnKe
+  block_id: doxcnq9Ler2HxMEDRMJ209l8VvW
+  page_token: IKZ3wmrGRip21hkBhZHc4rARnKe
+  original_title: 3.3 数据归档策略
+  imported_at: '2026-09-21'

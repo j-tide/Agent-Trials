@@ -1,0 +1,154 @@
+---
+schema_version: 1
+id: feishu-llm-complete-08c5ab052cfc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50C MCP 的工具调用和普通 HTTP API 调用有什么本质区别？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F50C MCP 的工具调用和普通 HTTP API 调用有什么本质区别？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    表面上看，两者都是客户端发请求、服务端返回结果。但它们的设计哲学完全不同，这个差异决定了为什么 Agent 时代需要 MCP。
+
+    用一个对比图先看全貌：
+
+    [图片内容未导入]
+
+    四个本质区别：
+
+    [嵌入表格未展开]
+
+    用代码感受一下差异：
+
+    调用一个天气查询，传统方式：
+
+    import requests
+    resp = requests.get(f"https://api.weather.com?city=Beijing&key=sk-xxx")
+    data = resp.json()  # 开发者自己写解析逻辑，然后拼进 prompt
+
+    MCP 方式（客户端侧）：
+
+    # 1. 自动发现工具（不需要提前知道 URL 和参数名）
+    tools = mcp_client.list_tools()
+    # 返回: [Tool(name="get_weather", description="...", inputSchema={...})]
+
+    # 2. LLM 决定调用后，Client 自动序列化参数
+    result = mcp_client.call_tool("get_weather", {"city": "Beijing"})
+    # 返回结构化的 TextContent，可直接注入上下文
+
+    最大的区别在于：普通 API 是“给人看的”，MCP 是“给模型看的”。 后者提供了足够的语义信息，让 LLM 能够像人类阅读菜单一样，自主决定“我需要调用哪个工具、参数怎么填”。这是 Agent 能够进行自主规划和行动的基础。
+
+    ---
+
+    ### ⚙️ 2. 如何在 SpringAI 中接入 MCP Server？动态工具发现是如何实现的？
+
+    Spring AI 从 1.0.0-M5 开始提供了对 MCP 的原生支持。核心思路：把 MCP Server 提供的工具列表，动态转换成 Spring AI 的 Tool 定义，然后注入到 ChatClient 中，让模型可以自动调用。
+
+    架构示意图：
+
+    Spring AI 应用
+    ├── ChatClient
+    │   └── ToolCallingAutoConfiguration
+    │       └── McpToolCallbackProvider ← 桥梁
+    │           └── McpClient ← 与 MCP Server 通信
+    │               └── stdio / SSE 传输
+    └── MCP Server (独立进程)
+        └── 暴露 get_weather, query_db 等工具
+
+    接入步骤与代码示例：
+
+    第一步：引入依赖
+
+    <dependency>
+        <groupId>org.springframework.ai</groupId>
+        <artifactId>spring-ai-mcp</artifactId>
+        <version>1.0.0-M5</version>
+    </dependency>
+
+    第二步：配置 MCP Client 连接（以 stdio 方式为例）
+
+    @Configuration
+    public class McpConfig {
+
+        @Bean
+        public McpClient mcpClient() {
+            // 通过子进程启动 Python 编写的 MCP Server
+            ProcessBuilder pb = new ProcessBuilder("python", "/path/to/weather_server.py");
+            return McpClient.using(pb).sync(); // 或 .async()
+        }
+
+        @Bean
+        public ToolCallbackProvider weatherTools(McpClient mcpClient) {
+            // 动态发现并注册所有工具
+            return new McpToolCallbackProvider(mcpClient);
+        }
+    }
+
+    第三步：在 ChatClient 中使用
+
+    @RestController
+    public class ChatController {
+
+        @Autowired
+        private ChatClient chatClient;
+
+        @Autowired
+        private ToolCallbackProvider weatherTools;
+
+        @GetMapping("/ask")
+        public String ask(@RequestParam String message) {
+            return chatClient.prompt()
+                    .user(message)
+                    .tools(weatherTools.getToolCallbacks())  // 注入动态工具
+                    .call()
+                    .content();
+        }
+    }
+
+    动态工具发现是如何实现的？
+
+    当你创建 McpToolCallbackProvider 时，它会：
+
+    - 调用 MCP Client 的 listTools() 方法，向 Server 发送 tools/list 请求。
+
+    - Server 返回一个工具列表，每个工具包含 name、description、inputSchema（JSON Schema）。
+
+    - Provider 遍历这个列表，把每个工具转换成 Spring AI 的 ToolCallback 对象——里面封装了工具名、参数定义，以及实际调用时通过 mcpClient.callTool() 执行的具体逻辑。
+
+    - 当模型决定调用某个工具时，Spring AI 会匹配对应的 ToolCallback，执行它，并将返回结果追加到对话上下文中。
+
+    整个过程对开发者完全透明，你不需要为每个工具单独写一个适配函数。 新增工具只需在 MCP Server 侧添加，Spring AI 应用重启后自动发现，这极大降低了工具集成的维护成本。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Na85wIeNuichcjklD4LcUQ6Gn2c
+  block_id: doxcnoiJchqrwTq13R0S6EtcjDg
+  page_token: Na85wIeNuichcjklD4LcUQ6Gn2c
+  original_title: "\U0001F50C MCP 的工具调用和普通 HTTP API 调用有什么本质区别？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c6f4b5518783
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 通信缓冲区
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 一：显存基础与构成
+tags: &1
+- 显存问题-核心题
+- 一：显存基础与构成
+content:
+  prompt: 通信缓冲区
+answer:
+  mode: rubric
+  reference_answer: |-
+    分布式通信库（NCCL）执行 AllReduce 或 AllGather 时，需要将数据打包成连续块。
+
+    - Flatten Buffer：早先框架会将所有梯度摊平进一个大 buffer 进行 AllReduce，此 buffer 大小等于梯度总大小（≈2Φ）。对 100B 模型，就是 200GB，这太恐怖。
+
+    - Bucket 策略 (PyTorch DDP)：将参数/梯度分桶，每次通信一个桶（典型 25~128MB）。只需要每个桶大小的缓冲。显存峰值可控。
+
+    - ZeRO 的通信：在 ZeRO-3 中，做 allgather 收集参数分片时，需要为每层分配临时 buffer 容纳全量参数。通常通过流水线预取隐藏，峰值一般为单层参数大小 + 某个 bucket。
+
+    - 序列并行 / 张量并行：层间需要插入 allreduce，需为每个并行通信分配临时 buffer，通常不大。
+
+    潜在风险：当使用超大 batch 且梯度累积步数较多时，梯度的 allreduce 可能设计为一次性通信（未分桶）导致超大 buffer 分配，或者某些自定义融合算子临时缓冲区设计不当。务必用 torch.cuda.memory_summary() 和 nsys 分析。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GR6GwGe1Hij4c3keg1Qckq5unRb
+  block_id: AKXQdD5r8oqXqJx9LOhc284Inbf
+  page_token: GR6GwGe1Hij4c3keg1Qckq5unRb
+  original_title: 通信缓冲区
+  imported_at: '2026-09-21'

@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-385645fe21ff
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么 MoE 的 TP 通常只切分专家的内部矩阵，而不跨专家？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 为什么 MoE 的 TP 通常只切分专家的内部矩阵，而不跨专家？
+answer:
+  mode: rubric
+  reference_answer: |-
+    TP 的设计哲学是切分单个操作内部的张量，使得计算可以在多卡上并行，然后通过集合通信合并结果。专家的内部矩阵（如 FFN 的升维和降维矩阵）天然适合 TP 切分——按列切分 W1，按行切分 W2，中间通过 AllReduce 合并。
+
+    如果试图“跨专家”做 TP，即把不同专家的权重矩阵也切分，会破坏专家之间的独立性。每个专家的参数是独立的逻辑单元，不同专家处理的 token 不同，它们的输出不是简单的求和关系，而是由路由权重决定的选择性合并。跨专家切分会导致：
+
+    - 通信模式混乱：不同专家的 token 混在一起，无法有效利用 All-to-All 的分发。
+
+    - 计算依赖复杂：TP 要求所有卡上的输入相同，而 EP 中不同卡接收的 token 不同。
+
+    因此，TP 只切分专家内部的矩阵乘法，而专家的分布则由 EP 负责。两者分工明确，互不干扰。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQczwN8cliZ2XSkOI26ckCcPnuf
+  block_id: NzoId2oJHo1iovxs8gNckrZMnib
+  page_token: GQczwN8cliZ2XSkOI26ckCcPnuf
+  original_title: 为什么 MoE 的 TP 通常只切分专家的内部矩阵，而不跨专家？
+  imported_at: '2026-09-21'

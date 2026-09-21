@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e3c48aa8e6bd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: PyTorch 中的 deterministic 模式是什么？对性能影响。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: PyTorch 中的 deterministic 模式是什么？对性能影响。
+answer:
+  mode: rubric
+  reference_answer: |-
+    torch.use_deterministic_algorithms(True)是PyTorch提供的全局开关，要求底层库（如cuBLAS、cuDNN）使用确定性的算法实现。这意味着：给定相同的输入，每次运行得到的结果在bit级别完全一致，消除了因并行计算顺序不同而引入的浮点误差。
+
+    对性能的影响：
+
+    - 显著降低训练速度：许多高度优化的CUDA kernel依赖于非确定性的并行归约（如warp-level reduction）来达到最大吞吐。确定性算法通常需要更慢的串行化步骤或者多次内存访问，导致速度下降。在Transformer中，注意力计算和矩阵乘法的性能损失可能在10%~30%之间，甚至更高（取决于具体操作和GPU架构）。
+
+    - 可能报错：如果某个操作没有可用的确定性实现，PyTorch会直接抛出RuntimeError，这意味着某些模型结构可能根本无法在确定性模式下运行。此时需要修改模型或关闭该模式。
+
+    - 仅在调试或特定需求时开启：日常训练绝不应该开启确定性模式，除非你正在：
+
+    实际生产中，我们几乎不会开启它，而是依赖随机种子固定和常规的统计复现性。对性能的追求压倒一切。
+
+    - 注意力层的 QKV 投影和 FFN 的第一层通常使用 Xavier 或 He 初始化。
+
+    - 残差分支的最后一层（如注意力输出投影、FFN 的第二层）常采用0初始化或极小初始化，以保证训练初期模型接近恒等映射，增强训练稳定性。
+
+    - 一些大模型（如 GPT-3、LLaMA）会进一步调整初始化的标准差（如 0.02），这是经验值。
+
+    - 将梯度除以缩放因子还原。
+
+    - 执行优化器更新。
+
+    - 根据策略决定是否增大缩放因子（例如，如果连续 N 步没有溢出，则将缩放因子乘以一个增长因子，如 1.05）。
+
+    - 跳过本次参数更新（不执行 optimizer.step()）。
+
+    - 将缩放因子减小（例如乘以 0.5）。
+
+    - 可选地，重新计算该 batch 或直接丢弃，进行下一步。
+
+    - 调试一个难以复现的数值bug。
+
+    - 需要严格比对两个不同版本代码的输出是否一致。
+
+    - 在特定领域（如部分科学计算、金融）对确定性有强制性要求。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: UAVFdHfkVo1mgGx4q1ZcBH71nRL
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: PyTorch 中的 deterministic 模式是什么？对性能影响。
+  imported_at: '2026-09-21'

@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d7095d66d5d6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Encoder-only 模型能否用于生成？如果可以，通常如何改造？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 二：模型架构与预训练范式
+tags: &1
+- Transfomer精选面试
+- 二：模型架构与预训练范式
+content:
+  prompt: Encoder-only 模型能否用于生成？如果可以，通常如何改造？
+answer:
+  mode: rubric
+  reference_answer: |-
+    能否用于生成？
+
+    原则上，纯 Encoder-only 模型不能直接用于文本生成，因为它们没有自回归生成机制——Encoder 的输出是一次性对整个输入序列编码得到的向量序列，而不是逐 token 产生的。但通过一些改造，我们可以赋予 Encoder-only 模型生成能力，尽管效率和效果通常不如原生生成模型。
+
+    改造方法：
+
+    - 添加 Decoder 形成 Encoder-Decoder 架构：
+    最直接的方法是将一个预训练好的 Encoder（如 BERT）作为编码器，在其上随机初始化一个标准的 Transformer Decoder，然后在下游生成任务上微调整个模型。Encoder 负责提取输入的双向语义，Decoder 通过交叉注意力利用这些语义进行自回归生成。这就是 BERT2BERT、BERT-gen 等工作的思路。优点是充分利用了 Encoder 强大的理解能力，缺点是 Decoder 需要从头训练或大量微调，且整体架构复杂，推理时需管理 Encoder 和 Decoder 两套参数和 KV 缓存。
+
+    - 将 Encoder 当作 Decoder 使用（非标准）：
+    可以强行让 Encoder 以因果掩码方式工作——给 Encoder 加上上三角掩码，将其转化为单向 Transformer。然后用语言模型目标进行微调。但这样会丢失预训练时学到的双向特性，且 Encoder 结构并不适合长序列的自回归生成（因为双向注意力中该层所有 token 的表示在一次前向中就计算完了，而生成时需要逐 token 计算并缓存状态）。这种方式很少被采用，效果不佳。
+
+    - 用于迭代式生成（如 Mask-Predict）：
+    利用 BERT 等模型的 MLM 能力，进行非自回归生成。具体做法是：先确定生成长度，全部用 [MASK] 填充；然后多次迭代，每次将部分低置信度的 token 重新掩码，并用模型重新预测，直到所有 token 稳定或达到预设步数。这种方法可以并行生成，速度较快，但生成质量通常低于自回归模型，尤其在长文本生成时。
+
+    - 作为大模型的一个组件：
+    在某些混合架构中，Encoder 只负责对输入（条件）进行编码，生成部分由另一个模块（如轻量级 Decoder）完成。这实际上又回到了 Encoder-Decoder 框架。
+
+    总之，Encoder-only 模型生成能力是通过嫁接 Decoder 或采用非自回归策略来实现的。然而，由于缺乏原生的自回归预训练，改造后的生成质量和流畅性往往逊于 GPT 等原生生成模型，且工程实现复杂。这也是为什么当前主流通用大模型普遍选择 Decoder-only 架构的原因之一。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C2UwwXTHii7yZ1kf0spcZbdlnbe
+  block_id: TJRfd2HvpolN0NxIsLmcx5YNnhh
+  page_token: C2UwwXTHii7yZ1kf0spcZbdlnbe
+  original_title: Encoder-only 模型能否用于生成？如果可以，通常如何改造？
+  imported_at: '2026-09-21'

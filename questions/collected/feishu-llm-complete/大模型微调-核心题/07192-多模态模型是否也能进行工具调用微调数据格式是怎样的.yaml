@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6b7159f5d933
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多模态模型是否也能进行工具调用？微调数据格式是怎样的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 多模态模型是否也能进行工具调用？微调数据格式是怎样的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    可以。多模态工具调用是构建多模态 Agent 的基础，模型需要能根据图像内容决定何时调用何种外部工具（如搜索引擎、计算器、OCR API、图片编辑工具等）。
+
+    微调数据格式：
+    采用扩展的对话模板，在标准多模态对话中加入工具调用的特殊标记和角色。例如，在 ChatML 格式上增加 tool_call 角色。
+
+    数据示例：
+
+    <|im_start|>system
+    你是一个智能助手，可以调用以下工具：
+    {
+      "name": "ocr",
+      "description": "识别图片中的文字",
+      ...
+    }
+    <|im_end|>
+    <|im_start|>user
+    <image> 这张发票的总金额是多少？
+    <|im_end|>
+    <|im_start|>assistant
+    <tool_call>{"name": "ocr", "arguments": {"image_index": 0, "region": "all"}}</tool_call>
+    <|im_end|>
+    <|im_start|>tool_response
+    {"text": "... 总金额: $100.00 ..."}
+    <|im_end|>
+    <|im_start|>assistant
+    这张发票的总金额是 $100.00。
+    <|im_end|>
+
+    关键要素：
+
+    - 工具定义放在 system prompt 中。
+
+    - 模型输出工具调用时，需包裹在 <tool_call> 特殊标记内，并遵循 JSON Schema。
+
+    - 工具返回结果以 tool_response 角色插入对话。
+
+    - 训练时，对 system、user、tool_response 部分的 token 进行 loss masking，只对 assistant 的文本和工具调用部分计算损失。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KYvmwfyDpiVkXckdpoBcXEzAnJf
+  block_id: GlzDdM89CogqAnx7f63cEX6inJf
+  page_token: KYvmwfyDpiVkXckdpoBcXEzAnJf
+  original_title: 多模态模型是否也能进行工具调用？微调数据格式是怎样的？
+  imported_at: '2026-09-21'

@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f1d5f6d3891b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 长上下文微调对分布式训练有何特殊挑战？如何处理序列并行？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 长上下文微调对分布式训练有何特殊挑战？如何处理序列并行？
+answer:
+  mode: rubric
+  reference_answer: |-
+    长上下文微调（如32K-128K tokens）使得激活显存（随序列长度线性或平方增长）成为最大瓶颈，远超权重和优化器状态。同时，自注意力计算的O(L²)复杂度也导致计算时间剧增。
+
+    挑战：
+
+    - 激活爆炸：Q、K、V等中间激活与序列长度L成正比，注意力分数矩阵与L²成正比（即使使用Flash Attention，临时激活仍不小）。
+
+    - 通信量激增：张量并行中，All-Gather/Reduce-Scatter的数据量也随序列长度增加。
+
+    - 内存碎片：频繁分配和释放大张量可能导致OOM。
+
+    序列并行（Sequence Parallelism） 是解决此问题的关键技术。它将序列维度切分到多个GPU上（通常与张量并行结合使用），每张卡只存储和处理一部分序列的激活，从而将单卡激活显存线性降低。
+
+    处理方法：
+
+    - Megatron-LM序列并行：对Transformer层中的LayerNorm、Dropout等不可被张量并行切分的区域，将序列维度切分，每张卡只处理自己那部分序列。需要scatter和gather操作，通信量相对可控。通常与TP联合使用，TP切分hidden维度，SP切分seq维度。
+
+    - Ring Attention：将Q、K、V沿序列维度分片到多个设备上，通过环形通信计算全局注意力，实现O(N)显存复杂度的长序列训练。每个设备只保存自己那部分K、V，并在环上传递其它设备的K、V块以完成注意力计算。
+
+    - Flash Attention + 序列并行：Flash Attention本身降低了显存，但其激活仍然与L成正比。结合序列并行可进一步减少单卡的激活。
+
+    实践：在DeepSpeed中，可以通过Megatron-DeepSpeed启用序列并行。需要配置TP和SP的并行度。一般TP度=SP度，每个TP组内同时切分hidden和seq。这样可以训练128K甚至更长上下文。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: PAEodXSlYoTGg6xHLWmcgNKRnFb
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 长上下文微调对分布式训练有何特殊挑战？如何处理序列并行？
+  imported_at: '2026-09-21'

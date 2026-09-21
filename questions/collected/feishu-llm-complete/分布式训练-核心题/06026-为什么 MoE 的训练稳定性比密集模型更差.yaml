@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ebfa0c5d2f86
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么 MoE 的训练稳定性比密集模型更差？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 为什么 MoE 的训练稳定性比密集模型更差？
+answer:
+  mode: rubric
+  reference_answer: |-
+    MoE 的不稳定性根源于离散路由决策、负载动态变化以及多专家协同训练的竞争关系：
+
+    - 离散性带来的梯度偏差：Top-k 操作是离散的，argmax 不可导。我们只能用近似梯度（如 STE）传回，这导致门控网络的梯度估计有偏且方差大。这种有噪梯度容易让路由震荡，甚至陷入坍塌。
+
+    - 正反馈循环：训练初期，某个专家若被偶然多选几次，其参数更新更快，下一轮得分更高，吸引更多 token，形成“富者愈富”的循环，导致其他专家“饿死”。这就是典型的专家坍塌。
+
+    - 负载不平衡的连锁反应：即使有负载均衡损失，实际训练中负载波动不可避免。当某个专家瞬时负载过高，超出容量限制时，部分 token 被丢弃（输出为零），损失函数中这些 token 的贡献异常，引起 loss 尖峰。
+
+    - 通信与计算的耦合：分布式 MoE 中，All-to-All 通信性能高度依赖于负载均衡。一旦某 GPU 上专家过载，该 GPU 计算变慢，导致通信步调不一致，产生额外等待，放大了训练的不稳定性。
+
+    - 超参数敏感性：专家数量、容量因子、负载均衡损失权重、学习率等强耦合，调整一个可能导致其他指标失控。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQczwN8cliZ2XSkOI26ckCcPnuf
+  block_id: L3r3dkhfgo9156xqTJscsSVenLc
+  page_token: GQczwN8cliZ2XSkOI26ckCcPnuf
+  original_title: 为什么 MoE 的训练稳定性比密集模型更差？
+  imported_at: '2026-09-21'

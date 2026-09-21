@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1e8a07c06107
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: PyTorch 的 DistributedDataParallel (DDP) 是如何启动的？torchrun 的作用。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: PyTorch 的 DistributedDataParallel (DDP) 是如何启动的？torchrun 的作用。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### DDP 的启动本质
+
+    DDP 采用 多进程（multi-processing） 架构，每个 GPU 上启动一个独立的 Python 进程。这些进程需要知道彼此的地址（IP 和端口），并通过 init_process_group 建立通信组。传统的做法是使用 torch.distributed.launch 或 mp.spawn 来启动多个进程，但这些方法需要手动传递环境变量，容易出错。
+
+    ### torchrun 的作用
+
+    从 PyTorch 1.9 开始，官方推荐使用 torchrun（也称为 torch.distributed.run）作为标准启动器。torchrun 的优势在于：
+
+    - 自动设置环境变量：不需要手动指定 RANK、WORLD_SIZE、MASTER_ADDR 和 MASTER_PORT。torchrun 会根据传入的参数自动设置这些变量，极大减少配置错误。
+
+    - 弹性训练支持：torchrun 能处理动态变化的 worker 数量（节点增减），配合 torch.distributed.elastic 实现弹性训练。
+
+    - 统一启动方式：单机多卡和多机多卡使用同一命令，只需要调整 --nnodes 和 --nproc_per_node。
+
+    ### torchrun 基本用法
+
+    ```bash
+    # 单机单卡（调试用，DDP 也兼容单卡）
+    torchrun --nproc_per_node=1 train.py
+
+    # 单机 8 卡
+    torchrun --nproc_per_node=8 train.py
+
+    # 多机（2 个节点，每节点 8 卡）
+    # 节点 0 (master)：
+    torchrun --nnodes=2 --nproc_per_node=8 --node_rank=0 --master_addr=10.0.0.1 --master_port=29500 train.py
+    # 节点 1：
+    torchrun --nnodes=2 --nproc_per_node=8 --node_rank=1 --master_addr=10.0.0.1 --master_port=29500 train.py
+    ```
+
+    torchrun 会自动为每个进程分配 LOCAL_RANK（节点内 GPU 编号）和 RANK（全局编号），并注入到环境变量中。训练脚本中通过 os.environ['LOCAL_RANK'] 和 os.environ['RANK'] 即可获取，不再需要手动解析命令行参数。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GSO0wLgvGi8yaCktRbBc92Dbnhh
+  block_id: KT3Zd90HKoCsxdxde2jcEXtXncd
+  page_token: GSO0wLgvGi8yaCktRbBc92Dbnhh
+  original_title: PyTorch 的 DistributedDataParallel (DDP) 是如何启动的？torchrun 的作用。
+  imported_at: '2026-09-21'

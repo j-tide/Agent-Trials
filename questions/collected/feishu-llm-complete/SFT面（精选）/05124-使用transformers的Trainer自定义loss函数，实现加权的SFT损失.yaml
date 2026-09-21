@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-430ae5d3ed97
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用transformers的Trainer自定义loss函数，实现加权的SFT损失
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 使用transformers的Trainer自定义loss函数，实现加权的SFT损失
+answer:
+  mode: rubric
+  reference_answer: |-
+    可以通过重写Trainer的compute_loss方法来实现。
+
+    ```python
+    from transformers import Trainer
+    import torch
+
+    class WeightedTrainer(Trainer):
+        def __init__(self, task_weights=None, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.task_weights = task_weights  # dict: task_type -> weight
+
+        def compute_loss(self, model, inputs, return_outputs=False):
+            labels = inputs.get("labels")
+            outputs = model(**inputs)
+            logits = outputs.logits
+            # 计算每个token的交叉熵
+            loss_fct = torch.nn.CrossEntropyLoss(reduction='none', ignore_index=-100)
+            loss_per_token = loss_fct(logits.view(-1, logits.size(-1)), labels.view(-1))
+            # 根据task_type赋予不同权重（需在数据中传入task_type并扩展到token维度）
+            # 简单示例：若数据中包含 task_weight 字段
+            weights = inputs.get('task_weight', torch.ones_like(labels)).float()
+            weights = weights.view(-1)
+            weighted_loss = (loss_per_token * weights).sum() / (weights.sum() + 1e-8)
+            return (weighted_loss, outputs) if return_outputs else weighted_loss
+    ```
+
+    使用时在数据中传入task_weight字段，例如通过DataCollator将每类的权重扩展为与labels相同形状的张量。
+
+    以上实现涵盖了要求的21至34题的核心代码，可在实际项目中直接使用或根据需求微调。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JFt9wvuo1ijVfLktrcDcfTR8nTd
+  block_id: L83TdBe3SoIBtCx7JpkcfEDrnLZ
+  page_token: JFt9wvuo1ijVfLktrcDcfTR8nTd
+  original_title: 使用transformers的Trainer自定义loss函数，实现加权的SFT损失
+  imported_at: '2026-09-21'

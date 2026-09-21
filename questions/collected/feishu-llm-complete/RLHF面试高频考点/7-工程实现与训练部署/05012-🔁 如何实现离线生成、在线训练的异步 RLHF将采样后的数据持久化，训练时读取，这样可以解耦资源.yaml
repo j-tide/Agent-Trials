@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-511b92a89748
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F501 如何实现“离线生成、在线训练”的异步 RLHF？将采样后的数据持久化，训练时读取，这样可以解耦资源。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "\U0001F501 如何实现“离线生成、在线训练”的异步 RLHF？将采样后的数据持久化，训练时读取，这样可以解耦资源。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    实现方案：
+
+    - 采样阶段：使用当前 Actor 权重，一次性对大量 prompt 进行采样，生成经验数据（token ids, log probs, rewards 等），将这批数据序列化并保存到共享存储（如 S3、NAS、HDFS）。
+
+    - 训练阶段：独立启动训练任务，从存储读取经验数据，进行 PPO 更新。训练完成后，保存新 Actor 权重。
+
+    - 循环：再次启动采样任务，使用新权重，覆盖或补充数据池。
+
+    优点：
+
+    - 采样和训练可以在不同集群、不同时间运行，资源完全解耦。
+
+    - 可利用便宜的低优先级 GPU 进行采样，高峰时用高性能 GPU 训练。
+
+    挑战：
+
+    - 策略滞后：训练时使用的数据是旧策略产生的，需要重要性采样修正（见下一题）。
+
+    - 存储开销：经验数据通常需 TB 级别存储，且需设计版本管理。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NjChwugaCicZr4kcCfocK8KMnid
+  block_id: MmNTdBis5otQM9x40K5cXYEVnjC
+  page_token: NjChwugaCicZr4kcCfocK8KMnid
+  original_title: "\U0001F501 如何实现“离线生成、在线训练”的异步 RLHF？将采样后的数据持久化，训练时读取，这样可以解耦资源。"
+  imported_at: '2026-09-21'

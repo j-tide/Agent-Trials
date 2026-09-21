@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2620d85d05df
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F30A 4. 当你使用 astream 异步流式处理多个请求时，如何控制并发并收集结果？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "\U0001F30A 4. 当你使用 astream 异步流式处理多个请求时，如何控制并发并收集结果？"
+answer:
+  mode: rubric
+  reference_answer: "异步流式 (astream) 是构建响应式 LLM 应用的基础，但当你需要同时处理多个用户的流式请求（比如一个 WebSocket
+    服务器）时，并发控制和结果收集就会变得复杂。LangChain 本身没有提供一个直接“并发流式”的 API，你需要自己组合 Python 的异步原语和 LangChain
+    的配置能力。\n\n核心策略：用 asyncio.Semaphore + astream 并发处理多个请求，并安全地收集流式结果。\n\n假设我们有一个聊天链，每个用户会话是一个独立的流式生成任务。我们想要同时服务多个
+    WebSocket 连接，但要限制总的并发 LLM 调用数。\n\n```python\nimport asyncio\nfrom typing import
+    AsyncGenerator, List\n\nclass StreamingService:\n    def __init__(self, chain,
+    max_global_concurrency=20):\n        self.chain = chain\n        self.semaphore
+    = asyncio.Semaphore(max_global_concurrency)\n\n    async def process_session(self,
+    user_input: str, user_id: str):\n        \"\"\"一个用户会话的完整流式处理\"\"\"\n        async
+    with self.semaphore:  # 全局并发控制\n            config = {\n                \"callbacks\":
+    [self._make_user_callback(user_id)],\n                \"metadata\": {\"user_id\":
+    user_id},\n                # 链自身的并发限制也可以加上，双重保险\n                \"max_concurrency\":
+    5  \n            }\n            full_response = []\n            async for chunk
+    in self.chain.astream(user_input, config=config):\n                # chunk 可能是
+    token 字符串或更复杂的 dict\n                yield chunk\n                full_response.append(chunk)\n
+    \           # 流结束后可记录完整回复\n            await self._log_full_response(user_id,
+    \"\".join(full_response))\n```\n\n对于收集结果，因为流式场景下结果本身就是逐步产出的，你可以：\n\n- 用 async
+    for 循环一边产出 chunk 一边发送给客户端（如 WebSocket send）。\n\n- 同时在循环内部把 chunk 累积到一个列表或 StringIO
+    中，流结束后拼成完整响应做存储或评估。\n\n如果需要同时启动多个流并等待全部完成（比如批量测试），可以用 asyncio.gather 配合自定义的消费协程：\n\n```python\nasync
+    def run_multiple_streams(chain, inputs: List[str]):\n    async def collect_stream(inp):\n
+    \       chunks = []\n        async for chunk in chain.astream(inp):\n            chunks.append(chunk)\n
+    \       return \"\".join(chunks)\n\n    tasks = [collect_stream(inp) for inp in
+    inputs]\n    results = await asyncio.gather(*tasks)\n    return results\n```\n\n但这里没有并发控制，会一下子创建所有任务，可能压垮
+    API。所以加 Semaphore：\n\n```python\nsem = asyncio.Semaphore(10)\nasync def rate_limited_collect(inp):\n
+    \   async with sem:\n        chunks = []\n        async for chunk in chain.astream(inp,
+    config={\"max_concurrency\": 1}):\n            chunks.append(chunk)\n        return
+    \"\".join(chunks)\n```\n\n特别提醒：astream 返回的异步生成器，在并发环境下要小心同一个 Runnable 实例的状态。LangChain
+    的链是无状态的，所以共享实例是安全的，但如果你在回调里操作了实例属性（比如计数器），就要加锁。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GVyNwmUlOitEZBkWqxUchfRtnfh
+  block_id: CRfYdP805oY7nhx69RVc1jW1nAc
+  page_token: GVyNwmUlOitEZBkWqxUchfRtnfh
+  original_title: "\U0001F30A 4. 当你使用 astream 异步流式处理多个请求时，如何控制并发并收集结果？"
+  imported_at: '2026-09-21'

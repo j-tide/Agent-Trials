@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9dbdea8c366b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9D1‍\U0001F91D‍\U0001F9D1 推理 MoE 时，多用户并发下的显存共享如何设计？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 五：前沿与趋势
+tags: &1
+- 显存问题-核心题
+- 五：前沿与趋势
+content:
+  prompt: "\U0001F9D1‍\U0001F91D‍\U0001F9D1 推理 MoE 时，多用户并发下的显存共享如何设计？"
+answer:
+  mode: rubric
+  reference_answer: "类似稠密模型，基础权重（所有专家）是全局共享的，KV Cache 按请求独立分配块。但 MoE 的特殊性在于专家众多且可能被不同请求组合激活，显存共享的难点在于如何避免为每个请求复制全部专家权重。\n\n\U0001F527
+    设计思路：\n\n- 全局专家权重池：所有专家权重全量常驻 GPU 显存，所有请求共享。这是最简单的方案，但显存消耗巨大，无法扩展。\n\n- 请求感知的动态专家加载：分析当前
+    batch 中各请求所需的专家集合，只加载这些专家到 GPU，其余保留在 CPU。当 batch 变化时，动态换入换出。这需要极快的调度和预取，可通过维护专家
+    LRU 缓存实现。\n\n- 基于会话的专家驻留：对于长会话，锁定当前活跃专家；短请求共享池中已有专家。\n\n- KV Cache 共享：前缀缓存可复用相同
+    prompt 的 KV 块，与稠密模型一致。\n\n- 混合精度与量化：权重使用 4-bit 存储，扩大可常驻的专家数量。\n\n\U0001F4CA 理想的显存共享架构：一个大容量
+    CPU 内存存放所有量化后的专家权重，GPU 上有一个固定大小的专家缓存池。调度器根据请求队列的专家需求，预加载即将使用的专家，保持池中专家命中率。这样数百专家的
+    MoE 也能在单卡上服务多用户。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MBoMwuZDWiPy4akL8hvcNTnnnig
+  block_id: Wm5qd88BmoNN8hx6cFVc88fGnqY
+  page_token: MBoMwuZDWiPy4akL8hvcNTnnnig
+  original_title: "\U0001F9D1‍\U0001F91D‍\U0001F9D1 推理 MoE 时，多用户并发下的显存共享如何设计？"
+  imported_at: '2026-09-21'

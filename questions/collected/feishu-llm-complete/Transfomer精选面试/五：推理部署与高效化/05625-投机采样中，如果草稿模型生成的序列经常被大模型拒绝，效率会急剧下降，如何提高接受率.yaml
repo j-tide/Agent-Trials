@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-98b1ce83b419
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 投机采样中，如果草稿模型生成的序列经常被大模型拒绝，效率会急剧下降，如何提高接受率？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 五：推理部署与高效化
+tags: &1
+- Transfomer精选面试
+- 五：推理部署与高效化
+content:
+  prompt: 投机采样中，如果草稿模型生成的序列经常被大模型拒绝，效率会急剧下降，如何提高接受率？
+answer:
+  mode: rubric
+  reference_answer: |-
+    当接受率过低时，大模型的大部分验证计算都被浪费在无效 token 上，加速比会小于 1。提高接受率的本质是让草稿模型的输出分布尽可能与大模型对齐。主要方法如下：
+
+    - 通过知识蒸馏训练草稿模型：使用大模型作为教师，用其输出的完整概率分布（软标签）训练草稿模型，而不仅仅是硬标签。这能让草稿模型学习到大模型预测中的微小概率差异，显著提升分布相似度。
+
+    - 结构对齐与剪枝：草稿模型最好与大模型同架构、同词表，可使用原始大模型进行结构化剪枝+蒸馏得到。由于共享参数基础，行为天然接近，接受率通常能达到 90% 以上。
+
+    - 使用自投机采样（Self-Speculative Decoding）：直接复用大模型的前几层作为草稿，几乎零额外模型代价，接受率极高（后续问题详述）。
+
+    - 多头预测（如 Medusa）：在大模型最后一层附加多个独立分类头，同时预测未来数个 token，不依赖独立的草稿模型，且这些头可通过蒸馏在冻结大模型参数的情况下训练，分布易于对齐，整体接受率高。
+
+    - 动态调整采样参数：推理时适当降低草稿模型的温度（使分布更锐利），或对草稿采样使用 top-k/top-p 缩小候选集，可减少意外低概率 token 的产生，增加大模型接受的可能性。也可采用严格的确定性接受（只接受概率最高的草稿 token，若大模型的首选 token 与之相同则接受），这在牺牲一定多样性的情况下能稳住接受率。
+
+    - 并行草稿与树验证（Speculative Tree）：由草稿模型在每个位置生成多个候选 token，构成一棵候选树，大模型通过树注意力（Tree Attention）并行验证多条路径。这显著增大了每轮至少有一条路径被大量接受的概率，有效提高吞吐，即使单路接受率中等也能获得较好加速。
+
+    - 动态草稿长度（K）调整：实时监测近期接受率，若连续出现低接受率，就缩短草稿长度 K，减少浪费；接受率恢复后再增长，以求在平均意义上最大化有效 token 数。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XlvZwbMXgi5eebkXzxvcP7w4nnf
+  block_id: GQd0dejK5oJ6ZWx8MCcc5q0GnYd
+  page_token: XlvZwbMXgi5eebkXzxvcP7w4nnf
+  original_title: 投机采样中，如果草稿模型生成的序列经常被大模型拒绝，效率会急剧下降，如何提高接受率？
+  imported_at: '2026-09-21'

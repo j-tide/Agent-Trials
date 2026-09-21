@@ -1,0 +1,96 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c17e69110f72
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在多任务学习中，如何让一个模型同时具备图文检索、视觉问答和图像描述能力？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 训练方法与策略
+tags: &1
+- 多模态面（精选）
+- 训练方法与策略
+content:
+  prompt: 在多任务学习中，如何让一个模型同时具备图文检索、视觉问答和图像描述能力？
+answer:
+  mode: rubric
+  reference_answer: |-
+    让单一模型同时掌握图文检索（判别性任务）、视觉问答（理解性任务）和图像描述（生成性任务），需要统一的架构、多任务训练目标和精心设计的训练策略。
+
+    统一架构基础：
+
+    目前主流的方案是采用编码器-解码器（Encoder-Decoder）架构或统一解码器（Unified Decoder）。例如，一个共享的图像编码器（如 ViT）和文本编码器（可融合为多模态编码器），然后针对不同任务使用不同的输出头或统一的序列生成。
+
+    - 检索：通过图像和文本的嵌入向量内积计算相似度。
+
+    - VQA：通常是分类头或生成式答案（序列生成）。
+
+    - 描述：序列生成。
+
+    联合训练策略：
+
+    - 多任务损失函数：
+
+    - 检索：使用对比损失（InfoNCE）。
+
+    - VQA：若为分类，使用交叉熵；若为生成，使用语言模型损失。
+
+    - 描述：使用标准的语言模型损失（交叉熵）。
+
+    [图片内容未导入]
+
+    - 任务格式统一为序列生成：
+    将检索任务也转化为序列生成形式（如输出“<ret> image_id”），但更常见的是检索仍保持双塔结构，而VQA和描述共享解码器。例如，OFA、Unified-IO将所有任务统一为Seq2Seq框架，用特殊token标识任务类型。这样所有任务共享编码器和解码器，通过任务提示（如“What is the answer?”、“Describe the image.”）区分。
+
+    - 参数共享与任务特定模块：
+
+    - 视觉编码器完全共享。
+
+    - 文本编码器和解码器可共享大部分层，只在最顶层添加轻量任务特定适配器（如LoRA），以适应不同任务的输出需求。
+
+    - 对于检索任务，通常需要一个单独的嵌入投影头，将文本编码器的输出映射到与图像嵌入相同的空间。
+
+    - 数据混合与采样策略：
+
+    - 训练时，按一定比例混合不同任务的数据。比例需根据任务难度和重要性调整。例如，描述数据较易获取，可占较大比例（50%），VQA和检索各占25%。
+
+    - 采用温度采样或动态采样，在训练初期侧重简单任务，后期逐渐增加复杂任务比例。
+
+    - 注意不同任务的数据量差异，通过过采样小数据集或降采样大数据集保持均衡。
+
+    - 训练阶段解耦：
+
+    - 先进行大规模图文对比预训练，建立通用视觉-语言对齐。
+
+    - 再加入生成任务（描述）进行联合训练。
+
+    - 最后微调VQA等推理任务，保持对比和生成能力不退化。
+
+    通过上述设计，模型能在多个任务间共享底层视觉语义和语言知识，同时通过任务特定的提示或微调适配不同输出形式。
+
+    [图片内容未导入]
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VC80wRxL0i553WkSOuIcjkHenRp
+  block_id: QKMFd2nAPocKIjxCbuEckEaYn6c
+  page_token: VC80wRxL0i553WkSOuIcjkHenRp
+  original_title: 在多任务学习中，如何让一个模型同时具备图文检索、视觉问答和图像描述能力？
+  imported_at: '2026-09-21'

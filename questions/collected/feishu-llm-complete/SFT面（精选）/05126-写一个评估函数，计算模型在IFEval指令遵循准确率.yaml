@@ -1,0 +1,124 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1077e8a6bf2f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写一个评估函数，计算模型在IFEval指令遵循准确率
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 写一个评估函数，计算模型在IFEval指令遵循准确率
+answer:
+  mode: rubric
+  reference_answer: |-
+    IFEval 评估的是模型是否严格遵循指令中的可验证约束，例如字数限制、包含特定关键词等。这里提供一个简化版框架，展示如何按约束检查并计算准确率。
+
+    ```python
+    import re
+    from typing import List, Dict, Callable
+
+    def ifeval_evaluate(model_responses: List[str], constraints: List[Dict]) -> float:
+        """
+        model_responses: 模型生成的回答列表
+        constraints: 每条指令对应的约束列表，每个约束是一个字典，包含 'type' 和 'params'。
+        返回严格指令遵循准确率（所有约束都满足的样本比例）。
+        """
+        assert len(model_responses) == len(constraints), "样本数不匹配"
+        total = len(model_responses)
+        strict_correct = 0
+
+        for response, constraint_list in zip(model_responses, constraints):
+            all_pass = True
+            for con in constraint_list:
+                check_func = CONSTRAINT_CHECKERS.get(con['type'])
+                if not check_func:
+                    continue
+                if not check_func(response, con.get('params', {})):
+                    all_pass = False
+                    break
+            if all_pass:
+                strict_correct += 1
+
+        return strict_correct / total
+
+    # 预定义的约束检查函数
+    CONSTRAINT_CHECKERS = {}
+
+    def register_checker(type_name: str):
+        def decorator(func):
+            CONSTRAINT_CHECKERS[type_name] = func
+            return func
+        return decorator
+
+    @register_checker('word_count_between')
+    def check_word_count(text: str, params: dict) -> bool:
+        """字数在 [min, max] 之间（中英文通用简单分词）"""
+        # 简化：按空白字符分词
+        words = text.split()
+        min_w = params.get('min', 0)
+        max_w = params.get('max', float('inf'))
+        return min_w <= len(words) <= max_w
+
+    @register_checker('must_contain')
+    def check_must_contain(text: str, params: dict) -> bool:
+        """文本中必须包含指定子串"""
+        substring = params['substring']
+        return substring in text
+
+    @register_checker('forbidden_words')
+    def check_forbidden_words(text: str, params: dict) -> bool:
+        """不能包含指定词语列表中的任何一个"""
+        forbidden = params.get('words', [])
+        for word in forbidden:
+            if word in text:
+                return False
+        return True
+
+    @register_checker('json_format')
+    def check_json_format(text: str, params: dict = None) -> bool:
+        """检查文本是否是有效的 JSON（去除前后空白后）"""
+        import json
+        try:
+            json.loads(text.strip())
+            return True
+        except:
+            return False
+    ```
+
+    说明：
+
+    - 用户可根据 IFEval 的约束类型扩展 checker 函数。
+
+    - 该函数直接返回所有约束都通过的“严格准确率”。
+
+    - 调用时，需要事先为每条测试指令定义好约束列表。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JFt9wvuo1ijVfLktrcDcfTR8nTd
+  block_id: HQNEd542roERG8xpiBZceMkinqv
+  page_token: JFt9wvuo1ijVfLktrcDcfTR8nTd
+  original_title: 写一个评估函数，计算模型在IFEval指令遵循准确率
+  imported_at: '2026-09-21'

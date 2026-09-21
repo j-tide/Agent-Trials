@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c78a5677449c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F501 32. 什么是“continual SFT”？如何避免遗忘？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F501 32. 什么是“continual SFT”？如何避免遗忘？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Continual SFT（持续监督微调）是指模型在初次SFT之后，在生命周期中不断使用新产生的、分布可能发生变化的数据进行多轮微调的过程。例如，模型上线后，收集到新的用户反馈数据，或需要适应新的领域，就需要进行Continual SFT。其最大的挑战，与所有持续学习一样，是灾难性遗忘——模型在学习新数据的同时，会逐渐丢失在旧数据或预训练阶段学到的宝贵能力。
+
+    避免遗忘是Continual SFT设计的核心，需要从数据、算法和系统三个层面共同应对。
+
+    一、数据层面的策略：经验回放
+
+    这是最有效、最基础的方法。核心思想是：在每一轮新SFT时，都混合一部分旧数据（代表性的预训练数据或前几轮的SFT数据） 一起训练。
+
+    - 维护一个动态的“记忆缓冲区”：这个缓冲区里存放的是精心挑选的旧数据样本。挑选的原则是最大化数据多样性和代表性，确保覆盖所有核心任务类型（对话、推理、安全、代码等）。
+
+    - 新旧数据配比：新SFT数据与旧数据的混合比例是核心超参数。比例过高，学不会新知识；比例过低，则遗忘旧知识。通常新数据占比在20%-50%之间，具体需通过消融实验确定。
+
+    - 选择性回放：不仅回放旧的SFT数据，一定要回放一小部分（5%-10%）的预训练通用文本。这是锚定模型“世界知识”和“语言多样性”的最强手段。预训练数据如同定海神针，能最大程度减缓遗忘。
+
+    二、算法层面的策略：正则化与知识蒸馏
+
+    - 弹性权重巩固（EWC）：计算旧任务中各个参数的重要性（通过Fisher信息矩阵），在新任务训练时，对重要参数的更新施加更大的惩罚。这使得模型只能在“不重要的参数”上进行大幅度调整以适应新数据，从而保护旧知识。
+
+    - 知识蒸馏（Learning without Forgetting）：在训练新数据时，将当前模型（学生）在旧数据上的输出，与旧模型（教师）在相同旧数据上的输出进行蒸馏（最小化两者输出分布的KL散度）。这使得模型即使在只看到新数据的情况下，也“记得”旧模型的行为方式。这个方法不需要存储旧数据，但需要存储并前向传播旧模型，计算成本略高。
+
+    - 渐进式网络（Progressive Networks）与PEFT：最彻底的防遗忘方法是通过PEFT（如LoRA）进行持续微调。每次学习新任务时，都冻结旧参数，只训练一组全新的LoRA适配器。推理时，根据需要动态挂载不同的适配器。这从根本上杜绝了旧参数的改变，从而完全避免了遗忘，但增加了推理系统的复杂性。
+
+    三、系统与训练层面的策略
+
+    - 极低的学习率：Continual SFT的学习率应远低于初次SFT，例如，初次SFT的1/5到1/10。每次参数更新都只是“轻推”，而不是“重写”。
+
+    - 严格的早停策略：通过在新SFT验证集和旧SFT验证集（或通用基准）上同时监控性能。一旦发现通用能力分数（如MMLU）出现显著下降，立即停止训练。
+
+    - 增量训练与全量重训的权衡：如果新数据量极大、分布与旧数据差异巨大，简单的增量微调可能难以兼顾。此时，将新旧数据混合进行全量重训（Full Replay）可能是更好、更简单的选择，虽然计算成本高，但能彻底解决遗忘问题。
+
+    ✅ 总结：Continual SFT的防遗忘策略是一个组合拳，核心在于通过经验回放保持对旧知识的记忆，同时借助极低学习率、正则化或PEFT来限制新知识对旧参数的冲击。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QxC9wMhjZi9E20kUA1TcTNQTnSh
+  block_id: PDAHdPB7VoFYpqxZjkSciH10nde
+  page_token: QxC9wMhjZi9E20kUA1TcTNQTnSh
+  original_title: "\U0001F501 32. 什么是“continual SFT”？如何避免遗忘？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bdadfad3cd95
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多轮对话转换为ChatML格式并生成input_ids和labels
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 多轮对话转换为ChatML格式并生成input_ids和labels
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    from transformers import AutoTokenizer
+
+    def convert_multi_turn_to_chatml_and_tokenize(conversations: list, tokenizer, max_length=2048):
+        """
+        conversations: [{"role": "system"/"user"/"assistant", "content": "..."}, ...]
+        返回 input_ids 和 labels (list of ints)。
+        """
+        chatml = ""
+        for turn in conversations:
+            role = turn["role"]
+            content = turn["content"]
+            chatml += f"<|im_start|>{role}\n{content}<|im_end|>\n"
+        # 若最后不是 assistant 结尾，补充一个空的 assistant 标记以便生成
+        if conversations[-1]["role"] != "assistant":
+            chatml += "<|im_start|>assistant\n"
+            # 此时标签不需要计算该部分
+
+        tokenized = tokenizer(chatml, truncation=True, max_length=max_length, return_tensors=None)
+        input_ids = tokenized['input_ids']
+        # 构造labels：找到所有 assistant 部分保留token，其余设-100
+        labels = [-100] * len(input_ids)
+        # 简单处理：通过查找特殊token来确定assistant段，这里提供一个更鲁棒的方法：
+        # 用tokenizer编码 "<|im_start|>assistant\n" 找到起始token id，但序列可能变化，此处简化：
+        # 更好的做法是标记数据时保留原始边界。
+        # 这里仅演示：假设我们可以通过分词后的token序列寻找 assistant 标记的位置。
+        # 以下代码为伪代码，实际使用时建议在构造chatml时记录位置。
+        # （省略详细边界查找，实际项目中使用现成库如tokenizers处理）
+        return input_ids, labels
+    ```
+
+    更实用的方式是使用HuggingFace的apply_chat_template方法（如果tokenizer已配置chat_template）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: NWQtdKNdyon4gpxsIBlcCvipnYc
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: 多轮对话转换为ChatML格式并生成input_ids和labels
+  imported_at: '2026-09-21'

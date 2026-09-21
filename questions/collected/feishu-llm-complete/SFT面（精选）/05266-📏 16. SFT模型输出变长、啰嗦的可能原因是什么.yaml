@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ddea6240dd19
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CF 16. SFT模型输出变长、啰嗦的可能原因是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F4CF 16. SFT模型输出变长、啰嗦的可能原因是什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    许多SFT后的模型会表现出输出冗长、反复解释、答非所问的啰嗦倾向，这并非偶然，而是训练数据、优化目标和模型行为相互作用的必然结果。
+
+    训练数据的“鼓励啰嗦”偏差
+
+    SFT数据集通常由人工标注者制作，他们可能会不自觉地偏好多字数、解释详尽的回答。标注者身处一个“帮助用户理解”的角色，倾向于“把话说透”。而简短精悍却切中要害的回答，往往因为看起来“不够友好”或“缺乏解释”而得不到高分。这直接导致SFT数据中长回答的比例被人为提高。模型从这些数据中学习到：长回答 = 好回答。
+
+    长度与质量的虚假相关性
+
+    在SFT的损失函数视角下，模型并不“理解”内容质量，它只是在最大化回答token的似然概率。一个长回答包含着更多的token，如果这些token在给定指令下都具有较高的生成概率（因为训练数据中确实有这些token），那么生成一个长回答能让模型获得更低的损失，或者说在推理时更“安全”。模型发现多说一些套话、客套话、重述问题的话，能够提高序列的整体概率，因为这些冗余成分在训练数据中非常普遍。
+
+    Teacher Forcing的副作用
+
+    SFT中的teacher forcing机制使得模型在训练时每一步都看到真实的上下文。对于长回答，每一步的条件都是完美正确的历史。然而推理时，模型自己生成的早前token如果有些微偏差，就可能导致后续生成偏离。一种常见的补偿策略就是生成更多内容来“圆回来”，结果就是越来越啰嗦。模型在训练时从不需要处理自己生成的错误，一旦在推理时出错，它倾向于用更多的词来兜圈子，形成啰嗦的恶性循环。
+
+    缺乏停止信号的内化
+
+    预训练文本中有自然的结束点（如文章结尾、章节结束）。SFT数据中对话的结束通常比较模糊，很多长回答结束时没有明确的终止信号，而是自然地淡出。模型在学习过程中没有被充分训练来生成“可以结束”的信号（如EOS token）。它倾向于一直生成下去，直到达到最大长度或生成一个概率上看似合理的断点。
+
+    缓解策略
+
+    - 在SFT数据中有意识地混合高质量短回答，让模型学会言简意赅。
+
+    - 在系统提示或指令中明确要求“简洁回答，不超过XX字”，使模型学会长度控制。
+
+    - 在SFT之后采用RLHF或DPO，对过长输出施加长度惩罚。
+
+    - 调整采样策略，如设置更低的重复惩罚，或调高eos_token的概率。
+
+    - 数据比例上控制冗余样本。
+
+    啰嗦是SFT模型的一种“职业病”，需要从数据、训练和推理多个环节综合治理。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KPIxw03EPiQ1rrkxrvUcqRIznBf
+  block_id: OgWUdIRhGoznzCxu0NRceAU6nvd
+  page_token: KPIxw03EPiQ1rrkxrvUcqRIznBf
+  original_title: "\U0001F4CF 16. SFT模型输出变长、啰嗦的可能原因是什么？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,156 @@
+---
+schema_version: 1
+id: feishu-llm-complete-85cec2cd2410
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BE 3. LangGraph 的 Checkpoint 机制是什么？如何实现 Agent 的中断和恢复？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F4BE 3. LangGraph 的 Checkpoint 机制是什么？如何实现 Agent 的中断和恢复？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Checkpoint（检查点）是 LangGraph 在每个步骤后自动保存的 State 快照。 它是图执行持久化的基石，让你可以：
+
+    - 暂停：在某个节点前插入 interrupt()，图运行到这就停止，等待外部输入。
+
+    - 恢复：拿到外部输入后，从断点继续跑下去，State 完好无损。
+
+    - 时间旅行：回溯到之前某个 Checkpoint，重放或分析当时的 State
+
+    流程：节点A → [Checkpoint] → 节点B → [Checkpoint] → ...
+                         ↑ 可以在这中断
+                         外部输入 → 从 Checkpoint 恢复 → 继续执行
+
+    Checkpoint 存储什么？
+
+    - 当前的 State（所有字段的值）
+
+    - 图的位置（哪个节点刚执行完，下一个该谁）
+
+    - 配置 ID（thread_id，用于区分不同会话）
+
+    内置 Checkpointer：
+
+    - MemorySaver：存内存，适合开发测试。
+
+    - SqliteSaver：存 SQLite 文件，适合单机生产。
+
+    - 也可以自己对接 Redis、Postgres 等。
+
+    实现中断和恢复的完整示例：人工审批场景
+
+    场景：Agent 生成了一封邮件草稿，必须经人工审批后才能发送。
+
+    from langgraph.graph import StateGraph, END
+    from langgraph.checkpoint.memory import MemorySaver
+    from langgraph.graph import interrupt  # 中断函数
+
+    class EmailState(TypedDict):
+        draft: str
+        approved: bool
+
+    # 节点1：生成邮件草稿
+    def draft_email(state: EmailState):
+        return {"draft": "您好，这是自动生成的合同续约通知..."}
+
+    # 节点2：发送邮件（只有审批通过才会执行）
+    def send_email(state: EmailState):
+        # 实际发送逻辑
+        return {"draft": state["draft"] + "\n[已发送]"}
+
+    # 构建图
+    graph = StateGraph(EmailState)
+    graph.add_node("draft", draft_email)
+    graph.add_node("review", lambda state: state)  # 占位节点，真正的中断在边上
+    graph.add_node("send", send_email)
+    graph.set_entry_point("draft")
+
+    # 关键：从 draft 到 send 的边上定义中断
+    def human_review(state: EmailState):
+        # interrupt 会暂停整个图，把消息返回给外部
+        approval = interrupt(f"请审批以下邮件草稿：\n{state['draft']}\n输入 'yes' 或 'no'")
+        if approval == "yes":
+            return "send"
+        return END
+
+    graph.add_conditional_edges("draft", human_review, {"send": "send", END: END})
+
+    # 编译，带上 checkpointer
+    checkpointer = MemorySaver()
+    app = graph.compile(checkpointer=checkpointer)
+
+    # --- 第一次运行：生成草稿，然后中断 ---
+    config = {"configurable": {"thread_id": "email-001"}}
+    for event in app.stream({"draft": "", "approved": False}, config):
+        print(event)
+    # 输出到中断处，外部看到提示：“请审批以下邮件草稿...”
+    # 图在这里暂停，State 被持久化到 MemorySaver
+
+    # --- 此时可以关掉进程、过几小时再恢复 ---
+
+    # 恢复：向图注入用户的审批决定
+    from langgraph.types import Command
+    # 用 Command(resume=...) 传入中断的返回值
+    resume_value = "yes"  # 假设用户点了“同意”
+    for event in app.stream(Command(resume=resume_value), config):
+        print(event)
+    # 图从断点继续，human_review 返回 "send"，然后执行 send 节点
+
+    核心机制解析：
+
+    - interrupt(message) 让图在当前节点后暂停，向外部抛出 GraphInterrupt，并保存 Checkpoint。
+
+    - 外部拿到中断消息，向用户展示，等待用户输入。
+
+    - 外部用 Command(resume=value) 重新调用 app.stream()，value 就是 interrupt 的返回值。
+
+    - thread_id 是区分不同对话的关键，恢复时必须用同一个 config。
+
+    Checkpoint 的更高级用法：时间旅行
+
+    # 列出所有历史 Checkpoint
+    checkpoints = list(checkpointer.list(config))
+    for cp in checkpoints:
+        print(cp.config["configurable"]["checkpoint_id"], cp.metadata)
+
+    # 恢复到之前某个 Checkpoint 继续运行
+    old_config = {"configurable": {"thread_id": "email-001", "checkpoint_id": "xxx"}}
+    app.stream(Command(resume="yes"), old_config)  # 从历史点重新执行
+
+    收束：
+
+    LangGraph 的 Checkpoint 机制让 Agent 从“一跑到底”变成“可以随时按暂停、改参数、再继续”的受控流程。这意味着你可以把人工决策、外部审批、长时间的异步任务毫无缝地嵌入 Agent 的执行图中。它不是简单的日志记录，而是把整个运行时虚拟化，为 Agent 赋予了“任意时间点均可操作”的工程能力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BGoPwvMLhic7wKkrioacP0oynIh
+  block_id: doxcnhzLhhxdtPhN23snkpXb5Yd
+  page_token: BGoPwvMLhic7wKkrioacP0oynIh
+  original_title: "\U0001F4BE 3. LangGraph 的 Checkpoint 机制是什么？如何实现 Agent 的中断和恢复？"
+  imported_at: '2026-09-21'

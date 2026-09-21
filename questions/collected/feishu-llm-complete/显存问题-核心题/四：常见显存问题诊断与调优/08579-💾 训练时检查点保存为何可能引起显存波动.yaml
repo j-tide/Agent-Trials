@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b5a2b7040ce5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BE 训练时检查点保存为何可能引起显存波动？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F4BE 训练时检查点保存为何可能引起显存波动？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 保存检查点时，需要将模型参数、优化器状态等聚合到 CPU 或磁盘，这个过程会在 GPU 上创建额外的连续缓冲区，导致显存占用瞬间上升。若原有显存已接近极限，这一额外分配可能触发
+    OOM。\n\n\U0001F50D 波动原因：\n\n- 参数收集与拷贝\n在分布式训练中，保存检查点通常需要将分片在各卡的参数（或完整模型）收集到 rank0
+    或每卡保存自己的分片。DeepSpeed 在保存合并的 HF 格式模型时，会通过 All-Gather 将参数分片聚合成完整张量，这会在 GPU 上创建一个全局参数的副本，显存瞬时增加一倍（对于
+    ZeRO-3 尤为明显）。\n\n- 状态序列化缓冲区\n将张量转移到 CPU 或写入磁盘前，可能需要连续化内存（contiguous()），这会产生新的张量副本。如果参数很大，这个副本会占用可观的显存。\n\n-
+    优化器状态保存\n保存优化器状态同样需要聚合分片，尤其是当保存完整优化器状态时，每个参数的动量、方差都要汇总，显存开销与模型大小相当。\n\n- 内存碎片的影响\n保存时的临时分配请求可能会因为碎片而失败，尽管总空闲足够。\n\n\U0001F4CA
+    实例：使用 ZeRO-3 训练 13B，每卡显存占用约 18GB/32GB。当保存合并 checkpoint 时，需要聚合全部 13B 参数（FP16 26GB），单卡显存瞬间飙升至
+    44GB，OOM。\n\n\U0001F527 缓解措施：\n\n- 使用分片保存（每卡保存自己的分片），避免聚合。\n\n- 将保存操作放在 CPU 上执行（DeepSpeed
+    的 save_checkpoint 默认使用 CPU 内存聚合）。\n\n- 在保存前调用 torch.cuda.empty_cache() 释放缓存碎片。\n\n-
+    降低保存频率，或使用异步保存，将数据先移到 CPU 再写入磁盘。\n\n- 监控显存峰值，在显存余量不足时，采用更轻量的保存方式（如只保存模型权重，不保存优化器状态）。\n\n✅
+    因此，检查点保存是训练中显存的定时波动源，需通过分片保存和异步化来规避 OOM。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K8Caw8DYRifcnzkTTjUcLwE4ngd
+  block_id: CpK3dEj2uoxiS2x5LSqcZWLUnYd
+  page_token: K8Caw8DYRifcnzkTTjUcLwE4ngd
+  original_title: "\U0001F4BE 训练时检查点保存为何可能引起显存波动？"
+  imported_at: '2026-09-21'

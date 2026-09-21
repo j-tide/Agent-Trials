@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d4a9514b83ce
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4F8 多模态大模型（如 GPT-4V、Gemini）是怎么处理图片和文本的？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F4F8 多模态大模型（如 GPT-4V、Gemini）是怎么处理图片和文本的？"
+answer:
+  mode: rubric
+  reference_answer: "现有多模态大模型的核心架构，可以用一张流水线图概括：\n\n[图片内容未导入]\n\n\U0001F539 三个核心组件\n\n-
+    视觉编码器\n\n通常是一个预训练的 Vision Transformer（ViT）。它把输入图片（如 224×224 像素）分块，每块 14×14，成为
+    16×16 个 patch，每个 patch 通过线性投影得到一个向量，加上位置编码后送入 Transformer。最终输出一个视觉特征序列，例如 257
+    个 token（包含一个全局 CLS token）。\n\n- 部分模型（如 DeepSeek-VL2）使用动态分辨率：大图切分多个子图分别编码，再汇总。\n\n-
+    编码器通常被冻结或使用低学习率微调。\n\n- 投影层（Connector）\n\n视觉 token 的维度（如 1024）与语言模型的词嵌入维度（如 4096）不同。投影层负责对齐。主流方案有：\n\n-
+    MLP 直接映射：两层全连接，简单有效（如 LLaVA）。\n\n- Q-Former：使用可学习的 query token 通过交叉注意力从视觉特征中抽取信息（BLIP-2）。\n\n-
+    Pixel Shuffle：对视觉 token 做空间重组降维再投影，减少 token 数量。\n\n- 语言模型（LLM）\n\n视觉 token 投影后插入文本
+    token 序列中（通常在文本之前），然后交给预训练的 LLM 执行自回归生成。训练时，文本部分计算交叉熵损失。\n\n\U0001F539 训练三阶段\n\n-
+    阶段1：图文对齐（Pre-training）。冻结视觉编码器和 LLM，只训练投影层。使用大量图文对（如 LAION-5B），任务为“看图说话”，让模型学会将视觉特征映射到对应的语言描述空间。\n\n-
+    阶段2：多模态指令微调（SFT）。解冻投影层和 LLM（或使用 LoRA），用多模态对话数据训练，例如 VQA、OCR、图表理解等。\n\n- 阶段3：偏好对齐（可选）。使用
+    RLHF 或 DPO 减少幻觉，增强指令跟随。\n\n\U0001F539 代码骨架：简化版多模态前向传播\n\nimport torch\nimport
+    torch.nn as nn\n\nclass SimpleMLLM(nn.Module):\n    def __init__(self, vision_encoder,
+    llm, projector):\n        super().__init__()\n        self.vision_encoder = vision_encoder
+    \ # ViT\n        self.projector = projector            # 视觉→语言映射\n        self.llm
+    = llm                        # 大语言模型\n    \n    def forward(self, images, text_input_ids):\n
+    \       # 1. 视觉编码\n        with torch.no_grad():  # 如果冻结\n            vision_features
+    = self.vision_encoder(images)  # (B, num_patches, vis_dim)\n        # 2. 投影到语言空间\n
+    \       vision_tokens = self.projector(vision_features)    # (B, num_patches,
+    llm_dim)\n        # 3. 文本 token 的嵌入\n        text_embeds = self.llm.get_input_embeddings()(text_input_ids)\n
+    \       # 4. 拼接：视觉 token 在前，文本在后\n        inputs_embeds = torch.cat([vision_tokens,
+    text_embeds], dim=1)\n        # 5. 生成\n        outputs = self.llm(inputs_embeds=inputs_embeds)\n
+    \       return outputs\n\n多模态大模型的本质，是把图片“翻译”成一串 LLM 能理解的 token，让语言模型能用处理文本的方式理解视觉信息。工程上的核心，在于视觉
+    token 的数量（越长越贵）和投影层的表达能力之间的平衡。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcnv4ZHH8BAhMNzeYPfICYeBb
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "\U0001F4F8 多模态大模型（如 GPT-4V、Gemini）是怎么处理图片和文本的？"
+  imported_at: '2026-09-21'

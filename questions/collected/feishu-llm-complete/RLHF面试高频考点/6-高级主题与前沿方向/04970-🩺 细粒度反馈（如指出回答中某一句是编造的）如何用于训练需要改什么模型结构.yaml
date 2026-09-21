@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4dc558fa5938
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001FA7A 细粒度反馈（如指出回答中某一句是编造的）如何用于训练？需要改什么模型结构？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 6-高级主题与前沿方向
+tags: &1
+- RLHF面试高频考点
+- 6-高级主题与前沿方向
+content:
+  prompt: "\U0001FA7A 细粒度反馈（如指出回答中某一句是编造的）如何用于训练？需要改什么模型结构？"
+answer:
+  mode: rubric
+  reference_answer: "当拥有了“某一句是编造的”这种精准反馈，我们就有能力进行外科手术式的模型修复，而不是对整个回答进行模糊的奖惩。\n\n\U0001F527
+    训练方法一：细粒度的 DPO 损失函数\n\n如果拥有的是成对的细粒度偏好数据（例如，在某个上下文中，Chosen 句子优于 Rejected 句子），可以直接修改
+    DPO 损失函数。传统 DPO 最大化整个序列的 chosen 概率与 rejected 概率之差。细粒度 DPO 则只对被标记的那个句子区间计算对数概率比，从而进行局部优化：\n\nLfine‑DPO=−log⁡σ(β⋅1∣S∣∑t∈S[log⁡πθ(ychosen,t)πref(ychosen,t)−log⁡πθ(yrejected,t)πref(yrejected,t)])Lfine‑DPO=−logσ(β⋅∣S∣1t∈S∑[logπref(ychosen,t)πθ(ychosen,t)−logπref(yrejected,t)πθ(yrejected,t)])\n\n其中
+    SS 是被标记的句子区间。这样模型只会调整与错误句子相关的生成概率，不会影响回答中其他正确的部分。\n\n\U0001F527 训练方法二：Token 级别的奖励塑形
+    (Reward Shaping)\n\n如果拥有的是片段级的好坏标签（例如，回答中第 3 句是“坏”的），可以将这些标签转化为 PPO 中的 token 级奖励修正：\n\n-
+    正常 token 的奖励保持为 KL 惩罚 + 最终 RM 评分（通过 GAE 分配）。\n\n- 被标记为“坏”的片段中的所有 token，额外施加一个负奖励
+    r_penalty（如 -0.5）。\n\n- 被标记为“好”的片段中的所有 token，额外施加一个正奖励 r_bonus（如 +0.1）。\n\n这样
+    Critic 和 Actor 都会明确地学习到：生成那种被标记为“坏”的 token 模式是应当被惩罚的。\n\n\U0001F527 训练方法三：对奖励模型的细粒度改造\n\n这是更根本的方法。将奖励模型的架构从“序列→标量”改为“序列→Token
+    级别的标量序列”。即，RM 不仅输出一个最终分数，还为输入序列中的每一个 token 输出一个奖励值。这个密集的奖励信号可以直接作为 PPO 的即时奖励。训练这样的
+    RM 需要 token 级别的偏好标签，可以通过以下方式获得：\n\n- 人工标注员高亮有害/错误的片段。\n\n- AI 裁判指出错误位置并生成批评，然后将批评映射到
+    token 区间。\n\n- 利用检索增强工具自动标记与外部知识矛盾的事实陈述。\n\n\U0001F527 模型结构的改动\n\n传统 RM 在最后一个
+    token 处接一个标量头。细粒度 RM 可以在每个 token 的隐藏状态后都接一个标量头，输出该 token 的即时奖励预测。训练时，只对那些有明确 token
+    级别标签的位置计算损失。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C9h3wKiDuic00okwpWOcPhEKnxb
+  block_id: JK3CdidFdosDNJxoqnhc3lqXnVB
+  page_token: C9h3wKiDuic00okwpWOcPhEKnxb
+  original_title: "\U0001FA7A 细粒度反馈（如指出回答中某一句是编造的）如何用于训练？需要改什么模型结构？"
+  imported_at: '2026-09-21'

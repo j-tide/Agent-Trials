@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-99e3e5ed18f0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练资源有限，只能微调一个多模态大模型，如何选择可训练参数和微调策略？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 训练方法与策略
+tags: &1
+- 多模态面（精选）
+- 训练方法与策略
+content:
+  prompt: 训练资源有限，只能微调一个多模态大模型，如何选择可训练参数和微调策略？
+answer:
+  mode: rubric
+  reference_answer: |-
+    若资源极度受限（如单卡 24GB），策略核心是最大化能力提升/参数比。
+
+    推荐策略（分层优先）：
+
+    - 投影层 + LLM 的 LoRA（必选，性价比最高）：
+
+    - 投影层全参数训练（通常参数量极小，几十万到几百万）。
+
+    - LLM 使用 LoRA（rank=8~16），加在 Q/K/V/O 矩阵。仅增加约 0.1%~1% 的参数。
+
+    - 理由：这是 LLaVA 等模型验证的最简高效方案，能用极少资源让 LLM 理解视觉并遵循指令。
+
+    - QLoRA（进一步压缩显存）：
+
+    - 将 LLM 量化为 4-bit（NF4），然后在其上应用 LoRA。显存占用降至原来的 1/4 左右，可在单卡上微调 7B~13B 模型。
+
+    - 视觉编码器处理：
+
+    - 冻结视觉编码器，不训练任何视觉侧参数。
+
+    - 若领域极专业且数据量稍多（>1万），可考虑给视觉编码器加极轻的 Adapter 或最后几层的 LoRA（rank=4），但需配合极低学习率。
+
+    - 指令微调优先：
+
+    - 跳过全量预训练，直接使用高质量指令数据微调（几千到几万条），让模型快速学会对话能力。
+
+    - 数据策略：
+
+    - 精选小规模高质量数据，远优于大规模噪声数据。
+
+    - 混合纯文本指令数据（如 10%），防止语言能力退化。
+
+    推荐配置示例（基于 LLaVA-1.5-7B，单张 24GB GPU）：
+
+    - 模型量化：LLM 4-bit（QLoRA），视觉编码器 FP16。
+
+    - 可训练参数：投影层（全参数，~1M），LLM 的 Q/K/V/O 加 LoRA（rank=16, ~8M）。
+
+    - 总训练参数：~9M，占总参数 0.1% 左右。
+
+    - 显存占用：约 16GB，batch size=4。
+
+    - 训练数据：10K 高质量多模态指令数据 + 2K 纯文本数据。
+
+    此方案可在数小时内完成微调，且性能接近全参数微调。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MdAuwpV9FirKryksWTdcr4djnoV
+  block_id: J9KbdB2Z8oBbWoxYMPjc4EwxnBK
+  page_token: MdAuwpV9FirKryksWTdcr4djnoV
+  original_title: 训练资源有限，只能微调一个多模态大模型，如何选择可训练参数和微调策略？
+  imported_at: '2026-09-21'

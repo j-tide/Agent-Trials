@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a4ac6f9350ac
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 给定一个 13B 模型，FP16，用 8 张 80GB A100，DP=8，无其他并行，能否训练？需估算 batch size=1 时的显存。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 给定一个 13B 模型，FP16，用 8 张 80GB A100，DP=8，无其他并行，能否训练？需估算 batch size=1 时的显存。
+answer:
+  mode: rubric
+  reference_answer: |-
+    纯数据并行意味着每张卡拥有完整的模型副本，各自计算梯度后同步。每张卡的显存需求完全一样。
+
+    模型参数（FP16）：13B × 2 bytes = 26GB。每张卡都要存储完整的26GB权重。
+
+    梯度（FP16）：反向传播时，每张卡计算自己那部分数据的梯度，同样需要26GB来存储。
+
+    优化器状态：Adam的m和v各一份FP32，加上一份FP32主副本，共12 bytes/param。13B × 12 = 156GB。这是最大的一笔开销，远超单卡80GB。
+
+    模型状态合计：26 + 26 + 156 = 208GB。仅这三项就已经远超80GB，OOM是必然的。
+
+    激活值：即使不考虑上述模型状态，激活值也是一笔不小的开销。以序列长度2048为例，13B模型的单层激活值（注意力矩阵、FFN中间输出等）约需15-25GB。即使使用梯度检查点，也需要额外10-15GB。这些在模型状态面前甚至显得次要。
+
+    结论：纯数据并行完全不可行。必须引入ZeRO至少第2阶段（分片优化器状态和梯度），或者使用模型并行和张量并行。在8卡上，ZeRO-3可将单卡模型状态压缩至约14GB，配合梯度检查点将激活值控制在10GB以内，总显存约24GB，远超80GB限制——所以实际上ZeRO-3可以让13B模型在8卡上舒适训练，单卡显存占用约30-40GB。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: S7MPdn2t2oCg4gxHiOMcOKDsncf
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 给定一个 13B 模型，FP16，用 8 张 80GB A100，DP=8，无其他并行，能否训练？需估算 batch size=1
+    时的显存。
+  imported_at: '2026-09-21'

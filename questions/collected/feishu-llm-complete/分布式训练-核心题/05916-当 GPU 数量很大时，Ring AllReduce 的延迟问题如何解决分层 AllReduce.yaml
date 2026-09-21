@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-65ceb07732e5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 32.当 GPU 数量很大时，Ring AllReduce 的延迟问题如何解决？分层 AllReduce。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 32.当 GPU 数量很大时，Ring AllReduce 的延迟问题如何解决？分层 AllReduce。
+answer:
+  mode: rubric
+  reference_answer: |-
+    Ring AllReduce 的延迟与节点数 N 成正比（约 2(N-1) 步）。当扩展到成百上千节点时，延迟累积严重，通信时间大幅增加。
+
+    分层 AllReduce 是解决之道：利用节点内高带宽和节点间低带宽的层级结构，将通信分为两步：
+
+    - 节点内 Reduce：每个节点内的所有 GPU 先通过 NVLink 高速网络做一次 Reduce（或 AllReduce），得到该节点的部分和。因为 NVLink 带宽极高，这一步骤延迟极低。
+
+    - 节点间 AllReduce：每个节点选出一个代表 GPU，通过跨节点网络（IB）执行 AllReduce，将各节点的部分和归约成全局结果。此时跨节点通信量显著减少，因为每个节点只传输一份完整数据，而不是每个 GPU 都传输。
+
+    - 节点内 Broadcast：节点内的代表 GPU 将全局结果广播给其他 GPU。
+
+    这样，跨节点通信量从 N×M 降为 P×M（P 为节点数，N 为总 GPU 数），且节点内利用高带宽完成大部分通信，总延迟由节点间步骤决定，与节点数 P 成正比，远小于总 GPU 数。NCCL 会自动检测拓扑并启用分层 AllReduce。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XxBHwhYPNiVrDYkSIHCccehWn72
+  block_id: KPpTd9zPPoknpzxmymEcuZEqnra
+  page_token: XxBHwhYPNiVrDYkSIHCccehWn72
+  original_title: 32.当 GPU 数量很大时，Ring AllReduce 的延迟问题如何解决？分层 AllReduce。
+  imported_at: '2026-09-21'

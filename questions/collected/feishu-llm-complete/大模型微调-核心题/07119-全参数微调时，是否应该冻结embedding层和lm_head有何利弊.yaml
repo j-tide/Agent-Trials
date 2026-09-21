@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-36b4f9f1dec5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 全参数微调时，是否应该冻结embedding层和lm_head？有何利弊？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 全参数微调时，是否应该冻结embedding层和lm_head？有何利弊？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是一个经典的权衡：是否冻结 embedding 层和 lm_head（输出投影层），取决于模型词表大小、目标任务与预训练的分布差异、以及显存状况。
+
+    利：为什么要冻结它们？
+
+    - 显著节省显存：Embedding 层和 lm_head 的参数规模为 vocab_size * hidden_dim。对于多语言大词表模型（词表可达 25万+），这两个矩阵的参数量极其庞大，甚至可占到模型总参数的 20%~30%。冻结它们可以节省对应的梯度存储和优化器状态，显存节省非常可观。
+
+    - 防止词表过拟合：微调数据中的词汇分布通常很窄。如果更新 embedding 层，模型可能会过度适应微调数据中的词汇共现模式，破坏预训练阶段习得的、健壮的语义表示。冻结可以保护底层语义特征。
+
+    - 缓解灾难性遗忘：底层 embedding 承载着大量通用的形态和语义知识，冻结它们是防止遗忘最直接的手段之一。
+
+    弊：为什么不冻结它们？
+
+    - 无法适应新领域的关键术语：如果目标领域存在大量全新的特殊词汇（如医学术语、法律术语、代码 tokens），且这些词在预训练中很少见或不存在，冻结 embedding 会导致模型根本无法“理解”这些核心词汇，微调效果大打折扣。
+
+    - 无法对齐输出分布：lm_head 决定了最终输出 token 的概率分布。如果目标任务的回答风格、格式与预训练差异极大，冻结 lm_head 会使模型在生成特定格式（如 JSON、代码）时能力受限，因为它无法调整输出层的偏好。
+
+    - 联合优化的一致性：在现代大模型中，embedding 和 lm_head 的权重常常是共享的（tied weights）。如果冻结一个而微调另一个，可能会破坏这种对称性，带来不可预知的问题。
+
+    决策建议：
+
+    - 通用 SFT（对话、指令遵循）且显存紧张：优先冻结 embedding 和 lm_head。这是成本低、风险小的选择，大多数聊天模型微调都这么做。
+
+    - 领域知识注入（医学、法律等）且数据充足：解冻 embedding 和 lm_head。但需要用极小的学习率（如全局学习率的 1/10）单独训练它们，以保护底层的通用语义。
+
+    - 代码/数学微调：通常解冻，因为代码关键字和数学符号的向量表示需要调整。
+
+    - 最佳实践：进行一个微型实验：分别训练冻结和不冻结的模型（例如 100 步），比较两者在验证集上的困惑度和下游任务效果，用数据做决策。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: Blbyd8KWWot3Rbx1dJEcgTR3nyg
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 全参数微调时，是否应该冻结embedding层和lm_head？有何利弊？
+  imported_at: '2026-09-21'

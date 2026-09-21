@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2b395c61f6fc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果遇到 Loss Spike，你首先会做什么？（跳过更新、回滚检查点、调参）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 如果遇到 Loss Spike，你首先会做什么？（跳过更新、回滚检查点、调参）
+answer:
+  mode: rubric
+  reference_answer: |-
+    遇到Loss Spike，我的第一反应是保护模型状态不被污染。具体动作优先级如下：
+
+    - 立即跳过当前更新：在训练循环中增加判断逻辑，如果当前batch的损失超过前N步移动平均的若干倍（如5倍），则continue不执行optimizer.step()，并丢弃该batch。这是最快速、代价最小的止损措施，可以避免一次异常数据毁掉数小时的训练成果。
+
+    - 检查梯度范数：在跳过更新后，打印当前梯度范数，与历史值对比。如果梯度范数异常高，确认是梯度爆炸；如果梯度正常但损失尖峰，可能是数据问题。
+
+    - 评估损失恢复情况：继续训练几个batch，观察损失是否回到正常范围。如果迅速恢复，则可能只是偶发异常数据，无需进一步干预。
+
+    - 若损失持续异常：如果损失在尖峰后无法回到正常水平，或者发生多次尖峰，则需要回滚到最近的健康checkpoint。从断点恢复后，尝试用较小的学习率（如当前学习率的0.5倍）继续训练。回滚是防止模型退化到不可恢复状态的关键保险。
+
+    - 数据排查：记录引发尖峰的batch的索引或特征，分析数据分布。若发现规律（如特定来源、特定长度的文本），则针对性清洗或剔除。
+
+    - 调整超参数：如果尖峰频繁发生，考虑降低学习率、增大Warmup步数、加强梯度裁剪或切换到更稳定的优化器配置。
+
+    - 监控与自动化：建立自动化监控系统，当损失尖峰或梯度范数超限时自动跳过更新、发送告警，并可配置自动回滚策略。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: JRyAdPFtOof7Qwxikh9csXEpnYg
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: 如果遇到 Loss Spike，你首先会做什么？（跳过更新、回滚检查点、调参）
+  imported_at: '2026-09-21'

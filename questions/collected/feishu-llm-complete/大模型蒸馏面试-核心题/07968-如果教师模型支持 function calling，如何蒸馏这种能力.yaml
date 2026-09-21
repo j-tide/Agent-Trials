@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c542d6ce76e3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果教师模型支持 function calling，如何蒸馏这种能力？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型蒸馏面试-核心题
+derived_topic: 
+tags: &1
+- 大模型蒸馏面试-核心题
+content:
+  prompt: 如果教师模型支持 function calling，如何蒸馏这种能力？
+answer:
+  mode: rubric
+  reference_answer: |-
+    蒸馏 function calling 能力，本质上是让学生模型学会“何时调用工具”、“如何构造正确的调用参数”以及“如何基于工具返回结果继续生成”。
+
+    蒸馏数据的构造是关键。我们需要生成包含完整“工具调用循环”的对话数据。
+
+    数据格式示例（ChatML风格）：
+
+    <|im_start|>system
+    你可以使用以下工具：
+    {
+      "name": "get_weather",
+      "description": "查询指定城市的天气",
+      "parameters": {
+        "city": {
+          "type": "string",
+          "description": "城市名，如'北京'"
+        }
+      }
+    }
+    <|im_end|>
+    <|im_start|>user
+    今天北京天气怎么样？
+    <|im_end|>
+    <|im_start|>assistant
+    好的，让我查询一下。
+    <tool_call>
+    {"name": "get_weather", "arguments": {"city": "北京"}}
+    </tool_call>
+    <|im_end|>
+    <|im_start|>tool
+    {"temperature": 25, "condition": "晴"}
+    <|im_end|>
+    <|im_start|>assistant
+    北京今天晴天，气温25°C，适合出行。
+    <|im_end|>
+
+    生成数据的策略：
+
+    - 指令设计：构造需要调用特定工具才能完成的指令，以及不需要调用工具的指令（训练模型判断“何时不调用”）。
+
+    - 教师模拟：让教师模型模拟上述完整的对话过程。教师需要生成<tool_call>块，并能够根据<tool>角色返回的结果生成最终回复。
+
+    - 多样性覆盖：确保数据中包含单次调用、并行调用（同时调用多个工具）、串行依赖调用（后一个调用依赖前一个的结果）以及调用失败（如API返回错误信息） 的场景。
+
+    - 格式标准化：使用特殊Token（如<tool_call>和</tool_call>）精确标记工具调用JSON的边界，并确保这些Token是模型词表中的一部分。
+
+    在训练时，需要对system, user, tool角色的全部内容进行Loss Masking，只让学生模型学习assistant角色生成的部分（包括<tool_call>块和后续的自然语言回复）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LjfGwN95livJFZkv1WJcPZvun4e
+  block_id: JhxndCvgwoMvXexSqK7cOZs5nid
+  page_token: LjfGwN95livJFZkv1WJcPZvun4e
+  original_title: 如果教师模型支持 function calling，如何蒸馏这种能力？
+  imported_at: '2026-09-21'

@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-717872167b87
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F308 9. 什么是 MMR（最大边际相关性）检索？它在 LangChain 中怎么用？解决了什么问题？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F308 9. 什么是 MMR（最大边际相关性）检索？它在 LangChain 中怎么用？解决了什么问题？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    MMR（Maximal Marginal Relevance） 是一种在信息检索中平衡相关性和多样性的算法。普通相似度搜索在返回前 k 个最相似文档时，可能会返回一堆内容高度重复的片段，导致上下文缺乏多样性，浪费 LLM 的 token 额度。MMR 的核心思想是：在挑选下一个文档时，同时考虑它和查询的相关度，以及它和已选文档的相似度，鼓励选择与已选文档不太相似但和查询相关的新文档。
+
+    算法公式简化理解：
+
+    ```text
+    MMR = λ * Sim(D_i, Q) - (1-λ) * max_{D_j∈selected} Sim(D_i, D_j)
+    ```
+
+    - λ（lambda_mult）控制多样性的权重：λ=1 退化为纯相似度排序；λ=0 则完全按多样性排序。
+
+    在 LangChain 中的使用：
+
+    ```text
+    # 直接使用 vectorstore 的 MMR 方法
+    docs = vectorstore.max_marginal_relevance_search(
+        query="LangChain 链的用法",
+        k=4,                # 最终返回的文档数
+        fetch_k=20,         # 先从向量库中捞出前 20 个最相关文档，再对这些进行 MMR 重排
+        lambda_mult=0.5,    # 相关性 vs 多样性权重，0-1
+    )
+
+    # 或通过 retriever 使用
+    retriever = vectorstore.as_retriever(
+        search_type="mmr",
+        search_kwargs={
+            "k": 5,
+            "fetch_k": 20,
+            "lambda_mult": 0.7,
+        },
+    )
+    ```
+
+    解决了什么问题：
+
+    - 避免信息冗余：比如你知识库里有十篇几乎一样的项目文档，普通搜索可能返回五篇几乎相同内容的片段，而 MMR 会挑选不同侧面的段落，让 LLM 得到更全面的信息。
+
+    - 提升答案覆盖率：对于需要综合多方面信息的复杂问题，MMR 能提供多样化的上下文，减少“一叶障目”的情况。
+
+    - 优化 token 利用：有限的上下文窗口里，多样化片段比冗余片段带来更多有效信息。
+
+    经验：fetch_k 建议设为 k 的 3-5 倍，lambda_mult 通常取 0.5-0.7 之间效果最佳。我习惯先用普通搜索看看内容冗余度，如果前几个结果内容高度雷同，就会改用 MMR。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/I0Gnw9RQoiOa2yk59JjcwumPnrf
+  block_id: CrGndJF45orewFx12PZc1fpZnIc
+  page_token: I0Gnw9RQoiOa2yk59JjcwumPnrf
+  original_title: "\U0001F308 9. 什么是 MMR（最大边际相关性）检索？它在 LangChain 中怎么用？解决了什么问题？"
+  imported_at: '2026-09-21'

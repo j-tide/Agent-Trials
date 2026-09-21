@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-59996a36f5cd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用torch.jit.trace将模型转为TorchScript？有什么限制？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何使用torch.jit.trace将模型转为TorchScript？有什么限制？
+answer:
+  mode: rubric
+  reference_answer: |-
+    使用 torch.jit.trace 将模型转为TorchScript的基本步骤如下：
+
+    ```python
+    import torch
+    import torch.nn as nn
+
+    class MyModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(10, 10)
+
+        def forward(self, x):
+            return self.linear(x)
+
+    model = MyModel()
+    model.eval()
+
+    # 准备一个样例输入，形状需要与实际输入匹配
+    example_input = torch.randn(1, 10)
+    traced_model = torch.jit.trace(model, example_input)
+
+    # 保存
+    traced_model.save("traced_model.pt")
+    ```
+
+    trace 的限制：
+
+    - 不支持数据依赖的控制流。trace 只记录实际执行的操作路径。如果模型中有 if x.sum() > 0: ... else: ...，trace 只会固化在追踪时走的那条分支。如果之后输入改变，本应走另一条分支，但TorchScript模型仍然执行原来那条路径，导致错误。这是 trace 最大的缺陷。
+
+    - 输入形状被部分固定。trace 记录的是特定输入形状下的张量操作。虽然可以通过动态轴（如 torch.jit.trace 后使用 torch.jit.freeze 等）来处理变化，但追踪时确定的某些维度可能无法自动泛化到任意大小。通常，只要模型中没有根据输入形状动态改变网络结构（如动态循环），trace 能正确处理不同batch size（通过将输入的第0维设为动态，见后续ONNX导出中的动态轴）。
+
+    - 无法处理 torch.Tensor 的元组或列表的不规则构造。如果 forward 返回一个动态长度的列表，trace 可能失败。
+
+    - 不能包含非PyTorch的Python操作，例如 print、文件I/O等，这些在 trace 时会被忽略或导致错误。
+
+    克服限制：对于控制流，可以使用 torch.jit.script。对于动态形状，trace 本身并不固定batch维，只要在推理时传入不同batch大小的输入，即可正常工作，因为线性层等操作对batch维是透明的。但若模型中有 view 或 reshape 依赖于输入的具体值，可能会导致问题，此时需要谨慎处理。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WSlbwtUNQiNbKakCLPDcsZ9Hnsg
+  block_id: UJ79daxSroes0zxZnRqcnWwMno1
+  page_token: WSlbwtUNQiNbKakCLPDcsZ9Hnsg
+  original_title: 如何使用torch.jit.trace将模型转为TorchScript？有什么限制？
+  imported_at: '2026-09-21'

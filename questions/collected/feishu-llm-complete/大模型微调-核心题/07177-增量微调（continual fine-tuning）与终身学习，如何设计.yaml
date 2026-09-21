@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-eb179173b87a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 增量微调（continual fine-tuning）与终身学习，如何设计？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 增量微调（continual fine-tuning）与终身学习，如何设计？
+answer:
+  mode: rubric
+  reference_answer: |-
+    增量微调（Continual Fine-tuning）是指模型在初次SFT之后，不断使用新产生的、分布可能发生变化的数据进行多轮微调。终身学习 是其最终目标——在无限的数据流中持续学习新知识，同时不遗忘旧知识。
+
+    设计一套稳健的增量微调系统需要从数据、算法、架构三个层面入手：
+
+    - 数据层面——经验回放与核心集维护
+
+    - 核心记忆缓冲区：维护一个容量固定的缓冲区，里面存放最具代表性的历史数据。挑选原则是最大化任务多样性和数据代表性，覆盖所有核心能力（对话、推理、安全等）。每次增量微调时，新数据与缓冲区旧数据按一定比例混合（如新数据占30%）。这是防遗忘最有效、最基础的方法。
+
+    - 动态采样与数据配比：根据模型当前在各能力维度上的表现，动态调整不同来源数据的采样权重。对于表现退化的任务，提高其数据比例；对于已饱和的任务，降低比例。
+
+    - 数据版本控制与回溯：每次数据更新都生成一个不可变的版本号，并记录与模型版本的血缘关系，确保可复现和可回滚。
+
+    - 算法层面——正则化与知识蒸馏
+
+    - 弹性权重巩固（EWC）：计算旧任务上参数的重要性（Fisher信息矩阵），在新任务训练时，对重要参数的更新施加更大的惩罚，从而保护旧知识。
+
+    - 知识蒸馏防遗忘（LwF）：在训练新数据时，将旧模型作为教师，强制新模型（学生）在旧数据上的输出分布与旧模型保持一致。这不需要存储旧数据，但需要额外存储旧模型或进行前向传播。
+
+    - 极低学习率与早停：增量微调的学习率应远低于初次SFT（如1/10），防止参数剧烈变动。通过严格监控通用基准，在性能退化时触发早停。
+
+    - 架构层面——参数隔离与模块化
+
+    - PEFT（参数高效微调）与适配器插拔：每次增量微调时，冻结基座模型，只训练一个全新的LoRA适配器。旧适配器保留，推理时可根据需求动态挂载。这是从架构上彻底解决遗忘的最优雅方案，实现了能力的完全隔离和按需组合。
+
+    - MoE动态扩展：对于MoE模型，为每个新任务或新领域增加新的专家，或微调部分专家，而不改动其他专家。通过路由器学习不同任务的专家激活模式。
+
+    设计要点：增量微调不是一个“一次性”的训练任务，而是一个需要持续运营的系统。必须建立完善的评估监控体系，确保模型能力在长期迭代中不退化。在实际生产中，通常结合PEFT（如LoRA）和核心集回放，以较低成本实现稳健的终身学习。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RK7mw2OHeiOHyEkfsfXcDkH1nRh
+  block_id: RUkfdV4Chok6kQx3qj9cH3Funhf
+  page_token: RK7mw2OHeiOHyEkfsfXcDkH1nRh
+  original_title: 增量微调（continual fine-tuning）与终身学习，如何设计？
+  imported_at: '2026-09-21'

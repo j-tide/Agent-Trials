@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-46e2c8c66103
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 全参数微调时，用什么策略保存checkpoint？如何选择最优模型？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 全参数微调时，用什么策略保存checkpoint？如何选择最优模型？
+answer:
+  mode: rubric
+  reference_answer: |-
+    全参数微调成本高昂，必须确保能够挑选出泛化能力最强、最符合最终应用目标的模型。因此，checkpoint 保存与选择策略至关重要。
+
+    保存策略：
+
+    - 按步数定期保存：每 N 步（如 200 步）保存一个完整的模型状态（包含优化器状态、学习率调度器状态），以便恢复训练。
+
+    - 保存“最佳验证损失”模型：额外维护一个指标，当验证损失创下新低时，单独保存一个只含模型权重的 checkpoint，便于快速加载。
+
+    - 保存多个维度的“最佳”：除了损失最低，还可保存通用基准得分最高、或生成质量评分最高的 checkpoint。这需要训练过程中持续运行评估。
+
+    - 保留足够的检查点历史：避免只保留最后几个，以便在发现过拟合后能回滚到较早的、泛化能力更好的模型。
+
+    如何选择最优模型：
+
+    - 首选：基于生成质量的多维评估
+    训练结束后，对所有保存的 checkpoint（至少是最后10~20个）进行全面离线评估。评估应包含：
+
+    - 警惕“单一的损失最优”陷阱：验证损失最低的 checkpoint 往往已经接近过拟合，其生成质量和泛化能力可能已经下降。通常，泛化最佳的模型出现在验证损失刚刚趋于平缓、尚未开始反弹的“高原区”早期。
+
+    - 使用早停原则：在训练过程中就确定最优模型。当验证损失在设定的耐心值内不再改善时，直接终止训练，并将耐心值开始前那个损失最低的 checkpoint 作为最优模型。
+
+    - 线上 A/B 验证（最终决策）：如果条件允许，将离线评估选出的前 2~3 个候选模型部署为灰度服务，分配少量真实流量进行 A/B 测试，通过用户点赞率、任务完成率等终极指标决定上线版本。
+
+    实践心得：最优模型极少是训练损失最低的那个。它通常是那个在“学会新格式”和“保留旧知识”之间达到最佳平衡的模型。这个平衡点需要通过上述多维评估来精准定位。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: MMBud47LHoANvIxi5WacsyAJn3g
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 全参数微调时，用什么策略保存checkpoint？如何选择最优模型？
+  imported_at: '2026-09-21'

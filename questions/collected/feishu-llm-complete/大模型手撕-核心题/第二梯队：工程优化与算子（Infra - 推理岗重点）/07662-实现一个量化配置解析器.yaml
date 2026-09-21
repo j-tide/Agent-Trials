@@ -1,0 +1,146 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fd09cb8a556a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个量化配置解析器
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现一个量化配置解析器
+answer:
+  mode: rubric
+  reference_answer: |-
+    目标
+    输入字符串如 "W8A8_PER_CHANNEL" 或 "W4A16_GROUP128"，自动解析出权重和激活的量化比特数、量化粒度（per_tensor / per_channel / per_group）、组大小等信息，生成对应的量化 scheme，并能应用到给定的线性层上（包括权重量化和激活量化）。
+
+    ```python
+    import re
+    from dataclasses import dataclass
+    from typing import Optional
+
+    @dataclass
+    class QuantizationConfig:
+        weight_bits: int
+        activation_bits: int
+        weight_granularity: str      # "per_tensor", "per_channel", "per_group"
+        activation_granularity: str  # "per_tensor", "per_token"
+        group_size: Optional[int] = None   # for weight per_group
+
+    def parse_quant_config(config_str: str) -> QuantizationConfig:
+        """
+        解析形如 "W8A8_PER_CHANNEL", "W4A16_GROUP128", "W8A8_PER_TENSOR" 等。
+        默认激活粒度为 per_tensor，除非显示指定激活粒度（目前只支持权重粒度的解析）。
+        """
+        # 正则匹配
+        pattern = r'^W(\d+)A(\d+)_(PER_TENSOR|PER_CHANNEL|PER_TOKEN|GROUP(\d+))$'
+        match = re.match(pattern, config_str)
+        if not match:
+            raise ValueError(f"Invalid config string: {config_str}")
+
+        weight_bits = int(match.group(1))
+        activation_bits = int(match.group(2))
+        gran_str = match.group(3)
+
+        weight_gran = "per_tensor"
+        activation_gran = "per_tensor"
+        group_size = None
+
+        if gran_str == "PER_CHANNEL":
+            weight_gran = "per_channel"
+        elif gran_str == "PER_TOKEN":
+            # 如果指定 PER_TOKEN，通常指激活粒度，这里简单处理
+            activation_gran = "per_token"
+        elif gran_str.startswith("GROUP"):
+            weight_gran = "per_group"
+            group_size = int(match.group(4))
+
+        return QuantizationConfig(
+            weight_bits=weight_bits,
+            activation_bits=activation_bits,
+            weight_granularity=weight_gran,
+            activation_granularity=activation_gran,
+            group_size=group_size
+        )
+
+    # 应用配置到层
+    def apply_quant_config_to_linear(layer: torch.nn.Linear, config: QuantizationConfig):
+        """
+        根据配置对线性层的权重进行量化（模拟），并返回一个量化后的权重副本。
+        """
+        W = layer.weight.data
+        out_f, in_f = W.shape
+        qmax = 2 ** (config.weight_bits - 1) - 1
+
+        if config.weight_granularity == "per_tensor":
+            max_val = torch.max(torch.abs(W))
+            scale = max_val / qmax
+            W_int = torch.round(W / scale).clamp(-qmax, qmax).to(torch.int8)
+            # 反量化并返回（模拟）
+            W_q = W_int.float() * scale
+        elif config.weight_granularity == "per_channel":
+            max_per_ch = torch.max(torch.abs(W), dim=1).values
+            scales = max_per_ch / qmax
+            scales[scales == 0] = 1e-8
+            W_int = torch.round(W / scales.unsqueeze(1)).clamp(-qmax, qmax).to(torch.int8)
+            W_q = W_int.float() * scales.unsqueeze(1)
+        elif config.weight_granularity == "per_group":
+            group_size = config.group_size
+            assert in_f % group_size == 0
+            num_groups = in_f // group_size
+            W_q = torch.zeros_like(W)
+            for g in range(num_groups):
+                start = g * group_size
+                end = start + group_size
+                group = W[:, start:end]
+                max_val = torch.max(torch.abs(group))
+                scale = max_val / qmax if max_val > 0 else 1.0
+                W_q[:, start:end] = torch.round(group / scale).clamp(-qmax, qmax).float() * scale
+        else:
+            raise NotImplementedError
+
+        return W_q
+
+    # 示例
+    config_str = "W4A16_GROUP128"
+    config = parse_quant_config(config_str)
+    print(f"Parsed: W{config.weight_bits}A{config.activation_bits} "
+          f"weight_gran={config.weight_granularity}, group={config.group_size}")
+
+    layer = torch.nn.Linear(256, 512)
+    W_quant = apply_quant_config_to_linear(layer, config)
+    print("量化后权重均值:", W_quant.mean().item())
+    ```
+
+    说明：该解析器支持多种配置字符串，可根据实际需要扩展。apply_quant_config_to_linear 展示了如何基于解析出的配置实现 weight 的量化模拟。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: Y3IIdWV8po8Gf6xkfkxc7fFAnfc
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 实现一个量化配置解析器
+  imported_at: '2026-09-21'

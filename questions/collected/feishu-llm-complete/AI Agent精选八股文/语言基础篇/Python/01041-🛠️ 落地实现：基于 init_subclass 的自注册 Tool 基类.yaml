@@ -1,0 +1,119 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c8470a760fce
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E0️ 落地实现：基于 init_subclass 的自注册 Tool 基类"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 语言基础篇 / Python
+tags: &1
+- AI Agent精选八股文
+- 语言基础篇
+- Python
+content:
+  prompt: "\U0001F6E0️ 落地实现：基于 init_subclass 的自注册 Tool 基类"
+answer:
+  mode: rubric
+  reference_answer: |-
+    我们写一个 AutoTool 基类，任何工具只要继承它，自动注册到统一的 ToolRegistry：
+
+    ```python
+    from typing import Dict, Type
+
+    class ToolRegistry:
+        """全局工具库，只读访问"""
+        _tools: Dict[str, Type] = {}
+
+        @classmethod
+        def register(cls, tool_cls: Type):
+            name = getattr(tool_cls, 'name', tool_cls.__name__.lower())
+            if not name.isidentifier():
+                raise ValueError(f"Tool name '{name}' is not a valid identifier")
+            if name in cls._tools:
+                raise ValueError(f"Tool '{name}' already registered")
+            cls._tools[name] = tool_cls
+
+        @classmethod
+        def get(cls, name: str):
+            return cls._tools.get(name)
+
+        @classmethod
+        def all(cls):
+            return dict(cls._tools)
+
+    class AutoTool:
+        """继承这个类，自动注册"""
+        name: str = ""         # 子类定义工具名
+        description: str = ""  # 可选描述
+
+        def __init_subclass__(cls, **kwargs):
+            super().__init_subclass__(**kwargs)
+            # 跳过基类本身
+            if cls.__name__ == 'AutoTool':
+                return
+            if not hasattr(cls, 'execute') or not callable(cls.execute):
+                raise TypeError(f"Tool '{cls.__name__}' must implement 'execute' method")
+            ToolRegistry.register(cls)
+    ```
+
+    现在开发者只用写工具类，什么注册代码都不用管：
+
+    ```python
+    class SearchTool(AutoTool):
+        name = "search"
+        description = "搜索网页内容"
+        def execute(self, query: str):
+            return f"搜索结果: {query}..."
+
+    class CalcTool(AutoTool):
+        name = "calculator"
+        def execute(self, expression: str):
+            return eval(expression)
+
+    # 工具就已经自动在注册表里了
+    print(ToolRegistry.all())   # {'search': SearchTool, 'calculator': CalcTool}
+    ```
+
+    和 LangChain 的集成也很顺滑：我们可以在框架初始化时，把所有自注册工具包装成 LangChain 的 Tool 对象：
+
+    ```python
+    from langchain.tools import Tool as LcTool
+
+    def build_langchain_tools():
+        return [
+            LcTool.from_function(
+                func=tool_cls().execute,
+                name=tool_cls.name,
+                description=tool_cls.description
+            )
+            for tool_cls in ToolRegistry.all().values()
+        ]
+    ```
+
+    这个模式把“注册”和“使用”完全解耦，新增工具只关心一个文件里的业务逻辑，不再到处改配置。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/U89xwlNaOiQ2NJk6YM4c8O30nBd
+  block_id: doxcnFH2SkFs6ip8XsxGykyVlpc
+  page_token: U89xwlNaOiQ2NJk6YM4c8O30nBd
+  original_title: "\U0001F6E0️ 落地实现：基于 init_subclass 的自注册 Tool 基类"
+  imported_at: '2026-09-21'

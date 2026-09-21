@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-706863fae9ea
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 现在很多模型支持工具调用，从模型架构角度怎么实现？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 七：经典模型与前沿架构
+tags: &1
+- Transfomer精选面试
+- 七：经典模型与前沿架构
+content:
+  prompt: 现在很多模型支持工具调用，从模型架构角度怎么实现？
+answer:
+  mode: rubric
+  reference_answer: |-
+    工具调用（Function Calling / Tool Use）并不需要对底层 Transformer 架构进行根本改变，而是通过训练数据格式和特殊的 token 设计来教会模型使用工具。
+
+    - 格式化输出语法：在训练数据中，将工具调用的请求和响应格式化为特定结构的文本。例如：
+
+    [TOOL_CALLS] {"name": "get_weather", "arguments": {"city": "Beijing"}} [/TOOL_CALLS]
+    [TOOL_RESULTS] {"temperature": 25} [/TOOL_RESULTS]
+
+    - 模型学习生成 [TOOL_CALLS] ... 标记，并在之后接收结果继续生成。
+
+    - 新增特殊 token：如 <function_call>、</function_call>、<function_response> 等，将其加入词表并微调，让模型掌握工具调用的边界。LLaMA 3 等使用 <|python_tag|> 等方式。
+
+    - 构建细粒度损失：只在工具调用的部分计算损失，或者对整个工具交互循环进行训练，包括生成调用和给定结果后的继续生成。
+
+    - 约束解码：推理时，通过 API 定义允许的函数签名，使用语法约束解码（如 grammars、logit masks）强制模型输出符合 JSON Schema 的有效调用，减少格式错误。
+
+    - 与外部系统的交互：模型本身不执行工具。推理引擎检测到模型输出工具调用结束 token 后，暂停生成，将参数传递给外部执行器，获得结果后将其作为额外的上下文插入继续生成。整个循环由编排层管理。
+
+    因此，架构层面仅是增加了新的 token 类型，并在微调时赋予模型产生这些 token 的能力，其余靠推理系统的编排和约束解码保证可靠性。这种设计保持了模型结构的高度统一性。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/P3PjwO7D0i89kCkKyNwcMtnQn0f
+  block_id: BhBVdvB11oQElDxDakYcRHVxnEY
+  page_token: P3PjwO7D0i89kCkKyNwcMtnQn0f
+  original_title: 现在很多模型支持工具调用，从模型架构角度怎么实现？
+  imported_at: '2026-09-21'

@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c997ad033d66
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 1. FastAPI 部署 Agent 服务时，Gunicorn 和 Uvicorn 分别负责什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 部署 观测篇
+tags: &1
+- AI Agent精选八股文
+- Agent 部署 观测篇
+content:
+  prompt: "\U0001F9E9 1. FastAPI 部署 Agent 服务时，Gunicorn 和 Uvicorn 分别负责什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    简单来说：Uvicorn 是“服务员”，负责接收 HTTP 请求并翻译成 Python 能懂的数据；Gunicorn 是“大堂经理”，负责管理多个“服务员”，保证客人再多也不乱。
+
+    [图片内容未导入]
+
+    [图片内容未导入]
+
+    Uvicorn 的职责：
+    它是一个 ASGI（异步服务器网关接口）服务器，用 uvloop 和 httptools 实现了极高性能。它负责把浏览器发来的 HTTP 请求，解析成 Python 的 scope、receive、send 三件套，交给 FastAPI 应用处理，然后再把 FastAPI 的响应打包成 HTTP 返回。Uvicorn 本身是单进程的，如果你的 Agent 逻辑里有同步阻塞（比如调用一个耗时 3 秒的模型推理），整个进程都会被卡住，再也无法接受新的请求。
+
+    Gunicorn 的职责：
+
+    Gunicorn 是一个进程管理器。它诞生于 WSGI 时代，但现在也能管理 Uvicorn 这种 ASGI 服务器。它的核心价值是：
+
+    - 并行处理：启动多个 Uvicorn Worker 进程，每个都独立监听同一个端口（由 Gunicorn 做负载分发），这样就能同时处理多个请求。
+
+    - 进程守护：Worker 进程如果因为异常崩溃，Gunicorn 会自动拉起一个新的，保证服务不中断。
+
+    - 优雅重启：当你发布新代码时，Gunicorn 会先创建新的 Worker，等新 Worker 就绪后，再优雅地关闭旧 Worker（等待当前请求处理完），不会丢失一个请求。
+
+    - 资源管理：你可以在配置里写 workers=4，这样就有 4 个独立的 Python 进程来处理请求，充分利用多核 CPU。
+
+    为什么不直接用 Uvicorn 开多进程？
+    Uvicorn 也支持 --workers 参数，但它只是简单地用 multiprocessing 起了几个子进程，没有 Gunicorn 那样完善的存活检测、优雅重启、热更新等功能。生产环境里，用 Gunicorn + Uvicorn Worker 是更成熟的选择。
+
+    常用命令示例：
+
+    gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app
+
+    - -w 4：4 个 Worker 进程。
+
+    - -k uvicorn.workers.UvicornWorker：指定使用 Uvicorn 的 Worker 类。
+
+    - app.main:app：指向你的 FastAPI 实例。
+
+    收束一句话：Uvicorn 负责把 HTTP 变成 Python 对象，Gunicorn 负责让多个 Uvicorn 一起干活并且不倒下。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MO7YwQN1Pi23vUk5MJyc8RWrnDI
+  block_id: doxcn6fCkKuZEwQoGcgMYAiHo1f
+  page_token: MO7YwQN1Pi23vUk5MJyc8RWrnDI
+  original_title: "\U0001F9E9 1. FastAPI 部署 Agent 服务时，Gunicorn 和 Uvicorn 分别负责什么？"
+  imported_at: '2026-09-21'

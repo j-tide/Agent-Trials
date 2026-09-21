@@ -1,0 +1,88 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d7252709d7c4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⌨️ 如何实现一个“打字机效果”的控制台输出？在 LangChain 中可以很方便做到吗？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "⌨️ 如何实现一个“打字机效果”的控制台输出？在 LangChain 中可以很方便做到吗？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    很方便。 LangChain 提供了 StreamingStdOutCallbackHandler，只需将 LLM 设置为 streaming=True 并传入该回调即可。
+
+    示例：
+
+    ```python
+    from langchain_openai import ChatOpenAI
+    from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+
+    llm = ChatOpenAI(
+        model="gpt-3.5-turbo",
+        streaming=True,
+        callbacks=[StreamingStdOutCallbackHandler()]
+    )
+    chain = prompt | llm | StrOutputParser()
+    chain.invoke({"topic": "黑洞"})
+    ```
+
+    运行时，控制台会逐字输出结果，没有额外的编程。
+
+    自定义“打字机效果”：
+
+    如果你需要更复杂的控制（例如添加光标闪烁、颜色），可以自己实现一个回调：
+
+    ```python
+    from langchain.callbacks import BaseCallbackHandler
+    import sys, time
+
+    class TypewriterHandler(BaseCallbackHandler):
+        def on_llm_new_token(self, token: str, **kwargs) -> None:
+            sys.stdout.write(token)
+            sys.stdout.flush()
+            time.sleep(0.02)  # 模拟人类打字速度
+    ```
+
+    将其实例传入 LLM 的 callbacks 即可。注意：添加延迟会显著拖慢生成速度，仅适合演示，生产环境不宜使用。
+
+    LCEL 的 stream 方法也可以直接实现打字机效果：
+
+    ```python
+    for chunk in chain.stream({"topic": "黑洞"}):
+        print(chunk, end="", flush=True)
+    ```
+
+    这种方法不依赖回调，更灵活。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CZWewxKPziW9NLkL7iBcV35cncy
+  block_id: FB4IdJvUyoWEWbxkPS3czXEFn6W
+  page_token: CZWewxKPziW9NLkL7iBcV35cncy
+  original_title: "⌨️ 如何实现一个“打字机效果”的控制台输出？在 LangChain 中可以很方便做到吗？"
+  imported_at: '2026-09-21'

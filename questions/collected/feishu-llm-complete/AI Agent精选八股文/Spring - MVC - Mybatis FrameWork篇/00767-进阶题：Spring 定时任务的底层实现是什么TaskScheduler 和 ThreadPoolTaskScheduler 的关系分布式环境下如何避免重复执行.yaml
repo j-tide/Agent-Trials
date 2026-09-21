@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-33b1d5789fbb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 2、进阶题：Spring 定时任务的底层实现是什么？TaskScheduler 和 ThreadPoolTaskScheduler 的关系？分布式环境下如何避免重复执行？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 2、进阶题：Spring 定时任务的底层实现是什么？TaskScheduler 和 ThreadPoolTaskScheduler 的关系？分布式环境下如何避免重复执行？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（TaskScheduler、线程池配置、分布式锁、XXL-Job）\n\n1️⃣ Common Answer\n\nSpring
+    定时任务底层是用 TaskScheduler 实现的。ThreadPoolTaskScheduler 是 TaskScheduler 的实现，用线程池执行任务。分布式环境可以用分布式锁，或者用
+    XXL-Job 这种调度框架。\n\n2️⃣ Impressive Answer\n\n- 底层实现原理：\n\n- TaskScheduler 层次结构：\n\n-
+    线程池配置：\n\n@Configuration\n@EnableScheduling\npublic class ScheduleConfig {\n        \n
+    \   @Bean\n    public TaskScheduler taskScheduler() {\n        ThreadPoolTaskScheduler
+    scheduler = new ThreadPoolTaskScheduler();\n        scheduler.setPoolSize(10);
+    \          // 线程池大小\n        scheduler.setThreadNamePrefix(\"scheduled-\");\n
+    \       scheduler.setRejectedExecutionHandler(\n            new ThreadPoolExecutor.CallerRunsPolicy());\n
+    \       scheduler.setWaitForTasksToCompleteOnShutdown(true);  // 优雅停机\n        scheduler.setAwaitTerminationSeconds(60);\n
+    \       scheduler.initialize();\n        return scheduler;\n    }\n}\n\n- 分布式环境避免重复执行：
+    方案一：分布式锁（Redis）\n\n@Scheduled(cron = \"0 0 2 * * ?\")\npublic void dailyCleanup()
+    {\n    String lockKey = \"lock:daily:cleanup\";\n    try {\n        boolean locked
+    = redisTemplate.opsForValue()\n            .setIfAbsent(lockKey, \"1\", Duration.ofHours(1));\n
+    \       if (!locked) {\n            log.info(\"Task already running on another
+    instance\");\n            return;\n        }\n        // 执行任务\n        cleanupExpiredData();\n
+    \   } finally {\n        redisTemplate.delete(lockKey);\n    }\n}\n\n**方案二：数据库唯一约束**\n\n@Scheduled(cron
+    = \"0 0 2 * * ?\")\npublic void dailyCleanup() {\n    try {\n        taskExecutionRepository.insert(\"daily:cleanup\",
+    LocalDateTime.now());\n    } catch (DuplicateKeyException e) {\n        log.info(\"Task
+    already running on another instance\");\n        return;\n    }\n    // 执行任务\n
+    \   cleanupExpiredData();\n}\n\n**方案三：XXL-Job / ElasticJob**（推荐）：使用分布式调度框架，支持分片广播、故障转移、动态配置。\n\n-
+    Agent 场景：定期清理过期对话记录、刷新工具列表、统计 Token 消耗。使用 XXL-Job 的分片广播功能，每个实例处理部分数据，提升效率。\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcn60bZLPXezX6XBmOG3pQGmu
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 2、进阶题：Spring 定时任务的底层实现是什么？TaskScheduler 和 ThreadPoolTaskScheduler
+    的关系？分布式环境下如何避免重复执行？
+  imported_at: '2026-09-21'

@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e2401eac8a5e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: SFT训练时如何使用梯度检查点？会牺牲什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: SFT训练时如何使用梯度检查点？会牺牲什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    梯度检查点（Gradient Checkpointing） 是一种用时间换空间的技术，在SFT训练中用来大幅降低显存占用，使其能够在有限显存下训练更大模型或更长序列。
+
+    如何使用：
+
+    - 在PyTorch中，使用 torch.utils.checkpoint.checkpoint 或 model.gradient_checkpointing_enable()（HuggingFace模型内置支持）。
+
+    - 它的原理是：在前向传播时，不保存所有层的中间激活（activation），只保留少数几个“检查点”层（通常是每个Transformer块的输入）。反向传播时，当需要计算某一层的梯度时，利用最近的检查点重新执行前向计算，临时恢复该层的激活值，用完之后立即释放。
+
+    - 在SFT中，只需在训练脚本中添加一行 model.gradient_checkpointing_enable()，即可开启。
+
+    会牺牲什么：
+
+    - 训练速度下降：重计算前向会引入额外计算量，通常使训练速度降低 15%~30%，具体取决于模型大小和检查点分段粒度。层数越多，额外开销越大。
+
+    - 吞吐量可能不降反升：虽然单步变慢，但因为节省了显存，通常可以增大batch size或序列长度，从而提升GPU整体利用率和每秒处理的token数。因此总体训练吞吐可能会提高，不能只看单步耗时。
+
+    - 实现开销：某些框架的实现可能有些许内存和时间开销（如张量拷贝），但已高度优化。
+
+    在SFT中的实践：
+
+    - 几乎成为SFT训练的标配，尤其是全量微调或使用较大模型时。通常与FlashAttention结合使用，以实现最佳的显存节省效果。
+
+    - 对于LoRA微调，由于可训练参数极少，激活值占显存比例相对较高，开启梯度检查点可以有效降低激活峰值，使得单卡能容纳更大的micro batch。
+
+    因此，梯度检查点是用计算换显存的经典手段，在现代大模型SFT中不可或缺。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZYXSwaWATimyqQkmZm5cAPJHnoc
+  block_id: GhvQdtnLNoaw1lxOpT7cybX5nzf
+  page_token: ZYXSwaWATimyqQkmZm5cAPJHnoc
+  original_title: SFT训练时如何使用梯度检查点？会牺牲什么？
+  imported_at: '2026-09-21'

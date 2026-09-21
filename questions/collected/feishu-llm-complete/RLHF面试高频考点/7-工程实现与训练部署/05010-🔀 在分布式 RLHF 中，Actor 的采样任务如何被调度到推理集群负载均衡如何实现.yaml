@@ -1,0 +1,49 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a5d996eb3bcf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F500 在分布式 RLHF 中，Actor 的采样任务如何被调度到推理集群？负载均衡如何实现？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "\U0001F500 在分布式 RLHF 中，Actor 的采样任务如何被调度到推理集群？负载均衡如何实现？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4CB 调度策略\n\nActor 采样任务本质上是大量独立的 prompt 生成请求，天然适合调度器集中管理：\n\n-
+    中心化调度器：一个全局的 RolloutManager 维护一个 prompt 队列。它根据各推理节点（Worker）的当前负载（排队请求数、KV Cache
+    剩余空间），动态将 prompt 批次分配给空闲节点。\n\n- 轮询与加权轮询：如果所有节点性能一致，可以简单轮询。若节点算力不同（如不同代 GPU），则使用加权轮询，让更强的节点处理更多请求。\n\n⚖️
+    负载均衡\n\n核心难题是不同 prompt 生成的回答长度差异巨大，导致节点负载不均。解决方案：\n\n- 长度分桶（Length Bucketing）：将
+    prompt 按预估难度或历史平均生成长度分为多个桶（如短、中、长），把长文本节点与算力更强的节点绑定。\n\n- 连续批处理（Continuous Batching）：vLLM
+    等引擎的动态批处理本身就能平滑负载——短序列完成后立即释放资源，新请求立即填充，避免“长尾请求”拖垮整个批次。\n\n- 请求盗取（Work Stealing）：当一个节点提前完成自己的批次，它可以“偷取”其他节点队列中的
+    pending 请求，进一步平衡负载。\n\n\U0001F527 实现工具\n\n- Ray Serve / Ray Data：提供天然的分布式调度、自动扩缩容和负载均衡。\n\n-
+    Kubernetes + NVIDIA Triton：支持模型推理的弹性伸缩和请求分发。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TWMuwtjygiXKQYkjGELcArHan1b
+  block_id: T43WdevVto8fYZxD46vcMI7SnZe
+  page_token: TWMuwtjygiXKQYkjGELcArHan1b
+  original_title: "\U0001F500 在分布式 RLHF 中，Actor 的采样任务如何被调度到推理集群？负载均衡如何实现？"
+  imported_at: '2026-09-21'

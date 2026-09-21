@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8b64edc31c16
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3D7️ 如果让你设计一个支持 1M token 上下文的推理系统，你会如何做显存规划？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 五：前沿与趋势
+tags: &1
+- 显存问题-核心题
+- 五：前沿与趋势
+content:
+  prompt: "\U0001F3D7️ 如果让你设计一个支持 1M token 上下文的推理系统，你会如何做显存规划？"
+answer:
+  mode: rubric
+  reference_answer: "核心目标：在有限的 GPU 显存（如 80GB）内，运行 1M token 的推理，同时保持可接受的吞吐和延迟。 需综合运用极致的压缩、分块和
+    offload 技术。\n\n\U0001F4D0 显存规划方案（以 7B 模型为例）：\n\n- 模型权重：使用 4-bit 量化（如 GPTQ/AWQ），权重大小降至约
+    3.5 GB。\n\n- KV Cache 压缩：采用 MLA 或极激进 GQA+ 量化。假设经过 MLA 压缩后，每 token KV 占用降至 16 字节（极端情况），1M
+    token 需 16 GB。若无法采用 MLA，则至少 GQA (4组) + INT4 量化，每 token 约 0.0156 MB，1M token 约
+    15.6 GB。剩余显存仍需考虑。\n\n- PagedAttention 块管理：将 KV Cache 划分为 32 token 的块，物理显存池预分配。由于有
+    1M token，块数量庞大，需要高效的页表管理。\n\n- Chunked Prefill：将 1M prompt 分为小块（如 1K 或 2K）进行预填充，避免峰值。\n\n-
+    CPU offload / Swap：如果 GPU 显存仍不足，可将访问频率较低的 KV 块（如长文档中间部分）交换到 CPU 内存。配备大容量 CPU 内存（512
+    GB+），利用 vLLM 的 swap 机制。设计热度算法，常访问的块（如开头、结尾、匹配部分）常驻 GPU，其余动态换入。\n\n- 分布式推理：若必须更高速，使用多卡张量并行
+    + 流水线并行，将权重和 KV Cache 分片存储。\n\n- 存储层级：L1：GPU 显存（热 KV 块），L2：CPU 内存（温 KV 块），L3：NVMe
+    SSD（冷块，预取）。类似 ZeRO-Infinity 思想。\n\n- 混合注意力：采用 sliding window + global memory token
+    的架构，让大部分 token 仅缓存窗口内 KV，少数全局 token 缓存完整历史，进一步压缩总量。\n\n\U0001F4CA 最终显存预估（单卡 80GB
+    A100）：\n\n- 量化权重：3.5 GB\n\n- 常驻 GPU 的 KV 块（热数据）：假设分配 40 GB，可存放约 2.5M token（以 16
+    B/token 算），远超 1M。但是考虑碎片和 overhead，实际可放置约 1M token。\n\n- CPU 内存后备：足够存放全部 1M token
+    的冷块。\n这样，系统可平稳运行 1M 上下文推理。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MJGdw1gNQi7XukkJrfvczohinLU
+  block_id: WDRsdiL9ZoMHxRxSAcxcQ3kFncg
+  page_token: MJGdw1gNQi7XukkJrfvczohinLU
+  original_title: "\U0001F3D7️ 如果让你设计一个支持 1M token 上下文的推理系统，你会如何做显存规划？"
+  imported_at: '2026-09-21'

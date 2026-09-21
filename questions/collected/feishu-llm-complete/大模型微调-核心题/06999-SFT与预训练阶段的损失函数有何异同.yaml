@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2a61a5e636ad
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: SFT与预训练阶段的损失函数有何异同？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: SFT与预训练阶段的损失函数有何异同？
+answer:
+  mode: rubric
+  reference_answer: |-
+    从数学形式上看，SFT 和预训练阶段使用的损失函数几乎完全一样——都是标准的交叉熵损失，都是在自回归模型里最大化下一个 token 的预测概率。但在具体应用上，两者存在微妙的差异，这些差异恰恰体现了训练目标的变化。
+
+    [图片内容未导入]
+
+    优化器通过最小化这个损失来调整模型参数，让模型更准确地预测训练数据中的 token。预训练和 SFT 都是自回归的，都使用因果注意力掩码，确保每个 token 只能看到它之前的信息。
+
+    不同点：
+
+    - 损失计算的区域不同。预训练时，整个序列的每个 token 都参与损失计算（可能有少量特殊 token 被忽略，但整体均匀）。而在 SFT 中，一个样本通常由“指令（prompt）”和“回答（response）”两部分拼接而成，我们只对回答部分的 token 计算损失，对指令部分的 token 进行损失掩码（将其标签设为 -100，忽略不计）。这一区别正是 SFT 与预训练本质差异的体现：预训练是在学习语言的统计规律，而 SFT 是在学习以指令为条件生成回答的能力。如果不对指令部分掩码，模型就会同时学习生成指令，这不仅浪费算力，还会导致推理时模型角色混乱，可能自己生成用户消息。
+
+    - 数据分布与学习动态不同。预训练的数据量极其庞大（数万亿 token），信号稀疏，每个样本的信息密度很低；SFT 数据量小得多（通常数万到数十万条），但每一条都是精心构造的高质量对话，信号密度极高。因此，预训练可以承受多个 epoch 的训练（实际上数据太多通常只训练 1～2 个 epoch），而 SFT 极易过拟合，通常只训练 1～3 个 epoch，并且需要更小的学习率、更强的正则化。
+
+    - 序列构造方式不同。预训练的数据是连续的文本流，没有明确的“角色”分隔。SFT 的数据则必须使用统一的对话模板（如 ChatML），明确区分 system、user、assistant 等角色，并插入相应的特殊 token。这改变了模型对序列结构的理解，也让位置编码的负担略有不同。
+
+    - 损失掩码带来的梯度稀疏性。在 SFT 的一个 batch 中，只有回答部分的 token 会贡献梯度，指令部分完全不影响参数更新。这使得每个样本的有效训练信号相对集中，但也意味着如果指令部分很长（例如多轮对话历史），大量的前向计算是“白费”的（不算梯度），不过这是必要的开销，因为指令提供了生成回答所必需的上下文。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PMU2wL6MLiKo4yk5L39cu6vqnIc
+  block_id: N5dFdgqHpovvgYxlb7acXMO5nXc
+  page_token: PMU2wL6MLiKo4yk5L39cu6vqnIc
+  original_title: SFT与预训练阶段的损失函数有何异同？
+  imported_at: '2026-09-21'

@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1953cc9aaa80
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚖️ 如何在混合检索中平衡向量检索和关键词检索的权重？有无动态调整策略？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "⚖️ 如何在混合检索中平衡向量检索和关键词检索的权重？有无动态调整策略？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    平衡权重的策略分为静态和动态两类。
+
+    静态权重策略：
+
+    - 根据经验在开发集上调试，例如向量 0.7、关键词 0.3。
+
+    - 可以通过在评估集上搜索不同权重组合，找到最佳平衡点（自动化调参，如网格搜索）。
+
+    动态权重策略（更智能）：
+
+    根据查询的特征自动调整权重，让系统自适应。例如：
+
+    - 基于查询长度：短查询（2-3个词）往往缺乏足够上下文，关键词匹配更重要，可自动增加 BM25 权重；长句查询则更依赖语义，增加向量权重。
+
+    - 基于实体检测：如果查询中包含专有名词、数字、代码片段（用正则或 NER 模型识别），则动态提高 BM25 权重，因为这些需要精确匹配。
+
+    - 基于查询清晰度：使用一个简单分类器（或 LLM）判断查询是“事实型”（如“iPhone 15 价格”）还是“概念型”（如“什么是量子计算”）。事实型问题通常有明确关键词，提高 BM25；概念型问题提高向量。
+
+    - 基于检索结果的置信度反馈：先分别执行两种检索，如果 BM25 返回的文档与查询的语义相似度普遍较低（用 embedding 计算平均相似度），说明关键词检索质量不高，可以降低其权重。反之亦然。
+
+    - 强化学习：通过用户点击反馈，在线调整权重，但实现复杂。
+
+    LangChain 中的实现思路：
+    自定义 HybridRetriever，在 _get_relevant_documents 方法中，根据上述规则动态设置 self.weights 或调用不同的融合函数。
+
+    class AdaptiveHybridRetriever(BaseRetriever):
+        def __init__(self, bm25_retriever, vector_retriever):
+            self.bm25 = bm25_retriever
+            self.vector = vector_retriever
+        def _get_relevant_documents(self, query):
+            # 规则示例：如果查询包含数字，增加BM25权重
+            has_number = any(char.isdigit() for char in query)
+            w_bm25 = 0.6 if has_number else 0.3
+            w_vector = 0.4 if has_number else 0.7
+            # 构造 EnsembleRetriever 动态执行
+            ensemble = EnsembleRetriever(
+                retrievers=[self.bm25, self.vector],
+                weights=[w_bm25, w_vector]
+            )
+            return ensemble.get_relevant_documents(query)
+
+    动态调整权重的核心在于理解查询意图，不一定需要重型模型，简单的规则就能显著提升效果。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TYm8wI1HmiQSuPkpe81c9XYanHb
+  block_id: MDUcd1SQso6oKgxju5ecTWDkn0f
+  page_token: TYm8wI1HmiQSuPkpe81c9XYanHb
+  original_title: "⚖️ 如何在混合检索中平衡向量检索和关键词检索的权重？有无动态调整策略？"
+  imported_at: '2026-09-21'

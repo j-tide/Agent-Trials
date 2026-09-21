@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-28c64735e1c6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 梯度累积如何实现？等效于增大batch size吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 梯度累积如何实现？等效于增大batch size吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    实现：
+
+    在显存不足以使用大batch时，通过连续处理多个小batch，累加它们的梯度，然后统一更新参数。等效于扩大全局batch size，因为参数更新的梯度是多个小batch梯度的平均。
+
+    ```python
+    accumulation_steps = 4
+    optimizer.zero_grad()
+    for i, (inputs, targets) in enumerate(train_loader):
+        outputs = model(inputs)
+        loss = loss_fn(outputs, targets) / accumulation_steps  # 缩放损失
+        loss.backward()
+        if (i + 1) % accumulation_steps == 0:
+            optimizer.step()
+            optimizer.zero_grad()
+    ```
+
+    原理：每次 backward() 的梯度会累加到 .grad 中。当累积了 K 步后，总的梯度相当于原始大batch（大小为 K * micro_batch_size）的梯度。为了保证更新量级一致，loss 需要除以 K。
+
+    等效性：从参数更新的数学期望上看，梯度累积等效于增大batch size（假设batch间独立同分布）。但需要注意，某些层如BatchNorm的统计量是在每个micro-batch内计算的，因此与真正的大batch会略有差异。对于LayerNorm或大多数NLP模型，影响可忽略。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SlZHw2a2fiQQVBkkXXscts3znGd
+  block_id: D88bdf17mofgBgxeNv9c6n2Qngf
+  page_token: SlZHw2a2fiQQVBkkXXscts3znGd
+  original_title: 梯度累积如何实现？等效于增大batch size吗？
+  imported_at: '2026-09-21'

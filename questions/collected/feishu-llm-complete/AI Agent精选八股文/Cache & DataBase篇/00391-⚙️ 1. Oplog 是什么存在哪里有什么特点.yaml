@@ -1,0 +1,96 @@
+---
+schema_version: 1
+id: feishu-llm-complete-121b307369f9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚙️ 1. Oplog 是什么？存在哪里？有什么特点？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "⚙️ 1. Oplog 是什么？存在哪里？有什么特点？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Oplog 是 Operation Log 的缩写，它是 MongoDB 副本集实现数据复制的核心。你可以把它理解为主库的 “命令回放清单”——主库上的每一次写入（增、删、改），都会被记录成一条幂等的操作日志，从库则不断地拉取并重放这些日志，以维持和主库的数据一致。
+
+    ```text
+    ┌─────────────┐                    ┌─────────────┐
+    │   Primary   │                    │  Secondary   │
+    │             │   Oplog 复制       │             │
+    │  写入操作   │──────────────────→│  读取 Oplog  │
+    │   ↓        │                    │  重放操作    │
+    │  本地 Oplog │                    │  本地 Oplog  │
+    └─────────────┘                    └─────────────┘
+    ```
+
+    物理存储位置：
+    Oplog 存储在 local 数据库 下的一个固定集合（Capped Collection）中，名为 oplog.rs。因为是固定集合，它有严格的大小上限，当集合被写满时，最旧的记录会被自动覆盖删除，类似于一个环形缓冲区。
+
+    核心特点：
+
+    - 固定集合：Oplog 是固定大小，由 oplogSizeMB 参数在初始化时指定，后续可动态修改。它在磁盘上占用连续空间，写入性能极高。
+
+    - 记录的是操作，不是数据变更：Oplog 中记录的是类似 { op: "i", ns: "test.orders", o: { _id: 1, item: "apple" } } 这样的语句，而不是行级的变更前后数据。
+
+    - 严格时间排序：Oplog 的每条记录都带有一个时间戳 ts（基于集群时间），从库正是根据这个时间戳来追踪自己复制到了哪个位置。
+
+    - 幂等性设计：所有操作都被转换成一种“无论执行多少次，最终状态都一致”的形式，这是保证从库可以安全重放的基础。
+
+    一条典型的 Oplog 记录长什么样？
+
+    ```javascript
+    // 插入操作
+    {
+      "ts": Timestamp(1690000000, 1),  // 时间戳，全局唯一
+      "t": NumberLong(1),              // 事务 ID（单文档写作为 1）
+      "h": NumberLong("1234567890"),   // 哈希值，用于校验
+      "v": 2,                          // 版本
+      "op": "i",                       // 操作类型: i=insert, u=update, d=delete
+      "ns": "test.orders",             // 命名空间
+      "o": { _id: ObjectId("..."), item: "apple", qty: 10 }  // 插入的完整文档
+    }
+
+    // 更新操作
+    {
+      "ts": Timestamp(1690000005, 1),
+      "op": "u",
+      "ns": "test.orders",
+      "o2": { _id: ObjectId("...") },   // 更新条件，通常是 _id
+      "o": { "$set": { "qty": 5 } }     // 更新操作符
+    }
+    ```
+
+    为什么用固定集合？
+
+    因为 MongoDB 的设计哲学是“复制不是为了永久存档，而是为了短期同步”。固定集合既省去了复杂的日志清理逻辑，又保证了写入速度。主从同步只要追得上这个“滑动窗口”，就不会出问题。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BXVdwSFoCiy4apkiMglchiTGnmh
+  block_id: doxcnRLtHj4P5dhcdbVf6wEDEGf
+  page_token: BXVdwSFoCiy4apkiMglchiTGnmh
+  original_title: "⚙️ 1. Oplog 是什么？存在哪里？有什么特点？"
+  imported_at: '2026-09-21'

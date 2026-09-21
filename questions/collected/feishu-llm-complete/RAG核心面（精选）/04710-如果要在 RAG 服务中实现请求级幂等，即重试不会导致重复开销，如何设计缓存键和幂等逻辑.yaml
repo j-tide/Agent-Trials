@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d8590b84913f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果要在 RAG 服务中实现“请求级幂等”，即重试不会导致重复开销，如何设计缓存键和幂等逻辑？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RAG核心面（精选）
+derived_topic: 
+tags: &1
+- RAG核心面（精选）
+content:
+  prompt: 如果要在 RAG 服务中实现“请求级幂等”，即重试不会导致重复开销，如何设计缓存键和幂等逻辑？
+answer:
+  mode: rubric
+  reference_answer: "\U0001F501 幂等主要解决网络抖动或客户端重试导致的重复消费问题，尤其是在付费 LLM API 调用时至关重要。\n\n\U0001F511
+    缓存键设计：\n\n- 客户端在发起请求时必须携带一个幂等键（Idempotency-Key），可以是 UUID 或业务唯一标识（如 session_id
+    + message_index）。\n\n- 服务端的缓存键组合：{tenant_id}:{idempotency_key}。如果是多版本在线，还需拼接 pipeline_version，确保不同版本配置下的相同请求不会误用缓存。\n\n⚙️
+    幂等逻辑流程：\n\n- 请求到达，先检查 Redis / 缓存中是否存在该键。\n\n- 若命中：直接返回已存储的完整响应（包括状态码和 body），不再执行检索和生成。\n\n-
+    若未命中：继续执行正常 RAG 管道。当生成完成并准备返回响应时，原子性地将响应存入缓存，同时为该键设置过期时间（如 24 小时）。这个写操作需要使用 SET
+    key value NX EX（Redis）来防止并发写入导致覆盖。\n\n- 处理进行中的并发请求：如果第一个请求正在执行中（cache miss），而另一个携带相同键的请求几乎同时到达，需要采用请求锁。可以在
+    Redis 中建一个短期锁（如 lock:key，过期时间设置为管道最大执行时间的2倍），第二个请求会轮询等待锁释放，然后直接读缓存结果，避免重复执行。\n\n\U0001F4A1
+    注意事项：\n\n- 如果生成模型有随机性（如 temperature > 0），必须确保相同输入产生相同输出。如果必须保留随机性，可在缓存键中加入一个随机种子，但这会降低命中率。更常见的做法是，对于幂等请求强制关闭随机性（temperature=0）。\n\n-
+    缓存响应中必须记录原始检索文档的哈希，因为如果底层知识库已经更新，重新执行可能产生不同结果，但幂等请求只认缓存。所以需要权衡：幂等键的有效期应短于知识库更新周期，或业务上能接受短暂的数据不一致。\n\n\U0001F4CA
+    工程价值：幂等设计可以节省大量不必要的 LLM 调用成本，并避免因重试导致用户看到重复扣费或重复生成。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SoxewKodgi96DZkngxYcNDCsn6b
+  block_id: XXxqd89c2obooyxNHJBcetGznhe
+  page_token: SoxewKodgi96DZkngxYcNDCsn6b
+  original_title: 如果要在 RAG 服务中实现“请求级幂等”，即重试不会导致重复开销，如何设计缓存键和幂等逻辑？
+  imported_at: '2026-09-21'

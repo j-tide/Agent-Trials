@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7265a563a515
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 白盒蒸馏通常需要更多的计算资源，如何平衡收益与成本？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型蒸馏面试-核心题
+derived_topic: 
+tags: &1
+- 大模型蒸馏面试-核心题
+content:
+  prompt: 白盒蒸馏通常需要更多的计算资源，如何平衡收益与成本？
+answer:
+  mode: rubric
+  reference_answer: |-
+    白盒蒸馏的确比黑盒SFT或仅Logits蒸馏消耗更多资源，因为它需要加载完整的教师模型并进行多次前向传播以获取中间层输出，同时在学生侧还要计算额外的损失函数并进行反向传播。要平衡收益与成本，需要从多个维度进行精细化的ROI分析。
+
+    - 选择性蒸馏：这是最具性价比的策略。不必对所有层和所有模块进行蒸馏。通过实验找出对性能提升贡献最大的“黄金层”或“黄金模块”（通常是模型的高层、注意力机制或最终输出层），只对这些关键部分进行白盒蒸馏，而对其他层仅使用Logits蒸馏或甚至不加约束。这能大幅减少计算和存储开销。
+
+    - 阶段性蒸馏：训练初期，仅使用成本较低的Logits蒸馏和任务损失，让学生模型快速收敛到一个较好的基线。在训练后期，再加入成本较高的特征蒸馏和注意力蒸馏，进行精细的“雕琢”。这种课程学习式的策略避免了在整个漫长训练过程中全程保持高昂的计算成本。
+
+    - 师生容量比的权衡：如果学生模型相对于教师并不是极小（例如，从70B蒸馏到13B），那么进行全面的特征蒸馏收益可能并不大，反而成本极高。此时，仅使用Logits蒸馏或黑盒SFT可能是ROI更高的选择。白盒蒸馏的优势在容量差距极大的场景下（如70B -> 1B）才更为凸显。
+
+    - 量化与优化：在提取教师特征时，可以对教师模型进行量化（如INT8/FP16），或者使用FlashAttention等高效算子，以降低其推理时的显存和计算消耗。同时，学生的梯度检查点技术也是必备的。
+
+    - 重用教师计算图：在某些在线蒸馏或特定框架中，可以共享教师和学生的部分计算图，避免重复的Token化和底层嵌入计算。
+
+    核心决策框架：在做决策前，先进行小规模的Ablation Study。例如，训练三个微型模型：一个仅用Logits蒸馏，一个加入特征蒸馏，一个加入注意力蒸馏。观察在验证集上的性能增益，并用Profiler记录各自的算力消耗。将“性能增益 / 额外算力成本”作为ROI指标，选择ROI最高的方案进行大规模训练。白盒蒸馏不是“全都要”，而是“好钢用在刀刃上”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EW0NwISOLipyT0k6CFzcyxginif
+  block_id: VRtYdI6zEovvdrxiGwDcSZXQnSd
+  page_token: EW0NwISOLipyT0k6CFzcyxginif
+  original_title: 白盒蒸馏通常需要更多的计算资源，如何平衡收益与成本？
+  imported_at: '2026-09-21'

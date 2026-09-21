@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fba416723579
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: GPT-as-judge比较两个模型回复
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: GPT-as-judge比较两个模型回复
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    import openai
+    import json
+    import random
+
+    openai.api_key = "your-api-key"
+
+    def gpt_judge(prompt: str, response_a: str, response_b: str, model="gpt-4") -> str:
+        """返回 'A' / 'B' / 'tie'"""
+        # 随机交换位置以消除位置偏差
+        if random.random() < 0.5:
+            first, second = "A", "B"
+            resp1, resp2 = response_a, response_b
+        else:
+            first, second = "B", "A"
+            resp1, resp2 = response_b, response_a
+
+        judge_prompt = f"""请作为一个公正的评判者，比较以下两个AI助手对用户问题的回复。
+    用户问题: {prompt}
+
+    助手{first}的回复: {resp1}
+
+    助手{second}的回复: {resp2}
+
+    请从准确性、有用性、流畅度等方面综合评判，哪个回复更好？如果难分高下，请选择 'tie'。
+    请只输出 'A', 'B', 或 'tie'，并简要说明理由。
+    格式：{{"winner": "A/B/tie", "reason": "..."}}"""
+
+        response = openai.ChatCompletion.create(
+            model=model,
+            messages=[{"role": "user", "content": judge_prompt}],
+            temperature=0.0,
+            max_tokens=256
+        )
+        content = response.choices[0].message.content.strip()
+        try:
+            result = json.loads(content)
+            winner = result['winner']
+            # 映射回原始A/B
+            if winner == first:
+                return 'A'
+            elif winner == second:
+                return 'B'
+            else:
+                return 'tie'
+        except:
+            return 'tie'
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: UnPOdLvmYoX0nrxhr4rcTbq5nuf
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: GPT-as-judge比较两个模型回复
+  imported_at: '2026-09-21'

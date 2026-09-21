@@ -1,0 +1,94 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e467a69d99a6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 设计一个在推理服务中支持多序列并发请求的 KV Cache 块管理器，要求能够根据序列长度变化动态增减分配块，并处理序列结束后的块回收。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 设计一个在推理服务中支持多序列并发请求的 KV Cache 块管理器，要求能够根据序列长度变化动态增减分配块，并处理序列结束后的块回收。
+answer:
+  mode: rubric
+  reference_answer: |-
+    设计
+
+    管理器维护全局空闲块池和每个序列的块表，提供：
+
+    - allocate_blocks(seq_id, num_blocks)：为序列分配物理块。
+
+    - ensure_capacity(seq_id, required_len)：确保序列有足够块容纳长度。
+
+    - free_seq(seq_id)：回收序列所有块。
+
+    - 物理存储为全局大张量 kv_cache [2, total_blocks, num_heads, block_size, head_dim]。
+
+    代码框架
+
+    ```python
+    class GlobalKVCacheManager:
+        def __init__(self, total_blocks, block_size, num_heads, head_dim):
+            self.allocator = BlockAllocator(total_blocks)
+            self.block_size = block_size
+            self.kv_store = torch.zeros(2, total_blocks, num_heads, block_size, head_dim, dtype=torch.float16)
+            self.seq_blocks = {}      # seq_id -> list[int] 物理块索引
+            self.seq_lengths = {}     # seq_id -> int 当前长度
+
+        def allocate_blocks(self, seq_id, num_blocks):
+            if seq_id in self.seq_blocks:
+                self.free_seq(seq_id)   # 先释放旧块
+            blocks = [self.allocator.allocate() for _ in range(num_blocks)]
+            self.seq_blocks[seq_id] = blocks
+            self.seq_lengths[seq_id] = 0
+            return blocks
+
+        def ensure_capacity(self, seq_id, required_len):
+            current_blocks = len(self.seq_blocks.get(seq_id, []))
+            needed_blocks = (required_len + self.block_size - 1) // self.block_size
+            if needed_blocks > current_blocks:
+                for _ in range(needed_blocks - current_blocks):
+                    blk = self.allocator.allocate()
+                    self.seq_blocks[seq_id].append(blk)
+
+        def free_seq(self, seq_id):
+            for blk in self.seq_blocks.pop(seq_id, []):
+                self.allocator.free(blk)
+            self.seq_lengths.pop(seq_id, None)
+
+        def write_token(self, seq_id, k, v):
+            # 实现追加一个 token，内部调用 ensure_capacity 和直接写入
+            pass
+    ```
+
+    动态增减：扩容通过 ensure_capacity 自动进行；因为 decode 阶段长度只增不减，通常不需要减容。回收在序列完成或被驱逐时执行。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IhgfwCPtoif3TWkyezuc4sW9nbg
+  block_id: FFsndnO70opkvWxTf1eco7Byngb
+  page_token: IhgfwCPtoif3TWkyezuc4sW9nbg
+  original_title: 设计一个在推理服务中支持多序列并发请求的 KV Cache 块管理器，要求能够根据序列长度变化动态增减分配块，并处理序列结束后的块回收。
+  imported_at: '2026-09-21'

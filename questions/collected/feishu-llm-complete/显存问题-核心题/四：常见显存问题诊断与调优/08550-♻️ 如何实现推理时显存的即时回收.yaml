@@ -1,0 +1,47 @@
+---
+schema_version: 1
+id: feishu-llm-complete-19658449dbd2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "♻️ 如何实现推理时显存的“即时回收”？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "♻️ 如何实现推理时显存的“即时回收”？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 即时回收是指当请求完成、取消或超时后，其占用的 KV Cache 块能在微秒级内归还到空闲池，立即可以被新请求使用。这得益于
+    PagedAttention 的块管理器和引用计数机制。\n\n\U0001F527 实现原理：\n\n- 每个序列（请求）持有若干物理块的引用。当调度器决定移除该序列时（正常结束、中止、抢占），其逻辑页表被销毁，物理块的引用计数递减。\n\n-
+    一旦引用计数归零（对于非共享块），块立即被加入空闲列表，无需数据擦除，只需标记为空闲。\n\n- 对于共享前缀块，需要引用计数，当所有引用序列都结束才回收。\n\n-
+    vLLM 中，BlockSpaceManager 的 free 方法直接操作 C++ 缓存管理器，回收块是 O(1) 的。\n\n\U0001F4CA 回收时机：\n\n-
+    正常结束：生成 EOS token 或达到 max_tokens 时。\n\n- 客户端断开：检测到 gRPC/HTTP 连接断开，立即终止序列。\n\n-
+    超时：请求级别超时，强制中止。\n\n- 抢占：被交换到 CPU 或直接丢弃时（取决于抢占模式）。\n\n✅ 优势：无碎片、无延迟，实现显存的即时复用，支撑高吞吐。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tr76wMZZwibI1ikxqpEcjhJtnZc
+  block_id: QJN5dhuujoM6AoxHNnCcDoSbnfe
+  page_token: Tr76wMZZwibI1ikxqpEcjhJtnZc
+  original_title: "♻️ 如何实现推理时显存的“即时回收”？"
+  imported_at: '2026-09-21'

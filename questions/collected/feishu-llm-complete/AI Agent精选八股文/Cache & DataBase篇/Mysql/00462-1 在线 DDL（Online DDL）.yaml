@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-39edf6b67a6a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3.1 在线 DDL（Online DDL）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 3.1 在线 DDL（Online DDL）
+answer:
+  mode: rubric
+  reference_answer: "### 在线 DDL 原理与实践\n\n1、基础题：什么是 Online DDL？MySQL 如何实现 Online DDL？\n\n⭐（Online
+    DDL 定义、实现机制）\n\nOnline DDL 是 MySQL 5.6+ 引入的特性，允许在不阻塞 DML 操作的情况下执行 DDL 语句（如 ALTER
+    TABLE）。\n\n实现机制：\n\n- ALGORITHM=INPLACE：在原表上直接修改，避免复制表，速度快\n\n- ALGORITHM=COPY：创建临时表，复制数据，速度慢，锁表时间长\n\n-
+    LOCK=NONE：不锁表，允许并发 DML\n\n- LOCK=SHARED：共享锁，允许读但阻塞写\n\n- LOCK=EXCLUSIVE：排他锁，阻塞读写\n\n2、进阶题：Online
+    DDL 的 ALGORITHM 和 LOCK 选项有哪些？如何选择？\n\n⭐⭐（ALGORITHM 选项、LOCK 选项）\n\n1️⃣ Common Answer
+    ALGORITHM 有 INPLACE 和 COPY 两种，INPLACE 快一些，COPY 慢。LOCK 有 NONE、SHARED、EXCLUSIVE，NONE
+    不锁表，EXCLUSIVE 锁表。一般用 ALGORITHM=INPLACE, LOCK=NONE 就行。但是有些操作不支持 INPLACE，比如修改数据类型，这时候就会自动用
+    COPY。\n\n2️⃣ Impressive Answer ALGORITHM 选项详解：\n\n- ALGORITHM=INPLACE（推荐）\n\n-
+    ALGORITHM=COPY\n\n- ALGORITHM=INSTANT（MySQL 8.0+）\n\nLOCK 选项详解：\n\n- LOCK=NONE（推荐）\n\n-
+    LOCK=SHARED\n\n- LOCK=EXCLUSIVE\n\n- LOCK=DEFAULT\n\n选择策略：\n\n-- 添加索引（支持 INPLACE
+    + NONE）\nALTER TABLE orders ADD INDEX idx_user_id (user_id) \nALGORITHM=INPLACE,
+    LOCK=NONE;\n\n-- 修改列名（支持 INPLACE + NONE）\nALTER TABLE orders CHANGE COLUMN old_name
+    new_name BIGINT \nALGORITHM=INPLACE, LOCK=NONE;\n\n-- 修改列数据类型（自动使用 COPY + EXCLUSIVE）\nALTER
+    TABLE orders MODIFY COLUMN amount DECIMAL(20,2);\n\n-- 添加列（MySQL 8.0+ 支持 INSTANT）\nALTER
+    TABLE orders ADD COLUMN new_col VARCHAR(100) \nALGORITHM=INSTANT, LOCK=NONE;\n\n最佳实践：\n\n-
+    优先使用 ALGORITHM=INPLACE, LOCK=NONE\n\n- MySQL 8.0+ 优先使用 ALGORITHM=INSTANT\n\n-
+    大表操作前先在测试环境验证\n\n- 使用 pt-online-schema-change 处理不支持 Online DDL 的操作\n\n3️⃣ Key
+    Differences\n\n[嵌入表格未展开]\n\n3、场景题：一个 1 亿行的订单表需要添加一个索引，如何在不影响业务的情况下执行？\n\n⭐⭐⭐（在线变更、风险控制）\n\n1️⃣
+    Common Answer 可以用 Online DDL，ALGORITHM=INPLACE, LOCK=NONE，这样就不会锁表。但是如果表太大，可能还是很慢，会影响性能。这时候可以用
+    pt-online-schema-change，这个工具可以在线改表结构，不会锁表。还有就是要在业务低峰期执行，比如凌晨。执行之前要备份，万一失败了可以回滚。\n\n2️⃣
+    Impressive Answer 针对 1 亿行订单表添加索引的任务，我建议采用分级风险控制策略：\n\n方案一：Online DDL（推荐，如果支持）\n\n--
+    检查是否支持 Online DDL\nALTER TABLE orders ADD INDEX idx_user_id (user_id) \nALGORITHM=INPLACE,
+    LOCK=NONE;\n\n-- 监控执行进度\nSELECT * FROM performance_schema.events_stages_current
+    \nWHERE EVENT_NAME LIKE '%stage/innodb/alter%';\n\n-- 预估执行时间\n-- 1 亿行添加索引约需 30-60
+    分钟（取决于硬件）\n\n方案二：pt-online-schema-change（大表推荐）\n\n# 基本用法\npt-online-schema-change
+    \\\n  --alter \"ADD INDEX idx_user_id (user_id)\" \\\n  --critical-load=\"Threads_running=50\"
+    \\\n  --max-load=\"Threads_running=100\" \\\n  --chunk-size=1000 \\\n  --progress=time,30
+    \\\n  D=your_db,t=orders \\\n  --execute\n\n# 参数说明：\n# --critical-load：负载超过阈值暂停执行\n#
+    --max-load：负载超过阈值降低执行速度\n# --chunk-size：每次处理 1000 行，减少锁竞争\n# --progress：每 30 秒输出进度\n\n执行流程：\n\n-
+    创建影子表 _orders_new\n\n- 在影子表上执行 DDL\n\n- 在原表上创建触发器，同步数据变更\n\n- 分批复制数据到影子表\n\n-
+    验证数据一致性\n\n- 原子性重命名表（RENAME TABLE）\n\n- 删除原表和触发器\n\n风险控制措施：\n\n- 执行前准备\n\n# 备份表结构\nmysqldump
+    -h127.0.0.1 -uroot -p your_db orders --no-data > orders_schema.sql\n\n# 备份数据（可选，如果数据允许丢失）\nmysqldump
+    -h127.0.0.1 -uroot -p your_db orders --single-transaction > orders_data.sql\n\n#
+    检查磁盘空间（需要 2 倍表大小）\ndf -h /var/lib/mysql\n\n- 执行时监控\n\n# 监控数据库负载\nmysqladmin -uroot
+    -p -i1 processlist | grep pt-online-schema-change\n\n# 监控复制延迟（主从架构）\nmysql -e
+    \"SHOW SLAVE STATUS\\G\" | grep Seconds_Behind_Master\n\n# 监控慢查询\ntail -f /var/lib/mysql/mysql-slow.log
+    | grep orders\n\n- 应急预案\n\n# 如果执行失败，手动回滚\npt-online-schema-change D=your_db,t=orders
+    --dry-run\n\n# 停止执行（Ctrl+C 会自动清理）\n# 工具会自动删除影子表和触发器\n\n最佳实践：\n\n- 在业务低峰期执行（凌晨
+    2-6 点）\n\n- 设置合理的 --chunk-size（1000-5000）\n\n- 监控系统负载，必要时暂停执行\n\n- 主从架构先在从库执行，验证后再在主库执行\n\n-
+    执行后验证索引使用情况\n\n执行效果：\n\n- 1 亿行添加索引：约 2-4 小时（pt-online-schema-change）\n\n- 业务影响：几乎无影响，负载增加
+    < 20%\n\n- 风险：可随时中断，自动回滚\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n4、容易一起考的题\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IKZ3wmrGRip21hkBhZHc4rARnKe
+  block_id: doxcn1zd5xAYqkyzZAE6nCWgpQf
+  page_token: IKZ3wmrGRip21hkBhZHc4rARnKe
+  original_title: 3.1 在线 DDL（Online DDL）
+  imported_at: '2026-09-21'

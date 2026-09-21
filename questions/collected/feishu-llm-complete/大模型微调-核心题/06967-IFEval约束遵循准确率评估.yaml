@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5846cf17c619
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: IFEval约束遵循准确率评估
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: IFEval约束遵循准确率评估
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    import json
+    import re
+    from typing import List, Dict, Callable
+
+    # 预定义约束检查函数注册
+    CONSTRAINT_CHECKERS = {}
+
+    def register_checker(name: str):
+        def decorator(func):
+            CONSTRAINT_CHECKERS[name] = func
+            return func
+        return decorator
+
+    @register_checker('word_count_between')
+    def check_word_count(text: str, params: dict) -> bool:
+        words = text.split()
+        return params.get('min', 0) <= len(words) <= params.get('max', float('inf'))
+
+    @register_checker('must_contain')
+    def check_must_contain(text: str, params: dict) -> bool:
+        return params['substring'] in text
+
+    @register_checker('forbidden_words')
+    def check_forbidden_words(text: str, params: dict) -> bool:
+        return all(word not in text for word in params.get('words', []))
+
+    @register_checker('json_format')
+    def check_json(text: str, params=None) -> bool:
+        try:
+            json.loads(text.strip())
+            return True
+        except:
+            return False
+
+    def ifeval_evaluate(responses: List[str], constraints_list: List[List[Dict]]) -> float:
+        """
+        responses: 模型生成的回答列表
+        constraints_list: 每条指令对应的约束列表，每个约束是一个字典 {'type': ..., 'params': {...}}
+        返回严格约束遵循率
+        """
+        total = len(responses)
+        strict_correct = 0
+        for resp, constraints in zip(responses, constraints_list):
+            if all(CONSTRAINT_CHECKERS[c['type']](resp, c.get('params', {})) for c in constraints):
+                strict_correct += 1
+        return strict_correct / total if total > 0 else 0.0
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: Hy27dGkuXoR7vHx64rrc306TnYe
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: IFEval约束遵循准确率评估
+  imported_at: '2026-09-21'

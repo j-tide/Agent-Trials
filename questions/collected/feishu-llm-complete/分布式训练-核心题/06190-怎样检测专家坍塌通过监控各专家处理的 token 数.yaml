@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-22d785e984ba
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 怎样检测专家坍塌？通过监控各专家处理的 token 数。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 怎样检测专家坍塌？通过监控各专家处理的 token 数。
+answer:
+  mode: rubric
+  reference_answer: |-
+    专家坍塌是 MoE 训练中最隐蔽也最致命的故障模式。它的本质是门控网络的正反馈循环——某个专家初期碰巧被多选了几次，学得稍好，下一轮得分更高，吸引更多 token，最终垄断所有输入；其他专家收不到 token，梯度为零，参数永久停滞。检测坍塌的关键在于建立一套全面的专家负载监控体系，而不是等到 loss 异常才去排查。
+
+    最直接的指标：每个专家每步接收的 token 数量。在训练循环中，每完成一次路由，统计各专家实际处理的 token 数。可以记录以下几个维度：
+
+    - 实时分布：每一步各专家的 token 数直方图。如果直方图高度集中在少数几个专家上（比如只有 2 个专家有数据，其余 6 个为 0），说明已经严重坍塌。正常情况应该是所有专家都有一定数量的 token，呈相对均匀分布。
+
+    - 移动平均：单步统计可能因 batch 差异有波动，因此需要维护一个滑动窗口（比如最近 100 步）的移动平均值。如果某个专家的移动平均 token 数长期为零或极低（比如不到平均值的 5%），那么该专家已经“死亡”。
+
+    - 使用率百分比：每个专家处理的 token 数占总 token 数的比例。用 TensorBoard 或 wandb 绘制饼图或堆叠柱状图，直观展示负载分布。一旦某个专家的使用率持续低于 1/(N*2)（即不到均匀分配的一半），应发出告警。
+
+    - 路由熵：计算每个 token 对各专家路由概率的熵。健康状态下，门控 softmax 输出应有一定不确定性（熵较高，说明模型在多个专家间权衡）。坍塌时，大部分 token 的 softmax 输出极度尖锐（熵极低，几乎只选一个专家）。
+
+    辅助监控指标：
+
+    - 各专家参数的梯度范数：若某专家的梯度范数持续为零或极低，该专家已停止学习。
+
+    - 专家权重更新量：类似地，检查 optimizer.step() 前后专家权重的变化量。坍塌的专家更新量为零。
+
+    检测到坍塌后的处置：立即暂停训练，分析原因。可以先增大负载均衡损失权重或容量因子，从最近的健康 checkpoint 恢复训练。若问题持续，可能需要重新初始化门控权重，或暂时降低热门专家的学习率给冷门专家追赶的机会。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQczwN8cliZ2XSkOI26ckCcPnuf
+  block_id: RltVdLLnYo77dExrMn8c2xFAnAh
+  page_token: GQczwN8cliZ2XSkOI26ckCcPnuf
+  original_title: 怎样检测专家坍塌？通过监控各专家处理的 token 数。
+  imported_at: '2026-09-21'

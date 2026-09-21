@@ -1,0 +1,88 @@
+---
+schema_version: 1
+id: feishu-llm-complete-234039438528
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E0 7. 什么是 SemanticChunker？它是如何利用 Embedding 判断语义边界的？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F9E0 7. 什么是 SemanticChunker？它是如何利用 Embedding 判断语义边界的？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    SemanticChunker 是一种基于语义相似度寻找切分点的文本分割器，它是 LangChain 实验性模块 langchain_experimental.text_splitter 中提供的较新工具。与固定长度或固定字符切分不同，它试图在“语义发生明显转变”的地方下刀，生成更符合人类理解逻辑的 chunk。
+
+    核心原理：
+
+    - 逐句拆分：首先将文本按句子拆开（可以用 spaCy、nltk 或简单的句子分隔符）。
+
+    - 构建句子 Embedding：计算每个句子的向量表示（通过指定的 embedding 模型）。
+
+    - 计算相邻句子的语义差异：对于句子 i 和句子 i+1，计算它们 embedding 的余弦距离（或其他差异度量）。差异越大，说明语义变化越剧烈。
+
+    - 识别断点：根据预设的策略找到“差异峰值”或超过阈值的位置，将这些位置标记为切分边界。常见的策略有：
+
+    - 合并句子：根据识别的断点，将连续的句子合并成 chunk。这样每个 chunk 内部的句子语义相近，而 chunk 之间语义差异较大。
+
+    使用示例：
+
+    ```python
+    from langchain_experimental.text_splitter import SemanticChunker
+    from langchain_openai import OpenAIEmbeddings
+
+    embedding_model = OpenAIEmbeddings()
+    splitter = SemanticChunker(
+        embeddings=embedding_model,
+        breakpoint_threshold_type="percentile",  # 断点识别策略
+        breakpoint_threshold_amount=90,          # 90分位数
+    )
+    docs = splitter.create_documents([long_text])
+    ```
+
+    优点：
+
+    - 真正的“语义驱动”，chunk 边界自然，不需要人工设定分隔符。
+
+    - 能够适应不同风格、不同语言的文本，不需要预先了解文本结构。
+
+    - 很好地解决了固定切分容易切断实体或逻辑链条的问题，甚至可以实现 chunk_overlap=0 而不损失连贯性（因为边界天然就是语义断层）。
+
+    缺点：
+
+    - 计算量较大：需要对每个句子做 embedding，并计算相邻相似度。长文本尤其耗时。
+
+    - 需要 embedding 模型的质量有保证，低质量 embedding 会导致断点不准确。
+
+    - 属于实验性功能，API 可能会变，不适合必须长期稳定的生产系统（但作为增强模块可以先试用）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/O97CwA74Ji4ZHWkDTIRcb7OanUg
+  block_id: Pm0udji1noVhhRxffzscGJGQnve
+  page_token: O97CwA74Ji4ZHWkDTIRcb7OanUg
+  original_title: "\U0001F9E0 7. 什么是 SemanticChunker？它是如何利用 Embedding 判断语义边界的？"
+  imported_at: '2026-09-21'

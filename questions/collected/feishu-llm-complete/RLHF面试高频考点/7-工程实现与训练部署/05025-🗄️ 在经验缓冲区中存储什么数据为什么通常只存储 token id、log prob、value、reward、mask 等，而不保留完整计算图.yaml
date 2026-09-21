@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-436ae1f35a41
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F5C4️ 在经验缓冲区中存储什么数据？为什么通常只存储 token id、log prob、value、reward、mask 等，而不保留完整计算图？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "\U0001F5C4️ 在经验缓冲区中存储什么数据？为什么通常只存储 token id、log prob、value、reward、mask
+    等，而不保留完整计算图？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    经验缓冲区 存储一次 rollout 批次的数据，用于后续 PPO 更新。内容包括：
+
+    - input_ids：prompt tokens
+
+    - response_ids：Actor 生成的 token 序列
+
+    - log_probs：旧策略下每个 token 的对数概率
+
+    - values：Critic 预测的状态价值（若当时已计算）
+
+    - rewards：每个 token 的即时奖励（包含 KL 惩罚和最终 RM 奖励）
+
+    - masks：指示哪些 token 是生成的（非 padding，非 prompt），用于损失计算。
+
+    为什么不存完整计算图？
+
+    - 显存爆炸：计算图保存了从输入到输出的所有中间张量和函数，一个 batch 的计算图可达数十 GB，无法扩展。
+
+    - 数据与训练分离：经验数据会被重复使用多个 epoch，且在分布式系统中可能跨节点传输。存贮轻量级的 token 和概率数据极大降低了 I/O 和网络开销。
+
+    - 重计算策略：在 PPO 更新时，我们用 response_ids 重新输入 Actor 和 Critic，重新计算所需的 new_log_probs 和 values。这增加了一点计算，但换取了巨大的存储和传输灵活性。
+
+    实践：缓冲区数据通常序列化存储（如 PyTorch 的 save 或 numpy 数组），使用高效的压缩格式（如 Zstandard）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NjChwugaCicZr4kcCfocK8KMnid
+  block_id: By6Pd9lVsoBCZvxnPi9cMvEHnLg
+  page_token: NjChwugaCicZr4kcCfocK8KMnid
+  original_title: "\U0001F5C4️ 在经验缓冲区中存储什么数据？为什么通常只存储 token id、log prob、value、reward、mask
+    等，而不保留完整计算图？"
+  imported_at: '2026-09-21'

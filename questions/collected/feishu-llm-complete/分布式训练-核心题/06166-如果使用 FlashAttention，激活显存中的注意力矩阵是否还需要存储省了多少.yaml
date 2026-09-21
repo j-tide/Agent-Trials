@@ -1,0 +1,46 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c15fc09ffbe1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果使用 FlashAttention，激活显存中的注意力矩阵是否还需要存储？省了多少？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 如果使用 FlashAttention，激活显存中的注意力矩阵是否还需要存储？省了多少？
+answer:
+  mode: rubric
+  reference_answer: |-
+    FlashAttention通过分块计算和在线softmax技术，在前向传播时完全不存储完整的注意力矩阵。它每次只加载一个小块的Q和K到SRAM中，计算出该块的局部注意力分数并立即进行softmax的增量更新，然后丢弃该块的中间矩阵。反向传播时，它利用保存的softmax归一化因子和Q、K、V，在SRAM中重新计算所需的注意力矩阵块，从而避免了在HBM（高带宽显存）中存储完整的 [L, L] 矩阵。
+
+    因此，使用FlashAttention后，注意力矩阵那部分O(L²)的激活显存被完全消除。节省的量取决于序列长度和模型配置。在长序列场景下（如L=4096），这部分节省可达数十GB。以LLaMA-7B为例，L=2048时注意力矩阵约占激活显存的40%，使用FlashAttention后这部分直接清零，激活总显存下降约40%。如果L翻倍到4096，原注意力矩阵占比更高，节省效果更显著。
+
+    但要注意，FlashAttention并不会减少Q、K、V矩阵的显存，也不影响FFN等其他激活。它专注于解决注意力矩阵这个最大的内存杀手。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: T9TZdn0Puozzd8x9VT3cdrsMnkb
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 如果使用 FlashAttention，激活显存中的注意力矩阵是否还需要存储？省了多少？
+  imported_at: '2026-09-21'

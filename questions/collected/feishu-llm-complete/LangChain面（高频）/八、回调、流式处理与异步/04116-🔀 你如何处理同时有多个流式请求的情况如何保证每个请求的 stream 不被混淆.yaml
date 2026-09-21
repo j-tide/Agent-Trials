@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-76df4f41e1a0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F500 你如何处理同时有多个流式请求的情况？如何保证每个请求的 stream 不被混淆？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F500 你如何处理同时有多个流式请求的情况？如何保证每个请求的 stream 不被混淆？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangChain 的流式迭代器本身是请求隔离的。每个 astream 调用返回独立的异步生成器，内部状态（如 LLM 的 HTTP 连接、缓冲区）都是独立的，因此不会混淆。
+
+    在 Web 应用中，每个客户端请求都会创建独立的生成器实例，FastAPI 会为每个请求分配独立的协程，流自然不会串扰。
+
+    但要注意：
+
+    - 共享状态：如果在链或工具中使用了全局变量或类级别的状态，多个请求会竞争。务必使用请求级上下文，或者通过 config 传递用户相关信息。
+
+    - 并发限制：大量并发流式请求会耗尽 LLM API 的速率限制或系统连接池。需要设置并发控制，例如使用 asyncio.Semaphore。
+
+    ```python
+    semaphore = asyncio.Semaphore(10)  # 最大并发10
+    async def event_generator(topic: str):
+        async with semaphore:
+            async for chunk in chain.astream({"topic": topic}):
+                yield ...
+    ```
+
+    - 内存泄漏：如果生成器没有被正确消费（如客户端断开），且后端未做清理，可能会导致缓冲区堆积。务必在 finally 中释放资源。
+
+    结论：LangChain 的流式设计天然支持多请求隔离，开发者需要关注的是资源管理和并发控制。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CZWewxKPziW9NLkL7iBcV35cncy
+  block_id: Lk4ydmnVGoKLkfx4nmZc0aVWnqU
+  page_token: CZWewxKPziW9NLkL7iBcV35cncy
+  original_title: "\U0001F500 你如何处理同时有多个流式请求的情况？如何保证每个请求的 stream 不被混淆？"
+  imported_at: '2026-09-21'

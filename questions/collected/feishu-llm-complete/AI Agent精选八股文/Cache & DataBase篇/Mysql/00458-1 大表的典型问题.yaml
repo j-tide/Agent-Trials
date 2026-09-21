@@ -1,0 +1,92 @@
+---
+schema_version: 1
+id: feishu-llm-complete-59b445d6e54e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 2.1 大表的典型问题
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 2.1 大表的典型问题
+answer:
+  mode: rubric
+  reference_answer: "### 大表性能问题识别\n\n1、基础题：大表通常会遇到哪些性能问题？\n\n⭐（慢查询、锁竞争、DDL 阻塞）\n\n大表（通常指单表超过
+    1000 万行或超过 10GB）常见问题：\n\n- 慢查询：全表扫描、索引失效、数据量大导致查询时间长\n\n- 锁竞争：UPDATE/DELETE 操作锁定大量行，导致其他事务阻塞\n\n-
+    DDL 阻塞：ALTER TABLE 操作需要长时间锁表，影响业务可用性\n\n- 主从延迟：大表写入导致主从同步延迟\n\n- 存储空间：数据文件、索引文件占用大量磁盘空间\n\n-
+    备份恢复：备份时间长，恢复耗时长\n\n2、进阶题：如何诊断大表的慢查询问题？有哪些工具可以使用？\n\n⭐⭐（诊断工具、分析方法）\n\n1️⃣ Common
+    Answer 慢查询可以用慢查询日志来看，MySQL 自带的。还有 EXPLAIN 看执行计划，看看有没有走索引。也可以用 pt-query-digest
+    这个工具分析慢查询日志。还有就是 Performance Schema 也可以看。如果是生产环境，可能需要用监控平台，比如 Prometheus + Grafana
+    之类的。\n\n2️⃣ Impressive Answer 大表慢查询诊断需要系统化工具链，我建议按以下层次使用：\n\n第一层：实时监控\n\n-- 开启慢查询日志\nSET
+    GLOBAL slow_query_log = ON;\nSET GLOBAL long_query_time = 0.5;  -- 超过 0.5s 记录\nSET
+    GLOBAL log_queries_not_using_indexes = ON;\n\n-- Performance Schema 实时监控\nSELECT
+    * FROM performance_schema.events_statements_current\nWHERE TIMER_WAIT > 500000000000;
+    \ -- 超过 500ms\n\n-- 查看当前正在执行的 SQL\nSELECT * FROM information_schema.PROCESSLIST
+    \nWHERE TIME > 1;\n\n第二层：慢查询日志分析\n\n# 使用 pt-query-digest 分析\npt-query-digest /var/lib/mysql/mysql-slow.log
+    \\\n  --limit 10 \\\n  --since '2024-01-01 00:00:00' \\\n  > slow_query_report.txt\n\n#
+    输出关键指标：\n# - Query time distribution：查询时间分布\n# - Tables：涉及的表\n# - Explain：执行计划\n#
+    - Lock time：锁等待时间\n\n第三层：执行计划分析\n\n-- 详细执行计划\nEXPLAIN FORMAT=JSON \nSELECT * FROM
+    orders WHERE user_id = 123;\n\n-- 关键指标：\n-- - type：访问类型（ALL 为全表扫描，ref/index 为索引）\n--
+    - rows：预估扫描行数\n-- - Extra：Using index（覆盖索引）、Using filesort（文件排序）\n\n-- 分区表执行计划\nEXPLAIN
+    PARTITIONS \nSELECT * FROM orders WHERE create_time = '2024-01-01';\n\n第四层：索引使用情况\n\n--
+    查看索引使用率\nSELECT * FROM performance_schema.table_io_waits_summary_by_index_usage\nWHERE
+    OBJECT_SCHEMA = 'your_db';\n\n-- 查看未使用的索引\nSELECT * FROM sys.schema_unused_indexes;\n\n第五层：锁等待分析\n\n--
+    查看当前锁等待\nSELECT * FROM information_schema.INNODB_LOCKS;\n\n-- 查看锁等待来源\nSELECT
+    * FROM information_schema.INNODB_LOCK_WAITS;\n\n-- 查看事务锁等待\nSELECT * FROM information_schema.INNODB_TRX;\n\n诊断流程：\n\n-
+    开启慢查询日志，收集 24 小时数据\n\n- 使用 pt-query-digest 生成 Top 10 慢查询\n\n- 对每个慢查询执行 EXPLAIN
+    分析执行计划\n\n- 检查索引使用情况，识别未使用索引\n\n- 分析锁等待，识别锁竞争热点\n\n- 生成优化建议，逐个验证\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n3、场景题：一个
+    5000 万行的订单表，查询某个用户的订单列表需要 3 秒，如何优化？\n\n⭐⭐⭐（查询优化、索引设计）\n\n1️⃣ Common Answer 先看看有没有索引，user_id
+    上应该有索引。如果没有就加上。如果有了还是慢，可能是回表太多，可以用覆盖索引，把需要的字段都加到索引里。还有就是可能数据太多了，可以考虑分表，按用户 ID
+    哈希分表。或者用缓存，Redis 缓存热点数据。也可以用 ES 做搜索。\n\n2️⃣ Impressive Answer 针对 5000 万行订单表查询慢的问题，我建议按以下步骤系统优化：\n\n第一步：诊断现状\n\n--
+    查看执行计划\nEXPLAIN SELECT * FROM orders WHERE user_id = 123 ORDER BY create_time
+    DESC LIMIT 20;\n\n-- 检查索引\nSHOW INDEX FROM orders;\n\n-- 查看索引使用情况\nSELECT * FROM
+    sys.schema_unused_indexes WHERE object_schema = 'your_db';\n\n第二步：索引优化\n\n-- 方案1：创建覆盖索引（推荐）\nCREATE
+    INDEX idx_user_cover ON orders (user_id, create_time, id, status, amount);\n\n--
+    查询只走索引，不回表\nSELECT id, create_time, status, amount \nFROM orders \nWHERE user_id
+    = 123 \nORDER BY create_time DESC \nLIMIT 20;\n\n-- 方案2：联合索引 + 延迟关联\nCREATE INDEX
+    idx_user_time ON orders (user_id, create_time);\n\n-- 先通过索引找到 ID，再回表\nSELECT o.*
+    \nFROM orders o\nINNER JOIN (\n    SELECT id \n    FROM orders \n    WHERE user_id
+    = 123 \n    ORDER BY create_time DESC \n    LIMIT 20\n) tmp ON o.id = tmp.id;\n\n第三步：分页优化\n\n--
+    传统分页（深分页性能差）\nSELECT * FROM orders WHERE user_id = 123 ORDER BY create_time DESC
+    LIMIT 100000, 20;\n\n-- 游标分页（推荐）\nSELECT * FROM orders \nWHERE user_id = 123 AND
+    create_time < '2024-01-01 12:00:00' \nORDER BY create_time DESC \nLIMIT 20;\n\n--
+    延迟关联优化深分页\nSELECT o.* \nFROM orders o\nINNER JOIN (\n    SELECT id \n    FROM
+    orders \n    WHERE user_id = 123 \n    ORDER BY create_time DESC \n    LIMIT 100000,
+    20\n) tmp ON o.id = tmp.id;\n\n第四步：表结构优化\n\n-- 垂直拆分：将不常用字段拆分到扩展表\nCREATE TABLE
+    orders_ext (\n    id BIGINT PRIMARY KEY,\n    remark TEXT,\n    ext_data JSON\n);\n\n--
+    水平拆分：按 user_id 哈希分表\nCREATE TABLE orders_0 LIKE orders;\nCREATE TABLE orders_1
+    LIKE orders;\n-- ... 根据 user_id % 4 路由到不同表\n\n第五步：缓存优化\n\n// Redis 缓存热点用户订单\nString
+    cacheKey = \"orders:user:\" + userId;\nList<Order> orders = redisTemplate.opsForValue().get(cacheKey);\nif
+    (orders == null) {\n    orders = orderMapper.selectByUserId(userId);\n    redisTemplate.opsForValue().set(cacheKey,
+    orders, 5, TimeUnit.MINUTES);\n}\n\n第六步：架构升级\n\n- 如果单表超过 1 亿行，考虑：\n\n优化效果：\n\n-
+    覆盖索引优化：3s → 50ms（提升 60 倍）\n\n- 游标分页：深分页从 5s → 100ms\n\n- 缓存命中：QPS 从 100 → 5000+\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n4、容易一起考的题\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IKZ3wmrGRip21hkBhZHc4rARnKe
+  block_id: doxcncll2WSmIz6Nsxb8dRtNMqg
+  page_token: IKZ3wmrGRip21hkBhZHc4rARnKe
+  original_title: 2.1 大表的典型问题
+  imported_at: '2026-09-21'

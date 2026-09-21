@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a1b91460d9b5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 执行多步骤任务（工具调用→结果存储→状态更新），如何设计事务边界保证数据一致性？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 执行多步骤任务（工具调用→结果存储→状态更新），如何设计事务边界保证数据一致性？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（事务边界设计、异常处理、补偿机制）\n\n1️⃣ Common Answer\n\n可以在最外层方法上加
+    @Transactional，把所有步骤包在一个事务里。如果中间某步失败，整个事务回滚。也可以用分布式事务。\n\n2️⃣ Impressive Answer\n\n-
+    方案一：单事务（简单场景）\n\n@Service\npublic class AgentExecutor {\n    \n    @Transactional(rollbackFor
+    = Exception.class)\n    public AgentResult execute(AgentRequest request) {\n        //
+    1. 工具调用\n        ToolResult toolResult = toolCallService.call(request.getTool());\n
+    \       \n        // 2. 结果存储\n        executionRepository.save(toolResult);\n
+    \       \n        // 3. 状态更新\n        agentRepository.updateStatus(request.getAgentId(),
+    \"COMPLETED\");\n        \n        return AgentResult.success(toolResult);\n    }\n}\n\n-
+    方案二：独立事务 + 补偿（复杂场景）\n\n@Service\npublic class AgentExecutor {\n    \n    @Transactional(rollbackFor
+    = Exception.class)\n    public AgentResult execute(AgentRequest request) {\n        ToolResult
+    toolResult = null;\n        \n        try {\n            // 1. 工具调用（可能调用外部服务，不放在事务中）\n
+    \           toolResult = toolCallService.call(request.getTool());\n            \n
+    \           // 2. 结果存储（独立事务）\n            saveExecution(toolResult);\n            \n
+    \           // 3. 状态更新（独立事务）\n            updateAgentStatus(request.getAgentId(),
+    \"COMPLETED\");\n            \n            return AgentResult.success(toolResult);\n
+    \           \n        } catch (Exception e) {\n            // 补偿：回滚状态\n            updateAgentStatus(request.getAgentId(),
+    \"FAILED\");\n            throw e;\n        }\n    }\n    \n    @Transactional(propagation
+    = Propagation.REQUIRES_NEW)\n    public void saveExecution(ToolResult result)
+    {\n        executionRepository.save(result);\n    }\n    \n    @Transactional(propagation
+    = Propagation.REQUIRES_NEW)\n    public void updateAgentStatus(String agentId,
+    String status) {\n        agentRepository.updateStatus(agentId, status);\n    }\n}\n\n-
+    方案三：Saga 模式（长流程）\n\n@Service\npublic class AgentSaga {\n    \n    public AgentResult
+    execute(AgentRequest request) {\n        List<SagaStep> steps = Arrays.asList(\n
+    \           new ToolCallStep(request),\n            new SaveExecutionStep(),\n
+    \           new UpdateStatusStep(\"COMPLETED\")\n        );\n        \n        return
+    sagaExecutor.execute(steps, new AgentCompensation(request));\n    }\n}\n\n// 补偿操作\npublic
+    class AgentCompensation implements Compensable {\n    public void compensate(AgentRequest
+    request) {\n        updateAgentStatus(request.getAgentId(), \"FAILED\");\n        deleteExecution(request.getExecutionId());\n
+    \   }\n}\n\n- 选型建议：\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcnwWRydh55dZcDfMZ29hKgH0
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 3、场景题：Agent 执行多步骤任务（工具调用→结果存储→状态更新），如何设计事务边界保证数据一致性？
+  imported_at: '2026-09-21'

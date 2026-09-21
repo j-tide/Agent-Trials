@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-45fce1e676fe
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F525 在一个推理集群中，如果某个 GPU 节点宕机，如何实现故障转移而不中断服务？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: "\U0001F525 在一个推理集群中，如果某个 GPU 节点宕机，如何实现故障转移而不中断服务？"
+answer:
+  mode: rubric
+  reference_answer: "GPU 节点宕机是大规模推理服务必须面对的常态故障。实现无中断（或短暂中断）的故障转移，需要从架构设计、健康检查、自动恢复三个层面打造容错能力。\n\n\U0001F6E1️
+    1. 无状态化设计\n\n推理服务本身应该是无状态的。模型权重是只读的，可以快速挂载；KV Cache 是每个请求的临时状态，生命周期与请求相同，不依赖特定节点。因此，当一个节点宕机时，所有在其上运行的推理请求都会丢失，但可以被客户端重试并路由到健康的节点。我们不必保存和迁移
+    KV Cache（除非是超长对话场景，此时可能需要从断点重放 Prompt 来重建缓存）。这种设计让节点故障可以被视为“请求失败”，由上层重试机制解决。\n\n\U0001F493
+    2. 健康检查与故障检测\n\n- 负载均衡器（如 Envoy, Nginx, 或云厂商的 Load Balancer） 定期对所有推理 Pod/节点进行健康探测（TCP/HTTP
+    health check）。如果某个节点连续几次无响应，负载均衡器自动将其标记为不健康，停止向它转发流量。\n\n- Kubernetes（K8s） 提供自愈能力：通过
+    Liveness Probe 检测容器是否假死，若失败则自动重启容器；通过 Readiness Probe 检测服务是否准备好接受流量，若失败则从 Service
+    中摘除 Pod IP。\n\n- 推理框架（如 vLLM）内部也可以上报健康状态，比如显存是否充足、是否可接受新请求。\n\n⚡ 3. 自动恢复与弹性伸缩\n\n-
+    故障节点被 K8s 自动重启或替换为新节点。新节点启动后，会自动加载模型权重（通过 PVC 共享存储或从对象存储拉取），加载完成后 Readiness Probe
+    通过，重新加入服务。\n\n- 为避免冷启动延迟，可以使用预加载模型快照或预热节点（Warm Pool）：常备几个已加载好模型的备用节点，随时接管故障节点的工作。\n\n-
+    在故障恢复期间，由于可用节点减少，可能出现短暂的容量不足。配合 HPA（自动伸缩器） 根据负载指标快速扩容，可以迅速补齐算力。\n\n\U0001F4E1
+    4. 客户端与服务端协同\n\n- 客户端应实现重试机制（带退避策略，如指数退避），对于因节点宕机导致的连接断开或超时，透明地重试到另一个可用节点。\n\n-
+    对于流式输出，重试时可传入已生成的 token 序列作为 Prompt 的一部分，请求新节点“续写”，从而恢复中断的生成（这要求推理服务支持 continue
+    或 prompt + partial completion 的输入）。\n\n- API 网关（如 Kong）可以集中处理重试和失败屏蔽，对客户端透明。\n\n\U0001F4A1
+    实际案例：某部署在 K8s 上的 vLLM 服务，每个 Pod 是一个推理实例，通过 ClusterIP 对外暴露。当某个 Pod 崩溃时，K8s 在 30
+    秒内重启，期间新请求由其他 Pod 承担。客户端使用指数退避重试，成功率保持在 99.9% 以上。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTNrwT2t1iCzbMkI7FZc3sj5nBb
+  block_id: XdzadRDpZoREZMxCb7UcYsDInEc
+  page_token: QTNrwT2t1iCzbMkI7FZc3sj5nBb
+  original_title: "\U0001F525 在一个推理集群中，如果某个 GPU 节点宕机，如何实现故障转移而不中断服务？"
+  imported_at: '2026-09-21'

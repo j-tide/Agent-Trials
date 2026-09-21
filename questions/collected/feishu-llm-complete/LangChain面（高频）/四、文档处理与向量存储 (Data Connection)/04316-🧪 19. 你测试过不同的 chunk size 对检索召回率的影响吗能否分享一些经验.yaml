@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d724f86626a8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EA 19. 你测试过不同的 chunk size 对检索召回率的影响吗？能否分享一些经验？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F9EA 19. 你测试过不同的 chunk size 对检索召回率的影响吗？能否分享一些经验？"
+answer:
+  mode: rubric
+  reference_answer: "我进行过多次对比实验，其中一次在中文企业知识库（约 5 万份文档）上的测试数据印象深刻，分享如下：\n\n实验设置：\n\n-
+    Embedding 模型：text-embedding-3-small\n\n- 向量库：Chroma\n\n- 评估查询：200 个真实用户问题，每个问题人工标注了
+    1-3 个相关文档片段\n\n- 指标：Recall@5（前 5 个 chunk 中包含任何相关片段的查询比例）\n\n不同 chunk_size 的 Recall@5：\n\n[嵌入表格未展开]\n\n观察：\n\n-
+    512 token 时 Recall@5 达到峰值 81.2%，随后下降。\n\n- 128 token 的低分说明信息碎片化太严重，很多答案需要多个 chunk
+    组合，但 top-5 未能全部召回。\n\n- 1024 token 的下降符合预期：噪声增加导致相关块排序被挤到后面。\n\noverlap 的影响：在
+    512 token 的配置下，对比 overlap 为 0、10%、20%：\n\n- overlap=0：MRR 0.61\n\n- overlap=10%：MRR
+    0.66\n\n- overlap=20%：MRR 0.65（略降，冗余增加）\n最终选择 10%。\n\n额外发现：\n\n- 对于包含大量列表和表格的文档，同样的
+    chunk_size (512) 下，列表密集的文档检索效果较差，因为列表项被切断。后来对这类文档单独采用 384 token + 表格提取，整体 Recall
+    提升到 83%。\n\n- 使用 SemanticChunker 在本次实验中表现略逊于精心调参的 RecursiveCharacterTextSplitter，但它在处理多样化文档时更鲁棒。\n\n经验总结：chunk
+    size 的调优不是一锤子买卖。不同的文档结构需要不同的参数，最好的办法是分类型调优 + 在线 A/B 测试。现在我每引入一个新知识库，都会先用小样本跑一次
+    sweep，找到该域的最优尺寸。\n\n---\n\n\U0001F3C1 20. 总结一下：设计一套好的分块策略，需要平衡哪些因素？\n\n设计分块策略本质上是在一个多维约束下求最优解，这些约束包括：\n\n[嵌入表格未展开]\n\n我遵循的三条黄金法则：\n\n-
+    语义优先，长度让步：宁可不均匀，也不破坏句子或表格。\n\n- 小索引，大上下文：用小子块做检索，大子块喂给 LLM。\n\n- 从通用开始，迭代特化：先用
+    RecursiveCharacterTextSplitter + 标准参数上线，再根据监控反馈逐步定制策略。\n\n最终，好的分块策略不是设计出来的，而是实验和迭代出来的。建立一套轻量但可量化的评估集，让数据告诉你哪个参数更优，这比任何预设都可靠。\n\n“...因此我们决定采用
+    Transformer 架构。该架构的主要优势在于自注意力机制...”\n\n- 百分位数 (percentile)：计算所有句子间差异的某个分位数，超过这个值的即视为断点。\n\n-
+    标准差 (standard deviation)：差异超过均值加 N 个标准差的地方切断。\n\n- 四分位距 (interquartile range)：使用统计学方法过滤离群峰值。\n\n-
+    文件扩展名：.pdf, .md, .py, .csv\n\n- 内容格式：通过正则检测代码关键词、Markdown 标题、JSON 结构等\n\n- 语言检测：langdetect
+    或 fasttext 判断中文/英文/混合\n\n- 元素组成：Unstructured 提供的 category（标题、表格、文本等）\n\n- 检索：Recall@5,
+    MRR。\n\n- 生成：用 LLM 或人工评估答案的 faithfulness, relevance, completeness。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/O97CwA74Ji4ZHWkDTIRcb7OanUg
+  block_id: R0PadQzcJohrKTxKIM1cVqkhnQb
+  page_token: O97CwA74Ji4ZHWkDTIRcb7OanUg
+  original_title: "\U0001F9EA 19. 你测试过不同的 chunk size 对检索召回率的影响吗？能否分享一些经验？"
+  imported_at: '2026-09-21'

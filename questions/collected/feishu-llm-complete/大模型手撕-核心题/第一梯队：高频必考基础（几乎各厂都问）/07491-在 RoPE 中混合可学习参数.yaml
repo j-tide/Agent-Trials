@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0bb597751054
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 RoPE 中混合可学习参数
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 在 RoPE 中混合可学习参数
+answer:
+  mode: rubric
+  reference_answer: |-
+    可以引入可学习的缩放因子 γ_i 和偏移 β_i 来调整每个频率分量的旋转角度，公式变为：
+
+    ```text
+    θ'_i = γ_i * θ_i + β_i
+    ```
+
+    或直接学习一个频率调整量。实现时，将 γ_i 和 β_i 设为 nn.Parameter，初始化 γ_i=1, β_i=0。
+
+    代码修改：
+
+    ```python
+    class LearnableRoPE(LlamaRotaryEmbedding):
+        def __init__(self, dim, max_position_embeddings=2048, base=10000.0):
+            super().__init__(dim, max_position_embeddings, base)
+            self.gamma = nn.Parameter(torch.ones(dim // 2))
+            self.beta = nn.Parameter(torch.zeros(dim // 2))
+
+        def forward(self, x, position_ids):
+            inv_freq = self.inv_freq * self.gamma  # 缩放频率
+            # 加上偏移会影响相位，但这里 inv_freq 调整后需要重新生成 cos/sin
+            # 具体实现中可重新计算 freqs
+            ...
+    ```
+
+    可能的问题：
+
+    - 学习参数可能破坏 RoPE 的远程衰减性质，导致训练不稳定。
+
+    - 如果不加正则化，模型可能学出极端的频率，影响泛化。
+
+    - 在微调阶段使用少量数据学习可能有效，但从头训练可能增加难度。
+    因此通常不引入可学习参数，除非在特定微调场景下并配合强正则化。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VuccwPjSli6dm2kOTxJclpKdnhb
+  block_id: JSa9dCaD7oK8wLxVLh6cjzDunhh
+  page_token: VuccwPjSli6dm2kOTxJclpKdnhb
+  original_title: 在 RoPE 中混合可学习参数
+  imported_at: '2026-09-21'

@@ -1,0 +1,94 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e8c10e58664a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F536 Prefill 和 Decode 阶段有什么区别？为什么 TTFT 和 TPS 是两个独立的性能指标？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F536 Prefill 和 Decode 阶段有什么区别？为什么 TTFT 和 TPS 是两个独立的性能指标？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    大模型推理并非均匀的过程，而是典型的两阶段流水线。
+
+    Prefill（预填充）阶段
+
+    - 输入：用户的完整 prompt（几十到几千 token）
+
+    - 计算特征：一次性并行处理全部 prompt token。模型每一层对整个 prompt 序列做自注意力，生成第一个 token 的 logits，同时缓存下所有的 Key 和 Value。
+
+    - 计算瓶颈：算力密集（compute-bound）。矩阵乘法占用大量 GPU 核心，对算力（FLOPS）要求极高。
+
+    - 耗时影响因素：prompt 长度、模型大小、GPU 算力。
+
+    Decode（解码）阶段
+
+    - 输入：每次只输入上一个生成的 token，并利用已缓存的 KV 进行注意力。
+
+    - 计算特征：串行逐 token 生成。每一步都需要取全部 KV Cache 做 memory-heavy 的注意力操作，但矩阵乘较小。
+
+    - 计算瓶颈：内存带宽密集（memory-bound）。几乎所有时间都花在把 KV Cache 从显存搬运到计算单元上。
+
+    - 耗时影响因素：生成的总 token 数、KV Cache 大小、显存带宽。
+
+    用伪代码展示两个阶段的分界：
+
+    # 联合推理循环
+    def generate(prompt):
+        # ---------- Prefill ----------
+        logits, kv_cache = model.forward(prompt, use_cache=True)   # 全量并行
+        next_token = sample(logits[:, -1, :])
+        yield next_token
+
+        # ---------- Decode ----------
+        for _ in range(max_new_tokens - 1):
+            logits, kv_cache = model.forward(
+                next_token.unsqueeze(1), past_key_values=kv_cache  # 只输入一个 token
+            )
+            next_token = sample(logits[:, -1, :])
+            yield next_token
+
+    为什么 TTFT 和 TPS 是两个独立指标？
+
+    - TTFT（Time To First Token，首 token 延迟）：反映 Prefill 阶段的速度。用户发出请求后，到看到第一个字的时间。
+
+    - TPS（Tokens Per Second，每秒生成 token 数）：反映 Decode 阶段的吞吐。稳定生成时，每秒钟能蹦出多少个字。
+
+    两者优化方向完全不同：
+
+    - TTFT 取决于 算力 + prompt 长度。要优化它，需要更强的 GPU（更高 TFLOPS）、更短的 prompt（通过摘要压缩）、或者预填充优化（如 Chunked Prefill 将计算分块避免阻塞）。
+
+    - TPS 取决于 内存带宽 + batch size。要提升它，需要更快的显存（HBM 带宽）、更小的 KV Cache（量化、MQA/GQA）、以及合并多个请求成 continuous batch 来隐藏延迟。
+
+    在生产系统中，用户体验是 TTFT 要低（感觉响应快），TPS 要高（内容源源不断）。但两者通常此消彼长：为了高 TPS 需要攒 batch，增加了等待时间，就提高了 TTFT。所以 vLLM 等框架采用 continuous batching：不等待整个 batch 完成，而是在 Decode 过程中随时插入新请求的 Prefill，动态平衡两者。这使 TTFT 和 TPS 可以同时优化。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcn1f0gLCFBqk4U3x4bn30oCh
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "\U0001F536 Prefill 和 Decode 阶段有什么区别？为什么 TTFT 和 TPS 是两个独立的性能指标？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,96 @@
+---
+schema_version: 1
+id: feishu-llm-complete-75da942f9e85
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F310 在 Web 应用中，LangChain 的流式输出如何通过 Server-Sent Events (SSE) 发送到前端？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F310 在 Web 应用中，LangChain 的流式输出如何通过 Server-Sent Events (SSE) 发送到前端？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    SSE 是服务端向客户端推送事件的标准协议。在 Python Web 框架（如 FastAPI）中，可以结合 LangChain 的异步流式轻松实现。
+
+    FastAPI + SSE 示例：
+
+    ```python
+    from fastapi import FastAPI
+    from fastapi.responses import StreamingResponse
+    from langchain_openai import ChatOpenAI
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_core.output_parsers import StrOutputParser
+    import asyncio, json
+
+    app = FastAPI()
+
+    llm = ChatOpenAI(model="gpt-3.5-turbo", streaming=True)
+    prompt = ChatPromptTemplate.from_template("请解释：{topic}")
+    chain = prompt | llm | StrOutputParser()
+
+    async def event_generator(topic: str):
+        async for chunk in chain.astream({"topic": topic}):
+            # SSE 格式：data: {json}\n\n
+            yield f"data: {json.dumps({'token': chunk})}\n\n"
+            await asyncio.sleep(0)  # 让出控制权
+        yield "data: [DONE]\n\n"
+
+    @app.get("/stream")
+    async def stream(topic: str):
+        return StreamingResponse(event_generator(topic), media_type="text/event-stream")
+    ```
+
+    前端使用 EventSource API 接收：
+
+    ```javascript
+    const eventSource = new EventSource("/stream?topic=量子计算");
+    eventSource.onmessage = (event) => {
+        if (event.data === "[DONE]") {
+            eventSource.close();
+            return;
+        }
+        const data = JSON.parse(event.data);
+        document.getElementById("output").innerText += data.token;
+    };
+    ```
+
+    关键点：
+
+    - 必须使用 astream（异步），否则会阻塞 FastAPI 事件循环。
+
+    - SSE 的响应头 Content-Type: text/event-stream 由 StreamingResponse 自动设置。
+
+    - 客户端连接中断时，生成器会抛出 GeneratorExit，可以在 finally 中清理资源。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CZWewxKPziW9NLkL7iBcV35cncy
+  block_id: SMhYddd2soIsHexFB6ic1HxEneh
+  page_token: CZWewxKPziW9NLkL7iBcV35cncy
+  original_title: "\U0001F310 在 Web 应用中，LangChain 的流式输出如何通过 Server-Sent Events (SSE)
+    发送到前端？"
+  imported_at: '2026-09-21'

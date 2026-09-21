@@ -1,0 +1,92 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e42d35d3f551
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用WeightedRandomSampler解决样本不平衡问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何使用WeightedRandomSampler解决样本不平衡问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    WeightedRandomSampler 为每个样本分配一个采样权重，权重越大的样本被抽中的概率越高。解决不平衡时，通常为少数类样本赋予更高的权重。
+
+    ```python
+    from torch.utils.data import WeightedRandomSampler
+
+    # 假设 targets 是所有样本的标签列表
+    labels = torch.tensor(targets)
+    class_counts = torch.bincount(labels)
+    # 为每个样本计算权重：与所在类别的数量成反比
+    weights = 1.0 / class_counts[labels]
+
+    sampler = WeightedRandomSampler(weights, num_samples=len(weights), replacement=True)
+    loader = DataLoader(dataset, batch_size=32, sampler=sampler)
+    ```
+
+    关键参数：
+
+    - weights：一个与数据集等长的张量，每个元素是该样本的权重。
+
+    - num_samples：总采样数量（通常设为数据集大小）。
+
+    - replacement：是否允许重复采样。对于少数类，通常设为 True 以增加其出现次数。
+
+    原理：WeightedRandomSampler 根据权重进行多项式采样。通过放大少数类的权重，使得每个 batch 中各类别的比例趋于均衡，从而缓解模型偏向多数类的问题。
+
+    进阶：可以结合 BatchSampler 进一步控制每个 batch 内的类别分布，或使用更高级的 ImbalancedDatasetSampler（需自定义）。同时，采样仅解决训练数据不平衡，评估时仍应使用原始分布的数据。### 12. 如何利用backward hook实现梯度反转层？
+
+    梯度反转层（Gradient Reversal Layer, GRL）在正向传播时是恒等映射，反向传播时将梯度乘以一个负系数（通常为 −λ−λ），从而实现梯度的“反转”。它常用于对抗性训练，如领域自适应（Domain-Adversarial Neural Network, DANN），逼迫特征提取器学习到领域无关的表征。
+
+    最稳定和推荐的方式是自定义一个 torch.autograd.Function。
+
+    ```python
+    from torch.autograd import Function
+
+    class GradientReversal(Function):
+        @staticmethod
+        def forward(ctx, x, lambda_=1.0):
+            ctx.lambda_ = lambda_
+            return x.view_as(x)
+
+        @staticmethod
+        def backward(ctx, grad_output):
+            return grad_output.neg() * ctx.lambda_, None
+
+    def grad_reverse(x, lambda_=1.0):
+        return GradientReversal.apply(x, lambda_)
+    ```
+
+    使用 register_backward_hook 也可行，但自定义 Function 更清晰、更可控。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BLzXwUOV1i4vVjkNph6csNj1nwe
+  block_id: LryOdYbh4oV6YtxHSnpcJIaRn5c
+  page_token: BLzXwUOV1i4vVjkNph6csNj1nwe
+  original_title: 如何使用WeightedRandomSampler解决样本不平衡问题？
+  imported_at: '2026-09-21'

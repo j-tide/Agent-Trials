@@ -1,0 +1,130 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cd8c9f3eedcc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 5.1 数据迁移机制
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Redis
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Redis
+content:
+  prompt: 5.1 数据迁移机制
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### MIGRATE 命令与 Resharding
+
+    1、Redis Cluster 如何进行数据迁移？
+
+    ⭐（考察 MIGRATE 命令、slot 迁移）
+
+    Redis Cluster 通过 MIGRATE 命令实现数据迁移。MIGRATE 命令将指定 key 从源节点迁移到目标节点，迁移过程是原子的，要么成功要么失败。扩容或缩容时，通过 reshard 操作，将部分 slot 从源节点迁移到目标节点，slot 对应的 key 也会一起迁移。迁移过程中，客户端可以继续访问，不需要停机。
+
+    2、Redis Cluster 迁移数据时如何保证一致性？
+
+    ⭐⭐（考察原子性、迁移过程中的请求处理）
+
+    1️⃣ Common Answer MIGRATE 命令是原子的，要么成功要么失败，不会出现数据不一致。迁移过程中，客户端请求会自动转发到目标节点，或者等迁移完成后再处理。好像有个 importing 和 migrating 状态，迁移中的 slot 会有特殊标记，客户端访问时会根据标记决定去哪个节点。
+
+    2️⃣ Impressive Answer Redis Cluster 通过 MIGRATE 命令的原子性和 slot 状态管理，保证数据迁移过程中的一致性。
+
+    MIGRATE 命令的原子性体现在：MIGRATE 命令在源节点执行，将 key 序列化后发送到目标节点，目标节点反序列化并加载 key，然后源节点删除 key。整个过程在源节点是原子的，要么成功（目标节点成功加载并删除源节点 key），要么失败（源节点保留 key），不会出现 key 在两个节点都存在或都不存在的情况。
+
+    slot 状态管理通过 migrating 和 importing 两个状态实现：
+
+    migrating 状态：源节点将某个 slot 标记为 migrating，表示该 slot 正在迁移。客户端访问该 slot 的 key 时，如果 key 还在源节点，正常处理；如果 key 已经迁移，返回 ASK 重定向，引导客户端到目标节点。
+
+    importing 状态：目标节点将某个 slot 标记为 importing，表示该 slot 正在迁入。客户端通过 ASK 重定向访问目标节点时，目标节点允许访问 importing 状态的 key。
+
+    迁移流程如下：
+
+    第一，源节点标记 slot 为 migrating，目标节点标记 slot 为 importing。
+
+    第二，源节点遍历 slot 的所有 key，逐个执行 MIGRATE 命令迁移到目标节点。
+
+    第三，迁移完成后，源节点取消 migrating 状态，目标节点取消 importing 状态，更新 slot 分配信息。
+
+    迁移过程中，客户端访问的处理逻辑：
+
+    第一，客户端访问 key 时，如果 key 在源节点且 slot 是 migrating 状态，正常处理。
+
+    第二，如果 key 已经迁移，源节点返回 ASK 重定向，引导客户端到目标节点。
+
+    第三，客户端收到 ASK 重定向后，向目标节点发送 ASKING 命令，然后访问 key。目标节点检查 key 的 slot 是否是 importing 状态，如果是，允许访问。
+
+    通过 migrating 和 importing 状态，以及 ASK 重定向机制，保证了迁移过程中客户端请求的正确处理，不会出现请求失败或数据不一致的情况。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    3、生产环境中 Redis Cluster 需要从 3 节点扩容到 6 节点，如何平滑迁移数据？
+
+    ⭐⭐⭐（考察扩容策略、迁移步骤、性能影响）
+
+    1️⃣ Common Answer 扩容的话，先加入 3 个新节点，然后把老节点的 slot 迁移一部分到新节点。可以用 redis-cli 的 reshard 命令，指定迁移多少个 slot 和从哪个节点迁到哪个节点。迁移过程中要注意性能，不要一次迁移太多 slot，分批迁移比较好。还有就是监控迁移过程中的性能指标，确保业务不受影响。
+
+    2️⃣ Impressive Answer 这个问题需要从扩容策略、迁移步骤、性能监控三个角度分析。
+
+    扩容策略：
+
+    从 3 节点扩容到 6 节点，每个老节点需要迁移一半的 slot 到新节点。假设每个老节点负责 5000 个 slot，需要迁移 2500 个 slot。建议分批迁移，每次迁移 100-200 个 slot，避免对单个节点造成过大压力。
+
+    迁移步骤：
+
+    第一，启动 3 个新节点，使用 cluster meet 命令将新节点加入集群。
+
+    第二，使用 redis-cli 的 reshard 命令，指定迁移的 slot 数量、源节点、目标节点。例如：redis-cli --cluster reshard <host>:<port> --cluster-from <source-node-id> --cluster-to <target-node-id> --cluster-slots 100 --cluster-yes。
+
+    第三，重复执行 reshard 命令，直到所有老节点的 slot 迁移完成。建议按顺序迁移，先迁移第一个老节点的 slot 到第一个新节点，再迁移第二个老节点的 slot 到第二个新节点，依此类推。
+
+    第四，迁移完成后，检查集群状态，确保 slot 分配均匀，所有节点状态正常。
+
+    性能监控：
+
+    迁移过程中，需要监控以下指标：
+
+    第一，源节点的 CPU、内存、网络使用率。MIGRATE 命令会序列化 key 并发送到目标节点，消耗 CPU 和网络带宽。如果指标过高，可以降低迁移速度，减少每次迁移的 slot 数量。
+
+    第二，目标节点的 CPU、内存、网络使用率。目标节点需要接收并加载 key，同样消耗资源。如果指标过高，可以暂停迁移，等待指标恢复正常后再继续。
+
+    第三，客户端的请求延迟。迁移过程中，部分 key 可能需要 ASK 重定向，增加请求延迟。如果延迟过高，可以暂停迁移，或者优化客户端的重定向处理逻辑。
+
+    第四，迁移进度。监控已迁移的 slot 数量和剩余数量，确保迁移按计划进行。
+
+    需要注意的是，迁移过程中，尽量避免在业务高峰期进行，选择业务低峰期迁移，减少对业务的影响。同时，提前做好回滚预案，如果迁移过程中出现问题，可以将 slot 迁回原节点，确保业务可用性。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WYybwaFDnib3uYkGNzpcRvJsnzd
+  block_id: doxcnWi65skS3Zvith52In3vnbh
+  page_token: WYybwaFDnib3uYkGNzpcRvJsnzd
+  original_title: 5.1 数据迁移机制
+  imported_at: '2026-09-21'

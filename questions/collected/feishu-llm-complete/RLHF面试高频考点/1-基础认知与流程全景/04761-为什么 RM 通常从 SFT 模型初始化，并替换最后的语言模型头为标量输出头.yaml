@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3940702cf6c3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么 RM 通常从 SFT 模型初始化，并替换最后的语言模型头为标量输出头？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 1-基础认知与流程全景
+tags: &1
+- RLHF面试高频考点
+- 1-基础认知与流程全景
+content:
+  prompt: 为什么 RM 通常从 SFT 模型初始化，并替换最后的语言模型头为标量输出头？
+answer:
+  mode: rubric
+  reference_answer: |-
+    从 SFT 模型初始化的原因：
+
+    - 知识迁移与表示共享：SFT 模型已经将基座模型的通用语言能力精炼为遵循指令、理解回答语义的能力。它的内部表征非常擅长判断文本的连贯性、相关性、事实性等。RM 直接继承这些表征，无需从零学习语言理解，极大地降低了训练难度和数据需求。
+
+    - 特征对齐：SFT 模型和待优化的 Actor 具有相似的“世界观”。如果 RM 从完全不同的分布初始化，它对 Actor 生成的回答的理解可能会有偏差，尤其是在 RL 后期 Actor 探索出新奇的表达时。共享初始化确保了评判者和被评判者有一个相对一致的“语言理解基础”。
+
+    - 节省计算与数据：从头训练一个与 SFT 模型同规模的 RM 需要海量偏好数据，且收敛困难。从 SFT 模型热启动，仅需百万级对比对即可训练出有效的 RM。
+
+    替换为标量输出头的原因：
+
+    - 任务转换：SFT 模型的输出层是语言模型头（LM Head），输出词表大小的 logits。RM 的任务是输出一个标量分数，因此必须移除原始的 LM Head，替换为一个线性层（通常是隐藏维度 → 1），直接输出奖励值 r。
+
+    - 汇聚策略：标量输出通常加在最后一个 token 的隐藏状态上，或者对序列所有 token 的隐藏状态做某种池化（如平均）后再接线性层。最后一个 token（如 EOS）的表示被认为是整个序列的“摘要”，实践中最常用。
+
+    - 为什么不用整个序列平均：因为不同 token 对“好坏”的贡献不同，通常最后几个 token 更能体现整体连贯性，但也有一些变体使用加权注意力池化。
+
+    - 特殊情况：有些实现会保留 LM Head，但训练时固定 RM 的其他参数，仅微调输出层，但这会导致特征表达能力受限，已较少采用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TopFwyc4Si1SxFkkfQlc4kXxnJd
+  block_id: LCubdb59boGglmxq0lVcWtzhnYg
+  page_token: TopFwyc4Si1SxFkkfQlc4kXxnJd
+  original_title: 为什么 RM 通常从 SFT 模型初始化，并替换最后的语言模型头为标量输出头？
+  imported_at: '2026-09-21'

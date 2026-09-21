@@ -1,0 +1,92 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dba99b5b2bff
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何实现推理服务的“金丝雀发布”，逐步将流量切换到新模型版本？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 五：推理部署与高效化
+tags: &1
+- Transfomer精选面试
+- 五：推理部署与高效化
+content:
+  prompt: 如何实现推理服务的“金丝雀发布”，逐步将流量切换到新模型版本？
+answer:
+  mode: rubric
+  reference_answer: |-
+    金丝雀发布的核心是将少量真实流量导入新版本，验证其稳定性和质量后逐步扩大占比，同时可随时回滚。
+
+    步骤详解：
+
+    - 部署新旧两个 Deployment
+
+    - 借助 Service Mesh 或 Ingress 实施流量分割
+
+    apiVersion: networking.istio.io/v1beta1
+    kind: VirtualService
+    metadata:
+      name: llm-inference
+    spec:
+      hosts:
+      - llm-service
+      http:
+      - match:
+        - headers:
+            canary:
+              exact: "true"
+        route:
+        - destination:
+            host: llm-v2
+      - route:
+        - destination:
+            host: llm-v1
+          weight: 95
+        - destination:
+            host: llm-v2
+          weight: 5   # 5% 流量到 v2
+
+    - 同时可配合 header、cookie 等将特定测试用户或内部账号绑定到 v2，进行定向测试。
+
+    - 若无 Service Mesh，可使用 Nginx Ingress 的 canary 注解实现基于权重的分流。
+
+    - 逐步调整权重并观测
+
+    - 处理长连接与流式请求
+
+    - 回滚机制
+
+    补充要点：
+
+    - 模型前置缓存：使用公共前缀缓存（如系统提示）时，v2 需预热自己的缓存，避免初期延迟尖刺。
+
+    - 自动化部署流水线：集成到 CI/CD 中，利用 Argo Rollouts 或 Flagger 实现指标驱动的金丝雀发布自动化（例如，自动检测延迟超过阈值则自动回滚）。
+
+    通过金丝雀发布，可在生产环境中安全地验证模型更新，将风险控制在极小范围。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/L2bpwgVV1iZoZnkrvgac88LjnCc
+  block_id: LNEPdoJiroGZfJxmMVLcUiJJnkb
+  page_token: L2bpwgVV1iZoZnkrvgac88LjnCc
+  original_title: 如何实现推理服务的“金丝雀发布”，逐步将流量切换到新模型版本？
+  imported_at: '2026-09-21'

@@ -1,0 +1,93 @@
+---
+schema_version: 1
+id: feishu-llm-complete-81b574c21ec4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4A1 长期记忆通常会持久化到向量数据库，LangChain 有没有现成的集成方案？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F4A1 长期记忆通常会持久化到向量数据库，LangChain 有没有现成的集成方案？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    有。LangChain 专门提供了 VectorStoreRetrieverMemory，允许将向量数据库作为长期记忆的存储后端。
+
+    实现原理：
+
+    - 它内部持有一个 VectorStoreRetriever。
+
+    - 当需要加载记忆时，它使用当前用户输入作为查询，从向量库中检索最相关的记忆条目（以 Document 形式），然后将这些文档的内容拼接成上下文，注入 Prompt 的指定位置。
+
+    - 当需要保存新的记忆时，它调用 memory.save_context(inputs, outputs)，将新的交互转换为 Document 并存入向量库。
+
+    关键特性：
+
+    - 无需手动定义记忆条目，save_context 会自动将输入和输出拼接为一段文本，存入向量库。
+
+    - 检索是语义相关的，因此即使用户没有精确匹配关键词，也能获取相关的长期记忆。
+
+    - 支持任何 LangChain 兼容的 VectorStore（Chroma, FAISS, Pinecone 等）。
+
+    示例代码：
+
+    ```python
+    from langchain.memory import VectorStoreRetrieverMemory
+    from langchain.vectorstores import Chroma
+    from langchain.embeddings import OpenAIEmbeddings
+
+    # 初始化向量库和检索器
+    vectorstore = Chroma(embedding_function=OpenAIEmbeddings())
+    retriever = vectorstore.as_retriever(search_kwargs=dict(k=5))
+
+    # 创建长期记忆
+    memory = VectorStoreRetrieverMemory(
+        retriever=retriever,
+        memory_key="long_term_memory",    # Prompt 中的占位符名称
+        input_key="input",                # 用于检索的键
+    )
+
+    # 在对话链中使用
+    conversation = ConversationChain(
+        llm=llm,
+        memory=memory,
+        prompt=PromptTemplate.from_template(
+            "以下是与你相关的长期记忆：\n{long_term_memory}\n\n当前对话：\n{input}"
+        )
+    )
+    ```
+
+    第一次对话时，长期记忆为空。随着对话进行，memory.save_context 会自动将对话存入向量库，形成你的“长期记忆库”。之后每次对话，它都会检索出相关的历史信息。
+
+    适用场景：用户画像存储、偏好记忆、跨会话的个性化交互。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H3N3wvSCiibLlPk5ZpjcveFHnNb
+  block_id: UwP4dRnlAoDNamxtnAZcIeLintz
+  page_token: H3N3wvSCiibLlPk5ZpjcveFHnNb
+  original_title: "\U0001F4A1 长期记忆通常会持久化到向量数据库，LangChain 有没有现成的集成方案？"
+  imported_at: '2026-09-21'

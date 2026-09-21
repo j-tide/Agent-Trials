@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8024ddaef0e1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 微调后的模型部署时，推理速度是否会变慢？为何？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 微调后的模型部署时，推理速度是否会变慢？为何？
+answer:
+  mode: rubric
+  reference_answer: |-
+    推理速度通常不会变慢，在绝大多数情况下与基座模型完全一致。 但如果使用了某些特定的微调技术且未进行优化，则可能会引入少量额外延迟。
+
+    具体原因分析如下：
+
+    一、与基座模型速度一致的情况
+
+    - 全参数微调：该方法直接修改了模型的原始权重，模型的参数量、网络层数、矩阵乘法的计算量（FLOPs）均未发生任何改变。推理过程与原始模型完全一样，因此推理速度无任何差异。
+
+    - LoRA（已合并权重）：这是工业界的主流做法。微调后，我们可以将LoRA的旁路矩阵通过重参数化合并回原始权重（即 W_new = W_old + BA）。合并后的模型结构恢复为标准线性层，与原始模型无异，推理速度完全不受影响。
+
+    二、可能引入轻微延迟的情况
+
+    - LoRA（未合并权重）：在某些需要动态切换多个LoRA适配器的场景（如为不同租户提供不同服务）中，LoRA权重保持独立。此时每次前向传播，需要在原始层的输出上额外加上LoRA的增量项。由于LoRA矩阵（B和A）通常非常小，这个额外的矩阵乘计算开销极小（<1%），对整体推理速度的影响微乎其微，几乎可以忽略不计。
+
+    - Adapter方法：与LoRA不同，标准的Adapter模块是串行插入在Transformer Block中的，无法被合并。它们增加了额外的网络层，因此每次推理都必须经过这些额外的计算，会引入轻微但不可消除的延迟（约1%-5%）。不过，Adapter方法目前使用较少，远不如LoRA普及。
+
+    三、特殊情况下推理变慢
+
+    - 量化微调（QLoRA）：QLoRA将基座权重量化到4-bit进行微调。若部署时仍以4-bit方式进行推理（例如在消费级显卡上节省显存），由于4-bit矩阵乘法需要先反量化，计算效率通常低于直接使用FP16/BF16。但这并非微调本身造成的，而是部署时采用量化推理策略的结果。我们完全可以将QLoRA微调的LoRA权重合并到基座权重中，然后将其转换回FP16格式进行部署，就能获得与基座模型相同的推理速度。
+
+    ✅ 结论：微调后的模型推理速度一般不變慢。如果你使用的是全量微调或LoRA（合并权重），速度与基座模型完全一致。若有轻微的延迟，通常来自未合并的LoRA或Adapter，但影响极小。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/W8ymwxsGKimT6Fk1YIOcORI9nLe
+  block_id: VR8XddDymoXGqnxrSnccNpOYne6
+  page_token: W8ymwxsGKimT6Fk1YIOcORI9nLe
+  original_title: 微调后的模型部署时，推理速度是否会变慢？为何？
+  imported_at: '2026-09-21'

@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-eb840863b2e7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练长序列时，如何平衡序列长度与 batch size？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 训练长序列时，如何平衡序列长度与 batch size？
+answer:
+  mode: rubric
+  reference_answer: |-
+    长序列训练面临的核心矛盾是：序列长度增加 → 显存占用指数上升 → 每张GPU能容纳的样本数（micro batch size）下降 → 为达到目标全局批次大小，需要更多梯度累积步数 → 训练效率降低。
+
+    ### 平衡策略
+
+    - 优先级排序：如果下游任务对长距离依赖有刚性需求（如长文档问答、代码理解），则序列长度是首要保证的指标。可以接受micro batch size很小，通过梯度累积和分布式扩展来弥补。
+
+    - 序列打包 (Sequence Packing)：将多个短文本首尾相连打包成一个长序列，通过特殊的注意力掩码防止不同文本间互相干扰。这样既能填满序列长度，又能增加有效batch size，一举两得。
+
+    - 梯度累积与分布式扩展：当micro batch size因为长序列而无法增大时，通过增加梯度累积步数或使用更多GPU（数据并行）来维持目标全局批次大小。但累积步数过多会降低训练速度，需要在计算效率和稳定性间权衡。
+
+    - 显存优化技术：使用梯度检查点 (Gradient Checkpointing) 以时间换空间；使用ZeRO-3或模型并行进一步降低单卡显存占用，从而可以增大micro batch size或序列长度。
+
+    - 动态序列长度：训练前期使用较短序列，让模型快速学习基础模式；中后期再逐步增加序列长度，平滑地适应长程依赖。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Yto8wfa8ti5TgZktU1YczVp7nme
+  block_id: RILJdGNT9oRicfxxGwKcc3W7nFA
+  page_token: Yto8wfa8ti5TgZktU1YczVp7nme
+  original_title: 训练长序列时，如何平衡序列长度与 batch size？
+  imported_at: '2026-09-21'

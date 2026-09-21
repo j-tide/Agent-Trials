@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c7ef810ae0cf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⏪ 你如何实现一个“记忆回滚”功能？即回到某个历史状态。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "⏪ 你如何实现一个“记忆回滚”功能？即回到某个历史状态。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    记忆回滚功能在某些场景下很有用，比如用户想撤销最后一次交互，或者回到对话的某个分支点。
+
+    实现思路：
+
+    - 维护消息列表的版本历史：在 ChatMessageHistory 中，保存每一次对话轮次后的消息列表快照。可以使用数据库的事务日志或单独的版本表。
+
+    - 提供回滚接口：根据时间戳或轮次 ID，将当前对话的消息列表替换为历史快照。
+
+    基于 PostgresChatMessageHistory 的回滚方案：
+    你可以扩展 PostgresChatMessageHistory，增加 rollback_to 方法。
+
+    - 在 chat_history 表中增加 turn_id 字段，表示对话轮次。
+
+    - 保存上下文时，同时记录轮次。
+
+    - 回滚时，执行 DELETE FROM chat_history WHERE session_id = ? AND turn_id > ?，删除指定轮次之后的所有消息。
+
+    基于 Redis 的回滚方案：
+    Redis 的 List 不支持直接按索引删除，但你可以：
+
+    - 存储每个轮次的消息在独立的 List 中，例如 chat:session:xxx:turn:1, turn:2。
+
+    - 主历史记录是一个指向当前轮次的引用。
+
+    - 回滚时，将引用指针回拨，并丢弃后面的轮次数据。
+
+    示例代码（概念）：
+
+    ```python
+    class RollbackableHistory(PostgresChatMessageHistory):
+        def rollback_to_turn(self, turn_id):
+            # 执行删除操作
+            with self.engine.connect() as conn:
+                conn.execute(
+                    f"DELETE FROM {self.table_name} WHERE session_id = %s AND turn_id > %s",
+                    (self.session_id, turn_id)
+                )
+            # 清除缓存（如果有）
+    ```
+
+    用户体验设计：
+
+    - 通常与“编辑消息”或“重试”功能结合。在聊天界面，用户点击“撤销”后，前端显示回滚前的对话状态，后端同步清理记忆。
+
+    注意：回滚可能会破坏记忆中的摘要（如果使用了摘要记忆），需要重新生成摘要。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Dajiw8ewCiTjamklohBcMVI0nre
+  block_id: YFSQdFweToEYmIxoiNfcSe3OnHb
+  page_token: Dajiw8ewCiTjamklohBcMVI0nre
+  original_title: "⏪ 你如何实现一个“记忆回滚”功能？即回到某个历史状态。"
+  imported_at: '2026-09-21'

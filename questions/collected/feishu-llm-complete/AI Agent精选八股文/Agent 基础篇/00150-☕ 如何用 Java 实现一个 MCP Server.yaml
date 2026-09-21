@@ -1,0 +1,148 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1d12d23a5357
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "☕ 如何用 Java 实现一个 MCP Server？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "☕ 如何用 Java 实现一个 MCP Server？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    我们基于 Spring Boot 和 Spring AI 的 MCP 支持，来实现一个可以提供“文件读取”和“系统信息”两个工具的 MCP Server。采用 WebFlux + SSE 传输模式，实现异步、流式通信。
+
+    步骤一：创建 Spring Boot 项目，引入依赖
+
+    <dependency>
+        <groupId>org.springframework.ai</groupId>
+        <artifactId>spring-ai-starter-mcp-server-webflux</artifactId>
+        <version>1.0.0-M5</version>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-webflux</artifactId>
+    </dependency>
+
+    步骤二：配置 application.yml
+
+    spring:
+      ai:
+        mcp:
+          server:
+            name: "Utility MCP Server"
+            version: "1.0.0"
+            type: "SYNC" # 或 ASYNC
+            tools:
+              - name: read_file
+                description: "读取本地文件内容"
+              - name: system_info
+                description: "获取当前系统信息"
+    server:
+      port: 8081
+
+    步骤三：实现工具服务
+
+    import org.springframework.ai.mcp.server.McpServer;
+    import org.springframework.ai.mcp.server.McpServerProperties;
+    import org.springframework.ai.mcp.server.annotation.McpTool;
+    import org.springframework.stereotype.Component;
+    import com.fasterxml.jackson.databind.ObjectMapper;
+    import java.io.IOException;
+    import java.nio.file.Files;
+    import java.nio.file.Path;
+    import java.util.Map;
+
+    @Component
+    public class UtilityTools {
+
+        private final ObjectMapper objectMapper = new ObjectMapper();
+
+        @McpTool(name = "read_file", description = "读取指定路径的文本文件内容")
+        public String readFile(String path) throws IOException {
+            // 安全加固：只允许读取 /tmp 或特定沙箱目录
+            Path filePath = Path.of(path).toAbsolutePath().normalize();
+            if (!filePath.startsWith("/tmp/") && !filePath.startsWith("./data/")) {
+                throw new SecurityException("不允许读取该路径: " + filePath);
+            }
+            return Files.readString(filePath);
+        }
+
+        @McpTool(name = "system_info", description = "获取当前服务器的操作系统、CPU和内存信息")
+        public String systemInfo() throws IOException {
+            Runtime rt = Runtime.getRuntime();
+            Map<String, String> info = Map.of(
+                "os.name", System.getProperty("os.name"),
+                "os.arch", System.getProperty("os.arch"),
+                "availableProcessors", String.valueOf(rt.availableProcessors()),
+                "freeMemory", rt.freeMemory() / (1024*1024) + " MB",
+                "totalMemory", rt.totalMemory() / (1024*1024) + " MB"
+            );
+            return objectMapper.writeValueAsString(info);
+        }
+    }
+
+    步骤四：启动 Server
+    MCP Server 会自动扫描 @McpTool 注解，生成工具列表并向连接上来的 Client 暴露。启动类无需特殊配置。
+
+    @SpringBootApplication
+    public class McpServerApplication {
+        public static void main(String[] args) {
+            SpringApplication.run(McpServerApplication.class, args);
+        }
+    }
+
+    步骤五：与 Client 交互验证
+
+    启动 Server 后，可用 MCP 官方调试工具或一个简单的 Client 来测试。
+
+    // Client 端调用示例（伪代码）
+    McpClient client = McpClient.using("http://localhost:8081").sync();
+    List<Tool> tools = client.listTools(); // 自动发现 read_file, system_info
+    System.out.println(tools);
+
+    // LLM 决策后，Client 执行工具调用
+    String result = client.callTool("system_info", Map.of());
+    System.out.println(result); // 输出 CPU、内存等 JSON
+
+    关键设计考量：
+
+    - 传输方式：示例选择了 WebFlux（SSE），适合需要流式更新（如长任务进度）的场景。如果是简单的请求-响应，可以用 spring-ai-starter-mcp-server-webmvc。
+
+    - 安全加固：文件读取工具中加入了路径白名单，避免路径遍历攻击。生产环境还需要进一步集成用户认证。
+
+    - 工具发现：所有加了 @McpTool 的方法都会自动注册，无需额外配置，符合 MCP 的“动态发现”哲学。
+
+    收尾：
+
+    用 Java 实现 MCP Server 的核心，是让工具逻辑干净地聚焦在业务上，而注册、发现、传输、校验都由框架和协议兜底。你写的每一行代码，都不再是给某个应用打的专属补丁，而是在构建一块可以被任何 AI 复用的乐高积木。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Na85wIeNuichcjklD4LcUQ6Gn2c
+  block_id: doxcngHOwyzZVNBfIRLUaRVx5og
+  page_token: Na85wIeNuichcjklD4LcUQ6Gn2c
+  original_title: "☕ 如何用 Java 实现一个 MCP Server？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d9189bb2d818
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Agent 系统的 CI/CD Pipeline 设计
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 评测篇
+tags: &1
+- AI Agent精选八股文
+- Agent 评测篇
+content:
+  prompt: Agent 系统的 CI/CD Pipeline 设计
+answer:
+  mode: rubric
+  reference_answer: "⚙️ Agent 系统的 CI/CD 与传统微服务最大的不同在于：资产不仅是代码，还有 Prompt 模板、工具定义、知识库版本，而且“正确性”不再是一个确定性的布尔值。
+    这意味着我们需要把 Prompt 当“代码”来测试，把非确定性纳入评估容忍度。\n\n### \U0001F6A7 与传统 CI/CD 的核心差异\n\n[嵌入表格未展开]\n\n###
+    \U0001F504 我的 Pipeline 设计\n\nCI 阶段：多维评估门禁\n\n每次 MR（合并请求）触发以下检查流水线：\n\n- 单元测试 &
+    Lint：验证 Tool 的实现、记忆模块、工具选择逻辑。\n\n- Prompt 评估：使用预先标注的“黄金数据集”（200+条典型请求），对 Agent
+    输出进行自动化评判。这里我们用 LLM-as-Judge（如 GPT-4）打分，计算 pass@1 和语义相似度，设置阈值。\n\n- 端到端 Agent
+    模拟：在沙箱环境中，让 Agent 完成 10 个完整任务（例如“帮我预订一张明天去上海的机票”），验证任务成功率。结果写入 metrics 报告。\n\n-
+    安全扫描：针对 Prompt 注入、工具滥用等做模糊测试，确保没有明显漏洞。\n\n示例 .gitlab-ci.yml 片段：\n\nagent_eval:\n
+    \ stage: test\n  image: my-agent-eval:latest\n  script:\n    - python run_evaluation.py
+    --dataset eval_datasets/v2.jsonl --threshold 0.85\n  artifacts:\n    paths:\n
+    \     - eval_report.html\n    when: always\n  rules:\n    - if: $CI_PIPELINE_SOURCE
+    == \"merge_request_event\"\n\nsafety_scan:\n  stage: test\n  script:\n    - python
+    run_adversarial_tests.py --max-cases 100\n  allow_failure: false\n\nCD 阶段：金丝雀发布
+    + 多维监控\n\n通过评估后，执行渐进式部署：\n\n- 使用配置中心动态切换 Prompt 版本和模型路由规则，不依赖重新构建镜像。\n\n- 先向 5%
+    流量推送新版本 Agent（包括新 Prompt 和可能的代码变动）。\n\n- 实时对比金丝雀与基线指标：任务成功率、平均延迟、API 成本、用户负反馈率。\n\n-
+    若金丝雀指标在 30 分钟内持续优于基线，自动扩大流量直至 100%；若发生劣化，自动回滚到旧 Prompt 版本和模型绑定。\n\n### \U0001F527
+    回滚策略的特殊性\n\nAgent 的回滚必须做到资产同步。我们的做法是将 Prompt 文件和工具配置都纳入 Git 版本管理，打同一个 release
+    tag。部署时通过 Helm chart 指定 appVersion，Helm 会统一拉取对应版本的 ConfigMap 和镜像。紧急回滚只需执行：\n\nhelm
+    rollback agent-release 2\n\n即可回到上一版本的全部资产快照。\n\n✅ 有了这套 CI/CD，我们 Agent 的迭代周期从“手动测半天、颤颤巍巍上线”变成“提交
+    MR → 30 分钟自动评估 → 金丝雀放量 → 全量发布”，PM 改一句 prompt 也能经过严格验证，再也没出现过“一行 prompt 改崩全局”的惨案。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EBEUwm9Tbio9C5kSaXBcx6DHn2b
+  block_id: doxcnHwJ75iON7Ewg7MRugzv0wb
+  page_token: EBEUwm9Tbio9C5kSaXBcx6DHn2b
+  original_title: Agent 系统的 CI/CD Pipeline 设计
+  imported_at: '2026-09-21'

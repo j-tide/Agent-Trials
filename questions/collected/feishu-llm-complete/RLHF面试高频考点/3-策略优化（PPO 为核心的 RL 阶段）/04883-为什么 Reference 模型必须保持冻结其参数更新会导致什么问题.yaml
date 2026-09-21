@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a2a3159b0554
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么 Reference 模型必须保持冻结？其参数更新会导致什么问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: 为什么 Reference 模型必须保持冻结？其参数更新会导致什么问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Reference 模型必须保持冻结，其核心作用是提供一个固定不变的参考分布锚点。如果它参与更新，RLHF 的训练框架将彻底崩塌。
+
+    Reference 模型的角色：
+
+    [图片内容未导入]
+
+    它充当了一个行为正则器，防止 Actor 为了追求奖励模型的虚高分数而生成怪异的、不符合语法的文本。
+
+    如果 Reference 模型参数更新会怎样？
+
+    - 移动靶问题：KL 惩罚原本是为了将 Actor “拴”在一个固定的、安全的语言分布上。如果 Reference 也在变，Actor 试图靠近一个不断移动的目标，这就变成了“追着自己尾巴咬”的困境。Actor 可能漂移，Reference 也跟着漂移，两者之间的 KL 散度即使很小，整体语言能力却已经共同退化到了一个离原始 SFT 分布很远的荒原。
+
+    - 自我强化的奖励黑客：更危险的是，Reference 模型可能会被 Actor “带坏”。如果 Actor 发现了一种奖励黑客的捷径（例如不断重复一个高分单词），并生成了大量这样的畸形文本，这些文本如果被用来更新 Reference 模型，Reference 也会逐渐认为这种畸形模式是“正常”的。这样一来，KL 惩罚就完全失效了，因为 Actor 做那些畸形动作时，Reference 也会认为这是高概率的，KL 散度将保持很低，RLHF 彻底失去语言质量的约束。
+
+    - 优化目标的矛盾：Reference 模型本身没有明确的优化目标。如果它的更新只是单纯地跟随 Actor，则相当于弱化了正则化；如果给它一个相反的目标（例如想让它保持原始分布），则又需要引入另一个复杂的对抗训练过程。因此，冻结 Reference 是最简洁且数学上最干净的方案。
+
+    结论：冻结 Reference 模型确保了 KL 散度始终以最初那个可靠、流畅的 SFT 策略为基准，为整个 RL 优化提供了一个稳固的“地面参考系”。它的稳定性是 RLHF 不崩溃的最后一道防线。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UCjewCVubi1tThkQzKzczCP2nyc
+  block_id: RuoFdsLF1o7YJyxTO4HcQwjonTb
+  page_token: UCjewCVubi1tThkQzKzczCP2nyc
+  original_title: 为什么 Reference 模型必须保持冻结？其参数更新会导致什么问题？
+  imported_at: '2026-09-21'

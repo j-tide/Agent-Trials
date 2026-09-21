@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-473cb696ece0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 工具调用完成后需要异步通知多个下游系统，如何用 Spring 事件解耦？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 工具调用完成后需要异步通知多个下游系统，如何用 Spring 事件解耦？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（异步事件、多监听器、事务传播、异常隔离）\n\n1️⃣ Common Answer\n\n可以定义一个
+    ToolCallCompletedEvent，然后发布这个事件。下游系统监听这个事件，用 @Async 异步执行。这样 Agent 调用不会被阻塞。\n\n2️⃣
+    Impressive Answer\n\n- 场景分析：\n\n- 实现方案： 步骤 1：定义事件\n\npublic class ToolCallCompletedEvent
+    extends ApplicationEvent {\n    private final String toolName;\n    private final
+    Object result;\n    private final long duration;\n        \n    public ToolCallCompletedEvent(Object
+    source, String toolName, Object result, long duration) {\n        super(source);\n
+    \       this.toolName = toolName;\n        this.result = result;\n        this.duration
+    = duration;\n    }\n        \n    // getters...\n}\n\n**步骤 2：发布事件（在 Agent 调用完成后）**\n\n@Service\npublic
+    class AgentService {\n    @Autowired\n    private ApplicationEventPublisher eventPublisher;\n
+    \       \n    @Async\n    public CompletableFuture<Object> callTool(String toolName,
+    Map<String, Object> params) {\n        long start = System.currentTimeMillis();\n
+    \       Object result = toolExecutor.execute(toolName, params);\n        long
+    duration = System.currentTimeMillis() - start;\n            \n        // 发布事件（异步发布，不阻塞当前线程）\n
+    \       eventPublisher.publishEvent(new ToolCallCompletedEvent(this, toolName,
+    result, duration));\n            \n        return CompletableFuture.completedFuture(result);\n
+    \   }\n}\n\n**步骤 3：多个监听器异步处理**\n\n@Component\npublic class MonitoringListener
+    {\n    @Async(\"agentEventExecutor\")  // 指定线程池\n    @EventListener\n    public
+    void recordMetrics(ToolCallCompletedEvent event) {\n        metricsService.recordToolCall(event.getToolName(),
+    event.getDuration());\n    }\n}\n    \n@Component\npublic class AuditListener
+    {\n    @Async(\"agentEventExecutor\")\n    @EventListener\n    public void auditToolCall(ToolCallCompletedEvent
+    event) {\n        auditService.logToolCall(event.getToolName(), event.getResult());\n
+    \   }\n}\n    \n@Component\npublic class LogListener {\n    @Async(\"agentEventExecutor\")\n
+    \   @EventListener\n    public void logToolCall(ToolCallCompletedEvent event)
+    {\n        log.info(\"Tool {} called, duration: {}ms\", event.getToolName(), event.getDuration());\n
+    \   }\n}\n\n**步骤 4：配置线程池**\n\n@Configuration\npublic class AsyncConfig {\n    @Bean(\"agentEventExecutor\")\n
+    \   public Executor agentEventExecutor() {\n        ThreadPoolTaskExecutor executor
+    = new ThreadPoolTaskExecutor();\n        executor.setCorePoolSize(5);\n        executor.setMaxPoolSize(10);\n
+    \       executor.setQueueCapacity(100);\n        executor.setThreadNamePrefix(\"agent-event-\");\n
+    \       executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());\n
+    \       executor.initialize();\n        return executor;\n    }\n}\n\n- 关键设计点：\n\n-
+    实践注意：\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcnebj4UERjk7lqwtqDcChLvg
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 3、场景题：Agent 工具调用完成后需要异步通知多个下游系统，如何用 Spring 事件解耦？
+  imported_at: '2026-09-21'

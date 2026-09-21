@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-53c18abc4080
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F916 5. LangChain 中的 Agent 是如何实现 ReAct 模式的？执行循环的终止条件是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F916 5. LangChain 中的 Agent 是如何实现 ReAct 模式的？执行循环的终止条件是什么？"
+answer:
+  mode: rubric
+  reference_answer: "5.1 ReAct 模式的内核\n\nReAct = Reasoning + Acting。Agent 在一个循环中交替进行“思考”和“行动”：\n\ntext\n\n用户输入
+    → Agent 思考 → 决定调用工具 → 执行工具 → 观察结果 → 再思考 → ... → 最终回答\n\nLangChain 中的实现核心是 AgentExecutor
+    和一个迭代循环。\n\n它在背后做了几件事：\n\n- 组装 Prompt：把 System Prompt（含工具描述、ReAct 格式要求）、历史对话、用户输入一起塞给
+    LLM。\n\n- 解析 LLM 输出：从 LLM 的回复中提取出 “Action” 和 “Action Input”（要调用的工具和参数）。\n\n- 执行工具：根据解析结果，找到对应的
+    Tool 并调用它，拿到 Observation。\n\n- 追加 Observation：把工具执行的结果作为一条新的消息追加到对话历史中。\n\n- 循环：把更新后的对话历史再次发给
+    LLM，重复步骤 2-4，直到 LLM 输出的是 “Final Answer” 而不是 Action。\n\n用代码拆解这个过程（简化版 AgentExecutor
+    内核）：\n\n```python\nfrom langchain.agents import load_tools, initialize_agent,
+    AgentType\nfrom langchain_openai import ChatOpenAI\n\nllm = ChatOpenAI(model=\"gpt-4o\",
+    temperature=0)\ntools = load_tools([\"serpapi\", \"llm-math\"], llm=llm)\nagent
+    = initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=True)\nagent.invoke({\"input\":
+    \"马斯克今年多少岁？他的年龄的平方根是多少？\"})\n```\n\n当你调用 agent.invoke 时，内部发生的事情：\n\n```python\n#
+    伪代码：AgentExecutor 循环的内部逻辑\ndef agent_execute(user_input):\n    messages = [system_prompt_with_tools,
+    user_input]\n    for step in range(max_iterations):\n        response = llm.invoke(messages)
+    \ # 1. LLM 思考\n        \n        if \"Final Answer\" in response:   # 2. 检查终止条件\n
+    \           return extract_final_answer(response)\n        \n        action, action_input
+    = parse_action(response)  # 3. 解析 Action\n        observation = execute_tool(action,
+    action_input)  # 4. 执行工具\n        \n        messages.append({\"role\": \"assistant\",
+    \"content\": response})\n        messages.append({\"role\": \"user\", \"content\":
+    f\"Observation: {observation}\"})\n    raise Exception(\"Agent 超过最大迭代次数仍未完成\")\n```\n\n5.2
+    执行循环的终止条件\n\nAgent 循环有两个终止条件，任何一个满足即停止：\n\n① LLM 自主输出 Final Answer\n当 LLM 认为“我已经收集了足够的信息，可以回答用户了”，它会在回复中包含
+    Final Answer: 标记。LangChain 的解析器检测到这个标记后，提取后面的内容作为最终回复。\n\n```latex\nThought: 我知道马斯克年龄了，计算器可以算平方根。\nAction:
+    Calculator\nAction Input: 52^(1/2)\nObservation: 7.211...\nThought: 现在我可以给出最终答案了。\nFinal
+    Answer: 马斯克今年52岁，52的平方根约为7.21。\n```\n\n② 达到最大迭代次数（Max Iterations）\n你可以在 initialize_agent
+    时通过 max_iterations 参数设置上限（默认通常为 15）。如果 Agent 在这么多轮循环后还没输出 Final Answer，AgentExecutor
+    会抛出一个异常或强制返回最后一条 LLM 输出，防止无限循环消耗 Token。\n\n```python\nagent = initialize_agent(tools,
+    llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, \n                         max_iterations=5,
+    \ # 限制最大轮次\n                         early_stopping_method=\"force\")  # 超时后强制返回最后一条消息\n```\n\n③
+    额外的安全阀（可选）\n\n- 早停策略：early_stopping_method=\"generate\" 会在达到最大迭代次数时，把当前所有信息再喂给
+    LLM 一次，要求它强制给出 Final Answer。\n\n- 超时控制：可以用 asyncio.timeout 或类似机制给整个 invoke 调用加一个硬时间上限，防止任务挂起。\n\n-
+    工具异常处理：如果工具执行抛出异常，LangChain 会把异常信息作为 Observation 返回给 LLM，让 LLM 决定是否重试、换工具或提前结束。通常连续多次工具失败，LLM
+    会倾向于给出一个带有歉意和说明的 Final Answer。\n\n总结 ReAct 循环：\n\n它是 “试错-学习-再试”的自动化。LLM 是决策者，工具是执行者，Observation
+    是反馈信号。终止条件确保了流程不会永远卡住——要么 LLM 自己说“做完了”，要么系统强制叫停。这种设计让 Agent 在开放世界里既能自主探索，又不至于失控。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SuxqwVBLli4q94kJFBAcOLkFnZc
+  block_id: doxcnJElWYDnmh8jdZ77DSIz4of
+  page_token: SuxqwVBLli4q94kJFBAcOLkFnZc
+  original_title: "\U0001F916 5. LangChain 中的 Agent 是如何实现 ReAct 模式的？执行循环的终止条件是什么？"
+  imported_at: '2026-09-21'

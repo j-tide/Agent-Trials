@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-12aa75e26032
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何估算给定模型和硬件下支持的最大 batch size？写出推演过程。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: 如何估算给定模型和硬件下支持的最大 batch size？写出推演过程。
+answer:
+  mode: rubric
+  reference_answer: |-
+    估算最大 batch size 本质上是一个“显存预算分配”问题。你手上有一笔固定资金（总显存），需要扣除“房租”（模型权重）和“生活费”（激活值等固定开销）后，剩下的钱才能用来“雇佣”更多工人（并发请求），每个工人需要一笔“安置费”（单个请求的 KV Cache）。
+
+    推演过程：
+
+    第一步：明确总预算 M_total
+    假设我们有一张 80 GB 的 A100 显卡。
+
+    第二步：扣除“固定开销” M_fixed
+
+    - 模型权重 M_weight：参数量 × 精度字节数。例如，13B 模型，FP16 精度，13 × 10^9 × 2 = 26 GB。
+
+    - 激活值、框架开销等 M_overhead：这部分用于存储中间计算结果和框架运行所需空间，根据经验通常预留 2~4 GB。我们取 4 GB。
+
+    - 固定开销 M_fixed = 26 + 4 = 30 GB。
+
+    第三步：计算可用于 KV Cache 的“剩余预算” M_kv_budget
+    M_kv_budget = M_total - M_fixed = 80 - 30 = 50 GB。
+
+    第四步：计算单个请求在给定序列长度下所需的“KV Cache 单价” M_kv_per_seq
+    这里需要模型架构参数。假设该 13B 模型采用标准 MHA，层数 L=40，模型宽度 D=5120，精度 FP16，我们要支持最大序列长度 S=2048。
+
+    - 单个 token 在每层的 KV Cache 大小：2 × 1 × 1 × 5120 × 2 = 20,480 bytes = 20 KB。
+
+    - 整个序列在每层的 KV Cache 大小：2048 × 20,480 bytes = 41,943,040 bytes ≈ 40 MB。
+
+    - 整个模型（所有层）在单个请求的 KV Cache 总大小：
+    M_kv_per_seq = 40 × 40 MB = 1600 MB ≈ 1.6 GB。
+
+    第五步：估算最大并发数 B_max
+    B_max = floor( M_kv_budget / M_kv_per_seq ) = floor( 50 GB / 1.6 GB ) ≈ 31。
+
+    实际限制：上述计算是静态的。在 Prefill 阶段，由于需要一次性处理整个 Prompt，其激活值峰值会非常高，可能成为比 KV Cache 更紧迫的显存瓶颈。因此，实际部署时往往需要通过 vLLM 这类框架进行动态显存管理（PagedAttention），才能接近理论估算的并发上限。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C0pNwQLAmiNN2tkVnWGccLYLns0
+  block_id: UrbydCkubokgibxRN4AczvqNnmd
+  page_token: C0pNwQLAmiNN2tkVnWGccLYLns0
+  original_title: 如何估算给定模型和硬件下支持的最大 batch size？写出推演过程。
+  imported_at: '2026-09-21'

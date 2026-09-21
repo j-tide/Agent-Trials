@@ -1,0 +1,176 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2b5d57d48539
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BC 3. 客服 Agent 流程设计：用 FSM 还是 LangGraph 条件边？怎么设计？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F4BC 3. 客服 Agent 流程设计：用 FSM 还是 LangGraph 条件边？怎么设计？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    针对“问题分类 → 查知识库 → 生成回答 → 质量审核”这个流程，答案很明确：
+
+    选 LangGraph 条件边，而不是纯 FSM。
+
+    理由：
+
+    纯 FSM 虽然能跑通这个简单流程，但客服场景真正的挑战在于处理异常和边缘情况：
+
+    - 如果知识库没查到，你让 Agent 是直接转人工，还是尝试换个关键词再查一次？
+
+    - 如果质量审核打回，Agent 是盲目重写，还是先分析一下为什么没过，再针对性地补充信息？
+
+    - 如果用户在中间插了一句话，比如“等等，我不是这个意思”，Agent 必须能够中断当前路径，回到“理解”状态。
+
+    这些都需要运行时动态决策，而不是预先写死的跳转。LangGraph 的条件边正好为此而生。
+
+    设计蓝图：
+
+    ┌─────────┐
+              │ 问题分类  │ ← 起点
+              └────┬─────┘
+                   │
+                   ▼
+              ┌─────────┐     未找到
+              │ 查知识库  │────────────┐
+              └────┬─────┘            │
+                   │ 找到             │
+                   ▼                  ▼
+              ┌─────────┐      ┌─────────────┐
+              │ 生成回答  │      │ 建议追问或转人工 │
+              └────┬─────┘      └─────────────┘
+                   │
+                   ▼
+              ┌─────────┐
+              │ 质量审核  │
+              └──┬───┬──┘
+           通过 │   │ 不通过 (且重试次数<2)
+                │   └──────────┐
+                ▼              ▼
+            ┌──────┐    ┌──────────────┐
+            │ 发送  │    │ 分析原因并补充 │ (调用重写)
+            └──────┘    └──────┬───────┘
+                               │
+                               └──→ 回到“生成回答”
+
+    LangGraph 实现核心逻辑：
+
+    from langgraph.graph import StateGraph, END
+    from typing import TypedDict, Optional
+
+    # 1. 定义状态
+    class AgentState(TypedDict):
+        user_query: str
+        category: Optional[str]
+        knowledge: Optional[str]
+        draft_answer: Optional[str]
+        final_answer: Optional[str]
+        retry_count: int
+        audit_feedback: Optional[str]
+
+    # 2. 定义节点
+    def classify(state: AgentState) -> AgentState:
+        # 用 LLM 分类，比如“产品咨询”、“售后”、“投诉”
+        state["category"] = llm_classify(state["user_query"])
+        return state
+
+    def retrieve(state: AgentState) -> AgentState:
+        docs = vector_search(state["user_query"], state["category"])
+        state["knowledge"] = "\n".join(docs) if docs else None
+        return state
+
+    def generate(state: AgentState) -> AgentState:
+        prompt = f"根据知识：{state['knowledge']}\n回答问题：{state['user_query']}"
+        if state.get("audit_feedback"):
+            prompt = f"上次回答被驳回，原因：{state['audit_feedback']}\n请修正：{prompt}"
+        state["draft_answer"] = llm(prompt)
+        state["retry_count"] += 1
+        return state
+
+    def audit(state: AgentState) -> AgentState:
+        # 模拟审核，返回结论
+        feedback = llm(f"审核回答是否友好、准确：{state['draft_answer']}")
+        if "通过" in feedback:
+            state["final_answer"] = state["draft_answer"]
+        else:
+            state["audit_feedback"] = feedback
+        return state
+
+    # 3. 定义条件边（用LLM做动态决策）
+    def decide_after_retrieve(state: AgentState) -> str:
+        if state["knowledge"]:
+            return "generate"
+        # 让 LLM 判断是否值得再搜一次
+        decision = llm(f"知识库无结果。是否建议追问或转人工？用户问题：{state['user_query']}")
+        return "escalate" if "转人工" in decision else "re_retrieve"  # re_retrieve可以指向一个改写query的节点
+
+    def decide_after_audit(state: AgentState) -> str:
+        if state["final_answer"]:
+            return "send"
+        if state["retry_count"] >= 2:
+            return "escalate"  # 重试太多，转人工
+        return "generate"
+
+    # 4. 构建图
+    graph = StateGraph(AgentState)
+    graph.add_node("classify", classify)
+    graph.add_node("retrieve", retrieve)
+    graph.add_node("generate", generate)
+    graph.add_node("audit", audit)
+
+    graph.set_entry_point("classify")
+    graph.add_edge("classify", "retrieve")
+    graph.add_conditional_edges("retrieve", decide_after_retrieve, {
+        "generate": "generate",
+        "escalate": END  # 转人工也视为结束
+    })
+    graph.add_edge("generate", "audit")
+    graph.add_conditional_edges("audit", decide_after_audit, {
+        "send": END,
+        "generate": "generate",
+        "escalate": END
+    })
+
+    app = graph.compile()
+
+    关键设计抉择：何处使用 LLM 决策？
+
+    在这个客服场景，我把LLM决策用在两个地方：
+
+    - 知识库无结果时：不是写死“转人工”，而是让 LLM 权衡后，决定是改一下搜索词再试，还是真的该求助人类。这在维持低转人工率的同时，给了系统一定的自愈能力。
+
+    - 审核不通过时：不是无脑重试，而是把审核的具体批评反馈给生成节点，让修正有的放矢。并且设置了重试上限，防止陷入无限循环。
+
+    而对于“分类 -> 检索”这类确定性路径，就用普通边，没必要浪费LLM调用成本。这种“固定主干 + 条件分支”的混合设计，既保留了流程的骨感，又给了Agent面对意外时的柔软度。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcnQSa0F05DskQCmAMAwMWq7b
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: "\U0001F4BC 3. 客服 Agent 流程设计：用 FSM 还是 LangGraph 条件边？怎么设计？"
+  imported_at: '2026-09-21'

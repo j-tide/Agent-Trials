@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a1ed10af02fe
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F512 如何对用户的输入进行脱敏？有什么推荐的工具或正则？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F512 如何对用户的输入进行脱敏？有什么推荐的工具或正则？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    用户输入可能包含姓名、电话、身份证号、银行卡号等个人隐私。在送入 LLM 之前脱敏，既保护隐私，也减少合规风险。
+
+    工具与库：
+
+    - Microsoft Presidio：功能强大的开源 PII 脱敏工具，支持多种实体识别和自定义。可以配置为匿名化或假名化。
+
+    - spaCy + 自定义 NER：轻量级方案，结合正则表达式，对特定格式（如电话、邮箱）精准匹配。
+
+    - 正则表达式：作为保底方案，定义常见 PII 的正则，快速替换。
+
+    在 LangChain 中集成：创建一个 RunnableLambda 前置处理用户输入。
+
+    ```python
+    from presidio_analyzer import AnalyzerEngine
+    from presidio_anonymizer import AnonymizerEngine
+
+    analyzer = AnalyzerEngine()
+    anonymizer = AnonymizerEngine()
+
+    def anonymize_input(input: dict) -> dict:
+        text = input["question"]
+        results = analyzer.analyze(text=text, language="en")
+        anonymized = anonymizer.anonymize(text=text, analyzer_results=results)
+        input["question"] = anonymized.text
+        return input
+
+    chain = RunnableLambda(anonymize_input) | prompt | llm
+    ```
+
+    注意：脱敏后的文本可能改变语义，影响 LLM 理解。因此要评估效果，并在必要时提供“脱敏映射”以便后续还原。生产环境中，通常将脱敏后的数据发送给 LLM，原始数据只保留在本地日志中（同样脱敏存储）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XoyiwSgvhi0b6ckB3czcJzTAnIe
+  block_id: Q24cdvWFQoPk4AxkAD6cvJCUnbc
+  page_token: XoyiwSgvhi0b6ckB3czcJzTAnIe
+  original_title: "\U0001F512 如何对用户的输入进行脱敏？有什么推荐的工具或正则？"
+  imported_at: '2026-09-21'

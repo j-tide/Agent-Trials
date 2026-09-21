@@ -1,0 +1,46 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d501ca750c1a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DC 在分布式 PPO 中，如何保证采样时使用的 Actor 参数和更新时的参数版本一致性？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "\U0001F4DC 在分布式 PPO 中，如何保证采样时使用的 Actor 参数和更新时的参数版本一致性？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F510 核心矛盾\n\nPPO 是 on-policy 算法，要求用于梯度更新的经验数据必须由当前（或非常近似的）策略产生。若更新时使用的数据来自过时的
+    Actor，将引入严重的 off-policy 偏差，训练可能崩溃。\n\n\U0001F6E1️ 保证一致性的机制\n\n- 版本标签：每个采样批次的数据都附带一个全局唯一的版本号（或
+    Actor 权重哈希），记录生成该数据时的策略。\n\n- 入队检查：当经验数据进入训练队列时，训练器首先检查其版本号。如果版本与当前 Trainer 持有的
+    Actor 版本一致，则接受；否则直接丢弃该批次数据。\n\n- 同步屏障：在每轮 PPO 更新开始前，训练集群和推理集群之间设立一个全局屏障。推理集群必须全部停止采样，并确认所有正在生产的数据都基于新权重。然后训练集群开始消费数据，期间推理集群不能开始下一轮采样（或只能使用新权重采样到新的缓冲区页）。\n\n-
+    双缓冲机制：维护两个经验缓冲区（或缓冲区页），一个用于当前版本数据的填充，一个用于上一版本数据的训练。更新后交换角色，实现无缝衔接。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TWMuwtjygiXKQYkjGELcArHan1b
+  block_id: Oquidy2ApoRcfNxb77oczu5unWk
+  page_token: TWMuwtjygiXKQYkjGELcArHan1b
+  original_title: "\U0001F4DC 在分布式 PPO 中，如何保证采样时使用的 Actor 参数和更新时的参数版本一致性？"
+  imported_at: '2026-09-21'

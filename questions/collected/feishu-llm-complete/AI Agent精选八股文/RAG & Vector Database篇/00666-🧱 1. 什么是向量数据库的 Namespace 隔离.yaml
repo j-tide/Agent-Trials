@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-610361c08395
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9F1 1. 什么是向量数据库的 Namespace 隔离？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "\U0001F9F1 1. 什么是向量数据库的 Namespace 隔离？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在向量数据库中，Namespace（命名空间）就像数据库里的 Schema 或文件夹——它在同一个 Collection（类似表）内部，将数据在逻辑上划分成多个相互独立的“隔间”。每个隔间里的向量只能被搜索该隔间的查询看到，不同 Namespace 之间互不干扰。
+
+    [图片内容未导入]
+
+    查询时的行为：你必须在查询请求中显式指定 namespace，如果不指定，有些向量库会返回错误，有些会查全部。指定 namespace="tenant_A" 后，检索就只会在这个隔离区里进行，绝不会跑到隔壁去。
+
+    它的核心价值：
+
+    - 逻辑隔离：同一个 Collection，一套索引结构，但数据检索互不穿透。
+
+    - 成本低：不需要为每个租户单独建 Collection（每个 Collection 都有独立的索引、内存和管理开销）。
+
+    - 管理简单：批量操作（如备份、删除）可以按 Namespace 执行。
+
+    示例代码（以 Chroma 为例，也适用于 Milvus 的 partition key 等类似概念）：
+
+    ```python
+    import chromadb
+
+    client = chromadb.PersistentClient(path="./db")
+    collection = client.get_or_create_collection("knowledge_base")
+
+    # 为 tenant_A 插入文档
+    collection.add(
+        documents=["文档内容..."],
+        metadatas=[{"source": "HR手册"}],
+        ids=["doc_1"],
+        namespace="tenant_A"   # 关键：指定命名空间
+    )
+
+    # 查询时也指定 namespace
+    results = collection.query(
+        query_texts=["年假政策"],
+        n_results=5,
+        namespace="tenant_A"   # 只在这个租户的数据里搜
+    )
+    ```
+
+    Namespace 隔离的实质：它是数据层面的“软隔断”，不是物理上的强隔离。如果代码里不小心写错了 namespace，或者被恶意注入，就可能发生跨租户访问。所以它通常需要配合应用层的权限校验一起使用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Vf3WwfQfWib73PkQHd2coGQXnmf
+  block_id: doxcnAMElFCIa6h0U9RsqeFPuNg
+  page_token: Vf3WwfQfWib73PkQHd2coGQXnmf
+  original_title: "\U0001F9F1 1. 什么是向量数据库的 Namespace 隔离？"
+  imported_at: '2026-09-21'

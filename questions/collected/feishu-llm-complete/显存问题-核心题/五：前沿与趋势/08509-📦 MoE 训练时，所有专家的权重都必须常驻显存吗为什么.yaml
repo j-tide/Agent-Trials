@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3b0c4ae36433
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4E6 MoE 训练时，所有专家的权重都必须常驻显存吗？为什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 五：前沿与趋势
+tags: &1
+- 显存问题-核心题
+- 五：前沿与趋势
+content:
+  prompt: "\U0001F4E6 MoE 训练时，所有专家的权重都必须常驻显存吗？为什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    是的，在标准的单卡或未使用专家并行时，所有专家的权重都必须常驻显存。 这是因为：
+
+    - 动态路由的不确定性：每个 token 经过路由器（门控网络）后，会动态选择 top-k 专家。不同 token 选择的专家组合不同，且同一个 batch 内各个 token 的专家分布可能覆盖所有专家。为了确保每一层都能立即调用被选中的专家，所有专家的参数需要处于随时可用的状态（即存放在显存中）。
+
+    - 无法预先分批加载：如果尝试在每次计算前从 CPU 动态加载所需的专家权重，会导致巨大的延迟（PCIe 带宽远低于显存带宽），且需要复杂的调度。除非采用极端的专家卸载策略（将专家权重放在 CPU，按需换入），但这会严重拖慢训练速度。
+
+    - 优化器状态：训练时还需为所有专家参数维护优化器状态，同样必须常驻显存（或通过 ZeRO-3 分片到其他 GPU，但单卡上完全不行）。
+
+    ✅ 因此，在没有分布式并行的情况下，单卡训练 MoE 需要显存 ≥ 总参数量权重 + 优化器状态 + 激活，对硬件要求极高。这也是为什么训练大型 MoE 必须依赖专家并行或各种分片技术。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MBoMwuZDWiPy4akL8hvcNTnnnig
+  block_id: N7XudzL2poQ23rxf4Iuca5DAn3e
+  page_token: MBoMwuZDWiPy4akL8hvcNTnnnig
+  original_title: "\U0001F4E6 MoE 训练时，所有专家的权重都必须常驻显存吗？为什么？"
+  imported_at: '2026-09-21'

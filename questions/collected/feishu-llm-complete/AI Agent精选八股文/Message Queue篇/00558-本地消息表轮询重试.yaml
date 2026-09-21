@@ -1,0 +1,176 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6759b3defa11
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 本地消息表轮询重试
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 本地消息表轮询重试
+answer:
+  mode: rubric
+  reference_answer: "1、什么是本地消息表？它和 RocketMQ 事务消息有什么区别？\n\n⭐（本地消息表的定义、与事务消息的对比）\n\n本地消息表是一种基于数据库的分布式事务解决方案，它将业务操作和消息发送都放在同一个本地事务中，通过定时任务轮扫描未发送的消息进行重试，最终保证消息的可靠性投递。\n\n与
+    RocketMQ 事务消息的区别：\n\n- 实现复杂度：本地消息表更简单，不需要依赖 MQ 的特殊功能\n\n- 性能：本地消息表需要额外的数据库读写，性能略低\n\n-
+    适用场景：本地消息表适用于任何 MQ（Kafka、RabbitMQ 等），事务消息仅适用于 RocketMQ\n\n- 一致性保证：两者都能保证最终一致性，但事务消息的实时性更好\n\n2、请设计一个基于本地消息表的订单通知方案，并说明如何保证消息不丢失？\n\n⭐⭐（本地消息表设计、轮询重试机制、消息可靠性）\n\n1️⃣
+    Common Answer 本地消息表就是建一张表存消息，订单插入的时候同时插入消息记录，用同一个事务。然后定时任务扫描状态为待发送的消息，发送成功后更新状态。如果发送失败就重试，直到成功为止。\n\n2️⃣
+    Impressive Answer 本地消息表的核心思想是将业务操作和消息发送绑定在同一个本地事务中，通过异步轮询重试保证消息的最终可靠投递。我给你详细设计一下：\n\n数据库表设计\n\n--
+    订单表\nCREATE TABLE orders (\n    id BIGINT PRIMARY KEY,\n    user_id BIGINT,\n
+    \   total_amount DECIMAL,\n    status VARCHAR(20),\n    create_time DATETIME\n);\n\n--
+    本地消息表\nCREATE TABLE local_message (\n    id BIGINT AUTO_INCREMENT PRIMARY KEY,\n
+    \   biz_type VARCHAR(50) NOT NULL,  -- 业务类型：ORDER_CREATED\n    biz_id BIGINT NOT
+    NULL,          -- 业务ID：订单ID\n    topic VARCHAR(100) NOT NULL,     -- MQ Topic\n
+    \   tag VARCHAR(50),                 -- MQ Tag\n    message_body TEXT NOT NULL,
+    \     -- 消息内容\n    status TINYINT NOT NULL DEFAULT 0, -- 0:待发送 1:发送中 2:发送成功 3:发送失败\n
+    \   send_times INT DEFAULT 0,        -- 发送次数\n    next_send_time DATETIME,         --
+    下次发送时间\n    create_time DATETIME,\n    update_time DATETIME,\n    UNIQUE KEY uk_biz
+    (biz_type, biz_id),  -- 防止重复\n    INDEX idx_status_time (status, next_send_time)
+    -- 轮询索引\n);\n\n核心业务流程\n\n核心代码实现\n\n订单服务（插入订单和消息）：\n\n@Service\npublic class OrderService
+    {\n    \n    @Transactional\n    public void createOrder(OrderDTO orderDTO) {\n
+    \       // 1. 插入订单\n        Order order = new Order();\n        order.setUserId(orderDTO.getUserId());\n
+    \       order.setTotalAmount(orderDTO.getTotalAmount());\n        order.setStatus(\"SUCCESS\");\n
+    \       orderMapper.insert(order);\n        \n        // 2. 插入本地消息（同一事务）\n        LocalMessage
+    message = new LocalMessage();\n        message.setBizType(\"ORDER_CREATED\");\n
+    \       message.setBizId(order.getId());\n        message.setTopic(\"order_created\");\n
+    \       message.setTag(\"stock\");\n        message.setMessageBody(JSON.toJSONString(order));\n
+    \       message.setStatus(0); // 待发送\n        message.setSendTimes(0);\n        message.setNextSendTime(new
+    Date());\n        localMessageMapper.insert(message);\n    }\n}\n\n定时任务（轮询重试）：\n\n@Component\npublic
+    class MessageSendScheduler {\n    \n    // 每5秒执行一次\n    @Scheduled(fixedDelay
+    = 5000)\n    public void sendPendingMessages() {\n        // 1. 查询待发送的消息（分页，避免一次查太多）\n
+    \       int pageSize = 100;\n        List<LocalMessage> messages = localMessageMapper.selectPendingMessages(pageSize);\n
+    \       \n        if (CollectionUtils.isEmpty(messages)) {\n            return;\n
+    \       }\n        \n        // 2. 批量发送消息\n        for (LocalMessage message :
+    messages) {\n            try {\n                // 2.1 更新状态为发送中（防止重复消费）\n                localMessageMapper.updateStatusToSendIng(message.getId());\n
+    \               \n                // 2.2 发送消息到 MQ\n                SendResult
+    result = rocketMQTemplate.syncSend(\n                    message.getTopic() +
+    \":\" + message.getTag(),\n                    message.getMessageBody()\n                );\n
+    \               \n                if (result.getSendStatus() == SendStatus.SEND_OK)
+    {\n                    // 2.3 发送成功，更新状态\n                    localMessageMapper.updateStatusToSuccess(message.getId());\n
+    \                   log.info(\"消息发送成功，id={}\", message.getId());\n                }
+    else {\n                    throw new RuntimeException(\"消息发送失败\");\n                }\n
+    \               \n            } catch (Exception e) {\n                log.error(\"消息发送失败，id={}\",
+    message.getId(), e);\n                \n                // 2.4 发送失败，更新状态和下次发送时间（指数退避）\n
+    \               int sendTimes = message.getSendTimes() + 1;\n                long
+    delaySeconds = (long) Math.pow(2, sendTimes); // 2s, 4s, 8s...\n                Date
+    nextSendTime = new Date(System.currentTimeMillis() + delaySeconds * 1000);\n                \n
+    \               localMessageMapper.updateStatusToPending(\n                    message.getId(),
+    \n                    sendTimes, \n                    nextSendTime\n                );\n
+    \               \n                // 2.5 如果重试次数超过阈值，标记为失败，人工介入\n                if
+    (sendTimes >= 10) {\n                    localMessageMapper.updateStatusToFailed(message.getId());\n
+    \                   // 发送告警通知\n                    alertService.sendAlert(\"消息发送失败超过阈值，id=\"
+    + message.getId());\n                }\n            }\n        }\n    }\n}\n\nMapper
+    SQL（关键查询）：\n\n-- 查询待发送的消息（使用索引，避免全表扫描）\nSELECT * FROM local_message \nWHERE status
+    = 0 \n  AND next_send_time <= NOW() \nORDER BY create_time ASC \nLIMIT #{pageSize};\n\n--
+    更新状态为发送中（乐观锁，防止并发重复发送）\nUPDATE local_message \nSET status = 1, \n    update_time
+    = NOW() \nWHERE id = #{id} AND status = 0;\n\n-- 更新状态为成功\nUPDATE local_message
+    \nSET status = 2, \n    update_time = NOW() \nWHERE id = #{id};\n\n-- 更新状态为待发送（重试）\nUPDATE
+    local_message \nSET status = 0, \n    send_times = #{sendTimes},\n    next_send_time
+    = #{nextSendTime},\n    update_time = NOW() \nWHERE id = #{id};\n\n消息不丢失的保障\n\n-
+    本地事务保证：订单插入和消息插入在同一个事务中，要么都成功，要么都失败\n\n- 轮询重试机制：定时任务持续扫描待发送消息，直到成功\n\n- 指数退避策略：避免短时间内频繁重试，减少系统压力\n\n-
+    失败告警机制：重试次数超过阈值时人工介入\n\n- 消息去重：消费者端需要实现幂等性（如用 biz_type + biz_id 做唯一索引）\n\n与 RocketMQ
+    事务消息的对比\n\n[嵌入表格未展开]\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n3、在支付系统中，支付成功后需要通知多个下游系统（如积分、优惠券、风控），如何保证所有通知都成功？\n\n⭐⭐⭐（本地消息表应用、多下游通知、失败处理）\n\n1️⃣
+    Common Answer 用本地消息表，支付成功后插入多条消息记录，然后定时任务发送到不同的 MQ topic。如果某个下游失败了就重试，直到成功。\n\n2️⃣
+    Impressive Answer 这是一个典型的一对多通知场景，我会用本地消息表 + 分发策略来保证所有下游都能收到通知。让我详细设计一下：\n\n整体架构设计\n\n数据库表设计\n\n--
+    支付表\nCREATE TABLE payment (\n    id BIGINT PRIMARY KEY,\n    order_id BIGINT,\n
+    \   user_id BIGINT,\n    amount DECIMAL,\n    status VARCHAR(20),\n    create_time
+    DATETIME\n);\n\n-- 本地消息表（支持多下游）\nCREATE TABLE local_message (\n    id BIGINT AUTO_INCREMENT
+    PRIMARY KEY,\n    biz_type VARCHAR(50) NOT NULL,      -- 业务类型：PAYMENT_SUCCESS\n
+    \   biz_id BIGINT NOT NULL,             -- 业务ID：支付ID\n    target_system VARCHAR(50)
+    NOT NULL, -- 目标系统：POINT, COUPON, RISK, ORDER\n    topic VARCHAR(100) NOT NULL,
+    \       -- MQ Topic\n    tag VARCHAR(50),\n    message_body TEXT NOT NULL,\n    status
+    TINYINT NOT NULL DEFAULT 0,  -- 0:待发送 1:发送中 2:发送成功 3:发送失败\n    send_times INT
+    DEFAULT 0,\n    next_send_time DATETIME,\n    create_time DATETIME,\n    update_time
+    DATETIME,\n    UNIQUE KEY uk_biz_target (biz_type, biz_id, target_system),\n    INDEX
+    idx_status_time (status, next_send_time)\n);\n\n核心代码实现\n\n支付服务（插入支付和多条消息）：\n\n@Service\npublic
+    class PaymentService {\n    \n    @Transactional\n    public void processPaymentSuccess(PaymentDTO
+    paymentDTO) {\n        // 1. 插入支付记录\n        Payment payment = new Payment();\n
+    \       payment.setOrderId(paymentDTO.getOrderId());\n        payment.setUserId(paymentDTO.getUserId());\n
+    \       payment.setAmount(paymentDTO.getAmount());\n        payment.setStatus(\"SUCCESS\");\n
+    \       paymentMapper.insert(payment);\n        \n        Long paymentId = payment.getId();\n
+    \       \n        // 2. 插入多条本地消息（同一事务）\n        List<LocalMessage> messages =
+    buildMessages(paymentId, paymentDTO);\n        for (LocalMessage message : messages)
+    {\n            localMessageMapper.insert(message);\n        }\n    }\n    \n    private
+    List<LocalMessage> buildMessages(Long paymentId, PaymentDTO paymentDTO) {\n        List<LocalMessage>
+    messages = new ArrayList<>();\n        \n        // 积分消息\n        messages.add(createMessage(paymentId,
+    \"POINT\", \"point_topic\", \"add\", \n            buildPointMessage(paymentDTO)));\n
+    \       \n        // 优惠券消息\n        messages.add(createMessage(paymentId, \"COUPON\",
+    \"coupon_topic\", \"use\", \n            buildCouponMessage(paymentDTO)));\n        \n
+    \       // 风控消息\n        messages.add(createMessage(paymentId, \"RISK\", \"risk_topic\",
+    \"check\", \n            buildRiskMessage(paymentDTO)));\n        \n        //
+    订单消息\n        messages.add(createMessage(paymentId, \"ORDER\", \"order_topic\",
+    \"update\", \n            buildOrderMessage(paymentDTO)));\n        \n        return
+    messages;\n    }\n    \n    private LocalMessage createMessage(Long bizId, String
+    targetSystem, \n                                      String topic, String tag,
+    String body) {\n        LocalMessage message = new LocalMessage();\n        message.setBizType(\"PAYMENT_SUCCESS\");\n
+    \       message.setBizId(bizId);\n        message.setTargetSystem(targetSystem);\n
+    \       message.setTopic(topic);\n        message.setTag(tag);\n        message.setMessageBody(body);\n
+    \       message.setStatus(0);\n        message.setSendTimes(0);\n        message.setNextSendTime(new
+    Date());\n        return message;\n    }\n}\n\n定时任务（按目标系统分组批量发送）：\n\n@Component\npublic
+    class MessageSendScheduler {\n    \n    @Scheduled(fixedDelay = 5000)\n    public
+    void sendPendingMessages() {\n        // 1. 按目标系统分组查询，避免跨系统影响\n        List<String>
+    targetSystems = Arrays.asList(\"POINT\", \"COUPON\", \"RISK\", \"ORDER\");\n        \n
+    \       for (String targetSystem : targetSystems) {\n            sendMessagesByTargetSystem(targetSystem);\n
+    \       }\n    }\n    \n    private void sendMessagesByTargetSystem(String targetSystem)
+    {\n        int pageSize = 50;\n        List<LocalMessage> messages = localMessageMapper.selectPendingMessages(\n
+    \           targetSystem, pageSize);\n        \n        if (CollectionUtils.isEmpty(messages))
+    {\n            return;\n        }\n        \n        for (LocalMessage message
+    : messages) {\n            try {\n                // 更新状态为发送中\n                localMessageMapper.updateStatusToSendIng(message.getId());\n
+    \               \n                // 发送消息\n                SendResult result =
+    rocketMQTemplate.syncSend(\n                    message.getTopic() + \":\" + message.getTag(),\n
+    \                   message.getMessageBody()\n                );\n                \n
+    \               if (result.getSendStatus() == SendStatus.SEND_OK) {\n                    localMessageMapper.updateStatusToSuccess(message.getId());\n
+    \                   log.info(\"消息发送成功，system={}, id={}\", targetSystem, message.getId());\n
+    \               } else {\n                    throw new RuntimeException(\"消息发送失败\");\n
+    \               }\n                \n            } catch (Exception e) {\n                log.error(\"消息发送失败，system={},
+    id={}\", targetSystem, message.getId(), e);\n                \n                //
+    失败重试\n                int sendTimes = message.getSendTimes() + 1;\n                long
+    delaySeconds = calculateDelaySeconds(targetSystem, sendTimes);\n                Date
+    nextSendTime = new Date(System.currentTimeMillis() + delaySeconds * 1000);\n                \n
+    \               localMessageMapper.updateStatusToPending(\n                    message.getId(),
+    sendTimes, nextSendTime);\n                \n                if (sendTimes >=
+    getMaxRetryTimes(targetSystem)) {\n                    localMessageMapper.updateStatusToFailed(message.getId());\n
+    \                   alertService.sendAlert(String.format(\n                        \"消息发送失败超过阈值，system=%s,
+    id=%d\", \n                        targetSystem, message.getId()));\n                }\n
+    \           }\n        }\n    }\n    \n    // 不同系统配置不同的重试策略\n    private long
+    calculateDelaySeconds(String targetSystem, int sendTimes) {\n        switch (targetSystem)
+    {\n            case \"POINT\":\n                return (long) Math.pow(2, sendTimes);
+    // 2s, 4s, 8s...\n            case \"COUPON\":\n                return sendTimes
+    * 5; // 5s, 10s, 15s...\n            case \"RISK\":\n                return 1;
+    // 风控需要实时，快速重试\n            case \"ORDER\":\n                return (long) Math.pow(2,
+    sendTimes);\n            default:\n                return (long) Math.pow(2, sendTimes);\n
+    \       }\n    }\n    \n    private int getMaxRetryTimes(String targetSystem)
+    {\n        switch (targetSystem) {\n            case \"RISK\":\n                return
+    20; // 风控允许更多重试\n            default:\n                return 10;\n        }\n
+    \   }\n}\n\n异常场景处理\n\n[嵌入表格未展开]\n\n监控告警指标\n\n- 待发送消息堆积量：按目标系统分组监控\n\n- 发送失败率：按目标系统统计\n\n-
+    平均发送耗时：监控定时任务执行时间\n\n- 死信消息数：重试超限的消息数量\n\n降级策略 如果本地消息表出现严重堆积（如超过 10 万条），可以：\n\n-
+    增加定时任务线程数：并行处理不同系统的消息\n\n- 增加批量大小：从 50 条增加到 200 条\n\n- 暂停非核心系统：暂停优惠券、风控等非核心系统的消息发送\n\n-
+    人工干预：对堆积消息进行批量处理\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JpfiwiBYoisbfUkjsLgcdTcHnTf
+  block_id: doxcnWA71NNYoViY3fmMeXS119c
+  page_token: JpfiwiBYoisbfUkjsLgcdTcHnTf
+  original_title: 本地消息表轮询重试
+  imported_at: '2026-09-21'

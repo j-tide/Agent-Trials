@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-76bd56e59864
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DD 推理框架中的“前缀缓存”是如何识别和匹配相同前缀的？哈希策略怎么设计？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: "\U0001F4DD 推理框架中的“前缀缓存”是如何识别和匹配相同前缀的？哈希策略怎么设计？"
+answer:
+  mode: rubric
+  reference_answer: "前缀缓存（Prefix Caching）是指多个请求共享相同的 Prompt 前缀（如 system prompt、多轮对话的历史）时，只对相同部分计算一次
+    KV Cache，后续请求直接复用，以节省 Prefill 计算和显存。其核心是哈希匹配。\n\n\U0001F50D 识别与匹配流程\n\n- 前缀表示\n对于每个请求，在
+    Prefill 阶段，我们将 prompt 拆分为 token 序列。前缀匹配的单位可以是 整个 prompt，也可以是分页单位（如每 16 个 token
+    一页）。后者更灵活，因为短前缀也能被部分复用。\n\n- 哈希计算\n对每个 token 序列（或 token 页）计算一个哈希值。常用的哈希算法是 xxHash
+    或 SHA‑256，速度很快。对于 token 页，我们将其 token IDs 序列化为字节后计算哈希。\n\n- 查询哈希表\n维护一个全局的哈希表，键是哈希值，值是对应的
+    KV Cache 页的物理地址（例如 vLLM 中的 physical block ID）。当一个新请求开始 Prefill 时，我们逐页计算其 token
+    页的哈希，并在哈希表中查找匹配。如果命中，则表明该页的 KV Cache 已存在，直接映射给新请求使用，而无需重新计算。\n\n- 处理哈希冲突\n虽然哈希冲突概率极低，但为了绝对正确，在命中后仍需逐字节或逐
+    token 验证原始数据是否完全一致。验证通过才视为匹配，否则视为未命中，走正常 Prefill 流程并分配新页。\n\n- 缓存淘汰与一致性\n哈希表需要管理生命周期。当所有引用该
+    KV Cache 页的请求结束后，该页被回收，对应哈希条目需要清除。在分布式环境下（多 GPU、多节点），哈希表通常在每个推理实例内部维护，只管理本实例的显存。跨节点的前缀共享需要更复杂的全局哈希表，一般不常实现。\n\n\U0001F9EE
+    哈希策略细节\n\n- 分页粒度：页大小固定（如 16 tokens）。一页的 token IDs 序列作为哈希输入。优点是即使前缀长度不是页大小的整数倍，未对齐的部分也能被复用。\n\n-
+    多级哈希：对于极长前缀，可结合滚动哈希，动态计算部分哈希，便于快速定位。\n\n- 写时复制：如果两个请求共享某页，但其中一个后续生成了不同的 token（分叉），则在分叉点之后的页需要新分配，前面的共享页保持不变。\n\n\U0001F4A1
+    实际效果：前缀缓存对于多轮对话、批量评估、反复修改 Prompt 的场景提速显著，通常能降低 Prefill 时间 50% 以上。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QTNrwT2t1iCzbMkI7FZc3sj5nBb
+  block_id: QTfTddkv9oIoz4xt6dachIyJnE0
+  page_token: QTNrwT2t1iCzbMkI7FZc3sj5nBb
+  original_title: "\U0001F4DD 推理框架中的“前缀缓存”是如何识别和匹配相同前缀的？哈希策略怎么设计？"
+  imported_at: '2026-09-21'

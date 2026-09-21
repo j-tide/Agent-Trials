@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f9103194a9c6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个“数据配方”配置解析器，能按比例采样多个数据集。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 实现一个“数据配方”配置解析器，能按比例采样多个数据集。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    import random
+    from torch.utils.data import Dataset, ConcatDataset, Subset
+
+    class RecipeSampler:
+        def __init__(self, datasets: list, ratios: list):
+            """
+            datasets: List of Dataset objects
+            ratios: List of float, 每个数据集的采样比例（概率）
+            """
+            self.datasets = datasets
+            self.ratios = ratios
+            self.total_samples = sum(len(ds) for ds in datasets)
+            # 构建每个数据集的索引区间
+            self._dataset_offsets = self._compute_offsets()
+
+        def _compute_offsets(self):
+            indices = []
+            for ds, ratio in zip(self.datasets, self.ratios):
+                # 根据比例计算应采样的数量（按比例从总样本数中分配）
+                n_samples = int(self.total_samples * ratio)
+                # 如果比例分配导致超过数据集大小，则截断
+                n_samples = min(n_samples, len(ds))
+                indices.append(random.sample(range(len(ds)), n_samples))
+            return indices
+
+        def sample(self, num_samples: int):
+            combined = []
+            for ds_idx, ds in enumerate(self.datasets):
+                combined.extend([ (ds_idx, idx) for idx in self._dataset_offsets[ds_idx] ])
+            random.shuffle(combined)
+            return combined[:num_samples]
+    ```
+
+    更简单的方式是使用 torch.utils.data.WeightedRandomSampler，按每个数据集的权重分配采样概率，然后对合并后的数据集应用该采样器。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: CIjndJmPioMfIWxHAKAcFumvnW4
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: 实现一个“数据配方”配置解析器，能按比例采样多个数据集。
+  imported_at: '2026-09-21'

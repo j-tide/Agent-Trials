@@ -1,0 +1,98 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c750de40aef0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CC 模型量化（INT8/INT4/GPTQ/AWQ）的原理是什么？量化后精度损失如何评估？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F4CC 模型量化（INT8/INT4/GPTQ/AWQ）的原理是什么？量化后精度损失如何评估？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    量化本质： 把模型权重（以及激活值）从高精度浮点（FP16/BF16）映射到低比特整数（INT8/INT4），用更小的数位近似原值。分解成两步：
+
+    - 确定映射参数： 找到缩放因子 ss 和零点 zz，使得 xfloat≈s⋅(xint−z)xfloat≈s⋅(xint−z)。
+
+    - 离散化： 将浮点值四舍五入到最近整数。
+
+    方法分化：
+
+    - INT8 量化（PTQ 动态/静态）： 通常对权重对称量化，激活值可以动态统计范围。矩阵乘法时，先用 INT8 运算累加，再反量化回 FP32。精度损失极小，几乎无损。
+
+    - INT4 权重+FP16 激活（GPTQ 路线）： GPTQ 不是简单的四舍五入。它基于 OBQ（最优脑量化），逐列对权重进行量化，并用 Hessian 信息补偿剩余误差。大致过程：
+
+    for i in range(num_columns):
+        量化第 i 列
+        计算误差
+        用误差更新剩余未量化列的权重
+
+    - 这样可以保持整体输出的统计特性。
+
+    - AWQ： 观察到并非所有权重都同等重要，少数“显著权重”（激活较大的通道）对精度影响大。AWQ 不对这些权重强量化，而是先对它们乘以一个大于 1 的保护系数，等效于缩小它们的量化步长，代价是其他权重步长略增。这比 GPTQ 更轻量，无需反向传播或标定数据上的梯度。
+
+    精度损失评估——必须用数据和指标说话：
+
+    通常用校准数据集（比如 wikitext-2, c4）计算 困惑度（Perplexity），或在下游任务上比较原始模型与量化模型的准确率。
+
+    示例评估脚本思想：
+
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    import torch
+    import numpy as np
+
+    def evaluate_ppl(model, tokenizer, dataset, max_length=2048):
+        model.eval()
+        total_loss = 0.0
+        total_tokens = 0
+        for text in dataset:
+            inputs = tokenizer(text, return_tensors="pt", truncation=True,
+                               max_length=max_length).to(model.device)
+            with torch.no_grad():
+                outputs = model(**inputs, labels=inputs["input_ids"])
+                loss = outputs.loss
+            total_loss += loss.item() * inputs["input_ids"].size(1)
+            total_tokens += inputs["input_ids"].size(1)
+        return np.exp(total_loss / total_tokens)
+
+    # 比较 FP16 和 INT4 量化模型
+    model_fp16 = AutoModelForCausalLM.from_pretrained("model-name", torch_dtype=torch.float16)
+    model_int4 = AutoModelForCausalLM.from_pretrained("model-name", load_in_4bit=True)
+
+    ppl_fp16 = evaluate_ppl(model_fp16, tokenizer, test_data)
+    ppl_int4 = evaluate_ppl(model_int4, tokenizer, test_data)
+    print(f"Perplexity degradation: {ppl_int4 - ppl_fp16:.2f}")
+
+    实践中，INT8 量化通常困惑度退化 < 0.1，基本无感。INT4 (GPTQ/AWQ) 退化在 0.5~1.0 之间，但模型显存缩减到 1/4，推理速度（在支持 INT4 Tensor Core 的硬件上）大幅提升，性价比极高。若退化超过可接受阈值，可以开启 分组量化（group size 128） 或保留更高精度的 outlier 通道来弥补。
+
+    评估时尤其要关注 长尾任务的退化：生成摘要、多轮对话的连贯性，往往比困惑度更敏感。所以除了自动指标，人工红蓝评估（blind test）才是最终裁断的标准。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcngHvaOeFp5e4zzsJqSr6ZQg
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "\U0001F4CC 模型量化（INT8/INT4/GPTQ/AWQ）的原理是什么？量化后精度损失如何评估？"
+  imported_at: '2026-09-21'

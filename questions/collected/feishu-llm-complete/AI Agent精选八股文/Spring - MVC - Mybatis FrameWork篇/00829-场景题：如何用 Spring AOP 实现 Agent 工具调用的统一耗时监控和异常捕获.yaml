@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-27a3e53eafc4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：如何用 Spring AOP 实现 Agent 工具调用的统一耗时监控和异常捕获？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：如何用 Spring AOP 实现 Agent 工具调用的统一耗时监控和异常捕获？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐（自定义切面、注解驱动、异常处理）\n\n1️⃣ Common Answer\n\n可以定义一个切面，用
+    @Around 注解拦截工具调用方法。里面用 StopWatch 记录耗时，try-catch 捕获异常，记录日志。用 @Pointcut 定义切点表达式。\n\n2️⃣
+    Impressive Answer\n\n- 自定义注解：\n\n@Target(ElementType.METHOD)\n@Retention(RetentionPolicy.RUNTIME)\npublic
+    @interface ToolCall {\n    String toolName() default \"\";\n    int maxRetries()
+    default 0;\n}\n\n- 切面实现：\n\n@Aspect\n@Component\n@Slf4j\npublic class ToolCallAspect
+    {\n    \n    @Autowired\n    private MeterRegistry meterRegistry;\n    \n    @Around(\"@annotation(toolCall)\")\n
+    \   public Object monitorToolCall(ProceedingJoinPoint pjp, ToolCall toolCall)
+    throws Throwable {\n        String toolName = toolCall.toolName().isEmpty() \n
+    \           ? pjp.getSignature().getName() \n            : toolCall.toolName();\n
+    \       \n        Timer.Sample sample = Timer.start(meterRegistry);\n        long
+    startTime = System.currentTimeMillis();\n        \n        try {\n            //
+    重试逻辑\n            int retries = toolCall.maxRetries();\n            Throwable
+    lastException = null;\n            \n            for (int i = 0; i <= retries;
+    i++) {\n                try {\n                    Object result = pjp.proceed();\n
+    \                   \n                    // 记录成功指标\n                    sample.stop(Timer.builder(\"tool.call.duration\")\n
+    \                       .tag(\"tool\", toolName)\n                        .tag(\"status\",
+    \"success\")\n                        .register(meterRegistry));\n                    \n
+    \                   meterRegistry.counter(\"tool.call.count\", \n                        \"tool\",
+    toolName, \"status\", \"success\").increment();\n                    \n                    return
+    result;\n                } catch (Exception e) {\n                    lastException
+    = e;\n                    if (i < retries) {\n                        log.warn(\"Tool
+    call failed, retrying {}/{}\", i + 1, retries, e);\n                        Thread.sleep(100
+    * (i + 1)); // 指数退避\n                    }\n                }\n            }\n
+    \           \n            throw lastException;\n            \n        } catch
+    (Throwable e) {\n            // 记录失败指标\n            sample.stop(Timer.builder(\"tool.call.duration\")\n
+    \               .tag(\"tool\", toolName)\n                .tag(\"status\", \"error\")\n
+    \               .register(meterRegistry));\n            \n            meterRegistry.counter(\"tool.call.count\",
+    \n                \"tool\", toolName, \"status\", \"error\").increment();\n            \n
+    \           log.error(\"Tool call failed: {}\", toolName, e);\n            throw
+    e;\n        }\n    }\n}\n\n- 使用示例：\n\n@Service\npublic class WeatherService {\n
+    \   \n    @ToolCall(toolName = \"weather_query\", maxRetries = 2)\n    public
+    WeatherResult queryWeather(String city) {\n        // 调用天气 API\n        return
+    weatherApi.query(city);\n    }\n}\n\n- 监控指标：\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcnK3UHmTC2c6Ce1TtRZTfE1b
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: 3、场景题：如何用 Spring AOP 实现 Agent 工具调用的统一耗时监控和异常捕获？
+  imported_at: '2026-09-21'

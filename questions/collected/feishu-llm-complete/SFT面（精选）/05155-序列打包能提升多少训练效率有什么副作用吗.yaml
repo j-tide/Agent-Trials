@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6a54179bd3ac
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 序列打包能提升多少训练效率？有什么副作用吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 序列打包能提升多少训练效率？有什么副作用吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    一、训练效率提升幅度
+
+    序列打包对训练效率的提升非常显著，具体取决于数据集中序列长度的分布：
+
+    - 极端情况：如果数据集中绝大多数样本都非常短（比如平均长度只有模型最大长度的10%），使用packing可以将有效token的利用率提升近10倍，训练吞吐量（tokens/sec）提升5-8倍。因为原本90%的算力都在处理padding，packing几乎消除了这些浪费。
+
+    - 常见情况：SFT数据通常长短不一，packing一般能将吞吐量提升2-5倍。我曾在LLaMA-7B的SFT中，通过packing将训练时间从16小时缩短到4小时（batch size等效增大）。
+
+    - 影响因子：提升程度受chunk_size（拼接后的序列长度）和样本长度分布影响。拼接得越接近模型最大长度，效率越高。
+
+    二、副作用
+
+    尽管packing能大幅提速，但它也带来了一些不可忽视的副作用：
+
+    - 不同样本的交叉污染风险：如果attention mask构建错误或存在bug，不同样本之间的token可能发生注意力泄漏，导致模型学到错误的关联。但正确实现下，这种风险可控。
+
+    - 梯度传播混淆：由于多个样本在一个序列中，反向传播时梯度会同时受到多个样本的影响，这可能使得单个样本的损失信号被平均，对于特别重要或罕见的样本，其独特信号可能被稀释。在某种程度上，它类似于增大batch size的效果，可能对泛化有轻微影响。
+
+    - 截断风险：为了填满一个pack，可能需要在末尾丢弃一个放不下的样本，或截断过长的样本。截断会损失信息，如果不截断，则最后一个样本可能未被完整包含，影响其训练。
+
+    - EOS位置和生成行为：packing使得EOS token在序列内部多次出现，模型可能学到在pack内部看到EOS后继续生成下一个样本，这与其在推理时的行为不同。有时需要在EOS后额外添加分隔符（如<|end_of_text|>）并mask掉该分隔符的损失，以保持语义边界。
+
+    - 调试复杂度：数据加载和mask构造逻辑更复杂，容易出错。排查问题时不如逐条样本直观。
+
+    三、权衡与建议
+
+    - 如果训练数据量巨大且计算资源宝贵，强烈建议启用packing，它带来的加速远大于潜在的副作用。
+
+    - 对于高质量但量少的SFT数据，为避免信号稀释，可能选择不packing或者减小packing后的序列长度。
+
+    - 实现时，务必仔细验证attention mask的正确性（可视化小规模数据的mask矩阵），并监控模型在短样本和长样本上的表现。
+
+    - 可以使用packing的超参数，如max_seq_length，在效率和副作用间权衡。
+
+    ✅ 总结：序列打包通常能提升2-5倍的训练效率，是SFT加速的利器，但需注意注意力泄漏、梯度信号稀释和EOS处理等副作用。在效率和质量之间，可通过实验找到最佳平衡。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZYXSwaWATimyqQkmZm5cAPJHnoc
+  block_id: WQZ4d7g52oi1vuxlyCEcvPQfncf
+  page_token: ZYXSwaWATimyqQkmZm5cAPJHnoc
+  original_title: 序列打包能提升多少训练效率？有什么副作用吗？
+  imported_at: '2026-09-21'

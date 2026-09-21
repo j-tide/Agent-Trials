@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7b27dfb0229a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现数据并行中的梯度同步：假设有 P 个 worker，各自完成一次前向+反向得到梯度，写出如何通过 AllReduce 汇总梯度并更新模型参数的过程。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现数据并行中的梯度同步：假设有 P 个 worker，各自完成一次前向+反向得到梯度，写出如何通过 AllReduce 汇总梯度并更新模型参数的过程。
+answer:
+  mode: rubric
+  reference_answer: |-
+    7.1 数据并行梯度同步的详细步骤
+
+    - 每个 worker 从参数服务器（或本地模型副本）获取最新模型参数。
+
+    - 每个 worker 读取不同的 mini-batch 数据，独立执行前向传播和反向传播，计算出本地梯度 gigi。
+
+    - 所有 worker 参与 AllReduce 操作，对梯度求和（或平均）。通常采用平均，即 G=1P∑giG=P1∑gi。
+
+    - 每个 worker 使用平均梯度更新本地模型参数（如 SGD: w←w−ηGw←w−ηG）。
+
+    - 进入下一轮迭代。
+
+    伪代码：
+
+    ```text
+    for step in range(num_steps):
+        data = next_batch(worker_id)
+        grad = compute_gradient(model, data)
+        avg_grad = allreduce(grad, op=SUM) / world_size
+        update_model(model, avg_grad)
+    ```
+
+    在同步 SGD 中，AllReduce 是核心通信操作，通常使用 Ring AllReduce 或 Tree AllReduce 来高效实现。
+
+    7.2 模拟代码（结合 AllReduce）
+
+    ```python
+    def data_parallel_step(workers_params, compute_grad_fn, allreduce_fn, lr=0.01):
+        # 每个worker计算梯度
+        grads = [compute_grad_fn(w) for w in workers_params]
+        # AllReduce 求平均
+        avg_grad = allreduce_fn(grads)  # 返回每个节点得到的全局平均梯度列表
+        # 更新
+        for i, param in enumerate(workers_params):
+            param -= lr * avg_grad[i]
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: DAXBdzdXDoqoQtxUeBzcZjBMnRd
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 实现数据并行中的梯度同步：假设有 P 个 worker，各自完成一次前向+反向得到梯度，写出如何通过 AllReduce 汇总梯度并更新模型参数的过程。
+  imported_at: '2026-09-21'

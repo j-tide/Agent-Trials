@@ -1,0 +1,118 @@
+---
+schema_version: 1
+id: feishu-llm-complete-36935546461c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 1.2 隔离级别与并发问题
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 1.2 隔离级别与并发问题
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### MySQL 四大隔离级别及并发问题
+
+    1、基础题：MySQL 有哪四种隔离级别？分别解决什么并发问题？
+
+    ⭐（考察隔离级别名称、解决的问题）
+
+    MySQL 的四种隔离级别从低到高分别是：
+
+    - 读未提交（READ UNCOMMITTED）：可以读到其他事务未提交的数据，会出现脏读问题
+
+    - 读已提交（READ COMMITTED，RC）：只能读到其他事务已提交的数据，解决了脏读，但会出现不可重复读
+
+    - 可重复读（REPEATABLE READ，RR）：保证同一事务中多次读取同一数据结果一致，解决了不可重复读，MySQL 默认级别
+
+    - 串行化（SERIALIZABLE）：最高的隔离级别，强制事务串行执行，解决了所有并发问题，但性能最差
+
+    2、进阶题：详细解释脏读、不可重复读、幻读的区别和产生原因？
+
+    ⭐⭐（考察并发问题本质、场景理解）
+
+    1️⃣ Common Answer 脏读就是读了没提交的数据，不可重复读就是读两次数据不一样，幻读就是读的时候发现多了条数据。脏读是因为隔离级别太低，不可重复读是因为其他事务修改了数据，幻读是因为其他事务插入了数据。用更高的隔离级别就能解决这些问题。
+
+    2️⃣ Impressive Answer 这三个并发问题本质上是不同隔离级别下的数据一致性表现，我来详细说明：
+
+    脏读是指一个事务读到了另一个事务未提交的数据。比如事务 A 更新用户余额为 100 但未提交，事务 B 读到了这个 100，如果事务 A 回滚，事务 B 读到的数据就是脏数据。产生原因是隔离级别设置为 READ UNCOMMITTED，允许读取未提交的数据。
+
+    不可重复读是指同一事务内多次读取同一数据得到不同结果。比如事务 A 第一次读取用户余额为 100，事务 B 将余额更新为 200 并提交，事务 A 第二次读取得到 200，结果不一致。产生原因是隔离级别为 READ COMMITTED，允许其他事务修改已提交的数据。
+
+    幻读是指同一事务内两次查询的数据量不同，仿佛出现"幻影"。比如事务 A 查询余额大于 100 的用户有 3 个，事务 B 插入了一个余额 150 的新用户并提交，事务 A 再次查询发现有 4 个用户。产生原因是隔离级别为 REPEATABLE READ 时，其他事务的新增操作影响了当前事务的查询结果。
+
+    这里有个关键区别：不可重复读针对的是修改和删除操作，幻读针对的是新增操作。在 MySQL 的 RR 级别下，通过 MVCC 和 Next-Key Lock 可以很大程度上避免幻读，但不能完全杜绝。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    3、场景题：在电商订单系统中，不同隔离级别会有什么问题？如何选择？
+
+    ⭐⭐⭐（考察隔离级别选择、业务场景分析）
+
+    1️⃣ Common Answer 电商系统就用默认的 REPEATABLE READ 就行了，这个隔离级别比较好，既能保证数据一致性，性能也不错。如果对一致性要求特别高就用 SERIALIZABLE，但性能会差一些。一般不会用 READ UNCOMMITTED 和 READ COMMITTED。
+
+    2️⃣ Impressive Answer 在电商订单系统中，不同业务场景对隔离级别的要求不同，需要根据具体场景选择：
+
+    订单创建场景：我会选择 READ COMMITTED。当用户下单时，我们需要查询商品库存，如果使用 RR 级别，在事务执行期间即使其他用户下单导致库存减少，当前事务看到的库存仍然是旧值，可能导致超卖。RC 级别能保证每次查询都是最新的已提交数据，配合 SELECT ... FOR UPDATE 行锁可以有效防止超卖。
+
+    ```text
+    START TRANSACTION;
+    -- 查询并锁定库存
+    SELECT stock FROM product WHERE id = 123 FOR UPDATE;
+    -- 检查库存是否充足
+    -- 扣减库存
+    UPDATE product SET stock = stock - 1 WHERE id = 123;
+    -- 创建订单
+    INSERT INTO order ...;
+    COMMIT;
+    ```
+
+    订单查询场景：我会选择 REPEATABLE READ。在订单详情页，用户多次刷新页面应该看到一致的订单信息，如果订单金额在浏览过程中被客服修改，用户会感到困惑。RR 级别通过 MVCC 保证同一事务内多次查询结果一致。
+
+    报表统计场景：我会选择 REPEATABLE READ 或 SERIALIZABLE。生成财务报表时需要数据的一致性快照，RR 级别通过 ReadView 提供一致性视图。如果统计涉及复杂计算且对准确性要求极高，可以考虑 SERIALIZABLE，但要注意性能影响。
+
+    库存对账场景：我会选择 READ COMMITTED。对账需要实时反映库存变化，RR 级别可能导致对账结果与实际不符。
+
+    实际项目中，MySQL 默认使用 RR 级别，对于需要 RC 的场景，可以在 session 或全局级别设置 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED。关键是要理解不同隔离级别的 trade-off，在一致性和性能之间找到平衡。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IYWfwSFCOiA86JkcgEmcmZJNnSb
+  block_id: doxcnPNHd5rSfxj7ZQHsrJEpsbb
+  page_token: IYWfwSFCOiA86JkcgEmcmZJNnSb
+  original_title: 1.2 隔离级别与并发问题
+  imported_at: '2026-09-21'

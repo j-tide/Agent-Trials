@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dbaed259a715
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CF LoRA 的参数（A 和 B）占用的显存有多大？如何计算？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F4CF LoRA 的参数（A 和 B）占用的显存有多大？如何计算？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 LoRA 在每个适应的线性层注入两个低秩矩阵 A 和 B，参数量 = 2 × rank × (input_dim
+    + output_dim)。总 LoRA 参数量约为基础模型的 rank/hidden 倍，通常只有几 MB 到几十 MB。\n\n\U0001F9EE 计算方法：\n\n-
+    对于一个权重矩阵 W [d_in, d_out]，LoRA 替换为 W + B × A，其中 B 形状 [d_out, r]，A 形状 [r, d_in]。\n\n-
+    参数量 = r × d_in + r × d_out = r × (d_in + d_out)。\n\n- 存储占用：如果用 FP16，每个参数 2 字节；如果用
+    FP32，4 字节。训练时 A、B 及梯度、优化器状态可能需要 FP32，实际显存按 FP32 估算。\n\n\U0001F4CA 以 Llama-7B 为例（hidden=4096，FFN
+    中间维度 11008，r=8）：\n\n- 每个注意力层 Q、K、V、O 四个权重矩阵，形状分别为 [4096, 4096]（或分头后），实际每个矩阵的 d_in、d_out
+    都为 4096。\n\n- 单个矩阵 LoRA 参数 = 8 × (4096 + 4096) = 65,536 参数。\n\n- 所有注意力层（假设 32
+    层 × 4 矩阵 ≈ 128 个矩阵）和 FFN 层（32 层 × 3 矩阵 ≈ 96 个矩阵），总计约 224 个矩阵。\n\n- 总 LoRA 参数 ≈
+    224 × 65,536 ≈ 14.68 M 参数。\n\n- FP32 格式占用：14.68 M × 4 字节 = 58.7 MB。加上梯度和优化器状态，约
+    58.7 × 3 ≈ 176 MB。\n\n- 若部分层不应用 LoRA（如只对 Q、V），参数量减半。\n\n✅ 因此，LoRA 参数量极小，显存占用通常在几十至几百
+    MB，相比于基础模型可忽略。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QBvawndcciP8mqkRKr0cKS3Cnzb
+  block_id: Qmw9dPTtAo26VvxQDKscd1NVn3c
+  page_token: QBvawndcciP8mqkRKr0cKS3Cnzb
+  original_title: "\U0001F4CF LoRA 的参数（A 和 B）占用的显存有多大？如何计算？"
+  imported_at: '2026-09-21'

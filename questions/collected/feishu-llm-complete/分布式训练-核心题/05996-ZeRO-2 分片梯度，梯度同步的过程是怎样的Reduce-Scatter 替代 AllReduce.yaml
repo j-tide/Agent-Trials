@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-23f10eaa6137
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ZeRO-2 分片梯度，梯度同步的过程是怎样的？Reduce-Scatter 替代 AllReduce。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: ZeRO-2 分片梯度，梯度同步的过程是怎样的？Reduce-Scatter 替代 AllReduce。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO-2在ZeRO-1基础上进一步对梯度进行分片。在标准数据并行中，梯度通过AllReduce同步——AllReduce将所有卡的梯度求和，然后将完整结果返回给每张卡。但在ZeRO-2中，因为每张卡只负责更新部分参数，它并不需要完整梯度，只需要自己负责的那部分。因此，ZeRO-2用ReduceScatter替代了AllReduce。
+
+    梯度同步过程：
+
+    反向传播逐层进行。当某一层（比如第N个Transformer层）的梯度计算完成后，ZeRO-2不会等待所有层的梯度都算完，而是立即对该层梯度发起ReduceScatter。这个操作将该层梯度在所有DP卡之间求和，然后按参数分片规则将结果切分——每张卡只保留自己负责更新参数的那部分梯度，其余直接丢弃。
+
+    这个“逐层立即处理”的模式带来了两个重要好处：
+
+    - 通信与计算重叠：当第N层的ReduceScatter在后台异步执行时，反向传播可以继续向前推进，计算第N-1层的梯度。两者在时间上重叠，通信延迟被部分隐藏。
+
+    - 显存立即可释放：每张卡不再需要为所有参数保存完整梯度。一层梯度被ReduceScatter处理后，该层完整梯度即可释放，只保留分片后的小部分。整个反向传播结束后，每张卡只持有约1/N的梯度。
+
+    从通信量来看，ReduceScatter的总通信量仍然等于梯度总量（14GB），与AllReduce相同。但AllReduce需要将完整结果返回每张卡，而ReduceScatter按需分发，更契合分片存储的需求，避免了不必要的显存占用。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: R6djd5HhDo0ABLxcH7mcM1o2nwd
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: ZeRO-2 分片梯度，梯度同步的过程是怎样的？Reduce-Scatter 替代 AllReduce。
+  imported_at: '2026-09-21'

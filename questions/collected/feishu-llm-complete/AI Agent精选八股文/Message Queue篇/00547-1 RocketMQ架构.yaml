@@ -1,0 +1,180 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7dc59e3cc09f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3.1 RocketMQ架构
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 3.1 RocketMQ架构
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### RocketMQ的核心架构
+
+    1、RocketMQ的核心组件有哪些？
+
+    ⭐（NameServer、Broker、Producer、Consumer）
+
+    RocketMQ的核心组件包括：
+
+    - NameServer：注册中心，管理Broker路由信息
+
+    - Broker：消息存储和转发服务器
+
+    - Producer：消息生产者
+
+    - Consumer：消息消费者
+
+    2、请详细说明RocketMQ的架构设计，相比Kafka有什么优势？
+
+    ⭐⭐（NameServer vs Zookeeper、存储模型、事务消息）
+
+    1️⃣ Common Answer RocketMQ用NameServer代替Zookeeper，更轻量。支持事务消息，Kafka不支持。存储模型是Topic和Queue，和Kafka类似。RocketMQ更适合业务场景。
+
+    2️⃣ Impressive Answer RocketMQ的架构设计在借鉴Kafka的基础上做了很多优化，让我详细对比说明：
+
+    NameServer vs Zookeeper：
+
+    - NameServer：RocketMQ使用NameServer作为注册中心，是无状态的，集群部署时各节点互不通信。Broker启动时向所有NameServer注册，Producer/Consumer从任意NameServer获取路由信息。NameServer轻量简单，不存在单点故障。
+
+    - Zookeeper：Kafka依赖Zookeeper管理元数据，Zookeeper是强一致性的，维护复杂。新版本Kafka引入KRaft模式逐步去ZK，但RocketMQ从一开始就避免了ZK的复杂性。
+
+    存储模型差异：
+
+    - RocketMQ：Topic下有多个Queue，Queue是物理存储单元。消息顺序写入CommitLog，然后异步构建ConsumeQueue和IndexFile。这种设计读写分离，写入性能极高。
+
+    - Kafka：Partition是物理存储单元，消息直接写入Partition日志文件。虽然也高效，但在海量消息场景下索引和查询不如RocketMQ灵活。
+
+    事务消息支持：
+
+    - RocketMQ：原生支持事务消息，通过两阶段提交保证分布式事务一致性，适合订单、支付等强一致性场景。
+
+    - Kafka：支持事务但主要用于Exactly Once语义，不是传统意义的分布式事务。
+
+    其他优势：
+
+    - 消息过滤：支持SQL表达式过滤，Consumer可以按条件订阅消息
+
+    - 延迟消息：原生支持延迟级别，无需额外组件
+
+    - 消息回溯：支持按时间重新消费，方便数据修复
+
+    - 运维工具：提供完善的管理控制台和运维工具
+
+    适用场景：
+
+    - RocketMQ：电商、金融等业务场景，需要事务消息、消息过滤、回溯等特性
+
+    - Kafka：日志收集、流计算等大数据场景，追求高吞吐量
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    3、你的电商系统需要保证订单和库存的一致性，如何用RocketMQ实现？
+
+    ⭐⭐⭐（事务消息实战）
+
+    1️⃣ Common Answer 用RocketMQ的事务消息吧。先发个半消息，然后执行本地事务，成功后再提交消息。这样就能保证一致性。如果本地事务失败就回滚消息。
+
+    2️⃣ Impressive Answer 电商订单和库存的一致性是典型的分布式事务场景，RocketMQ的事务消息非常适合。让我详细说明实现方案：
+
+    事务消息原理： RocketMQ事务消息通过两阶段提交保证一致性：
+
+    - 第一阶段：Producer发送"半消息"（Half Message）到Broker，半消息对Consumer不可见
+
+    - 本地事务：Producer执行本地事务（如扣减库存）
+
+    - 第二阶段：根据本地事务结果，发送Commit或Rollback请求到Broker
+
+    - 异常处理：如果Broker长时间未收到确认，会主动回查Producer的本地事务状态
+
+    具体实现步骤：
+
+    // 1. 发送半消息
+    Message msg = new Message("OrderTopic", orderJson);
+    SendResult sendResult = transactionMQ.sendMessageInTransaction(msg, null);
+
+    // 2. 执行本地事务
+    @Override
+    public LocalTransactionState executeLocalTransaction(Message msg, Object arg) {
+        try {
+            // 扣减库存
+            inventoryService.deduct(order.getProductId(), order.getQuantity());
+            // 创建订单
+            orderService.create(order);
+            return LocalTransactionState.COMMIT_MESSAGE;
+        } catch (Exception e) {
+            return LocalTransactionState.ROLLBACK_MESSAGE;
+        }
+    }
+
+    // 3. 事务回查
+    @Override
+    public LocalTransactionState checkLocalTransaction(MessageExt msg) {
+        // 查询订单状态，如果订单创建成功则提交，否则回滚
+        Order order = orderService.queryByOrderId(msg.getKeys());
+        if (order != null && order.getStatus() == 1) {
+            return LocalTransactionState.COMMIT_MESSAGE;
+        }
+        return LocalTransactionState.ROLLBACK_MESSAGE;
+    }
+
+    注意事项：
+
+    - 幂等性：本地事务和回查逻辑都要保证幂等，避免重复扣库存
+
+    - 超时时间：设置合理的transactionTimeOut，避免回查过早
+
+    - 回查次数：限制回查次数，超过次数后默认Rollback
+
+    - 消息Keys：设置唯一的订单ID作为Keys，方便回查时定位
+
+    异常场景处理：
+
+    - 本地事务成功但Commit失败：Broker会回查，根据订单状态Commit
+
+    - 本地事务失败但Rollback失败：Broker会回查，根据订单状态Rollback
+
+    - 回查时订单不存在：说明本地事务未执行或失败，返回Rollback
+
+    - 网络超时：通过重试机制保证最终一致性
+
+    优势总结： 相比TCC、Saga等分布式事务方案，RocketMQ事务消息实现简单，侵入性小，适合订单、支付等异步场景。但要注意事务消息的吞吐量不如普通消息，不要在高并发场景滥用。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/OKxBw38EbiXvoAksf2jc1fn6nMh
+  block_id: doxcn49B06yZLZdEsqJriQRImxf
+  page_token: OKxBw38EbiXvoAksf2jc1fn6nMh
+  original_title: 3.1 RocketMQ架构
+  imported_at: '2026-09-21'

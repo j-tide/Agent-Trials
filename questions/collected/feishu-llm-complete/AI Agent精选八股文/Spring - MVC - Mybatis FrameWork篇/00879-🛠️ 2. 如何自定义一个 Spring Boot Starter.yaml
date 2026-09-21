@@ -1,0 +1,133 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bfe1f16e64d3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E0️ 2. 如何自定义一个 Spring Boot Starter？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: "\U0001F6E0️ 2. 如何自定义一个 Spring Boot Starter？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    自定义 Starter 就是把“一组可复用的自动配置 + 依赖”打包成一个独立的模块。它通常包含两个子模块：autoconfigure（自动配置逻辑）和 starter（空壳，只引入 autoconfigure 和所需依赖）。
+
+    以创建一个 agent-tool-starter 为例，它会在启动时自动创建一个 ToolService Bean，并根据配置项 agent.tool.name 来设置工具名称。
+
+    步骤一：创建 autoconfigure 模块
+
+    ```java
+    // 1. 属性类，绑定 application.yml 中的前缀
+    @ConfigurationProperties(prefix = "agent.tool")
+    public class ToolProperties {
+        private String name = "default-tool";
+        // getter/setter...
+    }
+
+    // 2. 核心服务
+    public class ToolService {
+        private final String toolName;
+        public ToolService(String toolName) { this.toolName = toolName; }
+        public String call() { return "Calling " + toolName; }
+    }
+
+    // 3. 自动配置类，负责创建 Bean
+    @Configuration
+    @EnableConfigurationProperties(ToolProperties.class)
+    @ConditionalOnClass(ToolService.class)
+    public class ToolAutoConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        public ToolService toolService(ToolProperties properties) {
+            return new ToolService(properties.getName());
+        }
+    }
+    ```
+
+    步骤二：在 resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports 中注册自动配置类：
+
+    ```text
+    com.example.agent.tool.ToolAutoConfiguration
+    ```
+
+    步骤三：创建 starter 模块
+    它是一个空的 Maven 模块，只包含一个 pom.xml，依赖 autoconfigure 模块和 spring-boot-starter。用户只需在自己的项目中引入这个 starter，就会自动获得 ToolService Bean。
+
+    用户使用时的效果：
+
+    ```java
+    @SpringBootApplication
+    public class Application {
+        public static void main(String[] args) {
+            var ctx = SpringApplication.run(Application.class, args);
+            ToolService tool = ctx.getBean(ToolService.class);
+            System.out.println(tool.call());
+        }
+    }
+    ```
+
+    在 application.yml 中定制：
+
+    ```yaml
+    agent:
+      tool:
+        name: "web-search"
+    ```
+
+    打包方式与约定：
+
+    - autoconfigure 模块：包含配置类、属性类、服务类；pom.xml 中将 spring-boot-autoconfigure 作为可选依赖。
+
+    - starter 模块：pom.xml 中引入 autoconfigure 模块及 spring-boot-starter。用户只需在 pom.xml 中添加 starter 依赖。
+
+    结构一览：
+
+    ```text
+    agent-tool-spring-boot-starter/
+    ├── pom.xml
+    └── src/main/resources/META-INF/spring/
+        └── org.springframework.boot.autoconfigure.AutoConfiguration.imports
+
+    agent-tool-spring-boot-autoconfigure/
+    ├── pom.xml
+    └── src/main/java/com/example/agent/tool/
+        ├── ToolProperties.java
+        ├── ToolService.java
+        └── ToolAutoConfiguration.java
+    ```
+
+    为什么分成两个模块？
+    为了遵循“关注点分离”。autoconfigure 包含所有配置类和逻辑，可以独立测试和版本管理；starter 只是一个引入入口，方便用户。这种模式也是 Spring 官方所有 Starter 的通用做法。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NHwYwCwRDiPz1OkM3b9cXNBinUd
+  block_id: doxcnasBiAm0tXqJMhn5XUgRQfh
+  page_token: NHwYwCwRDiPz1OkM3b9cXNBinUd
+  original_title: "\U0001F6E0️ 2. 如何自定义一个 Spring Boot Starter？"
+  imported_at: '2026-09-21'

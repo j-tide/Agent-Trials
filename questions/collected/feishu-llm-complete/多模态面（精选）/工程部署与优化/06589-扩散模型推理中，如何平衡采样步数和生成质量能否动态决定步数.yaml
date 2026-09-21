@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-41d2c566f191
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 扩散模型推理中，如何平衡采样步数和生成质量？能否动态决定步数？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 扩散模型推理中，如何平衡采样步数和生成质量？能否动态决定步数？
+answer:
+  mode: rubric
+  reference_answer: |-
+    采样步数直接影响生成质量和速度。固定步数是简单方案，但不同场景和不同提示词对步数的需求不同。
+
+    动态步数决策方法：
+
+    - 基于图像复杂度的自适应步数
+
+    简单图像（大面积纯色、简单物体）仅需10-15步即可，复杂图像（细节丰富、纹理密集）需要20-25步。可以用一个轻量级CNN对输入噪声图或中间生成图评估复杂度（如高频能量），动态选择步数。或根据提示词中的关键词（“高清”、“4K”、“精细” vs “简笔画”、“极简”）预设步数。
+
+    - 基于损失收敛的提前停止
+
+    在去噪过程中，监控相邻两步的潜变量差异（MSE）。当差异低于阈值时，说明后续步的改进已极小，可以提前终止。这需要额外计算差异，但可省去后续所有步。实践中，差异曲线在最后几步趋于平缓，提前2-5步停止通常不会明显降低质量。
+
+    - 渐进式步数分配（级联生成）
+
+    先用极少步数（如4步）快速生成缩略图，让用户预览。如果用户满意，停止；如果不满意，在已生成的潜变量基础上继续精炼（追加步数）。这种方法适合交互式应用，将用户反馈纳入步数决策。
+
+    - 多模型协同
+
+    使用一个快速模型（如LCM）生成初稿，一个高质量模型（标准SD）进行精炼。快速模型用1-4步生成大致内容，用户确认后，高质量模型以该潜变量为起点，用10步左右进行细节增强。步数动态分配在两个模型之间。
+
+    - 强化学习或元学习调度
+
+    训练一个轻量级的步数决策网络，输入提示词嵌入和当前步的潜变量特征，输出是否继续去噪或停止。这需要大量模拟生成过程的数据来训练，但可获得最优的步数-质量权衡。
+
+    实践建议：在服务端，可以预设几组“质量配置”（快/中/高），对应步数10/20/30。用户或应用层根据场景选择。同时结合LCM蒸馏，将最小步数降至1-2步，再通过动态加载精炼模型来提升质量。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RRQVwfGDQiejs6kBW04ch16ynHe
+  block_id: XRgeds4laoOhhExcfioctYqTnIg
+  page_token: RRQVwfGDQiejs6kBW04ch16ynHe
+  original_title: 扩散模型推理中，如何平衡采样步数和生成质量？能否动态决定步数？
+  imported_at: '2026-09-21'

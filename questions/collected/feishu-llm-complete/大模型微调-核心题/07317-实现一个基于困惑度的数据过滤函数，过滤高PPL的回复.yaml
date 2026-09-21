@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-665b49ed6e43
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个基于困惑度的数据过滤函数，过滤高PPL的回复。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 实现一个基于困惑度的数据过滤函数，过滤高PPL的回复。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from typing import List
+
+    def filter_by_ppl(
+        texts: List[str],
+        model_name: str = "gpt2",
+        threshold: float = 100.0,
+        device: str = "cuda"
+    ) -> List[str]:
+        """
+        计算每个文本的困惑度，返回 PPL 低于阈值的文本。
+        """
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
+        model.eval()
+        kept = []
+        for text in texts:
+            inputs = tokenizer(text, return_tensors="pt").to(device)
+            with torch.no_grad():
+                outputs = model(**inputs, labels=inputs.input_ids)
+                loss = outputs.loss
+                ppl = torch.exp(loss).item()
+            if ppl < threshold:
+                kept.append(text)
+        return kept
+    ```
+
+    注意：实际应用中可使用更大的参考模型，并可对每个样本计算长度归一化的PPL。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: B8IndKPvFoVl8uxN4IXcqcTwnNf
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: 实现一个基于困惑度的数据过滤函数，过滤高PPL的回复。
+  imported_at: '2026-09-21'

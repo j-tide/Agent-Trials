@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-843233b24eaa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EC 3. 近实时搜索（NRT）的原理是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F9EC 3. 近实时搜索（NRT）的原理是什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    ES 不是“存进去就能立刻搜到”，而是 1 秒内可搜索，这就是近实时搜索（Near Real-Time，NRT）。
+
+    NRT 的秘密：Refresh 机制
+
+    ```text
+    客户端写入 (Index Request)
+         │
+         ▼
+    ┌──────────┐     1秒内触发 refresh       ┌──────────┐
+    │ Indexing │ ─────────────────────────→ │ Segment  │
+    │ Buffer   │   生成新的 Segment，打开文件 │ (可搜索)  │
+    │ (内存)   │                            │ (磁盘)   │
+    └──────────┘                            └──────────┘
+    ```
+
+    具体流程：
+
+    - 文档被写入内存缓冲区（Indexing Buffer）和事务日志（Translog）中，此时不可搜索。
+
+    - ES 默认每秒执行一次 refresh 操作：将缓冲区的文档刷新到一个新的 Segment，并打开该 Segment 使其被搜索。这个操作只将数据写入文件系统缓存，并打开文件句柄，并未强制执行 fsync（刷盘），所以性能开销很小。
+
+    - Segment 越来越多，后台异步的 段合并（Merge） 会定期将小段合并为大段，减少碎片并释放被删除文档占用的空间。
+
+    为什么是 1 秒？
+    这是性能与实时性的折中。如果每次写入都立即 refresh（refresh=wait_for），会生成海量小 Segment，严重拖累 I/O 和搜索性能。1 秒的窗口刚好让足够多的文档积攒在一起，形成一个大小适中的 Segment。
+
+    代码示例：修改 refresh 间隔
+
+    ```javascript
+    // 关闭自动刷新（导入完成后手动刷新）
+    PUT /logs/_settings
+    {
+      "refresh_interval": "-1"
+    }
+
+    // 导入完成后手动刷新，立即可搜索
+    POST /logs/_refresh
+    ```
+
+    Translog 的作用
+
+    Refresh 并不保证数据不丢。在两次 Refresh 之间，数据还在内存缓冲区中。如果此时节点宕机，内存数据丢失，但 Translog 已记录了这些操作。重启时，ES 会重放 Translog 中的操作来恢复尚未刷新到磁盘的数据。这就是 Translog 的 write-ahead log 机制。
+
+    收束：NRT 的核心是 Segment 化的内存批量刷写。ES 宁可让你等 1 秒再搜到数据，也不愿每写一条就打断正在进行的搜索，生成无数小碎片。这一秒的缓冲，正是全文搜索高性能与实时性之间的优雅平衡。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MjSawrHIci2PTTktAdVc2UF3nQb
+  block_id: doxcnQTrdSWwfpsMgqnE4yLFsLf
+  page_token: MjSawrHIci2PTTktAdVc2UF3nQb
+  original_title: "\U0001F9EC 3. 近实时搜索（NRT）的原理是什么？"
+  imported_at: '2026-09-21'

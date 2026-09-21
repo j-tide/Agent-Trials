@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f7e6555d609c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F310 在多 Agent 场景下，LangChain 有没有提供原生支持？如果没有，你如何实现？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "\U0001F310 在多 Agent 场景下，LangChain 有没有提供原生支持？如果没有，你如何实现？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangChain 本身没有像 AutoGen 或 CrewAI 那样开箱即用的多 Agent 协作框架，但它提供了构建这类系统所需的底层组件（自定义 Agent、工具、Memory、Prompt 等）。
+
+    实现多 Agent 的常用模式
+
+    - 分层 Agent (Hierarchical Agent)
+    一个“主管” Agent 负责接收任务，然后决定分配给哪个“专家” Agent，并汇总它们的结果。主管 Agent 本身也是一个 Agent，它的工具是一组子 Agent（包装成 Tool）。例如：
+
+    def legal_expert(query: str) -> str:
+        return legal_agent_executor.run(query)
+
+    def medical_expert(query: str) -> str:
+        return medical_agent_executor.run(query)
+
+    tools = [
+        Tool(name="LegalExpert", func=legal_expert, description="处理法律问题"),
+        Tool(name="MedicalExpert", func=medical_expert, description="处理医疗问题"),
+    ]
+    manager_agent = create_openai_functions_agent(llm, tools, prompt)
+
+    - 顺序执行 (Sequential)
+    将多个 Agent 串行，前一个 Agent 的输出作为后一个的输入。这可以通过 LangChain 的 SequentialChain 或自定义脚本实现。
+
+    - 辩论/对话模式
+
+    让两个 Agent 以对话形式交流，直至达成一致。可以自定义一个“辩论”环境，利用 Memory 共享对话历史。
+
+    - 自定义调度器
+
+    编写一个调度循环，维护一个任务队列和一组 Agent 工作器，动态分配任务。
+
+    关键设计点
+
+    - 记忆共享：多个 Agent 可能需要访问共同的记忆库（如用户信息）。可以使用同一个 RedisChatMessageHistory 或向量库来实现。
+
+    - 工具隔离：每个 Agent 只暴露其需要的工具，避免越权操作。
+
+    - 通信协议：定义清晰的输入输出格式，比如要求 Agent 的 Final Answer 必须包含结构化摘要。
+
+    - 错误传播：子 Agent 的错误应被捕获并转化为可读信息，反馈给上层 Agent。
+
+    ✅ 我的实践：如果需求简单，我会手动搭建分层 Agent。对于复杂协作，我更倾向于使用专门的多 Agent 框架（如 AutoGen），然后将其与 LangChain 的工具和检索能力结合。LangChain 的优势在于丰富的组件生态，但在多 Agent 调度方面仍需大量定制工作。未来 LangChain 可能会推出更高级的多 Agent 抽象，但目前还是需要自己“造轮子”或借用其他工具。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/L6pCw9CICiNRXDkqTmbcNMZ5nzh
+  block_id: MZWWdycdVoml9ExNocUcBlNvnlh
+  page_token: L6pCw9CICiNRXDkqTmbcNMZ5nzh
+  original_title: "\U0001F310 在多 Agent 场景下，LangChain 有没有提供原生支持？如果没有，你如何实现？"
+  imported_at: '2026-09-21'

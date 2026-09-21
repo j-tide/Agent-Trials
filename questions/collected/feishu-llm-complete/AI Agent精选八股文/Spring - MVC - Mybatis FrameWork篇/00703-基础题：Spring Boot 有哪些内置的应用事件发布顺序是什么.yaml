@@ -1,0 +1,122 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dbbff989a87d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 1、基础题：Spring Boot 有哪些内置的应用事件？发布顺序是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 1、基础题：Spring Boot 有哪些内置的应用事件？发布顺序是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐（ApplicationEvent、事件发布顺序、监听器）
+
+    1️⃣ Common Answer
+
+    Spring Boot 有 ApplicationStartedEvent、ApplicationReadyEvent 等事件，可以用 @EventListener 监听。启动完成后会发布 ApplicationReadyEvent。
+
+    2️⃣ Impressive Answer
+
+    - Spring Boot 启动事件完整顺序：
+
+    ```text
+    ApplicationStartingEvent        → SpringApplication.run() 刚开始，容器还未创建
+    ApplicationEnvironmentPreparedEvent → Environment 准备完成，配置已加载
+    ApplicationContextInitializedEvent  → ApplicationContext 创建完成，Initializer 执行完
+    ApplicationPreparedEvent        → BeanDefinition 加载完成，Bean 还未实例化
+    ApplicationStartedEvent         → refreshContext 完成，Bean 已实例化
+    ApplicationReadyEvent           → Runner 执行完成，应用完全就绪
+    ApplicationFailedEvent          → 启动失败时发布
+    ```
+
+    - 监听方式：
+
+    ```text
+    // 方式一：@EventListener 注解（容器刷新后的事件）
+    @Component
+    public class AgentStartupListener {
+
+        @EventListener(ApplicationReadyEvent.class)
+        public void onApplicationReady(ApplicationReadyEvent event) {
+            // 应用完全就绪后，预热 LLM 连接池
+            llmClient.warmUp();
+        }
+    }
+
+    // 方式二：实现 ApplicationListener 接口（可监听容器刷新前的事件）
+    public class EnvironmentPreparedListener
+            implements ApplicationListener<ApplicationEnvironmentPreparedEvent> {
+
+        @Override
+        public void onApplicationEvent(ApplicationEnvironmentPreparedEvent event) {
+            // 容器刷新前，可以修改 Environment
+            ConfigurableEnvironment env = event.getEnvironment();
+            // 动态注入配置
+        }
+    }
+    ```
+
+    - 注意事项：ApplicationStartingEvent 和 ApplicationEnvironmentPreparedEvent 发布时容器还未创建，不能用 @EventListener，必须通过 SpringApplication.addListeners() 或 spring.factories 注册。
+
+    - 自定义事件：
+
+    ```text
+    // 定义事件
+    public class LLMCallCompletedEvent extends ApplicationEvent {
+        private final String model;
+        private final int tokensUsed;
+
+        public LLMCallCompletedEvent(Object source, String model, int tokensUsed) {
+            super(source);
+            this.model = model;
+            this.tokensUsed = tokensUsed;
+        }
+    }
+
+    // 发布事件
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
+
+    eventPublisher.publishEvent(new LLMCallCompletedEvent(this, "gpt-4", 512));
+
+    // 监听事件
+    @EventListener
+    public void onLLMCallCompleted(LLMCallCompletedEvent event) {
+        metricsService.recordTokenUsage(event.getModel(), event.getTokensUsed());
+    }
+    ```
+
+    3️⃣ Key Differences
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NHwYwCwRDiPz1OkM3b9cXNBinUd
+  block_id: doxcnZPRDnQgLvse16NJdgKc59e
+  page_token: NHwYwCwRDiPz1OkM3b9cXNBinUd
+  original_title: 1、基础题：Spring Boot 有哪些内置的应用事件？发布顺序是什么？
+  imported_at: '2026-09-21'

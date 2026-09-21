@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-738484defa55
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分析 DPO 损失中 log-sigmoid 项的计算，如何在数值上保持稳定？写出健壮的实现。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 分析 DPO 损失中 log-sigmoid 项的计算，如何在数值上保持稳定？写出健壮的实现。
+answer:
+  mode: rubric
+  reference_answer: |-
+    数值稳定问题
+
+    当 Δ（即 reward_diff）非常大时，σ(Δ)≈1，log_sigmoid(Δ) 接近 0，计算 log(1)=0 没有问题。
+    当 Δ 非常小时（强负值），σ(Δ)≈0，直接计算 log(sigmoid(Δ)) 可能会因为 sigmoid(Δ) 下溢到 0 而导致 log(0) = -inf，出现数值问题。
+
+    健壮实现
+
+    PyTorch 提供了 F.logsigmoid，它在内部已经实现了数值稳定的计算：利用恒等式 logσ(x)=−softplus(−x)，或者分段处理。因此直接使用 F.logsigmoid(reward_diff) 是安全且推荐的。
+
+    如果我们手动实现一个健壮版本（例如在不支持 logsigmoid 的环境），可以如下：
+
+    ```python
+    def stable_logsigmoid(x: torch.Tensor) -> torch.Tensor:
+        """数值稳定的 log-sigmoid"""
+        # 对于 x >= 0: log(sigmoid(x)) = -log(1 + exp(-x)) = -softplus(-x)
+        # 对于 x < 0:  log(sigmoid(x)) = x - log(1 + exp(x))  = x - softplus(x)
+        # 或者使用 logsigmoid 的内置实现
+        return torch.where(
+            x >= 0,
+            -F.softplus(-x),
+            x - F.softplus(x)
+        )
+    ```
+
+    在标准 DPO 损失中，直接使用 -F.logsigmoid(reward_diff).mean() 即可，因为 F.logsigmoid 已处理数值稳定性。需要注意的是，reward_diff 是 chosen 奖励减 rejected 奖励，理论上可以很大或很小，PyTorch 的实现能够覆盖。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  block_id: X2zYdZw4IoLZv0xysBscTHvJnvg
+  page_token: Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  original_title: 分析 DPO 损失中 log-sigmoid 项的计算，如何在数值上保持稳定？写出健壮的实现。
+  imported_at: '2026-09-21'

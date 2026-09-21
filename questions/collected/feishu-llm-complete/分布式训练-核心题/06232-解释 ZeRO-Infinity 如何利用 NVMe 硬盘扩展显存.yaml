@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-564c1b922258
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 ZeRO-Infinity 如何利用 NVMe 硬盘扩展显存。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 解释 ZeRO-Infinity 如何利用 NVMe 硬盘扩展显存。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO-Infinity 是 ZeRO 的终极扩展，它打通了 GPU 显存、CPU 内存和 NVMe 固态硬盘之间的数据迁移通路，将可用“显存”池从 GPU 扩展到整个异构存储系统。
+
+    工作原理：
+
+    - 参数、梯度、优化器状态均可卸载到 CPU 内存（这已经是 ZeRO-Offload 的能力）。但当模型极大，连 CPU 内存都不够时，ZeRO-Infinity 将数据进一步卸载到 NVMe SSD。
+
+    - 前向传播需要某层参数时，从 NVMe 读取到 CPU 内存，再传输到 GPU；反向传播同理。计算出的梯度也先暂存 CPU，需要时再写入 NVMe。
+
+    - 优化器更新在 CPU 上执行，利用 CPU 的大内存和 NVMe 的大容量，GPU 仅负责计算密集的前向和反向传播。
+
+    NVMe 的角色：充当一个超大容量的低速“显存”。NVMe 的带宽（约 3~7 GB/s）远高于普通 SSD，但仍比 CPU 内存慢一个数量级，更无法与 GPU HBM 相比。因此，ZeRO-Infinity 会带来显著的训练减速。但它使得在有限 GPU（如单卡或数卡）上训练超大规模模型（如 100B+）成为可能，是“用空间和时间换规模”的极致体现。
+
+    为了最小化性能损失，ZeRO-Infinity 采用激进的预取和重叠策略：在计算当前层时，后台异步从 NVMe 加载下一层参数到 CPU 缓存；梯度也异步写回 NVMe。通过精巧的流水线调度，将数据传输时间部分隐藏在计算时间之后。即便如此，对于 NVMe 卸载，训练速度通常只有纯 GPU 训练的 10%~30%。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: Xd12dQA8ZoAtGLxGbWmcCCxTnef
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 解释 ZeRO-Infinity 如何利用 NVMe 硬盘扩展显存。
+  imported_at: '2026-09-21'

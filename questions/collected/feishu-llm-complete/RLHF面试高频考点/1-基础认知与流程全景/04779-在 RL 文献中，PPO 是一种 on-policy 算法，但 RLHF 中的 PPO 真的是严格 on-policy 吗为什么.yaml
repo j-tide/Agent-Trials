@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5f92b7a69774
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 RL 文献中，PPO 是一种 on-policy 算法，但 RLHF 中的 PPO 真的是严格 on-policy 吗？为什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 1-基础认知与流程全景
+tags: &1
+- RLHF面试高频考点
+- 1-基础认知与流程全景
+content:
+  prompt: 在 RL 文献中，PPO 是一种 on-policy 算法，但 RLHF 中的 PPO 真的是严格 on-policy 吗？为什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    不是严格的 on-policy，实际上它是一个混杂了 off-policy 机制的 on-policy 算法，这正是 RLHF 工程复杂性和脆弱性的来源之一。
+
+    严格的 on-policy 定义：用于更新策略的数据，必须由当前最新版本的策略与环境交互产生。一旦策略更新，旧数据就必须丢弃。
+
+    RLHF 中 PPO 的实际操作：
+
+    - 使用当前 Actor 采样一批 prompt，生成回答（经历），并记录每个 token 的旧对数概率 log⁡πθoldlogπθold。
+
+    - 将这批经历数据输入训练循环，进行多个 epoch（通常 2-4 个）的 mini-batch 更新，计算 PPO 损失。
+
+    - 在第一个 epoch，数据来自当前策略，是 on-policy。
+
+    [图片内容未导入]
+
+    为何不是严格的 on-policy？
+
+    - 计算效率的妥协：如果严格 on-policy，每进行一次 mini-batch 更新，都必须丢弃旧数据，重新用新策略采样。这将导致采样和训练的时间片严重不平衡，大量时间花在生成上，GPU 利用率极低。多 epoch 更新极大地提升了数据利用率。
+
+    - 裁剪机制作为“后悔药”：PPO 的核心创新正是允许这种小幅度的 off-policy 复用，同时通过裁剪目标函数来保证更新不会跨越“信任区域”。它相当于在说：“只要新旧策略差异不大，旧数据依然是有效的梯度近似”。
+
+    RLHF 特有的 off-policy 因素：
+
+    - 异步架构：在大规模分布式 RLHF 中，采样 Actor 和训练 Learner 往往是异步的。Learner 更新参数后，需要一段时间才能同步给 Actor。这期间 Actor 仍在用旧参数采样，这批数据到达 Learner 时，Learner 的版本可能已经又更新了几次。这引入了更强的 off-policy 性。
+
+    - KL 惩罚的额外约束：RLHF 中的 KL 惩罚（向参考模型靠拢）进一步限制了策略的变异速度，使得旧数据相对“保鲜期”更长，变相为 off-policy 复用提供了便利。
+
+    结论：RLHF 中的 PPO 是一个近端 on-policy 算法，它通过裁剪和 KL 惩罚，在可控范围内允许了 off-policy 的数据复用。它并非纯粹 on-policy，而是巧妙地利用了 on-policy 算法的稳定性，同时注入了 off-policy 的数据效率。这种混合特性既赋予了它实用价值，也埋下了当裁剪失效（策略突变）时训练崩溃的种子。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PqJ4wugfeipRFqkWsvycxnxonwY
+  block_id: I627do7IIoIEZJxPQJUcHJB2nwb
+  page_token: PqJ4wugfeipRFqkWsvycxnxonwY
+  original_title: 在 RL 文献中，PPO 是一种 on-policy 算法，但 RLHF 中的 PPO 真的是严格 on-policy 吗？为什么？
+  imported_at: '2026-09-21'

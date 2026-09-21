@@ -1,0 +1,98 @@
+---
+schema_version: 1
+id: feishu-llm-complete-23d578ba8afd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚙️ 3. 一个 Agent 在执行复杂任务时中途工具调用失败，应该怎么处理？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "⚙️ 3. 一个 Agent 在执行复杂任务时中途工具调用失败，应该怎么处理？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    前提：失败是常态，不是异常。
+
+    API 超时、返回格式错乱、参数传错、权限不足……任何不可靠的外部依赖都可能出问题。一个鲁棒的 Agent 必须有分级容错策略，而不是直接崩溃。
+
+    处理框架：四层递进
+
+    [图片内容未导入]
+
+    对应代码骨架：
+
+    import time
+    import random
+
+    def execute_with_resilience(agent, tool_name, args, max_retries=3):
+        for attempt in range(1, max_retries+1):
+            try:
+                result = agent.tools[tool_name](**args)
+                return result
+            except RateLimitError:
+                wait = 2 ** attempt + random.uniform(0, 1)
+                time.sleep(wait)
+            except InvalidArgumentError as e:
+                # 不要硬重试，而是让 LLM 修正参数
+                correction_prompt = f"工具 {tool_name} 调用失败，错误：{e}。请修正参数。"
+                new_args = agent.brain.correct_args(correction_prompt, args)
+                args = new_args  # 更新参数，下一次循环会用新的
+            except FatalError:
+                break  # 无法通过重试解决，退出本层
+
+        # 尝试备用工具
+        fallback_tool = get_fallback_tool(tool_name)
+        if fallback_tool:
+            try:
+                return agent.tools[fallback_tool](**args)
+            except Exception:
+                pass
+
+        # 降级：生成求助消息给用户
+        return "DELEGATE_TO_USER: 我目前无法完成该操作，请您提供进一步指示或手动处理。"
+
+    与编排引擎的集成：
+    编排器发现工具返回了 DELEGATE_TO_USER 或重复失败，就应该将状态设置为“需要用户交互”，暂停自动循环，把当前上下文和失败原因整理好，发给用户，等待人工响应后继续。
+
+    更高级的容错：
+
+    - 并行工具调用 + 投票：对关键步骤同时调用多个独立工具，取多数一致的答案。
+
+    - 自我反思循环：在工具失败后，Agent 用单独的反思 prompt 分析失败根因并总结教训，存入长期记忆，避免再犯。
+
+    - 超时与断路器：设置每个工具调用的最大执行时间；如果一个工具连续失败 3 次，熔断它，不再尝试，强制走降级路径。
+
+    实际中，一个成熟的 Agent 循环大约 40% 的代码都在处理异常和边界情况， 因为真实世界的 API 不会像示例数据那样干净。对失败的设计，决定了 Agent 是在演示视频里跑得好，还是在生产环境里持续服务用户。
+
+    ---
+
+    Agent 对比普通 LLM 像是从“单次函数调用”进化到了“持久运行的进程”；四大组件构成了它的骨骼；而对失败的宽容与重试，则决定了它能走多远。真正让 Agent 活起来的，不是模型的聪明，而是工程上的韧性。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcnJlaXmPRuMGwTsMLzkN64ke
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: "⚙️ 3. 一个 Agent 在执行复杂任务时中途工具调用失败，应该怎么处理？"
+  imported_at: '2026-09-21'

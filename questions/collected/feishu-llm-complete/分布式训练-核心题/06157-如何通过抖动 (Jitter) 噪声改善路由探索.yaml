@@ -1,0 +1,116 @@
+---
+schema_version: 1
+id: feishu-llm-complete-121b980151ce
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何通过“抖动” (Jitter) 噪声改善路由探索？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 如何通过“抖动” (Jitter) 噪声改善路由探索？
+answer:
+  mode: rubric
+  reference_answer: |-
+    抖动噪声是一种简单有效的随机化手段，其思想是在门控网络的输入或 logits 上添加可控的随机扰动，迫使路由决策具有不确定性，从而促进探索。
+
+    - 具体做法：
+
+    - 作用原理：
+
+    - 与其他技术的配合：抖动噪声通常与负载均衡损失、Gumbel Softmax 等联合使用，形成多层次的探索-利用调度。例如，在训练的前 10% 步使用较大噪声和 Gumbel，中间逐步衰减，后 50% 步完全采用确定性 Top-k，同时保持负载均衡损失。这种策略在实践中被证明能有效提升 MoE 的最终性能。
+
+    DeepSpeed-MoE 让 MoE 训练从“研究阶段”走向“生产可用”，是当前最成熟的 MoE 训练框架之一。
+
+    - 输入 token 表示 x（形状 [batch_size, seq_len, d_model]）经过门控网络（一个线性层 W_gate）得到 logits。
+
+    - logits 通过 softmax 转换为概率分布 p。
+
+    - 根据 p，进行 Top-k 选择：对每个 token，选取概率最高的 k 个专家索引，以及对应的概率值 g。
+
+    - 注意：在前向传播时，有时为了训练稳定性，会加入噪声（如 Gumbel 噪声）来实现随机路由，但在标准的评估/推理阶段，通常直接使用确定性 Top-k。
+
+    - 根据路由决策，每个 GPU 上的 token 需要被送到它们各自对应的专家所在的 GPU。这一步通过第一轮 All-to-All 通信完成。
+
+    - 各个 GPU 将本地的 token 按照目标专家分组，打包，发送给对应的 GPU，同时接收其他 GPU 发来的、应由本卡专家处理的 token。
+
+    - 通信的数据量 = num_tokens * d_model。为了优化，可以将 token 和其路由权重一起打包。
+
+    - 每个 GPU 在自己持有的专家上独立计算。对于每个接收到的 token，调用对应的专家 FFN，使用该 token 的表示作为输入，得到输出 y_i。
+
+    - 如果容量限制导致溢出，超出的 token 将被丢弃（输出为 0，实际走残差连接）。
+
+    - 专家计算完成后，需要将 token 结果送回其原始 GPU。这是第二轮 All-to-All，方向与分发相反。
+
+    - 各 GPU 将处理后的 token 按原始 rank 打包发回。
+
+    - 回到原始 GPU 后，每个 token 可能会收到多个专家的输出（如果 k>1），按照路由权重 g 进行加权求和，得到最终的 FFN 层输出。
+
+    - 最后将输出加到残差连接上，完成本层的前向传播。
+
+    - FFN 是token-wise 独立的操作（每个 token 自己升维+非线性+降维），不涉及 token 间的交互。路由决策可以在每个 token 上独立进行，不会破坏序列结构。
+
+    - FFN 参数量巨大（通常占总参数的 2/3），用 MoE 扩充容量性价比最高。
+
+    - 分布式实现简单：token 分发和收集只需 All-to-All 搬运 token 表示，不涉及复杂的依赖。
+
+    - 自注意力需要计算 Q K^T，这依赖于所有 token 的 Q 和 K。如果不同 token 被路由到不同的注意力专家，它们之间的交互如何设计？一种方案是：所有 token 共享 Q 和 K 的投影，然后由不同专家计算不同的注意力模式，但这样会增加大量通信和计算复杂度。
+
+    - 有些工作（如 Switch Transformer 的实验）尝试过将 MoE 应用于注意力，但发现增益远不如 FFN-MoE，且训练困难。
+
+    - 因此，目前主流的 MoE 仅作用于 FFN，Attention 保持稠密。
+
+    - 天然负载均衡：如果哈希函数均匀，专家负载自然均衡，无需额外的辅助损失或容量限制。
+
+    - 训练稳定：没有门控网络的正反馈问题，不会坍塌。
+
+    - 计算开销极低：不需要计算 softmax 和 top-k，路由几乎是零成本。
+
+    - 缺乏适应性：哈希路由无法根据 token 的语义内容动态分配专家，专家的特化能力较弱。
+
+    - 可能将语义相近的 token 分散到不同专家，不利于专家形成专门知识。
+
+    - 鼓励探索：在训练初期，模型还没有形成稳定的路由偏好，随机路由可以强制 token 探索不同的专家，避免过早集中到少数专家。
+
+    - 防止坍塌：它为冷门专家提供了“被看见”的机会，让它们也能获得训练数据，从而维持专家的多样性。
+
+    - 平滑梯度：采样过程虽然离散，但配合 Gumbel Softmax 等重参数化技巧，可以使梯度更平滑地流回门控网络，改善训练稳定性。
+
+    - 在计算门控 logits 之前，给输入 token 表示 x 添加一个小的随机高斯噪声：x_noisy = x + ε * N(0, 1)，其中 ε 是噪声系数，通常从较大值（如 0.1）开始，在训练过程中逐渐衰减。
+
+    - 或者，直接在 logits 上添加噪声：z_noisy = z + ε * N(0, 1)，然后再 softmax 和 Top-k。
+
+    - 这种随机扰动使得每次前向传播时，token 的路由可能略有不同，给予模型尝试不同专家组合的机会。
+
+    - 初期较大的噪声可以让 token 在各个专家之间“跳来跳去”，帮助模型收集多样化的梯度信号，避免路由陷入局部最优。
+
+    - 随着训练推进，噪声逐渐减小，路由趋于稳定和确定，模型可以精细优化专家分工。
+
+    - 相比负载均衡损失的软约束，抖动噪声是一种前向过程中的硬探索，能更直接地打破固化。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQczwN8cliZ2XSkOI26ckCcPnuf
+  block_id: R5wRdezUXof3CRxKwXDcKv8tnHd
+  page_token: GQczwN8cliZ2XSkOI26ckCcPnuf
+  original_title: 如何通过“抖动” (Jitter) 噪声改善路由探索？
+  imported_at: '2026-09-21'

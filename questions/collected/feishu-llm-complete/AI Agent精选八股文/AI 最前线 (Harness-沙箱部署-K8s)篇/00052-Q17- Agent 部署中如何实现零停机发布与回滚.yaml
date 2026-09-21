@@ -1,0 +1,134 @@
+---
+schema_version: 1
+id: feishu-llm-complete-995d3179a3f3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 'Q17: Agent 部署中如何实现零停机发布与回滚？'
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: AI 最前线 (Harness|沙箱部署|K8s)篇
+tags: &1
+- AI Agent精选八股文
+- AI 最前线 (Harness|沙箱部署|K8s)篇
+content:
+  prompt: 'Q17: Agent 部署中如何实现零停机发布与回滚？'
+answer:
+  mode: rubric
+  reference_answer: |-
+    ⭐⭐（实战经验类：滚动更新、蓝绿部署、金丝雀发布、Prompt+模型+代码联合发布、自动回滚）
+
+    1️⃣ Common Answer
+
+    零停机发布主要是用滚动更新，Kubernetes 默认的 Deployment 就支持。配置 maxSurge 和 maxUnavailable 参数，比如 maxSurge=1、maxUnavailable=0，这样每次升级一个 Pod，旧的 Pod 还在运行，新 Pod 启动成功后再杀掉旧的，就能保证服务一直可用。如果发布出问题，手动回滚到上一个版本就行。
+
+    2️⃣ Impressive Answer
+
+    Agent 的零停机发布比传统服务更复杂，因为涉及三个维度的联合变更：Prompt 模板、模型版本、代码逻辑。任何一个维度出问题都会影响 Agent 的输出质量，所以需要精细的发布策略和自动回滚机制。
+
+    - Agent 发布的特殊挑战
+
+    传统服务只发布代码，但 Agent 发布需要同步更新 Prompt 模板、模型版本和代码。比如你优化了 Prompt，但模型还是旧版本，效果可能更差；或者代码改了工具调用逻辑，但 Prompt 没适配，会导致工具调用失败。这三个维度必须联合发布、版本绑定。
+
+    - 发布策略对比
+
+    - 滚动更新：maxSurge/maxUnavailable 控制升级步长，最基础，但新版本有问题时影响面逐步扩大
+
+    - 蓝绿部署：两套完整环境切换，回滚快（直接切回蓝环境），但资源占用翻倍
+
+    - 金丝雀发布（推荐）：Argo Rollouts 按比例切流 5%→25%→50%→100%，指标异常自动回滚
+
+    - 流量镜像：复制生产流量到新版本但不影响实际响应，适合模型效果验证
+
+    - 自动回滚机制
+
+    Agent 的关键指标：错误率（HTTP 5xx、LLM API 调用失败率 > 5%）、响应延迟（P99 > 3s）、Token 消耗异常飙升。Argo Rollouts 的 AnalysisRun 持续监控这些指标，连续 3 次采样超标就触发自动回滚。
+
+    - Prompt+模型+代码联合发布
+
+    - Prompt 版本化：Git 管理 Prompt 模板，ConfigMap 挂载到 Pod
+
+    - 模型版本化：Model Registry（MLflow/HF Hub）管理模型版本
+
+    - 发布编排顺序：先更新 Prompt ConfigMap → 再发布代码 Deployment → 最后切换模型版本
+
+    - GitOps：ArgoCD 一次 PR 同时更新三个维度，发布原子化
+
+    - 优雅关闭
+
+    preStop hook 停止接受新请求 → SIGTERM 信号处理，等待正在处理的请求完成 → 主动关闭连接池、释放资源。
+
+    Argo Rollouts 金丝雀 + AnalysisRun YAML 示例：
+
+    ```text
+    apiVersion: argoproj.io/v1alpha1
+    kind: Rollout
+    metadata:
+      name: agent-service
+    spec:
+      replicas: 10
+      strategy:
+        canary:
+          steps:
+          - setWeight: 5
+          - pause: {duration: 5m}
+          - analysis:
+              templates:
+              - templateName: success-rate
+          - setWeight: 25
+          - pause: {duration: 10m}
+          - setWeight: 50
+          - pause: {duration: 10m}
+          - setWeight: 100
+    ---
+    apiVersion: argoproj.io/v1alpha1
+    kind: AnalysisTemplate
+    metadata:
+      name: success-rate
+    spec:
+      metrics:
+      - name: success-rate
+        interval: 1m
+        count: 5
+        successCondition: result[0] >= 0.95
+        failureLimit: 3
+        provider:
+          prometheus:
+            address: http://prometheus.monitoring.svc:9090
+            query: |
+              sum(rate(http_requests_total{status=~"2..",service="agent-service"}[5m]))
+              /
+              sum(rate(http_requests_total{service="agent-service"}[5m]))
+    ```
+
+    我的实践：之前用滚动更新发布时，新版本 Prompt 漏掉了关键指令，影响了 50% 的 Pod，手动回滚花了 10 分钟。后来改用 Argo Rollouts 金丝雀发布，配置了 HTTP 错误率和 Token 成本两个 AnalysisTemplate。最近一次发布，新模型版本导致 P99 从 2s 涨到 5s，AnalysisTemplate 在 5% 阶段就检测到超标，自动回滚，用户几乎无感知。Prompt 和代码通过 ArgoCD 一次 PR 联合发布，回滚时也一起回滚，避免版本不匹配。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M0n4w1EKwiQwxKkHxMvc4LZUn7p
+  block_id: doxcnAfER9wtYKHZohmbmRBPKwd
+  page_token: M0n4w1EKwiQwxKkHxMvc4LZUn7p
+  original_title: 'Q17: Agent 部署中如何实现零停机发布与回滚？'
+  imported_at: '2026-09-21'

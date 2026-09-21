@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3793b3f77759
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释什么是“梯度桶” (Gradient Bucket) 在 DDP 中的作用。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 解释什么是“梯度桶” (Gradient Bucket) 在 DDP 中的作用。
+answer:
+  mode: rubric
+  reference_answer: |-
+    梯度桶是DDP实现通信与计算重叠的核心机制。它将模型的所有参数按反向传播的执行顺序分组，每个组就是一个“桶”。默认情况下，桶的划分遵循模型层的顺序（反向传播从后往前），桶的大小由bucket_cap_mb参数控制（默认为25MB）。
+
+    桶的作用：
+
+    - 延迟通信以累积更大粒度：单个参数的梯度张量通常很小（如几十KB），若每个梯度都独立发起AllReduce，通信启动开销将极为昂贵。桶将多个小梯度累积成较大的通信块（如25MB），一次AllReduce处理整个桶，大幅降低通信次数和延迟。
+
+    - 实现通信与计算的重叠：当反向传播完成某一个桶内最后一个参数的梯度计算时，DDP立即触发该桶的AllReduce。在AllReduce异步执行的同时，反向传播继续向前推进，计算下一个桶的梯度。这样，前一个桶的通信与后一个桶的计算在时间上重叠，隐藏了通信延迟。
+
+    - 自动管理依赖：DDP内置的Reducer会自动追踪每个桶内的梯度是否都已就绪。一旦就绪，启动AllReduce；所有桶完成后，才允许优化器更新参数。
+
+    桶的划分策略：通常按模型层从前到后的顺序（即反向传播的逆序）划分。例如，一个Transformer模型可能将最后几个FFN层分为一个桶，中间几个注意力层分为另一个桶。划分的粒度影响重叠效率：桶太大，等待最后一个梯度的时间过长，通信开始晚；桶太小，通信次数多。默认25MB是经过调优的平衡值。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: NKVzdcGnDorFeqxnAuVcJwfpnUb
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: 解释什么是“梯度桶” (Gradient Bucket) 在 DDP 中的作用。
+  imported_at: '2026-09-21'

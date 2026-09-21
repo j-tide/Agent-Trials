@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c26fa933f38a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对于多模态 Transformer，稀疏注意力（如 BigBird、Longformer）是否适用于图文混合输入？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 对于多模态 Transformer，稀疏注意力（如 BigBird、Longformer）是否适用于图文混合输入？
+answer:
+  mode: rubric
+  reference_answer: |-
+    稀疏注意力设计用于处理长序列，通过限制每个token只关注部分token来降低复杂度。对于图文混合输入，其适用性需要谨慎评估。
+
+    适用情况：
+
+    - 全局token需要密集交互：图像的CLS token、文本的EOS token等汇总全局信息的token，需要能够看到所有视觉和文本token，这部分需要全局注意力，稀疏机制可以配置为这些token做全注意力。
+
+    - 局部窗口注意力对于视觉token有一定合理性：ViT中的patch token本身就具有空间局部性，相邻patch在视觉上更相关。使用滑动窗口注意力（如Longformer）可以减少远距离patch之间的无用交互，可能在不损失太多精度下提速。
+
+    - 视频多帧场景：帧数多导致总token数极大，使用稀疏注意力（如帧内密集、帧间稀疏）是必要的折中。
+
+    不适用或需注意的情况：
+
+    - 跨模态细粒度对齐：文本中的某个词可能需要关注图像中任意位置的patch（如“左边的汽车”），这种跨模态关联不具有局部性，强行稀疏可能错失关键对应。
+
+    - 单流模型中图文token完全交织：自注意力是全模态交互的基础。如果用随机稀疏或固定窗口，可能割裂单词与对应视觉区域的联系，降低VQA等任务的精度。
+
+    - 性能损失：已有研究表明，在图文多模态任务上，稀疏注意力在同等计算量下难以匹敌全注意力的精度，因为跨模态信号往往稀疏且关键，一旦丢失补偿困难。
+
+    实践建议：
+
+    - 对于长视频或高分辨率多块图像，优先采用层次化处理（如先每块独立编码再融合），而非直接对巨长序列做稀疏注意力。
+
+    - 如果必须用稀疏注意力，建议保留至少一个全局token（如CLS）能全注意力，并在跨模态层保留密集交互。
+
+    - 目前主流多模态LLM（LLaVA, Qwen-VL）均使用全注意力（或FlashAttention等效的全注意力），没有大规模采用稀疏注意力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RRQVwfGDQiejs6kBW04ch16ynHe
+  block_id: TTzndj6zXoszYdxT5mWcsne7nCd
+  page_token: RRQVwfGDQiejs6kBW04ch16ynHe
+  original_title: 对于多模态 Transformer，稀疏注意力（如 BigBird、Longformer）是否适用于图文混合输入？
+  imported_at: '2026-09-21'

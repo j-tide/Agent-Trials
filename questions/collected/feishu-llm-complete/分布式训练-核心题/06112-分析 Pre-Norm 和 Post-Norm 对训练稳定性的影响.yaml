@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6d10499e2530
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分析 Pre-Norm 和 Post-Norm 对训练稳定性的影响。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 分析 Pre-Norm 和 Post-Norm 对训练稳定性的影响。
+answer:
+  mode: rubric
+  reference_answer: |-
+    Pre-Norm 和 Post-Norm 是 Transformer 中 LayerNorm 的两种放置方式，对训练稳定性影响深远。
+
+    Post-Norm（原始 Transformer）：
+
+    - 结构：x + Sublayer(LN(x))？不，标准 Post-Norm 是 LN(x + Sublayer(x))。即残差相加之后再进行 LayerNorm。
+
+    - 梯度流：残差分支的梯度需要经过 LayerNorm。LayerNorm 的梯度包含输入方差的缩放因子，在深层网络中，多层缩放因子连乘可能导致梯度指数级放大或缩小，极易引发梯度爆炸或消失。
+
+    - 对学习率和初始化极其敏感，训练深层网络需要非常精细的超参数调优，甚至需要特殊的初始化策略（如 DeepNorm）才能稳定。
+
+    Pre-Norm（当前主流）：
+
+    - 结构：x + Sublayer(LN(x))。即先对输入进行 LayerNorm，再送入子层，最后与原始输入相加。
+
+    - 梯度流：残差路径完全绕过了 LayerNorm，梯度可以无障碍地反向传播，不受 LayerNorm 缩放的影响。LayerNorm 只用于调控子层的输入分布。
+
+    - 训练更稳定，对学习率和初始化更鲁棒，允许更大的学习率，收敛速度更快。
+
+    实验对比：
+
+    - Pre-Norm 的训练损失下降更平滑，且能支持更深层的网络。
+
+    - 在相同配置下，Pre-Norm 的最终性能通常略低于 Post-Norm（因为 Post-Norm 的 LayerNorm 起到了更强的正则化效果），但 Pre-Norm 的稳定性优势使得它成为大模型训练的默认选择。后续工作（如 DeepNorm）在 Post-Norm 中结合特殊初始化，也能达到稳定训练千层 Transformer 的效果。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: Nu9vd6VW6oUXRhxOml0ccRubnhe
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: 分析 Pre-Norm 和 Post-Norm 对训练稳定性的影响。
+  imported_at: '2026-09-21'

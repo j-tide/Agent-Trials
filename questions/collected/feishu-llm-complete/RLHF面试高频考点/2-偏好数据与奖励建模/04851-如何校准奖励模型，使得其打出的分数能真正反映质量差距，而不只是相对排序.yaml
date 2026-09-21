@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a2d2979ae908
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何校准奖励模型，使得其打出的分数能真正反映质量差距，而不只是相对排序？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 2-偏好数据与奖励建模
+tags: &1
+- RLHF面试高频考点
+- 2-偏好数据与奖励建模
+content:
+  prompt: 如何校准奖励模型，使得其打出的分数能真正反映质量差距，而不只是相对排序？
+answer:
+  mode: rubric
+  reference_answer: |-
+    奖励模型的原始分数常常会发生“尺度漂移”，例如随着优化，模型可能输出越来越大的分数值，但这些分值并不对应质量的线性提升。校准旨在赋予奖励分数以明确、稳定的尺度意义。
+
+    - 基于人类绝对评分的回归校准
+    如果有一小批拥有高质量人类绝对评分（如1-5分）的数据，可以将 RM 作为回归模型进行微调。在 BT 损失之外，添加一个 MSE 回归损失：(r_rm - human_score)^2。这会强制 RM 的标量输出与人类评分对齐，从而为分数确立了尺度的“原点”和“单位”。
+
+    - 特征缩放与标准化
+
+    最直接的做法是在每次 RM 打分后，对一个批次内的奖励分数进行 Z-score 标准化。这在 PPO 中极为常见，可以防止因奖励值域的波动导致策略梯度的尺度失控。
+
+    - 基于 Bradley-Terry 模型的概率校准
+    BT 模型本身隐含了一个概率解释：P(chosen) = σ(r_w - r_l)。我们可以不直接使用原始分数，而是使用这个概率作为“偏好强度”的度量。在 PPO 中，可以利用这个概率来缩放奖励，使得当模型对质量差异不确定时，提供的梯度信号更弱。
+
+    - 引入“锚点回答”进行动态校准
+
+    在训练过程中，定期让 RM 对一些固定的、经过专家精心评级的“锚点回答”进行打分。通过比较当前 RM 对这些锚点回答的分数变化，可以检测出整体分数的漂移，并计算一个补偿偏置，对所有分数进行动态校准。
+
+    - 基于能量函数的校准
+
+    将 RM 的输出视为一个能量函数，通过 Platt scaling 或等距回归对 RM 的输出进行后处理变换，使得变换后的分数与人类偏好概率具有良好的校准关系，即当模型输出某个偏好概率时，其实际的准确率也大致相当。
+
+    - 多任务学习中的隐式校准
+
+    如果 RM 同时具备多个输出头（如有用性、无害性），这些不同维度的分数天然带有尺度，它们的组合可以产生一个更加鲁棒和校准良好的总分。
+
+    目标：一个校准良好的 RM 应该满足，如果它对 A 和 B 的分数差是 2 分，那么 A 以绝对优势优于 B 的概率应该很高；如果差 0.1 分，两者可能几乎无异。这种可解释的分差让 PPO 能更稳定地进行策略更新。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KFgpwxoYei4VBPkDUJfcFKLLnVf
+  block_id: JBZcdUF9mozoJWx5ALvch4umnub
+  page_token: KFgpwxoYei4VBPkDUJfcFKLLnVf
+  original_title: 如何校准奖励模型，使得其打出的分数能真正反映质量差距，而不只是相对排序？
+  imported_at: '2026-09-21'

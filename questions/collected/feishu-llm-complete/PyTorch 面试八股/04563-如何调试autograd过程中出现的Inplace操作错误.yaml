@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-32232c2c455e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何调试autograd过程中出现的Inplace操作错误？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何调试autograd过程中出现的Inplace操作错误？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Inplace 操作错误通常体现为：
+    RuntimeError: one of the variables needed for gradient computation has been modified by an inplace operation
+
+    这表示某个张量被就地修改，但它在计算图中还被需要。调试步骤如下：
+
+    - 定位出错位置：错误信息通常会指出是哪个操作触发的。如果没有，可以开启异常检测（见下一问）来得到更详细的 traceback。
+
+    - 检查最近添加的 inplace=True 的操作：如 x += 1、x.relu_()、x.add_(1)。查看代码中是否对需要梯度的张量进行了就地修改。
+
+    - 检查是否多次使用同一个中间张量：例如，将同一个张量传给两个不同的层，然后将其就地修改，会影响另一个层的梯度计算。
+
+    - 使用 x.clone() 替代共享内存：如果确实需要修改，先克隆一份再修改，保证原始张量不变。
+
+    - 避免在 forward 中对输入进行就地修改：如果输入需要梯度，不要用 inplace。
+
+    - 使用 torch.autograd.set_detect_anomaly(True)：它会打印出导致错误的操作和前一个操作的 traceback，帮助快速定位。
+
+    示例错误：
+
+    ```python
+    x = torch.randn(3, requires_grad=True)
+    y = x * 2
+    x.add_(1)  # 就地修改了需要梯度的x，导致后面反向传播失败
+    loss = y.sum()
+    loss.backward()  # 报错
+    ```
+
+    解决方案：用 x = x + 1 代替 x.add_(1)，这样会创建一个新张量，原计算图不受影响。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  block_id: KI9ddMRl8oxNJoxqGuYcgbQMnmb
+  page_token: Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  original_title: 如何调试autograd过程中出现的Inplace操作错误？
+  imported_at: '2026-09-21'

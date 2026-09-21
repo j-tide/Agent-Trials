@@ -1,0 +1,96 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2e40a8c19596
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 用 LangGraph 实现一个带人工审批节点的 Agent 工作流，如何设计？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: 用 LangGraph 实现一个带人工审批节点的 Agent 工作流，如何设计？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ⭐⭐⭐⭐ 考察要点：Human-in-the-loop、中断与恢复、状态持久化（Checkpointer）
+
+    1️⃣ Common Answer
+
+    设计一个图，有 Agent 节点生成方案，然后有人工审批节点。人工审批节点暂停，等用户输入。用户同意就继续，不同意就打回重新生成。可以用条件边判断用户的反馈。需要保存状态，防止用户审批时状态丢失。
+
+    2️⃣ Impressive Answer
+
+    实现带人工审批的 Agent 工作流需要中断机制、状态持久化、审批流程设计三个核心要素：
+
+    - 工作流图结构设计
+
+    START → Draft_Agent → Review_Node → (approved? → END / rejected? → Draft_Agent)
+
+    - Draft_Agent：生成方案，输出到 state["draft"]
+
+    - Review_Node：人工审批节点，读取 state["draft"]，等待用户输入
+
+    - 条件边：根据 state["approval"] 字段决定是否继续或回退
+
+    - 中断与恢复机制
+
+    def human_review(state: State):
+        draft = state["draft"]
+        approval = interrupt({
+            "type": "human_review",
+            "draft": draft,
+            "question": "请审批：同意输入 'approve'，拒绝输入 'reject'"
+        })
+        return {"approval": approval}
+
+    - 恢复执行：通过 graph.update_state() 传入用户的审批结果
+
+    graph.update_state(thread_id, {"approval": "approve"})
+
+    - thread_id：每个工作流实例有唯一 ID，用于区分不同会话
+
+    - 状态持久化（Checkpointer）
+
+    checkpointer = MemorySaver()
+    graph = workflow.compile(checkpointer=checkpointer)
+
+    - 完整执行流程
+
+    - 高级特性
+
+    实践要点：人工审批节点的关键在于"可中断 + 可恢复 + 可持久化"，LangGraph 的 Checkpointer 机制完美解决了这个问题，非常适合需要人工介入的生产场景。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BGoPwvMLhic7wKkrioacP0oynIh
+  block_id: doxcnPGRjKJVjcWk7CmEzPpH8K2
+  page_token: BGoPwvMLhic7wKkrioacP0oynIh
+  original_title: 用 LangGraph 实现一个带人工审批节点的 Agent 工作流，如何设计？
+  imported_at: '2026-09-21'

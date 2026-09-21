@@ -1,0 +1,88 @@
+---
+schema_version: 1
+id: feishu-llm-complete-784b06214588
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "❌ 如果在流式输出过程中发生错误，你会怎么通知前端？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "❌ 如果在流式输出过程中发生错误，你会怎么通知前端？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    流式场景下的错误处理要保证用户能感知到异常，且不会丢失已生成的内容。关键在于在 SSE 流中发送错误事件，以及前端对异常事件的监听。
+
+    后端实现：
+    在生成器内部捕获异常，然后发送一个特殊的 SSE 事件（例如 {"error": "发生错误，请稍后重试"}），并关闭连接。
+
+    ```python
+    async def event_generator(topic: str):
+        try:
+            async for chunk in chain.astream({"topic": topic}):
+                yield f"data: {json.dumps({'token': chunk})}\n\n"
+        except Exception as e:
+            error_msg = f"生成失败：{str(e)}"
+            yield f"data: {json.dumps({'error': error_msg})}\n\n"
+        finally:
+            yield "data: [DONE]\n\n"
+    ```
+
+    前端处理：
+
+    ```javascript
+    eventSource.onmessage = (event) => {
+        if (event.data === "[DONE]") {
+            eventSource.close();
+            return;
+        }
+        const payload = JSON.parse(event.data);
+        if (payload.error) {
+            displayError(payload.error);
+            eventSource.close();
+            return;
+        }
+        if (payload.token) {
+            outputDiv.innerText += payload.token;
+        }
+    };
+    ```
+
+    注意事项：
+
+    - 网络中断或超时不属于应用层异常，前端需要监听 EventSource.onerror 并尝试重连。
+
+    - 已经显示的部分内容建议保留，让用户知道生成中断了。
+
+    - 如果 LLM 支持，可以通过回调提前终止生成（如 OpenAI 的 cancel），但 LangChain 未直接暴露，需要借助底层客户端。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CZWewxKPziW9NLkL7iBcV35cncy
+  block_id: EnkHdNBNhoqEuoxQhrScrnWOnLc
+  page_token: CZWewxKPziW9NLkL7iBcV35cncy
+  original_title: "❌ 如果在流式输出过程中发生错误，你会怎么通知前端？"
+  imported_at: '2026-09-21'

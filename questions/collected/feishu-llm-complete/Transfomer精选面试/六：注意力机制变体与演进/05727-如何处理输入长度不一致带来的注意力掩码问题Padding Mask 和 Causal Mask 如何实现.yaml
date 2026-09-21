@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9cb24daedd9e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何处理输入长度不一致带来的注意力掩码问题？Padding Mask 和 Causal Mask 如何实现？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 六：注意力机制变体与演进
+tags: &1
+- Transfomer精选面试
+- 六：注意力机制变体与演进
+content:
+  prompt: 如何处理输入长度不一致带来的注意力掩码问题？Padding Mask 和 Causal Mask 如何实现？
+answer:
+  mode: rubric
+  reference_answer: |-
+    处理长度不一致的核心是 Padding Mask：
+    对于短序列，我们用特殊 token（如 <PAD>）填充到固定长度。为了让模型忽略这些填充位置，在计算注意力时，需要遮蔽掉 PAD token。
+
+    - Padding Mask 实现：生成一个二值掩码（形状 batch×seq_len 或 batch×num_heads×seq_len×seq_len），PAD 位置对应的 Key 维度被设为 True。在计算 softmax 之前，将 PAD 位置对应的注意力 logits 加上一个极大的负数（如 -10000），使 softmax 后该位置的权重接近 0。这样，Query 关注 PAD 位置的权重为 0，PAD 作为 Query 时其输出也无意义（但通常不做严格 mask，因为其输出不会用于损失计算）。
+
+    Causal Mask（因果掩码） 用于自回归生成，防止当前位置关注未来信息：
+
+    - 生成一个上三角全为 True 的掩码（即位置 i 不能关注 j > i）。
+
+    - 同样在 softmax 前，将未来位置的 logits 加上 -∞，使得注意力权重只留在 i 及以前的位置。
+
+    - 与 Padding Mask 结合时，需要同时考虑 PAD 和未来位置，将两者的掩码合并（逻辑或），再施加到 logits 上。
+
+    在代码中，通常掩码张量值为 0/1 或布尔值，其中 1 表示保留，0 表示屏蔽。操作如 attn_weights = attn_weights.masked_fill(mask == 0, -1e9)。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BRfmwDCRdipit3kUxBNcrJCqn5e
+  block_id: CX6Nd4biMoZFnYxMwoycTY7Cn4d
+  page_token: BRfmwDCRdipit3kUxBNcrJCqn5e
+  original_title: 如何处理输入长度不一致带来的注意力掩码问题？Padding Mask 和 Causal Mask 如何实现？
+  imported_at: '2026-09-21'

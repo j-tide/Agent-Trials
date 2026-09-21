@@ -1,0 +1,120 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3830bb9df2fe
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E1️ 如何设计 LLM 应用的安全护栏（Guardrails）？输入/输出分别怎么防护？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F6E1️ 如何设计 LLM 应用的安全护栏（Guardrails）？输入/输出分别怎么防护？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    安全护栏是一个多层防御系统，确保模型既不接收恶意指令，也不输出有害内容，同时保持业务可用性。
+
+    [图片内容未导入]
+
+    输入防护
+
+    目标： 阻止越狱、注入、泄露隐私、恶意指令。
+
+    - 意图分类器：用小模型或规则判断用户输入是否包含越狱、骚扰、政治敏感等黑名单意图。
+
+    from transformers import pipeline
+    intent_classifier = pipeline("text-classification", model="your-intent-model")
+    def input_guard(prompt):
+        intent = intent_classifier(prompt)[0]
+        if intent["label"] == "jailbreak" and intent["score"] > 0.9:
+            return block_request("检测到攻击企图")
+        return prompt
+
+    PII 脱敏：在进入 LLM 之前，用正则或 NER 模型过滤/替换邮箱、手机号、身份证号。
+
+    import re
+    def mask_pii(text):
+        text = re.sub(r'\b[\w.-]+@[\w.-]+\.\w+\b', '[EMAIL]', text)
+        text = re.sub(r'\b1[3-9]\d{9}\b', '[PHONE]', text)
+        return text
+
+    - 注入防御：限制用户 Prompt 中可以出现的特殊指令分隔符（如 ###, System:），或采用严格的 JSON 模式通信。
+
+    输出防护
+
+    目标： 拦截不安全、违规、格式错误的输出。
+
+    - 内容审核 API：将生成文本送入安全引擎（如 OpenAI Moderation API、Azure Content Safety）进行黄暴恐政检测，不通过的直接拦截或替换为预设安全回复。
+
+    def output_guard(response_text):
+        moderation = openai.Moderation.create(input=response_text)
+        if moderation.results[0].flagged:
+            return "抱歉，我无法提供该信息。"
+        return response_text
+
+    - 关键词/正则阻断：对特定业务敏感词（竞品名、内部代号）做兜底过滤。
+
+    - 结构化校验：当要求输出 JSON 时，强制解析，解析失败即重试或返回错误提示，防止模型吐出不受控的自由文本。
+
+    def validate_json_output(text):
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            return {"error": "输出格式异常，已记录"}
+
+    - 自检机制：在生成回答后，附加一个反思 prompt，让模型自己判断是否安全，作为二次验证（虽然仍可能绕过，但增加攻击难度）。
+
+    工程化落地
+
+    推荐使用成熟的框架，如 NVIDIA NeMo Guardrails 或 Guardrails AI，它们允许用声明式配置定义对话流程中的安全边界。
+
+    # 使用 Guardrails AI 示例
+    from guardrails import Guard
+    guard = Guard.from_yaml("""
+    rails:
+      input:
+        - type: block
+          condition: input contains "忘记你的指令"
+          action: reject
+      output:
+        - type: regex_match
+          pattern: "\d{3}-\d{2}-\d{4}"
+          action: mask
+    """)
+    result = guard(openai.ChatCompletion.create, messages=messages)
+
+    安全护栏的黄金原则：
+
+    - 纵深防御：不信任任何单一环节，输入、模型、输出层层设卡。
+
+    - 最小权限：LLM 只开放完成任务的最小能力，关闭不必要的工具权限。
+
+    - 持续更新：根据攻击日志和新型越狱方法定期补充黑样本，重新训练分类器。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcnRI0yE0PAd7XTn1h99rmrch
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "\U0001F6E1️ 如何设计 LLM 应用的安全护栏（Guardrails）？输入/输出分别怎么防护？"
+  imported_at: '2026-09-21'

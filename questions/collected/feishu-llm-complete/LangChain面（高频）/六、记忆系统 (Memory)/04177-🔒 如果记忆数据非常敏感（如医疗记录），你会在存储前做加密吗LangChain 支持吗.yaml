@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-189bc6e0877e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F512 如果记忆数据非常敏感（如医疗记录），你会在存储前做加密吗？LangChain 支持吗？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F512 如果记忆数据非常敏感（如医疗记录），你会在存储前做加密吗？LangChain 支持吗？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    必须加密。医疗记录属于高度敏感的个人数据，在存储和传输过程中必须受到保护。
+
+    LangChain 原生并不提供内存加密功能，但你可以通过以下方式实现：
+
+    - 应用层加密
+    在数据进入 Memory 之前，在你的应用逻辑中对敏感字段进行加密。你可以使用 Python 的 cryptography 库，对对话文本进行 AES 加密，然后将密文保存到数据库。在加载记忆时，再解密。这需要在自定义的 ChatMessageHistory 中实现。
+
+    - 加密整个数据库
+
+    更简单且更安全的做法是，确保你的存储后端（如 Redis、PostgreSQL）开启了透明数据加密（TDE） 或磁盘加密。这样即使数据被物理窃取，也无法读取。但这不防止应用层泄露。
+
+    - 使用支持字段加密的数据库
+
+    如果使用 MongoDB 或 PostgreSQL，可以利用它们内置的字段级加密（FLE），对特定列（如消息内容）进行自动加密。
+
+    - 结合 LangChain 自定义历史记录
+    你可以继承 BaseChatMessageHistory，在 add_message 和 messages 方法中加入加密/解密逻辑。例如：
+
+    ```python
+    from langchain.schema import BaseChatMessageHistory, BaseMessage
+    from cryptography.fernet import Fernet
+    import json
+
+    class EncryptedRedisHistory(BaseChatMessageHistory):
+        def __init__(self, session_id, redis_client, cipher):
+            self.session_id = session_id
+            self.redis = redis_client
+            self.cipher = cipher
+
+        def add_message(self, message: BaseMessage):
+            data = message.json()
+            encrypted = self.cipher.encrypt(data.encode())
+            self.redis.rpush(self.session_id, encrypted)
+
+        @property
+        def messages(self):
+            encrypted_list = self.redis.lrange(self.session_id, 0, -1)
+            return [BaseMessage.parse_raw(self.cipher.decrypt(item)) for item in encrypted_list]
+    ```
+
+    结论：LangChain 信任开发者自行处理加密。鉴于医疗数据的敏感性，应在存储前进行字段级加密，并确保密钥管理安全。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H3N3wvSCiibLlPk5ZpjcveFHnNb
+  block_id: LjUJdlLcAoba6Lxcy7QcImzynlb
+  page_token: H3N3wvSCiibLlPk5ZpjcveFHnNb
+  original_title: "\U0001F512 如果记忆数据非常敏感（如医疗记录），你会在存储前做加密吗？LangChain 支持吗？"
+  imported_at: '2026-09-21'

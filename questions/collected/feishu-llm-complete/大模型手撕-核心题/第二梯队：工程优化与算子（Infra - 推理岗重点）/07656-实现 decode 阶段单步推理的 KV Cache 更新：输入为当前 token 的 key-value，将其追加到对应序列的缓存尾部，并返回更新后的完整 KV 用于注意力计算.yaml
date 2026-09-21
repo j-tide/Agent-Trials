@@ -1,0 +1,120 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1fd8cd7659aa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 decode 阶段单步推理的 KV Cache 更新：输入为当前 token 的 key/value，将其追加到对应序列的缓存尾部，并返回更新后的完整
+  KV 用于注意力计算。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现 decode 阶段单步推理的 KV Cache 更新：输入为当前 token 的 key/value，将其追加到对应序列的缓存尾部，并返回更新后的完整
+    KV 用于注意力计算。
+answer:
+  mode: rubric
+  reference_answer: |-
+    4.1 Decode 阶段的特点
+
+    - 每次只输入一个 token（input_ids 形状为 [B, 1]）。
+
+    - 需要从缓存中读取该序列的全部历史 K、V，与当前的 Q 进行注意力计算。
+
+    - 计算完毕后，将当前 token 的 K、V 追加到缓存尾部。
+
+    4.2 代码实现（基于 PreallocKVCache）
+
+    ```python
+    def decode_step(model, token_ids, seq_ids, cache: PreallocKVCache):
+        """
+        token_ids: [B, 1] 当前 token
+        返回每层的注意力输出
+        """
+        B = token_ids.size(0)
+        # 1. 嵌入与位置编码（伪代码）
+        # hidden = embed(token_ids) + pos_embed
+
+        # 2. 逐层处理
+        for layer_idx in range(model.num_layers):
+            # 计算当前 token 的 Q, K, V
+            q = model.layers[layer_idx].q_proj(hidden)  # [B, num_heads, 1, head_dim]
+            k = model.layers[layer_idx].k_proj(hidden)
+            v = model.layers[layer_idx].v_proj(hidden)
+
+            # 3. 从缓存中读取历史 KV
+            # 首先确保所有序列已注册
+            all_k, all_v = [], []
+            for i, sid in enumerate(seq_ids):
+                slot = cache.seq_to_slot[sid]
+                cur_len = cache.seq_len[slot]
+                # 读取该序列至此的全部 KV
+                k_hist = cache.k[layer_idx, slot, :, :cur_len]  # [num_heads, cur_len, head_dim]
+                v_hist = cache.v[layer_idx, slot, :, :cur_len]
+                all_k.append(k_hist.unsqueeze(0))
+                all_v.append(v_hist.unsqueeze(0))
+            # 由于各序列长度可能不同，需要 padding 到相同长度或逐个计算
+            # 这里简化假设 batch 内所有序列长度相同，或者我们逐个序列计算注意力（效率低）
+            max_len = max(t.size(2) for t in all_k)
+            padded_k = torch.zeros(B, model.num_heads, max_len, model.head_dim, device=k.device)
+            padded_v = torch.zeros_like(padded_k)
+            mask = torch.zeros(B, max_len, dtype=torch.bool, device=k.device)
+            for i in range(B):
+                L = all_k[i].size(2)
+                padded_k[i, :, :L] = all_k[i]
+                padded_v[i, :, :L] = all_v[i]
+                mask[i, :L] = True
+
+            # 4. 注意力计算
+            scale = model.head_dim ** 0.5
+            scores = torch.matmul(q, padded_k.transpose(-2, -1)) / scale
+            scores = scores.masked_fill(~mask.unsqueeze(1).unsqueeze(2), float('-inf'))
+            attn_weights = torch.softmax(scores, dim=-1)
+            attn_output = torch.matmul(attn_weights, padded_v)  # [B, H, 1, D]
+
+            # 5. 更新缓存：将当前 K、V 追加到各序列
+            for i, sid in enumerate(seq_ids):
+                cache.append_decode(layer_idx, sid, k[i:i+1], v[i:i+1])
+
+            # 6. 合并多头并经过 output projection
+            attn_output = attn_output.transpose(1,2).contiguous().view(B, 1, -1)
+            hidden = model.layers[layer_idx].out_proj(attn_output)
+            # 接着 FFN 等...
+        return hidden
+    ```
+
+    4.3 优化点
+
+    - 避免逐序列 padding：当批量解码时，可以将所有序列的缓存放进一个连续张量，但序列长度不同会导致浪费。实践上常用连续批处理（continuous batching），将同一长度的序列组成一个 batch，减少 padding。
+
+    - PagedAttention：通过分页机制，不同序列的 KV 块可以非连续存储，GPU kernel 通过块表直接索引，无需 padding。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IhgfwCPtoif3TWkyezuc4sW9nbg
+  block_id: LGjbd5e6DoWOyYx9X2qclPwmntd
+  page_token: IhgfwCPtoif3TWkyezuc4sW9nbg
+  original_title: 实现 decode 阶段单步推理的 KV Cache 更新：输入为当前 token 的 key/value，将其追加到对应序列的缓存尾部，并返回更新后的完整
+    KV 用于注意力计算。
+  imported_at: '2026-09-21'

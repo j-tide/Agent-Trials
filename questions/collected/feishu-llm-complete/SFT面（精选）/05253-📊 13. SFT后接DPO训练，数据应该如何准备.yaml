@@ -1,0 +1,88 @@
+---
+schema_version: 1
+id: feishu-llm-complete-96de67f4bcec
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 13. SFT后接DPO训练，数据应该如何准备？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F4CA 13. SFT后接DPO训练，数据应该如何准备？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    SFT后接DPO，数据准备不再是简单的“指令-回答”对，而是需要构造偏好对比数据，这直接决定了DPO训练的成败。
+
+    一、偏好数据的基本结构
+
+    每一条DPO数据包含三个要素：
+
+    - 提示 xx：用户输入的指令，与SFT阶段相同。
+
+    - 偏好回答 ywyw：人类标注者或强模型评判为更好的回答。
+
+    - 非偏好回答 ylyl：被比较之下更差的回答。
+
+    注意，这里的“好”与“差”是相对的，不需要 ylyl 是绝对错误的，只需它不如 ywyw 受偏好。这为数据构造提供了灵活性。
+
+    二、构造偏好数据的主要方法
+
+    - 人工标注：最直接也最昂贵的方法。让标注者针对同一个prompt，比较两个回答，选择更好的一个。这能最精确地捕捉人类偏好，但成本高、周期长。通常用于核心安全和对齐数据的构造。
+
+    - 模型生成+人工审核：用当前SFT模型（或其他模型）针对每个prompt生成多个回答（通常2-4个），然后由人工标注者对这些回答进行排序或选择最好和最差。这是平衡质量与成本的主流方式。
+
+    - 强模型评判（LLM-as-Judge）：使用GPT-4等顶级模型自动对回答进行打分或排序。可以批量生成大量偏好对，成本较低。但需注意：评判模型本身可能有偏见（比如偏好冗长回答、特定风格）。通常会用人工抽检来校准自动评分的可靠性。
+
+    - 利用SFT数据中的“对比”信息：在构造SFT数据时，可以有意为同一指令构造多个不同质量的回答，并标注偏好。这能同时服务于SFT和后续DPO。
+
+    三、数据质量的核心原则
+
+    - 差异性显著：ywyw 和 ylyl 的差异应该足够大，而且差别的维度要与人类偏好相关（如正确性、有用性、安全性、简洁性）。如果两个回答几乎一样，或差别在于无关紧要的措辞，DPO无法学到有意义的偏好。
+
+    - 覆盖关键权衡：偏好数据应特意覆盖安全vs有用、简洁vs详细、创造性vs准确性等矛盾场景，让模型学会在冲突中做权衡。
+
+    - 避免噪音：错误标注的偏好（将差回答误标为好回答）对DPO的破坏力远大于对SFT的破坏，因为DPO直接对比两者的相对似然（DPO对此更敏感，见后续问题）。
+
+    - 与SFT分布匹配：偏好数据中的prompt分布应该尽量匹配SFT阶段的prompt分布，避免训练-推理分布不一致。
+
+    四、数据配比
+
+    偏好数据中，除了核心的对话质量对比，还应该包含：
+
+    - 安全对比：危险请求下，正确拒绝 vs 错误顺从；或者建设性拒绝 vs 粗暴拒绝。
+
+    - 诚实对比：表达不确定性 vs 自信地编造。
+
+    - 风格对比：简洁 vs 冗长、友好 vs 生硬。
+
+    ✅ 总结：DPO数据需要构造高质量的偏好对比对。主流方式是“模型生成多个候选，人工或强模型评定偏好”。核心是确保差异显著、覆盖关键权衡、减少标注噪音。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IxE7w0GdRixCcpkwZKOcSoxhnnR
+  block_id: LK5qdIdrXos0FUxJSCOcrKIAn8c
+  page_token: IxE7w0GdRixCcpkwZKOcSoxhnnR
+  original_title: "\U0001F4CA 13. SFT后接DPO训练，数据应该如何准备？"
+  imported_at: '2026-09-21'

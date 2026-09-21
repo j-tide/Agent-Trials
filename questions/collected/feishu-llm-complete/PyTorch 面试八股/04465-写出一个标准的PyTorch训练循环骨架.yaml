@@ -1,0 +1,96 @@
+---
+schema_version: 1
+id: feishu-llm-complete-55245de86666
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出一个标准的PyTorch训练循环骨架
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 写出一个标准的PyTorch训练循环骨架
+answer:
+  mode: rubric
+  reference_answer: |-
+    一个标准的训练循环包含数据加载、前向传播、损失计算、反向传播、参数更新、学习率调整和评估等步骤。
+
+    ```python
+    import torch
+    from torch.utils.data import DataLoader
+    from tqdm import tqdm
+
+    def train_one_epoch(model, train_loader, optimizer, loss_fn, device, epoch, scaler=None):
+        model.train()
+        total_loss = 0.0
+        progress_bar = tqdm(train_loader, desc=f'Epoch {epoch}')
+        for batch_idx, (inputs, targets) in enumerate(progress_bar):
+            inputs, targets = inputs.to(device), targets.to(device)
+
+            optimizer.zero_grad()  # 清零梯度
+
+            if scaler is not None:  # 混合精度
+                with torch.cuda.amp.autocast():
+                    outputs = model(inputs)
+                    loss = loss_fn(outputs, targets)
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                outputs = model(inputs)
+                loss = loss_fn(outputs, targets)
+                loss.backward()
+                optimizer.step()
+
+            total_loss += loss.item()
+            progress_bar.set_postfix({'loss': total_loss / (batch_idx + 1)})
+
+        return total_loss / len(train_loader)
+
+    def validate(model, val_loader, loss_fn, device):
+        model.eval()
+        total_loss = 0.0
+        with torch.no_grad():
+            for inputs, targets in val_loader:
+                inputs, targets = inputs.to(device), targets.to(device)
+                outputs = model(inputs)
+                loss = loss_fn(outputs, targets)
+                total_loss += loss.item()
+        return total_loss / len(val_loader)
+    ```
+
+    关键点：
+
+    - model.train() 和 model.eval() 切换模式（影响Dropout、BatchNorm等）。
+
+    - optimizer.zero_grad() 必须在 backward() 之前。
+
+    - 混合精度时使用 GradScaler，具体见第4问。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SlZHw2a2fiQQVBkkXXscts3znGd
+  block_id: MPgbdguFfoxJgvxXT8rcGhWWnle
+  page_token: SlZHw2a2fiQQVBkkXXscts3znGd
+  original_title: 写出一个标准的PyTorch训练循环骨架
+  imported_at: '2026-09-21'

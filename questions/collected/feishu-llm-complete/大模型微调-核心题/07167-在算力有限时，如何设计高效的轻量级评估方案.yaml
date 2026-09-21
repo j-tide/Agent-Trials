@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2e7f7eb7d3cd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在算力有限时，如何设计高效的轻量级评估方案？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 在算力有限时，如何设计高效的轻量级评估方案？
+answer:
+  mode: rubric
+  reference_answer: |-
+    资源受限时，必须放弃大规模、多轮次、全维度的理想评估，转而采用优先级驱动、快速诊断、低成本代理的策略。
+
+    设计原则：
+
+    - 构建核心“探针测试集”（Probe Set）：放弃庞大的通用基准，从MMLU、GSM8K、安全Prompt集合中各精心抽取20-50条最能反映模型核心能力变化的样本。这个迷你集应能在几分钟内跑完，并作为每次训练的“快速体检”项目。
+
+    - 聚焦“回归能力”而非绝对能力：评估的主要目的不是和SOTA模型一较高下，而是确保新模型不比旧模型差。因此，重点维护一个“回归测试集”，包含旧模型已知的Bad Cases、核心业务场景等。只要新模型在这些case上的表现不恶化，就基本通过。
+
+    - 使用轻量级评判模型：用GPT-4作为裁判成本高昂。对于很多任务，可以训练或使用一个7B级别的小模型作为评判者。例如，用LLaMA-3-8B-Instruct来对回答进行流畅度、相关性的打分。虽然不如GPT-4精准，但趋势是可靠的，且成本几乎为零。
+
+    - 规则优先于模型评判：对于所有可以程序化验证的指标（格式、字数、关键词、数学答案），优先使用规则。只有在规则无法覆盖的软技能上，才动用模型或人工。
+
+    - 关键checkpoint的生成式抽样评估：在整个训练过程中，只对最重要的几个checkpoint（如验证损失最低点、训练结束点）进行小批量的人工评估或GPT-4评估。日常监控依靠Loss曲线和探针测试集。
+
+    - 借助PEFT进行多版本低成本对比：利用LoRA等PEFT方法，可以在同一张GPU上快速加载和切换不同版本的适配器，在同一个评估管道上进行快速A/B对比，无需为每个版本部署独立服务。
+
+    示例方案：
+
+    - 每日快速评估（5分钟）：在50条探针测试集上跑一遍，统计准确率和格式遵循率，绘制Loss曲线。
+
+    - 每周或里程碑评估（1小时）：在1000条回归测试集上用轻量级模型打分，对关键能力进行人工抽检。
+
+    - 最终决策评估（半天）：对2-3个候选模型，使用GPT-4和人工进行全方位多维度评估和A/B测试。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/W8ogw5bIzisu3CkICRmcGngqnWc
+  block_id: TO1CdEZnqokQPOx4QkOcUxLEnIg
+  page_token: W8ogw5bIzisu3CkICRmcGngqnWc
+  original_title: 在算力有限时，如何设计高效的轻量级评估方案？
+  imported_at: '2026-09-21'

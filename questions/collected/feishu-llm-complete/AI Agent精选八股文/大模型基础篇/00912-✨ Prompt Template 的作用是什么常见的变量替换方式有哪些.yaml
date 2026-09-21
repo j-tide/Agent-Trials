@@ -1,0 +1,136 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ba211f2c1b51
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "✨ Prompt Template 的作用是什么？常见的变量替换方式有哪些？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "✨ Prompt Template 的作用是什么？常见的变量替换方式有哪些？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    作用一句话：把“变”与“不变”解耦，让提示词从一次性手写变成可编程的模块。
+
+    [图片内容未导入]
+
+    具体价值体现在四个层面：
+
+    - 可维护性：修改提示词逻辑只需改模板，不用翻遍所有调用代码。
+
+    - 可复用：同一套模板可用于不同输入，如客服、面试等场景共享结构。
+
+    - 防注入与安全：变量经过转义后填入，减少用户输入污染指令的可能。
+
+    - 工程化迭代：模板可版本控制、A/B 测试、多语言管理。
+
+    常见变量替换方式：
+
+    ① Python 原生字符串方式
+
+    最简单，适合原型开发，但缺少高级特性。
+
+    ```python
+    # f-string (Python 3.6+)
+    user = "Alice"
+    task = "总结"
+    template = f"你是助手，请帮用户{user}完成{task}。"
+    # 缺点：模板与变量耦合，不安全
+
+    # str.format()
+    template = "你是助手，请帮用户{user}完成{task}。"
+    prompt = template.format(user="Alice", task="总结")
+    ```
+
+    ② Jinja2 模板引擎
+
+    具备逻辑控制、过滤器、循环等功能，是生产环境首选。
+
+    ```python
+    from jinja2 import Template
+
+    template = Template("""
+    你是一个{{ role }}。
+    任务：{{ task }}
+    {% if examples %}
+    示例：
+    {% for ex in examples %}
+    - 输入: {{ ex.input }} -> 输出: {{ ex.output }}
+    {% endfor %}
+    {% endif %}
+    现在请处理：{{ user_input }}
+    """)
+
+    prompt = template.render(
+        role="翻译专家",
+        task="中译英",
+        examples=[{"input": "你好", "output": "Hello"}],
+        user_input="世界"
+    )
+    ```
+
+    ③ LangChain PromptTemplate
+
+    专为 LLM 设计，集成了变量验证、消息角色封装、自动序列化。
+
+    ```python
+    from langchain.prompts import ChatPromptTemplate
+
+    template = ChatPromptTemplate.from_messages([
+        ("system", "你是{role}，风格为{style}。"),
+        ("user", "{input}")
+    ])
+
+    messages = template.format_messages(
+        role="代码导师",
+        style="简洁",
+        input="解释 Python 装饰器"
+    )
+    # messages 直接可用于 LLM API 调用
+    ```
+
+    ④ 结构化占位符（防注入）
+
+    将用户输入作为单独的消息块传递，而不是直接拼进指令。
+
+    ```python
+    # OpenAI API 直接支持多消息角色，天然隔离
+    api_messages = [
+        {"role": "system", "content": "你是翻译助手，只翻译后面用户输入的内容。"},
+        {"role": "user", "content": user_raw_input}  # 变量在此，不混入 system
+    ]
+    ```
+
+    这种方式从根本上防止了“忽略之前指令”类的注入攻击。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQBnwAsIgiUfXSkxEYfc0t12nRb
+  block_id: doxcnJWMpY35K4R19yBKsavcciz
+  page_token: GQBnwAsIgiUfXSkxEYfc0t12nRb
+  original_title: "✨ Prompt Template 的作用是什么？常见的变量替换方式有哪些？"
+  imported_at: '2026-09-21'

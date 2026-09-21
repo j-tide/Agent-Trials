@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b6c78cfa9a69
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 隔离设计：Key 的命名就是天然的“路由”
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Redis / 分布式锁
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Redis
+- 分布式锁
+content:
+  prompt: 隔离设计：Key 的命名就是天然的“路由”
+answer:
+  mode: rubric
+  reference_answer: |-
+    隔离分两层：用户隔离 和 会话隔离。
+
+    我会用这种 Key 结构：
+
+    ```text
+    agent:session:{user_id}:{session_id}
+    ```
+
+    - user_id：来自认证层（JWT / API Key），100% 可信后才拿来拼 Key，避免越权。
+
+    - session_id：会话创建时由服务端生成（UUID），返回给客户端，客户端每次请求都要带上。
+
+    为什么把 user_id 放进 Key？
+    因为在 Redis 里这是最硬的隔离——Key 空间本身就分开了。就算某个请求的 session_id 被篡改，也很难跨用户撞 Key。反过来，如果只用 session_id 作为 Key，必须在 Value 里存 user_id，每次读取后做校验，多一步，也容易疏漏。
+
+    如果要支持“查看我的历史会话列表”，我会再加一个辅助数据结构：
+
+    ```text
+    user:sessions:{user_id}  →  Sorted Set (score = last_active_timestamp, member = session_id)
+    ```
+
+    这样隔离和查询兼顾，互不冲突。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KURhwPKP5irrxjkQpTQcE3xxnTY
+  block_id: doxcndqeSlCGGK3o2XSfYXNwBsy
+  page_token: KURhwPKP5irrxjkQpTQcE3xxnTY
+  original_title: 隔离设计：Key 的命名就是天然的“路由”
+  imported_at: '2026-09-21'

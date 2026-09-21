@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c3af7e285cba
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4AC 11. 多轮对话SFT数据，loss mask应该如何处理？为什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F4AC 11. 多轮对话SFT数据，loss mask应该如何处理？为什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    对于多轮对话SFT数据，loss mask（损失掩码）的核心原则是：只对每一轮助手的回复内容计算损失，而对所有用户输入、系统提示以及可能存在的工具返回结果完全忽略。 其实现方式是将这些部分的标签（labels）设置为 -100。
+
+    为什么要这样处理？
+
+    - 训练目标的聚焦——只学“如何回答”：SFT的核心目标是教会模型“在给定的对话上下文中，如何生成一个高质量的回复”。如果对用户输入也计算损失，模型就会被要求同时学习“如何提问”，这会导致训练目标发散，学习信号被稀释。
+
+    - 维护清晰的对话角色边界：多轮对话中，严格区分用户和助手角色至关重要。如果对用户输入计算损失，模型在推理时可能会产生角色混乱，在应该回答时，却开始生成下一个用户问题，出现“自问自答”的崩溃模式。
+
+    - 防止“快捷方式”学习：如果不mask用户部分，模型可能会学会一种不良的“抄袭”捷径：当它被问到问题A时，它不自己思考，而是在生成回答时，直接复制用户输入中的关键短语。这完全违背了我们希望模型真正理解并生成原创回答的初衷。
+
+    如何处理多轮对话中的Loss Mask？
+
+    假设一段包含两轮对话的SFT数据序列如下：
+
+    <|im_start|>user
+    推荐一本好书。<|im_end|>
+    <|im_start|>assistant
+    为您推荐《百年孤独》。<|im_end|>
+    <|im_start|>user
+    这本书讲的是什么？<|im_end|>
+    <|im_start|>assistant
+    这本书讲述了布恩迪亚家族七代人的传奇故事...<|im_end|>
+
+    在构造 labels 时，会将序列中所有属于 user 和 system 部分的 token ID 替换为 -100。只有 assistant 部分的 token ID 保持原样。这样，损失函数在计算交叉熵时，会自动跳过标记为 -100 的 token，实现精确的损失控制。
+
+    对于每一轮的助手回复，我们都应计算损失。这可以让模型学会在对话的任何阶段都能给出高质量的回应，而不是只在最后一轮才“认真回答”。如果只对最后一轮计算损失，模型可能会在对话的前几轮生成质量不高的敷衍回答，损害用户体验。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HKv9wZVV4iSem8k52XAcW9Wenwe
+  block_id: Q6eHdg5v5oBI6XxPr5ecNkhWnCd
+  page_token: HKv9wZVV4iSem8k52XAcW9Wenwe
+  original_title: "\U0001F4AC 11. 多轮对话SFT数据，loss mask应该如何处理？为什么？"
+  imported_at: '2026-09-21'

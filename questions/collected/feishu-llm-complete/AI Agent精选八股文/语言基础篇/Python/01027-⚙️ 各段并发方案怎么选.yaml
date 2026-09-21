@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-78155fed7948
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚙️ 各段并发方案怎么选"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 语言基础篇 / Python
+tags: &1
+- AI Agent精选八股文
+- 语言基础篇
+- Python
+content:
+  prompt: "⚙️ 各段并发方案怎么选"
+answer:
+  mode: rubric
+  reference_answer: |-
+    阶段 1：文档解析 → 多进程 + 异步文件读
+
+    - 用 aiofiles 异步读取文件（PDF、Word 等），把 IO 和解析分离。
+
+    - 解析本身是 CPU 重活，直接通过 loop.run_in_executor(process_pool_executor, parse_func, file_bytes) 扔进 ProcessPoolExecutor，进程数一般等于 CPU 物理核数。
+
+    - 每解析完一个文档，把切分好的文本块 put 进 Queue_A。
+
+    这里一个小优化：如果文档特别多，还可以先并行读一批文件到内存，再用进程池 map 解析，减少进程间传递大数据。
+
+    阶段 2：Embedding → 根据模型来源分情况
+
+    - 远程 API：全部走 asyncio。用一个 Semaphore 限制并发请求窗口，每拿到一个文本批次，async with sem 请求 API，返回向量后 put 进 Queue_B。
+
+    - 本地模型：加载一个模型实例（避免每个进程都加载一份），在线程池中跑推理。通过 loop.run_in_executor(thread_pool, model.encode, batch_texts) 调用。线程池大小按 GPU 并发上限或者 CPU 线程数调，配合 asyncio.wait 做并发。
+
+    - 关键：一定要攒小批（mini-batch）再送进模型，一个批次 32/64 条文本，比逐条调用高效一个数量级。所以这一阶段我会从 Queue_A 取到若干个文本块，凑满一小批再喂给 Embedding。
+
+    阶段 3：向量写入 → 异步批量写入 + 动态攒批
+
+    - 大部分向量数据库都有异步客户端（如 asyncpg for pgvector，qdrant-client 的 async 接口）。把多个向量攒到一个本地列表，达到 batch_size（比如 100）或者等待超时（比如 0.5 秒）就调用一次批量 upsert。
+
+    - 写入前同样用一个 Semaphore 限制与数据库的并发连接数，避免把数据库连接池占满。
+
+    - 如果数据库写入很慢，Queue_B 会自然堆积，形成背压，最终让前面的 Embedding 和解析也慢下来，整体不崩。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Lo7AwMwnSijrhckvvM5czuXnnwf
+  block_id: doxcnTjZRhCYNTCmc3PLWuuoYXd
+  page_token: Lo7AwMwnSijrhckvvM5czuXnnwf
+  original_title: "⚙️ 各段并发方案怎么选"
+  imported_at: '2026-09-21'

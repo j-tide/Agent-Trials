@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-543471988198
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 8. AllGather 是什么操作？在什么场景使用？（如 ZeRO-3 收集参数，TP 的 g 操作）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 8. AllGather 是什么操作？在什么场景使用？（如 ZeRO-3 收集参数，TP 的 g 操作）
+answer:
+  mode: rubric
+  reference_answer: |-
+    AllGather 的操作语义：有N个节点，每个节点i拥有一个数据块Di。AllGather完成后，所有节点都获得拼接后的完整数据 [D0, D1, ..., D_{N-1}]。即“各贡献一块，全员得全貌”。
+
+    应用场景：
+
+    - ZeRO-3参数收集：在ZeRO-3中，每个GPU只持久存储1/N的模型参数。前向计算某层时，需要该层的完整参数，于是发起AllGather：每个GPU贡献自己持有的参数分片，收集所有分片后拼接成完整权重。计算完后立即释放临时权重。
+
+    - 张量并行（TP）的g操作：在Megatron张量并行中，对MLP的第二层（按行切分），每张卡计算出部分输出，需要AllGather将这些部分输出在序列或隐藏维度上拼接，得到完整输出（或替代AllReduce的求和前先Gather）。具体地，g操作指的是前向AllReduce，反向无通信；但在某些实现中AllGather用于激活值的拼接。
+
+    - 分布式推理中的缓存共享：当多个GPU协同推理时，AllGather可以用于汇聚KV缓存分片。
+
+    - 模型并行中的嵌入层：如果嵌入矩阵按词表维度分片，AllGather可收集当前批次所需token的嵌入向量。
+
+    AllGather的通信量相当于总数据大小M，但每个节点只发送M/N，接收 (N-1)M/N。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XxBHwhYPNiVrDYkSIHCccehWn72
+  block_id: AHuOdOAv7o0dBoxYF3zc5njhnIf
+  page_token: XxBHwhYPNiVrDYkSIHCccehWn72
+  original_title: 8. AllGather 是什么操作？在什么场景使用？（如 ZeRO-3 收集参数，TP 的 g 操作）
+  imported_at: '2026-09-21'

@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-abf89f6e7ea9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在多轮对话中，如何缓存历史轮次的视觉 token 和 KV 缓存以加速后续回复？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 在多轮对话中，如何缓存历史轮次的视觉 token 和 KV 缓存以加速后续回复？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多轮对话中，用户可能就同一张或几张图反复追问。如果每次都将历史所有视觉token和文本重新编码，重复计算巨大。
+
+    缓存策略：
+
+    - 视觉Token缓存
+
+    每张图像首次出现时，将其编码后的视觉token序列存储在会话状态中（如Redis或GPU显存中的缓存字典）。后续轮次需要该图像时，直接从缓存读取视觉token，跳过视觉编码器。缓存键可以用图像感知哈希（pHash）或URL。需要注意：如果图像在对话中被编辑或用户重新上传了修改版，哈希改变，会重新编码。缓存过期策略：对话结束后保留一段时间（如10分钟），或设置显存上限采用LRU淘汰。
+
+    - KV缓存前缀共享
+
+    多轮对话中，历史文本和视觉token的KV缓存可以复用。如果LLM推理框架支持RadixAttention（SGLang）或自动前缀匹配，相同的前缀序列会自动共享KV缓存。例如，第一轮对话的完整前缀（系统提示+视觉token+历史问答）在第二轮中保持不变，第二轮只需计算新增的用户问题和模型回复的KV缓存。
+
+    - 会话级KV缓存管理
+
+    更激进的策略是保持整个会话的KV缓存不释放，直到会话结束。这需要大量显存，仅适用于短会话或显存充裕的场景。可以结合KV缓存量化（如FP8）压缩历史缓存，或使用KV缓存卸载到CPU内存（如vLLM的swap space）。
+
+    - 选择性缓存与失效
+
+    用户追问可能只改变最后一条消息。如果框架支持增量式KV缓存更新，可以只重算变化部分。否则，从最早变化的token开始重算后续所有KV。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RRQVwfGDQiejs6kBW04ch16ynHe
+  block_id: WZHsd5mcGo0pAYxaO3kcR0G5nqf
+  page_token: RRQVwfGDQiejs6kBW04ch16ynHe
+  original_title: 在多轮对话中，如何缓存历史轮次的视觉 token 和 KV 缓存以加速后续回复？
+  imported_at: '2026-09-21'

@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-31ac5957ee26
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在训练中动态评估模型生成质量，作为选择checkpoint的依据？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如何在训练中动态评估模型生成质量，作为选择checkpoint的依据？
+answer:
+  mode: rubric
+  reference_answer: |-
+    将生成质量评估嵌入训练循环，是将模型选择从“事后诸葛”变为“实时导航”的关键。这需要自动化的、与人类判断高度相关的评估手段。
+
+    动态评估管道：
+
+    - 准备固定评估集：构建一个约100~200条指令的集合，需覆盖核心业务场景、边界案例、安全对抗等，且绝不与训练集重叠。
+
+    - 设定评估频率：一般每隔 100~200 训练步或每个 epoch 结束时，暂停训练，用当前模型（切换到 eval 模式）对该评估集生成回答。
+
+    - 自动化评判：
+
+    - 记录与可视化：将每个评估点的得分（如 GPT-4 评分均值、胜率、格式化准确率等）记录到日志中，并用 TensorBoard 等工具绘制出随训练步数变化的曲线。
+
+    如何依据评估选择 checkpoint：
+
+    - 趋势判断：观察得分曲线。当得分达到最高点后开始呈现下降趋势（即使验证损失仍在下降），说明过拟合开始损害真实生成质量。此时应立即停止训练或回滚到得分最高的那一步。
+
+    - 多维权衡：如果 GPT-4 评判的“有用性”得分持续上升，但“安全性”得分下降到不可接受的程度，说明模型变得过于顺从，需要平衡。选择那个在两个维度上达到最佳 trade-off 的 checkpoint。
+
+    - 与损失曲线结合：通常，生成质量最优的 checkpoint 位于验证损失曲线由陡变缓的拐点附近，而非最低点。
+
+    工程实现：可在 HuggingFace Trainer 中自定义一个回调函数，在 on_log 或 on_step_end 时触发评估，用多线程/异步方式调用 GPT-4 API，并将结果写回训练状态。注意评估期间释放训练显存，评估完成后再恢复。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: IpChdTRT7ojxLOx8QJIcOzRMnUf
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 如何在训练中动态评估模型生成质量，作为选择checkpoint的依据？
+  imported_at: '2026-09-21'

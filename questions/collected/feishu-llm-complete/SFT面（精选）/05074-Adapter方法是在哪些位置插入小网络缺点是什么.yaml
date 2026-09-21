@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bff484bdd5eb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Adapter方法是在哪些位置插入小网络？缺点是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: Adapter方法是在哪些位置插入小网络？缺点是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Adapter方法是在Transformer模型的特定位置串行插入小型可训练瓶颈网络（Adapter模块），而保持基座模型其余参数冻结。
+
+    插入位置：
+
+    - 标准位置：通常在多头注意力（MHA）子层之后、FFN子层之后各插入一个Adapter模块，或者在每个子层的残差连接之前或之后。典型的Adapter模块由两个线性层组成：一个下投影（将隐藏维度映射到较小的瓶颈维度，如64），后接一个非线性激活函数（如ReLU或GELU），再上投影回原维度。
+
+    - 结构：Adapter(x) = W_up(σ(W_down(x))) + x，其中W_down ∈ R^{d×bottleneck}，W_up ∈ R^{bottleneck×d}，σ为激活函数。
+
+    - 变体：有些只在FFN后添加（如AdapterFormer），有些在每个Block的特定位置。Pfeiffer Adapter则仅在每个Transformer层的输出之后插入。
+
+    缺点：
+
+    - 推理延迟增加：Adapter模块是串行的，无法像LoRA那样通过重参数化合并到原权重中。因此，即使只增加很小的瓶颈网络，推理时也必须额外执行这些层的计算，导致每一层都有少量但不可消除的延迟。在批量较小或实时性要求高的场景下，这可能成为问题。
+
+    - 序列长度影响：Adapter增加了每层的计算量，对于长序列，这些额外开销可能累积。
+
+    - 容量与效率权衡：为了获得较好性能，瓶颈维度通常需要64-256，这使得Adapter的总参数量可能比LoRA（r=8）大数倍。更大的参数量意味着更高的显存占用和训练开销，尽管仍远小于全量微调。
+
+    - 优化难度：由于Adapter是插入在模型中间，其输入分布会受到前面层的影响，有时需要配合LayerNorm等归一化进行训练，调参相对LoRA更复杂。
+
+    鉴于这些缺点，LoRA因其可合并和无推理延迟的优势，在很多场景下取代了Adapter成为PEFT的首选。但Adapter在多任务、多领域快速切换上仍有其灵活性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZYXSwaWATimyqQkmZm5cAPJHnoc
+  block_id: D2qwdMvHfoUFm7xUDuOcVD97ntb
+  page_token: ZYXSwaWATimyqQkmZm5cAPJHnoc
+  original_title: Adapter方法是在哪些位置插入小网络？缺点是什么？
+  imported_at: '2026-09-21'

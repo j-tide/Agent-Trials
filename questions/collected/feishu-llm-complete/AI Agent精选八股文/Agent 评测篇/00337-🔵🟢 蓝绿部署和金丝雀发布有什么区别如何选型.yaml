@@ -1,0 +1,133 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a1ee6ddb8644
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F535\U0001F7E2 蓝绿部署和金丝雀发布有什么区别？如何选型？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 评测篇
+tags: &1
+- AI Agent精选八股文
+- Agent 评测篇
+content:
+  prompt: "\U0001F535\U0001F7E2 蓝绿部署和金丝雀发布有什么区别？如何选型？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这两种策略都解决同一个问题：如何把新版本平稳地交到用户手里，不引起服务中断，一旦出事还能秒级回滚。
+
+    蓝绿部署
+
+    准备两套完全对等的生产环境：蓝（旧版本）和绿（新版本）。发布时流量一键从蓝切到绿。如果绿环境有问题，再立刻切回蓝。
+
+    ```text
+    用户 → 负载均衡器 → 蓝环境 (v1.0)  ← 当前生产
+                       绿环境 (v2.0)  ← 已部署待切换
+    发布动作：把所有流量从蓝切到绿
+    ```
+
+    金丝雀发布
+
+    新版本先只给一小部分用户（比如 5%）使用，观察几分钟到几小时，确认无问题后逐步增加比例，直到 100%。
+
+    ```text
+    用户 → 负载均衡器 → 90% 流量 → 稳定版本 (v1.0)
+                       10% 流量 → 金丝雀版本 (v2.0)
+    持续监控 → 无异常 → 逐步增加新版本流量 → 最终全部切换
+    ```
+
+    区别一览：
+
+    选型建议：
+
+    - 选蓝绿部署：你的服务是强状态ful 的核心 API（如支付），不允许任何细微错误影响到所有用户，且你有双倍的服务器预算。它特别适合 Agent 平台的网关层，因为一旦路由逻辑出错，100% 的用户都会受影响。
+
+    - 选金丝雀发布：你的应用有大量用户，新版本的 Agent 行为不确定性高（如换了底层模型），你希望通过一小部分真实流量先验证效果，再全量放量。这尤其适合 Agent 内部推理逻辑的更新，因为模型输出的变化很难在离线测试中完全覆盖，需要真实用户反馈。
+
+    在 Kubernetes 中实现金丝雀发布（简化版）：
+
+    ```yaml
+    # 稳定版 Service
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: agent-service
+    spec:
+      selector:
+        app: agent
+        version: stable
+    ---
+    # 稳定版 Deployment
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: agent-v1
+    spec:
+      replicas: 9
+      selector:
+        matchLabels:
+          app: agent
+          version: stable
+      template:
+        metadata:
+          labels:
+            app: agent
+            version: stable
+        spec:
+          containers:
+          - name: agent
+            image: my-agent:v1.0
+    ---
+    # 金丝雀 Deployment (1 个 Pod，10% 流量)
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: agent-v2-canary
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: agent
+          version: canary
+      template:
+        metadata:
+          labels:
+            app: agent
+            version: canary
+        spec:
+          containers:
+          - name: agent
+            image: my-agent:v2.0
+    ```
+
+    结合 Istio 或 Linkerd 的流量拆分，可以精细控制灰度比例，并在监控面板上实时对比两个版本的错误率和延迟。
+
+    选型核心原则：爆炸半径越小，发布越安全。 金丝雀发布让你在真实世界做“微创手术”，蓝绿部署则是一台备用心脏随时待命。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NeK0wkFRfi2KLHkHiQucC7hWnpI
+  block_id: doxcnRgp4eCdh5mQOKUrSAY4QAc
+  page_token: NeK0wkFRfi2KLHkHiQucC7hWnpI
+  original_title: "\U0001F535\U0001F7E2 蓝绿部署和金丝雀发布有什么区别？如何选型？"
+  imported_at: '2026-09-21'

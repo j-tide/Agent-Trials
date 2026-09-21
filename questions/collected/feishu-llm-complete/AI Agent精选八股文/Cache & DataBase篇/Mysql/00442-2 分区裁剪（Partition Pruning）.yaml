@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e5a24935892a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 1.2 分区裁剪（Partition Pruning）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 1.2 分区裁剪（Partition Pruning）
+answer:
+  mode: rubric
+  reference_answer: "### 分区裁剪原理与优化\n\n1、基础题：什么是分区裁剪？MySQL 如何实现分区裁剪？\n\n⭐（分区裁剪定义、实现机制）\n\n分区裁剪是
+    MySQL 优化器根据查询条件中的分区键，自动跳过不需要扫描的分区，只扫描可能包含目标数据的分区。\n\n实现机制：\n\n- MySQL 解析 SQL 时，提取
+    WHERE 条件中的分区键\n\n- 根据分区定义计算需要扫描的分区范围\n\n- 在执行阶段只访问符合条件的分区，减少 I/O 和计算量\n\n例如：RANGE
+    分区表按月分区，查询 WHERE create_time BETWEEN '2024-01-01' AND '2024-01-31' 只扫描 1 月份的分区。\n\n2、进阶题：哪些场景下分区裁剪会失效？如何验证分区裁剪是否生效？\n\n⭐⭐（失效场景、验证方法）\n\n1️⃣
+    Common Answer 分区裁剪失效的情况主要是查询条件里没有分区键，或者用了函数。比如分区键是 createtime，但是查询用的是 YEAR(createtime)
+    这样的函数，就可能裁剪不了。验证的话可以用 EXPLAIN 看执行计划，或者用 EXPLAIN PARTITIONS 看具体扫描了哪些分区。如果扫描了所有分区，那就是裁剪失效了。\n\n2️⃣
+    Impressive Answer 分区裁剪失效的典型场景：\n\n- 查询条件不包含分区键\n\n- 对分区键使用函数\n\n- 隐式类型转换\n\n-
+    OR 条件\n\n- 子查询\n\n验证分区裁剪的方法：\n\n-- 方法1：EXPLAIN PARTITIONS 查看扫描的分区\nEXPLAIN PARTITIONS
+    SELECT * FROM orders WHERE create_time = '2024-01-01';\n-- 输出：partitions: p202401（只扫描一个分区）\n\n--
+    方法2：EXPLAIN 查看执行计划\nEXPLAIN SELECT * FROM orders WHERE create_time = '2024-01-01';\n--
+    输出：type: range（表示使用了范围扫描）\n\n-- 方法3：Performance Schema 监控\nSELECT * FROM performance_schema.events_statements_history_long\nWHERE
+    SQL_TEXT LIKE '%orders%';\n\n最佳实践：\n\n- 分区键选择高选择性、高频查询的字段\n\n- 避免在分区键上使用函数、隐式转换\n\n-
+    复杂查询拆分为简单查询，每个查询包含分区键\n\n- 定期使用 EXPLAIN PARTITIONS 验证查询计划\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n3、场景题：一个按月分区的日志表，查询最近
+    7 天的数据很慢，如何优化？\n\n⭐⭐⭐（查询优化、索引设计）\n\n1️⃣ Common Answer 这个可能是分区裁剪没生效，先检查一下 SQL 里有没有包含分区键。如果用了函数，改成范围查询试试。还有就是可能分区太大了，每个分区几千万条数据，这时候需要加索引。或者考虑用覆盖索引，减少回表。如果还是慢，可能需要用
+    ES 之类的方案了。\n\n2️⃣ Impressive Answer 针对按月分区日志表查询慢的问题，我建议按以下步骤系统排查和优化：\n\n第一步：验证分区裁剪\n\n--
+    检查是否触发分区裁剪\nEXPLAIN PARTITIONS \nSELECT * FROM logs \nWHERE log_time >= DATE_SUB(NOW(),
+    INTERVAL 7 DAY);\n\n-- 如果扫描了多个分区或全表，说明裁剪失效\n-- 常见问题：使用了函数 DATE_SUB、CURDATE() 等\n\n优化方案：\n\n--
+    方案1：改写 SQL，避免函数\nSELECT * FROM logs \nWHERE log_time >= '2024-01-22 00:00:00'
+    \n  AND log_time < '2024-01-29 00:00:00';\n\n-- 方案2：使用覆盖索引\nCREATE INDEX idx_log_time_cover
+    ON logs (log_time, user_id, action, result);\n\n-- 查询只走索引，不回表\nSELECT user_id,
+    action, result \nFROM logs \nWHERE log_time >= '2024-01-22 00:00:00' \n  AND log_time
+    < '2024-01-29 00:00:00';\n\n第二步：优化分区粒度\n\n- 如果单个分区超过 1000 万行，考虑按周分区或按天分区\n\n-
+    按天分区示例：\n\nPARTITION BY RANGE (TO_DAYS(log_time)) (\n    PARTITION p20240122 VALUES
+    LESS THAN (TO_DAYS('2024-01-23')),\n    PARTITION p20240123 VALUES LESS THAN (TO_DAYS('2024-01-24')),\n
+    \   -- ...\n);\n\n第三步：索引优化\n\n-- 联合索引，包含高频查询字段\nCREATE INDEX idx_log_composite
+    ON logs (log_time, user_id, action);\n\n-- 前缀索引（如果日志内容很长）\nCREATE INDEX idx_log_content
+    ON logs (log_time, content(100));\n\n第四步：查询优化\n\n-- 使用延迟关联，先通过索引找到 ID，再回表\nSELECT
+    l.* \nFROM logs l\nINNER JOIN (\n    SELECT id \n    FROM logs \n    WHERE log_time
+    >= '2024-01-22 00:00:00' \n      AND log_time < '2024-01-29 00:00:00'\n    LIMIT
+    10000\n) tmp ON l.id = tmp.id;\n\n第五步：架构优化\n\n- 如果数据量持续增长（单表 > 1 亿），考虑：\n\n监控指标：\n\n-
+    查询响应时间 < 1s\n\n- 分区裁剪率 > 90%（只扫描 1-2 个分区）\n\n- 索引命中率 > 95%\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n4、容易一起考的题\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IKZ3wmrGRip21hkBhZHc4rARnKe
+  block_id: doxcnj6PYnn7OlOLLGv0G4MNlwd
+  page_token: IKZ3wmrGRip21hkBhZHc4rARnKe
+  original_title: 1.2 分区裁剪（Partition Pruning）
+  imported_at: '2026-09-21'

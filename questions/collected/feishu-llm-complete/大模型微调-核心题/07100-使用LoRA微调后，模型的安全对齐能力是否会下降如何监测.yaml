@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1ce942727063
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用LoRA微调后，模型的安全对齐能力是否会下降？如何监测？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 使用LoRA微调后，模型的安全对齐能力是否会下降？如何监测？
+answer:
+  mode: rubric
+  reference_answer: |-
+    可能会下降，尤其在安全对齐数据不足或训练不当的情况下。 LoRA虽然没有直接修改基座权重，但它添加的适配器可以显著改变模型的输出分布，从而可能覆盖或绕过原始的安全对齐行为。
+
+    下降的原因：
+
+    - 安全样本未被充分学习：如果SFT数据中缺少高质量的安全拒绝和边界澄清样本，模型在学习新指令格式时，可能会学到“无条件顺从”的模式。LoRA适配器会放大这种倾向，导致模型对危险指令的拒绝能力下降。
+
+    - 适配器容量分配问题：LoRA的低秩容量可能主要被用于学习新任务的格式和内容，而安全对齐这种需要细粒度判断的能力，可能因为没有得到足够的容量而被“牺牲”掉。
+
+    - 混合训练中的灾难性遗忘：虽然基座参数未变，但适配器大量更新后，原始模型内部的安全判断逻辑（通过注意力模式等）可能被适配器的输出所“屏蔽”或“绕过”，导致安全边界模糊。
+
+    如何监测安全对齐能力：
+
+    - 建立分层安全测试集：包含明显有害请求、边界灰色请求、以及需要澄清意图的模糊请求。覆盖暴力、色情、违法、偏见等多个维度。
+
+    - 自动化指标监控：在微调训练过程中，定期用该测试集评估模型的安全拒绝率（对有害请求的恰当拒绝比例）和误拒绝率（对无害请求的错误拒绝比例）。将这两条曲线与基座模型进行对比，观察变化趋势。
+
+    - 红队对抗测试：组织专门的红队或使用自动化攻击工具（如越狱提示模板），对微调后的模型进行压力测试，发现潜在漏洞。
+
+    - 对比偏好判断：使用强模型（如GPT-4）评判微调前后模型对同一批安全相关指令的回答质量，直接对比安全性的变化。
+
+    - 激活模式分析：通过Logit Lens或Attention可视化，观察模型在处理安全相关指令时，其内部激活模式是否与未微调时存在显著偏差。
+
+    预防措施：
+
+    - 在SFT数据中确保包含充分、多样化的安全对齐样本（占比5%~10%）。
+
+    - 使用较小的学习率和适中的秩，避免适配器过于激进地改变行为。
+
+    - 在训练过程中持续监控上述安全指标，必要时触发早停或回滚。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UEbgw2D3ci93jLkR3c6cdyoInve
+  block_id: Qojndpu1LoyulkxVGBUccW9FnXc
+  page_token: UEbgw2D3ci93jLkR3c6cdyoInve
+  original_title: 使用LoRA微调后，模型的安全对齐能力是否会下降？如何监测？
+  imported_at: '2026-09-21'

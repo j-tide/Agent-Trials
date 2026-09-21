@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1d40c6561e95
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BB 如果资源有限，只有 8 张 GPU，你如何设计一个最小可用的 PPO 训练系统？（模型分配和 offload 方案）"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "\U0001F4BB 如果资源有限，只有 8 张 GPU，你如何设计一个最小可用的 PPO 训练系统？（模型分配和 offload 方案）"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F3AF 资源：8×A100-80G，7B 模型。目标：成功跑通 RLHF (PPO)。\n\n\U0001F5FA️
+    部署方案：极致复用 + 时分 + Offload\n\n阶段一：采样阶段（Inference Mode）\n\n- Actor 独占 4 GPU，使用 vLLM
+    部署，DP=4。关闭 Critic、Ref、RM 的相关服务，最大化采样吞吐。\n\n阶段二：奖励与训练阶段（Training Mode）\n\n- Actor
+    和 Critic：使用 LoRA 训练，底座冻结，仅微调适配器。显存大幅降低，可部署在 2 张 GPU 上（DP=2）。\n\n- Ref 和 RM：部署在剩余
+    2 张 GPU 上。为节省显存，对 Ref 和 RM 进行 8-bit 量化（使用 bitsandbytes），并关闭它们的梯度计算。\n\n- Offload
+    优化器状态：如果上述配置仍显存紧张，利用 ZeRO-Offload 将 Adam 状态 offload 到 CPU 内存。\n\n\U0001F504 执行流程\n\n-
+    系统启动后，先加载 Actor 到全部 8 GPU，进行一次大规模采样，生成足够多批次的经验数据存入本地磁盘或 CPU 内存。\n\n- 采样完成后，释放
+    Actor 的推理引擎，重新加载为训练模式（带 LoRA），并加载 Critic、Ref、RM。利用刚刚存储的经验数据进行多轮 PPO 更新。\n\n- 更新完成后，保存
+    LoRA 权重。下一轮迭代时，再次切换到推理模式，用新 LoRA 采样。如此时分复用，虽然吞吐较低，但保证了在有限资源下的完整 RLHF 流程。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TWMuwtjygiXKQYkjGELcArHan1b
+  block_id: SsSRdZruNoUahhxRayscDvjVnVf
+  page_token: TWMuwtjygiXKQYkjGELcArHan1b
+  original_title: "\U0001F4BB 如果资源有限，只有 8 张 GPU，你如何设计一个最小可用的 PPO 训练系统？（模型分配和 offload
+    方案）"
+  imported_at: '2026-09-21'

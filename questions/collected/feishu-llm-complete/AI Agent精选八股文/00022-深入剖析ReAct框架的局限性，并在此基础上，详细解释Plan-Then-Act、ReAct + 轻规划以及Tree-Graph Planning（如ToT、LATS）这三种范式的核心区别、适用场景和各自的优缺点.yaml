@@ -1,0 +1,161 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bfaa72c658c1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 29.深入剖析ReAct框架的局限性，并在此基础上，详细解释Plan-Then-Act、ReAct + 轻规划以及Tree/Graph Planning（如ToT、LATS）这三种范式的核心区别、适用场景和各自的优缺点。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 
+tags: &1
+- AI Agent精选八股文
+content:
+  prompt: 29.深入剖析ReAct框架的局限性，并在此基础上，详细解释Plan-Then-Act、ReAct + 轻规划以及Tree/Graph Planning（如ToT、LATS）这三种范式的核心区别、适用场景和各自的优缺点。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### 一、ReAct框架的核心局限性
+
+    ReAct（Reasoning + Acting）通过交错“思考-行动-观察”循环，使大模型能动态调用工具。但其存在以下关键局限：
+
+    - 缺乏全局规划：每次决策仅基于当前观察和有限历史，容易陷入局部最优或重复步骤（如反复搜索同一信息）。复杂任务中，缺乏先验的任务分解导致步数冗余。
+
+    - 无回溯机制：一旦某条推理路径出错，ReAct只能靠后续观察纠正，但无法主动回溯到之前的分支点。这类似于深度优先搜索无剪枝。
+
+    - 效率与成本问题：每步都生成完整推理链，Token消耗大；且在长任务中，早期关键信息可能被后续对话稀释。
+
+    - 工具调用依赖线性顺序：难以表达并行或条件分支的工具调用。
+
+    ---
+
+    ### 二、三种改进范式的核心区别
+
+    [嵌入表格未展开]
+
+    ---
+
+    ### 三、各范式详解与对比
+
+    Plan-Then-Act（如SayCan、TaskWeaver）
+
+    工作流程：
+
+    - 规划阶段：模型一次性生成完整的步骤序列（如“步骤1：搜索用户信息；步骤2：查询订单；步骤3：发送邮件”）。
+
+    - 执行阶段：按顺序执行，每步调用相应工具，若某步失败则整体失败。
+
+    优点：
+
+    - 结构清晰，易于调试。
+
+    - Token消耗低（只需一次规划）。
+
+    - 适合步骤之间无依赖且环境确定的任务。
+
+    缺点：
+
+    - 无法适应动态变化（如工具返回意外结果）。
+
+    - 无纠错能力，一步错则全局错。
+
+    - 难以处理条件分支和循环。
+
+    适用场景：工作流明确、环境可控的批处理任务，如ETL流水线、定时报表生成。
+
+    ReAct + 轻规划（如Plan-ReAct、AdaPlanner）
+
+    工作流程：
+
+    - 高层规划：模型生成若干子任务（如“获取天气”、“计算温差”）。
+
+    - 底层ReAct：对每个子任务，使用ReAct模式动态调用工具完成，并可能根据中间结果微调后续子任务。
+
+    优点：
+
+    - 结合了全局结构化和局部灵活性。
+
+    - 相比纯ReAct，步数减少、Token节省。
+
+    - 可处理子任务内的小范围动态变化。
+
+    缺点：
+
+    - 子任务间的依赖仍需预先定义，无法应对跨子任务的动态调整。
+
+    - 仍然缺乏系统性回溯。
+
+    适用场景：中等复杂度的任务，如旅行规划（先订票、再订酒店、再推荐景点），每个子任务有独立工具链。
+
+    Tree/Graph Planning（如Tree-of-Thoughts (ToT)、LATS）
+
+    工作流程：
+
+    - 探索：在每个决策点生成多个候选动作（如“搜索A”或“搜索B”），形成树/图节点。
+
+    - 评估：使用启发式函数（如LLM自评估）对节点打分。
+
+    - 搜索：使用BFS、DFS或MCTS选择最有希望的分支继续扩展，可回溯到之前节点。
+
+    - 合并：允许不同路径的结果融合（Graph Planning）。
+
+    优点：
+
+    - 支持系统性的探索与回溯，接近经典AI规划能力。
+
+    - 能处理高度不确定、需要试错的任务。
+
+    - 可并行探索，利用LLM批量评估提升效率。
+
+    缺点：
+
+    - 计算开销大（多次调用LLM评估）。
+
+    - 需要设计有效的启发式评估函数（容易偏差）。
+
+    - 实现复杂，需管理搜索树。
+
+    适用场景：开放域问题求解、创意生成、复杂推理任务（如数学证明、产品设计），以及存在多条可行路径且需择优的场景。
+
+    ---
+
+    ### 四、范式选择指南
+
+    [嵌入表格未展开]
+
+    ### 五、总结
+
+    ReAct在简单任务上足够，但缺乏全局视野和回溯能力。三种增强范式沿“规划-执行耦合度”与“回溯能力”两个维度演进：
+
+    - Plan-Then-Act：完全解耦，无回溯。
+
+    - ReAct+轻规划：半解耦，有限调整。
+
+    - Tree/Graph Planning：紧密耦合搜索过程，强回溯。
+
+    实际Agent系统可采用混合策略：常规路径使用轻规划，当遇到高不确定性时动态切换到Tree Planning。未来趋势是让模型自主学习何时需要深度规划。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M526wldNTiQFB3kmM2mcFsoaneh
+  block_id: NQFOdfBQeoCH17xrWPDcMcO1nGh
+  page_token: M526wldNTiQFB3kmM2mcFsoaneh
+  original_title: 29.深入剖析ReAct框架的局限性，并在此基础上，详细解释Plan-Then-Act、ReAct + 轻规划以及Tree/Graph
+    Planning（如ToT、LATS）这三种范式的核心区别、适用场景和各自的优缺点。
+  imported_at: '2026-09-21'

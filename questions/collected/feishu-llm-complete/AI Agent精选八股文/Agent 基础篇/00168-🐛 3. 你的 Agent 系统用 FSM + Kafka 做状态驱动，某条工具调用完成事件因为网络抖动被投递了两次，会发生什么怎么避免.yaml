@@ -1,0 +1,91 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b340ad54ec02
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F41B 3. 你的 Agent 系统用 FSM + Kafka 做状态驱动，某条“工具调用完成”事件因为网络抖动被投递了两次，会发生什么？怎么避免？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F41B 3. 你的 Agent 系统用 FSM + Kafka 做状态驱动，某条“工具调用完成”事件因为网络抖动被投递了两次，会发生什么？怎么避免？"
+answer:
+  mode: rubric
+  reference_answer: "会发生什么？\n\n假设这是 Agent 的计费与执行流程：\n\n- 用户申请执行一个耗时长、成本高的工具（如生成视频）。\n\n-
+    Agent 状态机从 IDLE 转移到 WAITING_TOOL，然后调用远程工具服务。\n\n- 工具服务完成后，发布 ToolCallCompleted
+    事件到 Kafka。\n\n- 由于网络问题，Kafka 消费者在确认提交位置前超时，但又成功处理了消息。于是 Kafka 把这条消息再次投递给消费者。\n\n如果没有任何保护，消费者会再次执行：\n\n-
+    从 WAITING_TOOL 再转移到 TOOL_DONE（可能重复扣费、重复记录执行结果）。\n\n- 如果已经基于第一次的结果进入了下一步（比如 GENERATING_REPORT），重复的
+    ToolCallCompleted 事件可能引起状态混乱，甚至重复生成报告。\n\n怎么避免？核心——消费幂等 + 状态机保护。\n\n方案一：事件去重表（最通用）\n\ndef
+    handle_event(event):\n    event_id = event.id\n    # 插入去重表，若冲突说明已处理\n    try:\n
+    \       db.execute(\"INSERT INTO idempotency_keys (event_id) VALUES (?)\", [event_id])\n
+    \   except UniqueViolation:\n        return  # 直接跳过\n    # 正常处理\n    agent_fsm.handle(event)\n\n方案二：状态机自身幂等（更优雅）\n\n在状态机里写入防御逻辑：即使事件重复，状态机也不应重复执行副作用。\n\nclass
+    AgentFSM:\n    def on_tool_completed(self, event):\n        if self.state != \"WAITING_TOOL\":\n
+    \           # 已经是最终态，或工具根本没在处理，直接忽略重复事件\n            logger.warn(f\"忽略重复的ToolCallCompleted事件，当前状态:
+    {self.state}\")\n            return\n        # 仅当状态符合时才执行转移和扣费\n        self.state
+    = \"TOOL_DONE\"\n        self.billing.charge()  # 扣费\n\n方案三：Kafka 精确一次语义（辅助）\n开启
+    Kafka 的幂等生产者（enable.idempotence）和消费者的 isolation.level = read_committed，配合事务，可以做到生产端精确一次。但这只解决了“发送”到
+    Broker 的重复，如果消费者的业务逻辑是非幂等的，仍然需要方案一/二兜底。\n\n结合 Agent 场景的完整设计：\n\n# Agent 事件处理器\ndef
+    process_tool_completed(event):\n    agent = AgentRepo.load(event.agent_id)\n    \n
+    \   # 1. 状态机幂等守卫\n    if agent.state != \"WAITING_TOOL\":\n        return  # 已处理过，幂等跳过\n
+    \   \n    # 2. 乐观锁更新状态（附加版本号）\n    updated = db.execute(\n        \"UPDATE agent
+    SET state='TOOL_DONE', version=version+1 \"\n        \"WHERE id=? AND version=?\",\n
+    \       [agent.id, agent.version]\n    )\n    if updated.rowcount == 0:\n        return
+    \ # 并发/重复处理，版本不匹配，幂等跳过\n    \n    # 3. 执行后续副作用（如释放锁、通知用户）\n    notify_user(agent.user_id,
+    \"工具调用完成\")\n\n关键点：\n\n- 用状态字段作为天然幂等栅栏：WAITING_TOOL 只能执行一次。\n\n- 用乐观锁（版本号）防止并发写覆盖。\n\n-
+    副作用放最后：只有状态持久化成功后，才执行发通知等不可撤回的操作。\n\n收束：\n\n在事件驱动的 FSM 里，重复投递不是 bug，是常态。设计的核心原则是：把状态转移本身做成幂等操作，让“再来一次”变成“无事发生”。这样，你的
+    Agent 就能在消息的海洋里，既不迷航，也不翻船。\n\n---\n\n事件是历史，状态是历史的投影。我们设计 FSM，就是为这些投影立下规矩；而融合事件驱动，就是让规矩在异步世界依然森严。你的
+    Agent 最终获得的，不是脆弱的调用链，而是一本可以随时重放、永不丢失的行动日志。\n\n每一次思考，都可以触发一个外部行动；每一次行动的反馈，都能修正下一次思考。\n\n用户：帮我查苹果（AAPL）的实时股价，并计算今天的涨跌幅。\nAgent：调用
+    get_stock_price(\"AAPL\") → 返回 {\"price\": 175.20, \"change_percent\": \"+2.3%\"}\n按理说应该直接回答。但它又调用一次
+    get_stock_price(\"AAPL\")，然后再一次……陷入无限循环。\n\n当你已经获取到回答问题所需的全部信息，立刻输出 FINISH Action，不要再调用工具。\n\n-
+    探索性问答（\"帮我查下这个公司，看看有什么负面新闻\"）\n\n- 信息不完整、需要多轮交互的任务\n\n- 简单的单轮工具调用\n\n- 复杂的多步骤工作流（\"帮我写一份季度销售报告，包括数据清洗、分析、可视化\"）\n\n-
+    任务步骤可以提前枚举、顺序相对确定\n\n- 需要用户确认或预览计划的场景（提升透明度）\n\n现实中，很多高级 Agent 会混合使用：顶层用 Plan-and-Execute
+    把大任务分解成多个阶段，每个阶段内部再用 ReAct 灵活执行。 这种混合模式在 LangGraph 里很容易实现。\n\n- 每一步的输出都可以单独验证（是否成功获取数据？清洗后的数据行数是否合理？）。\n\n-
+    步骤间的依赖关系清晰，不会出现“我做了第 3 步但发现第 1 步其实没做完”。\n\n- 整个计划的步骤数在你的成本预期之内（例如，每一步意味着一次 LLM
+    规划调用 + 若干工具调用，要能承受）。\n\n- 领域专用 Agent（如法律分析、医疗问诊）：需要模型学会专业推理范式（法条→事实→结论），用 3-5
+    个精心设计的范例，极大提升回答的专业性和一致性。\n\n- 多工具串联有固定最佳实践：比如“查天气→查航班→推荐穿衣”，可以把这个流程作为 Few-shot
+    范例，让 Agent 在绝大多数情况都按最优顺序调用工具。\n\n- 低能力模型（如开源 7B 模型）：Zero-shot CoT 可能完全不生效，必须用
+    Few-shot 强迫它学会“想”。\n\n- 用户意图多变、无法预先枚举：开放式对话 Agent，用户可能问任何事。这种情况下动态检索到的 Few-shot
+    常常不准确，反而误导。不如用强大的指令模型 + Zero-shot CoT 提示。\n\n- 节省上下文成本：如果你的 Agent 已经很聪明（如 GPT-4o），且任务只是中等复杂度，Zero-shot
+    CoT 加一句“请逐步分析”就能搞定，不用浪费 Token 放例子。\n\n- 作为后备兜底：当 Few-shot CoT 的动态检索结果质量低（如检索到不相关示例）时，回退到
+    Zero-shot CoT，避免被错误示例带偏。\n\nAgent 任务：“计算 portfolio A 的年化夏普比率，无风险利率 3%”\n\n- 采样
+    1：用 (annual_return - 0.03) / annual_volatility → 结果 1.2\n\n- 采样 2：错误地先用月度数据再年化，但年化系数搞错
+    → 结果 0.8\n\n- 采样 3：正确调用工具得到年化收益和波动率，计算 → 1.2\n投票后输出 1.2，置信度 2/3 = 66.7%。Agent
+    可将低置信度的答案附加“建议人工复核”标记。\n\n- 第一，RAG 接地（Grounding）：对于事实类信息，强制通过检索把相关文档注入 context，在
+    Prompt 里明确\"只能基于以下文档回答，文档中没有的信息请说'我没有相关信息'\"，注意检索质量本身是新的风险点——检索到错误文档会引入新错误。\n\n-
+    第二，结构化输出约束：用 JSON Schema 或 Pydantic 强制规定输出格式，比如 {\"answer\": \"...\", \"confidence\":
+    \"high/medium/low\", \"source\": \"...\"} ，confidence 字段让模型显式暴露不确定性，工程上用 Instructor
+    库或 OpenAI Structured Outputs 实现。\n\n- 第三，Self-Check 二次验证：把问题和初始回答再发给模型，让它判断\"回答是否有明显事实错误\"，进阶做法是多模型交叉验证，或对同一问题多次采样检测答案一致性——一致性低说明模型不确定。\n\n-
+    第四，不确定性显式化：在 System Prompt 里告知\"不确定时请明确说出来，不要猜测\"，并在 Few-shot 示例里示范如何表达不确定性。实际项目里，这几种策略组合使用，目标是把幻觉率控制在业务可接受的范围内。\n\n-
+    超时：给每个可能长时间运行的状态设置超时测试，设置超时时间为 0 验证超时是否真的触发，验证超时后是否转移到正确状态。\n\n- 失败：模拟各种失败场景（网络错误、参数错误、权限错误），验证是否转移到正确的错误处理状态。\n\n-
+    资源耗尽：模拟内存、连接数、API 调用次数耗尽，验证是否能优雅降级。覆盖率目标：状态覆盖 100%、转移覆盖 100%、路径覆盖关键业务路径 80%+、异常场景覆盖
+    90%+。\n\n- 消费者端去重：在数据库中建 idempotency_key 表（比如用事件 ID 作为唯一索引），处理事件前先插入该 ID，若插入成功则处理，若主键冲突则直接跳过。\n\n-
+    事件版本号：在聚合根上存一个 version 字段。事件里也携带该 version。处理时用乐观锁更新：UPDATE order SET status =
+    'paid', version = 3 WHERE id = 123 AND version = 2。如果版本不匹配，说明事件已被处理或乱序，直接忽略。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  block_id: doxcndVCTChOqKNnU0AXj1yzDPb
+  page_token: Y7TdwaTVriCtCRkNfkpcjXnpnWf
+  original_title: "\U0001F41B 3. 你的 Agent 系统用 FSM + Kafka 做状态驱动，某条“工具调用完成”事件因为网络抖动被投递了两次，会发生什么？怎么避免？"
+  imported_at: '2026-09-21'

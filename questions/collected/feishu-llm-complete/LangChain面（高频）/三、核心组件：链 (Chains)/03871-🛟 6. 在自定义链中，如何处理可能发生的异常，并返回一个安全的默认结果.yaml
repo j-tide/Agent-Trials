@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-59c2a4487bbe
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6DF 6. 在自定义链中，如何处理可能发生的异常，并返回一个安全的默认结果？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "\U0001F6DF 6. 在自定义链中，如何处理可能发生的异常，并返回一个安全的默认结果？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    异常处理是自定义链从“能跑”到“可靠”的分水岭。我的原则是：不要让异常裸奔出链边界。在 _call 或 _acall 内部，应该捕获所有可预见的异常，并按照业务需求返回一个预定义的 fallback 结果，同时记录足够多的上下文日志。
+
+    最常见的两种异常：
+
+    - LLM 调用失败：网络超时、限流、内容审核触发等。
+
+    - 输出解析失败：模型返回格式不符合预期，比如情感分析没返回那三个词之一。
+
+    对于翻译加情感分析的链，我会这样处理：
+
+    ```python
+    def _call(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        text = inputs["text"]
+        try:
+            translation = self.llm.invoke(...).strip()
+        except Exception as e:
+            logger.error(f"翻译失败: {e}", extra={"input_text": text})
+            translation = "[Translation Failed]"
+
+        try:
+            sentiment = self.llm.invoke(...).strip().lower()
+            if sentiment not in ("positive", "negative", "neutral"):
+                sentiment = "neutral"  # 输出修正
+        except Exception as e:
+            logger.error(f"情感分析失败: {e}", extra={"translation": translation})
+            sentiment = "neutral"
+
+        return {
+            "english_translation": translation,
+            "sentiment": sentiment
+        }
+    ```
+
+    注意，这里我用了“单个步骤独立 try-except”的策略，因为翻译失败不意味着整个链要崩，我们还可以用原文做点什么，或者至少返回一个失败占位符，让上游调用方决定怎么处理。如果整体失败，我会在返回的 dict 中增加一个 error 字段，形成一个约定：{"english_translation": "...", "sentiment": "...", "error": None}，当 error 不为 None 时，上游就知道部分数据不可靠。
+
+    还有一点，异常不要悄悄吞掉。你必须在日志里留下完整的堆栈，并且最好把失败的输入也记录下来，方便后续复现和修复。如果你的链用在自动化流水线里，甚至可以接入告警，当某类异常出现频次超过阈值时主动通知。
+
+    对于 _acall，记得用 try-except 包裹 await 调用，原理相同，只不过异步里的异常堆栈有时会丢失，可以用 logger.exception 来记录完整上下文。
+
+    安全默认值的选择取决于业务。做情感分析，默认 neutral 影响最小；做翻译，返回失败标记而不是空字符串，能避免下游把空串当正常英文去处理，进而引发更诡异的 bug。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QpN4wGGTGiz4zzkOhzqc7iipn1e
+  block_id: Pf3MdWZ86oibFuxqvxVcERZKnSb
+  page_token: QpN4wGGTGiz4zzkOhzqc7iipn1e
+  original_title: "\U0001F6DF 6. 在自定义链中，如何处理可能发生的异常，并返回一个安全的默认结果？"
+  imported_at: '2026-09-21'

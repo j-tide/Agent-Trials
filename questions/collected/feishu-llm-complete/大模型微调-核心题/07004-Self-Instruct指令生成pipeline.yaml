@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-872f7d1a0eb6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Self-Instruct指令生成pipeline
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: Self-Instruct指令生成pipeline
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    import openai
+    import random
+    import json
+
+    openai.api_key = "your-api-key"
+
+    def generate_self_instruct(seed_tasks: list, num_to_generate: int = 10, model="gpt-4"):
+        generated = []
+        for _ in range(num_to_generate):
+            few_shot = random.sample(seed_tasks, min(6, len(seed_tasks)))
+            prompt = "你是一个智能助手，请生成一个全新的、不同于以下示例的指令，并为该指令提供一个高质量的回答。\n\n"
+            for task in few_shot:
+                prompt += f"指令: {task['instruction']}\n回答: {task['output']}\n\n"
+            prompt += "现在，请生成一个全新的指令和回答。\n指令:"
+
+            response = openai.ChatCompletion.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.8,
+                max_tokens=256
+            )
+            content = response.choices[0].message.content.strip()
+            # 简单解析（实际需更鲁棒）
+            parts = content.split('\n回答:', 1)
+            if len(parts) == 2:
+                instr = parts[0].replace('指令:', '').strip()
+                ans = parts[1].strip()
+                # 去重
+                if not any(instr == t['instruction'] for t in generated):
+                    generated.append({'instruction': instr, 'output': ans})
+        return generated
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: AizadtQ22oGW3TxZZXRcz8zMn0y
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: Self-Instruct指令生成pipeline
+  imported_at: '2026-09-21'

@@ -1,0 +1,99 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6910dc078798
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 8. Spring AI 的自动配置原理是什么？如何添加自定义模型？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F9E9 8. Spring AI 的自动配置原理是什么？如何添加自定义模型？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Spring AI 的自动配置完全遵循 Spring Boot 的 AutoConfiguration 机制，核心思路是“条件装配”——类路径下存在对应的依赖时，框架就自动创建并注册 ChatModel、EmbeddingModel 等 Bean。
+
+    [图片内容未导入]
+
+    以 OpenAI 为例，OpenAiAutoConfiguration 会做这几件事：
+
+    - 检查类路径是否有 OpenAiApi.class（避免使用者没引包却启动了配置）。
+
+    - 把 spring.ai.openai 前缀的配置绑定到 OpenAiConnectionProperties。
+
+    - 创建 OpenAiApi（底层 HTTP 客户端），再创建 OpenAiChatModel。
+
+    - 将 OpenAiChatModel 暴露为 ChatModel 接口的 Bean。
+
+    添加自定义模型有两种方式：
+
+    方式一：直接实现 ChatModel 接口（适合完全自定义的模型）
+
+    ```java
+    @Component
+    public class MyCustomChatModel implements ChatModel {
+
+        @Override
+        public ChatResponse call(Prompt prompt) {
+            // 实现自定义推理逻辑，调用自研模型或第三方 API
+            String generatedText = customModelInference(prompt.getContents());
+            return new ChatResponse(List.of(
+                    new Generation(new AssistantMessage(generatedText))));
+        }
+
+        @Override
+        public Flux<ChatResponse> stream(Prompt prompt) {
+            // 如需流式，可实现此方法
+            return ChatModel.super.stream(prompt);
+        }
+    }
+    ```
+
+    之后就可以在应用中直接注入 ChatModel 使用，Spring 会把它和其他自动配置的模型一样对待。
+
+    方式二：复用现有基础设施，只换底层客户端
+    如果你的模型兼容 OpenAI API 格式，只需继承 OpenAiApi 并修改 Base URL 和鉴权头，然后手动构建 OpenAiChatModel：
+
+    ```java
+    @Bean
+    public ChatModel myCustomOpenAiCompatibleModel() {
+        OpenAiApi api = new OpenAiApi("https://my-model-service/v1", "custom-api-key");
+        return new OpenAiChatModel(api);
+    }
+    ```
+
+    如果需要多个模型共存，可以用 @Qualifier 区分，或构造一个 RoutingChatModel 统一路由。
+
+    核心点：Spring AI 的自动配置就像一个可插拔的模型超市，引入不同的 Starter 就能获得不同的模型能力；而自定义模型只需交出符合 ChatModel 协议的 Bean，就能无缝融入整个生态。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AFyRwmNoZiYw94kQOOhc35Junpd
+  block_id: doxcnWiBrhG3khEVG0IpP5rVndf
+  page_token: AFyRwmNoZiYw94kQOOhc35Junpd
+  original_title: "\U0001F9E9 8. Spring AI 的自动配置原理是什么？如何添加自定义模型？"
+  imported_at: '2026-09-21'

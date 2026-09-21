@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7fb13136534b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3AC 15. 视频SFT数据的常见格式和处理难点是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F3AC 15. 视频SFT数据的常见格式和处理难点是什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    视频SFT数据的构造和处理，其复杂度相比图片SFT有指数级增长。根本原因在于视频增加了时间维度，导致数据量、计算量和上下文组织方式都面临巨大挑战。
+
+    一、常见的数据格式
+
+    视频SFT数据本质上是对时空信息的序列化表示。常见的格式有以下几种：
+
+    - 帧序列格式：这是最直接的方式。将视频均匀采样或按场景变化抽取出 TT 个关键帧，每帧用视觉编码器（如CLIP ViT）编码成图像token序列。输入给LLM的序列变为：（帧1图像token）（帧2图像token）...（文本指令token）。这种格式简单直观，适用于短视频、动作识别等场景。其缺点是帧与帧之间缺乏显式的运动信息，且Token数量随 TT 线性增长，极容易超出上下文窗口。
+
+    [图片内容未导入]
+
+    - 视频Token压缩格式：为了解决token数量爆炸的问题，通常会在视觉编码器之后添加一个Perceiver Resampler或Q-Former等模块。它的作用是接收所有帧的图像token，通过交叉注意力机制，将它们“压缩”为一组固定数量（如64个）的视频查询token。这组压缩后的token被送入LLM，既保留了关键时空信息，又大大减少了token消耗。
+
+    二、处理难点
+
+    - 一、上下文长度的爆炸性增长
+    视频的Token数量天然巨大。一段10秒的短视频，如果每秒取3帧，每帧576个Token，总Token数就高达17,280。这对模型的上下文长度（如4K/8K/32K）提出了严苛要求。SFT数据的长度分布必须与模型的目标上下文窗口匹配，否则大部分视频都无法被完整输入。
+
+    - 二、时间维度的对齐与推理
+    多模态SFT不仅要让模型识别“帧里有什么”，还要理解“发生了什么”和“为什么发生”。这要求在SFT数据中构造大量的时序推理问题，例如“描述视频中事件发生的先后顺序”、“当杯子掉落时，球处于什么位置”。这需要为数据标注精细的时间戳或事件边界，标注成本极高。
+
+    - 三、海量数据与计算资源
+    视频SFT的数据集（如InternVid）动辄包含数百万个视频-文本对，总数据量可达TB甚至PB级别。下载、存储、解码和预处理这些视频，需要极其庞大的存储和计算集群。单次SFT训练的算力开销可能是纯文本SFT的数十倍。
+
+    - 四、运动信息的表示
+    单纯的静态帧序列无法显式地提供“运动”信息，模型必须通过对比相邻帧的差异来隐式推测运动。为弥补这一点，一些方法会额外输入光流（Optical Flow）图像或运动向量作为辅助信息，这进一步增加了数据处理的复杂性。
+
+    - 五、音频信息的同步
+    很多视频包含重要的音频信息（对话、环境音）。完整的多模态SFT需要将音频也编码成token，并与视频帧、文本在时间轴上进行精确对齐。这引入了音频编码器、跨模态投影层，以及更复杂的序列混合问题，使得整个系统设计极其复杂。
+
+    ✅ 总结：视频SFT数据主要基于帧序列或时空patch，并依赖token压缩技术。其核心难点在于上下文长度的爆炸、时序推理数据的构造难度、海量数据处理的计算压力，以及运动与音频信息的融合挑战。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QxC9wMhjZi9E20kUA1TcTNQTnSh
+  block_id: KJzKdudsfoWeEFxSPkIceSnBnPe
+  page_token: QxC9wMhjZi9E20kUA1TcTNQTnSh
+  original_title: "\U0001F3AC 15. 视频SFT数据的常见格式和处理难点是什么？"
+  imported_at: '2026-09-21'

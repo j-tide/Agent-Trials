@@ -1,0 +1,169 @@
+---
+schema_version: 1
+id: feishu-llm-complete-eef0c946de8c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 消息幂等性
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: 消息幂等性
+answer:
+  mode: rubric
+  reference_answer: "1、什么是消息幂等性？为什么需要消息幂等性？\n\n⭐（幂等性定义、产生重复消息的原因）\n\n消息幂等性是指：无论消息被消费多少次，产生的结果都是一样的。即多次消费和一次消费的效果相同。\n\n需要消息幂等性的原因：\n\n-
+    生产者重复发送：网络抖动导致生产者没有收到 Broker 的 ACK，重试发送\n\n- 消费者重复消费：消费者消费成功后 ACK 丢失，Broker 重新投递\n\n-
+    事务消息回查：RocketMQ 事务消息的回查机制可能导致消息重复投递\n\n- 本地消息表重试：定时任务轮询重试可能导致消息重复发送\n\n2、请设计几种消息幂等性方案，并对比它们的优缺点？\n\n⭐⭐（幂等性方案设计、方案对比）\n\n1️⃣
+    Common Answer 幂等性就是用数据库唯一索引，或者用 Redis 存一个 key 表示已经处理过。消费的时候先查一下，如果已经处理过就跳过。\n\n2️⃣
+    Impressive Answer 消息幂等性是分布式系统中的核心问题，我会从业务幂等性和技术幂等性两个维度来设计。给你详细讲一下：\n\n方案一：数据库唯一索引（推荐）\n\n这是最可靠、最简单的方案，适用于所有需要持久化的业务场景。\n\n```text\n--
+    业务表 + 唯一索引\nCREATE TABLE stock_deduct (\n    id BIGINT AUTO_INCREMENT PRIMARY
+    KEY,\n    order_id BIGINT NOT NULL,\n    sku_id BIGINT NOT NULL,\n    quantity
+    INT NOT NULL,\n    create_time DATETIME,\n    UNIQUE KEY uk_order_sku (order_id,
+    sku_id) -- 幂等性关键\n);\n```\n\n```text\n@RocketMQMessageListener(topic = \"order_stock\",
+    consumerGroup = \"stock_group\")\npublic class StockConsumer implements RocketMQListener<OrderMessage>
+    {\n    \n    @Override\n    public void onMessage(OrderMessage message) {\n        try
+    {\n            // 直接插入，如果已存在会抛出 DuplicateKeyException\n            StockDeduct
+    record = new StockDeduct();\n            record.setOrderId(message.getOrderId());\n
+    \           record.setSkuId(message.getSkuId());\n            record.setQuantity(message.getQuantity());\n
+    \           stockMapper.insert(record);\n            \n            // 执行库存扣减\n
+    \           stockService.deductStock(message.getSkuId(), message.getQuantity());\n
+    \           \n        } catch (DuplicateKeyException e) {\n            log.warn(\"消息已处理过，跳过重复消费，orderId={}\",
+    message.getOrderId());\n        }\n    }\n}\n```\n\n优点：\n\n- 可靠性高，不依赖外部系统\n\n-
+    实现简单，无需额外代码\n\n- 天然支持事务一致性\n\n缺点：\n\n- 需要修改业务表结构\n\n- 不适用于非持久化场景\n\n---\n\n方案二：Redis
+    去重表\n\n适用于高并发、对性能要求高的场景。\n\n```text\n@RocketMQMessageListener(topic = \"order_stock\",
+    consumerGroup = \"stock_group\")\npublic class StockConsumer implements RocketMQListener<OrderMessage>
+    {\n    \n    @Autowired\n    private RedisTemplate<String, String> redisTemplate;\n
+    \   \n    @Override\n    public void onMessage(OrderMessage message) {\n        String
+    key = \"msg:dedup:\" + message.getOrderId() + \":\" + message.getSkuId();\n        \n
+    \       // SETNX：如果 key 不存在则设置成功，返回 true；否则返回 false\n        Boolean success =
+    redisTemplate.opsForValue().setIfAbsent(key, \"1\", 24, TimeUnit.HOURS);\n        \n
+    \       if (Boolean.TRUE.equals(success)) {\n            // 首次消费，执行业务逻辑\n            stockService.deductStock(message.getSkuId(),
+    message.getQuantity());\n            log.info(\"消息处理成功，orderId={}\", message.getOrderId());\n
+    \       } else {\n            // 重复消费，直接跳过\n            log.warn(\"消息已处理过，跳过重复消费，orderId={}\",
+    message.getOrderId());\n        }\n    }\n}\n```\n\n优点：\n\n- 性能高，Redis 操作快\n\n-
+    不需要修改业务表结构\n\n缺点：\n\n- 依赖 Redis 的可用性\n\n- 需要设置合理的过期时间\n\n- Redis 宕机可能导致重复消费\n\n---\n\n方案三：状态机
+    + 数据库乐观锁\n\n适用于业务状态流转的场景。\n\n```text\n-- 订单表（带版本号）\nCREATE TABLE orders (\n    id
+    BIGINT PRIMARY KEY,\n    status VARCHAR(20) NOT NULL,\n    version INT NOT NULL
+    DEFAULT 0, -- 乐观锁版本号\n    update_time DATETIME\n);\n```\n\n```text\n@RocketMQMessageListener(topic
+    = \"order_update\", consumerGroup = \"order_group\")\npublic class OrderConsumer
+    implements RocketMQListener<OrderMessage> {\n    \n    @Override\n    public void
+    onMessage(OrderMessage message) {\n        // 使用乐观锁更新状态\n        int updated =
+    orderMapper.updateStatusWithVersion(\n            message.getOrderId(), \n            \"PAID\",
+    \n            \"UNPAID\",  // 只有从 UNPAID 状态才能更新为 PAID\n            message.getVersion()\n
+    \       );\n        \n        if (updated > 0) {\n            // 更新成功，执行后续逻辑\n
+    \           log.info(\"订单状态更新成功，orderId={}\", message.getOrderId());\n        }
+    else {\n            // 更新失败，说明状态已变更或重复消费\n            log.warn(\"订单状态更新失败或重复消费，orderId={}\",
+    message.getOrderId());\n        }\n    }\n}\n```\n\n```text\n-- Mapper SQL\nUPDATE
+    orders \nSET status = #{newStatus}, \n    version = version + 1,\n    update_time
+    = NOW() \nWHERE id = #{orderId} \n  AND status = #{oldStatus} \n  AND version
+    = #{version};\n```\n\n优点：\n\n- 天然支持业务状态流转\n\n- 避免并发问题\n\n缺点：\n\n- 需要业务表有版本号字段\n\n-
+    实现相对复杂\n\n---\n\n方案四：分布式锁\n\n适用于需要保证同一时间只有一个消费者处理消息的场景。\n\n```text\n@RocketMQMessageListener(topic
+    = \"order_stock\", consumerGroup = \"stock_group\")\npublic class StockConsumer
+    implements RocketMQListener<OrderMessage> {\n    \n    @Autowired\n    private
+    RedissonClient redissonClient;\n    \n    @Override\n    public void onMessage(OrderMessage
+    message) {\n        String lockKey = \"lock:order:\" + message.getOrderId();\n
+    \       RLock lock = redissonClient.getLock(lockKey);\n        \n        try {\n
+    \           // 尝试获取锁，最多等待 0 秒，锁 10 秒后自动释放\n            boolean acquired = lock.tryLock(0,
+    10, TimeUnit.SECONDS);\n            \n            if (acquired) {\n                try
+    {\n                    // 获取锁成功，执行业务逻辑\n                    // 先查一下是否已经处理过\n                    boolean
+    processed = checkIfProcessed(message.getOrderId());\n                    if (!processed)
+    {\n                        stockService.deductStock(message.getSkuId(), message.getQuantity());\n
+    \                       markAsProcessed(message.getOrderId());\n                    }\n
+    \               } finally {\n                    lock.unlock();\n                }\n
+    \           } else {\n                // 获取锁失败，说明其他消费者正在处理\n                log.warn(\"获取锁失败，跳过重复消费，orderId={}\",
+    message.getOrderId());\n            }\n        } catch (InterruptedException e)
+    {\n            Thread.currentThread().interrupt();\n            log.error(\"获取锁被中断\",
+    e);\n        }\n    }\n}\n```\n\n优点：\n\n- 避免并发重复消费\n\n- 可以控制并发度\n\n缺点：\n\n- 实现复杂，依赖
+    Redis\n\n- 性能相对较低\n\n---\n\n方案对比\n\n[嵌入表格未展开]\n\n生产环境推荐组合\n\n- 核心业务：数据库唯一索引（最可靠）\n\n-
+    高并发场景：Redis 去重表 + 数据库唯一索引（双重保障）\n\n- 状态流转：状态机 + 乐观锁\n\n- 特殊场景：分布式锁 + 数据库唯一索引\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n3、在积分系统中，用户支付成功后需要增加积分，如何保证积分不会重复增加？\n\n⭐⭐⭐（幂等性实战、业务幂等性设计）\n\n1️⃣
+    Common Answer 用 Redis 存一个 key，消费的时候先查一下，如果已经处理过就跳过。或者用数据库唯一索引，插入一条积分记录，如果重复就报错。\n\n2️⃣
+    Impressive Answer 积分系统的幂等性设计需要考虑业务幂等性和技术幂等性两个层面。我会用数据库唯一索引 + 业务状态校验的双重保障方案。让我详细设计一下：\n\n业务场景分析\n\n-
+    用户支付成功后，需要给用户增加积分\n\n- 积分增加后，用户可以用积分兑换商品\n\n- 如果积分重复增加，会导致用户积分异常，造成资损\n\n数据库表设计\n\n```text\n--
+    用户积分表\nCREATE TABLE user_point (\n    id BIGINT AUTO_INCREMENT PRIMARY KEY,\n
+    \   user_id BIGINT NOT NULL,\n    total_point INT NOT NULL DEFAULT 0,\n    update_time
+    DATETIME,\n    UNIQUE KEY uk_user_id (user_id)\n);\n\n-- 积分明细表（幂等性表）\nCREATE TABLE
+    point_detail (\n    id BIGINT AUTO_INCREMENT PRIMARY KEY,\n    user_id BIGINT
+    NOT NULL,\n    order_id BIGINT NOT NULL,          -- 关联订单\n    point INT NOT NULL,
+    \               -- 积分变化量\n    type VARCHAR(20) NOT NULL,         -- 类型：PAYMENT_ADD,
+    EXCHANGE_USE\n    status TINYINT NOT NULL DEFAULT 0, -- 0:待生效 1:已生效\n    create_time
+    DATETIME,\n    UNIQUE KEY uk_order (order_id),    -- 幂等性关键：同一订单只能有一条记录\n    INDEX
+    idx_user_time (user_id, create_time)\n);\n```\n\n核心代码实现\n\n积分消费者（双重幂等性保障）：\n\n```text\n@RocketMQMessageListener(topic
+    = \"payment_success\", consumerGroup = \"point_group\")\npublic class PointConsumer
+    implements RocketMQListener<PaymentMessage> {\n    \n    @Autowired\n    private
+    UserPointMapper userPointMapper;\n    \n    @Autowired\n    private PointDetailMapper
+    pointDetailMapper;\n    \n    @Override\n    public void onMessage(PaymentMessage
+    message) {\n        Long userId = message.getUserId();\n        Long orderId =
+    message.getOrderId();\n        Integer point = calculatePoint(message.getAmount());
+    // 根据金额计算积分\n        \n        try {\n            // 第一重幂等性：插入积分明细（数据库唯一索引）\n
+    \           PointDetail detail = new PointDetail();\n            detail.setUserId(userId);\n
+    \           detail.setOrderId(orderId);\n            detail.setPoint(point);\n
+    \           detail.setType(\"PAYMENT_ADD\");\n            detail.setStatus(0);\n
+    \           pointDetailMapper.insert(detail);\n            \n            // 第二重幂等性：校验订单是否已处理（防止并发重复消费）\n
+    \           PointDetail existingDetail = pointDetailMapper.selectByOrderId(orderId);\n
+    \           if (existingDetail != null && existingDetail.getStatus() == 1) {\n
+    \               log.warn(\"订单已处理过，跳过重复消费，orderId={}\", orderId);\n                return;\n
+    \           }\n            \n            // 增加用户积分\n            int updated =
+    userPointMapper.addPoint(userId, point);\n            if (updated > 0) {\n                //
+    更新积分明细状态为已生效\n                pointDetailMapper.updateStatus(detail.getId(), 1);\n
+    \               log.info(\"积分增加成功，userId={}, orderId={}, point={}\", userId, orderId,
+    point);\n            } else {\n                throw new RuntimeException(\"增加积分失败\");\n
+    \           }\n            \n        } catch (DuplicateKeyException e) {\n            //
+    唯一索引冲突，说明订单已处理过\n            log.warn(\"订单已处理过（唯一索引冲突），跳过重复消费，orderId={}\", orderId);\n
+    \           \n            // 二次确认：查询订单状态，确保积分已生效\n            PointDetail detail
+    = pointDetailMapper.selectByOrderId(orderId);\n            if (detail != null
+    && detail.getStatus() == 1) {\n                log.info(\"二次确认：订单积分已生效，orderId={}\",
+    orderId);\n            } else {\n                // 异常情况：订单记录存在但状态未生效，需要人工介入\n
+    \               log.error(\"异常：订单记录存在但状态未生效，orderId={}\", orderId);\n                alertService.sendAlert(\"积分状态异常，orderId=\"
+    + orderId);\n            }\n            \n        } catch (Exception e) {\n            log.error(\"积分处理失败，orderId={}\",
+    orderId, e);\n            // 抛出异常，触发 RocketMQ 重试\n            throw e;\n        }\n
+    \   }\n    \n    private Integer calculatePoint(BigDecimal amount) {\n        //
+    积分规则：每消费 1 元获得 1 积分\n        return amount.intValue();\n    }\n}\n```\n\nMapper
+    SQL：\n\n```text\n-- 插入积分明细（唯一索引 uk_order）\nINSERT INTO point_detail (user_id,
+    order_id, point, type, status, create_time)\nVALUES (#{userId}, #{orderId}, #{point},
+    #{type}, 0, NOW());\n\n-- 查询订单明细\nSELECT * FROM point_detail WHERE order_id =
+    #{orderId};\n\n-- 增加用户积分\nUPDATE user_point \nSET total_point = total_point +
+    #{point},\n    update_time = NOW()\nWHERE user_id = #{userId};\n\n-- 更新积分明细状态\nUPDATE
+    point_detail \nSET status = 1 \nWHERE id = #{id};\n```\n\n异常场景处理\n\n[嵌入表格未展开]\n\n监控告警指标\n\n-
+    重复消费次数：监控 DuplicateKeyException 异常次数\n\n- 积分明细状态异常：监控 status=0 超过 5 分钟的记录\n\n-
+    用户积分异常：监控用户积分突增或突减\n\n- 消费失败率：监控 RocketMQ 消费失败率\n\n测试用例\n\n```text\n@SpringBootTest\npublic
+    class PointConsumerTest {\n    \n    @Autowired\n    private PointConsumer pointConsumer;\n
+    \   \n    @Test\n    public void testIdempotency() {\n        PaymentMessage message
+    = new PaymentMessage();\n        message.setUserId(1001L);\n        message.setOrderId(2001L);\n
+    \       message.setAmount(new BigDecimal(\"100\"));\n        \n        // 第一次消费，应该成功\n
+    \       pointConsumer.onMessage(message);\n        \n        UserPoint userPoint
+    = userPointMapper.selectByUserId(1001L);\n        assertEquals(100, userPoint.getTotalPoint());\n
+    \       \n        // 第二次消费（重复），应该跳过\n        pointConsumer.onMessage(message);\n
+    \       \n        userPoint = userPointMapper.selectByUserId(1001L);\n        assertEquals(100,
+    userPoint.getTotalPoint()); // 积分不应该增加\n    }\n}\n```\n\n生产环境优化建议\n\n- 积分明细表分区：按用户
+    ID 分区，提升查询性能\n\n- 积分明细表归档：将 3 个月前的明细数据归档到历史表\n\n- 积分增加批量处理：如果消息量大，可以批量处理多个订单\n\n-
+    积分变更异步通知：积分变更后异步通知用户（如推送、短信）\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---\n\n###
+    1.2 CDC 变更数据捕获"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PKVIw2nCRi0Na6kOoiocSSfonrb
+  block_id: doxcncppdR63gZkJGkycB9sdAAg
+  page_token: PKVIw2nCRi0Na6kOoiocSSfonrb
+  original_title: 消息幂等性
+  imported_at: '2026-09-21'

@@ -1,0 +1,49 @@
+---
+schema_version: 1
+id: feishu-llm-complete-13d0f9624134
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么相对位置编码比绝对位置编码更难做 KV 缓存优化？推理时会遇到什么问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 三：位置编码深度解析
+tags: &1
+- Transfomer精选面试
+- 三：位置编码深度解析
+content:
+  prompt: 为什么相对位置编码比绝对位置编码更难做 KV 缓存优化？推理时会遇到什么问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在推理（自回归生成）时，KV 缓存用于存储历史 token 的 Key 和 Value，避免重复计算。相对位置编码需要为每个新 token 计算与历史 token 的相对位置，这通常需要动态修改注意力分数。如果简单地使用 KV 缓存，会引入问题：
+
+    - 位置漂移：绝对位置编码下，KV 向量一旦缓存就固定，因为绝对位置不变。相对位置编码下，历史 token 与新 token 的相对位置随生成动态变化，这意味着每个生成步骤都需要重新计算相对位置偏置或调整 Key 表示。直接缓存 Key 并重用，可能无法正确捕捉动态的相对距离。
+
+    - 额外计算：某些实现需要在每一步重新计算部分位置偏置，或重新注入位置信息到 KV 中，这会部分抵消 KV 缓存带来的加速。
+
+    以 RoPE 为例，由于 Key 向量在生成时也需要根据其绝对位置旋转，如果仅缓存旋转后的 Key，随着序列增长，绝对位置编码会不断向后移动，但实际上每个 token 的 Key 旋转是基于它生成时的绝对位置，之后不变。标准做法是：在生成每个 token 时，对当前 token 的 Q 用当前绝对位置旋转，对历史 Key 使用它们在生成时的绝对位置旋转（已经存储在缓存中）。这样，相对位置自然通过内积体现，无需修改缓存。因此，RoPE 与 KV 缓存是兼容的，FlashAttention 也能高效实现，但需要正确地处理旋转操作，对于某些自制推理框架可能带来开发复杂度。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LhX2wCV1CihqQUk7dcicsRw2nrp
+  block_id: HW5wdRWOvoMiO5xXKg6ch01ZnOb
+  page_token: LhX2wCV1CihqQUk7dcicsRw2nrp
+  original_title: 为什么相对位置编码比绝对位置编码更难做 KV 缓存优化？推理时会遇到什么问题？
+  imported_at: '2026-09-21'

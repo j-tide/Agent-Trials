@@ -1,0 +1,87 @@
+---
+schema_version: 1
+id: feishu-llm-complete-eef3a0f94e41
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚡ 9. 在 FastAPI 里如何用 LCEL 实现流式返回，RunnableParallel 怎么做多路并发？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "⚡ 9. 在 FastAPI 里如何用 LCEL 实现流式返回，RunnableParallel 怎么做多路并发？"
+answer:
+  mode: rubric
+  reference_answer: "流式返回是 LLM 应用体验的分水岭：用户不想等 10 秒看完整答案，而是希望看到字一个个蹦出来。LCEL 让这件事极度简单。\n\n9.1
+    FastAPI + LCEL 流式返回\n\n原理：调用 LCEL 链的 astream 方法，会返回一个 AsyncIterator，每次 yield 一个增量。FastAPI
+    的 StreamingResponse 可以直接消费这个异步迭代器，并封装成 Server-Sent Events（SSE）格式。\n\n```python\nfrom
+    fastapi import FastAPI\nfrom fastapi.responses import StreamingResponse\nfrom
+    langchain_core.prompts import ChatPromptTemplate\nfrom langchain_openai import
+    ChatOpenAI\nfrom langchain_core.output_parsers import StrOutputParser\nimport
+    asyncio\n\napp = FastAPI()\n\n# 构建一个简单的 LCEL 链\nprompt = ChatPromptTemplate.from_template(\"请用中文回答：{question}\")\nmodel
+    = ChatOpenAI(model=\"gpt-4o\", streaming=True)  # streaming=True 很重要\nchain =
+    prompt | model | StrOutputParser()\n\nasync def generate(question: str):\n    \"\"\"异步生成器，逐块产出
+    LLM 的回答\"\"\"\n    async for chunk in chain.astream({\"question\": question}):\n
+    \       # chunk 是每次新增的文本片段，如 \"今天\"、\"天气\"、\"很好\"\n        yield f\"data: {chunk}\\n\\n\"\n
+    \       await asyncio.sleep(0)  # 让出控制权，确保客户端及时收到\n    yield \"data: [DONE]\\n\\n\"\n\n@app.get(\"/stream\")\nasync
+    def stream_endpoint(q: str = \"什么是LCEL？\"):\n    return StreamingResponse(\n        generate(q),\n
+    \       media_type=\"text/event-stream\",\n        headers={\"Cache-Control\":
+    \"no-cache\", \"X-Accel-Buffering\": \"no\"}\n    )\n```\n\n关键点：\n\n- model 必须开启
+    streaming=True，否则底层不会流式输出。\n\n- astream 返回的是 AsyncIterator[str]，每个 str 是一个或多个
+    token 的增量。\n\n- StreamingResponse 消费异步生成器，SSE 格式让前端可以用 EventSource 轻松对接。\n\n9.2
+    RunnableParallel 实现多路并发\n\n当你的任务需要同时从不同角度处理数据时——比如用户问“分析新能源汽车市场”，你既要生成一份市场报告大纲，又要生成一份竞争对手清单——RunnableParallel
+    能让这两件事并行执行，而不是串行等待。\n\n原理：RunnableParallel 接收一个字典，键是分支名，值是一条 LCEL 子链。当调用 invoke
+    或 astream 时，所有分支会同时执行，最后合并成一个字典输出。\n\n```python\nfrom langchain_core.runnables
+    import RunnableParallel, RunnablePassthrough\n\n# 大纲生成链\noutline_prompt = ChatPromptTemplate.from_template(\"为关于{topic}的市场报告生成大纲\")\noutline_chain
+    = outline_prompt | model | StrOutputParser()\n\n# 竞品清单链\ncompetitor_prompt = ChatPromptTemplate.from_template(\"列出{topic}领域的5家主要竞争对手\")\ncompetitor_chain
+    = competitor_prompt | model | StrOutputParser()\n\n# 并行链\nparallel_chain = RunnableParallel(\n
+    \   outline=outline_chain,\n    competitors=competitor_chain\n)\n\n# 调用：两个分支同时执行，最终返回字典\nresult
+    = parallel_chain.invoke({\"topic\": \"新能源汽车\"})\nprint(result[\"outline\"])      #
+    市场报告大纲\nprint(result[\"competitors\"])  # 竞争对手列表\n```\n\n如果要在 FastAPI 中流式返回并行结果怎么办？\n\n我们可以并发地跑两条流，然后把它们的
+    token 合并成一个 SSE 流，用前缀区分来源。\n\n```python\n@app.get(\"/stream/parallel\")\nasync
+    def stream_parallel(topic: str = \"新能源汽车\"):\n    async def event_generator():\n
+    \       # 并发启动两个流\n        async def stream_branch(name, chain):\n            async
+    for chunk in chain.astream({\"topic\": topic}):\n                yield f\"data:
+    [{name}] {chunk}\\n\\n\"\n            yield f\"data: [{name}] DONE\\n\\n\"\n        \n
+    \       # 用 asyncio.gather 并发执行两个生成器，需要特殊处理\n        # 为了把它们交织发送，可以用队列\n        queue
+    = asyncio.Queue()\n        \n        async def producer(name, chain):\n            async
+    for chunk in chain.astream({\"topic\": topic}):\n                await queue.put(f\"data:
+    [{name}] {chunk}\\n\\n\")\n            await queue.put(f\"data: [{name}] DONE\\n\\n\")\n
+    \       \n        # 启动两个生产者\n        tasks = [\n            asyncio.create_task(producer(\"outline\",
+    outline_chain)),\n            asyncio.create_task(producer(\"competitors\", competitor_chain))\n
+    \       ]\n        \n        # 消费者：从队列取消息发送，直到两个生产者都完成并且队列为空\n        finished
+    = 0\n        while finished < 2:\n            msg = await queue.get()\n            yield
+    msg\n            if \"DONE\" in msg:\n                finished += 1\n        \n
+    \       await asyncio.gather(*tasks)\n        yield \"data: [ALL_DONE]\\n\\n\"\n
+    \   \n    return StreamingResponse(\n        event_generator(),\n        media_type=\"text/event-stream\"\n
+    \   )\n```\n\n这段代码的核心：\n\n- asyncio.Queue 让两个并发的生成器安全地把数据塞进同一个队列。\n\n- 消费者从队列取出数据，即时发送给客户端，实现了真正的多路并发流式响应。\n\n前端只要根据
+    [outline]、[competitors] 前缀，就能把同时到达的消息渲染到页面的不同区域，实现类似“分屏直播”的效果。\n\n### LangChain
+    的自定义 Tool 定义与 Pydantic Schema 集成"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SuxqwVBLli4q94kJFBAcOLkFnZc
+  block_id: doxcnwa2YrFCLjpaTmfVdL3Bzyd
+  page_token: SuxqwVBLli4q94kJFBAcOLkFnZc
+  original_title: "⚡ 9. 在 FastAPI 里如何用 LCEL 实现流式返回，RunnableParallel 怎么做多路并发？"
+  imported_at: '2026-09-21'

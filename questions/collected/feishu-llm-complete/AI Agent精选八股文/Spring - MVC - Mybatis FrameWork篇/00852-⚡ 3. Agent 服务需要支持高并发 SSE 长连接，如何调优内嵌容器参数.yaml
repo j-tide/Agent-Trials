@@ -1,0 +1,111 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0e6812bbfee3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚡ 3. Agent 服务需要支持高并发 SSE 长连接，如何调优内嵌容器参数？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: "⚡ 3. Agent 服务需要支持高并发 SSE 长连接，如何调优内嵌容器参数？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Agent 服务基于 SSE（Server-Sent Events）推送消息，典型特点是 HTTP 长连接 + 单向数据流。高并发下，如果仍用传统的“一个请求一个线程”模式，Tomcat 线程池会瞬间被耗光。调优需要从 连接器、异步线程模型、操作系统 三个维度进行组合拳。
+
+    3.1 启用并优化异步处理（核心中的核心）
+
+    Spring MVC 中返回 SseEmitter 实际上已经利用了 Servlet 3.1 异步特性：Tomcat 线程在提交异步任务后就释放回池，真正阻塞的是 异步线程。所以必须显式配置异步线程池：
+
+    ```yaml
+    spring:
+      task:
+        execution:
+          pool:
+            core-size: 20          # 常驻异步线程
+            max-size: 100          # 峰值线程数
+            queue-capacity: 500    # 等待队列
+          thread-name-prefix: sse-task-
+      mvc:
+        async:
+          request-timeout: -1     # 异步请求永不超时（SSE 连接需长期保持）
+    ```
+
+    同时，创建 SseEmitter 时可以指定超时：
+
+    ```java
+    SseEmitter emitter = new SseEmitter(0L); // 0 表示永不超时
+    ```
+
+    3.2 容器连接器参数调优（Tomcat 示例）
+
+    ```yaml
+    server:
+      tomcat:
+        # 最大连接数：操作系统能处理的连接上限，默认 8192，SSE 场景必须调高
+        max-connections: 20000
+        # 当所有工作线程都在忙时，新的连接进入等待队列
+        accept-count: 1000
+        # 工作线程数：异步模式下无需太大，因为线程很快释放
+        threads:
+          max: 200
+          min-spare: 20
+        # 连接超时：SSE 需要保持连接，建议关闭或设大
+        connection-timeout: -1
+        # keep-alive 保持长连接
+        keep-alive-timeout: 60000
+    ```
+
+    - max-connections 决定了同时能建立的 TCP 连接数，直接制约并发 SSE 连接量。
+
+    - threads.max 在异步模式下不需要开到几千，200 左右足够，因为每个请求只占用极短时间。
+
+    - connection-timeout=-1 避免 Tomcat 因“无数据”断开空闲连接，但记得真正的超时控制应在业务层（心跳机制）实现。
+
+    3.3 操作系统层面放行
+
+    SSE 长连接本质是占用文件描述符和内存。Linux 环境需确保：
+
+    ```bash
+    # 查看当前限制
+    ulimit -n
+    # 临时增大（生产建议写入 limits.conf）
+    ulimit -n 65535
+    ```
+
+    如果使用 Docker，要记得 --ulimit nofile=65535:65535。否则连接数到达 1024 就会报 Too many open files。
+
+    3.4 考虑切换容器（进阶选择）
+
+    对于极高并发的 SSE，Undertow 在内存占用和长连接吞吐上通常优于 Tomcat（其基于 XNIO，线程模型更轻量）。如果想彻底解放并发能力，甚至可以用 WebFlux + Netty 完全非阻塞实现 SSE，一个 Netty EventLoop 线程就能管理上千条连接。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NHwYwCwRDiPz1OkM3b9cXNBinUd
+  block_id: doxcn8Xx0PLqaCJ03V92ProgDAf
+  page_token: NHwYwCwRDiPz1OkM3b9cXNBinUd
+  original_title: "⚡ 3. Agent 服务需要支持高并发 SSE 长连接，如何调优内嵌容器参数？"
+  imported_at: '2026-09-21'

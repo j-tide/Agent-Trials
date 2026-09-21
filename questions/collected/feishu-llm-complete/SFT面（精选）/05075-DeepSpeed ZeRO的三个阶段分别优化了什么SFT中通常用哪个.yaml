@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6d1263c8da90
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: DeepSpeed ZeRO的三个阶段分别优化了什么？SFT中通常用哪个？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: DeepSpeed ZeRO的三个阶段分别优化了什么？SFT中通常用哪个？
+answer:
+  mode: rubric
+  reference_answer: |-
+    DeepSpeed ZeRO（Zero Redundancy Optimizer）是一套针对大规模模型训练的显存优化技术，通过分片（partitioning） 模型状态来消除多卡数据并行中的冗余存储。它分为三个阶段，逐级深入。
+
+    ZeRO-1：优化器状态分片
+
+    - 优化内容：将优化器状态（如Adam的动量和方差，FP32存储，每个参数占8字节）在数据并行的各卡间平均分片。每张卡只存储与自己那部分参数对应的优化器状态，总优化器显存降至原来的1/N（N为卡数）。
+
+    - 通信开销：增加一次All-Gather操作来收集更新后的参数（在优化器step后），通信量约为参数量Φ。相对于数据并行的梯度All-Reduce，新增通信量可控。
+
+    - 适用场景：当优化器状态是显存瓶颈时（如训练小模型），ZeRO-1几乎无性能损失。
+
+    ZeRO-2：梯度分片
+
+    - 优化内容：在ZeRO-1的基础上，进一步将梯度分片。每张卡只保存与自己那部分参数对应的梯度，反向传播时通过Reduce-Scatter直接计算出自己负责的那部分梯度，而不是先All-Reduce出完整梯度再丢弃。梯度显存同样降至1/N。
+
+    - 通信开销：将原DP的All-Reduce梯度改为Reduce-Scatter梯度 + All-Gather参数，总通信量基本不变或略增，但实现更复杂。
+
+    - 适用场景：当模型更大，梯度也开始成为瓶颈时。
+
+    ZeRO-3：参数分片
+
+    - 优化内容：将模型参数本身也分片。每张卡只存储1/N的模型权重。在前向/反向需要某层参数时，通过All-Gather从其他卡收集完整参数，计算完成后立即释放。这打破了单卡权重显存墙，使训练千亿参数模型成为可能。
+
+    - 通信开销：前向每层一次All-Gather参数，反向每层一次All-Gather参数 + 一次Reduce-Scatter梯度。总通信量约为ZeRO-1/2的1.5倍。通信成为瓶颈，需要高速网络（如InfiniBand）。
+
+    - 适用场景：模型极大，必须分片参数才能运行。
+
+    SFT中通常用哪个？
+
+    - 7B模型全量微调：ZeRO-2通常足够，甚至ZeRO-1都可以，因为优化器和梯度是显存大头。
+
+    - 13B及以上全量微调：通常需要ZeRO-3，特别是当单卡显存有限时。
+
+    - LoRA/QLoRA微调：由于可训练参数极少，优化器状态和梯度本身非常小，通常不需要ZeRO，甚至单卡就能完成。如果LoRA应用在非常多的层且秩很大，导致显存不足，可以开启ZeRO-2来分片优化器状态，但ZeRO-3一般不需要。
+
+    - 多卡SFT：如果使用多卡进行全量微调，ZeRO-3是目前最常用的配置，因为它能将超大模型平摊到多卡，同时保持高效训练。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZYXSwaWATimyqQkmZm5cAPJHnoc
+  block_id: TkbUdfJAJodAkixRFNPcBTI6nEe
+  page_token: ZYXSwaWATimyqQkmZm5cAPJHnoc
+  original_title: DeepSpeed ZeRO的三个阶段分别优化了什么？SFT中通常用哪个？
+  imported_at: '2026-09-21'

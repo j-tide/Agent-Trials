@@ -1,0 +1,87 @@
+---
+schema_version: 1
+id: feishu-llm-complete-89be02daf03d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 PyTorch 中，实现一个 DPO 损失函数模块，输入 chosen_logps、rejected_logps、ref_chosen_logps、ref_rejected_logps
+  和 β，返回标量损失值。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 在 PyTorch 中，实现一个 DPO 损失函数模块，输入 chosen_logps、rejected_logps、ref_chosen_logps、ref_rejected_logps
+    和 β，返回标量损失值。
+answer:
+  mode: rubric
+  reference_answer: |-
+    实现
+    我们实现一个 torch.nn.Module 子类，方便集成到训练流程中。
+
+    ```python
+    import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
+
+    class DPOLoss(nn.Module):
+        def __init__(self, beta: float = 0.1):
+            super().__init__()
+            self.beta = beta
+
+        def forward(
+            self,
+            policy_chosen_logps: torch.Tensor,
+            policy_rejected_logps: torch.Tensor,
+            reference_chosen_logps: torch.Tensor,
+            reference_rejected_logps: torch.Tensor,
+        ) -> torch.Tensor:
+            """
+            Args:
+                policy_chosen_logps: (B,) 策略模型对 chosen 的 log prob
+                policy_rejected_logps: (B,) 策略模型对 rejected 的 log prob
+                reference_chosen_logps: (B,) 参考模型对 chosen 的 log prob (detached)
+                reference_rejected_logps: (B,) 参考模型对 rejected 的 log prob (detached)
+            Returns:
+                scalar loss
+            """
+            # 计算 log-ratio
+            chosen_log_ratios = policy_chosen_logps - reference_chosen_logps
+            rejected_log_ratios = policy_rejected_logps - reference_rejected_logps
+
+            # 奖励差
+            reward_diff = self.beta * (chosen_log_ratios - rejected_log_ratios)
+
+            # 损失
+            loss = -F.logsigmoid(reward_diff).mean()
+            return loss
+    ```
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  block_id: IHvsdyLhxonKllxWmD8czROins4
+  page_token: Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  original_title: 在 PyTorch 中，实现一个 DPO 损失函数模块，输入 chosen_logps、rejected_logps、ref_chosen_logps、ref_rejected_logps
+    和 β，返回标量损失值。
+  imported_at: '2026-09-21'

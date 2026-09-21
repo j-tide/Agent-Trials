@@ -1,0 +1,108 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d8659e042c48
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 9. 如何根据业务需求设计一个自适应分块策略？例如根据文本类型动态调整 chunk_size。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F9E9 9. 如何根据业务需求设计一个自适应分块策略？例如根据文本类型动态调整 chunk_size。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    真正的自适应分块不是“一个参数打天下”，而是让系统能感知不同文档的特性，自动选择最合适的分割方式。我通常会构建一个策略路由层，它根据文档的元数据和内容特征，将文档分派给不同的分块器或参数组合。
+
+    实现思路：
+
+    - 文档类型分类器
+    在加载阶段提取文档的类型信号，例如：
+
+    - 策略映射表
+    建立一个配置文件（YAML/JSON），将类型映射到分割器及参数：
+
+    ```yaml
+    strategies:
+      pdf_report:
+        loader: UnstructuredPDFLoader
+        splitter: RecursiveCharacterTextSplitter
+        chunk_size: 800
+        chunk_overlap: 100
+        separators: ["\n\n", "\n", "。", "，", " "]
+      markdown_doc:
+        splitter: MarkdownHeaderTextSplitter
+        headers: [["#", "h1"], ["##", "h2"]]
+        sub_splitter: RecursiveCharacterTextSplitter
+        sub_chunk_size: 500
+      python_code:
+        splitter: PythonCodeTextSplitter
+        chunk_size: 400
+        chunk_overlap: 50
+      conversation:
+        splitter: SemanticChunker
+        embeddings: text-embedding-3-small
+        breakpoint_type: percentile
+    ```
+
+    - 运行时路由
+    写一个 AdaptiveSplitter 包装器，接收文档列表，根据每个文档的 metadata 或内容特征匹配策略，返回分块后的文档：
+
+    ```python
+    class AdaptiveSplitter:
+        def __init__(self, strategy_map):
+            self.strategy_map = strategy_map
+
+        def split_documents(self, documents):
+            final_chunks = []
+            for doc in documents:
+                doc_type = self._detect_type(doc)
+                strategy = self.strategy_map[doc_type]
+                splitter = self._build_splitter(strategy)
+                chunks = splitter.split_documents([doc])
+                # 可在此补充 metadata，例如记录分块策略
+                for chunk in chunks:
+                    chunk.metadata["chunk_strategy"] = doc_type
+                final_chunks.extend(chunks)
+            return final_chunks
+    ```
+
+    动态调整 chunk_size 的进阶思路：
+
+    - 基于文本密度的反馈：先用试探性分块，计算每个块的词数/句子数分布，如果方差过大，说明文本结构差异大，可针对长段落降低 chunk_size 或启用更细的分隔符。
+
+    - 下游任务反馈：如果检索命中率低或生成答案频繁出错，可以通过人工标注或在线评估反向调整参数，形成闭环。
+
+    - 上下文窗口感知：如果 LLM 上下文窗口较小，自动将 chunk_size 乘以一个安全系数，保证不超过窗口限制。
+
+    我自己习惯先用 RecursiveCharacterTextSplitter 作为默认基础，然后对重要且格式特殊的文档类型单独编写策略，再用 A/B 测试对比效果，逐步沉淀出“自适应规则库”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/O97CwA74Ji4ZHWkDTIRcb7OanUg
+  block_id: ZpnYdbGiMorVUaxFYktcuuk5nsb
+  page_token: O97CwA74Ji4ZHWkDTIRcb7OanUg
+  original_title: "\U0001F9E9 9. 如何根据业务需求设计一个自适应分块策略？例如根据文本类型动态调整 chunk_size。"
+  imported_at: '2026-09-21'

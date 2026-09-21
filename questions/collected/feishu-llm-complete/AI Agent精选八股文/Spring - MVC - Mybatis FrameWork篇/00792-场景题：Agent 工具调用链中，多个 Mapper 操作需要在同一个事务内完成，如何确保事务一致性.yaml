@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e499e57bf777
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 工具调用链中，多个 Mapper 操作需要在同一个事务内完成，如何确保事务一致性？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 工具调用链中，多个 Mapper 操作需要在同一个事务内完成，如何确保事务一致性？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐⭐（事务一致性、异常处理、Agent 场景）
+
+    1️⃣ Common Answer 用 @Transactional 注解开启事务，多个 Mapper 操作在同一个方法里调用，如果有异常就回滚。事务传播用默认的 REQUIRED 就行。
+
+    2️⃣ Impressive Answer
+
+    - 事务配置：
+
+    ```text
+    @Transactional(rollbackFor = Exception.class)
+    public ToolCallResult executeToolChain(ToolChainRequest request) {
+      // 1. 保存工具调用记录
+      toolCallMapper.insert(toolCall);
+      // 2. 执行工具调用
+      ToolResult result = toolExecutor.execute(toolCall);
+      // 3. 更新调用结果
+      toolCallMapper.updateStatus(toolCall.getId(), "SUCCESS", result);
+      // 4. 保存工具参数
+      toolParamMapper.batchInsert(params);
+      return result;
+    }
+    ```
+
+    关键点：rollbackFor = Exception.class 确保所有异常回滚，默认只回滚 RuntimeException。
+
+    - 事务传播策略：工具调用链涉及多个 Service 方法，使用 @Transactional(propagation = Propagation.REQUIRED) 确保加入同一事务；如果需要独立事务（如日志记录），用 REQUIRES_NEW 挂起当前事务。
+
+    - 异常处理：工具调用失败时抛出 ToolExecutionException，触发事务回滚；注意：try-catch 捕获异常后不会回滚，需手动调用 TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()。
+
+    - Agent 场景优化：工具调用链可能耗时较长（如 LLM 生成），设置事务超时 @Transactional(timeout = 30)，避免长时间占用数据库连接；异步化处理：非核心操作（如日志记录）异步执行，减少事务时间。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VU1MwcbuKiIco5kkmQCc1W0lnFc
+  block_id: doxcnSh4e4iPvPqoP60HIYMOEKg
+  page_token: VU1MwcbuKiIco5kkmQCc1W0lnFc
+  original_title: 3、场景题：Agent 工具调用链中，多个 Mapper 操作需要在同一个事务内完成，如何确保事务一致性？
+  imported_at: '2026-09-21'

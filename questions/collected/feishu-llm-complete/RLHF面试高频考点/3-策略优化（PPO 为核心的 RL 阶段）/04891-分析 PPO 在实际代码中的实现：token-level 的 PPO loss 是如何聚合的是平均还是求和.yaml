@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0d68b8a9386b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分析 PPO 在实际代码中的实现：token-level 的 PPO loss 是如何聚合的？是平均还是求和？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: 分析 PPO 在实际代码中的实现：token-level 的 PPO loss 是如何聚合的？是平均还是求和？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在实际代码（如 Hugging Face TRL 或 DeepSpeed-Chat）中，PPO 损失是在 token 级别计算的，然后通过平均进行聚合。
+
+    计算流程：
+
+    [图片内容未导入]
+
+    - 将这些 token 级的损失用一个掩码过滤，只保留那些“有效 token”（即模型生成的、非 padding 的 token）。
+
+    - 最终返回的批次损失是这些有效 token 损失的算术平均值。
+
+    为什么是平均而不是求和？
+
+    - 超参数鲁棒性：求和会让总损失的大小依赖于序列长度和批次大小。这意味着，如果采用求和，我们在不同批次大小下就需要调整学习率，否则梯度规模会完全不同。取平均使得单个 token 的期望损失贡献与序列长度和批次大小解耦，极大地增加了超参数（特别是学习率）在不同实验设置下的可迁移性和稳定性。
+
+    - 平衡长短序列：如果不取平均，长序列对总损失的贡献会远大于短序列，导致模型主要被长序列驱动，忽视在短回复上的优化。
+
+    具体代码实现示例（伪代码）：
+
+    # log_ratio, advantages, mask 均为 (batch_size, seq_len) 的张量
+    ratio = torch.exp(log_ratio)
+    pg_losses1 = -advantages * ratio
+    pg_losses2 = -advantages * torch.clamp(ratio, 1.0 - epsilon, 1.0 + epsilon)
+    pg_losses = torch.maximum(pg_losses1, pg_losses2)  # 注意这里是最大化，因为我们对损失取负，等价于最小化负目标
+
+    # 聚合
+    ppo_loss = (pg_losses * mask).sum() / mask.sum()  # 有效token的平均损失
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ShXzw5qhYiJep9kS2mYcaT57nZc
+  block_id: GHQ6dcQW0oxCxOxph00cmxJanhf
+  page_token: ShXzw5qhYiJep9kS2mYcaT57nZc
+  original_title: 分析 PPO 在实际代码中的实现：token-level 的 PPO loss 是如何聚合的？是平均还是求和？
+  imported_at: '2026-09-21'

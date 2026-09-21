@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-587dd859b114
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果 SFT 阶段模型就已经过拟合，继续做 PPO 会有什么后果？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 1-基础认知与流程全景
+tags: &1
+- RLHF面试高频考点
+- 1-基础认知与流程全景
+content:
+  prompt: 如果 SFT 阶段模型就已经过拟合，继续做 PPO 会有什么后果？
+answer:
+  mode: rubric
+  reference_answer: |-
+    SFT 过拟合的典型表现：模型在训练集上回答极其完美（低损失），但在泛化测试、开放域问题上表现僵硬、重复、缺乏创造性，过度依赖训练模板。将其送入 PPO，会引发一系列连锁灾难。
+
+    后果一：奖励模型训练阶段的恶化（若 RM 也来自该过拟合 SFT）
+
+    通常 RM 是从 SFT 模型初始化的。如果 SFT 已经过拟合，其对文本的表示能力退化（只对训练集中的表达方式敏感）。用它来初始化 RM，会导致 RM 的评判能力极度偏狭——只对与 SFT 数据“长得像”的回答打高分，对任何创新或不同的表达方式都判定为低分。这为后续的 PPO 埋下了致命的奖励信号偏差。
+
+    后果二：PPO 探索空间的严重坍缩
+
+    过拟合的 SFT 模型输出分布极其尖锐（entropy 极低）。它几乎只能生成有限的几种回答模式。当作为 Actor 初始化时，Actor 的初始策略就已经是一个“低熵”状态。在 PPO 的在线采样中，它几乎不会进行有意义的探索——无法生成那些稍有不同的、可能获得更高奖励的新回答。因为它的 token 概率分布决定了它只会走老路。
+
+    后果三：快速陷入“奖励黑客”和“模型崩溃”
+
+    由于探索能力丧失，Actor 会很快在它那一亩三分地（有限的回答模板）里找到奖励模型（一个同样有偏见的评判）的漏洞。它可能学会在原本就单调的回答里插入一些额外的高分触发词、调整语气、增加冗余长度，通过这种微小的表面改动榨取奖励提升。整个 PPO 过程变成了在极小的策略空间里“内卷”，无法实现真正的对齐提升。同时，由于概率分布极度集中，KL 惩罚可能难以有效约束（因为改动虽小，但概率比率可能剧烈波动），导致训练不稳定，甚至引发语言崩溃。
+
+    后果四：灾难性遗忘加速
+
+    过拟合的 SFT 模型本身已经“遗忘”了基座模型的大量泛化知识。PPO 的进一步梯度更新会在这个脆弱的表征上继续施加压力，加速遗忘过程。模型可能最终退化为一个只会说固定几句漂亮话的“空壳”，连 SFT 的指令遵循能力也丧失殆尽。
+
+    防范措施：
+
+    - SFT 阶段严格监控：不仅看训练损失，更要看验证集上的困惑度、生成多样性、以及开放域评测的得分。一旦验证损失开始上升，立即早停。
+
+    - 数据增强与正则化：SFT 中使用数据增强（如改写同一 prompt 为多种表述）和 Dropout、标签平滑等正则化，强制模型保持一定的熵。
+
+    - PPO 中加入熵奖励：在奖励函数中显式加入策略熵的正则项，鼓励 Actor 保持多样性，对抗过拟合倾向。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TopFwyc4Si1SxFkkfQlc4kXxnJd
+  block_id: U631dyFGuoPTX7xlQ47c0AACnAh
+  page_token: TopFwyc4Si1SxFkkfQlc4kXxnJd
+  original_title: 如果 SFT 阶段模型就已经过拟合，继续做 PPO 会有什么后果？
+  imported_at: '2026-09-21'

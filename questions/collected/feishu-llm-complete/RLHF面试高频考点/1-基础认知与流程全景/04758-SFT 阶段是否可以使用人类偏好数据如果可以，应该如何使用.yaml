@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0f203f7b7474
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: SFT 阶段是否可以使用人类偏好数据？如果可以，应该如何使用？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 1-基础认知与流程全景
+tags: &1
+- RLHF面试高频考点
+- 1-基础认知与流程全景
+content:
+  prompt: SFT 阶段是否可以使用人类偏好数据？如果可以，应该如何使用？
+answer:
+  mode: rubric
+  reference_answer: |-
+    SFT 阶段原则上不使用显式的偏好比较数据，因为它是一个模仿学习过程，需要“正确答案”作为目标。但人类偏好数据可以转化为 SFT 可用的格式，而且非常有效。
+
+    使用方法：
+
+    - 直接提取“获胜者”作为 SFT 答案
+    在收集偏好数据时，标注员选出的 win_response 本身就是相对于同一 prompt 的较高质量回答。可以直接将 (prompt, win_response) 作为 SFT 训练对。这是最简单且广泛使用的方法，可以显著增加 SFT 数据的多样性（因为 win_response 可能来自不同的模型版本，比人类从头编写的回答更具多样性）。
+
+    - 利用偏好数据筛选最高质量子集
+    如果有大量候选回答，可以通过偏好评分（多个标注员打分或 RM 打分）选出得分最高的 top-1 或 top-k 回答，仅将这些高评分回答作为 SFT 目标。这相当于用偏好信号做数据清洗。
+
+    - 融合生成式批评（Critique）改进 SFT 答案
+    高级做法：不仅记录 win/lose，还让标注员写下为什么 win 更好（自然语言批评）。然后，将 lose_response 和批评一起输入强大的 LLM，要求其根据批评重写 lose_response，生成改进版。这个改进版通常质量极高，适合加入 SFT 数据集。这种“反思-改进”链能有效提升 SFT 数据的上限。
+
+    - 弱监督的 SFT+偏好联合训练
+    可以在 SFT 损失的基础上，额外添加一个对比损失项。例如，对于同一个 prompt 的 win_response 和 lose_response，不仅要求最大化 win 的概率，还要求 win 的概率明显高于 lose 的概率（类似于 DPO 的前身）。但这已进入 DPO 等直接偏好优化的范畴，不是纯粹的 SFT。
+
+    核心优势：将偏好数据转化为 SFT 数据，能有效利用 RLHF 流程中产生的大量副产品，降低人工撰写答案的成本，同时引入多模型生成的多样化表达。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TopFwyc4Si1SxFkkfQlc4kXxnJd
+  block_id: YhIQd1lW0o7IxzxLNjXcxl84nd6
+  page_token: TopFwyc4Si1SxFkkfQlc4kXxnJd
+  original_title: SFT 阶段是否可以使用人类偏好数据？如果可以，应该如何使用？
+  imported_at: '2026-09-21'

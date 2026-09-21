@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-454bdaa921f3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么大模型微调需要分布式训练？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 为什么大模型微调需要分布式训练？
+answer:
+  mode: rubric
+  reference_answer: |-
+    根本原因在于单张GPU的显存和算力，面对千亿级参数的大模型时，是杯水车薪。 这不仅仅是“速度慢”的问题，而是“根本跑不起来”的问题。
+
+    全参数微调需要在显存中同时存放至少四类数据：
+
+    - 模型权重：假设一个7B参数的模型，用FP16（2字节）精度加载，仅权重就需要 7e9 × 2 = 14 GB 显存。
+
+    - 梯度：反向传播时，每个参数都需要一个同等大小的梯度，同样是 14 GB。
+
+    - 优化器状态：以最常用的AdamW优化器为例，它需要为每个参数存储一阶动量（m）和二阶动量（v），且都是FP32（4字节）精度。这部分显存是参数量的8倍，即 7e9 × 8 = 56 GB。
+
+    - 中间激活：前向传播时，每一层的输入输出都需要被保存下来，供反向传播计算梯度时使用。这部分显存与batch size和序列长度正相关，对于长文本或大batch场景，轻松占用 数十GB。
+
+    仅仅前三项加起来（14+14+56）就已经需要 84 GB 显存。而当前最顶级的单张商用GPU，如NVIDIA H100，显存也只有80 GB。连一个7B模型的全参数微调都无法单卡运行，更不用说13B、70B甚至更大的模型了。
+
+    因此，必须引入分布式训练，核心目的有两个：
+
+    - 显存池化：将模型的不同部分或状态（权重、梯度、优化器）分片存储在多张GPU的显存中。每张卡只存一部分，使用时通过高速互联网络获取其他卡上的数据。这样，多张卡的总显存就可以共同承载一个巨大的模型。
+
+    - 算力池化：将训练任务拆解，由多张GPU并行计算，成倍提升训练吞吐量，将原本数月甚至数年的训练周期缩短到天或周。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: VhePdAjRHo0rVzxjtDBcUxWQnga
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 为什么大模型微调需要分布式训练？
+  imported_at: '2026-09-21'

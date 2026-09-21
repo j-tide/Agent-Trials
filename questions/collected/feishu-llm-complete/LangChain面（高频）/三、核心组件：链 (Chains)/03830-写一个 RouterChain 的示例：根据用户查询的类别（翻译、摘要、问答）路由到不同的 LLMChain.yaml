@@ -1,0 +1,109 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fb9ad10a2a8e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写一个 RouterChain 的示例：根据用户查询的类别（翻译、摘要、问答）路由到不同的 LLMChain。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: 写一个 RouterChain 的示例：根据用户查询的类别（翻译、摘要、问答）路由到不同的 LLMChain。
+answer:
+  mode: rubric
+  reference_answer: |-
+    这里展示一个完整的 RouterChain 实战示例，根据用户输入动态路由到三个不同的处理链。
+
+    ```python
+    from langchain.chains.router import MultiPromptChain
+    from langchain.chains import LLMChain
+    from langchain.prompts import PromptTemplate
+    from langchain_openai import ChatOpenAI
+
+    model = ChatOpenAI(model="gpt-4o", temperature=0)
+
+    # 定义三个目标链的 Prompt
+    translate_prompt = PromptTemplate.from_template("将以下文本翻译成英文：{input}")
+    summary_prompt = PromptTemplate.from_template("用一句话总结以下内容：{input}")
+    qa_prompt = PromptTemplate.from_template("回答以下问题：{input}")
+
+    # 创建三个 LLMChain 实例
+    translate_chain = LLMChain(llm=model, prompt=translate_prompt, output_key="result")
+    summary_chain = LLMChain(llm=model, prompt=summary_prompt, output_key="result")
+    qa_chain = LLMChain(llm=model, prompt=qa_prompt, output_key="result")
+
+    # 定义路由器 Prompt
+    router_template = """
+    根据用户的输入，判断应该执行哪个操作：
+    - 如果用户要求翻译，输出：{{"destination": "translate", "next_inputs": {{"input": "用户要翻译的文本"}}}}
+    - 如果用户要求摘要，输出：{{"destination": "summary", "next_inputs": {{"input": "用户要摘要的文本"}}}}
+    - 如果用户问问题，输出：{{"destination": "qa", "next_inputs": {{"input": "用户的问题"}}}}
+
+    用户输入：{input}
+    请用 JSON 格式输出。
+    """
+
+    router_prompt = PromptTemplate.from_template(router_template)
+
+    # 创建路由器链
+    from langchain.chains.router import LLMRouterChain
+    router = LLMRouterChain.from_llm(llm=model, prompt=router_prompt, verbose=True)
+
+    # 目标链映射
+    destination_chains = {
+        "translate": translate_chain,
+        "summary": summary_chain,
+        "qa": qa_chain,
+    }
+
+    # 创建默认链（当路由无法匹配时使用）
+    default_chain = LLMChain(llm=model, prompt=PromptTemplate.from_template("回答：{input}"))
+
+    # 组装 RouterChain
+    router_chain = MultiPromptChain(
+        router_chain=router,
+        destination_chains=destination_chains,
+        default_chain=default_chain,
+        verbose=True,
+    )
+
+    # 测试
+    result1 = router_chain.invoke({"input": "请把'你好世界'翻译成英文"})
+    result2 = router_chain.invoke({"input": "写一篇关于AI的文章，然后用一句话总结"})
+    ```
+
+    ⚙️ 工作原理：
+
+    - LLMRouterChain 调用 LLM 分析用户输入，返回 JSON 格式的路由决策。
+
+    - RouterOutputParser 解析这个 JSON，得到 destination 和 next_inputs。
+
+    - MultiPromptChain 根据 destination 选择对应的目标链，将 next_inputs 传递过去并执行。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ReT9wTqbnirxZnkOZZGcyGyynKc
+  block_id: RmuudaGVcoK2smxDw3rcxpFvnZf
+  page_token: ReT9wTqbnirxZnkOZZGcyGyynKc
+  original_title: 写一个 RouterChain 的示例：根据用户查询的类别（翻译、摘要、问答）路由到不同的 LLMChain。
+  imported_at: '2026-09-21'

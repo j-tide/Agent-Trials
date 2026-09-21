@@ -1,0 +1,110 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7ef06c3a2f8c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 给定一对偏好数据 (chosen 和 rejected)，以及策略模型和参考模型的对数概率，用 Python 实现 DPO 损失函数的计算（基于公式）。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 给定一对偏好数据 (chosen 和 rejected)，以及策略模型和参考模型的对数概率，用 Python 实现 DPO 损失函数的计算（基于公式）。
+answer:
+  mode: rubric
+  reference_answer: |-
+    实现思路
+
+    给定一个 batch 的数据，我们已经计算好了：
+
+    - chosen_logps：策略模型 πθ 对 chosen 回答的对数概率（形状 [B]）。
+
+    - rejected_logps：策略模型对 rejected 回答的对数概率。
+
+    - ref_chosen_logps：参考模型对 chosen 回答的对数概率。
+
+    - ref_rejected_logps：参考模型对 rejected 回答的对数概率。
+
+    则 DPO 损失可写为：
+
+    ```python
+    def dpo_loss(chosen_logps, rejected_logps, ref_chosen_logps, ref_rejected_logps, beta):
+        # 计算隐含奖励差
+        chosen_rewards = beta * (chosen_logps - ref_chosen_logps)      # [B]
+        rejected_rewards = beta * (rejected_logps - ref_rejected_logps) # [B]
+        reward_diff = chosen_rewards - rejected_rewards                 # [B]
+        # 损失：- log(sigmoid(reward_diff))
+        loss = -torch.nn.functional.logsigmoid(reward_diff).mean()
+        return loss
+    ```
+
+    更完整的代码（含注释）：
+
+    ```python
+    import torch
+    import torch.nn.functional as F
+
+    def compute_dpo_loss(
+        policy_chosen_logps: torch.Tensor,
+        policy_rejected_logps: torch.Tensor,
+        reference_chosen_logps: torch.Tensor,
+        reference_rejected_logps: torch.Tensor,
+        beta: float
+    ) -> torch.Tensor:
+        """
+        计算 DPO 损失。
+
+        Args:
+            policy_chosen_logps: (B,) 策略模型在 chosen 回答上的 log probs。
+            policy_rejected_logps: (B,) 策略模型在 rejected 回答上的 log probs。
+            reference_chosen_logps: (B,) 参考模型在 chosen 回答上的 log probs（应 detach）。
+            reference_rejected_logps: (B,) 参考模型在 rejected 回答上的 log probs（应 detach）。
+            beta: 温度系数。
+
+        Returns:
+            loss: 标量损失值。
+        """
+        # 计算策略模型相对于参考模型的 log-ratio
+        chosen_log_ratios = policy_chosen_logps - reference_chosen_logps
+        rejected_log_ratios = policy_rejected_logps - reference_rejected_logps
+
+        # 隐含奖励：r = beta * log_ratio
+        chosen_rewards = beta * chosen_log_ratios
+        rejected_rewards = beta * rejected_log_ratios
+
+        # 奖励差
+        reward_diff = chosen_rewards - rejected_rewards
+
+        # 损失：- log(sigmoid(reward_diff))  =  -F.logsigmoid(reward_diff)
+        loss = -F.logsigmoid(reward_diff).mean()
+        return loss
+    ```
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  block_id: YAhfdrq1Hoev8IxksPmcuf6AnGc
+  page_token: Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  original_title: 给定一对偏好数据 (chosen 和 rejected)，以及策略模型和参考模型的对数概率，用 Python 实现 DPO 损失函数的计算（基于公式）。
+  imported_at: '2026-09-21'

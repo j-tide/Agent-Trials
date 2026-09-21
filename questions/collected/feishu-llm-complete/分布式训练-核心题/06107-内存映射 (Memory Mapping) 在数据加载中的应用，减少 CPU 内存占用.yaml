@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e094b0e45994
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 内存映射 (Memory Mapping) 在数据加载中的应用，减少 CPU 内存占用。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 内存映射 (Memory Mapping) 在数据加载中的应用，减少 CPU 内存占用。
+answer:
+  mode: rubric
+  reference_answer: |-
+    内存映射（mmap）是一种让应用像访问内存一样直接访问磁盘文件内容的技术，由操作系统负责数据的按需加载。在训练大模型时，我们通常会将原始文本语料提前分词并转换成整数 token 序列，然后保存为巨大的二进制文件。对于 TB 级别的数据集，直接把这些文件全部加载进 CPU 内存是不现实的。
+
+    工作原理：mmap 将一个文件映射到进程的虚拟地址空间，但并不会立即把文件内容拷贝到物理内存。当程序访问某个地址时，操作系统发现该页不在物理内存中，会产生一个缺页中断，然后自动从磁盘读取对应的数据块。这实现了“按需加载”。而且操作系统会利用页缓存（page cache）进行智能预读和缓存，访问过的数据会留在内存中，后续访问就变成了内存访问。
+
+    在大模型训练中，我们对 token 序列的访问通常是顺序的（从头到尾逐个 epoch），这种访问模式非常适合 mmap。我们只需在创建数据集时，使用 np.memmap 或 PyTorch 的 torch.UntypedStorage.from_file 来映射二进制文件，然后像操作普通数组一样切片读取。操作系统会自动管理内存，整个训练过程中，CPU 内存占用只维持在几百 MB 到几 GB 的水平，而不会撑爆内存。
+
+    减少 CPU 内存占用的关键：
+
+    - mmap 映射的文件不占用物理内存，只占用虚拟地址空间。当多个 worker 进程同时访问同一文件时，操作系统会共享页缓存，进一步节省内存。
+
+    - 可以配合 madvise 系统调用，提示内核预取策略或指示即将访问的区域，让 IO 更加高效。例如，使用 MADV_SEQUENTIAL 告诉内核我们是顺序访问，内核会主动预读后续数据并释放已读过的页。
+
+    - 如果是分布式训练，每个节点都可以映射存储在本地的数据文件。如果数据在分布式文件系统上，mmap 可能因网络延迟而导致性能下降，此时更适合将数据先拉到本地 NVMe 再映射。
+
+    经验教训：有一次我们发现训练过程中 CPU 内存持续上涨，最后 OOM，排查发现是因为 DataLoader 在每个 epoch 都重新 np.memmap，而旧映射没有及时释放导致内存泄漏。正确的做法是在 init 中一次性创建映射，在 getitem 中只读取切片。另外，不要对 mmap 对象进行 pickle 序列化，在 num_workers>0 时，应在每个 worker 的 worker_init_fn 中独立打开文件映射，避免跨进程共享带来的锁冲突。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HfoZwdjz1iRNmPkiI3icQQafnve
+  block_id: VvsJdPve2ohcZfxKURuceo9RnRh
+  page_token: HfoZwdjz1iRNmPkiI3icQQafnve
+  original_title: 内存映射 (Memory Mapping) 在数据加载中的应用，减少 CPU 内存占用。
+  imported_at: '2026-09-21'

@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-930af1675cbd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是 ZeRO-Offload？它把什么卸载到 CPU？对显存的节省效果。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 什么是 ZeRO-Offload？它把什么卸载到 CPU？对显存的节省效果。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO-Offload 是 ZeRO 的扩展，当 GPU 显存即使经过 ZeRO-3 分片仍然不足时，将优化器状态和优化器计算卸载到 CPU 内存，进一步打破显存墙。
+
+    卸载的内容：
+
+    - FP32 优化器状态（Adam 的 momentum 和 variance）：这是显存中最大的冗余部分。原本在 ZeRO-1 中它们被分片到各 GPU，ZeRO-Offload 进一步把它们全部移到 CPU 内存。
+
+    - FP32 主权重（master weights）：同样移到 CPU。
+
+    - FP16 参数和梯度：仍保留在 GPU 显存中，因为前向和反向计算需要它们高速访问。
+
+    - 优化器更新计算：Adam 的数学运算（更新 m, v, 以及计算新权重）也移到 CPU 执行，因为更新所需的数据（梯度、主权重、优化器状态）都在 CPU 上。
+
+    显存节省效果：极端情况下，GPU 显存仅需存储FP16 参数、梯度和激活值。以 7B 模型为例，FP16 参数 14 GB + 梯度 14 GB + 激活值（通过 Gradient Checkpointing 压缩后约 8 GB）≈ 36 GB，远低于单卡 80 GB 容量。这使得在消费级 GPU（如 24 GB）上也能训练大模型成为可能。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: JztIdUoTaopB4Tx1OTWcepLhnjK
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: 什么是 ZeRO-Offload？它把什么卸载到 CPU？对显存的节省效果。
+  imported_at: '2026-09-21'

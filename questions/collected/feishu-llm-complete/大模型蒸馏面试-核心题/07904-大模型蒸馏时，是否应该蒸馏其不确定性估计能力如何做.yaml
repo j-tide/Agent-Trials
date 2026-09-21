@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c5fd356ee631
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 大模型蒸馏时，是否应该蒸馏其不确定性估计能力？如何做？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型蒸馏面试-核心题
+derived_topic: 
+tags: &1
+- 大模型蒸馏面试-核心题
+content:
+  prompt: 大模型蒸馏时，是否应该蒸馏其不确定性估计能力？如何做？
+answer:
+  mode: rubric
+  reference_answer: |-
+    应该，且非常重要，但这极具挑战性。 不确定性估计是模型可靠性的关键组成部分。一个知道自己“不知道”的模型，比一个“自信地胡编”的模型要安全得多。它直接关系到模型在高风险场景（如医疗、金融）中的可用性。
+
+    为何重要：
+
+    不确定性估计是模型对自身预测的“元认知”能力。在知识蒸馏中，如果学生只学会了教师给出正确答案的模式，但丢失了教师对错误答案的“犹豫”，那么学生在遇到分布外或噪声数据时，就会变得极度自信，产生灾难性的错误。因此，传递不确定性是构建鲁棒、可信AI的关键一步。
+
+    如何实现——贝叶斯蒸馏：
+
+    由于常规的logits蒸馏会让学生模仿教师的“点估计”，丢失不确定性信息。因此，需要专门的技术来传递不确定性：
+
+    - 集成教师（Teacher Ensemble）：训练多个结构相同但初始化不同（或训练数据不同）的教师模型，形成一个教师委员会。对于同一个输入，不同教师的预测会形成一个分布。这个分布的离散度（如方差）代表了教师的认知不确定性。然后，让学生模型直接学习去预测这个分布的参数（例如，用NLL损失去拟合一个高斯分布），而不是单一的logits。
+
+    - MC Dropout教师：在教师模型推理时保持Dropout开启，进行多次前向传播，得到多个预测。这些预测的方差同样代表了模型的不确定性。学生可以模仿这种带有噪声的输出模式。
+
+    - 蒸馏分布参数（如Dirichlet分布）：让学生不直接输出概率，而是输出一个Dirichlet分布的浓度参数（代表证据）。训练目标是让学生输出的Dirichlet分布与教师的Dirichlet分布之间的KL散度最小。这样，学生不仅学到了预测，还学到了对预测的置信度。
+
+    - 温度缩放校准：在蒸馏后，对学生模型进行温度缩放，使其输出的置信度能更好地与实际准确率对齐。这能在一定程度上恢复不确定性，但属于后处理，而非传递知识。
+
+    核心思想：将教师模型的“认知状态”——即它不是100%确定的这个事实——作为知识进行传递。学生不仅要学会“是什么”，还要学会“有多确定”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M1CpweEIOiIE8FkxjTvcpAQ7nof
+  block_id: K8CidO5Waolg83xKKIecXCSInbe
+  page_token: M1CpweEIOiIE8FkxjTvcpAQ7nof
+  original_title: 大模型蒸馏时，是否应该蒸馏其不确定性估计能力？如何做？
+  imported_at: '2026-09-21'

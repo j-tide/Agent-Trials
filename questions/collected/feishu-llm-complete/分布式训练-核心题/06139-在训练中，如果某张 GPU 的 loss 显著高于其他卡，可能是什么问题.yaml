@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b9e0d1381cf2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在训练中，如果某张 GPU 的 loss 显著高于其他卡，可能是什么问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 在训练中，如果某张 GPU 的 loss 显著高于其他卡，可能是什么问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在数据并行训练中，每张GPU独立计算自己那个micro-batch的loss，理论上loss值应当相近（因为数据是随机分配的）。如果某张GPU的loss持续显著偏高，这就是一个危险信号，需要立即排查。
+
+    可能原因：
+
+    - 数据分片问题：该GPU分配到的数据可能存在异常。比如数据预处理时某类样本未被正确打乱，导致该卡一直处理较难或噪声较大的数据；或者分布式采样器未正确同步epoch，导致重复或缺失。
+
+    - 权重初始化不一致：在初始化阶段，如果该GPU的模型权重没有与其他卡同步（例如，仅在rank0初始化然后广播，但广播出错），那么该卡从一开始就在不同的参数上训练，loss自然会偏离。
+
+    - 随机种子不一致：如果各卡的随机种子没有统一，数据增强、dropout等随机操作产生不同结果，可能造成loss差异。但通常影响不大。
+
+    - 梯度累积或优化器状态不一致：如果在某个step中，该卡因为通信故障或软件bug导致梯度未正确同步，优化器状态与其他卡不同，后续的loss就会产生持续性偏差。
+
+    - 硬件故障：GPU的显存存在位错误（ECC可纠正，但不可纠正的错误会导致静默数据损坏），计算单元故障，导致计算出的logits出现随机偏差，loss异常。
+
+    - 网络通信问题：该卡与其他卡的通信带宽不足，导致梯度allreduce延迟或丢包，影响参数更新，但通常表现为整体性能下降而非单卡loss偏高。
+
+    排查步骤：
+
+    - 首先确认loss是偶然波动还是持续性偏高。如果只是偶尔一个batch偏高，可能是数据噪声。持续偏高才需要警惕。
+
+    - 将该卡的训练数据采样出来，用其他卡或CPU重新计算loss，对比是否一致，判断是数据问题还是模型问题。
+
+    - 将该卡的模型参数保存下来，与其他卡对比（逐层比较L2距离），如果差异较大，说明参数不同步。
+
+    - 检查分布式通信日志（如NCCL_DEBUG=INFO），看是否有该卡的通信超时或错误。
+
+    - 重启该卡的训练进程，从最新的checkpoint恢复，看是否解决。
+
+    实践中，这种问题出现得不多，但一旦出现，通常很隐蔽。我会在训练框架里加一个“loss健康检查”：如果某个rank的loss超过所有rank平均值的3倍标准差，就自动告警并dump现场数据。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: MNsAdtoGvoXI5zxIKaCcFZR6nFd
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: 在训练中，如果某张 GPU 的 loss 显著高于其他卡，可能是什么问题？
+  imported_at: '2026-09-21'

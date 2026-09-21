@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-75045e6c22d0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: T5 中的“text-to-text”框架如何处理分类任务？标签如何被 token 化？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 二：模型架构与预训练范式
+tags: &1
+- Transfomer精选面试
+- 二：模型架构与预训练范式
+content:
+  prompt: T5 中的“text-to-text”框架如何处理分类任务？标签如何被 token 化？
+answer:
+  mode: rubric
+  reference_answer: |-
+    T5 将分类任务完全转化为文本生成问题。具体步骤如下：
+
+    输入构造：
+    在原始输入文本前添加任务前缀，比如对于情感分类，输入可能是："sst2 sentence: This movie is terrible."。这个前缀告诉模型这是一个情感分类任务。
+
+    输出标签：
+
+    T5 不使用整数类别 ID，而是将标签映射为自然语言词，然后用模型自己的词表将这些词 token 化。例如：
+
+    - 二分类情感：标签 "positive" 和 "negative"。模型输出这些词对应的 token ID 序列（比如 positive 被切分为 ['pos', 'itive'] 或作为单个 token，取决于词表）。
+
+    - 多分类（如主题分类）：直接使用类别名称的文本，如 "sports", "politics" 等。
+
+    - 如果标签是数字，也可以将数字作为文本 token。
+
+    训练：
+    模型（Encoder-Decoder）的 Encoder 接收输入文本，Decoder 自回归生成目标标签文本。损失函数是标准的交叉熵，计算在 Decoder 输出标签序列的每个 token 上。例如，目标标签是 "negative"，模型需要一步步生成 n -> e -> g -> a -> t -> i -> v -> e（或子词）。
+
+    推理：
+    对于分类任务，模型生成文本后，需要后处理映射回类别（例如将生成的 "positive" 字符串与预设的标签文本集合做匹配）。如果生成的文本不在有效标签集合中，则视为错误或进行最小距离匹配。
+
+    优势：
+
+    - 不需要任何任务特定的输出层，完全共享参数。
+
+    - 可以自然处理任意数量的类别，甚至新增类别，只需提供对应的标签文本即可。
+
+    - 对于结构化输出（如多标签）也很容易扩展。
+
+    局限：
+
+    - 生成的文本可能不在合法的标签空间内（如拼写错误），需要额外的约束或校准。
+
+    - 对于大规模类别（如几千类），使用文本标签可能效率低于分类头。
+
+    尽管如此，Text-to-Text 框架成功地将分类问题无缝融入统一的生成范式，这是 T5 的核心贡献之一。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C2UwwXTHii7yZ1kf0spcZbdlnbe
+  block_id: AjPOdGt85oH8zNxRHtxcb9UDn7r
+  page_token: C2UwwXTHii7yZ1kf0spcZbdlnbe
+  original_title: T5 中的“text-to-text”框架如何处理分类任务？标签如何被 token 化？
+  imported_at: '2026-09-21'

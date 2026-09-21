@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3dc6c80ed7d1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 LLM-as-Judge 评估时，如何设计评判标准和规避常见偏差？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 评测篇
+tags: &1
+- AI Agent精选八股文
+- Agent 评测篇
+content:
+  prompt: 使用 LLM-as-Judge 评估时，如何设计评判标准和规避常见偏差？
+answer:
+  mode: rubric
+  reference_answer: "LLM 当裁判用起来方便，但很容易“偏袒自己的风格”或“没原则地打分”。我们要做的是把人类的判断准则注入给模型，并想办法消掉系统性偏误。\n\n▎如何设计一个靠谱的评判标准\n\n-
+    从笼统到具体：制作评分量表（Rubric）\n\n别再说“请给这段回答打分 1-5”。你要像批卷老师一样，定义每一档的具体表现。\n\n```python\n❌
+    差：回答忽略了用户询问的要点，或包含事实性错误。\n\U0001F7E1 中：回答了核心问题但遗漏了部分细节，或表述不清晰。\n✅ 好：全面准确地回答了问题，格式正确，无多余信息。\n⭐
+    优：在“好”的基础上，还提供了额外的洞察或清晰引用来源。\n```\n\n然后把这份量表放进 Judge Prompt 的 system 里，并给出 few-shot
+    示例。\n\n- 多维度拆分，而不是一个总分\n\n让裁判模型分别对 准确性、完整性、简洁性 打分，最后再加权合成。这能让你发现 Agent 的具体弱点（是话太多，还是总漏掉关键信息）。\n\n-
+    强制给出“证据”\n\n在 Prompt 末尾加上：“在给出评分前，先引用用户输出中的具体句子作为评判依据。” 这能极大减少裁判信口开河。\n\n▎必须警惕的三大偏差及对策\n\n▎示例代码：带去偏的
+    Pairwise Judge\n\n```python\ndef pairwise_judge(answer_a, answer_b, question,
+    judge_model):\n    prompt_template = \"\"\"\n    你是一个严谨的评估员。给定用户问题和两个答案，选出更好的一个。\n
+    \   评判标准：1)准确性 2)简洁性 3)格式规范。\n    请忽略回答的长度，只关注质量。\n    用户问题：{question}\n    答案A：{answer_a}\n
+    \   答案B：{answer_b}\n    请直接输出 \"A\" 或 \"B\"，然后给出理由。\n    \"\"\"\n    # 调用1：A在B前\n
+    \   prompt1 = prompt_template.format(question=question, answer_a=answer_a, answer_b=answer_b)\n
+    \   result1 = judge_model(prompt1)\n    # 调用2：交换位置\n    prompt2 = prompt_template.format(question=question,
+    answer_a=answer_b, answer_b=answer_a)\n    result2 = judge_model(prompt2)\n    \n
+    \   # 合并决策，消除位置偏差\n    if \"A\" in result1 and \"B\" in result2:\n        # 两次都选A（原顺序中的答案A），说明A确实更好\n
+    \       return \"A\"\n    elif \"B\" in result1 and \"A\" in result2:\n        return
+    \"B\"\n    else:\n        return \"平局\"\n```\n\n加上位置交换，能把位置偏差的影响降低到接近零。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SEdiwaoGBiWMFYk0pl3c9iW4n7c
+  block_id: doxcnoqI8i53x0yWvMDYcOOYVod
+  page_token: SEdiwaoGBiWMFYk0pl3c9iW4n7c
+  original_title: 使用 LLM-as-Judge 评估时，如何设计评判标准和规避常见偏差？
+  imported_at: '2026-09-21'

@@ -1,0 +1,113 @@
+---
+schema_version: 1
+id: feishu-llm-complete-502428f6dd0f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001FA99 使用 token bucket 算法限制 LLM 调用频率，在代码中如何实现？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001FA99 使用 token bucket 算法限制 LLM 调用频率，在代码中如何实现？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    令牌桶是一种经典的流量整形算法，它允许一定程度的突发，同时控制长期速率。在 LLM 调用场景中，非常适合限制 RPM（每分钟请求数）或 TPM（每分钟 Token 数）。我们可以利用 asyncio 和 Redis 实现一个简单的分布式令牌桶。
+
+    原理：桶以固定速率产生令牌，最大容量为 capacity。每次调用需要消耗一定数量的令牌（例如每次请求消耗 1 个令牌，或者根据预估 token 数消耗相应令牌）。如果令牌不足，调用被阻塞或拒绝。
+
+    单机版本（使用 asyncio 和 time）：
+
+    ```python
+    import asyncio
+    import time
+
+    class TokenBucket:
+        def __init__(self, rate, capacity):
+            self.rate = rate          # 每秒填充令牌数
+            self.capacity = capacity  # 桶最大容量
+            self.tokens = capacity
+            self.last_fill = time.time()
+
+        async def acquire(self, tokens=1):
+            while True:
+                now = time.time()
+                elapsed = now - self.last_fill
+                self.tokens = min(self.capacity, self.tokens + elapsed * self.rate)
+                self.last_fill = now
+                if self.tokens >= tokens:
+                    self.tokens -= tokens
+                    return
+                # 计算需要等待的时间
+                wait_time = (tokens - self.tokens) / self.rate
+                await asyncio.sleep(wait_time)
+    ```
+
+    然后在 LLM 调用前 await bucket.acquire()。这个实现简单，但仅限于单进程，服务重启后状态丢失。
+
+    分布式版本（基于 Redis）：
+
+    对于多实例部署，需要使用 Redis 来维护全局令牌计数。伪代码如下：
+
+    ```python
+    async def acquire_token_redis(redis, key, rate, capacity, tokens=1):
+        script = """
+        local key = KEYS[1]
+        local rate = tonumber(ARGV[1])
+        local capacity = tonumber(ARGV[2])
+        local tokens = tonumber(ARGV[3])
+        local now = redis.call('TIME')[1]  -- 秒
+        local bucket = redis.call('hmget', key, 'tokens', 'last_fill')
+        local current_tokens = tonumber(bucket[1]) or capacity
+        local last_fill = tonumber(bucket[2]) or now
+        local elapsed = now - last_fill
+        current_tokens = math.min(capacity, current_tokens + elapsed * rate)
+        if current_tokens >= tokens then
+            current_tokens = current_tokens - tokens
+            redis.call('hmset', key, 'tokens', current_tokens, 'last_fill', now)
+            redis.call('expire', key, 60)  -- 避免冷key长期占用
+            return 1
+        else
+            return 0
+        end
+        """
+        result = await redis.eval(script, 1, key, rate, capacity, tokens)
+        return result == 1
+    ```
+
+    与 LangChain 集成：
+    你可以将令牌桶放在自定义回调的 on_llm_start 中，或者在 AgentExecutor 的工具调用前检查。如果令牌不足，可以选择等待或抛出异常。
+
+    调整技巧：对于 TPM 限制，可以根据预估的 Prompt + Completion token 数量来消耗相应令牌，而不是简单按请求次数。例如，OpenAI 的 TPM 限制是 150,000，你可以设定桶的速率为 150000/60 = 2500 tokens/s，每次调用根据实际 token 数消耗。
+
+    经验：我们曾在一个高并发系统中使用 Redis 令牌桶限制 GPT-4 调用，成功将峰值 QPS 控制在 5 以内，同时允许短暂的突发（桶容量设为 10），避免了因偶尔尖峰被 OpenAI 封禁。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WzEDwedwxiXAD4kdXdjcKjdQnCe
+  block_id: HdTFdLlAPoQaxfx8ZmKcZm6anpb
+  page_token: WzEDwedwxiXAD4kdXdjcKjdQnCe
+  original_title: "\U0001FA99 使用 token bucket 算法限制 LLM 调用频率，在代码中如何实现？"
+  imported_at: '2026-09-21'

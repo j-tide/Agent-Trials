@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-65bce936d44b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 BPE 训练时，实现一个停止条件：不仅基于合并次数，也可基于词汇表大小达到预设值，修改循环条件
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 在 BPE 训练时，实现一个停止条件：不仅基于合并次数，也可基于词汇表大小达到预设值，修改循环条件
+answer:
+  mode: rubric
+  reference_answer: "停止条件可以由用户指定一个目标词汇表大小 target_vocab_size，而不是硬性的合并次数。当合并产生的词汇数量达到这个值时就停止。初始词汇表大小
+    V0 是已知的（字符级：字符种类数 + 1（结束符）；字节级：256 + 1 = 257）。每次合并会增加一个新符号，因此词汇表大小增加 1。所以要达到目标词汇表大小，需要的合并次数为
+    target_vocab_size - V0。也可以循环时既检查次数限制，又检查词汇表大小。\n\n实现修改：\n\n```python\ndef train_bpe(word_freq,
+    target_vocab_size=None, num_merges=None):\n    # 初始化...\n    word_symbols, vocab
+    = initialize(word_freq)\n    V = len(vocab)  # 当前词汇表大小\n    max_merges = float('inf')\n
+    \   if target_vocab_size:\n        max_merges = target_vocab_size - V\n    if
+    num_merges is not None:\n        max_merges = min(max_merges, num_merges)\n    \n
+    \   merges = []\n    for step in range(max_merges):\n        bigram_freq = compute_bigram_freq(word_symbols)\n
+    \       if not bigram_freq:\n            break\n        best_pair = select_best_pair(bigram_freq)\n
+    \       new_symbol = best_pair[0] + best_pair[1]\n        merges.append((best_pair,
+    new_symbol))\n        word_symbols = merge_vocab(word_symbols, best_pair)\n        vocab.add(new_symbol)\n
+    \       V += 1\n        # 若已达到目标词汇大小可提前 break，但 max_merges 已保证\n    return merges,
+    vocab, word_symbols\n```\n\n停止条件多样：也可以基于字符覆盖率达到某个阈值，或最高频 bigram 的频率低于某个阈值（避免罕见合并）。但词汇表大小是最常见的控制参数，直接转换为合并次数即可。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XDqKw0GPGi6JvkkfpwUcqpdAndd
+  block_id: Z08ud5XvqogV0Pxcno2cX6EFnye
+  page_token: XDqKw0GPGi6JvkkfpwUcqpdAndd
+  original_title: 在 BPE 训练时，实现一个停止条件：不仅基于合并次数，也可基于词汇表大小达到预设值，修改循环条件
+  imported_at: '2026-09-21'

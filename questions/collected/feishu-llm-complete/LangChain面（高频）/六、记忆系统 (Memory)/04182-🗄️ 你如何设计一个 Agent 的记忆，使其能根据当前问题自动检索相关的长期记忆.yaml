@@ -1,0 +1,90 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bd698fe2d816
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F5C4️ 你如何设计一个 Agent 的记忆，使其能根据当前问题自动检索相关的长期记忆？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F5C4️ 你如何设计一个 Agent 的记忆，使其能根据当前问题自动检索相关的长期记忆？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    设计这种记忆的核心是 “检索增强记忆”。Agent 不应无差别地加载所有历史，而应根据当前问题，从长期记忆库中动态拉取最相关的片段，注入 Prompt。
+
+    设计步骤：
+
+    - 存储长期记忆：使用向量数据库（如 Chroma、Pinecone）存储对话片段、提取的实体、用户偏好等。每条记忆可以带元数据（时间戳、重要性评分等）。
+
+    - 自动检索：在 Agent 执行前，用当前用户输入（或改写后的查询）去向量库中检索最相关的 top-K 条记忆。
+
+    - 注入 Prompt：将检索到的记忆格式化为文本，放入 Prompt 的特定位置（例如 {long_term_memory}）。
+
+    - 更新机制：在对话结束后，使用 LLM 从最新交互中提取值得长期保留的信息，存入向量库。旧记忆可通过时间衰减或重要性评分来淘汰。
+
+    LangChain 实现：
+
+    ```python
+    from langchain.memory import VectorStoreRetrieverMemory
+    from langchain.vectorstores import Chroma
+    from langchain.embeddings import OpenAIEmbeddings
+
+    # 1. 初始化向量库和检索器
+    vectorstore = Chroma(embedding_function=OpenAIEmbeddings())
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+
+    # 2. 创建长期记忆
+    long_term_memory = VectorStoreRetrieverMemory(
+        retriever=retriever,
+        memory_key="long_term_memory",
+        input_key="input",
+    )
+
+    # 3. 在 Agent 中使用
+    agent = create_openai_functions_agent(llm, tools, prompt)
+    agent_executor = AgentExecutor(agent=agent, tools=tools, memory=long_term_memory)
+    ```
+
+    但是，VectorStoreRetrieverMemory 更适用于 Chain。对于 Agent，你可能需要自定义逻辑，在 AgentExecutor 的每次调用前手动检索记忆，然后拼接到 input 中。
+
+    关键点：
+
+    - 检索粒度：以“对话片段”为单位存储可能过于粗糙，建议提取为“事实”或“偏好”粒度，例如“用户喜欢中餐”、“用户住在北京”。
+
+    - 时效性：为记忆增加时间衰减，优先检索近期或反复提及的记忆。
+
+    - 反馈循环：Agent 的回答如果引用了某条长期记忆，可增加该记忆的权重。
+
+    个人经验：用 LLM 先对用户问题生成一个“搜索查询”，再用它检索记忆，效果比直接用原始问题好。这与 ConversationalRetrievalChain 的 condense_question 思路一致。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PGF2wlLMeiiO4SkG7iycSQbwnNf
+  block_id: GX6OdaZzkoPg9Rx8OofcRulln6f
+  page_token: PGF2wlLMeiiO4SkG7iycSQbwnNf
+  original_title: "\U0001F5C4️ 你如何设计一个 Agent 的记忆，使其能根据当前问题自动检索相关的长期记忆？"
+  imported_at: '2026-09-21'

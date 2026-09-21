@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-85a0bb38e98b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 描述 Top-k 路由 (Routing) 机制：如何选择专家。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 描述 Top-k 路由 (Routing) 机制：如何选择专家。
+answer:
+  mode: rubric
+  reference_answer: |-
+    Top-k 路由机制的目标是：为每个 token 从 N 个专家中选出最合适的 k 个（k 通常为 1 或 2），并将 token 送往这些专家。流程如下：
+
+    - 门控网络接收 token 表示 h (shape: [batchseq, d_model])，输出 logits z = h @ W_gate (shape: [batchseq, N])。W_gate 是可学习的线性投影矩阵，形状 [d_model, N]，N 是专家数量。
+
+    - 对 logits 取 softmax，得到概率分布 p = softmax(z)。p_i 表示这个 token 选择第 i 个专家的概率。
+
+    - 选择 p 中最大的 k 个值对应的专家索引。例如 k=2 时，取 top-2 概率对应的专家。
+
+    - 将 token 分发到对应专家。如果 k>1，token 会被复制多份分别发送到不同的专家。在分布式环境下，这一步通过 all-to-all 通信实现：每个 GPU 上的 token 按目标专家分组，发送到对应 GPU。
+
+    - 每个专家独立处理收到的 token 子集（做 FFN 前向），输出处理后的结果。
+
+    - 最终输出根据路由权重进行合并。对于 k=1，直接取该专家输出乘以路由权重（或不乘，实验表明不乘权重有时效果更好）。对于 k>1，按各专家的路由概率加权求和。
+
+    在实际训练中，还有一些技巧。比如在 Top-k 选择前加入噪声（如 Gumbel softmax），让模型有一定的随机探索能力，避免初期路由塌缩——即门控很快就只选一个专家，其他专家完全收不到 token 训练。噪声可以在训练初期较大，逐渐减小。另外，还可以设置容量因子（capacity factor），限制每个专家最多处理多少 token，超出的 token 被丢弃或路由到备用专家，防止某个专家过载而拖慢整个 batch。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQczwN8cliZ2XSkOI26ckCcPnuf
+  block_id: UhhHdfwjnokDFnxk1Vac8wtanUh
+  page_token: GQczwN8cliZ2XSkOI26ckCcPnuf
+  original_title: 描述 Top-k 路由 (Routing) 机制：如何选择专家。
+  imported_at: '2026-09-21'

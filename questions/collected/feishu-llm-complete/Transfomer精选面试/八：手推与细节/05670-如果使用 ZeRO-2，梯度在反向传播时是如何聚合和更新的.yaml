@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cb61f3563092
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果使用 ZeRO-2，梯度在反向传播时是如何聚合和更新的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 八：手推与细节
+tags: &1
+- Transfomer精选面试
+- 八：手推与细节
+content:
+  prompt: 如果使用 ZeRO-2，梯度在反向传播时是如何聚合和更新的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO-2（优化器状态分区 + 梯度分区）的流程：
+
+    - 每个 GPU 持有完整模型参数副本，但仅存储与自己分区对应的优化器状态（Adam 的 m, v）。
+
+    - 前向和反向传播各卡独立计算自己 microbatch 的损失和梯度，产生完整梯度（所有参数）。
+
+    - 在反向传播结束后，执行 Reduce-Scatter 操作：各卡将自己的梯度分块，对于每个参数分区，归属该分区的卡从所有卡收集该分区梯度并求和（平均），得到该分区的聚合梯度。其他分区梯度被丢弃。
+
+    - 然后各卡利用自己的优化器状态分片和聚合梯度，更新自己负责的那部分参数。
+
+    - 最后，通过 All-Gather 将更新后的参数分片广播到所有卡，确保下一轮所有卡拥有完整的更新后的参数。
+
+    因此，ZeRO-2 通过 reduce-scatter 聚合梯度，分散了优化器状态和更新过程。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DAhYw2E2HiB2RsksUMUc8vZDn6g
+  block_id: TcqCd1RpToRsWExey2Uc6JKMnIh
+  page_token: DAhYw2E2HiB2RsksUMUc8vZDn6g
+  original_title: 如果使用 ZeRO-2，梯度在反向传播时是如何聚合和更新的？
+  imported_at: '2026-09-21'

@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dd9fcdf2d212
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 全参数微调时batch size如何影响训练稳定性和收敛？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 全参数微调时batch size如何影响训练稳定性和收敛？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Batch size（BS）通过控制梯度估计的噪声水平，深刻影响着全参数微调的稳定性和收敛行为。
+
+    一、小Batch Size（高噪声）
+
+    - 优点：梯度噪声大，起到了隐式正则化的作用，有助于模型跳出尖锐的局部极小点，找到更宽泛、泛化能力更好的解。对于SFT这类数据量通常不大的任务，小BS往往能带来更好的最终泛化性能，输出更多样。
+
+    - 缺点：损失曲线震荡剧烈，训练不稳定；需要更小的学习率；收敛速度慢（因为每个step处理的数据少）；可能难以充分利用GPU的并行计算能力。
+
+    二、大Batch Size（低噪声）
+
+    - 优点：梯度估计准确，损失下降平滑，训练过程稳定；能够充分利用GPU算力，提高训练吞吐量；可以使用更大的学习率（线性缩放规则），加快收敛。
+
+    - 缺点：容易收敛到训练数据附近的尖锐极小值，导致过拟合，泛化能力差；模型输出趋于“平均化”，丧失多样性；对于SFT这种数据分布较窄的任务，大BS会加剧灾难性遗忘。
+
+    对微调的影响与选择
+
+    全参数微调时，由于数据量通常有限，我们倾向于选择中等偏小的全局Batch Size（如32~128）。具体选择需综合考虑：
+
+    - 显存限制：micro‑batch size受限于单卡显存，结合梯度累积实现目标全局BS。
+
+    - 数据量：数据越少，BS应越小，以增加噪声防止过拟合。
+
+    - 任务难度：复杂任务（如数学推理）需要更准确的梯度，可适当增大BS。
+
+    - 学习率联动：若增大BS，可尝试按平方根或线性比例提高学习率。
+
+    - 监控指标：在训练过程中观察验证损失和生成多样性。若验证损失下降后快速反弹，说明BS可能偏大；若训练损失震荡剧烈，可能BS太小。
+
+    推荐起步配置：对于7B模型，单卡micro‑batch size=4或8，配合梯度累积至全局BS=64或128。然后根据上述信号微调。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: SAF0d5KW5od4htxEpU0cyn6Onib
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 全参数微调时batch size如何影响训练稳定性和收敛？
+  imported_at: '2026-09-21'

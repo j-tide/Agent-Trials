@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-72105b58634c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 说明 Dataloader 的 num_workers 和 pin_memory 对训练速度的影响。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 说明 Dataloader 的 num_workers 和 pin_memory 对训练速度的影响。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### num_workers
+
+    - 作用：num_workers 指定了用于数据预加载的子进程数量。当设为0时，主进程自己负责从磁盘读取和预处理数据，这会导致GPU在等待下一个batch时空闲。
+
+    - 多进程并行：多个worker并行执行I/O和解码、增强等CPU密集型操作，预先将处理好的数据放入队列，保证GPU始终有数据可算。
+
+    - 最佳实践：
+
+    ### pin_memory
+
+    - 作用：将数据从普通CPU内存复制到页锁定（Page-Locked）内存中。
+
+    - 原理：GPU通过DMA（直接内存访问）从CPU内存拷贝数据。如果内存是可分页的，DMA控制器需要先锁定页面，效率较低。而页锁定内存（pinned memory）避免了换页开销，GPU可以直接以最高带宽进行拷贝。
+
+    - 性能提升：通常可使数据传输速度提升 2~3 倍。
+
+    - 注意事项：
+
+    ### 组合优化
+
+    dataloader = DataLoader(
+        dataset,
+        batch_size=32,
+        shuffle=True,
+        num_workers=8,
+        pin_memory=True,
+        prefetch_factor=4      # 每个worker预取的batch数
+    )
+    for batch in dataloader:
+        inputs, labels = batch
+        inputs = inputs.cuda(non_blocking=True)
+        labels = labels.cuda(non_blocking=True)
+        # 训练...
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Yto8wfa8ti5TgZktU1YczVp7nme
+  block_id: Au4MdnUSLoldUSxu4xXcANyNnQP
+  page_token: Yto8wfa8ti5TgZktU1YczVp7nme
+  original_title: 说明 Dataloader 的 num_workers 和 pin_memory 对训练速度的影响。
+  imported_at: '2026-09-21'

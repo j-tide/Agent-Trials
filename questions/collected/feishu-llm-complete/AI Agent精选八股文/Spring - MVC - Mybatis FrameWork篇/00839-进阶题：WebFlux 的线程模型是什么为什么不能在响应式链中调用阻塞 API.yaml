@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4ee2694ef86e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 4、进阶题：WebFlux 的线程模型是什么？为什么不能在响应式链中调用阻塞 API？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 4、进阶题：WebFlux 的线程模型是什么？为什么不能在响应式链中调用阻塞 API？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐⭐（EventLoop 模型、Scheduler 调度、publishOn/subscribeOn、阻塞检测）
+
+    1️⃣ Common Answer
+
+    WebFlux 用的是 Netty 的 EventLoop 线程模型，线程数很少，默认是 CPU 核心数。如果在响应式链里调用阻塞 API，会把 EventLoop 线程阻塞住，导致其他请求也处理不了。所以阻塞操作要放到单独的线程池里。
+
+    2️⃣ Impressive Answer
+
+    - EventLoop 线程模型：Netty 默认创建 CPU 核心数 个 EventLoop 线程，每个线程负责多个 Channel 的 I/O 事件。所有请求共享这几个线程，靠非阻塞 I/O + 事件驱动实现高并发。
+
+    - 阻塞的致命影响：假设 4 核 CPU = 4 个 EventLoop 线程，一个阻塞调用占住 1 个线程 500ms，就意味着 25% 的处理能力被浪费。如果 4 个线程都被阻塞，整个服务完全停止响应。
+
+    - 正确处理阻塞调用：
+
+    ```text
+    // 错误：直接在响应式链中调用阻塞 API
+    Mono.just(request)
+        .map(req -> jdbcTemplate.query(...));  // 阻塞 EventLoop！
+
+    // 正确：用 subscribeOn 切换到阻塞线程池
+    Mono.fromCallable(() -> jdbcTemplate.query(...))
+        .subscribeOn(Schedulers.boundedElastic());  // 切到弹性线程池
+    ```
+
+    - publishOn vs subscribeOn：subscribeOn 影响整个链的订阅线程（从源头切换）；publishOn 影响下游操作的执行线程（从当前位置切换）。阻塞调用用 subscribeOn，后续处理切回用 publishOn。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CDpWwiHlFibwCokmhxDcZEhbnQb
+  block_id: doxcn5Ro4CDDXTsDxnlbEoK5cxb
+  page_token: CDpWwiHlFibwCokmhxDcZEhbnQb
+  original_title: 4、进阶题：WebFlux 的线程模型是什么？为什么不能在响应式链中调用阻塞 API？
+  imported_at: '2026-09-21'

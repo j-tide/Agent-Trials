@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-60b11d3c4630
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 梯度检查点如何用20%的计算换取50%的显存？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 梯度检查点如何用20%的计算换取50%的显存？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在标准的训练过程中，前向传播会产生大量中间激活值（比如每一层的输出、注意力矩阵、FFN中间结果等），这些激活值在反向传播时需要被消费来计算梯度，因此必须全部保存在显存中。对于一个大模型，激活值显存可以轻易超过模型参数本身，成为限制batch size和序列长度的瓶颈。
+
+    梯度检查点的核心思想很简单：不要把所有激活值都存着，只存一小部分“检查点”，反向传播时再从检查点重新计算被丢弃的激活值。 这相当于把显存压力转移到了计算上。
+
+    具体实现中，我们通常以每个Transformer层为单元设置检查点。前向传播时，这一层内部的Q、K、V、注意力矩阵、FFN中间输出等全部不保存，只保留该层的输入张量（即上一层的输出）。当反向传播推进到这一层时，利用保存的输入重新执行一次前向传播，临时生成所需的中间激活，用完立即释放。
+
+    为什么是“20%计算换50%显存”？
+
+    - 对于一个典型的Transformer层，前向计算量约占整个训练步（前向+反向）的1/3。因为反向传播的计算量大约是前向的两倍（需要计算权重梯度和输入梯度）。梯度检查点让被标记的层多执行一次前向，因此额外的计算开销大约是 1/3 * (检查点层数/总层数)。如果所有层都开启检查点，额外计算量约33%。但很多时候我们只对部分层开启（如每隔一层），所以额外开销通常在15%-25%之间，四舍五入就是“20%”。
+
+    - 显存节省方面，每一层的中间激活通常占据总激活显存的很大比例。以一个标准的Transformer层为例，如果不存注意力矩阵，该层的激活量大约为 batch * seq_len * hidden_dim * (几十倍)。开启检查点后，这一整层的中间激活全部不存，只保留一个输入张量。对于深层模型，激活总量可减少50%甚至70%。所以“50%”是一个保守但具有代表性的数字。
+
+    实际效果举例：训练一个7B模型，序列长度2048，batch size=1。不使用检查点时，激活显存大约需要20-25GB。开启全部层的检查点后，激活显存降至约8-10GB，节省了约60%。同时单步训练时间从0.5秒增加到0.6秒，增加约20%。这就是“20%计算换50%显存”的由来。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HfoZwdjz1iRNmPkiI3icQQafnve
+  block_id: J7msdLVFYo7wg2xuA4qcJFKWnfc
+  page_token: HfoZwdjz1iRNmPkiI3icQQafnve
+  original_title: 梯度检查点如何用20%的计算换取50%的显存？
+  imported_at: '2026-09-21'

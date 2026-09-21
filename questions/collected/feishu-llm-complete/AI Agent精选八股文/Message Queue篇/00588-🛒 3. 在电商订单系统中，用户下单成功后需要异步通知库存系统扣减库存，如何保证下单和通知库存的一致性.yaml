@@ -1,0 +1,90 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f5bd5d146ad9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6D2 3. 在电商订单系统中，用户下单成功后需要异步通知库存系统扣减库存，如何保证下单和通知库存的一致性？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: "\U0001F6D2 3. 在电商订单系统中，用户下单成功后需要异步通知库存系统扣减库存，如何保证下单和通知库存的一致性？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这正是 RocketMQ 事务消息的典型应用场景。我们要求：订单创建成功 → 库存一定被扣减；订单创建失败 → 库存一定不扣减。 绝不允许出现“订单有了，库存没扣”或“库存扣了，订单却失败”的数据不一致。
+
+    方案架构：
+
+    [图片内容未导入]
+
+    详细流程：
+
+    - 订单服务 发送一条半消息，内容包含订单 ID、商品 ID、数量等。
+
+    - 半消息发送成功后，订单服务在本地数据库事务中插入订单记录。
+
+    - 如果插入成功，向 Broker 提交（Commit）消息，Broker 将消息转为可投递，库存服务随后消费并扣减库存。
+
+    - 如果插入失败（例如商品超卖、数据库异常），向 Broker 回滚（Rollback）消息，Broker 删除半消息，库存服务永远收不到通知。
+
+    异常兜底——回查机制的作用：
+
+    假设订单服务在插入订单成功、但还没来得及向 Broker 发送 Commit 的瞬间，服务器宕机了。此时 Broker 发现这条半消息长时间未确认，会主动发起事务回查。订单服务重启后，回查接口通过查询数据库，发现订单已经存在，于是返回 Commit。消息最终还是会投递到库存服务，库存最终会被扣减。这就保证了最终一致性。
+
+    库存服务的幂等消费：
+
+    因为网络重试或回查可能导致消息重复投递，库存服务必须做好幂等——根据订单 ID 判断库存是否已经扣减过，如果已扣减则直接返回成功，避免重复扣库存。
+
+    // 库存服务消费端
+    @RocketMQMessageListener(topic = "order_topic", consumerGroup = "inventory_group")
+    public class InventoryConsumer implements RocketMQListener<String> {
+
+        @Autowired
+        private InventoryService inventoryService;
+
+        @Override
+        public void onMessage(String message) {
+            OrderEvent event = JSON.parseObject(message, OrderEvent.class);
+            String orderId = event.getOrderId();
+
+            // 幂等处理：根据订单ID查询是否已经扣减过库存
+            if (inventoryService.isAlreadyDeducted(orderId)) {
+                log.info("库存已扣减，忽略重复消息");
+                return;
+            }
+
+            // 执行扣减库存，并记录扣减流水（在同一本地事务中）
+            inventoryService.deductAndRecord(orderId, event.getSkuItems());
+        }
+    }
+
+    通过 半消息 → 本地事务 → Commit/Rollback → 回查 这套组合拳，再加上消费端的幂等，我们就在“下单”和“扣库存”这两个分布式操作之间，实现了一种可落地的最终一致性。它不追求强同步的完美，但确保在任何网络抖动和宕机下，系统状态最终都会收敛到正确的平衡点。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JpfiwiBYoisbfUkjsLgcdTcHnTf
+  block_id: doxcnbdf9KFVm6imrFhtNKNB2Qh
+  page_token: JpfiwiBYoisbfUkjsLgcdTcHnTf
+  original_title: "\U0001F6D2 3. 在电商订单系统中，用户下单成功后需要异步通知库存系统扣减库存，如何保证下单和通知库存的一致性？"
+  imported_at: '2026-09-21'

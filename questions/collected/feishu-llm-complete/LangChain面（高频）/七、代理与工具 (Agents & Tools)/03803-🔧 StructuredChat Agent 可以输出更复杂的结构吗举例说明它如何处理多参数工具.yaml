@@ -1,0 +1,87 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cbf952c13c67
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F527 StructuredChat Agent 可以输出更复杂的结构吗？举例说明它如何处理多参数工具。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "\U0001F527 StructuredChat Agent 可以输出更复杂的结构吗？举例说明它如何处理多参数工具。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    StructuredChat Agent 是 LangChain 中一种更灵活的 Agent，它不像 ReAct 那样完全依赖文本解析，而是使用了聊天消息格式（如 FunctionMessage、ToolMessage）来传递工具调用。它可以处理更复杂的输出结构，尤其是在需要多参数、嵌套参数，或者希望输出更复杂的结构化数据时。
+
+    处理多参数工具的能力：
+
+    StructuredChat Agent 的 Prompt 中会明确要求 LLM 用特定的格式输出。例如，对于多参数工具，它可以要求 LLM 输出一个 JSON 对象，而不是简单的字符串。然后 LangChain 会解析这个 JSON，并作为参数传递给工具。
+
+    示例：假设你有一个 send_email 工具，需要收件人、主题、正文、附件（数组）等多个参数。
+
+    - 在 ReAct 中，你可能会将输入压缩成一个字符串，然后让工具自行解析，这容易出错。
+
+    - 在 StructuredChat Agent 中，你可以这样定义工具：
+
+    from langchain.tools import StructuredTool
+    def send_email(to: str, subject: str, body: str, attachments: list[str] = None):
+        # 实际发送逻辑
+        pass
+
+    tool = StructuredTool.from_function(
+        func=send_email,
+        name="send_email",
+        description="发送邮件"
+    )
+
+    然后 LLM 会生成如下结构：
+
+    Action:
+    {
+      "action": "send_email",
+      "action_input": {
+        "to": "abc@example.com",
+        "subject": "会议通知",
+        "body": "明天下午3点开会",
+        "attachments": ["agenda.pdf"]
+      }
+    }
+
+    - LangChain 的 StructuredChatAgent 会将这个 JSON 解析成字典，并用 **kwargs 的形式传给 send_email 函数。这完全绕开了文本解析的不确定性。
+
+    优势：它能够输出任意的 JSON 结构，因此可以处理复杂参数。它还支持嵌套对象，只要工具的参数 schema 定义得当。
+
+    局限：StructuredChatAgent 的配置比 Functions Agent 复杂一些，对 LLM 的指令遵循能力要求较高。如果 LLM 没有输出合法的 JSON，会解析失败。
+
+    ✅ 使用场景：当你的工具需要多个参数，但又不能使用 OpenAI Functions Agent（比如你用的是 Llama 或其他模型）时，StructuredChat Agent 是一个不错的选择。但请注意，它依然依赖 LLM 生成符合格式的文本，稳定性不如原生的 Function Calling。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/L6pCw9CICiNRXDkqTmbcNMZ5nzh
+  block_id: E1HZdzOrToq7z8x0pFkc2pN9nNd
+  page_token: L6pCw9CICiNRXDkqTmbcNMZ5nzh
+  original_title: "\U0001F527 StructuredChat Agent 可以输出更复杂的结构吗？举例说明它如何处理多参数工具。"
+  imported_at: '2026-09-21'

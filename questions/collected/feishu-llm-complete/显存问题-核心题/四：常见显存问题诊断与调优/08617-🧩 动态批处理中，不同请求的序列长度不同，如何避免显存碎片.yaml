@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f2abeef42edd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 动态批处理中，不同请求的序列长度不同，如何避免显存碎片？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F9E9 动态批处理中，不同请求的序列长度不同，如何避免显存碎片？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    核心方案：PagedAttention 的分块管理
+
+    传统做法为每个请求预留最长序列的连续显存，导致严重内部碎片和外部碎片。动态批处理下，多个请求长度各异，PagedAttention 将 KV Cache 分割为固定大小的 block：
+
+    - 每个请求只需按需分配若干 block，最后一个 block 会有少许内部碎片（平均半块），但外部碎片彻底消失，因为所有分配单位大小相同。
+
+    - 请求结束后，其占用的 block 被整体回收到空闲池，供后续请求使用，不会产生不可合并的孔洞。
+
+    辅助措施：
+
+    - 使用内存池的统一分配器，避免直接 cudaMalloc。
+
+    - 动态调整 batch 成员，尽早移除已完成的长请求，释放 block。
+
+    - 结合 prefix caching 共享相同前缀的 block，减少重复分配。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tr76wMZZwibI1ikxqpEcjhJtnZc
+  block_id: JLvrd0PyHoo0Y8x4YK8ce2jgnpd
+  page_token: Tr76wMZZwibI1ikxqpEcjhJtnZc
+  original_title: "\U0001F9E9 动态批处理中，不同请求的序列长度不同，如何避免显存碎片？"
+  imported_at: '2026-09-21'

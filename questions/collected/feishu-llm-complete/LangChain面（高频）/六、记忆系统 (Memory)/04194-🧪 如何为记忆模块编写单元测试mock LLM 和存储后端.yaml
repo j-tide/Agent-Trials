@@ -1,0 +1,107 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3391483aaa8d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EA 如何为记忆模块编写单元测试？mock LLM 和存储后端。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F9EA 如何为记忆模块编写单元测试？mock LLM 和存储后端。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    记忆模块的单元测试应当完全隔离外部依赖，快速、可靠。主要测试三个方面：记忆的存取逻辑、与链的交互、持久化后端。
+
+    - Mock LLM
+    使用 FakeLLM 或 Python unittest.mock 来模拟 LLM。对于记忆测试，我们通常不关心 LLM 生成的内容，只关心记忆是否在正确的时机被读写。
+
+    ```python
+    from langchain.llms.fake import FakeLLM
+    from unittest.mock import patch
+
+    # 使用 FakeLLM 返回固定回复
+    llm = FakeLLM(responses=["你好，我是AI"])
+
+    # 或者 mock 其 predict 方法
+    with patch.object(LLM, 'predict', return_value="你好，我是AI"):
+        # 执行链逻辑
+        pass
+    ```
+
+    - Mock 存储后端
+    对于持久化历史，我们不希望在单元测试中连接真实数据库。可以通过实现 BaseChatMessageHistory 的内存版本，或者 mock 数据库驱动。
+
+    ```python
+    from langchain.schema import BaseChatMessageHistory
+
+    class MockHistory(BaseChatMessageHistory):
+        messages: list = []
+        def add_message(self, message): self.messages.append(message)
+        def clear(self): self.messages.clear()
+
+    history = MockHistory()
+    memory = ConversationBufferMemory(chat_memory=history)
+    ```
+
+    如果测试 RedisChatMessageHistory，可以 mock redis.Redis 或使用 fakeredis 库。
+
+    - 编写测试用例
+
+    - 测试写入：调用 chain.predict 一次，断言 memory.chat_memory.messages 中新增了一条 Human 和一条 AI 消息。
+
+    - 测试加载：手动往 memory.chat_memory 中添加几条消息，然后调用 memory.load_memory_variables({})，检查返回的内容和格式。
+
+    - 测试窗口裁剪：对于窗口记忆，添加超过 k 的消息，然后加载，断言旧消息已被移除。
+
+    - 测试摘要触发：对于摘要记忆，可以 mock LLMChain 的 predict 方法，让它返回固定的摘要文本，然后验证摘要生成逻辑和上下文保存。
+
+    - 测试清空：调用 memory.clear()，断言消息列表为空。
+
+    示例：测试窗口记忆的裁剪
+
+    ```python
+    def test_window_memory():
+        memory = ConversationBufferWindowMemory(k=2, return_messages=True)
+        # 添加3轮对话
+        for i in range(3):
+            memory.save_context({"input": f"user_{i}"}, {"output": f"ai_{i}"})
+        vars = memory.load_memory_variables({})
+        messages = vars["history"]
+        # 应该只保留最后2轮，即第2轮和第3轮
+        assert len(messages) == 4  # 2轮 * 2条消息
+        assert messages[0].content == "user_1"
+    ```
+
+    通过 mock，你的单元测试可以在几秒内运行完毕，不受网络和数据库影响，且结果可重复。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BfIEwdkqoidvoVkJcU4cu44enYf
+  block_id: P6i9dwIT4o7g55xO6edc6s4UnYd
+  page_token: BfIEwdkqoidvoVkJcU4cu44enYf
+  original_title: "\U0001F9EA 如何为记忆模块编写单元测试？mock LLM 和存储后端。"
+  imported_at: '2026-09-21'

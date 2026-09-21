@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-51dc0582fccc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50D 3. Faithfulness 持续偏低，但 Context Recall 很高，怎么排查和解决？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "\U0001F50D 3. Faithfulness 持续偏低，但 Context Recall 很高，怎么排查和解决？"
+answer:
+  mode: rubric
+  reference_answer: "这是一个“找到了资料，但没老实抄”的典型场景。Context Recall 高，说明你要的信息基本都检索出来了。Faithfulness
+    低，说明 LLM 在生成答案时，没有忠实地使用这些信息，而是自己添油加醋，或者干脆绕开上下文编造答案。\n\n排查路线图：\n\n[图片内容未导入]\n\n具体排查操作：\n\n第一步，捞
+    20 条 Faithfulness 为 0 的案例，把它们的 Question、Context、Answer 和 Ground Truth（如果有）打印出来，逐条人工分析。看
+    LLM 是哪句话“出圈”了。\n\n第二步，分析出圈的类型：\n\n- 是凭空加了数据（比如“必须休完10天”）？\n\n- 是把训练数据里的旧政策搬出来了？\n\n-
+    是对上下文的错误总结/夸大？\n\n第三步，根据类型下药。\n\n如果是“凭空加数据”或“自己编”，通常是 Prompt 约束不够，或 LLM 指令遵循能力弱。可以这样改进
+    Prompt：\n\n```markdown\n你只能根据以下参考信息回答问题。如果信息不足以回答，请直接说“根据现有资料无法确定”。\n严格禁止使用你的训练知识或进行任何推测。\n参考信息：\n{context}\n问题：{question}\n```\n\n同时换用指令遵循更强的模型（如从
+    Qwen-7B 换成 GPT-4o-mini），或者降低 Temperature（如 0.1）以减少随机性。\n\n如果是“模型更相信自己的训练记忆”，比如用户问“现在的
+    CEO 是谁？”，上下文里明明写着“当前 CEO 是张三”，模型却坚持回答“李四”（因为训练数据里李四占多数）。这需要在 Prompt 中明确强调上下文的时间权威性：\n\n```markdown\n注意：参考信息中的事实可能与你训练数据中的信息冲突。你必须无条件优先相信参考信息，因为它是更新的、权威的。\n```\n\n如果是“上下文太长，模型注意力涣散”，则需要在检索后加一个压缩或重排步骤，确保喂给
+    LLM 的上下文是高度精炼的 Top-2 或 Top-3 片段，而不是海量碎片的大杂烩。例如使用 LLMChainExtractor 或 Reranker
+    只保留核心段落。\n\n一个端到端修复后的验证脚本思路：\n\n```python\ndef diagnose_and_fix(question, context,
+    answer, llm):\n    # 1. 诊断：用 LLM 判断幻觉的类型\n    diagnose_prompt = f\"\"\"\n    上下文：{context}\n
+    \   答案：{answer}\n    请判断答案中哪些句子无法在上下文中找到依据，并分析为什么会这样（上下文冲突？凭空捏造？过度总结？）。\n    \"\"\"\n
+    \   diagnosis = llm(diagnose_prompt)\n    \n    # 2. 根据诊断结果动态调整 Prompt 或上下文\n
+    \   if \"凭空捏造\" in diagnosis:\n        new_prompt = f\"你只能根据以下信息回答，不得添加任何外部知识：\\n{context}\\n问题：{question}\"\n
+    \   elif \"上下文冲突\" in diagnosis:\n        new_prompt = f\"注意：以下信息是最新的权威资料。如果与你已知的信息冲突，必须遵循以下信息。\\n{context}\\n问题：{question}\"\n
+    \   else:\n        # 默认：精简上下文\n        new_context = re_rank_and_truncate(question,
+    context, top_k=2)\n        new_prompt = f\"根据以下信息回答：\\n{new_context}\\n问题：{question}\"\n
+    \   \n    # 3. 用新 Prompt 重新生成\n    new_answer = llm(new_prompt)\n    return new_answer,
+    diagnosis\n```\n\n收束： 高 Context Recall 是地基，低 Faithfulness 是墙上的裂缝。裂缝不在于没找到砖，而在于砌墙的手法出了问题。我们的任务就是仔细看每一道裂缝的形状，然后去强化那几条砌墙的规则——Prompt
+    的指令、模型的纪律、上下文的精炼度。修好了这些，RAG 才能真的做到“言之有据，据必可查”。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcngd3rxBY7gkpnWS2V2MwHIg
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "\U0001F50D 3. Faithfulness 持续偏低，但 Context Recall 很高，怎么排查和解决？"
+  imported_at: '2026-09-21'

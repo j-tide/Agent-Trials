@@ -1,0 +1,98 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a350b55bbb53
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚡ 在异步环境下，astream 如何配合 FastAPI 的 StreamingResponse 使用？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "⚡ 在异步环境下，astream 如何配合 FastAPI 的 StreamingResponse 使用？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    将 LangChain 的异步流式与 FastAPI 结合，是构建高性能 LLM 服务的关键。核心在于 astream 返回的是一个异步迭代器，而 FastAPI 的 StreamingResponse 可以接收一个异步生成器，实现服务端推送。
+
+    实现步骤：
+
+    - 确保 LLM 开启 streaming=True，并使用异步客户端（如 AsyncChatOpenAI）。
+
+    - 定义异步生成器函数：在函数内部使用 async for 遍历 chain.astream(input)，将每个 chunk 格式化为 SSE 消息，然后 yield。
+
+    - 路由返回 StreamingResponse，传入该生成器，并指定 media_type="text/event-stream"。
+
+    示例代码：
+
+    ```python
+    from fastapi import FastAPI
+    from fastapi.responses import StreamingResponse
+    from langchain_openai import ChatOpenAI
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_core.output_parsers import StrOutputParser
+    import json, asyncio
+
+    app = FastAPI()
+    llm = ChatOpenAI(model="gpt-3.5-turbo", streaming=True)  # 异步自动适配
+    prompt = ChatPromptTemplate.from_template("请解释：{topic}")
+    chain = prompt | llm | StrOutputParser()
+
+    async def event_generator(topic: str):
+        try:
+            async for chunk in chain.astream({"topic": topic}):
+                # 每个 chunk 是字符串
+                data = json.dumps({"token": chunk}, ensure_ascii=False)
+                yield f"data: {data}\n\n"
+                await asyncio.sleep(0)  # 让出控制权，避免阻塞事件循环
+        except asyncio.CancelledError:
+            # 客户端断开连接
+            pass
+        finally:
+            yield "data: [DONE]\n\n"
+
+    @app.get("/stream")
+    async def stream_endpoint(topic: str):
+        return StreamingResponse(event_generator(topic), media_type="text/event-stream")
+    ```
+
+    关键点：
+
+    - 必须使用 async for，否则 StreamingResponse 无法异步消费。
+
+    - await asyncio.sleep(0) 主动让出 CPU，保证高并发下的公平性，但不是必须。
+
+    - 捕获 asyncio.CancelledError 处理客户端断开，避免资源泄露。
+
+    - 生成器函数 event_generator 是异步的，FastAPI 会在后台通过事件循环驱动它。
+
+    踩坑提醒：如果 LLM 使用了同步的 stream 而不是 astream，FastAPI 会在线程池中执行，失去了异步的优势，高并发时性能会急剧下降。务必使用 AsyncChatOpenAI 或 ChatOpenAI 默认的异步支持。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CZWewxKPziW9NLkL7iBcV35cncy
+  block_id: O5IMdMuIboaEMrxxtOCc4DgMntg
+  page_token: CZWewxKPziW9NLkL7iBcV35cncy
+  original_title: "⚡ 在异步环境下，astream 如何配合 FastAPI 的 StreamingResponse 使用？"
+  imported_at: '2026-09-21'

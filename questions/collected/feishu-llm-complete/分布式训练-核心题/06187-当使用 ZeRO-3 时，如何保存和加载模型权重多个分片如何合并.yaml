@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3d6cab051771
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当使用 ZeRO-3 时，如何保存和加载模型权重？多个分片如何合并？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 当使用 ZeRO-3 时，如何保存和加载模型权重？多个分片如何合并？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO-3 下，每张 GPU 只持有 1/N 的模型参数（分片存储）。保存模型时，如果直接按分片保存，将产生 N 个分片文件，无法直接用于推理或迁移。
+
+    保存方法：
+
+    - 分片保存：每张卡将自己持有的参数分片保存为一个独立的 checkpoint 文件（通常包含模型参数和优化器状态）。这种保存速度最快，适合断点续训。
+
+    - 合并保存：在保存前，通过 AllGather 将各卡的参数分片收集到一张卡上（通常是 rank 0），合并为完整的模型权重，然后保存为标准的 HuggingFace 或 PyTorch 格式。这种保存会产生大量通信（全模型参数一次 AllGather），但方便后续使用。
+
+    DeepSpeed 提供的工具：
+
+    - 训练时设置 "stage3_gather_16bit_weights_on_model_save": true，DeepSpeed 会在保存模型时自动收集合并 FP16 权重，并保存为单个文件。
+
+    - 如果训练时没有合并，后续可以使用 DeepSpeed 提供的脚本 zero_to_fp32.py 进行离线合并。
+
+    加载方法：
+
+    - 从分片 checkpoint 恢复训练：加载各卡对应的分片文件和优化器状态，重新初始化 ZeRO-3 的进程组，然后继续训练。
+
+    - 加载为完整模型：将所有分片文件放在同一目录，使用 zero_to_fp32.py 或 HuggingFace 的 from_pretrained 加载合并后的权重。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: MLpid8cz4ooeLpxr8yPc9OY1nlC
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: 当使用 ZeRO-3 时，如何保存和加载模型权重？多个分片如何合并？
+  imported_at: '2026-09-21'

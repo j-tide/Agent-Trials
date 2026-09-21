@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5df93a4a37a9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用ZeRO‑3进行全参数微调时，前向和反向传播的通信开销如何？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 使用ZeRO‑3进行全参数微调时，前向和反向传播的通信开销如何？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO‑3 将参数分片到所有数据并行卡上，计算时需要实时收集所需参数。这带来了额外的通信开销。设模型总参数量为 Φ，数据并行度（ZeRO group 大小）为 N。
+
+    前向传播：
+
+    对于每一层，每张卡只持有该层参数的 1/N 分片。计算该层前向之前，需要通过一次 All‑Gather 将所有卡上的参数分片收集成全量参数副本。计算完成后，本地立即释放非自己分片的参数，以控制显存。因此，前向每层额外通信量为该层参数量，整个前向的通信量为 总参数量 Φ。
+
+    反向传播：
+
+    反向时，同样需要先 All‑Gather 该层的完整参数（通信量 Φ），计算该层梯度。然后执行一次 Reduce‑Scatter 操作，将各卡计算出的部分梯度按分片规则聚合，每张卡只得到自己负责的那部分参数的完整梯度。Reduce‑Scatter 的通信量也为 Φ。因此，反向每层总通信量为 2Φ。
+
+    总通信量 = 前向 Φ + 反向 2Φ = 3Φ。
+
+    作为对比，标准数据并行（无 ZeRO）只在反向传播结束时对梯度进行一次 All‑Reduce，通信量为 2Φ。因此，ZeRO‑3 的通信量是标准 DP 的 1.5 倍。
+
+    此外，ZeRO‑3 的通信是逐层发生的，会产生大量的小数据量通信，更容易受到网络延迟的影响。为了减轻这一影响，通常需要：
+
+    - 使用高带宽、低延迟的网络（如 InfiniBand）。
+
+    - 开启通信与计算重叠（如 DeepSpeed 的 overlap_comm）。
+
+    - 通过 bucketing 将小梯度合并后再通信（reduce_bucket_size 等参数）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: OFZ5dNorJoB0r5xRmNZchgDanCe
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 使用ZeRO‑3进行全参数微调时，前向和反向传播的通信开销如何？
+  imported_at: '2026-09-21'

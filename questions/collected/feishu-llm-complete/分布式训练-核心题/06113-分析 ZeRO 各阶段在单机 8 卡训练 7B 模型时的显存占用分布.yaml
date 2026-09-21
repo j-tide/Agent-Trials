@@ -1,0 +1,118 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1384fbf43b67
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分析 ZeRO 各阶段在单机 8 卡训练 7B 模型时的显存占用分布。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 分析 ZeRO 各阶段在单机 8 卡训练 7B 模型时的显存占用分布。
+answer:
+  mode: rubric
+  reference_answer: |-
+    以LLaMA-7B为例，FP16混合精度，假设激活值经过Gradient Checkpointing后约8GB。先计算单卡原始需求：
+
+    - 模型参数（FP16）：7B × 2 = 14GB
+
+    - 梯度（FP16）：14GB
+
+    - 优化器状态（FP32 m+v+master）：7B × 12 = 84GB
+
+    - 模型状态合计：112GB
+
+    - 激活值（GC后）：8GB
+
+    - 单卡总需求：120GB，远超80GB
+
+    ZeRO-1（分片优化器状态）：
+
+    - 优化器状态被8卡均分：84/8 = 10.5GB
+
+    - 参数和梯度仍为全量：14 + 14 = 28GB
+
+    - 模型状态：38.5GB
+
+    - 激活值：8GB
+
+    - 单卡总显存：46.5GB，训练可行
+
+    ZeRO-2（进一步分片梯度）：
+
+    - 梯度被8卡均分：14/8 = 1.75GB
+
+    - 优化器状态：10.5GB
+
+    - 参数仍全量：14GB
+
+    - 模型状态：26.25GB
+
+    - 激活值：8GB
+
+    - 单卡总显存：34.25GB，更加宽裕
+
+    ZeRO-3（进一步分片参数）：
+
+    - 参数被8卡均分：14/8 = 1.75GB
+
+    - 梯度：1.75GB
+
+    - 优化器状态：10.5GB
+
+    - 模型状态：14GB
+
+    - 激活值：8GB
+
+    - 单卡总显存：22GB，极度充裕
+
+    随着ZeRO阶段升高，单卡显存占用递减。但通信量递增：ZeRO-1仅需一次小规模AllGather更新参数，ZeRO-2增加了梯度的ReduceScatter，ZeRO-3更是在每层前向和反向各需要一次全参数AllGather。在8卡单机内，NVLink带宽足够支撑这些通信开销，ZeRO-3是训练7B模型的舒适选择。
+
+    - 分片优化器状态：360 GB / 8 = 45 GB per GPU
+
+    - 分片梯度：60 GB / 8 = 7.5 GB per GPU
+
+    - 全量参数：60 GB per GPU（未分片）
+
+    - 单卡模型状态总计：60 + 7.5 + 45 = 112.5 GB，仍超出80GB。因此纯ZeRO-2不行。
+
+    - 进一步分片模型参数：60 GB / 8 = 7.5 GB per GPU
+
+    - 梯度分片：7.5 GB
+
+    - 优化器状态分片：45 GB
+
+    - 单卡模型状态总计：7.5 + 7.5 + 45 = 60 GB，在80GB以内。激活值额外占用约10~20GB（取决于序列长度和batch size），使用梯度检查点后压缩到10GB以内，总显存约70GB，可行。
+
+    - 引入张量并行 (Tensor Parallelism, TP) 与 ZeRO-3 结合。例如设置TP=2，则模型在2卡间切分单层权重，数据并行度降为4。ZeRO-3可在此基础上进一步分片。
+
+    - 流水线并行 (Pipeline Parallelism, PP) 也可将层分配到不同设备，降低单卡存储层数。
+
+    - 典型配置：8卡分为2个TP组（每组4卡），组内TP切分注意力头和FFN维度；组间使用ZeRO-2/3数据并行。这样单卡参数和优化器状态都大幅减小，激活值也因TP切分而降低。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: HTS1dzewfoKUDhxp3UPcRdYPnIe
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 分析 ZeRO 各阶段在单机 8 卡训练 7B 模型时的显存占用分布。
+  imported_at: '2026-09-21'

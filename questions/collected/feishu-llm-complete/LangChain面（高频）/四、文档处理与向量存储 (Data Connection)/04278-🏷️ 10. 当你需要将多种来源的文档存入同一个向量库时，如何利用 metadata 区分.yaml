@@ -1,0 +1,102 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4556f38a40ef
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3F7️ 10. 当你需要将多种来源的文档存入同一个向量库时，如何利用 metadata 区分？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F3F7️ 10. 当你需要将多种来源的文档存入同一个向量库时，如何利用 metadata 区分？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    将多种来源的文档存入同一个向量库（如一个项目包含了 PDF、网页、数据库导出），关键在于元数据的规范化和检索时的过滤机制。设计良好的 metadata 可以让同一个向量库支持按来源、类型、时间等多维度的灵活检索，而无需为每个来源建立单独的库。
+
+    具体做法：
+
+    - 在加载阶段注入来源标识
+    每种加载器加载后，可以手动或自动增强 metadata。例如：
+
+    ```text
+    # 为 PDF 文档打标
+    pdf_docs = PyPDFLoader("report.pdf").load()
+    for doc in pdf_docs:
+        doc.metadata["source_type"] = "pdf"
+        doc.metadata["department"] = "finance"
+
+    # 为网页文档打标
+    web_docs = WebBaseLoader("https://example.com").load()
+    for doc in web_docs:
+        doc.metadata["source_type"] = "web"
+        doc.metadata["url"] = "https://example.com"
+
+    # 合并文档
+    all_docs = pdf_docs + web_docs
+    ```
+
+    - 统一 metadata 字段 Schema
+    在设计 metadata 时，尽量使用一致的字段名和类型。常见的字段有：
+
+    - 分割后 metadata 自动继承
+    使用 split_documents 方法，分割后的子文档会保留父文档的所有 metadata，无需手动处理。
+
+    - 检索时通过 metadata 过滤
+    向量库的 similarity_search 和 as_retriever 都支持传入 filter 参数，实现精准的范围限制：
+
+    ```text
+    # 直接搜索时过滤
+    docs = vectorstore.similarity_search(
+        "财务报告",
+        k=5,
+        filter={"source_type": "pdf", "department": "finance"},
+    )
+
+    # 或通过 retriever
+    retriever = vectorstore.as_retriever(
+        search_kwargs={
+            "k": 5,
+            "filter": {"source_type": "pdf", "language": "zh"},
+        },
+    )
+    ```
+
+    - 使用命名空间/集合隔离（可选）
+    如果来源差异巨大且通常一起检索的概率很低，也可以在同一个向量库实例内使用不同的 collection（如 Chroma）或 namespace（如 Pinecone），通过逻辑隔离达到物理隔离效果。但跨集合检索会比较麻烦，我个人更倾向用 metadata 过滤，简单统一。
+
+    经验总结：
+
+    - metadata 的结构要预先规划，保持扁平化，避免嵌套对象（多数向量库不支持深层嵌套过滤）。
+
+    - 为加快过滤速度，可以在向量数据库中为常过滤的字段（如 source_type, language）建立索引。
+
+    - 避免将 page_content 的大段文本复制到 metadata，浪费存储且无意义。metadata 只存结构化标识。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/I0Gnw9RQoiOa2yk59JjcwumPnrf
+  block_id: OyvEdd5ILotQxnxlcIWcnY42n2O
+  page_token: I0Gnw9RQoiOa2yk59JjcwumPnrf
+  original_title: "\U0001F3F7️ 10. 当你需要将多种来源的文档存入同一个向量库时，如何利用 metadata 区分？"
+  imported_at: '2026-09-21'

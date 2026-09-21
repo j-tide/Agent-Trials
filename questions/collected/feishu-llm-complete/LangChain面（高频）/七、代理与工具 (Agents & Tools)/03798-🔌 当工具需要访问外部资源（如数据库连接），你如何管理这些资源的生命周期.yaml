@@ -1,0 +1,95 @@
+---
+schema_version: 1
+id: feishu-llm-complete-44cd7e3ac8df
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50C 当工具需要访问外部资源（如数据库连接），你如何管理这些资源的生命周期？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "\U0001F50C 当工具需要访问外部资源（如数据库连接），你如何管理这些资源的生命周期？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    工具函数在执行时，往往需要数据库连接、网络会话、文件句柄等外部资源。管理这些资源的生命周期，核心是避免重复创建、确保正确关闭、以及在分布式环境中安全共享。
+
+    常用策略：
+
+    - 使用全局变量或单例模式（简单场景）
+
+    将数据库连接池或客户端实例化为全局变量，工具函数直接引用。优点是简单，缺点是资源会在模块加载时就创建，且测试时难以替换。
+
+    ```python
+    # 全局连接池，应用启动时初始化
+    db_pool = create_db_pool()
+
+    @tool
+    def query_db(sql: str) -> str:
+        with db_pool.get_connection() as conn:
+            return conn.execute(sql)
+    ```
+
+    - 通过闭包或类封装（推荐）
+
+    将资源作为外部变量注入到工具函数中，实现工具与资源的解耦。这便于单元测试（可注入 mock）和资源复用。
+
+    ```python
+    def make_query_tool(db_pool):
+        @tool
+        def query_db(sql: str) -> str:
+            with db_pool.get_connection() as conn:
+                return conn.execute(sql)
+        return query_db
+
+    # 初始化
+    pool = create_db_pool()
+    query_tool = make_query_tool(pool)
+    ```
+
+    - 利用 tool 的 return_direct 和上下文管理器
+    对于需要每次调用都初始化和清理的轻量资源，可以在函数内部使用 with 语句。对于重量级资源，务必在函数外部复用。
+
+    - 在 AgentExecutor 级别管理生命周期
+    通过自定义 CallbackHandler，在 on_agent_start 时创建资源，在 on_agent_finish 时销毁资源。但这会增加复杂度。
+
+    - 使用依赖注入框架
+    在复杂的应用中，可以引入依赖注入容器（如 dependency-injector），统一管理数据库、缓存等资源的生命周期。
+
+    ✅ 实践原则：
+
+    - 数据库连接、HTTP 客户端等昂贵资源必须复用，使用连接池。
+
+    - 文件句柄、临时缓存等应在使用后立即关闭。
+
+    - 永远不要在工具函数内部直接硬编码资源创建逻辑，否则测试和移植会非常痛苦。我通常采用“工厂函数”模式，将资源作为参数传入，生成工具。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZZIjwAYoMiY0VEk7JiDcIuK3nPb
+  block_id: PUCndgV5goNuqSx70jKcATYsnvd
+  page_token: ZZIjwAYoMiY0VEk7JiDcIuK3nPb
+  original_title: "\U0001F50C 当工具需要访问外部资源（如数据库连接），你如何管理这些资源的生命周期？"
+  imported_at: '2026-09-21'

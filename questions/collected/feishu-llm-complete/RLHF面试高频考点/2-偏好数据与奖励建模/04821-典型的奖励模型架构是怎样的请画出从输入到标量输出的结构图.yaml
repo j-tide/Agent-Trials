@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c650fce2f6f0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 典型的奖励模型架构是怎样的？请画出从输入到标量输出的结构图。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 2-偏好数据与奖励建模
+tags: &1
+- RLHF面试高频考点
+- 2-偏好数据与奖励建模
+content:
+  prompt: 典型的奖励模型架构是怎样的？请画出从输入到标量输出的结构图。
+answer:
+  mode: rubric
+  reference_answer: |-
+    [图片内容未导入]
+
+    典型的奖励模型（RM）架构共享了预训练语言模型的主体，但在输出层进行了定制化改造。
+
+    结构图文字描述：
+
+    ```text
+    [Prompt + Response] → Token Embedding → Transformer Decoder (SFT权重) → 最后一层隐藏状态 → Pooling → Linear → Scalar Reward
+    ```
+
+    详细分步解析：
+
+    - 输入：将 prompt 和待评估的 response 拼接成一个完整的序列。通常格式为 [CLS] prompt [SEP] response [SEP]（或等效的特殊标记）。整个序列的长度等于 prompt 的 token 数加上 response 的 token 数。与 SFT 模型不同，RM 不需要进行自回归生成，只需进行一次编码前向传播。
+
+    - 词嵌入与位置编码：完全复用 SFT 模型训练好的嵌入层和位置编码矩阵，确保对文本的基础理解与 Actor 完全一致。
+
+    - Transformer 主体：这是一个标准的多层 Transformer 解码器结构。这里的“解码器”是指它使用的掩码机制（causal mask），但在 RM 的训练和推理中，我们并不进行自回归生成，而是一次性输入整个序列。模型会计算每个 token 位置的上下文表示。所有参数都从 SFT 模型初始化，并保留可训练状态。
+
+    - 池化层：从最后一层隐藏状态中提取一个固定维度的向量，代表整个序列的“总结性表示”。最常见的做法是取最后一个 token（即 EOS token 或 SEP token）的隐藏状态。因为自注意力机制使得这个 token 的关注范围内包含了前面的所有信息，它天然是一个序列级别的摘要。或者，也可以对最后几个 token 的隐藏状态做平均池化、注意力池化或最大池化。实践中最简单的 last-token pooling 效果就很好。
+
+    - 线性头：将池化后的向量（维度为隐藏层维度 d_model）通过一个简单的线性层（d_model → 1），直接输出一个标量值。这个标量值就是该 prompt-response 对的奖励分数 r。这个线性头通常是最小规模的参数（仅几千个），这也是 RM 能够高效微调的关键。
+
+    关键设计选择：
+
+    - 为什么不是双塔分别编码 prompt 和 response？因为 prompt 和 response 之间的语义交互非常复杂，将它们拼接后送入统一的 Transformer 进行深度交互，远比分别编码后进行简单交互（如点积）更具表达力。这种单塔融合架构是当前 RM 的绝对主流。
+
+    - 因此，奖励模型的本质就是一个带有标量输出头的、冻结了部分层或全部微调的 SFT 模型。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KFgpwxoYei4VBPkDUJfcFKLLnVf
+  block_id: HCbBd3SMyoo6wqxipWFcYZNbn9g
+  page_token: KFgpwxoYei4VBPkDUJfcFKLLnVf
+  original_title: 典型的奖励模型架构是怎样的？请画出从输入到标量输出的结构图。
+  imported_at: '2026-09-21'

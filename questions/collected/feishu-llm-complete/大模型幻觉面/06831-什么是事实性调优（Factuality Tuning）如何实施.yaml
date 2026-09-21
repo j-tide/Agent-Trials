@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4a8ea8b678ea
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“事实性调优”（Factuality Tuning）？如何实施？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型幻觉面
+derived_topic: 
+tags: &1
+- 大模型幻觉面
+content:
+  prompt: 什么是“事实性调优”（Factuality Tuning）？如何实施？
+answer:
+  mode: rubric
+  reference_answer: |-
+    事实性调优是在基础模型完成指令微调（或偏好对齐）之后，专门针对提高其生成内容事实准确性而进行的一轮或多轮参数微调。其核心是将“真实性”作为显式的优化目标，有别于一般的有用性和安全性调优。
+
+    实施步骤与方法：
+
+    （1）构建事实性评估与奖励数据集
+
+    - 收集大量开放域问题，这些问题覆盖广泛的知识领域，并包含容易产生幻觉的类型（如长尾事实、数值、时间）。
+
+    - 对每个问题，生成多个模型回复，然后使用自动化事实核查手段（如检索增强的FActScore计算、与维基百科NLI比对）或人工标注，为每个回复打上“事实性得分”。
+
+    - 整理成偏好对：即对于同一个问题，一个高事实性回复（通常是被知识库支撑，或正确说“不知道”）和一个低事实性回复（包含幻觉）。
+
+    （2）基于偏好的事实性调优（如DPO）
+
+    - 使用上述事实性偏好数据集，应用直接偏好优化（DPO） 训练模型。优化目标为增加高事实性回复的相对概率，同时降低低事实性回复的概率。
+
+    - 损失函数驱动模型自身策略向“更真实”的方向偏移，而无需单独训练奖励模型。
+
+    （3）强化学习式的事实性调优
+
+    - 训练一个事实性奖励模型：使用人类标注或自动化事实性得分作为标签，微调一个预训练模型来预测给定回复的事实性评分。
+
+    - 然后使用 PPO 等 RL 算法，优化生成策略以最大化该事实性奖励，同时施加 KL 惩罚防止偏离原始有用分布过度。奖励中可以增加“拒答奖励”，鼓励模型在不确定时表达不确定性。
+
+    （4）多任务事实性微调
+
+    - 将事实性任务（如事实验证、实体链接）与生成任务混合进行微调。要求模型在生成内容后附加一个“事实核查”步骤并自我纠正。例如，在输出中生成“<claim>... <verify>...</verify>”的结构，通过这个隐式过程提高最终输出的事实性。
+
+    （5）迭代自我改进
+
+    - 使用当前模型生成大量回答，用自动化事实核查系统过滤，保留高事实性回答作为新的训练数据，进行自我蒸馏式的事实性调优。反复多轮，逐步剥离幻觉。
+
+    （6）知识注入辅助调优
+
+    - 在调优时，同时输入相关检索文档（训练RAG式的生成），让模型学会在获得证据时生成更忠实、准确的回答。通过这种方法固化“遵循证据”的行为。
+
+    挑战：事实性奖励模型的准确性至关重要；过度优化可能导致模型变得保守，有用性下降。因此常结合“帮助性”奖励进行多目标调优。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Irfsw2cRail5NekqfrKci2KYn4T
+  block_id: X2ijd9mSOo41VYxe0lOcjT93nMg
+  page_token: Irfsw2cRail5NekqfrKci2KYn4T
+  original_title: 什么是“事实性调优”（Factuality Tuning）？如何实施？
+  imported_at: '2026-09-21'

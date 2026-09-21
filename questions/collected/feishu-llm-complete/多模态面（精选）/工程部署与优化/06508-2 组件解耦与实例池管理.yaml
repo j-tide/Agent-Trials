@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c5196c2ba62a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 1.2 组件解耦与实例池管理
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 1.2 组件解耦与实例池管理
+answer:
+  mode: rubric
+  reference_answer: |-
+    视觉编码器服务：负责图像编码，将原始像素转换为视觉 token。由于视觉编码器参数小、延迟低，可部署在较便宜的 GPU（如 T4）或甚至 CPU 上（如果使用轻量模型）。实例池按图像分辨率分组，例如 224×224 池和 336×336 池，路由时根据请求分辨率选择。
+
+    LLM 服务：负责多模态推理和文本生成。LLM 参数巨大，显存占用高，是资源瓶颈。实例池通常采用 PagedAttention 引擎（如 vLLM）管理 KV 缓存，支持 Continuous Batching 以提高吞吐。每个 LLM 实例绑定若干 GPU（根据模型大小使用张量并行或流水线并行）。
+
+    扩散模型服务（如果有）：负责文生图任务。由于扩散模型迭代步数多，延迟较高，通常独立成池，可部署在专用 GPU 上并使用 LCM 或 TensorRT 加速。
+
+    实例池管理：
+
+    - 使用 Kubernetes + KEDA 实现自动扩缩容：根据 GPU 利用率、请求队列深度等指标动态调整 Pod 数量。
+
+    - 每个模型服务维护独立的 Deployment，通过 HorizontalPodAutoscaler 设置扩缩容阈值。
+
+    - 对于 LLM 等冷启动慢的服务，设置 预热池（保持若干空闲 Pod 待命）以避免突发流量时的冷启动延迟。
+
+    - 使用 连接池 和 gRPC 流 实现客户端与服务端之间的高效通信。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MBXGwHbIji6laOkvmpvc08ApnAg
+  block_id: XlZ8dTacxoHwhHxEodAc9uTLn6g
+  page_token: MBXGwHbIji6laOkvmpvc08ApnAg
+  original_title: 1.2 组件解耦与实例池管理
+  imported_at: '2026-09-21'

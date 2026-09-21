@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-88fcf02267e7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果 Reward Model 的输出不是一个值而是一个向量（如分段奖励），Critic 应如何设计？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: 如果 Reward Model 的输出不是一个值而是一个向量（如分段奖励），Critic 应如何设计？
+answer:
+  mode: rubric
+  reference_answer: |-
+    [图片内容未导入]
+
+    设计一：线性加权后再接标量 Critic
+    这是最直接的做法。在训练 PPO 时，我们用一个固定的权重向量 w 将多维度奖励融合成一个标量 r=w⊤r。然后，Critic 仍然保持原样，即输出一个标量价值 V(s)，去拟合这个标量化的综合回报。这允许我们在推理时通过调整权重来动态改变模型的偏好（例如儿童模式更看重安全性）。
+
+    设计二：向量价值 Critic (Vectorized Critic)
+
+    [图片内容未导入]
+
+    设计三：多头共享底座 Critic
+
+    Critic 主体仍然是一个 Transformer，但顶部有多个标量头，每个头对应 RM 的一个维度。它们共享底层表示，但各自独立预测各维度的价值。这兼具了参数效率和多维评估的精细度。
+
+    关键考虑：
+
+    - 维度相关性：不同维度的奖励可能具有相关性（如流畅的回答通常也有用）。向量价值 Critic 可以通过参数共享来捕捉这些关系。
+
+    - 训练难度：多维输出的训练目标更复杂，可能需要进行维度间的平衡，防止某个维度的损失主导训练。同时，需要引入多维度的价值裁剪。
+
+    - 信用分配：多维价值可以让我们更细粒度地分析模型的行为。例如，Actor 的哪些动作提高了安全性，却可能损害了有用性，这在单标量 Critic 下是无法区分的。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UCjewCVubi1tThkQzKzczCP2nyc
+  block_id: KtOJdvuvRoSl6Ex25fdcNl7HnPf
+  page_token: UCjewCVubi1tThkQzKzczCP2nyc
+  original_title: 如果 Reward Model 的输出不是一个值而是一个向量（如分段奖励），Critic 应如何设计？
+  imported_at: '2026-09-21'

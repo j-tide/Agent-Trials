@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2f4459a4c3c9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F39A️ 奖励归一化：为什么在 PPO 中必须对奖励进行 Z-score 标准化？写出公式并说明其稳定效果。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "\U0001F39A️ 奖励归一化：为什么在 PPO 中必须对奖励进行 Z-score 标准化？写出公式并说明其稳定效果。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 RLHF 的 PPO 中，奖励模型的输出尺度通常不稳定，可能在不同批次间出现大幅波动（有的批次平均奖励为 3，另一批则为 -1）。如果不进行归一化，这些尺度变化会直接传导到优势函数和策略梯度，导致训练震荡甚至崩溃。
+
+    公式：
+
+    [图片内容未导入]
+
+    效果：
+
+    - 消除绝对尺度影响：归一化后奖励均值为 0，标准差为 1。这使得无论 RM 原始输出范围是 [-2, 2] 还是 [0, 10]，优势信号的量级都保持一致，从而使得学习率、KL 系数等超参数在不同 RM 版本、不同训练阶段之间具有良好的迁移性。
+
+    - 降低方差：不同 prompt 难度差异巨大，有的 prompt 无论怎么回答 RM 都打高分，有的则普遍低分。批次内归一化通过减去均值，自动地为每个 prompt 提供了难度基线——相当于告诉模型“在这个 prompt 上，你相对平均表现是好是坏”。这大幅减少了 prompt 难度差异造成的梯度噪声。
+
+    - 防止优势极端值：当个别序列获得极高或极低奖励时，归一化将其拉回合理范围，防止这些离群值主导整个批次的梯度更新，避免模型朝异常方向突跳。
+
+    实践建议：
+
+    - 归一化在计算 GAE 之前对最终序列奖励进行，中间 token 的即时奖励（如 KL 惩罚）一般不参与归一化。
+
+    - 在分布式训练中，各 GPU 上的局部奖励统计需通过 AllReduce 聚合为全局均值和标准差，确保所有 rank 使用相同的归一化参数。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SrIPwt6g4iOx8zkf5StcnDK8nCc
+  block_id: ZdNzdGfDPow7rYxWXULcB6sWnad
+  page_token: SrIPwt6g4iOx8zkf5StcnDK8nCc
+  original_title: "\U0001F39A️ 奖励归一化：为什么在 PPO 中必须对奖励进行 Z-score 标准化？写出公式并说明其稳定效果。"
+  imported_at: '2026-09-21'

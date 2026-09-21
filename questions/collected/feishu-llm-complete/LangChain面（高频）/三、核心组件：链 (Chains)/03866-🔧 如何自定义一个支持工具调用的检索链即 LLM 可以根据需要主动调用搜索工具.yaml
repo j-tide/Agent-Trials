@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2dd58361636b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F527 如何自定义一个支持工具调用的检索链？即 LLM 可以根据需要主动调用搜索工具。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "\U0001F527 如何自定义一个支持工具调用的检索链？即 LLM 可以根据需要主动调用搜索工具。"
+answer:
+  mode: rubric
+  reference_answer: "这本质上是创建一个 Agent，而不是普通的 Chain。Agent 的核心是让 LLM 决定何时、用何参数调用哪个工具。\n\n实现步骤：\n\n-
+    定义工具：将你的检索器封装为 Tool 对象。\n\nfrom langchain.tools import Tool\nfrom langchain.vectorstores
+    import Chroma\nfrom langchain.embeddings import OpenAIEmbeddings\n\nvectorstore
+    = Chroma(...)\nretriever = vectorstore.as_retriever()\n\ndef retrieve_docs(query:
+    str) -> str:\n    docs = retriever.get_relevant_documents(query)\n    return \"\\n\\n\".join([d.page_content
+    for d in docs])\n\nsearch_tool = Tool(\n    name=\"知识库检索\",\n    func=retrieve_docs,\n
+    \   description=\"当需要查找特定信息、事实或概念时使用此工具。输入应为自然语言查询。\"\n)\n\n- 创建 Agent：使用 create_openai_functions_agent
+    或 create_react_agent，将工具列表传入。\n\nfrom langchain.agents import create_openai_functions_agent,
+    AgentExecutor\nfrom langchain import hub\n\nprompt = hub.pull(\"hwchase17/openai-functions-agent\")\nllm
+    = ChatOpenAI(model=\"gpt-4\", temperature=0)\nagent = create_openai_functions_agent(llm,
+    [search_tool], prompt)\nagent_executor = AgentExecutor(agent=agent, tools=[search_tool],
+    verbose=True)\n\n- 运行：Agent 会自动处理用户输入，如果需要，它会生成一个包含工具调用的消息，LangChain 拦截执行你的 retrieve_docs
+    函数，并将结果返回给 LLM 继续生成最终答案。\n\n- 自定义工具调用逻辑：如果你需要在检索前后加入额外处理（如过滤、重排序），可以在工具函数内部实现，或者使用
+    Tool 的 coroutine 实现异步。你也可以限制 LLM 的调用次数（max_iterations），防止无休止调用。\n\n\U0001F680
+    高级用法：可以构建多工具协作，如一个工具返回文档列表，另一个工具返回文档摘要，让 Agent 自己选择用哪个。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Jb18witLXiiZV0kzYmccDNKDntb
+  block_id: PRoudxGtzo2j2lxSlVQceWrtnFb
+  page_token: Jb18witLXiiZV0kzYmccDNKDntb
+  original_title: "\U0001F527 如何自定义一个支持工具调用的检索链？即 LLM 可以根据需要主动调用搜索工具。"
+  imported_at: '2026-09-21'

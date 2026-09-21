@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b80c78749868
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么 ZeRO-2 的梯度分片能进一步节省显存？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 为什么 ZeRO-2 的梯度分片能进一步节省显存？
+answer:
+  mode: rubric
+  reference_answer: |-
+    答案非常直接：因为不再需要为所有参数存储完整的梯度。
+
+    在标准DP或ZeRO-1中，梯度是完整存储的——每张卡都要为模型的每一个参数保留一份梯度，直到优化器更新完成。对于一个7B模型，这意味着一笔14GB的固定显存开销，且在整个反向传播和更新期间持续占用。
+
+    ZeRO-2改变了这个模式。梯度不再是一份持久保留的完整副本，而是在反向传播过程中被逐层“消费”掉：
+
+    - 当某一层梯度计算完成后，立即通过ReduceScatter归约并分片。
+
+    - 归约完成后，该层的完整梯度即被释放，每张卡只保留自己分片的一小部分。
+
+    - 当所有层都处理完毕，每张卡的梯度总占用仅为完整梯度的1/N（8卡时为1.75GB）。
+
+    从显存角度看，梯度占用从14GB降至1.75GB，释放了12.25GB。这笔空间可以用来增大微批次大小、延长序列长度，或者配合Gradient Checkpointing进一步压缩激活值。加上ZeRO-1已经节省的优化器状态（从84GB降至10.5GB），模型状态总显存从112GB降至26.25GB，降幅达76.6%。这就是ZeRO-2能比ZeRO-1训练更大模型的原因。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: GbC9dZu7xoiPqFxL6aoczon0nVg
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: 为什么 ZeRO-2 的梯度分片能进一步节省显存？
+  imported_at: '2026-09-21'

@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0e59a9c81f12
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3E2 在多租户场景下，缓存应该如何隔离？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F3E2 在多租户场景下，缓存应该如何隔离？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    多租户隔离核心是保证租户 A 的数据不会通过缓存泄露给租户 B。隔离策略从强到弱：
+
+    - 物理隔离：为每个租户提供独立的缓存实例（如独立的 Redis DB 或内存表）。最安全，但资源开销大。
+
+    - 逻辑隔离（Key 前缀）：所有缓存 Key 加上 tenant_id 前缀。这样不同租户的相同 Prompt 会生成不同的 Key。这是成本和安全之间的平衡点。
+
+    ```python
+    class TenantAwareRedisCache(RedisCache):
+        def __init__(self, tenant_id, redis_):
+            super().__init__(redis_)
+            self.tenant_id = tenant_id
+
+        def _key(self, prompt, llm_string):
+            base = super()._key(prompt, llm_string)
+            return f"{self.tenant_id}:{base}"
+    ```
+
+    - 基于会话的缓存：将 session_id 加入 Key，但会话结束后要清理，否则资源浪费。
+
+    - 请求级注入：通过 per_req_config_modifier 在 LangServe 中注入 tenant_id，链内部读取并传递给缓存。适合无状态服务。
+
+    - 禁止跨租户的语义缓存：语义缓存极易导致跨租户污染，在多租户场景下应禁用或严格限制相似度阈值。
+
+    额外考量：缓存的数据过期后，是否已彻底删除？需要考虑 Redis 的持久化备份是否也会泄露。
+
+    经验：我们的处理方式是：公共知识缓存全局共享，个性化缓存添加 tenant_id 前缀，并且对于包含敏感关键词的 Prompt 直接跳过缓存。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VWvFwnt5pi19m7ky7Udc0PatnRe
+  block_id: VIeCdmkKno6L4Bx0E5BciEd1n6f
+  page_token: VWvFwnt5pi19m7ky7Udc0PatnRe
+  original_title: "\U0001F3E2 在多租户场景下，缓存应该如何隔离？"
+  imported_at: '2026-09-21'

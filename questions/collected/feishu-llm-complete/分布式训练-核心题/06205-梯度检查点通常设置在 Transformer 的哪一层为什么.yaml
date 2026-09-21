@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-310eff4a0d89
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 梯度检查点通常设置在 Transformer 的哪一层？为什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 梯度检查点通常设置在 Transformer 的哪一层？为什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    通常设置在整个Transformer层的粒度，即以一个完整的Transformer块（包含自注意力和FFN，或Pre-Norm下的子层）作为检查点单元。原因有三：
+
+    最大显存节省：一个Transformer层内部产生的中间激活是整个网络激活值的绝对主体。注意力矩阵（[batch, heads, L, L]）和FFN的中间输出（[batch, L, 4*hidden]）占用了最大头。将整层设为检查点，这些大张量全部丢弃，节省效果最显著。
+
+    重计算粒度适中：如果以更细的粒度（比如注意力层和FFN层分别设检查点），虽然可以更灵活，但实现复杂，而且会增加重计算的次数（额外前向传播会增多）。如果以更粗的粒度（比如几层一起），则重计算时需要重跑好几层，额外计算量更大。单层检查点在计算开销和显存节省之间取得了最佳平衡。
+
+    实现简洁：现代框架（如PyTorch的torch.utils.checkpoint）可以非常方便地将一个nn.Module标记为检查点，只需在forward调用时包裹即可。以层为单位最自然。
+
+    例外：有时候我们会对嵌入层（Embedding）和输出层（LM Head）单独处理，因为这些层的激活值通常不大，而且参数量巨大，重计算代价高，通常不作为检查点。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HfoZwdjz1iRNmPkiI3icQQafnve
+  block_id: ILXNdXIk2oEg5sxzpnmc17nqnrb
+  page_token: HfoZwdjz1iRNmPkiI3icQQafnve
+  original_title: 梯度检查点通常设置在 Transformer 的哪一层？为什么？
+  imported_at: '2026-09-21'

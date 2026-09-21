@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-64635ee700ab
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 静态量化需要准备什么？校准数据集的作用。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 静态量化需要准备什么？校准数据集的作用。
+answer:
+  mode: rubric
+  reference_answer: |-
+    静态量化需要额外的校准步骤来确定激活值的量化参数。需要准备：
+
+    - 校准数据集：一小部分有代表性的、不带标签的输入数据（例如从训练集中随机抽取的几百个样本）。它不需要覆盖整个分布，但要能反映模型在真实场景下激活值的典型范围。
+
+    - 量化配置（QConfig）：指定量化策略，如激活的观察器（Observer）类型（MinMaxObserver, MovingAverageMinMaxObserver等）和权重的量化方案。
+
+    校准数据集的作用：
+
+    - 通过在模型的前向传播中运行校准数据，收集每一层激活值的统计信息（如最小值、最大值）。
+
+    - 这些统计信息被用于计算激活值的量化参数 scale 和 zero_point，使得激活值能在INT8范围内被有效表示，同时最小化信息损失。
+
+    - 校准过程通常只需要运行几十到几百个batch，不需要计算梯度。
+
+    基本流程：
+
+    - 准备浮点模型，并将其设置为 eval()。
+
+    - 在模型上插入量化观察器，通常通过 torch.quantization.prepare 完成。
+
+    - 在校准数据集上运行推理，收集激活统计量。
+
+    - 调用 torch.quantization.convert 将模型转换为量化模型，此时观察器被移除，权重和激活的量化参数被固化。
+
+    示例代码：
+
+    ```python
+    model.eval()
+    model.qconfig = torch.quantization.get_default_qconfig('fbgemm')
+    torch.quantization.prepare(model, inplace=True)
+    # 校准
+    for inputs, _ in calibration_loader:
+        model(inputs)
+    torch.quantization.convert(model, inplace=True)
+    ```
+
+    注意：静态量化对模型结构有一定要求，例如需要将加法和拼接等操作替换为量化友好的形式（如 torch.nn.quantized.FloatFunctional）。PyTorch提供了自动融合工具（torch.quantization.fuse_modules）来合并常见的Conv+BN+ReLU等模式，以提高量化效率。由于静态量化复杂性较高，现在更推荐使用 torch.fx 或更上层的 torch.ao.quantization API。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WSlbwtUNQiNbKakCLPDcsZ9Hnsg
+  block_id: LRgldOuXOonrcDx0SDEcUXlnnMb
+  page_token: WSlbwtUNQiNbKakCLPDcsZ9Hnsg
+  original_title: 静态量化需要准备什么？校准数据集的作用。
+  imported_at: '2026-09-21'

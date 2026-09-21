@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-209575e2e112
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么有些参数（如 bias、LayerNorm 的权重）不进行权重衰减？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 为什么有些参数（如 bias、LayerNorm 的权重）不进行权重衰减？
+answer:
+  mode: rubric
+  reference_answer: |-
+    权重衰减（Weight Decay）通过对损失函数添加L2正则项，引导参数在每次更新后向零方向收缩，其本质假设是参数应该尽可能小。这一假设对某些参数并不成立。
+
+    ### 不适用的参数类型
+
+    - 偏置项 (bias)：偏置的作用是平移激活函数的输出分布，使其更好地拟合数据。限制偏置为零会严重限制模型的表达能力。例如，对于ReLU神经元，若偏置为零且输入全为负，则该神经元将永久死亡。
+
+    - LayerNorm 的缩放参数 (γ) 和偏移参数 (β)：LN层的γ用于恢复归一化后的数据尺度，β用于恢复均值偏移。强制其衰减为零会破坏归一化的效果，导致每层输出被不恰当地缩放，阻碍梯度传播。
+
+    - 嵌入层 (Embedding)：嵌入向量表示离散token的语义，其模长通常与词频等信息相关。对嵌入层施加权重衰减，特别是对低频词，会迫使其趋向于零，损害表示能力。
+
+    ### 实践准则
+
+    所有主流框架（PyTorch的AdamW、HuggingFace的Trainer）和模型（BERT, GPT, LLaMA）的默认配置中，均将bias和LayerNorm参数设置为无权重衰减。这是经过大量实验验证的稳定实践，通常只需对权重矩阵（如全连接层、卷积层）应用衰减。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Yto8wfa8ti5TgZktU1YczVp7nme
+  block_id: GAVDdSfP1oAh3KxzDEEcthZlnUI
+  page_token: Yto8wfa8ti5TgZktU1YczVp7nme
+  original_title: 为什么有些参数（如 bias、LayerNorm 的权重）不进行权重衰减？
+  imported_at: '2026-09-21'

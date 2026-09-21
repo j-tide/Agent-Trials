@@ -1,0 +1,124 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0fd43e9ca299
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F511 生产环境中 LLM API Key 的安全管理与泄漏处理"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 评测篇
+tags: &1
+- AI Agent精选八股文
+- Agent 评测篇
+content:
+  prompt: "\U0001F511 生产环境中 LLM API Key 的安全管理与泄漏处理"
+answer:
+  mode: rubric
+  reference_answer: |-
+    API Key 是调用大模型的“金钥匙”，一旦泄漏，攻击者可以盗刷你的额度、窃取业务数据，甚至用你的身份生成违规内容。因此必须像保护数据库密码一样保护它，并做好泄漏后的应急响应。
+
+    2.1 安全管理：从不落地到动态轮转
+
+    原则：Key 决不出现在代码、配置文件、日志、客户端代码中。只存在于密钥管理服务和运行时环境变量。
+
+    具体措施：
+
+    - 环境变量注入：通过 K8s Secrets 或云服务的密钥管理（AWS Secrets Manager、Azure Key Vault）注入容器，应用启动时读取。
+
+    - 专用服务账号：为每个环境（开发、测试、生产）和每个应用创建不同的 API Key，权限最小化（如只给 Chat Completion 权限，不给 Fine-tune 权限）。
+
+    - API 网关代理：不直接让应用调用 OpenAI 等公网 API，而是在内部搭建一个 LLM API 网关，应用只需持有网关的认证凭证。网关统一管理上游的多个 Key，做限流、计费、审计。应用代码完全不接触真实的 LLM Key。
+
+    - 定期轮转：设置 Key 的有效期，到期自动轮转。如果使用的平台不支持自动过期，在内部系统中设定日历提醒，每 90 天手工轮转一次。
+
+    - 日志脱敏：在日志中间件中自动扫描并替换掉任何泄露的 Key 模式（如 sk- 开头）。
+
+    架构示例：使用 API 网关隔离真实 Key
+
+    Agent 应用 → (内网 JWT) → LLM API Gateway → (解密后注入真实 Key) → OpenAI/Azure
+                                     ↑
+                            从 Vault 中获取真实 Key
+
+    2.2 泄漏应急响应：三分钟内止损
+
+    发现 Key 泄漏（例如 GitHub 上出现了 sk-xxx，或者监控到异常调用量），必须立即行动。
+
+    应急响应 SOP：
+
+    - 立即吊销：登录 LLM 平台，立刻点击 “Revoke” 或通过 API 吊销该 Key。这是唯一能彻底阻止损失的操作。同时，如果使用了网关，直接在网关层禁用该 Key 的路由。
+
+    - 评估影响范围：通过平台的 Usage 日志，拉取该 Key 最近的使用记录，分析泄漏时间、调用量、调用了哪些模型、生成了什么内容（部分平台提供日志审计）。确定是否有数据外泄或违规内容生成。
+
+    - 生成新 Key 并部署：创建新 Key，更新密钥管理服务中的值，并触发依赖服务的滚动重启（如果未使用动态加载）。
+
+    - 根因分析：查清楚 Key 是怎么泄漏的——是硬编码在代码里、贴到了 Issue 里、还是日志没打码。根据根因修补流程漏洞（例如加强代码扫描、Git hooks 检查 secret）。
+
+    - 通知与合规：如果涉及用户数据或法规（如 GDPR），按公司流程通知安全部门和法务。
+
+    自动化防泄漏检测：
+
+    - Git 预提交钩子：集成 detect-secrets 或 git-secrets，在 git commit 时自动扫描是否误提交了 Key。
+
+    - CI/CD 管道扫描：在 CI 中运行 truffleHog 或 Gitleaks，对代码仓库历史进行全量扫描。一旦发现，立即阻断流水线并告警。
+
+    - 运行时异常监控：在 Prometheus 中监控 LLM 调用的 QPS 和 Token 消耗速率，若出现异常飙升（如 5 分钟内用量超过过去 24 小时的均值 3 倍），立即告警并触发自动吊销程序。
+
+    示例：用 Gitleaks 在 CI 中扫描密钥
+
+    # .github/workflows/secret-scan.yml
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks Scan
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          config-path: .gitleaks.toml
+
+    收束：API Key 的安全管理，70% 靠架构（不落盘、用网关），20% 靠流程（权限最小化、定期轮转），10% 靠应急响应（秒级吊销）。把它当成数据库 root 密码来对待，你的 AI 应用才不会因为一串字符泄露而变成他人的免费算力。
+
+    - 规避：交换两个回答的顺序各评一次，取平均分；或者改为分项绝对打分，不直接比较。
+
+    - 规避：在量规中明确“简洁性”也是加分项，或在 prompt 中提示“长度不等于质量”。
+
+    - 规避：引入其他模型家族（如 Claude）作为第二裁判，或使用人工校准的基线样本进行分数标准化。
+
+    - 规避：每次评分时，在 prompt 中附带 2-3 个标准示例（anchor examples）及其正确分数，让裁判以此为参考。
+
+    - 简单意图：闲聊、简单问答、已知工具的基础调用。
+
+    - 中等复杂度：需要一定推理、多步工具组合但模板化程度高。
+
+    - 高复杂度：开放域推理、多跳工具、需要深度理解。
+
+    - simple → 本地部署的 Qwen2-7B（成本趋近于零）。
+
+    - medium → GPT-3.5-Turbo 或等效中等模型。
+
+    - complex → GPT-4 或 Claude Opus。
+    同时加入置信度阈值：小模型生成的回答会经过基础质量检查（是否有有效内容、拒绝回答、格式错误），不合格自动 fallback 到大一级模型。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EBEUwm9Tbio9C5kSaXBcx6DHn2b
+  block_id: doxcn94gjlI5C6dOpKyQJ6DJRzf
+  page_token: EBEUwm9Tbio9C5kSaXBcx6DHn2b
+  original_title: "\U0001F511 生产环境中 LLM API Key 的安全管理与泄漏处理"
+  imported_at: '2026-09-21'

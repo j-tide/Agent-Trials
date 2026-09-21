@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b4560d91307e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么 Decode 阶段通常是显存带宽受限的，而非计算受限？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: 为什么 Decode 阶段通常是显存带宽受限的，而非计算受限？
+answer:
+  mode: rubric
+  reference_answer: |-
+    要理解这个问题，可以想象一个仓库管理员。他的工作不是自己生产东西，而是每收到一张新订单（一个 token），就跑到巨大的仓库（显存）里，把整个产品目录（模型权重）和所有客户的档案（KV Cache）都搬出来，核对一下，然后只做一点点更新工作。
+
+    - 计算量极小：在 Decode 阶段，每次只处理一个新 token。矩阵乘法的维度很小，比如 [1, 4096] × [4096, 4096]，这种计算对 GPU 来说连热身都算不上。
+
+    - 数据搬运量极大：为了完成这点微小的计算，GPU 必须从显存中读取整个模型权重（7B 模型约 14 GB）和迄今为止的全部 KV Cache（在长序列下可达数 GB）。
+
+    - 硬件能力严重错配：以 NVIDIA A100 为例，它的 FP16 算力高达 312 TFLOPS（每秒 312 万亿次计算），但显存带宽“只有”2 TB/s（每秒 2 万亿字节）。这意味着，每从显存搬运 1 个字节的数据，就需要完成约 150 次浮点运算，才能让计算单元不闲着。而在 Decode 阶段，搬完所有数据后能做的计算量远远达不到这个比例，导致绝大多数计算单元空转等待。
+
+    工程直觉：可以将 Decode 阶段想象成一个给超级跑车加油的过程。车的速度（算力）极快，但加油枪的流速（带宽）很慢，车大部分时间都停在加油站，而不是在赛道上飞驰。因此，任何提升带宽利用率、减少数据搬运量的技术（如 GQA、KV Cache 量化、FlashAttention）对 Decode 的加速效果，远比提升算力本身显著。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C0pNwQLAmiNN2tkVnWGccLYLns0
+  block_id: MRuwdrF3zocHVdxqLjbcQAfhnEd
+  page_token: C0pNwQLAmiNN2tkVnWGccLYLns0
+  original_title: 为什么 Decode 阶段通常是显存带宽受限的，而非计算受限？
+  imported_at: '2026-09-21'

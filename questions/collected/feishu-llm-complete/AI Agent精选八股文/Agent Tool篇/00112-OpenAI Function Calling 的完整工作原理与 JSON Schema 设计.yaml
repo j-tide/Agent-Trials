@@ -1,0 +1,185 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e298720038d2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: OpenAI Function Calling 的完整工作原理与 JSON Schema 设计
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent Tool篇
+tags: &1
+- AI Agent精选八股文
+- Agent Tool篇
+content:
+  prompt: OpenAI Function Calling 的完整工作原理与 JSON Schema 设计
+answer:
+  mode: rubric
+  reference_answer: |-
+    2.1 工作原理
+
+    OpenAI Function Calling 的核心流程分为 定义 → 触发 → 执行 → 反馈 四个环节。
+
+    ```text
+    1. 定义工具
+       开发者: 在 API 请求的 tools 参数中，用 JSON Schema 描述所有可用的函数。
+               ↓
+    2. 模型决策
+       LLM: 分析用户输入，决定是否需要调用工具、调用哪个、参数是什么。
+       若需要调用，返回 finish_reason=tool_calls，并给出函数名和参数 JSON。
+               ↓
+    3. 应用执行
+       你的代码: 解析模型返回的工具调用指令，用这些参数去真正执行函数（调数据库、天气 API 等）。
+               ↓
+    4. 结果反馈
+       将执行结果作为 tool 角色消息追加到 messages 列表，再次请求模型生成最终答案。
+    ```
+
+    代码示例：一个完整的天气查询 + 穿衣建议对话
+
+    ```python
+    import openai, json
+
+    client = openai.OpenAI()
+
+    # 1. 定义工具：用 JSON Schema 描述函数
+    tools = [{
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "获取指定城市的当前天气，包括温度、湿度和天气状况",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "city": {
+                        "type": "string",
+                        "description": "城市名称，如 Beijing"
+                    }
+                },
+                "required": ["city"]
+            }
+        }
+    }]
+
+    messages = [{"role": "user", "content": "北京今天天气怎么样？我该穿什么衣服？"}]
+
+    # 2. 第一次请求：模型决定是否调用工具
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=messages,
+        tools=tools,
+        tool_choice="auto"
+    )
+
+    msg = response.choices[0].message
+
+    # 3. 检查是否有工具调用
+    if msg.tool_calls:
+        tool_call = msg.tool_calls[0]
+        func_name = tool_call.function.name
+        args = json.loads(tool_call.function.arguments)
+
+        # 4. 执行真正的函数
+        weather_data = get_real_weather(args["city"])  # 你的业务逻辑
+
+        # 5. 将模型调用 + 函数结果追加到消息历史
+        messages.append(msg)  # 模型的工具调用消息
+        messages.append({
+            "role": "tool",
+            "tool_call_id": tool_call.id,
+            "content": json.dumps(weather_data)
+        })
+
+        # 6. 第二次请求：模型根据工具结果生成最终回答
+        final_response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages
+        )
+        print(final_response.choices[0].message.content)
+    ```
+
+    关键细节：
+
+    - tool_choice="auto" 让模型自主决策要不要调工具；"none" 强制不调用；"required" 强制调用；也可以直接指定某个函数。
+
+    - 模型的工具调用消息（msg）和工具返回消息（role: tool）必须成对出现，且 tool_call_id 要匹配，否则 API 报错。
+
+    - 如果同时定义了多个工具，模型会从它们中选择最合适的一个或多个（并行调用）。
+
+    2.2 JSON Schema 设计最佳实践
+
+    函数参数的 JSON Schema 是模型正确调用的“说明书”。设计好坏直接影响调用准确率。
+
+    原则一：描述要“给模型看”，而不是给开发人员看。
+    每一个 description 都直接影响模型能否正确抽取参数。例如：
+
+    ```json
+    // ❌ 差：太泛
+    "date": {"type": "string", "description": "日期"}
+
+    // ✅ 好：明确格式和取值范围
+    "date": {
+        "type": "string",
+        "description": "查询日期，格式为 YYYY-MM-DD，必须是今天或未来 7 天内的日期。"
+    }
+    ```
+
+    原则二：使用枚举（enum）约束有限选项。
+    如果某个参数只有几个合法值，一定要用 enum，别让模型瞎猜。
+
+    ```json
+    "sort_order": {
+        "type": "string",
+        "enum": ["asc", "desc", "default"],
+        "description": "排序方向"
+    }
+    ```
+
+    原则三：对于复杂对象，用嵌套结构清晰表达。
+
+    ```json
+    {
+        "type": "object",
+        "properties": {
+            "filter": {
+                "type": "object",
+                "description": "过滤条件",
+                "properties": {
+                    "min_price": {"type": "number", "description": "最低价格"},
+                    "max_price": {"type": "number", "description": "最高价格"},
+                    "category": {"type": "string", "enum": ["food", "drink", "other"]}
+                },
+                "required": ["category"]
+            }
+        }
+    }
+    ```
+
+    原则四：提供示例（examples）帮助模型理解边界情况。
+    OpenAI 支持在 Schema 中加 examples 字段（或通过 description 嵌入示例），这能显著提高复杂参数的准确率。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/F5QpwqJp4i0pB3kmnPzcVpgGn19
+  block_id: doxcnkoYOaYTle7QPPhKDKh8r1f
+  page_token: F5QpwqJp4i0pB3kmnPzcVpgGn19
+  original_title: OpenAI Function Calling 的完整工作原理与 JSON Schema 设计
+  imported_at: '2026-09-21'

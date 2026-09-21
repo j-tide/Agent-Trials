@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cdccab060d23
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练一个 10B 参数模型，FP16 混合精度，AdamW，仅权重、梯度、优化器状态三部分共需多少显存？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 训练一个 10B 参数模型，FP16 混合精度，AdamW，仅权重、梯度、优化器状态三部分共需多少显存？
+answer:
+  mode: rubric
+  reference_answer: |-
+    训练一个 10B（100亿）参数的模型，若使用 FP16 混合精度和 AdamW 优化器，我们可以将显存消耗分为三大部分：模型权重、梯度、优化器状态。在混合精度训练中，通常采用“权重半精度存储、前向计算用半精度、主权重和优化器状态用全精度”的策略。具体计算如下：
+
+    [图片内容未导入]
+
+    [图片内容未导入]
+
+    - FP16 权重：参数总量为 10×10⁹，每个参数占 2 字节（FP16），因此权重部分占用 20 GB。
+
+    - FP16 梯度：反向传播时，需要为每个可训练参数存储对应的梯度，也使用 FP16 精度，所以同样占用 20 GB。注意，在一些框架实现中，梯度可能以 FP32 存储，但当前主流方案是梯度和权重在前向/反向中使用 FP16，仅在更新时转为 FP32，所以这里按 FP16 梯度计算。
+
+    - AdamW 优化器状态：Adam 需要保存每个参数的一阶动量（m）和二阶动量（v），通常这两者以及主权重（master weights）都以 FP32 存储。有些实现将主权重与优化器状态合并，实际上我们可把优化器状态视为 FP32 的 m 和 v 以及 FP32 的主权重。但通常所说的“优化器状态”主要指 m 和 v，而主权重是额外的一份 FP32 参数副本。综合计算，每个参数需要存储的 FP32 数据量为 4 字节 × 3 = 12 字节（m、v、master weight）。因此优化器相关的状态总显存为 10B × 12 bytes = 120 GB。若只算 m 和 v 则为 80 GB，加上主权重 40 GB，共 120 GB。
+
+    合计：权重 20GB + 梯度 20GB + 优化器状态 120GB = 160 GB。但这里需澄清：在混合精度训练中，梯度通常在 FP16 下计算，但也可能以 FP32 累积，实际显存消耗可能略高。主流框架（如 DeepSpeed、PyTorch AMP）在 FP16 模式下，梯度和权重以 FP16 存储，而优化器状态（m, v）和主权重（FP32）是必须的。所以理论上至少需要 160 GB 显存，这远超单张 GPU（如 80GB A100）的容量，因此必须借助模型并行或 ZeRO 等显存优化技术。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: SHb6d6QJQo7Y2dx8ADDcMCIlnsg
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 训练一个 10B 参数模型，FP16 混合精度，AdamW，仅权重、梯度、优化器状态三部分共需多少显存？
+  imported_at: '2026-09-21'

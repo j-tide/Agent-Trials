@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-938f66ae1103
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: FSDP 中的“auto_wrap_policy” 如何定义？通常按 TransformerBlock 包装。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: FSDP 中的“auto_wrap_policy” 如何定义？通常按 TransformerBlock 包装。
+answer:
+  mode: rubric
+  reference_answer: |-
+    auto_wrap_policy 决定 FSDP 如何将模型拆分为不同的分片单元（instance）。通常我们以每个 Transformer 层（或块）为单元进行包装，这可以平衡分片粒度与通信开销。
+
+    定义方式：
+
+    ```python
+    from functools import partial
+    from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
+
+    # 假设每个 Transformer 层的类名为 TransformerBlock
+    auto_wrap_policy = partial(
+        transformer_auto_wrap_policy,
+        transformer_layer_cls={TransformerBlock}
+    )
+    ```
+
+    然后传入 FSDP 的 auto_wrap_policy 参数。此策略会递归地将每个 TransformerBlock 实例作为一个 FSDP 单元，这些单元内部的状态（参数、梯度、优化器）将被分片，而单元之间的其他部分（如嵌入层）可以独立分片或不分片。这种细粒度分片能最大化内存节省，同时保持层间的计算和通信平衡。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GSO0wLgvGi8yaCktRbBc92Dbnhh
+  block_id: KCBtdZY4loHeY2xI1mscAtUcnfg
+  page_token: GSO0wLgvGi8yaCktRbBc92Dbnhh
+  original_title: FSDP 中的“auto_wrap_policy” 如何定义？通常按 TransformerBlock 包装。
+  imported_at: '2026-09-21'

@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4d1396125a3d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚡ Retriever 的 invoke 和 ainvoke 方法在异步环境下如何提升吞吐？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "⚡ Retriever 的 invoke 和 ainvoke 方法在异步环境下如何提升吞吐？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 LangChain 中，invoke 是同步方法，ainvoke 是异步方法（返回 awaitable）。在异步 Web 服务（如 FastAPI）中，使用 ainvoke 可以避免阻塞事件循环，从而显著提升并发吞吐量。
+
+    提升吞吐的关键：
+
+    - 不阻塞主线程：异步方法在等待 IO（如网络请求、数据库查询）时会让出 CPU，允许处理其他请求。
+
+    - 批量并发：可以同时发起多个异步检索任务，用 asyncio.gather 等待所有结果，然后统一返回。
+
+    示例：
+
+    ```python
+    import asyncio
+    from langchain.retrievers import ContextualCompressionRetriever
+
+    # 假设 compression_retriever 支持 ainvoke
+    async def retrieve_multiple(queries: list[str]):
+        tasks = [compression_retriever.ainvoke(query) for query in queries]
+        results = await asyncio.gather(*tasks)
+        return results
+    ```
+
+    如果底层的 VectorStore（如 Chroma）不支持异步，ainvoke 内部会通过 asyncio.to_thread 在线程池中执行同步方法，虽不如原生异步高效，但仍能避免阻塞主线程。
+
+    优化建议：
+
+    - 确保整个调用链都使用异步：从 LLM 到 HTTP 客户端，尽可能使用 AsyncOpenAI 等异步客户端。
+
+    - 对于自定义 Retriever，实现 _aget_relevant_documents 方法以利用异步数据库驱动（如 asyncpg、aioredis）。
+
+    - 使用连接池并限制最大并发数，防止下游服务过载。
+
+    通过全面异步化，一个 4 核的 API 服务器可以轻松支撑上千 QPS 的检索请求。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YrNHwdqUUiHr0JkXRNrc4c0kn5d
+  block_id: Q6m0dDSj7oMWeCxy6EZcCrMUnfl
+  page_token: YrNHwdqUUiHr0JkXRNrc4c0kn5d
+  original_title: "⚡ Retriever 的 invoke 和 ainvoke 方法在异步环境下如何提升吞吐？"
+  imported_at: '2026-09-21'

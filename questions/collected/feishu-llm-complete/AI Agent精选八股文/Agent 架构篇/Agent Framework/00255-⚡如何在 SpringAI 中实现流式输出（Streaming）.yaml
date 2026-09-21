@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7c80b0ad0e18
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚡如何在 SpringAI 中实现流式输出（Streaming）？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "⚡如何在 SpringAI 中实现流式输出（Streaming）？"
+answer:
+  mode: rubric
+  reference_answer: "流式输出的本质是服务端不等待模型生成完整结果，而是通过长连接逐 token 推送。在 Spring AI 中，ChatModel
+    接口提供了 Flux<ChatResponse> stream(Prompt prompt) 方法，底层基于 Project Reactor，天然非阻塞。\n\n实现步骤：\n\n1.
+    配置 ChatModel（启用流式）\n2. 在 Controller 中返回 Flux<ServerSentEvent>\n3. 前端通过 EventSource
+    消费 SSE 流\n\n第一步：确认模型支持流式\nSpring AI 的 OpenAI Starter 默认支持流式，不需要额外配置。只需确保 ChatModel
+    Bean 正常注入即可。\n\n第二步：编写 Controller\n\nimport org.springframework.ai.chat.ChatClient;\nimport
+    org.springframework.ai.chat.ChatResponse;\nimport org.springframework.ai.chat.prompt.Prompt;\nimport
+    org.springframework.ai.chat.messages.UserMessage;\nimport org.springframework.http.MediaType;\nimport
+    org.springframework.web.bind.annotation.*;\nimport reactor.core.publisher.Flux;\n\n@RestController\n@RequestMapping(\"/api/chat\")\npublic
+    class ChatController {\n\n    private final ChatClient chatClient;\n\n    public
+    ChatController(ChatClient chatClient) {\n        this.chatClient = chatClient;\n
+    \   }\n\n    @GetMapping(value = \"/stream\", produces = MediaType.TEXT_EVENT_STREAM_VALUE)\n
+    \   public Flux<String> stream(@RequestParam String q) {\n        // 构建 Prompt\n
+    \       Prompt prompt = new Prompt(new UserMessage(q));\n        // 调用流式方法，返回
+    Flux<String>\n        return chatClient.prompt()\n                .user(q)\n                .stream()\n
+    \               .chatResponse()  // Flux<ChatResponse>\n                .map(resp
+    -> resp.getResult().getOutput().getContent());\n    }\n}\n\n返回的 Flux<String> 会被
+    Spring WebFlux 自动序列化为 SSE 事件流。前端收到的原始数据格式为：\n\ndata: 今天\ndata: 天气\ndata: 很好\ndata:
+    ...\n\n第三步：前端消费（Vue 3 示例）\n\nconst eventSource = new EventSource('/api/chat/stream?q=今天天气怎么样');\neventSource.onmessage
+    = (event) => {\n    // event.data 就是后端每次推送的文本片段\n    document.getElementById('output').innerText
+    += event.data;\n};\neventSource.onerror = () => {\n    eventSource.close();\n};\n\n第四步：处理流式输出中的
+    Function Calling 和错误\n当模型在流式模式下决定调用工具时，Spring AI 会先返回一个包含 tool_calls 的 ChatResponse，你需要中断流，执行工具，然后把结果追加到历史中，重新发起流式调用。这通常需要在前端实现“等待-执行-再连”的逻辑。\n\n//
+    如果需要处理流式中的 tool calls，通常用更底层的 ChatModel.stream()\nFlux<ChatResponse> flux = chatModel.stream(new
+    Prompt(messages));\nreturn flux.flatMap(response -> {\n    if (response.hasToolCalls())
+    {\n        // 执行工具，用结果构建新消息，重新 stream\n        return executeToolsAndRestream(response);\n
+    \   }\n    return Flux.just(response.getResult().getOutput().getContent());\n});\n\n第五步：性能与容错\n\n-
+    超时：在 application.yml 中设置 spring.ai.openai.chat.options.timeout 或使用 Flux.timeout(Duration.ofSeconds(30))。\n\n-
+    背压：Reactor 默认处理背压，无需额外配置。\n\n- 取消：前端 EventSource.close() 会断开连接，后端 Flux 自动取消，底层
+    HTTP 连接释放。\n\n配置文件示例：\n\nspring:\n  ai:\n    openai:\n      api-key: ${OPENAI_API_KEY}\n
+    \     chat:\n        options:\n          model: gpt-4o\n          temperature:
+    0.7\n          stream: true   # 可选，显式开启流式\n\n收束：\nSpring AI 的流式输出把 Reactor 的响应式能力搬到了
+    AI 领域。你不用自己管理 SSE 协议、不用处理异步线程的切换，只需要定义好 Flux 管道，Spring 会帮你把 token 流稳稳地送到前端。这对于提升用户体验、降低首字延迟至关重要——在真实的
+    RAG 应用中，流式输出不是“加分项”，而是“必须项”。\n\n\U0001F9E0 面试这样说让面试官点头\n“我会把 LangChain 看作应用的骨架和大脑，负责调度；LlamaIndex
+    则是消化系统，专门把原始数据转化成高纯度知识。单纯做企业知识库问答，直接上 LlamaIndex 更快；一旦需要多步、多工具的复杂业务，就必须引入 LangChain
+    来编排。”\n\n\U0001F9E0 面试这样说让面试官点头\n“我会把 LangChain 看作应用的骨架和大脑，负责调度；LlamaIndex 则是消化系统，专门把原始数据转化成高纯度知识。单纯做企业知识库问答，直接上
+    LlamaIndex 更快；一旦需要多步、多工具的复杂业务，就必须引入 LangChain 来编排。”\n\n\U0001F9E0 面试加分表达\n“我的选型逻辑是‘尊重技术栈，预留扩展点’。Spring
+    AI 让 AI 能力在 Spring 体系内变得和数据库访问一样简单，而 LangChain4j 在模型和检索策略的丰富度上更胜一筹。我会根据项目对整合深度和前沿功能的需求来做决定，也会考虑二者共存的方案。”"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AuVxwYFDWiT663kKLskczm8mnIh
+  block_id: doxcnRZxMdYz9TsxKlCFjq0neJh
+  page_token: AuVxwYFDWiT663kKLskczm8mnIh
+  original_title: "⚡如何在 SpringAI 中实现流式输出（Streaming）？"
+  imported_at: '2026-09-21'

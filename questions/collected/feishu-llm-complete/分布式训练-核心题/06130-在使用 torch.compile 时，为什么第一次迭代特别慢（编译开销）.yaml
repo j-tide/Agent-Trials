@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8a3232bcbce7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在使用 torch.compile 时，为什么第一次迭代特别慢？（编译开销）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 在使用 torch.compile 时，为什么第一次迭代特别慢？（编译开销）
+answer:
+  mode: rubric
+  reference_answer: |-
+    第一次迭代慢是因为编译器在进行图捕获、分析和代码生成。这个过程包括：
+
+    - TorchDynamo捕获字节码，构建计算图。
+
+    - Inductor对图进行优化（融合、内存规划）。
+
+    - 调用Triton或CUDA编译器将优化后的图编译成可执行的GPU代码。
+
+    - 编译好的kernel需要加载到GPU并缓存。
+
+    对于大模型，图规模庞大，编译时间可能长达几分钟甚至数十分钟。而且由于动态形状，不同的输入形状可能触发重新编译。
+
+    如何缓解：
+
+    - 预热（warmup）：在正式训练前，用真实输入大小跑几个空batch（只前向不反向），触发编译并缓存。之后正式训练就不会有编译开销了。
+
+    - 缓存持久化：编译好的代码默认缓存到~/.cache/torch/。下次使用相同的图和大小时，直接从缓存加载，几乎无延迟。
+
+    - 固定输入形状：尽量使用固定大小的输入（如固定的序列长度），避免频繁的形状变化导致重新编译。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HfoZwdjz1iRNmPkiI3icQQafnve
+  block_id: ICWYdM6ljo2fwyxMksAcPauvnvf
+  page_token: HfoZwdjz1iRNmPkiI3icQQafnve
+  original_title: 在使用 torch.compile 时，为什么第一次迭代特别慢？（编译开销）
+  imported_at: '2026-09-21'

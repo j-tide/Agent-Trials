@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-58f35390a23e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何将 LoRA 适配器独立保存和加载？写出 save_lora_weights 和 load_lora_weights 的核心逻辑。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 如何将 LoRA 适配器独立保存和加载？写出 save_lora_weights 和 load_lora_weights 的核心逻辑。
+answer:
+  mode: rubric
+  reference_answer: |-
+    18.1 保存
+
+    LoRA 适配器的核心是 A 和 B 矩阵，以及配置参数（r, α, dropout, 应用的目标模块等）。我们只保存这些参数的 state_dict，而不是整个模型。
+
+    ```python
+    def save_lora_weights(model, filepath):
+        lora_state = {}
+        for name, module in model.named_modules():
+            if isinstance(module, LoRALinear):
+                lora_state[name + ".lora_A"] = module.lora_A.data
+                lora_state[name + ".lora_B"] = module.lora_B.data
+                lora_state[name + ".scaling"] = module.scaling
+        # 同时保存配置（如r, α等）以JSON文件
+        torch.save(lora_state, filepath)
+    ```
+
+    18.2 加载
+
+    加载时，需要将保存的权重赋值到已经构建好的 LoRA 模型结构上。因此通常需要先加载基座模型并应用与保存时相同的 LoRA 配置（相同的 r、α、目标层），然后再加载权重。
+
+    ```python
+    def load_lora_weights(model, filepath):
+        lora_state = torch.load(filepath)
+        for name, param in model.named_parameters():
+            if name in lora_state:
+                param.data.copy_(lora_state[name])
+    ```
+
+    在 PEFT 库中，保存和加载使用 model.save_pretrained(out_dir) 和 PeftModel.from_pretrained(base_model, out_dir)，它们内部处理了这些细节。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LZxww5JuBif3JAkuCoIcuqRenuf
+  block_id: EO9sdhiaJoRv9VxB4rUc239ynfh
+  page_token: LZxww5JuBif3JAkuCoIcuqRenuf
+  original_title: 如何将 LoRA 适配器独立保存和加载？写出 save_lora_weights 和 load_lora_weights 的核心逻辑。
+  imported_at: '2026-09-21'

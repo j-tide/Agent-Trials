@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d0481be72769
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⏫ 训练时显存中的“二次峰值”和激活值有什么关系？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "⏫ 训练时显存中的“二次峰值”和激活值有什么关系？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 “二次峰值”通常指训练过程中显存出现的两个尖峰：第一次在正向传播末尾（全激活保留），第二次在反向传播开始后（重计算或生成梯度前）。激活值的存储与重计算策略直接塑造了这个双峰形态。\n\n\U0001F50E
+    详细解释：\n\n- 首次峰值：前向传播完毕时\n所有层的前向激活都保留在显存中（若不使用梯度检查点），此时激活显存达到最大。这就是第一个峰值，完全由激活值贡献。\n\n-
+    二次峰值：反向传播初期\n当开始反向传播，一方面需要释放部分前向激活（或利用它们），另一方面要为梯度计算分配缓冲区，同时若启用梯度检查点，会进行重计算，产生新的临时激活。这些临时激活叠加尚未释放的激活检查点以及部分梯度，可能形成第二个显存峰值。它通常高于前向峰值，因为额外增加了梯度、临时重计算激活等。\n\n\U0001F52C
+    与激活值的关系：\n\n- 如果使用梯度检查点，前向峰值会大大降低（只保留检查点输入），反向重计算时临时激活又会产生一个峰值（重计算当前块的激活）。这个反向重计算峰值就是“二次峰值”的主要来源，其高度等于重计算所需的局部激活大小（通常低于无检查点的前向峰值，但可能高于检查点缩减后的前向占用）。\n\n-
+    若不开检查点，前向峰值包含全部激活，反向时激活逐步释放，通常显存逐渐下降，可能不会出现明显的二次峰值，但峰值绝对值很高。\n\n\U0001F4CA 影响：优化显存峰值需同时关注前向和反向，确保二次峰值不超出容量。FlashAttention
+    可减少重计算时的临时注意力矩阵，从而降低二次峰值。\n\n✅ 因此，训练显存波动是激活、梯度、优化器状态交织的结果，二次峰值与激活值重计算密切相关。\n\n-
+    优化了线程块调度，减少 warp 间通信，提高了 SM 利用率。\n\n- 改进了反向传播的重计算流程，减少了需要存储的中间标量数量，进一步压缩了反向所需的工作内存（较少量，但仍线性）。\n\n-
+    总的显存占用比 v1 略低（约 10-20%），但对于极长序列，效果有限，主要优势在于速度。\n\n- 针对 Hopper 架构（H100）设计，利用 TMA（Tensor
+    Memory Accelerator）异步数据拷贝，更高效地管理 SRAM 和 HBM 之间的数据流。\n\n- 进一步融合了某些激活函数和 dropout，减少临时缓冲区。\n\n-
+    显存上，它更加精细地管理重计算所需的统计量，使其与 batch 和 head 维度更好地扩展。但对用户而言，显存节省相比 v2 没有数量级突破，更多是速度（提速
+    1.5-2x）和计算效率。\n\n- Q, K, V：3 × [batch, seq, hidden] → 约 3×2048×12288×2/1024^3
+    ≈ 0.14 GB/层。\n\n- 注意力分数矩阵 S [batch, heads, seq, seq]：96×2048×2048×2/1024^3 ≈ 0.75
+    GB/层。\n\n- softmax 后的 P：同样 0.75 GB/层。\n\n- FFN 中间激活：约 0.3 GB/层。\n每层总计约 2 GB，96
+    层需 约 192 GB 激活（这还没算梯度等，已远超单卡显存）。实际上标准实现还会更高。\n\n- 保留计算代价高但激活小的层（如某些 FFN），不丢弃其激活。\n\n-
+    丢弃激活占用极大但计算较便宜的层（如注意力中的 softmax、dropout）。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IV7mwgNSpiSplMkLZJYcJWfmn5f
+  block_id: JNsMdc6RioElcLxb0O7cyx1HnUh
+  page_token: IV7mwgNSpiSplMkLZJYcJWfmn5f
+  original_title: "⏫ 训练时显存中的“二次峰值”和激活值有什么关系？"
+  imported_at: '2026-09-21'

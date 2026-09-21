@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-260025eb2e61
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用torch.quantization.quantize_dynamic进行动态量化？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何使用torch.quantization.quantize_dynamic进行动态量化？
+answer:
+  mode: rubric
+  reference_answer: |-
+    动态量化非常简单，适用于线性层、LSTM等。
+
+    基本步骤：
+
+    ```python
+    import torch
+    from torch.quantization import quantize_dynamic
+
+    model = ...  # 定义好的浮点模型
+    # 指定要量化的层类型，通常为 nn.Linear 和 nn.LSTM
+    quantized_model = quantize_dynamic(
+        model,
+        {nn.Linear, nn.LSTM},  # 要量化的层集合
+        dtype=torch.qint8      # 量化目标类型
+    )
+    # 现在 quantized_model 就是量化后的模型，可以直接用于推理
+    ```
+
+    工作原理：
+
+    - 对于指定的层类型，权重被预先量化为INT8，保存在模型中。
+
+    - 推理时，输入激活值在到达该层时，根据当前batch的最大最小值动态地量化为INT8，执行INT8矩阵乘法，然后反量化为浮点输出。
+
+    - 其他层（如激活函数、池化等）保持浮点计算。
+
+    注意：
+
+    - 动态量化通常用于模型权重较大、推理受内存带宽限制的场景，例如CPU上的BERT推理，效果显著。
+
+    - 目前PyTorch对动态量化的支持主要集中在CPU（通过FBGEMM或QNNPACK后端）。GPU上动态量化支持有限，推荐使用TensorRT等工具。
+
+    - 动态量化后的模型无法直接保存为ONNX INT8量化模型，但可以通过 torch.jit.save 保存整个量化模型。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WSlbwtUNQiNbKakCLPDcsZ9Hnsg
+  block_id: MyTHdXh2UoPprBxOaFpce6tKnlb
+  page_token: WSlbwtUNQiNbKakCLPDcsZ9Hnsg
+  original_title: 如何使用torch.quantization.quantize_dynamic进行动态量化？
+  imported_at: '2026-09-21'

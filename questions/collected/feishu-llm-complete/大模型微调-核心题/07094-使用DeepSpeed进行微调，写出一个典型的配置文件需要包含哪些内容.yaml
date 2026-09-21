@@ -1,0 +1,108 @@
+---
+schema_version: 1
+id: feishu-llm-complete-82a9a6c84192
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用DeepSpeed进行微调，写出一个典型的配置文件需要包含哪些内容。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 使用DeepSpeed进行微调，写出一个典型的配置文件需要包含哪些内容。
+answer:
+  mode: rubric
+  reference_answer: |-
+    一个典型的DeepSpeed配置文件（JSON格式）涵盖了训练批量大小、优化器、混合精度、ZeRO优化、梯度裁剪、学习率调度等核心设置。下面是一个用于全参数微调7B-13B模型的ZeRO-2配置示例，并附关键参数解释：
+
+    {
+      "train_batch_size": 128,
+      "gradient_accumulation_steps": 4,
+      "optimizer": {
+        "type": "AdamW",
+        "params": {
+          "lr": 2e-5,
+          "betas": [0.9, 0.95],
+          "eps": 1e-8,
+          "weight_decay": 0.1
+        }
+      },
+      "scheduler": {
+        "type": "WarmupDecayLR",
+        "params": {
+          "warmup_min_lr": 0,
+          "warmup_max_lr": 2e-5,
+          "warmup_num_steps": 100,
+          "total_num_steps": 2000
+        }
+      },
+      "bf16": {
+        "enabled": true
+      },
+      "zero_optimization": {
+        "stage": 2,
+        "offload_optimizer": {
+          "device": "cpu",
+          "pin_memory": true
+        },
+        "allgather_partitions": true,
+        "allgather_bucket_size": 5e8,
+        "overlap_comm": true,
+        "reduce_scatter": true,
+        "reduce_bucket_size": 5e8,
+        "contiguous_gradients": true
+      },
+      "gradient_clipping": 1.0,
+      "steps_per_print": 10,
+      "wall_clock_breakdown": false
+    }
+
+    关键参数详解：
+
+    - train_batch_size：全局批量大小，与gradient_accumulation_steps和每GPU的micro-batch size共同决定。DeepSpeed会根据当前GPU数量自动计算每个GPU上的micro-batch大小。
+
+    - optimizer：通常使用AdamW，设置学习率、betas、weight_decay等。微调学习率一般在1e-5到5e-5之间。
+
+    - scheduler：学习率调度器，这里使用WarmupDecayLR，支持线性预热后余弦衰减。
+
+    - bf16或fp16：混合精度设置。推荐BF16（"bf16": {"enabled": true}），因为它不需要损失缩放，训练更稳定。
+
+    - zero_optimization：ZeRO优化核心。
+
+    - gradient_clipping：防止梯度爆炸，通常设为1.0。
+
+    - steps_per_print：每隔多少步打印一次日志。
+
+    - wall_clock_breakdown：是否记录详细计时，调试时开启。
+
+    如果是ZeRO-3，还需添加"stage3_prefetch_bucket_size", "stage3_param_persistence_threshold"等参数来控制参数预取和驻留。
+
+    实践建议：根据模型大小和硬件调整stage和offload。显存紧张时，可以开启"offload_param"将参数也卸载到CPU，或启用ZeRO-Infinity卸载到NVMe。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: L7nydQvePocnHsxqCsGcmKNQnth
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 使用DeepSpeed进行微调，写出一个典型的配置文件需要包含哪些内容。
+  imported_at: '2026-09-21'

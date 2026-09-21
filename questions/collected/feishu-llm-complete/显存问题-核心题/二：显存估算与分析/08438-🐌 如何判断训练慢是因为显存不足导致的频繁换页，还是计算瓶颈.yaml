@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5d9517be67d1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F40C 如何判断训练慢是因为显存不足导致的频繁换页，还是计算瓶颈？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "\U0001F40C 如何判断训练慢是因为显存不足导致的频繁换页，还是计算瓶颈？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 结论：看 GPU 利用率、显存占用和 CPU 内存活动。频繁换页会表现为“显存满但 GPU 使用率低且波动大，同时
+    CPU 内存占用高或出现大量数据搬运”；计算瓶颈则是“GPU 利用率持续很高，显存不一定满”。\n\n\U0001F50D 具体判断方法：\n\n- 检查显存换页（offload
+    或 swapping）\n\n- 使用 nvidia-smi 观察显存是否长时间接近物理上限（>95%），同时 GPU 利用率（GPU-Util）很低（例如
+    0-30% 波动）。\n\n- 如果启用了 CPU offload（如 DeepSpeed ZeRO-Offload 或手动 swap），可以观察 nvidia-smi
+    dmon 中的 pci rx/tx（PCIe 传输速率）。若持续有大量数据在 CPU 与 GPU 间传输（例如 >5 GB/s），且训练速度极慢，很可能在换页。\n\n-
+    Linux 下可用 sudo cat /proc/meminfo 或 nvtop 查看 CPU 内存占用，若系统内存被大量占用且不断变化，说明参数或优化器状态被交换到
+    CPU。\n\n- 检查计算瓶颈\n\n- GPU 利用率持续 >80-90%，显存占用相对合理，但训练速度依然慢。这通常是计算力（TFLOPS）达到上限。\n\n-
+    使用 Nsight Systems 或 PyTorch Profiler 分析内核时间：如果大部分时间消耗在 GPU 内核执行（如矩阵乘法），而内存拷贝时间很少，就是计算瓶颈。\n\n-
+    如果 batch size 很大，GPU SM（流处理器）全部忙碌，则是计算瓶颈。可以通过尝试减小 batch size 观察 GPU 利用率是否下降不明显，若利用率仍高，则是计算密集。\n\n-
+    利用 profiling 工具直接观察\n\n- nvidia-smi --query-gpu=utilization.gpu,utilization.memory,memory.used,memory.total
+    --format=csv 持续监控。\n\n- 使用 torch.cuda.memory_summary() 在 Python 中查看 PyTorch 分配器状态，如果有大量
+    cudaMalloc 重试，说明碎片化或缺乏连续显存，可能导致 fallback 到 CPU。\n\n\U0001F4CC 典型现象对比：\n\n[嵌入表格未展开]\n\n✅
+    因此，判断是换页还是计算瓶颈，核心是看 GPU 空闲的原因：如果是因为在等数据，大概率是显存不足导致换页；如果是忙于计算却仍然慢，则需升级 GPU 或优化算法。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C7vaw6NlnicTRUkFemecRp3jnLd
+  block_id: IjhVduNyTohye7xwqJgcb9d2nje
+  page_token: C7vaw6NlnicTRUkFemecRp3jnLd
+  original_title: "\U0001F40C 如何判断训练慢是因为显存不足导致的频繁换页，还是计算瓶颈？"
+  imported_at: '2026-09-21'

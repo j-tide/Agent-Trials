@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4ca291d930a2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 Slurm 集群提交训练任务，如何编写脚本分配资源？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 使用 Slurm 集群提交训练任务，如何编写脚本分配资源？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Slurm 脚本需要指定节点数、GPU 数、任务数等资源，并启动训练命令。一个典型的多节点训练脚本：
+
+    ```bash
+    #!/bin/bash
+    #SBATCH --job-name=my_train
+    #SBATCH --nodes=2                  # 节点数
+    #SBATCH --ntasks-per-node=8        # 每个节点的任务数（通常等于 GPU 数）
+    #SBATCH --gres=gpu:8               # 每个节点的 GPU 数
+    #SBATCH --cpus-per-task=12         # 每个任务的 CPU 数
+    #SBATCH --output=%j.out
+
+    srun python -u train.py --deepspeed ds_config.json
+    ```
+
+    - 如果需要分布式训练，通常用 torchrun 或 deepspeed 命令启动。在 Slurm 环境中，可以使用 srun 直接启动多进程，或者使用 sbatch 提交脚本，再在脚本内用 srun 调用训练命令。PyTorch 也支持 Slurm 集成，通过设置 --rdzv_backend=static 或 --nnodes 等参数手动指定节点。
+
+    关键是要让每个任务知道自己的 rank 和 world size，Slurm 会设置 SLURM_PROCID 等环境变量，torchrun 可以自动利用它们。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GSO0wLgvGi8yaCktRbBc92Dbnhh
+  block_id: FfavdqUYXoX3AtxIGoncqPyanKd
+  page_token: GSO0wLgvGi8yaCktRbBc92Dbnhh
+  original_title: 使用 Slurm 集群提交训练任务，如何编写脚本分配资源？
+  imported_at: '2026-09-21'

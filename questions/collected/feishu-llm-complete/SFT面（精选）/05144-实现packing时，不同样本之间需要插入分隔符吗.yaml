@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6392727bc9b9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现packing时，不同样本之间需要插入分隔符吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 实现packing时，不同样本之间需要插入分隔符吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    建议插入，但不是绝对必须。 是否插入分隔符取决于对模型行为的要求以及注意力掩码的实现方式。
+
+    一、不插入分隔符的情况
+
+    如果不插入任何分隔符，直接将样本A的</s>（或EOS）与样本B的<s>（或BOS）或prompt直接相连。由于我们已经通过注意力掩码严格隔离了不同样本，它们之间不会有注意力交互，因此从计算上讲，是否插入分隔符不影响训练损失的正确计算。每个样本内部的token仍然只关注自己的上下文。
+
+    然而，模型在训练时会“看到”一个序列中连续出现了多个EOS和BOS，它可能会学习到一种错误的模式：即在一个序列内部遇到EOS后，应该继续生成下一个独立的对话（因为训练数据就是这样拼接的）。在推理时，模型可能会在生成完一个回答后，不停止，而是继续生成新的用户问题或另一个回答，导致失控。
+
+    二、插入分隔符的好处
+
+    - 保持语义边界：插入一个专门的分隔符（如<|endoftext|>、[SEP]，或者一个特殊的segment separation token）可以明确告诉模型“这里是一个新的开始”。通过构造attention mask时，让这个分隔符只属于前一个样本或后一个样本，或者让它对两边都可见但损失被mask，可以更好地模拟推理时的环境。
+
+    - 缓解EOS失控问题：如果分隔符被用作“新对话开始”的信号，模型学会在分隔符之后开始一个新的话题。推理时没有这些分隔符，模型就更可能在EOS后停止。
+
+    - 简化数据恢复：插入分隔符后，可以更容易地将packed序列拆分回原始样本（如果需要的话）。
+
+    - 实践中：很多packing实现会在每个样本的response之后额外添加一个EOS或特殊分隔符，然后紧接着下一个样本的prompt。在构造标签时，这个分隔符对应的label通常设为-100（忽略），使其不参与损失计算，仅作为上下文结构存在。
+
+    三、推荐做法
+
+    - 添加分隔符并mask其损失：在每段response的结束位置添加一个<|im_end|>或[EOS]（如果原来没有），然后在它之后再添加一个额外的分隔符（如<|endoftext|>），再接下一个样本的<|im_start|>user。将这个额外分隔符的label设为-100。
+
+    - 或在BOS前添加：也可以在下一个样本的BOS之前插入分隔符，并将其label设为-100。
+
+    - 简单场景：如果对推理行为要求不高，且attention mask完全隔离，可以不插分隔符，但通常在训练长文本时更规范的做法是插入分隔符以防万一。
+
+    ✅ 总结：虽然理论上不插分隔符也能通过mask实现packing，但推荐插入分隔符并mask其损失，以保持语义边界并减少推理时的行为偏差。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZYXSwaWATimyqQkmZm5cAPJHnoc
+  block_id: SMNCdKmkxoQXNvxfquLcgrxVn1d
+  page_token: ZYXSwaWATimyqQkmZm5cAPJHnoc
+  original_title: 实现packing时，不同样本之间需要插入分隔符吗？
+  imported_at: '2026-09-21'

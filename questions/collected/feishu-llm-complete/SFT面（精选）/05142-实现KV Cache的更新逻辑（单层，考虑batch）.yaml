@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-680f48739c12
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现KV Cache的更新逻辑（单层，考虑batch）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 实现KV Cache的更新逻辑（单层，考虑batch）
+answer:
+  mode: rubric
+  reference_answer: |-
+    在自回归推理中，KV Cache 存储了已生成 token 的 Key 和 Value 张量。每次新 token 到来时，只需计算该 token 的 K, V，并与之前的缓存拼接。以下实现了一个单层 Transformer 的 KV Cache 更新逻辑，适用于批量推理。
+
+    ```python
+    import torch
+
+    def update_kv_cache(
+        new_k: torch.Tensor,       # [batch, num_heads, 1, head_dim]  新 token 的 Key
+        new_v: torch.Tensor,       # [batch, num_heads, 1, head_dim]  新 token 的 Value
+        cache_k: torch.Tensor,     # [batch, num_heads, seq_len, head_dim] 或 None
+        cache_v: torch.Tensor,
+        max_cache_len: int = None  # 最大缓存长度，超出则截断
+    ):
+        """
+        更新 KV Cache：将新 token 的 K,V 拼接到历史缓存上。
+        如果 cache 为空，则直接返回新的 K,V（增加 seq_len 维度）。
+        返回更新后的 cache_k, cache_v。
+        """
+        if cache_k is None:
+            # 初始化缓存
+            return new_k, new_v
+
+        # 沿 seq_len 维度拼接 (dim=2)
+        updated_k = torch.cat([cache_k, new_k], dim=2)
+        updated_v = torch.cat([cache_v, new_v], dim=2)
+
+        # 若设置了最大长度，则仅保留最近的 max_cache_len 个 token
+        if max_cache_len is not None and updated_k.size(2) > max_cache_len:
+            updated_k = updated_k[:, :, -max_cache_len:, :]
+            updated_v = updated_v[:, :, -max_cache_len:, :]
+
+        return updated_k, updated_v
+    ```
+
+    说明：
+
+    - 新 token 的 K,V 形状应为 (batch, num_heads, 1, head_dim)，通过 unsqueeze 添加长度维度。
+
+    - 第一次调用时 cache_k=None，函数直接返回新 K,V 作为初始缓存。
+
+    - max_cache_len 可用于限制缓存长度，避免显存溢出。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JFt9wvuo1ijVfLktrcDcfTR8nTd
+  block_id: VEt4dkwwUofHswxGWflcOu60nNd
+  page_token: JFt9wvuo1ijVfLktrcDcfTR8nTd
+  original_title: 实现KV Cache的更新逻辑（单层，考虑batch）
+  imported_at: '2026-09-21'

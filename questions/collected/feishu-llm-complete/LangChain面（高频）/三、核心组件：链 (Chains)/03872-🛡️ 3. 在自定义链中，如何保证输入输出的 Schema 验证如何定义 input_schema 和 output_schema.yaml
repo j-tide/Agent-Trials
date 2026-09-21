@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-57d915a699a0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E1️ 3. 在自定义链中，如何保证输入输出的 Schema 验证？如何定义 input_schema 和 output_schema？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "\U0001F6E1️ 3. 在自定义链中，如何保证输入输出的 Schema 验证？如何定义 input_schema 和 output_schema？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Schema 验证是自定义链能不能在复杂工作流里活下来的关键。没有 Schema 验证，一条链默默吞了错误 key，后面链路就会崩得莫名其妙。LangChain 提供的方式是重写 input_schema 和 output_schema 这两个类方法，它们返回 Pydantic 的 BaseModel。
+
+    ```python
+    from pydantic import BaseModel, Field
+
+    class TranslateAndSentimentChain(Chain):
+        # ... 前面属性 ...
+
+        @classmethod
+        def input_schema(cls) -> type[BaseModel]:
+            class InputSchema(BaseModel):
+                text: str = Field(..., description="需要分析和翻译的原始文本")
+            return InputSchema
+
+        @classmethod
+        def output_schema(cls) -> type[BaseModel]:
+            class OutputSchema(BaseModel):
+                english_translation: str = Field(..., description="英文翻译结果")
+                sentiment: str = Field(..., description="情感分析结果（positive/negative/neutral）")
+            return OutputSchema
+    ```
+
+    但注意，旧版 Chain 的 validate_inputs 和 validate_outputs 是内部方法，你只要定义了 schema，框架在 invoke 时会自动基于 Pydantic 做校验。我在早期踩过一个坑：输入 key 叫 input_text，但我 schema 里定义的是 text，结果调用时没报错，链内部拿了 inputs["text"] 直接 KeyError，排查了好久。后来学乖了，所有自定义链都严格定义 schema，并且配合单元测试校验。
+
+    实际经验里，如果你的链被用于 SequentialChain 或者 RouterChain，output_schema 的字段会作为后续链 input_mapping 的依据，所以一定要把输出字段的类型和描述写清楚。有时我甚至会在 output_schema 里用 validator 做进一步的格式检查，比如确认情感分析结果真的只在那三个词里，不过这会增加运行时开销，看场景权衡。
+
+    还有一个细微点：input_schema 和 output_schema 更多是给外部系统（比如 LangServe、Tracing、文档生成）看的，框架实际运行时不强制用它们校验，除非你显式调用 validate_inputs。我一般在 _call 开头自己加一句 self.validate_inputs(inputs) 来提前暴露问题，这是一个防御性编程的习惯。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QpN4wGGTGiz4zzkOhzqc7iipn1e
+  block_id: TuI2dq6dGoJy02xjyEscfUIPn7f
+  page_token: QpN4wGGTGiz4zzkOhzqc7iipn1e
+  original_title: "\U0001F6E1️ 3. 在自定义链中，如何保证输入输出的 Schema 验证？如何定义 input_schema 和 output_schema？"
+  imported_at: '2026-09-21'

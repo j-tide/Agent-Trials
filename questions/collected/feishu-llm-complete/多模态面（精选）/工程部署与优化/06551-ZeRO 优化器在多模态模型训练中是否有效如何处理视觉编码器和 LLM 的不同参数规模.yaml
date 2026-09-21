@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2c9d9b933f4f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ZeRO 优化器在多模态模型训练中是否有效？如何处理视觉编码器和 LLM 的不同参数规模？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: ZeRO 优化器在多模态模型训练中是否有效？如何处理视觉编码器和 LLM 的不同参数规模？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO（Zero Redundancy Optimizer）通过将优化器状态、梯度和模型参数分片到不同GPU，消除数据并行中的冗余存储。在多模态模型中依然有效，但需根据参数规模差异做定制化处理。
+
+    ZeRO的三级分片与多模态适配：
+
+    - ZeRO-1：仅分片优化器状态。视觉编码器参数小，优化器状态也小，可完全放在一张卡上；LLM优化器状态巨大，需分片。整体可行，节省有限。
+
+    - ZeRO-2：分片优化器状态+梯度。同样，视觉编码器梯度通信量小，LLM梯度通信量大。AllReduce梯度时，视觉编码器的梯度可独立做小规模AllReduce，LLM梯度走ZeRO-2分片。
+
+    - ZeRO-3：分片优化器状态+梯度+模型参数。视觉编码器参数小，若也分片，会引入额外通信开销，得不偿失。推荐：对视觉编码器设置ZeRO-3的分片粒度为None（即不分片，保持完整参数），仅对LLM应用ZeRO-3。
+
+    DeepSpeed配置示例：
+
+    {
+      "zero_optimization": {
+        "stage": 3,
+        "stage3_max_live_parameters": 1e9,
+        "stage3_param_persistence_threshold": 1e5,
+        "ignore_unused_parameters": true
+      }
+    }
+
+    通过设置stage3_param_persistence_threshold，小于该阈值的参数（如视觉编码器的各层）不会被分片，常驻GPU显存，避免不必要的数据搬运。
+
+    效果：ZeRO-3可使千亿参数多模态模型在数百张GPU上训练，视觉编码器常驻GPU，LLM分片，实现高效存储与通信的平衡。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  block_id: HiQidGO7eoOy7xx2dVyccdZ0nKh
+  page_token: KWa8wuOCYiiZ5LkiZXKcJErPnMb
+  original_title: ZeRO 优化器在多模态模型训练中是否有效？如何处理视觉编码器和 LLM 的不同参数规模？
+  imported_at: '2026-09-21'

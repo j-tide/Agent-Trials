@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ffa4ad4c46e8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⏱️ 如何防止回调中执行耗时操作（如网络请求）拖慢主链？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "⏱️ 如何防止回调中执行耗时操作（如网络请求）拖慢主链？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    回调在主线程中同步执行（除非使用异步回调且在异步环境中），如果有耗时操作，会直接增加用户感知的延迟。
+
+    防护策略：
+
+    - 使用异步回调（AsyncCallbackHandler）：如果你的应用是基于 asyncio 的，实现异步回调，耗时操作使用 await，不会阻塞事件循环。
+
+    - 将耗时任务提交到线程池或任务队列：在同步回调中，使用 concurrent.futures.ThreadPoolExecutor 或 asyncio.run_coroutine_threadsafe 将任务转交给后台线程执行。
+
+    from concurrent.futures import ThreadPoolExecutor
+    executor = ThreadPoolExecutor(max_workers=2)
+    def on_llm_end(self, response, **kwargs):
+        executor.submit(self._slow_report, response)
+
+    - 写入内存队列，异步消费：回调将事件放入本地的 queue.Queue，另一个后台线程不断从队列取数据并批量发送。
+
+    - 设置回调超时：如果使用线程池，可以用 future.result(timeout=...) 来限制最大等待，但回调方法本身不应等待结果。
+
+    - 降低回调频率：对于高频事件（如 on_llm_new_token），只在满足特定条件（如每 10 个 token 或遇到换行）时才触发耗时逻辑。
+
+    总结：永远不要在回调方法体内做同步的网络 I/O 或磁盘写入。如果必须做，一定要“甩”出去。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  block_id: DH9Fdu7zDo3G2gxT4ShcsOPZnLd
+  page_token: LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  original_title: "⏱️ 如何防止回调中执行耗时操作（如网络请求）拖慢主链？"
+  imported_at: '2026-09-21'

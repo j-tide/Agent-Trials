@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5eb30428d09a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在训练循环中，Critic 的更新频率和 Actor 的更新频率是否一致？为什么通常设置一致的步数？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 3-策略优化（PPO 为核心的 RL 阶段）
+tags: &1
+- RLHF面试高频考点
+- 3-策略优化（PPO 为核心的 RL 阶段）
+content:
+  prompt: 在训练循环中，Critic 的更新频率和 Actor 的更新频率是否一致？为什么通常设置一致的步数？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在标准的 PPO 实现中，Critic 和 Actor 的更新频率是一致的，即每个 mini-batch 同时计算两者的损失，并执行一次参数更新。
+
+    为什么通常设置一致？
+
+    - 架构的耦合性：在大多数实现中，Actor 和 Critic 要么共享底座，要么独立但结构类似。同步更新在工程上最简单、最直接。每次新数据进来，我们都需要同时获得最新的策略（来自 Actor）和最新的价值估计（来自 Critic）。如果两者更新不同步，那么价值估计将基于旧策略，而策略更新又基于旧的价值估计，这会引入额外的 off-policy 误差，使训练不稳定。
+
+    - PPO 的 on-policy 特性：PPO 使用同一批由当前策略（旧策略快照）生成的数据进行更新。在重复利用这批数据的几个 epoch 内，Actor 和 Critic 都在基于相同的、最近一次采样得到的分布进行优化。保持同步更新，确保了两者始终在同一个“数据页”上。
+
+    异步更新的特例及风险：
+
+    有些研究中会尝试让 Critic 更新得更频繁（例如 Critic:Actor 更新步数比为 5:1），目的是为了让价值估计更快地收敛，减少策略梯度方差。然而在 RLHF 中，由于：
+
+    - 采样代价极高，我们不想浪费宝贵的数据。
+
+    - 语言模型对价值估计误差非常敏感。
+    过快地更新 Critic 可能会导致它对当前策略分布过拟合，反而在策略稍微变化后就变得不准。因此，标准的 1:1 同步更新是最稳健的选择，它避免了因更新频率不匹配而引入的复杂调参和潜在不稳定。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UCjewCVubi1tThkQzKzczCP2nyc
+  block_id: YhZGdWlcqofhynxCbBQchtgKnib
+  page_token: UCjewCVubi1tThkQzKzczCP2nyc
+  original_title: 在训练循环中，Critic 的更新频率和 Actor 的更新频率是否一致？为什么通常设置一致的步数？
+  imported_at: '2026-09-21'

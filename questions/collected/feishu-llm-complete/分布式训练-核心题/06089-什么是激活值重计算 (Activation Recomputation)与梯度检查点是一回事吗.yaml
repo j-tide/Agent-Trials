@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1377a77dbb0c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“激活值重计算” (Activation Recomputation)？与梯度检查点是一回事吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 什么是“激活值重计算” (Activation Recomputation)？与梯度检查点是一回事吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    激活值重计算与梯度检查点 (Gradient Checkpointing) 实质上指的是同一技术，只是名称上的侧重点略有不同。
+
+    原理：在标准训练中，前向传播产生的中间激活值需要全部保存在显存中，因为反向传播需要它们来计算梯度。当模型层数很深或序列很长时，这些激活值会占用巨大的显存，成为训练的主要瓶颈。
+
+    激活值重计算的核心思想是：用计算换显存。在前向传播时，选择性地丢弃某些层的中间激活值（不保存）。反向传播需要这些激活值时，从最近的保存点（检查点）开始，重新执行该段的前向计算，临时恢复被丢弃的激活值，用于梯度计算，随后立即释放。
+
+    实现：通常将一个Transformer层或一段连续的层设为一个检查点段。前向时只保存该段的输入张量（检查点），丢弃段内所有中间激活。反向时，用保存的输入重新进行前向传播，得到所需中间激活，然后计算该段梯度，释放临时激活。
+
+    与梯度检查点的异同：
+
+    - 完全相同。PyTorch中通过torch.utils.checkpoint.checkpoint实现，也称为“activation checkpointing”。
+
+    - 该技术不改变模型结构和训练算法，仅改变内存管理策略。
+
+    - 代价是增加了一次额外的前向计算（约33%的额外计算量），但能节省50%~70%的激活值显存。在大模型长序列训练中，这是必不可少的技术。
+
+    因此，激活值重计算就是梯度检查点，两者在工业界和学术界通用，只是描述角度不同：一个强调“重计算激活值”，另一个强调“设置检查点”。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HfoZwdjz1iRNmPkiI3icQQafnve
+  block_id: QRcBdRSBOo11Chxhk3HcTLkwntf
+  page_token: HfoZwdjz1iRNmPkiI3icQQafnve
+  original_title: 什么是“激活值重计算” (Activation Recomputation)？与梯度检查点是一回事吗？
+  imported_at: '2026-09-21'

@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f361f1f20006
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何利用连续批处理（Continuous Batching）提高多模态 LLM 的吞吐？视觉 Token 数量变化有何影响？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 如何利用连续批处理（Continuous Batching）提高多模态 LLM 的吞吐？视觉 Token 数量变化有何影响？
+answer:
+  mode: rubric
+  reference_answer: |-
+    连续批处理是LLM服务框架（如vLLM）的核心技术，它允许在生成过程中动态插入新请求，而非等待整个batch都完成才能加入下一个。
+
+    工作原理：
+
+    传统静态批处理必须等batch内所有序列生成完毕（通常受最长序列拖累），GPU利用率低。连续批处理将推理分解为多个micro-step，每个step处理当前所有活跃序列的一个token。当某个序列生成结束（EOS），其KV缓存释放，立即从等待队列中取一个新请求进入batch，完成prefill（一次性计算所有输入token的KV缓存），然后加入后续的逐token生成。这样GPU利用率可保持在90%以上。
+
+    视觉Token数量的影响：
+
+    多模态模型中，视觉token通常一次性在prefill阶段加入。视觉token数量变化带来两个问题：
+
+    - Prefill阶段计算量波动：有的请求视觉token很少（简单图），有的很多（多图或高分切块）。Prefill需要一次性计算这些视觉token和文本前缀的注意力，计算量随视觉token数平方增长。如果batch中混入视觉token极多的请求，会拖慢整个batch的prefill。
+
+    - KV缓存占用不均：视觉token也占用KV缓存。大量视觉token会增加显存占用，限制同时服务的请求数。
+
+    应对策略：
+
+    - Prefill拆分（Split Prefill）：将极长的prefill拆成多个小块，与其他请求的解码步骤交错执行，避免单一长prefill阻塞所有解码。
+
+    - 视觉Token数量限制：对每个请求设定视觉token上限，超出部分压缩或拒绝。
+
+    - 优先级调度：对视觉token少的短请求给予更高优先级，保障交互体验；大批量高分辨率请求放在低峰期处理。
+
+    - KV缓存卸载：将暂时不活跃的请求的KV缓存卸载到CPU内存，活跃时再加载回GPU。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RRQVwfGDQiejs6kBW04ch16ynHe
+  block_id: NxuMd4SfwokmMgx2BwucjTmsnsb
+  page_token: RRQVwfGDQiejs6kBW04ch16ynHe
+  original_title: 如何利用连续批处理（Continuous Batching）提高多模态 LLM 的吞吐？视觉 Token 数量变化有何影响？
+  imported_at: '2026-09-21'

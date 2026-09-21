@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d407cee255b6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E0️ 在 LangChain 中如何实现 Parent Document Retriever？需要用到哪些存储后端？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F6E0️ 在 LangChain 中如何实现 Parent Document Retriever？需要用到哪些存储后端？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    实现 Parent Document Retriever 需要两个存储：
+
+    - 向量存储（Vector Store）：用于存储小块的嵌入向量，执行检索。
+
+    - 文档存储（Document Store）：用于存储父文档，并能通过小块 ID 快速查找父文档。
+
+    LangChain 提供了 ParentDocumentRetriever 类，封装了这个流程。
+
+    实现步骤：
+
+    - 准备文档并切分：使用两种切分器：
+
+    - 初始化存储后端：
+
+    - 创建 ParentDocumentRetriever：传入向量存储、文档存储、父切分器、子切分器等。
+
+    - 添加文档：调用 retriever.add_documents(docs)，内部会自动将每个文档切分为父块和子块，将子块存入向量库，将父块存入文档库，并自动建立映射。
+
+    - 检索：直接调用 retriever.get_relevant_documents(query)。它会先通过向量库检索相关子块，然后根据子块 ID 从文档存储中取出对应的父文档并返回。
+
+    代码示例：
+
+    from langchain.retrievers import ParentDocumentRetriever
+    from langchain.storage import InMemoryStore
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
+    from langchain.vectorstores import Chroma
+    from langchain.embeddings import OpenAIEmbeddings
+
+    # 父切分器与子切分器
+    parent_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+    child_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50)
+
+    # 向量存储
+    vectorstore = Chroma(embedding_function=OpenAIEmbeddings())
+    # 文档存储
+    store = InMemoryStore()
+
+    retriever = ParentDocumentRetriever(
+        vectorstore=vectorstore,
+        docstore=store,
+        parent_splitter=parent_splitter,
+        child_splitter=child_splitter,
+    )
+    retriever.add_documents(your_documents)
+
+    # 检索
+    docs = retriever.get_relevant_documents("your query")
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HEY1ws44PidEGlkYttccK5AenXe
+  block_id: JU8qd3Ir9o0tFuxSJjAc99eAnVY
+  page_token: HEY1ws44PidEGlkYttccK5AenXe
+  original_title: "\U0001F6E0️ 在 LangChain 中如何实现 Parent Document Retriever？需要用到哪些存储后端？"
+  imported_at: '2026-09-21'

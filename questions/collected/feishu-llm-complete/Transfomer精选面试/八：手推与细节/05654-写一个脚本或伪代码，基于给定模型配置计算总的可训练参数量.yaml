@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a486ce410237
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写一个脚本或伪代码，基于给定模型配置计算总的可训练参数量。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 八：手推与细节
+tags: &1
+- Transfomer精选面试
+- 八：手推与细节
+content:
+  prompt: 写一个脚本或伪代码，基于给定模型配置计算总的可训练参数量。
+answer:
+  mode: rubric
+  reference_answer: |-
+    以下 Python 伪代码，计算类似 LLaMA 结构的参数量：
+
+    def calc_llama_params(vocab_size, d_model, n_layers, n_heads, ff_dim, shared_emb=True):
+        # Embedding
+        embed_params = vocab_size * d_model
+        # LM head (if not shared)
+        lm_head_params = 0 if shared_emb else vocab_size * d_model
+        # Per layer
+        attn_params = 4 * d_model * d_model  # Q, K, V, O without bias
+        # FFN (SwiGLU with 3 matrices)
+        ffn_params = 3 * d_model * ff_dim  # gate, up, down
+        rmsnorm_params = 2 * d_model  # two RMSNorm scales
+        layer_params = attn_params + ffn_params + rmsnorm_params
+        total = embed_params + lm_head_params + n_layers * layer_params
+        return total
+
+    # Example for LLaMA-7B
+    config = {
+        'vocab_size': 32000,
+        'd_model': 4096,
+        'n_layers': 32,
+        'n_heads': 32,
+        'ff_dim': 11008,
+        'shared_emb': True
+    }
+    params = calc_llama_params(**config)
+    print(f"Total parameters: {params/1e9:.2f}B")
+
+    该脚本累加嵌入、层注意力和 FFN 参数，忽略位置编码和可能的偏置，能给出非常接近实际的估计值。
+
+    ---
+
+    通过以上推导和伪代码，我们全面解答了自回归生成的计算量、梯度检查点、分布式训练可行性、训练时间估算、MoE 开销、KV 缓存增长、softmax 忽略原因、手机端部署限制以及参数量计算脚本。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/OJDVwgYOAiwhFbkVJIocddmxnbh
+  block_id: WocDdQH9QoEElCxBt8scaouXnb0
+  page_token: OJDVwgYOAiwhFbkVJIocddmxnbh
+  original_title: 写一个脚本或伪代码，基于给定模型配置计算总的可训练参数量。
+  imported_at: '2026-09-21'

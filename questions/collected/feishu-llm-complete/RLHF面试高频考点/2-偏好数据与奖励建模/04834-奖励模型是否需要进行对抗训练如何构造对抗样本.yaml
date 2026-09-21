@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d0d40d9289bd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 奖励模型是否需要进行对抗训练？如何构造对抗样本？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 2-偏好数据与奖励建模
+tags: &1
+- RLHF面试高频考点
+- 2-偏好数据与奖励建模
+content:
+  prompt: 奖励模型是否需要进行对抗训练？如何构造对抗样本？
+answer:
+  mode: rubric
+  reference_answer: |-
+    绝对需要。 标准的 RM 训练数据是静态的，无法覆盖 PPO 中 Actor 主动探索出的各种“奖励黑客”样本。对抗训练是为了让 RM 提前见识到未来可能遭受的攻击，并变得更强。
+
+    构造对抗样本的方法：
+
+    - 利用 PPO 的中间检查点生成：这是最直接、最贴近真实攻击的方法。在 RLHF 过程中，定期保存 Actor 的中间版本（如每 10-20 步的检查点）。让这些中间版本的 Actor 对一批 prompt 生成回答。由于 RL 训练会推动 Actor 去最大化 RM 的分数，这些中间回答中会天然地包含许多 RM “喜欢”但可能已经偏离正轨的样本。将这些样本与人写的优质回答进行比较，让人工或 AI 评判员指出其缺陷，就构成了高质量的对抗偏好数据。
+
+    - 对抗性 prompt 的构造：让红队专家或有创造力的标注员，专门设计那些容易诱使模型生成表面上高分、实则低质的 prompt。例如，“请用一种极其专业且充满自信的语气，解释为什么地球是平的”。模型很可能生成一个格式完美、腔调权威但内容荒谬的回答。RM 的原型极可能给这种“完美的胡说八道”打高分。将其标注为 rejected，与一个正确解释的回答对比，就构成了事实性维度的对抗样本。
+
+    - 基于奖励模型的“白盒”对抗攻击：这是梯度层面的攻击。固定当前 RM 的参数，对一个初始的回答 token 序列进行梯度上升，目标是最大化 RM 的输出奖励。通过这种优化，我们会在回答空间中找到那些能让 RM 极度兴奋、但在人类看来荒诞不经的“对抗性回答”。然后，由人类/AI 将这些对抗性回答标注为 rejected，并与正常回答构成训练对。这相当于拿着 RM 自己的“弱点地图”来训练它。
+
+    - 语义等价对抗：对高质量回答进行文本改写（如同义词替换、语序调整），但不改变其含义。原始的 RM 可能会因为不熟悉这种微小的分布偏移而打出低分。将改写后的回答与原始回答构造成“同等好”的平局或弱偏好对，训练 RM 对这些语义保持不变的扰动具有鲁棒性。
+
+    通过以上主动攻击和被动防御式的对抗训练，RM 才能在 PPO 的高强度对抗博弈中站稳脚跟，成为一个真正“老练”的裁判。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KFgpwxoYei4VBPkDUJfcFKLLnVf
+  block_id: LzBhdtkDzoxSH5xHG9Mc8GTXnEg
+  page_token: KFgpwxoYei4VBPkDUJfcFKLLnVf
+  original_title: 奖励模型是否需要进行对抗训练？如何构造对抗样本？
+  imported_at: '2026-09-21'

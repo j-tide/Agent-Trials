@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8271cb1fd7eb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出 PagedAttention 中的物理块结构定义，以及逻辑块表（Block Table）的数据结构，并说明一个 batch 中多条序列的块表如何组织。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 写出 PagedAttention 中的物理块结构定义，以及逻辑块表（Block Table）的数据结构，并说明一个 batch 中多条序列的块表如何组织。
+answer:
+  mode: rubric
+  reference_answer: |-
+    8.1 物理块结构
+
+    物理块是一个固定大小（通常 16 或 32 个 token）的存储单元，包含该块内所有 token 在某一层的所有头的 K 和 V。在 GPU 显存中，可以连续排列。
+
+    ```python
+    class PhysicalBlock:
+        def __init__(self, block_size: int, num_heads: int, head_dim: int):
+            # 存储格式: [2, num_heads, block_size, head_dim]，索引 0=K, 1=V
+            self.data = torch.zeros(2, num_heads, block_size, head_dim, dtype=torch.float16, device='cuda')
+            self.is_free = True
+    ```
+
+    在 vLLM 等实现中，物理块通常按层管理，每层独立分配。但为了简化，可以在一个块中同时存储所有层的 KV（即形状 [num_layers, 2, num_heads, block_size, head_dim]），这样可以减少块表项数量，但灵活性下降。
+
+    8.2 逻辑块表（Block Table）
+
+    每个序列维护一个列表 block_table，记录该序列的逻辑块到物理块索引的映射。例如，一个序列长度为 50，block_size=16，则需要 4 个逻辑块。block_table = [phy_idx0, phy_idx1, phy_idx2, phy_idx3]，其中第 4 个块只使用了前 2 个位置（内部碎片）。
+
+    8.3 Batch 内的块表组织
+
+    在实际推理时，我们需要将 batch 中所有序列的块表整合为一个数据结构，以便 GPU kernel 高效访问。常见的方式是构建一个二维数组 block_tables，形状 [B, max_blocks_per_seq]，其中 max_blocks_per_seq 是支持的最大逻辑块数。对于每个序列，用物理块索引填充，未使用的位置填 -1。
+
+    ```python
+    batch_block_table = torch.full((B, max_blocks), -1, dtype=torch.int32)
+    for i, seq in enumerate(sequences):
+        for j, blk in enumerate(seq.block_table):
+            batch_block_table[i, j] = blk
+    ```
+
+    GPU kernel 通过此表，以及每个序列的 context_len（已生成的 token 数），可以计算出逻辑块索引、物理块索引，进而访问数据。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IhgfwCPtoif3TWkyezuc4sW9nbg
+  block_id: BoYAddl0HordvHx16NwcGiq6ncd
+  page_token: IhgfwCPtoif3TWkyezuc4sW9nbg
+  original_title: 写出 PagedAttention 中的物理块结构定义，以及逻辑块表（Block Table）的数据结构，并说明一个 batch
+    中多条序列的块表如何组织。
+  imported_at: '2026-09-21'

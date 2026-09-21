@@ -1,0 +1,184 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c87bfd8accca
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出 DPO 训练一步的完整伪代码：数据加载、前向计算 chosen/rejected logps、ref logps、计算损失、反向传播、参数更新。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 写出 DPO 训练一步的完整伪代码：数据加载、前向计算 chosen/rejected logps、ref logps、计算损失、反向传播、参数更新。
+answer:
+  mode: rubric
+  reference_answer: |-
+    整体流程
+
+    DPO 训练的一个迭代步包含以下关键阶段：
+
+    - 从偏好数据集中采样一个 batch，包含提示（prompt）、chosen 回答和 rejected 回答。
+
+    - 分别用策略模型（policy model）和参考模型（reference model）对 chosen 和 rejected 序列进行前向传播，获取每个 token 的对数概率。
+
+    - 利用 attention mask 对对数概率进行有效长度归一化，得到每个序列的平均对数概率。
+
+    - 根据 DPO 损失公式计算损失值。
+
+    - 对策略模型参数执行反向传播和优化器更新。参考模型的参数始终保持冻结。
+
+    伪代码
+
+    ```text
+    Algorithm: DPO Training Step
+    Input: policy_model, reference_model, optimizer, beta, batch
+    Output: updated policy_model
+
+    1. 解包 batch 得到:
+       - prompt_ids, chosen_ids, rejected_ids
+       - chosen_mask, rejected_mask  (attention mask)
+
+    2. 将 chosen_ids 和 rejected_ids 分别送入 policy_model，计算 logits。
+       使用 logits 和标签计算每个 token 的交叉熵损失（reduction='none'），
+       再结合 attention mask 得到 chosen 和 rejected 的平均对数概率：
+       policy_chosen_logps = average_log_prob(logits_chosen, chosen_ids, chosen_mask)
+       policy_rejected_logps = average_log_prob(logits_rejected, rejected_ids, rejected_mask)
+
+    3. 在 torch.no_grad() 上下文中，将相同序列送入 reference_model，
+       以相同方式计算 ref_chosen_logps 和 ref_rejected_logps。
+       注意：这些张量必须 detach 或直接在 no_grad 下得到，保证不参与梯度计算。
+
+    4. 计算 DPO 损失:
+       chosen_ratio = policy_chosen_logps - ref_chosen_logps
+       rejected_ratio = policy_rejected_logps - ref_rejected_logps
+       reward_diff = beta * (chosen_ratio - rejected_ratio)
+       loss = -log_sigmoid(reward_diff).mean()
+
+    5. 反向传播：
+       optimizer.zero_grad()
+       loss.backward()
+       optimizer.step()
+
+    6. 返回 loss 值用于日志。
+    ```
+
+    完整 Python 实现（关键部分）
+
+    ```python
+    import torch
+    import torch.nn.functional as F
+
+    def average_log_prob(logits, labels, mask):
+        """计算每个序列的平均 token 对数概率，mask 忽略 padding"""
+        # logits: (B, L, V)
+        # labels: (B, L)
+        # mask: (B, L)
+        loss_per_token = F.cross_entropy(
+            logits.permute(0, 2, 1),  # (B, V, L)
+            labels,
+            reduction='none'
+        )
+        loss_per_token = loss_per_token * mask
+        total_loss = loss_per_token.sum(dim=1)      # (B,)
+        num_tokens = mask.sum(dim=1)                # (B,)
+        mean_log_prob = -total_loss / num_tokens    # 平均对数概率 = -平均交叉熵
+        return mean_log_prob
+
+    def dpo_training_step(policy_model, ref_model, batch, optimizer, beta):
+        """
+        执行一个 DPO 训练步。
+        batch: {
+            'chosen_input_ids': (B, Lc),
+            'chosen_attention_mask': (B, Lc),
+            'rejected_input_ids': (B, Lr),
+            'rejected_attention_mask': (B, Lr),
+            'chosen_labels': (B, Lc),       # 通常与 input_ids 相同（自回归）
+            'rejected_labels': (B, Lr)
+        }
+        """
+        # 策略模型前向 chosen
+        policy_chosen_logits = policy_model(
+            input_ids=batch['chosen_input_ids'],
+            attention_mask=batch['chosen_attention_mask']
+        ).logits
+        policy_chosen_logps = average_log_prob(
+            policy_chosen_logits, batch['chosen_labels'], batch['chosen_attention_mask']
+        )
+
+        # 策略模型前向 rejected
+        policy_rejected_logits = policy_model(
+            input_ids=batch['rejected_input_ids'],
+            attention_mask=batch['rejected_attention_mask']
+        ).logits
+        policy_rejected_logps = average_log_prob(
+            policy_rejected_logits, batch['rejected_labels'], batch['rejected_attention_mask']
+        )
+
+        # 参考模型前向（无梯度）
+        with torch.no_grad():
+            ref_chosen_logits = ref_model(
+                input_ids=batch['chosen_input_ids'],
+                attention_mask=batch['chosen_attention_mask']
+            ).logits
+            ref_chosen_logps = average_log_prob(
+                ref_chosen_logits, batch['chosen_labels'], batch['chosen_attention_mask']
+            )
+
+            ref_rejected_logits = ref_model(
+                input_ids=batch['rejected_input_ids'],
+                attention_mask=batch['rejected_attention_mask']
+            ).logits
+            ref_rejected_logps = average_log_prob(
+                ref_rejected_logits, batch['rejected_labels'], batch['rejected_attention_mask']
+            )
+
+        # 计算 DPO 损失
+        chosen_ratio = policy_chosen_logps - ref_chosen_logps
+        rejected_ratio = policy_rejected_logps - ref_rejected_logps
+        reward_diff = beta * (chosen_ratio - rejected_ratio)
+        loss = -F.logsigmoid(reward_diff).mean()
+
+        # 反向传播
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        return loss.item()
+    ```
+
+    要点说明
+
+    - 使用 average_log_prob 将序列的对数概率归一化到 token 级别，使不同长度的序列在损失中公平对待。
+
+    - 参考模型的 logits 必须在 torch.no_grad() 下计算，且后续使用的 ref_*_logps 已经不需要梯度，这天然实现了 detach。
+
+    - 在实际代码中，为节省显存，可对 chosen 和 rejected 序列合并为一个 batch 同时计算，但这里为清晰性分开。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  block_id: NbvhdOVMCoufHExEleCcwk2knyc
+  page_token: Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  original_title: 写出 DPO 训练一步的完整伪代码：数据加载、前向计算 chosen/rejected logps、ref logps、计算损失、反向传播、参数更新。
+  imported_at: '2026-09-21'

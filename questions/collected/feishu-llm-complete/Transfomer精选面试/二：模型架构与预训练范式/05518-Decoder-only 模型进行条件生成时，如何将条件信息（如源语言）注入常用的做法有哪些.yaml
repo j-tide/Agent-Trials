@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0fe4e61892d2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Decoder-only 模型进行条件生成时，如何将条件信息（如源语言）注入？常用的做法有哪些？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 二：模型架构与预训练范式
+tags: &1
+- Transfomer精选面试
+- 二：模型架构与预训练范式
+content:
+  prompt: Decoder-only 模型进行条件生成时，如何将条件信息（如源语言）注入？常用的做法有哪些？
+answer:
+  mode: rubric
+  reference_answer: |-
+    核心做法：条件信息与目标序列拼接成统一序列。
+
+    具体方法如下：
+
+    - 前缀拼接法：
+    将条件文本直接拼接在待生成序列之前，用特殊分隔符隔开。格式为 [条件文本] [分隔符] [目标前缀]。训练时只对目标部分计算语言模型损失。这是最基础也最常用的做法，GPT 系列处理翻译、摘要等任务均采用此法。
+
+    - 指令+上下文拼接：
+    在条件信息前再拼接任务指令（如“将以下文本翻译成英文：”），形成 [指令] [条件] [分隔符] [目标] 的结构。这让模型能够区分不同类型的条件生成任务，实现多任务统一。
+
+    - 部分双向掩码（PrefixLM）：
+
+    允许条件部分使用双向注意力（token 之间可以互相看到），而目标生成部分使用因果掩码。这通过自定义的注意力掩码矩阵实现：条件部分的 mask 是全零（可见），目标部分的 mask 是上三角因果掩码，且条件到目标方向是可见的。这样既保留了条件部分的双向理解能力，又不破坏生成的因果性。GLM、PaLM 等模型采用了这种策略，可以在条件理解上获得接近 Encoder 的双向能力。
+
+    - 交叉注意力替代方案（Decoder with Encoder）：
+
+    有些模型保留一个单独的轻量 Encoder 来编码条件，但主网络仍是 Decoder。Encoder 输出的表示通过额外的交叉注意力注入 Decoder。这介于纯 Decoder 和 Enc-Dec 之间，用于需要强条件控制的场景。
+
+    - 提示嵌入法（Prompt Tuning）：
+
+    在输入层插入可学习的软提示（soft prompt）向量，这些向量作为条件的压缩表示，与输入 token 嵌入拼接。只需少量条件文本示例即可，适用于高效微调。
+
+    在实际工程中，前缀拼接 + 因果掩码是绝大多数生成式 LLM 的首选，因其最简单、最统一、且能充分利用 Decoder-only 的架构优势。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PHhXw9KAQi5j4Xk3ud7cYLghnkh
+  block_id: MnOVduE8EoL3Y7xP4cFcQJIdnbf
+  page_token: PHhXw9KAQi5j4Xk3ud7cYLghnkh
+  original_title: Decoder-only 模型进行条件生成时，如何将条件信息（如源语言）注入？常用的做法有哪些？
+  imported_at: '2026-09-21'

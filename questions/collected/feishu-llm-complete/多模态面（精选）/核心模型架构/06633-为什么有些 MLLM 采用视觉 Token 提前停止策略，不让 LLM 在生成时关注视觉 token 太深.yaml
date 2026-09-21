@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a4f2520e823e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么有些 MLLM 采用“视觉 Token 提前停止”策略，不让 LLM 在生成时关注视觉 token 太深？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 核心模型架构
+tags: &1
+- 多模态面（精选）
+- 核心模型架构
+content:
+  prompt: 为什么有些 MLLM 采用“视觉 Token 提前停止”策略，不让 LLM 在生成时关注视觉 token 太深？
+answer:
+  mode: rubric
+  reference_answer: |-
+    “视觉 Token 提前停止”是指在 LLM 的自回归生成阶段，将视觉 token 从自注意力的 key-value 缓存中移除，或者通过注意力掩码阻止后续生成的文本 token 关注视觉 token。这一策略初看反直觉，但有深刻动机：
+
+    - 减少计算开销：自注意力计算量与序列长度成正比，推理时每一步生成都需要对整个上下文序列计算注意力。视觉 token（通常 256 或更多）占据了大量的 KV 缓存空间和计算量。如果在生成一定步数后，模型已经有了足够的视觉理解，不再需要反复查询视觉 token，移除它们可以显著降低每步生成的延迟和显存占用。
+
+    - 防止过度依赖视觉导致幻觉或重复：在生成长篇回答时，如果模型持续关注视觉 token，可能会过度解读图像的某些细节，导致生成不相关的描述，或者陷入对图像内容的重复叙述。提前停止视觉关注可以鼓励模型更依赖已生成的文本上下文来保持连贯性。
+
+    - 模仿人类的视觉工作记忆：人类在描述图像时，通常是先整体看一眼，形成视觉印象，然后主要依赖这个印象和语言习惯进行描述，而不是一直盯着图像看。视觉 token 提前停止模拟了这一过程：视觉信息在早期被充分吸收到内部状态中，生成时只需基于该状态展开。
+
+    - 训练中的选择性关注：一些训练策略会随机在某个生成步数后遮挡视觉 token，使模型学会从内部记忆中提取视觉信息，而不是实时依赖。
+
+    具体实现上，可以通过在特定 Transformer 层停止视觉 token 参与注意力，或者直接截断 KV 缓存中的视觉部分。这种策略在 LLaVA、Qwen-VL 等模型中都有探索，尤其在生成较长回答时能有效平衡效率和效果。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YRX9wk77WiOH3KkAnedcnJEanwc
+  block_id: Nxs1dKEzDoKs9Jx9159cLKLSnMc
+  page_token: YRX9wk77WiOH3KkAnedcnJEanwc
+  original_title: 为什么有些 MLLM 采用“视觉 Token 提前停止”策略，不让 LLM 在生成时关注视觉 token 太深？
+  imported_at: '2026-09-21'

@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-18f20f02293f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6A6 3. 大量“今天天气怎么样”这类问题也在走检索，导致延迟高、成本大，如何优化？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "\U0001F6A6 3. 大量“今天天气怎么样”这类问题也在走检索，导致延迟高、成本大，如何优化？"
+answer:
+  mode: rubric
+  reference_answer: "问题根因非常明确：系统没有对“是否需要检索”进行判断，所有问题都无差别地走了一遍检索流水线。 而实际业务中，可能有 20%-40%
+    的请求是闲聊、通用知识或简单指令，根本不需要查知识库。\n\n优化方案：在检索之前，增加一个轻量级的“门控”层。\n\n```text\n优化前：\n  用户提问
+    → [向量化 + 检索 + LLM] → 回答\n\n优化后：\n  用户提问 → [轻量级意图分类] → \n              ├─ 需要检索
+    → [检索 + RAG 生成] → 回答\n              └─ 无需检索 → 直接回答 / 缓存答案 → 回答\n```\n\n具体实现策略，由简到繁：\n\n方案一：基于规则的快速过滤（最快上线）\n\n用一组简单的规则，拦截那些明显不需要检索的问题。\n\n```python\ndef
+    needs_retrieval(question: str) -> bool:\n    # 规则1：闲聊/问候\n    greeting_patterns
+    = [\"你好\", \"你是谁\", \"你叫什么\", \"再见\", \"谢谢\", \"今天天气\"]\n    if any(pattern in
+    question for pattern in greeting_patterns):\n        return False\n    \n    #
+    规则2：通用知识（模型训练数据里大概率有）\n    common_knowledge_keywords = [\"什么是\", \"如何写\", \"Python
+    基础\", \"公式\", \"翻译\"]\n    if any(keyword in question for keyword in common_knowledge_keywords):\n
+    \       return False\n\n    # 规则3：太短的问题（5个字以下，大概率是闲聊）\n    if len(question) <
+    5:\n        return False\n\n    # 默认需要检索\n    return True\n```\n\n方案二：用轻量级分类模型做意图识别\n\n训练一个
+    BERT 级别的小模型，对用户问题做二分类：“需要检索” vs “无需检索”。训练数据可以从线上日志里人工标注 500-1000 条得到。\n\n```python\nfrom
+    transformers import pipeline\n\n# 加载预先 fine-tune 好的分类器\nclassifier = pipeline(\"text-classification\",
+    model=\"your-retrieval-intent-classifier\")\n\ndef needs_retrieval_ml(question:
+    str) -> bool:\n    result = classifier(question)[0]\n    return result[\"label\"]
+    == \"NEEDS_RETRIEVAL\" and result[\"score\"] > 0.8\n```\n\n方案三：Self-RAG 风格的推理（效果最好，但模型需改造）\n\n如果你的模型支持（如使用了经过微调的
+    Self-RAG 模型），可以直接让模型在生成的第一阶段输出是否需要检索的令牌，完全省掉额外的分类模型。\n\n```python\ndef self_rag_gate(question,
+    llm):\n    decision = llm.generate_special_tokens(question, max_tokens=1)\n    return
+    \"<RETRIEVE>\" in decision\n```\n\n方案四：结合缓存，进一步减少无谓调用\n\n对于“今天天气怎么样”这类高频且答案相对固定的问题，即使在无检索路径里，也可以引入语义缓存。用向量相似度匹配历史问题，如果命中且未过期，直接返回缓存答案。\n\n```python\nimport
+    hashlib, redis\n\ncache = redis.Redis()\n\ndef cached_or_generate(question, generate_func):\n
+    \   # 简单的精确缓存（用哈希键）\n    key = hashlib.md5(question.encode()).hexdigest()\n    cached
+    = cache.get(key)\n    if cached:\n        return cached.decode()\n    answer =
+    generate_func(question)\n    cache.setex(key, 3600, answer)  # 1小时过期\n    return
+    answer\n```\n\n完整的优化后流程：\n\n```python\ndef optimized_rag(question):\n    # 第一步：门控判断\n
+    \   if not needs_retrieval(question):\n        # 走直接生成或缓存\n        return direct_answer(question)\n
+    \   \n    # 第二步：需要检索的，再走检索+生成\n    docs = vectorstore.similarity_search(question,
+    k=5)\n    return rag_generate(question, docs)\n```\n\n效果预估：\n\n通过引入门控机制，通常可以将检索调用量降低
+    30%-50%，P50 延迟下降 40% 以上，同时大大节省 Embedding 和向量检索的计算成本。这对于高频、低时延要求的在线服务尤为重要。\n\n收束：\n\nSelf-RAG
+    的思想，并不一定需要完整的 Self-RAG 模型才能落地。理解它“按需检索”和“自我批判”的精髓之后，我们可以先用规则和轻量模型逐步接近这个目标。让系统学会判断“什么时候不该查”，比让它学会“怎么查得更准”有时候更能立竿见影地提升用户体验。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcnhlYWo3TlV4xyTFYElPYkIc
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "\U0001F6A6 3. 大量“今天天气怎么样”这类问题也在走检索，导致延迟高、成本大，如何优化？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a08e69359ead
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写一个对话模拟器，让两个模型互相对话生成微调数据。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 编写一个对话模拟器，让两个模型互相对话生成微调数据。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    def simulate_dialogue(
+        model_a, tokenizer_a,
+        model_b, tokenizer_b,
+        initial_prompt: str,
+        num_turns: int = 4,
+        max_new_tokens: int = 100
+    ) -> list:
+        """
+        两个模型交替对话，A发起，B回复，A再回复，如此循环。返回对话历史列表。
+        """
+        dialogue_history = [{"role": "user", "content": initial_prompt}]
+        # 模型A生成第一个回复
+        prompt_a = tokenizer_a.apply_chat_template(dialogue_history, tokenize=False, add_generation_prompt=True)
+        inputs = tokenizer_a(prompt_a, return_tensors="pt").to(model_a.device)
+        gen_a = model_a.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=True, temperature=0.8)
+        reply_a = tokenizer_a.decode(gen_a[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
+        dialogue_history.append({"role": "assistant", "content": reply_a})
+
+        for turn in range(1, num_turns):
+            # B模型回复
+            prompt_b = tokenizer_b.apply_chat_template(dialogue_history, tokenize=False, add_generation_prompt=True)
+            inputs = tokenizer_b(prompt_b, return_tensors="pt").to(model_b.device)
+            gen_b = model_b.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=True, temperature=0.8)
+            reply_b = tokenizer_b.decode(gen_b[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
+            dialogue_history.append({"role": "user", "content": reply_b})  # B的回复作为下一轮的“用户”消息
+            # A模型回复
+            prompt_a = tokenizer_a.apply_chat_template(dialogue_history, tokenize=False, add_generation_prompt=True)
+            inputs = tokenizer_a(prompt_a, return_tensors="pt").to(model_a.device)
+            gen_a = model_a.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=True, temperature=0.8)
+            reply_a = tokenizer_a.decode(gen_a[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
+            dialogue_history.append({"role": "assistant", "content": reply_a})
+
+        return dialogue_history
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: EXOZdUjKho1W4Bx2YhiczJ0Znwf
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: 编写一个对话模拟器，让两个模型互相对话生成微调数据。
+  imported_at: '2026-09-21'

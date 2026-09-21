@@ -1,0 +1,96 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8c9ba2bfde63
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现模型并行中列切分（Column-wise）线性层的前向和反向通信模拟：输入 X 被广播，权重按列切分在各节点，前向计算后输出需 AllGather
+  拼接，反向计算后梯度需 ReduceScatter。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现模型并行中列切分（Column-wise）线性层的前向和反向通信模拟：输入 X 被广播，权重按列切分在各节点，前向计算后输出需 AllGather
+    拼接，反向计算后梯度需 ReduceScatter。
+answer:
+  mode: rubric
+  reference_answer: |-
+    8.1 列切分线性层原理
+
+    [图片内容未导入]
+
+    8.2 前向模拟
+
+    ```python
+    def column_wise_forward(X, W_parts):
+        """
+        X: 输入矩阵 [batch, d_in]
+        W_parts: 列表，每个元素是某设备上的权重切片 [d_in, d_out_part]
+        返回: Y 完整输出
+        """
+        N = len(W_parts)
+        # 1. 广播 X 到所有设备（这里假设所有设备已拥有 X）
+        Y_parts = []
+        for i in range(N):
+            Yi = X @ W_parts[i]   # [batch, d_out_part]
+            Y_parts.append(Yi)
+        # 2. AllGather 拼接
+        Y = np.concatenate(Y_parts, axis=1)  # 模拟 AllGather 后的结果
+        return Y
+    ```
+
+    8.3 反向模拟
+
+    ```python
+    def column_wise_backward(X, W_parts, dY):
+        """
+        dY: 完整输出梯度 [batch, d_out]
+        返回: dX [batch, d_in], dW_parts 列表
+        """
+        N = len(W_parts)
+        part_dim = dY.shape[1] // N
+        dY_parts = [dY[:, i*part_dim:(i+1)*part_dim] for i in range(N)]  # 切分
+        dX_local = []
+        dW_parts = []
+        for i in range(N):
+            dW_i = X.T @ dY_parts[i]  # [d_in, d_out_part]
+            dX_i = dY_parts[i] @ W_parts[i].T  # [batch, d_in]
+            dW_parts.append(dW_i)
+            dX_local.append(dX_i)
+        # 对 dX 进行 ReduceScatter（求和）：因为每个设备算出的 dX_i 是部分贡献，需要全局求和得到完整 dX
+        dX = sum(dX_local)   # 模拟 AllReduce SUM
+        # 在真实分布式环境中，dX 的求和可通过 ReduceScatter 实现：每个设备贡献一部分，然后各设备获得不同分片？列切分下 dX 需要完整，所以用 AllReduce。
+        return dX, dW_parts
+    ```
+
+    注意：标准列切分的反向对 dX 实际上需要 AllReduce（各设备 dX_i 相加），但有些实现可以通过技巧避免。更准确地说，Megatron-LM 中列切分的前向输出是 AllGather，反向输入梯度是 Split（不通信），而对 X 的梯度需要 AllReduce。此处我们演示了通信原语。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: TQznd6wC5oZDsexQIfRcmznznbd
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 实现模型并行中列切分（Column-wise）线性层的前向和反向通信模拟：输入 X 被广播，权重按列切分在各节点，前向计算后输出需
+    AllGather 拼接，反向计算后梯度需 ReduceScatter。
+  imported_at: '2026-09-21'

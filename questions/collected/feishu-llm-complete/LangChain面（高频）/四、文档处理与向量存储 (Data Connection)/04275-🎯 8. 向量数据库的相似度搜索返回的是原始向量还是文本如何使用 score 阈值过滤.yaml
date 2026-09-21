@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d687d294a941
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3AF 8. 向量数据库的“相似度搜索”返回的是原始向量还是文本？如何使用 score 阈值过滤？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F3AF 8. 向量数据库的“相似度搜索”返回的是原始向量还是文本？如何使用 score 阈值过滤？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    返回内容：
+    similarity_search 和 similarity_search_with_score 返回的都是 Document 对象（文本 + metadata），不是原始向量。向量数据库的核心价值就是隐藏向量细节，我们只需要给文本查询，拿回相关文本。原始向量对于使用者几乎是透明的，除非你用 similarity_search_by_vector 并手动提取。
+
+    similarity_search_with_score 返回的 score 是距离（如 L2 距离）或不相似度，具体含义取决于向量库和所用的相似度度量。通常分数越低表示越相似（L2 距离），但有些库返回的是余弦相似度（值越高越相关），需要注意看官方文档。Chroma 默认使用 L2 距离的平方，返回分数越小越匹配。
+
+    使用 score 阈值过滤：
+
+    在很多场景中，我们需要过滤掉相似度不够高的结果，避免返回不相关内容（例如聊天机器人对不懂的问题说“不知道”）。这可以通过设置距离阈值来实现：
+
+    ```python
+    # 使用 search_type="similarity_score_threshold" 的 retriever
+    retriever = vectorstore.as_retriever(
+        search_type="similarity_score_threshold",
+        search_kwargs={
+            "score_threshold": 0.3,  # 只保留距离小于 0.3 的结果（具体值需根据实际分布调整）
+            "k": 5,
+        },
+    )
+
+    docs = retriever.get_relevant_documents("某查询")
+    # 如果没有满足阈值的结果，返回空列表
+    ```
+
+    如何确定阈值：
+    这是一个需要经验+实验的过程。我一般会先用 similarity_search_with_score 跑一组典型查询，观察相关与不相关结果的分数分布，然后选取一个能过滤掉大部分噪声、又不误杀相关结果的阈值。例如，对于 Chroma + OpenAI embeddings，通常 L2 距离在 0.1~0.4 范围内的为高相关，0.4~0.6 可能相关，0.6 以上基本不相关。
+
+    需要注意的是，不同 embedding 模型和向量库的分数范围差异巨大，切换模型时一定要重新校准阈值。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/I0Gnw9RQoiOa2yk59JjcwumPnrf
+  block_id: NZ4JderJroFwAXxSSZocbwYlnjc
+  page_token: I0Gnw9RQoiOa2yk59JjcwumPnrf
+  original_title: "\U0001F3AF 8. 向量数据库的“相似度搜索”返回的是原始向量还是文本？如何使用 score 阈值过滤？"
+  imported_at: '2026-09-21'

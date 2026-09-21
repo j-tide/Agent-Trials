@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-108d6d95338a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3A8 在一个多模态大模型上使用 LoRA 时，通常会对视觉编码器和语言解码器分别添加 LoRA 吗？为什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LoRA 高频面试题
+derived_topic: 
+tags: &1
+- LoRA 高频面试题
+content:
+  prompt: "\U0001F3A8 在一个多模态大模型上使用 LoRA 时，通常会对视觉编码器和语言解码器分别添加 LoRA 吗？为什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    策略：通常会分别添加，但采取非对称配置，甚至在某些阶段冻结视觉编码器。
+
+    - 为什么需要分别添加？
+
+    多模态大模型（如 LLaVA）的视觉编码器（如 ViT）和语言解码器（如 LLaMA）源自不同的预训练阶段，具有不同的数据分布和知识结构。
+
+    - 视觉编码器已经在大规模图文数据上预训练，其特征提取能力相对通用且稳定，通常只需少量调整即可适配特定任务。
+
+    - 语言解码器是知识推理和生成的核心，需要更大容量的调整来学习跨模态对齐和任务特定格式。
+
+    如果两者共享同一个 LoRA 秩 r 或学习率，必然会出现“一方过拟合、一方欠拟合”的现象。
+
+    - 实际配置经验（以 LLaVA 1.5 微调为例）
+
+    - 语言解码器：我会为所有线性层（Q、K、V、O，以及 FFN 中的 gate 和 up 投影）添加 LoRA，使用较大的秩 rllm=64和适中的学习率（如 2e-4）。这是参数更新的主要战场。
+
+    - 视觉编码器：我会只为最后几层的注意力层添加 LoRA，使用较小的秩 rvis=16rvis=16 和更小的学习率（通常是 LLM 学习率的 1/10，如 2e-5）。这是为了防止破坏 CLIP 等预训练编码器的强大视觉感知能力。
+
+    - 投影层（Multimodal Projector）：连接视觉和语言的投影层是随机初始化的，必须从头训练。因此我不对它使用 LoRA，而是让它的全部参数正常参与训练，并使用一个较大的学习率。
+
+    - 为什么有时要冻结视觉编码器？
+
+    在很多视觉指令微调任务中，训练数据量较小（如几千条），或任务高度偏向语言推理（如 VQA），此时微调视觉编码器极易导致过拟合，丧失其零样本泛化能力。因此，在这些场景下，我会完全冻结视觉编码器，只对投影层和语言解码器进行 LoRA 微调。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XjiewYcvci750Gkvcqyc01XBnDc
+  block_id: ZS7idY8kpoEbw3xdZ55ctsunncf
+  page_token: XjiewYcvci750Gkvcqyc01XBnDc
+  original_title: "\U0001F3A8 在一个多模态大模型上使用 LoRA 时，通常会对视觉编码器和语言解码器分别添加 LoRA 吗？为什么？"
+  imported_at: '2026-09-21'

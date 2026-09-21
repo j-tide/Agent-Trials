@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-25466c1c3e5e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F501 3. 用户反馈 Agent 在回答复杂问题时经常“原地打转”，同样的知识库查了 5 遍还没有答案，如何解决？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: RAG & Vector Database篇
+tags: &1
+- AI Agent精选八股文
+- RAG & Vector Database篇
+content:
+  prompt: "\U0001F501 3. 用户反馈 Agent 在回答复杂问题时经常“原地打转”，同样的知识库查了 5 遍还没有答案，如何解决？"
+answer:
+  mode: rubric
+  reference_answer: "“原地打转”的本质是：Agent 缺乏对“检索有效性”的评估能力和“终止条件”的刚性约束。 它像一只被关在房间里的蜜蜂，不停撞向同一扇玻璃窗，以为下一次就能出去。\n\n排查与解决路线图：\n\n[图片内容未导入]\n\n具体优化措施：\n\n①
+    给 Agent 装上“无用探测器”\n\n在每一次检索后，强制 Agent 回答一个问题：“这次返回的信息，是否让我离最终答案更近了？”如果连续两次答案都是“否”，就强制切换策略（如改写查询、换知识库、或承认无法回答）。\n\n```python\ndef
+    evaluate_retrieval_utility(previous_context, new_info, llm):\n    prompt = f\"\"\"\n之前的上下文：{previous_context}\n新检索到的信息：{new_info}\n请判断新信息是否提供了之前没有的、有助于回答问题的内容。只回答
+    \"有用\" 或 \"无用\"。\n\"\"\"\n    return llm(prompt).strip()\n\n# 在 Agent 循环中\nif
+    evaluate_retrieval_utility(old_context, new_result) == \"无用\":\n    useless_count
+    += 1\n    if useless_count >= 2:\n        # 强制切换策略，如进行查询改写或直接回答“信息不足”\n        action
+    = \"switch_strategy\"\nelse:\n    useless_count = 0\n```\n\n② 引入“防重复”记忆机制\n\n记录每一次检索的查询词。如果
+    Agent 试图用完全相同或高度相似的查询再次搜索，直接拦截并提示它改写。\n\n```python\npast_queries = set()\n\ndef
+    is_redundant(query):\n    # 简单去重，也可以用余弦相似度判断\n    if query in past_queries:\n
+    \       return True\n    # 相似度判断（可选）\n    for past_q in past_queries:\n        if
+    similarity(query, past_q) > 0.9:\n            return True\n    past_queries.add(query)\n
+    \   return False\n```\n\n③ 设置硬性界限，优雅退出\n\n除了最大步数，还可以设置“无进展终止”：如果连续 N 轮检索的信息都没有使上下文长度或关键实体数量增加，就强制结束，让
+    Agent 基于现有信息生成答案并坦白“部分信息缺失”。\n\n④ 从“直给检索”升级为“子问题分解 + 递归检索”\n\n许多“原地打转”是因为问题太复杂，单个查询无法命中。Agent
+    应该先将问题分解为可分别检索的子问题，然后逐一解决。如果子问题 A 的检索结果为空，Agent 应该尝试改写查询或承认子问题无法回答，而不是反复去撞南墙。\n\n示例代码：带反思和防重机制的增强
+    Agent\n\n```python\ndef enhanced_agentic_rag(question, llm, tools, max_iter=8):\n
+    \   context = []\n    past_queries = set()\n    useless_streak = 0\n\n    for
+    i in range(max_iter):\n        # 生成下一步行动，要求 Agent 同时输出思考过程\n        prompt = f\"\"\"\n你是一个研究助手。回答以下问题：{question}\n你可以使用工具：search_hr,
+    search_product, search_tech, finish(answer)\n规则：\n- 不要重复之前失败的查询。过去的查询：{past_queries}\n-
+    如果连续两次检索无用，请换策略或考虑直接回答。\n当前上下文：{context}\n\n请输出下一步：思考：<你的思考> 行动：<函数名(参数)>\"\"\"\n
+    \       response = llm(prompt)\n        think, action = parse_think_and_action(response)\n\n
+    \       if action.startswith(\"finish\"):\n            return action.split(\"finish(\")[1].rstrip(\")\").strip('\"')\n
+    \       \n        tool_name, query = parse_action(action)\n        if is_redundant(query,
+    past_queries):\n            # 拦截重复查询，强制反思\n            context.append(\"系统提示：该查询已执行过，请改写查询。\")\n
+    \           continue\n\n        past_queries.add(query)\n        result = tools[tool_name](query)\n
+    \       \n        # 评估有用性\n        utility = evaluate_retrieval_utility(context,
+    result[:500], llm)\n        if utility == \"无用\":\n            useless_streak
+    += 1\n            if useless_streak >= 2:\n                context.append(\"连续检索无进展，请考虑更换策略或直接回答。\")\n
+    \               useless_streak = 0  # 重置以便给一次机会\n        else:\n            useless_streak
+    = 0\n            context.append(result[:500])\n        \n    # 强制结束，生成最佳努力答案\n
+    \   return llm(f\"基于以下信息回答，如果无法回答请说明：\\n{context}\\n问题：{question}\")\n```\n\n收束：\n\nAgent
+    原地打转，不是它太蠢，而是我们没给它画好“停”的线——没有评价机制、没有去重、没有切换策略的勇气。给 Agent 加上“自我反思”、“去重记忆”和“刚性退出”这三道保险，它就能从一只无头苍蝇，变成一位知道何时坚持、何时放弃、何时换条路走的成熟研究员。这正是
+    Agentic RAG 工程化的核心所在：用代码的确定性，去驾驭智能体的不确定性。\n\n- 规避：成对比较时，交换两个答案的顺序各评一次，取平均分；或改为绝对分项打分，不直接对比。\n\n-
+    规避：在 Prompt 中明确要求“简洁性也是质量的一部分”，或在量规里惩罚冗余。\n\n- 规避：引入其他模型家族（如 Claude）作为第二裁判，或定期用人工标注校准自动评分的系统偏差。\n\n-
+    规避：在 Prompt 中附带 2-3 个标准评分示例（锚点），让裁判每次都有同一个参考系。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Esh1wxGsui33MNk7CFCciXtdnEc
+  block_id: doxcnd43kriaINbwactHNE0AdSe
+  page_token: Esh1wxGsui33MNk7CFCciXtdnEc
+  original_title: "\U0001F501 3. 用户反馈 Agent 在回答复杂问题时经常“原地打转”，同样的知识库查了 5 遍还没有答案，如何解决？"
+  imported_at: '2026-09-21'

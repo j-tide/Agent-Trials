@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6e2b62ab4d4c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F504 18. 在线蒸馏（on-policy distillation）在SFT中如何实现？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F504 18. 在线蒸馏（on-policy distillation）在SFT中如何实现？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在线蒸馏与传统离线蒸馏的最大区别在于，教师模型在学生模型训练过程中是实时参与的，而不是提前一次性生成好所有数据。这种方式能更好地解决暴露偏差问题，让教师模型为学生模型“量身定制”其当前最需要的训练信号。
+
+    一、为何需要在线蒸馏？
+
+    离线蒸馏中，教师模型面对的是“通用”的指令，生成的回答也是理想状态下的“完美回答”。但学生模型在推理时，会遇到自己生成的、有瑕疵的上下文。这种训练与推理的分布差异就是暴露偏差。在线蒸馏正是为了解决这个问题而设计：让教师模型直接观察学生模型在真实生成过程中遇到的困难，并给予纠正。
+
+    二、在线蒸馏的实现流程
+
+    - 指令采样：从一个多样化的指令池中采样一批指令。
+
+    - 学生模型在线生成：将指令输入给学生模型（正在被训练的模型），让它使用自回归方式生成一段回答。与普通SFT不同，这里我们不关心这个回答是否“正确”，而是把它当作学生的“真实表现”。
+
+    - 教师模型实时修正：将相同的指令和学生模型刚刚生成的回答一并输入给强大的教师模型。教师模型的任务是：判断学生的回答是否正确、是否完整、风格是否合适，如果不完美，就输出一段“修正后的完美回答”。这段修正后的回答，紧密围绕着学生模型具体犯的错误，具有极强的针对性。
+
+    - 构造高价值训练对：将（指令，教师修正后的回答）作为一个新的SFT训练样本。
+
+    - 训练学生模型：用这个动态生成的数据集，即时对学生模型进行SFT。
+
+    三、实现中的关键点
+
+    - 教师模型修正Prompt的设计：这是整个流程的核心。prompt必须引导教师模型聚焦于学生犯的具体错误，而不是泛泛地重写。例如：“下面是一个学生AI回答用户问题的记录。请仔细审查其回答，指出其存在的具体问题，并给出一个更准确、更完整、更安全的完美回答。”
+
+    - 计算效率：在线蒸馏需要在训练循环中频繁调用庞大的教师模型，成本极高。优化方法包括：
+
+    - 分布保持：为了防止学生模型过度“模仿”教师模型而丧失个性，可以在损失函数中加入一个KL散度正则项，约束学生模型不要偏离其最初版本的输出分布太远。
+
+    ✅ 总结：在线蒸馏通过让教师模型实时观察学生模型的错误并生成针对性修正，将SFT训练信号从“标准答案”升级为“错误驱动”的个性化指导，更高效地弥合训练与推理的差距。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QxC9wMhjZi9E20kUA1TcTNQTnSh
+  block_id: LnIcdzo4Ko3L7pxUznWcBQ0bnVb
+  page_token: QxC9wMhjZi9E20kUA1TcTNQTnSh
+  original_title: "\U0001F504 18. 在线蒸馏（on-policy distillation）在SFT中如何实现？"
+  imported_at: '2026-09-21'

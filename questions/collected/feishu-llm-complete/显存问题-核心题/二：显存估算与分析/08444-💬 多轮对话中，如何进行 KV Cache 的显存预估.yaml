@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d1df983b0fd3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4AC 多轮对话中，如何进行 KV Cache 的显存预估？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "\U0001F4AC 多轮对话中，如何进行 KV Cache 的显存预估？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    多轮对话需要保持上下文历史，即每一轮的问答序列累积。最直接的方式是保留完整对话历史的 KV Cache。显存预估需考虑最大对话轮数或最大上下文窗口。
+
+    - 设定一个最大总 token 数（例如 4096），包括所有轮次输入和输出。那么单次对话的 KV Cache 就跟单次请求的最大长度相同，按此计算即可。
+
+    - 对于会话管理，框架通常会允许动态增长，直到达到上限。因此，预估时以最大上下文窗口为基准：单会话 KV Cache = per_token_kv × max_context_length。
+
+    - 如果系统有多个同时进行的对话，总 KV Cache = 单会话最大 KV Cache × 最大并发会话数。由于共享前缀（如 system prompt）可能会节省，但动态多轮对话中，不同会话的历史不同，共享机会较少，除了固定的 system prompt 外，不能指望节省太多。
+
+    - 所以，多轮对话显存预估与批量单轮推理类似，但每个请求的序列长度会更长（包含历史）。若设置最大窗口 4K，并发 10 个，则 KV Cache 为 10 × 4K × per_token_kv。
+
+    因此，多轮对话显存预估就是最大并发会话数 × 每会话最大历史长度下的 KV Cache 大小，加上权重和激活。采用 PagedAttention 后，因为内存池可以按块动态分配和释放，实际上能更有效率地使用显存，但规划时仍需保证峰值不溢出。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/U2u9wFuzEiPu2okJIcFcYZkUnhc
+  block_id: OTM5dMftWoorTtxocUzcbIIGnFe
+  page_token: U2u9wFuzEiPu2okJIcFcYZkUnhc
+  original_title: "\U0001F4AC 多轮对话中，如何进行 KV Cache 的显存预估？"
+  imported_at: '2026-09-21'

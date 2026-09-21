@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6e38cd290f25
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DD 28. SFT数据中如果包含不同质量的回复，对后续DPO有何影响？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: "\U0001F4DD 28. SFT数据中如果包含不同质量的回复，对后续DPO有何影响？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    如果在SFT阶段就使用了包含多质量层次回复的数据集，这对后续DPO的影响是双面的，但总体来说，利大于弊，是一种非常有远见的数据策略。
+
+    一、正面影响：为DPO铺平道路
+
+    - 提前预热偏好空间：SFT模型在预训练阶段就已经见过各种“好”与“不太好”的回答模式。它的初始分布不再是只有单一标准答案的尖峰，而是对各种可能性有了更宽广但层次分明的理解。这为DPO提供了更丰富的初始分布，DPO不需要从零开始区分好坏，只需要对已有的层次进行调整和强化。
+
+    - 降低偏好坍缩风险：由于SFT模型已经接触过不同质量的回复，它的分布没有完全坍缩到“最好”的那一类上。后续DPO在优化偏好时，更容易在保留多样性的前提下提升质量，而不是将所有非最好的模式全部抹杀。这有助于减轻偏好坍缩。
+
+    - 更自然的负例构造：在准备DPO数据时，我们可以直接从同一指令下的多质量回复中选取一对作为偏好对。这种对比信号非常自然，因为它们是针对同一问题的不同尝试，可比性强。
+
+    二、潜在风险与注意事项
+
+    - 质量标准必须明确区分：如果SFT数据中，不同质量的回复之间没有明确的标识或分隔，模型可能会将它们混为一谈，学习到一个“噪音分布”。这会降低SFT模型本身的最高性能，并让后续DPO的优化起点变低。
+
+    - 负例污染风险：如果SFT数据中质量较差的回复比例过高，且没有在loss中做区别处理（比如全部作为正例训练），模型可能会学习并内化这些不好的模式。DPO在纠正这些内化了的模式时，可能需要更大的训练步数或更强的偏好信号。
+
+    - 训练信号的混淆：如果在SFT中，一条指令对应两个回答，一个高质量（yh）和一个低质量（yl），我们通常只对 yh 计算SFT损失。如果也对 yl 计算损失，等于是在教模型模仿错误的回答，这是致命的。正确做法是只mask掉 yl，或者将整条包含 yl 的数据仅作为后续DPO的负例来源，而不用于SFT。
+
+    三、最佳实践：SFT + DPO的联合数据工程
+
+    我推荐的做法是：在SFT阶段，只用高质量回复进行训练，确保模型基底扎实。 但同时，对于需要重点优化的场景（如安全、冗长控制），可以故意构造出包含高质量和低质量回复的“数据对”，将这些数据对留作后续DPO的专属数据。这样，SFT模型保持了高质量的基准，而DPO有充足的、针对性强的对比数据来进行精细调优。
+
+    ✅ 总结：SFT数据中包含不同质量回复，如果处理得当（高质量回复用于SFT，低质量回复留作DPO负例），能为DPO提供更丰富的初始分布和高质量的对比数据。但绝不能将劣质回复作为SFT的正例进行训练，否则会污染模型的基底。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IxE7w0GdRixCcpkwZKOcSoxhnnR
+  block_id: UANjdmbx1ozym8xMglgckz4Lnhc
+  page_token: IxE7w0GdRixCcpkwZKOcSoxhnnR
+  original_title: "\U0001F4DD 28. SFT数据中如果包含不同质量的回复，对后续DPO有何影响？"
+  imported_at: '2026-09-21'

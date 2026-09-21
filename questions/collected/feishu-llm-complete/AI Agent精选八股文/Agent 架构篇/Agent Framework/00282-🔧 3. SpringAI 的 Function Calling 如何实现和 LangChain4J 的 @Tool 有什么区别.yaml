@@ -1,0 +1,106 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d702accc9c34
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F527 3. SpringAI 的 Function Calling 如何实现？和 LangChain4J 的 @Tool 有什么区别？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F527 3. SpringAI 的 Function Calling 如何实现？和 LangChain4J 的 @Tool 有什么区别？"
+answer:
+  mode: rubric
+  reference_answer: "Spring AI 的 Function Calling 实现：基于 @Description 注解和 FunctionCallback
+    接口。\n\n核心流程：定义一个 Spring Bean，用 @Description 注解标注参数，框架自动将其转换为 OpenAI 兼容的 tools
+    参数，填入 API 请求中。模型返回调用指令后，Spring AI 自动执行函数，并将结果追加到对话上下文。\n\n```text\n1. 定义函数 → 2.
+    自动注册为 FunctionCallback → 3. API调用时附带 tools 参数\n→ 4. 模型返回 tool_calls → 5. 框架自动执行
+    → 6. 结果追加 → 7. 再次调用LLM\n```\n\n代码示例：定义一个天气查询函数\n\n```java\n@Configuration\npublic
+    class WeatherConfig {\n\n    @Bean\n    @Description(\"获取指定城市当前天气信息，包括温度、湿度和天气状况\")\n
+    \   public Function<WeatherRequest, WeatherResponse> weatherFunction() {\n        return
+    new WeatherService();\n    }\n\n    public static class WeatherService implements
+    Function<WeatherRequest, WeatherResponse> {\n        @Override\n        public
+    WeatherResponse apply(WeatherRequest request) {\n            // 实际调用天气API\n            return
+    new WeatherResponse(request.city(), 25.5, \"晴\", 65);\n        }\n    }\n\n    //
+    输入参数记录，用 @JsonProperty 和 @JsonPropertyDescription 注解\n    public record WeatherRequest(\n
+    \           @JsonProperty(required = true) \n            @JsonPropertyDescription(\"城市名称，如
+    Beijing\") String city\n    ) {}\n\n    // 输出\n    public record WeatherResponse(String
+    city, double temperature, String condition, int humidity) {}\n}\n```\n\n使用（框架自动发现并调用）：\n\n```java\n@RestController\npublic
+    class ChatController {\n\n    @Autowired\n    private ChatClient chatClient;\n\n
+    \   @GetMapping(\"/ask\")\n    public String ask(@RequestParam String q) {\n        return
+    chatClient.prompt()\n                .user(q)\n                .call()\n                .content();\n
+    \   }\n}\n```\n\n当用户问“北京天气怎么样？”，Spring AI 会自动：\n\n- 将 weatherFunction 包装为 FunctionCallback，生成
+    JSON Schema。\n\n- 调用 OpenAI API 时带上这个工具定义。\n\n- 模型返回 tool_calls: [{function: {name:
+    \"weatherFunction\", arguments: {city: \"Beijing\"}}}]。\n\n- 框架自动调用 weatherFunction.apply(new
+    WeatherRequest(\"Beijing\"))。\n\n- 将结果 WeatherResponse(...) 转为文本追加到 messages 中。\n\n-
+    再次调用 LLM 生成最终回答。\n\n与 LangChain4J 的 @Tool 对比：\n\n[嵌入表格未展开]\n\n核心区别深入分析：\n\n- 类型安全与复用性\nSpring
+    AI 的函数就是一个标准的 java.util.function.Function，不依赖任何 AI 框架接口。这意味着你可以把这个 Bean 直接用于其他场景（如
+    REST 端点、消息队列消费），它是真正的“普通 Java 函数”。而 LangChain4J 的 @Tool 只能用在 AiServices 上下文中。\n\n-
+    自动发现机制\nSpring AI 通过 Spring 的 Bean 扫描机制，自动找到所有带有 @Description 注解的 Function Bean，注册为
+    FunctionCallback。这比 LangChain4J 的显式 @Tool 注解更符合 Spring 的“约定大于配置”哲学——不需要额外配置类，直接定义
+    Bean 即可。\n\n- 参数元数据\nSpring AI 使用 Jackson 的 @JsonProperty 和自定义的 @JsonPropertyDescription
+    来生成 JSON Schema 中的字段描述。这充分利用了 Java 生态中 JSON 序列化的成熟基础设施。LangChain4J 则需要单独维护 @P
+    注解，生态系统更封闭。\n\n- 与 Spring 生态的融合\nSpring AI 的 Function Calling 天然集成 Spring 的依赖注入、AOP、事务管理。你可以在函数里使用
+    @Transactional、@Cacheable 等 Spring 注解，而 LangChain4J 做不到这一点。例如：\n\n```java\n@Bean\n@Description(\"查询订单详情\")\npublic
+    Function<OrderRequest, OrderResponse> orderFunction(OrderService orderService)
+    {\n    return request -> {\n        // 这里可以使用 Spring 的事务、安全、缓存等\n        return
+    orderService.getOrder(request.orderId());\n    };\n}\n```\n\n- 工具的交互性（Tool Interaction）\nSpring
+    AI 1.0 之后引入了 ToolCallback 和 ToolCallbackProvider，使得工具注册更加灵活。你可以动态地从注册中心拉取工具列表，或者对不同用户暴露不同工具，这比
+    LangChain4J 的静态绑定更适应多租户或 SaaS 场景。\n\n总结一句话：\nSpring AI 的 Function Calling 是 “用
+    Spring 的方式写 AI 应用” ——把 LLM 的函数调用能力无缝嫁接到 Java 的函数式编程和 Bean 管理体系中，让 AI 集成变得像加一个
+    @Service 一样自然。LangChain4J 的 @Tool 更像是 Python 生态中 @tool 装饰器的 Java 移植，虽然简洁，但丧失了
+    Spring 的深度整合优势。\n\n---\n\n4、场景题：SpringAI 项目中如何做多模型切换和降级？\n\n难度：⭐⭐⭐（多模型管理、降级策略、高可用设计）\n\n1️⃣
+    Common Answer：\n\n多模型切换就是配置多个 ChatModel，根据需要选择用哪个。降级的话就是如果主模型挂了，就切换到备用模型。可以用配置文件管理多个模型的
+    key，然后在代码里根据条件选择。也可以用 Sentinel 做熔断降级，主模型不行就切到备用模型。\n\n2️⃣ Impressive Answer：\n\n多模型切换和降级需要从模型管理、路由策略、降级机制三个层面设计。\n\n架构设计：\n\n```text\ngraph
+    TD\n    A[请求] --> B[ChatService]\n    B --> C{路由策略}\n    C -->|正常| D[主模型 GPT-4]\n
+    \   C -->|降级| E[备用模型 GPT-3.5]\n    C -->|兜底| F[国产模型 Qwen-Max]\n    D --> G[响应]\n
+    \   E --> G\n    F --> G\n```\n\n实现代码：\n\n```text\n@Configuration\npublic class
+    MultiModelConfig {\n\n    @Primary\n    @Bean(\"primaryChatModel\")\n    public
+    ChatModel primaryChatModel() {\n        return OpenAiChatModel.builder()\n            .apiKey(primaryApiKey)\n
+    \           .modelName(\"gpt-4\")\n            .build();\n    }\n\n    @Bean(\"fallbackChatModel\")\n
+    \   public ChatModel fallbackChatModel() {\n        return OpenAiChatModel.builder()\n
+    \           .apiKey(primaryApiKey)\n            .modelName(\"gpt-3.5-turbo\")\n
+    \           .build();\n    }\n}\n\n@Service\npublic class ChatService {\n\n    @Qualifier(\"primaryChatModel\")\n
+    \   private final ChatModel primaryModel;\n\n    @Qualifier(\"fallbackChatModel\")\n
+    \   private final ChatModel fallbackModel;\n\n    @Retry(name = \"chatRetry\",
+    fallbackMethod = \"fallbackChat\")\n    @CircuitBreaker(name = \"chatCircuitBreaker\")\n
+    \   public String chat(String prompt) {\n        return primaryModel.call(prompt);\n
+    \   }\n\n    // 降级方法：主模型失败时自动调用\n    private String fallbackChat(String prompt,
+    Exception error) {\n        log.warn(\"主模型调用失败，降级到备用模型: {}\", error.getMessage());\n
+    \       return fallbackModel.call(prompt);\n    }\n}\n```\n\nResilience4j 配置：\n\n```text\nresilience4j:\n
+    \ circuitbreaker:\n    instances:\n      chatCircuitBreaker:\n        failure-rate-threshold:
+    50        # 失败率超过 50% 触发熔断\n        wait-duration-in-open-state: 30s  # 熔断后等待
+    30 秒\n        sliding-window-size: 10           # 滑动窗口大小\n  retry:\n    instances:\n
+    \     chatRetry:\n        max-attempts: 3\n        wait-duration: 1s\n```\n\n降级策略设计：\n\n-
+    熔断降级：连续失败达到阈值后熔断，自动切换备用模型\n\n- 超时降级：设置合理的超时时间（如 30 秒），超时后切换\n\n- 成本路由：根据请求复杂度动态选择模型，简单问题用便宜模型\n\n-
+    监控告警：实时监控各模型的可用性、延迟、成本，及时发现异常\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AFyRwmNoZiYw94kQOOhc35Junpd
+  block_id: doxcnOmHPxhMeUkK54yZOABLSFq
+  page_token: AFyRwmNoZiYw94kQOOhc35Junpd
+  original_title: "\U0001F527 3. SpringAI 的 Function Calling 如何实现？和 LangChain4J 的
+    @Tool 有什么区别？"
+  imported_at: '2026-09-21'

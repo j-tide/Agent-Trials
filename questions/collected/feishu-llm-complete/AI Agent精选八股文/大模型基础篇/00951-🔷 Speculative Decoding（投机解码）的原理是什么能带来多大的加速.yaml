@@ -1,0 +1,102 @@
+---
+schema_version: 1
+id: feishu-llm-complete-776e7525d31a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F537  Speculative Decoding（投机解码）的原理是什么？能带来多大的加速？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F537  Speculative Decoding（投机解码）的原理是什么？能带来多大的加速？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    核心思想：用小模型“猜”，用大模型“验”，一次验证多个 token，打破自回归的串行依赖。
+
+    标准自回归生成只能一次出一个 token，因为每个 token 依赖之前所有。投机解码的突破口在于：验证一个序列的多个 token 可以并行完成。
+
+    原理三步曲：
+
+    - Draft（草稿）：用一个轻量级 draft 模型（例如 0.1B 的参数小模型，或者大模型自身的部分层），自回归地快速生成一段长度为 KK 的候选 token 序列（例如 [t1, t2, t3, t4]）。
+
+    - Verify（验证）：将原始 prompt 加上这 KK 个候选 token 一次性输入大模型，并行地算出每个位置的概率分布。然后从左向右逐个比对：
+
+    - 重复：以接受后的新前缀继续生成下一段草稿。
+
+    代码示意（简化）：
+
+    def speculative_decode(prompt, draft_model, target_model, K=5):
+        generated = []
+        while len(generated) < max_length:
+            # 1) Draft model 自回归生成 K 个 token
+            draft_input = prompt + generated
+            draft_tokens = draft_model.generate(draft_input, max_new_tokens=K)
+
+            # 2) 大模型并行验证
+            verify_input = draft_input + draft_tokens  # 包含所有候选
+            with torch.no_grad():
+                logits = target_model(verify_input).logits  # [seq_len, vocab]
+            # logits 对应位置: [prompt_len, gen_len, ..., gen_len+K-1]
+            accepted = []
+            for i, token in enumerate(draft_tokens):
+                # 目标模型在 prompt+已接受部分后的下一个位置概率分布
+                prob = softmax(logits[len(draft_input) + i - 1, :])
+                if token == torch.argmax(prob):
+                    accepted.append(token)
+                else:
+                    # 拒绝，从目标模型分布中采样替代
+                    new_token = torch.multinomial(prob, 1)
+                    accepted.append(new_token)
+                    break
+            generated.extend(accepted)
+            if len(accepted) < K:  # 提前终止，因为已发生拒绝
+                continue
+
+    加速效果来自哪里？
+
+    - 正常情况下生成 N 个 token 需要 N 次大模型串行前向。
+
+    - 使用投机解码后，假设每次草稿平均接受 αKαK 个 token（αα 是接受率），则大模型只需执行约 N/(αK)N/(αK) 次验证前向。小模型成本远小于大模型，且验证时是一次并行计算。
+
+    - 加速比 ≈ 大模型单次前向耗时×N(大模型验证耗时+小模型草稿耗时)×(N/(αK))(大模型验证耗时+小模型草稿耗时)×(N/(αK))大模型单次前向耗时×N
+
+    在实际中，选用近似分布很好的小模型（例如同架构的 1/10 层），接受率可达 0.8 以上。典型加速倍率：2-3 倍，且生成的质量理论上无损，因为最终采样分布由大模型控制，小模型只提供加速的猜测。
+
+    需要注意的场景：
+
+    - 对算力充足的离线生成（如大量文档总结），加速明显。
+
+    - 对显存敏感的设备，多加载一个小模型增加显存开销，但可通过 self-speculative 方式，用模型自身部分层或早期退出作 draft，无需额外模型，降低门槛。
+
+    - 当大模型在特定任务上确定性很高（温度 0）时，接受率接近 100%，加速比可接近 4-5 倍。
+
+    投机解码正逐渐成为 LLM 推理的标配，连同 PagedAttention 和 continuous batching，构成了当前高性能推理引擎的三大支柱。从这个视角看，推理优化其实是在 解构串行依赖，寻找并行验证的可能——这是理解整个推理系统性能突破的一条核心线索。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcn4nnQIThv5tRjRl1lIkAqWb
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "\U0001F537  Speculative Decoding（投机解码）的原理是什么？能带来多大的加速？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a79d86a32389
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在扩散模型上使用 INT8 甚至 INT4 量化，会遇到哪些特有的问题？如采样过程中的误差累积。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 工程部署与优化
+tags: &1
+- 多模态面（精选）
+- 工程部署与优化
+content:
+  prompt: 在扩散模型上使用 INT8 甚至 INT4 量化，会遇到哪些特有的问题？如采样过程中的误差累积。
+answer:
+  mode: rubric
+  reference_answer: |-
+    扩散模型的迭代采样特性使得量化误差会逐步累积，产生独特问题。
+
+    误差累积：采样需要数十步迭代，每一步的量化误差传入下一轮输入，形成误差的正反馈循环。早期步骤产生的主体轮廓偏差会在后续步骤中被固化和放大。
+
+    时间步依赖的分布偏移：不同时间步输入分布差异大，高噪声步激活值范围宽、分布均匀，低噪声步范围窄、稀疏。一套静态量化参数难以覆盖全时间步。
+
+    注意力层的极端值问题：交叉注意力的Q、K内积在INT8下容易溢出，导致softmax输出退化。
+
+    解决方案：
+
+    动态量化对每个时间步在线计算激活值的量化参数，以适配分布偏移，代价是额外计算开销。时间步感知校准在标定时按时间步分组，高噪声步和低噪声步使用不同量化参数。混合精度策略对敏感层（交叉注意力Q/K/V投影、时间嵌入层、跳跃连接层）保留FP16或INT8，其余卷积块可尝试INT4。误差补偿机制参考INT4 LLM的训练后量化方案，在量化权重时加入补偿偏置项以减少输出偏差。
+
+    INT8通常可维持生成质量，FID退化<1。INT4直接使用往往导致严重质量退化，需配合量化感知训练（QAT）微调模型以恢复质量。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Mh1cw9XEOil6SIkDffGcWixgnte
+  block_id: QvSydXJpwoTLBjxtUWTcMQUenFe
+  page_token: Mh1cw9XEOil6SIkDffGcWixgnte
+  original_title: 在扩散模型上使用 INT8 甚至 INT4 量化，会遇到哪些特有的问题？如采样过程中的误差累积。
+  imported_at: '2026-09-21'

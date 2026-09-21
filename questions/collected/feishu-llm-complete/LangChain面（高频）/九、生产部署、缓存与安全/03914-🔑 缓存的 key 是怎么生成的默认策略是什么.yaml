@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ec00cd37b21e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F511 缓存的 key 是怎么生成的？默认策略是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F511 缓存的 key 是怎么生成的？默认策略是什么？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    默认情况下，LangChain 使用 Prompt 字符串的哈希值 作为缓存的 key。具体策略是：
+
+    - 将传入的 Prompt（messages 或字符串）标准化为字符串表示。
+
+    - 结合 LLM 的 model_name（或标识）和 Prompt 字符串，计算 SHA256 哈希。
+
+    - 这个哈希值作为 Redis / 内存字典的 Key，对应的 Value 是序列化后的 LLMResult（包含生成文本、token 使用量等）。
+
+    默认 Key 生成源码逻辑（简化）：
+
+    ```python
+    def _key(self, prompt: str, llm_string: str) -> str:
+        return hashlib.sha256(f"{prompt}:{llm_string}".encode()).hexdigest()
+    ```
+
+    这里的 llm_string 是一个能唯一标识模型和其关键参数的字符串（包含模型名、temperature、max_tokens 等），由 LLM._get_identifying_params() 生成。这意味着，只有当 Prompt 和模型参数完全一致时，缓存才会命中。如果 temperature 不同，llm_string 就不同，Key 也不同，因此不会命中。这正是问题 4 的答案。
+
+    局限性：默认哈希策略只支持精确匹配，无法处理同义改写或微小差异。此时需要使用 RedisSemanticCache 或 GPTCache 这类支持语义匹配的缓存。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VWvFwnt5pi19m7ky7Udc0PatnRe
+  block_id: QwxQdZq7Zo4nL8xqcd0cydRXnle
+  page_token: VWvFwnt5pi19m7ky7Udc0PatnRe
+  original_title: "\U0001F511 缓存的 key 是怎么生成的？默认策略是什么？"
+  imported_at: '2026-09-21'

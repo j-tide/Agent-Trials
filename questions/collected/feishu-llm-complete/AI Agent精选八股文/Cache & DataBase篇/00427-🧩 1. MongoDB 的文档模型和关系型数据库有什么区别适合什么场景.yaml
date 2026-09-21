@@ -1,0 +1,102 @@
+---
+schema_version: 1
+id: feishu-llm-complete-83c6d7cef624
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 1. MongoDB 的文档模型和关系型数据库有什么区别？适合什么场景？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F9E9 1. MongoDB 的文档模型和关系型数据库有什么区别？适合什么场景？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    要理解 MongoDB，就不能用关系型数据库的思维去套。它们不是“谁比谁好”，而是在处理不同形状的数据时，各自有最适合的姿势。
+
+    [图片内容未导入]
+
+    四个本质区别：
+
+    ① 数据模型：二维表 vs 嵌套文档
+    关系型数据库要求你把数据拆成多张表，通过外键关联。比如一个用户和他的订单，需要 users 表和 orders 表，查询时做 JOIN。而 MongoDB 可以把订单直接内嵌在用户文档里，一次查询就拿到完整数据。这种“一个文档就是一个聚合根”的设计，避免了复杂的跨表关联。
+
+    ```javascript
+    // MongoDB 一条用户文档，订单内嵌
+    {
+      "_id": "u123",
+      "name": "张三",
+      "orders": [
+        {"order_id": "o001", "amount": 99.9, "date": "2026-07-01"},
+        {"order_id": "o002", "amount": 150.0, "date": "2026-07-05"}
+      ]
+    }
+    // 一次查询就拿到用户和所有订单，无需 JOIN
+    db.users.findOne({"_id": "u123"})
+    ```
+
+    ② Schema 约束：强 Schema vs 弱 Schema
+    关系型数据库建表时必须定义好所有列和数据类型，后期加字段要 ALTER TABLE，这在数据量巨大时会锁表。MongoDB 的集合不需要预定义字段，每个文档可以有不同的结构。这在需求快速迭代、字段经常变化时非常灵活。但这个灵活性也有代价——应用层需要自己保证数据一致性，不能全依赖数据库的约束。
+
+    ③ 关联方式：JOIN vs 内嵌/引用
+    关系型数据库用 JOIN 连接多张表，查询灵活但性能开销大，尤其多表 JOIN 时。MongoDB 推荐用内嵌来避免 JOIN，当数据天然“包含于”主文档时（如订单明细属于订单），直接嵌套进去。当数据需要跨文档共享时，就用引用（类似外键），然后在应用层做二次查询，或者用 $lookup 实现类似 LEFT JOIN 的效果。
+
+    ④ 事务支持：强 ACID vs 最终一致性
+
+    传统观念是 MongoDB 不支持事务，但从 4.0 开始，MongoDB 已经支持多文档 ACID 事务，只是它的实现方式和关系型数据库不同（基于 WiredTiger 的 MVCC）。不过，在分布式环境下，过度依赖事务会拖累性能，MongoDB 的设计哲学依然是“尽可能用单文档原子操作代替多文档事务”。
+
+    场景选型决策树：
+
+    ```text
+    你的数据是高度结构化、互相之间关系复杂、需要频繁跨表查询？
+      ├─ 是 → 关系型数据库。如金融账务、ERP 系统、报表系统。
+      └─ 否 → 你的数据是半结构化、字段不固定、或是“聚合根”模式？
+              ├─ 是 → MongoDB。
+              │       · 内容管理（博客、商品详情）
+              │       · 物联网时序数据（每个设备上报的 JSON 日志）
+              │       · 用户画像（字段随业务频繁变化）
+              │       · 实时分析（大数据写入，低延迟查询）
+              └─ 否 → 你有大量 JOIN 需求且数据一致性要求极高？
+                      └─ 关系型数据库。
+
+    同时也可以用混合架构：MongoDB 存业务主数据，MySQL 存订单和财务数据。
+    ```
+
+    示例代码：灵活 Schema 的实际好处
+
+    ```python
+    # 同一集合中，不同结构的文档可以共存
+    db.products.insert_many([
+        {"name": "iPhone", "price": 6999, "colors": ["black", "white"]},
+        {"name": "MacBook", "price": 12999, "chip": "M4", "ram": "16GB"},
+        {"name": "AirPods", "price": 1399}  # 缺少额外字段也完全合法
+    ])
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BXVdwSFoCiy4apkiMglchiTGnmh
+  block_id: doxcnVx4xOvocXlewt8EOevSfkb
+  page_token: BXVdwSFoCiy4apkiMglchiTGnmh
+  original_title: "\U0001F9E9 1. MongoDB 的文档模型和关系型数据库有什么区别？适合什么场景？"
+  imported_at: '2026-09-21'

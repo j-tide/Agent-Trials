@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c37377882051
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F501 2. 消息消费失败怎么处理？死信队列和重试机制怎么用？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: "\U0001F501 2. 消息消费失败怎么处理？死信队列和重试机制怎么用？"
+answer:
+  mode: rubric
+  reference_answer: "消费失败不可怕，可怕的是失败后束手无策。MQ 提供了两大工具：重试和死信队列。\n\n重试机制\n\n当消费者处理消息失败时，可以让
+    MQ 自动重试。重试通常是指数退避的，比如 10s、30s、60s、120s... 直到达到最大重试次数。\n\n死信队列\n\n如果重试次数耗尽仍然失败，消息会被转移到
+    死信队列。死信队列是一个特殊的 Topic 或 Queue，用于存放那些无法被正常消费的消息。运维人员可以监听死信队列，进行人工排查和补偿。\n\nRocketMQ
+    的处理\nRocketMQ 的重试和死信是内建的。消费失败时，返回 ConsumeConcurrentlyStatus.RECONSUME_LATER，消息会进入重试队列，之后根据延迟等级重新投递。达到最大重试次数后，消息进入
+    DLQ（死信队列），Topic 为 %DLQ%ConsumerGroup。\n\n```java\n// RocketMQ 消费端：处理失败返回 RECONSUME_LATER\nconsumer.registerMessageListener((MessageListenerConcurrently)
+    (msgs, context) -> {\n    for (MessageExt msg : msgs) {\n        try {\n            process(msg);\n
+    \       } catch (Exception e) {\n            // 返回 RECONSUME_LATER，消息将自动重试\n            return
+    ConsumeConcurrentlyStatus.RECONSUME_LATER;\n        }\n    }\n    return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;\n});\n```\n\n你也可以在消息上设置
+    delayTimeLevel 来控制重试间隔，例如 msg.setDelayTimeLevel(3) 表示延迟 10 秒。\n\nKafka 的处理\nKafka
+    没有原生的自动重试机制，但可以通过 Spring-Kafka 的 SeekToCurrentErrorHandler 和 DeadLetterPublishingRecoverer
+    来实现。\n\n```java\n@Bean\npublic ConcurrentKafkaListenerContainerFactory<String,
+    String> kafkaListenerContainerFactory(\n        ConsumerFactory<String, String>
+    consumerFactory, KafkaTemplate<String, String> kafkaTemplate) {\n    ConcurrentKafkaListenerContainerFactory<String,
+    String> factory = \n        new ConcurrentKafkaListenerContainerFactory<>();\n
+    \   factory.setConsumerFactory(consumerFactory);\n\n    // 死信恢复者：重试 3 次后，将消息发送到
+    DLQ Topic\n    DeadLetterPublishingRecoverer recoverer = \n        new DeadLetterPublishingRecoverer(kafkaTemplate,\n
+    \           (record, ex) -> new TopicPartition(record.topic() + \".DLQ\", record.partition()));\n
+    \   \n    // 错误处理：指数退避重试，最多 3 次\n    ExponentialBackOff backOff = new ExponentialBackOff(1000L,
+    2.0);\n    backOff.setMaxElapsedTime(9000L); // 最多重试 9 秒\n    SeekToCurrentErrorHandler
+    errorHandler = \n        new SeekToCurrentErrorHandler(recoverer, backOff);\n
+    \   errorHandler.setCommitRecovered(true);\n    \n    factory.setErrorHandler(errorHandler);\n
+    \   return factory;\n}\n```\n\n消息消费失败的完整处理流程：\n\n- 消费者处理消息，若抛出异常，Spring-Kafka
+    会捕捉到。\n\n- SeekToCurrentErrorHandler 执行重试，每次重试前等待一定时间（指数退避）。\n\n- 若重试耗尽，DeadLetterPublishingRecoverer
+    将消息发送到 DLQ Topic（如 order-events.DLQ）。\n\n- 运维人员监控 DLQ，排查问题后可以手工重发或丢弃。\n\n消费异常的业务兜底\n\n除了重试和死信，还可以在消费端实现业务级别的补偿。例如，对于已支付订单的积分发放失败，你可以在本地记录一条补偿任务，定时任务扫描补偿；或者利用对账机制，在日终核对订单状态和积分流水，发现不一致再补发。这比单纯依赖
+    MQ 重试更灵活。\n\n收束： 重试是给瞬时故障一次悔改的机会，死信是给不可恢复的错误一个隔离的病房。用好它们，系统的抗风险能力会提升一个量级，但切莫忘记业务兜底——那才是最终的安全垫。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcn2Vc60E8JlRHZEq1W2slk9e
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: "\U0001F501 2. 消息消费失败怎么处理？死信队列和重试机制怎么用？"
+  imported_at: '2026-09-21'

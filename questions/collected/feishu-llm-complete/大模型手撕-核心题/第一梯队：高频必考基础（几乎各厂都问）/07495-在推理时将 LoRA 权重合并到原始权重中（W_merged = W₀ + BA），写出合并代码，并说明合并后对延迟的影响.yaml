@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-db262847a191
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在推理时将 LoRA 权重合并到原始权重中（W_merged = W₀ + BA），写出合并代码，并说明合并后对延迟的影响。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第一梯队：高频必考基础（几乎各厂都问）
+tags: &1
+- 大模型手撕-核心题
+- 第一梯队：高频必考基础（几乎各厂都问）
+content:
+  prompt: 在推理时将 LoRA 权重合并到原始权重中（W_merged = W₀ + BA），写出合并代码，并说明合并后对延迟的影响。
+answer:
+  mode: rubric
+  reference_answer: |-
+    8.1 合并代码
+
+    ```python
+    def merge_lora(model):
+        for module in model.modules():
+            if isinstance(module, LoRALinear):
+                delta = (module.alpha / module.r) * (module.lora_B.data @ module.lora_A.data)
+                module.linear.weight.data += delta.to(module.linear.weight.dtype)
+                # 删除 LoRA 参数，释放显存
+                del module.lora_A
+                del module.lora_B
+                # 将模块转换为普通 nn.Linear，移除 LoRA 分支
+                # 可替换整个 module 为 module.linear
+    ```
+
+    在 HuggingFace 的 PEFT 库中，model.merge_and_unload() 就是执行这一操作。
+
+    8.2 对延迟的影响
+
+    - 合并前：每次前向需要计算原始线性层 + LoRA 分支，引入额外的矩阵乘法和加法，增加了计算量和内存带宽消耗。
+
+    - 合并后：LoRA 权重被吸收进原始的 nn.Linear，模型退化为标准的线性层，推理速度与未微调时完全一致，无额外开销。同时，LoRA 参数可以被释放，减少显存占用。因此，在生产环境部署时，推荐进行合并。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LZxww5JuBif3JAkuCoIcuqRenuf
+  block_id: Qqn9dQmTLohD0dx0Fooci61nnSe
+  page_token: LZxww5JuBif3JAkuCoIcuqRenuf
+  original_title: 在推理时将 LoRA 权重合并到原始权重中（W_merged = W₀ + BA），写出合并代码，并说明合并后对延迟的影响。
+  imported_at: '2026-09-21'

@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fecc3477b339
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果训练时 GPU 利用率低，如何排查是数据加载还是计算瓶颈？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 深度学习面（精选）
+derived_topic: 模块六：深度学习基础训练与推理部署
+tags: &1
+- 深度学习面（精选）
+- 模块六：深度学习基础训练与推理部署
+content:
+  prompt: 如果训练时 GPU 利用率低，如何排查是数据加载还是计算瓶颈？
+answer:
+  mode: rubric
+  reference_answer: |-
+    GPU 利用率低通常因为 GPU 在等待数据（I/O 瓶颈）或 kernel 过小导致调度开销大。排查步骤：
+
+    - 使用性能分析工具
+
+    - NVIDIA nvidia-smi：观察 GPU 利用率波动。若利用率曲线呈锯齿状，且峰值后快速回落到 0，往往是数据供给不足。
+
+    - PyTorch Profiler：torch.profiler.profile 配合 tensorboard 可视化时间线。可以清晰看到 CPU 端数据加载时间、GPU 计算时间以及它们之间的空闲间隙。若大量时间花在 enumerate(DataLoader)，则是数据瓶颈；若 GPU 大部分时间闲置且 kernel 运行时间短，也可能为计算瓶颈（过小的矩阵乘法使 GPU 闲置）。
+
+    - 检查 DataLoader 速度
+
+    - 尝试设置 num_workers=0 看吞吐变化。若设置 0 后训练变慢更明显，说明原本多进程有提升，但仍可能不足。
+
+    - 增大 num_workers，观察是否提升。若无效，可能是硬盘 I/O 或预处理计算是瓶颈。
+
+    - 用 prefetch_factor（PyTorch 1.12+）控制预取数据量。
+
+    - 检查数据增广是否过于复杂（如大量的 CPU 图像变换），可考虑转移到 GPU 或使用 DALI 等 GPU 数据加载库。
+
+    - 检查计算瓶颈
+
+    - 使用 torch.cuda.utilization() 或 nvidia-smi 观察 SM 占用率。若 GPU 利用率高但训练慢，表示计算本身是瓶颈（正常饱和）。
+
+    - 若 GPU 利用率低但 kernel 执行密度大，可能是因为模型太小，每个 batch 的计算量无法填满 GPU。可增大 batch size 或模型复杂度。也可以通过增大 batch_size 或者使用 gradient_accumulation_steps 来增加有效 batch。
+
+    - 优化策略
+
+    - 数据瓶颈：使用更高效的数据格式（LMDB, TFRecord, 或预处理并缓存为 tensor），减少解码开销；用 DALI 进行 GPU 端数据增强；使用内存映射文件；固态硬盘。
+
+    - 计算瓶颈：增大 batch size，使用混合精度训练，检查是否未使用 CUDA 同步导致虚假低利用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/G5aLwkRfZiCljDklteBcxFZhnfe
+  block_id: UEsHdtL6Qo3iyCx9Ed0c3yo0ntb
+  page_token: G5aLwkRfZiCljDklteBcxFZhnfe
+  original_title: 如果训练时 GPU 利用率低，如何排查是数据加载还是计算瓶颈？
+  imported_at: '2026-09-21'

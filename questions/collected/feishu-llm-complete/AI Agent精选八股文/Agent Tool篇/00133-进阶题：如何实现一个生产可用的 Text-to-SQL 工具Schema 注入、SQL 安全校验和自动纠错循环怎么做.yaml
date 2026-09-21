@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-379e870b6f79
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 进阶题：如何实现一个生产可用的 Text-to-SQL 工具？Schema 注入、SQL 安全校验和自动纠错循环怎么做？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent Tool篇
+tags: &1
+- AI Agent精选八股文
+- Agent Tool篇
+content:
+  prompt: 进阶题：如何实现一个生产可用的 Text-to-SQL 工具？Schema 注入、SQL 安全校验和自动纠错循环怎么做？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐⭐（Schema 格式设计、表召回、多层安全校验、自纠错循环设计）
+
+    1️⃣ Common Answer
+
+    Text-to-SQL 就是让 LLM 把问题转成 SQL。需要把表结构告诉 LLM，让它知道有哪些表和字段，然后生成 SQL。安全方面只让它生成 SELECT，用只读账号执行。SQL 执行失败了，把错误信息返回给 LLM 让它重新生成，通常重试一两次就行。
+
+    2️⃣ Impressive Answer
+
+    我会从 3 个角度来拆解生产可用的 Text-to-SQL：
+
+    - Schema 注入格式是核心。仅列字段名效果很差，生产中需要带类型、注释、示例值、外键关系。比如 status: ENUM('pending','paid','cancelled'), 订单状态 配合 Sample data: status 常见值为 'paid'，能显著提升 SQL 生成准确率。另外，大型系统有几百张表，不能全部注入，要先做表召回——用向量检索或关键词匹配找出最相关的 3-5 张表，只注入这些表的 Schema，避免 context 爆炸且让模型注意力更集中。
+
+    - SQL 安全校验要做三层。语法层：用 sqlparse 解析 SQL，确认是 SELECT，拒绝 DDL/DML；语义层：检查危险函数（LOAD_FILE、INTO OUTFILE）和全表扫描风险（超大表无 WHERE 子句）；执行层：只读账号+强制设置 statement_timeout，防止慢查询打垮数据库。只靠只读账号远远不够。
+
+    - 自纠错循环有个关键细节。SQL 执行失败后，要把原始 SQL 和错误信息一起传给 LLM，同时加指令"请分析错误原因，修正 SQL，不要改变查询意图"。只给错误信息不给原始 SQL，LLM 容易生成一个完全不同的 SQL，偏离用户意图。最多重试 2 次，超过后返回友好提示。另外查询结果为空时，要区分"确实无数据"和"SQL 写错了导致无结果"，必要时让 LLM 验证 SQL 的语义是否符合问题逻辑。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/F5QpwqJp4i0pB3kmnPzcVpgGn19
+  block_id: doxcnQOIqCYvQnBMSeYUHWLCUWf
+  page_token: F5QpwqJp4i0pB3kmnPzcVpgGn19
+  original_title: 进阶题：如何实现一个生产可用的 Text-to-SQL 工具？Schema 注入、SQL 安全校验和自动纠错循环怎么做？
+  imported_at: '2026-09-21'

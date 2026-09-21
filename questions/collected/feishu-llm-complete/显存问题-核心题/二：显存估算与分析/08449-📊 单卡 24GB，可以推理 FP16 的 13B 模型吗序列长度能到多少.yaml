@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9d07b17b6d57
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 单卡 24GB，可以推理 FP16 的 13B 模型吗？序列长度能到多少？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "\U0001F4CA 单卡 24GB，可以推理 FP16 的 13B 模型吗？序列长度能到多少？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 结论：可以，但序列长度受限，通常能支持约 2K–4K token，需结合优化手段。\n\n\U0001F50D
+    详细估算：\n\n- 权重显存：FP16 13B 模型权重 ≈ 13 × 10^9 × 2 字节 = 26 GB。\n这已经超过了 24 GB，似乎不可能？其实，推理时可以使用量化，或者模型权重本身不一定会完全占满显存。但这里说的是
+    FP16，直接 26 GB > 24 GB，单卡装不下。所以严格来说，单卡 24GB 无法直接推理 FP16 的 13B 模型，除非采用 INT8 或 INT4
+    量化。如果问题指的是原生的 FP16，答案是不能。但许多情况下我们会用量化，所以可以。\n\n- 假设使用 INT8 量化，权重约占 13 GB。或使用 4-bit
+    (INT4) 量化，权重约 6.5 GB。这样 24GB 就轻松了。\n\n- 但问题明确说“FP16 的 13B 模型”，那么就是 26 GB，单卡 24GB
+    放不下，需要张量并行（TP）或量化。因此，单卡 24GB 无法运行未量化的 FP16 13B 模型。如果是量化后的，可以。\n\n- 如果使用 INT4 量化，权重约
+    6.5 GB，剩余显存可用于 KV Cache 和激活。\n剩余显存 = 24 - 6.5 - 0.5 (其他) ≈ 17 GB。\n\n- KV Cache
+    估算：13B 模型典型结构：40 层，40 头，头维度 128，无 GQA 则 KV 头数 = 40。\n每 token KV Cache 大小 = 2 ×
+    层数 × KV 头数 × 头维度 × 2 (FP16) = 2 × 40 × 40 × 128 × 2 = 819,200 字节 ≈ 0.78 MB/token。\n\n-
+    最大 token 数 ≈ 17 GB / 0.78 MB ≈ 17,000 / 0.78 ≈ 21,800 tokens。\n但还需要考虑 Prefill
+    激活峰值，实际可能只能支持到 16K–20K。若使用 GQA（如 4 组），KV 头数降为 4，则每 token 仅 0.078 MB，那么 17 GB 可支持
+    217K tokens，远超需求。所以关键看模型是否采用了 GQA。\n\n\U0001F4CC 综合：FP16 13B 模型单卡 24GB 无法直接推理（权重就
+    26GB）。若使用 4-bit 量化，可以轻松运行，且序列长度能到数千甚至上万（取决于 GQA）。需配合 FlashAttention 等优化。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CkFiwxOtOi6QRJkPIPKcLENfndb
+  block_id: QVWGdZw9Lo0KShxGel2cjBvEn0g
+  page_token: CkFiwxOtOi6QRJkPIPKcLENfndb
+  original_title: "\U0001F4CA 单卡 24GB，可以推理 FP16 的 13B 模型吗？序列长度能到多少？"
+  imported_at: '2026-09-21'

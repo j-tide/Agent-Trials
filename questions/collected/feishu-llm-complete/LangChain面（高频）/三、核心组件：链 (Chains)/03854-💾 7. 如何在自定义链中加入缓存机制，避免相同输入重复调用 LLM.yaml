@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-82af3846c93d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BE 7. 如何在自定义链中加入缓存机制，避免相同输入重复调用 LLM？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: "\U0001F4BE 7. 如何在自定义链中加入缓存机制，避免相同输入重复调用 LLM？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    缓存是降本增效的大杀器，尤其在调试或重复请求的场景下。LangChain 本身提供了 InMemoryCache、SQLiteCache、RedisCache 等，通过 llm.cache 属性设置即可。如果你的自定义链只用了一个 LLM，那直接开启 llm.cache = True 或者传入一个 Cache 对象是最简单的：
+
+    ```python
+    from langchain.cache import InMemoryCache
+    self.llm.cache = InMemoryCache()
+    ```
+
+    但更常见的情况是：你的链内部可能用了多个模型，或者你希望基于整个链的输入输出做缓存，而不是每个 LLM 调用的缓存。这时候你可以自己实现缓存逻辑。我习惯在 _call 方法里用 hash 或 json.dumps 生成输入指纹，然后查缓存：
+
+    ```python
+    import hashlib, json
+    from langchain_core.caches import BaseCache
+
+    class TranslateAndSentimentChain(Chain):
+        cache: BaseCache = None   # 让外部注入
+
+        def _call(self, inputs):
+            if self.cache:
+                key = hashlib.md5(json.dumps(inputs, sort_keys=True).encode()).hexdigest()
+                cached = self.cache.lookup(key, "TranslateAndSentimentChain")
+                if cached:
+                    return json.loads(cached)  # 注意反序列化
+            # ... 正常逻辑 ...
+            result = {...}
+            if self.cache:
+                self.cache.update(key, "TranslateAndSentimentChain", json.dumps(result))
+            return result
+    ```
+
+    但要注意，缓存键的设计需要考虑可变因素，比如 prompt 模板、模型参数是否会影响结果。如果你可能调整 prompt，那缓存键就要把 prompt 的 hash 也算进去，否则改了 prompt 但文本一样，命中了旧缓存，产出错误结果。
+
+    还有一种更工程化的做法：使用 LangChain 的 RunnableWithCache 包装你的链，这需要你的链是 Runnable。那么你可以用 RunnableLambda 包一下，然后套 RunnableWithCache，它内部自动处理键的生成和缓存查询，并支持 TTL、后端选择等。我在一个内部工具里就用 RedisCache 做了全局缓存，然后所有 LLM 调用和链调用都经过这个缓存，缓存命中率很高，成本下降明显。
+
+    不过，缓存也有副作用：情感分析这种偏主观的任务，当模型微调或版本升级后，旧缓存可能不再合适，所以一定要设计缓存失效策略，要么在键里带上模型版本，要么提供手动刷新接口。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QpN4wGGTGiz4zzkOhzqc7iipn1e
+  block_id: H1VqdZ1mSonJAXxpEYwcUvh2nob
+  page_token: QpN4wGGTGiz4zzkOhzqc7iipn1e
+  original_title: "\U0001F4BE 7. 如何在自定义链中加入缓存机制，避免相同输入重复调用 LLM？"
+  imported_at: '2026-09-21'

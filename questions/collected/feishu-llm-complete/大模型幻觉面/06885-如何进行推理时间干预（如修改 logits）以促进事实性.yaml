@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-45a96fe665c8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何进行推理时间干预（如修改 logits）以促进事实性？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型幻觉面
+derived_topic: 
+tags: &1
+- 大模型幻觉面
+content:
+  prompt: 如何进行推理时间干预（如修改 logits）以促进事实性？
+answer:
+  mode: rubric
+  reference_answer: |-
+    推理时间干预（Inference-Time Intervention, ITI）是指在模型生成过程中，不改变模型参数，而是通过外部规则、额外模型或直接操作输出的概率分布（logits）来引导生成结果更加真实。
+
+    主要干预手段：
+
+    （1）事实性 logits 偏置（Factuality Bias）
+
+    - 维护一个“事实性短语”或“实体别名”的白名单/词表，以及“常见错误表达”的黑名单。在解码时，对白名单中的token logits 增加一个正偏置值，对黑名单的token 大幅降低。
+
+    - 实例：对于问题“谁是美国第一任总统？”，如果模型logits中“华盛顿”得分较高，可以保持；但如果检测到“林肯”等错误答案概率较高，则可压制它。
+
+    - 可以结合小型知识图谱实时查询，将事实三元组中的正确尾实体token大幅加权。
+
+    （2）基于探测器的动态调整
+
+    - 训练一个轻量的“幻觉探测器”，它输入当前已生成的序列前缀和源文（或外部检索知识），输出一个“可能幻觉”的分数。当该分数超过阈值时，触发干预。
+
+    - 干预措施：回溯删除最近生成的高风险token，并在下一步logits中屏蔽所有被判定为可能导致幻觉的token类别（如所有数字、实体），强制模型重新选择，或插入不确定性表达。
+
+    （3）对比层干预（Contrastive Decoding）
+
+    - 同时运行一个专家模型（如忠于源文的忠实模型）和一个业余模型（如通用生成模型或蕴含更多错误的模型）。在每一步计算两者logits的差异，将这个差异作为奖励信号加到主模型的logits上。
+
+    - 实质：强化那些在专家模型中更受青睐的token（通常是更忠实、更事实的token），压制业余模型喜欢的但可能是花哨但不实的token。
+
+    （4）受控文本生成（Controlled Generation）
+
+    - 在解码时，要求生成文本满足特定的可验证属性。例如，在代码生成中，强制所有生成的API名称必须属于一个预先加载的有效API集合（来自官方文档）。对于不在集合中的token，将其logit设为负无穷，从根本上杜绝API幻觉。
+
+    - 在生成引用时，强制引用编号必须存在于提供的检索文档索引中。
+
+    （5）回溯与重新规划（Backtracking）
+
+    - 当检测到生成的内容可能包含事实错误（如通过一个实时NLI校验），生成过程可以自动回溯到错误发生的节点，在产生错误的步骤施加更强的约束重新生成，实现类似“删除并重写”的推理时自我修正。
+
+    技术挑战：干预需要引入额外计算（模型多次前向、外部知识库查询），可能显著增加延迟。此外，不恰当的干预会破坏生成流畅性或引入新的偏差。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Irfsw2cRail5NekqfrKci2KYn4T
+  block_id: AGXmdjx1KoLb9nxA5fxc0wZxnug
+  page_token: Irfsw2cRail5NekqfrKci2KYn4T
+  original_title: 如何进行推理时间干预（如修改 logits）以促进事实性？
+  imported_at: '2026-09-21'

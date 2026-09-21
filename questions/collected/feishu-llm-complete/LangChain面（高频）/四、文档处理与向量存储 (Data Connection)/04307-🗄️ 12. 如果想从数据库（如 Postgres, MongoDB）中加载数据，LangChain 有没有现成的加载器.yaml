@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9a527385cd71
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F5C4️ 12. 如果想从数据库（如 Postgres, MongoDB）中加载数据，LangChain 有没有现成的加载器？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F5C4️ 12. 如果想从数据库（如 Postgres, MongoDB）中加载数据，LangChain 有没有现成的加载器？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    有，但覆盖程度不同：
+
+    - MongoDB：MongoDBLoader 直接可用。它接受 MongoDB 集合，把每个文档转成 LangChain Document，page_content 来自指定字段，其余字段进入 metadata。
+
+    ```python
+    from langchain_community.document_loaders.mongodb import MongodbLoader
+
+    loader = MongodbLoader(
+        connection_string="mongodb://localhost:27017",
+        db_name="knowledge_base",
+        collection_name="articles",
+        field_names=["title", "content"],  # 可以组合多个字段作为 page_content
+    )
+    docs = loader.load()
+    ```
+
+    - SQLite：SQLiteLoader 可以加载 SQLite 表中的数据，将每行转换成一个 Document，可以配置内容列和元数据列。
+
+    - PostgreSQL / MySQL 等关系数据库：没有专用的 PostgresLoader，但完全可以自己动手组装。最直接的方式是用 SQLAlchemy 或 psycopg2 执行 SQL，将结果转为 pandas DataFrame，再用 DataFrameLoader：
+
+    ```python
+    import pandas as pd
+    from langchain_community.document_loaders import DataFrameLoader
+    from sqlalchemy import create_engine
+
+    engine = create_engine("postgresql://user:pass@localhost/db")
+    df = pd.read_sql("SELECT id, title, content FROM docs", engine)
+    # 假设用 'content' 列作为 page_content
+    loader = DataFrameLoader(df, page_content_column="content")
+    docs = loader.load()
+    # 会自动把其他列（id, title）放进 metadata
+    ```
+
+    - 这比在加载器内部写 SQL 连接更灵活，也能方便地处理增量更新、字段映射。
+
+    - 其他：还有 FirestoreLoader, SupabaseLoader, NotionDBLoader 等，都属于“数据库连接器”范畴。
+
+    我个人习惯将数据加载逻辑封装成函数，而不是直接用现成加载器，因为生产中要处理连接池、重试、字段校验，这些现成加载器不一定满足。但快速原型时它们很方便。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EY1lwce7uiXgPpklg8tcoBj6nNg
+  block_id: T4hwdpNcPoodWBxUKkxcCAhqnCh
+  page_token: EY1lwce7uiXgPpklg8tcoBj6nNg
+  original_title: "\U0001F5C4️ 12. 如果想从数据库（如 Postgres, MongoDB）中加载数据，LangChain 有没有现成的加载器？"
+  imported_at: '2026-09-21'

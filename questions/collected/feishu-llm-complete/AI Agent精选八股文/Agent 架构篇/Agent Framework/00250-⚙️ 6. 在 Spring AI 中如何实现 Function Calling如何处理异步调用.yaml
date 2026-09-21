@@ -1,0 +1,177 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fef82acfdcb9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚙️ 6. 在 Spring AI 中如何实现 Function Calling？如何处理异步调用？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "⚙️ 6. 在 Spring AI 中如何实现 Function Calling？如何处理异步调用？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Function Calling 是让 LLM 能“办事”的关键。Spring AI 的实现非常简洁：把 Java 函数声明为 Bean，框架自动包装成 OpenAI 兼容的工具定义，并在模型返回调用指令后自动执行该函数。
+
+    2.1 实现 Function Calling
+
+    分三步：
+
+    第一步：定义函数 Bean
+
+    ```java
+    @Configuration
+    public class ToolsConfig {
+
+        @Bean
+        @Description("获取指定城市的当前天气，包括温度、湿度和天气状况")
+        public Function<WeatherRequest, WeatherResponse> weatherFunction() {
+            return new WeatherService();
+        }
+
+        // 函数内部可以用 Spring 管理的依赖
+        public static class WeatherService implements Function<WeatherRequest, WeatherResponse> {
+            @Override
+            public WeatherResponse apply(WeatherRequest request) {
+                // 实际调用天气 API
+                return new WeatherResponse(request.city(), 25.6, "晴", 60);
+            }
+        }
+
+        // 使用 @JsonProperty 和 @JsonPropertyDescription 生成精确的 JSON Schema
+        public record WeatherRequest(
+            @JsonProperty(required = true)
+            @JsonPropertyDescription("城市名称，如 Beijing") String city
+        ) {}
+
+        public record WeatherResponse(
+            String city, double temperature, String condition, int humidity
+        ) {}
+    }
+    ```
+
+    第二步：框架自动发现并注册
+    Spring AI 会扫描所有 @Description 注解的 Function Bean，自动生成 FunctionCallback，在调用 LLM 时将其放入 tools 参数。
+
+    第三步：通过 ChatClient 调用，自动完成工具调用闭环
+
+    ```java
+    @RestController
+    public class ChatController {
+
+        @Autowired
+        private ChatClient chatClient;
+
+        @GetMapping("/ask")
+        public String ask(@RequestParam String q) {
+            return chatClient.prompt()
+                    .user(q)
+                    .call()
+                    .content();
+        }
+    }
+    ```
+
+    当用户问“北京天气怎么样？”，Spring AI 自动执行以下流程：
+
+    ```text
+    用户输入 → [框架] 构造 API 请求 (带 tools 定义) → LLM 返回 tool_calls
+    → [框架] 解析 tool_calls，反射调用 weatherFunction → 拿到结果
+    → [框架] 将结果追加到消息历史 → 再次调用 LLM → 生成最终回答
+    ```
+
+    整个过程业务代码只需要定义函数 Bean，其他的全由框架托管。
+
+    2.2 处理异步调用
+
+    LLM 调用本身是网络 IO 密集型操作，生产环境必须异步化。Spring AI 提供了以下几个层面的异步支持：
+
+    ① Flux<ChatResponse> stream(Prompt prompt)
+    这是最常用的异步流式方法，底层基于 Reactor。调用后立即返回 Flux，你可以用它来逐 token 推送给前端。
+
+    ```java
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> stream(@RequestParam String q) {
+        return chatModel.stream(new Prompt(q))
+                .map(resp -> resp.getResult().getOutput().getContent());
+    }
+    ```
+
+    ② 结合 @Async 注解
+    把 AI 调用放在 Spring 管理的线程池中执行，避免阻塞主线程（如 Tomcat 的 worker 线程）。
+
+    ```java
+    @Service
+    public class AiAsyncService {
+
+        @Async("aiTaskExecutor")
+        public CompletableFuture<String> askAsync(String question) {
+            String answer = chatModel.call(new Prompt(question)).getResult().getOutput().getContent();
+            return CompletableFuture.completedFuture(answer);
+        }
+    }
+
+    @Configuration
+    @EnableAsync
+    public class AsyncConfig {
+        @Bean("aiTaskExecutor")
+        public Executor taskExecutor() {
+            ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+            executor.setCorePoolSize(5);
+            executor.setMaxPoolSize(10);
+            executor.setQueueCapacity(100);
+            executor.setThreadNamePrefix("ai-async-");
+            executor.initialize();
+            return executor;
+        }
+    }
+    ```
+
+    ③ 处理 Function Calling 中的长耗时工具
+    如果一个工具函数本身是异步的（如需要等待外部服务回调），可以让函数返回 CompletableFuture，或在函数内部使用 DeferredResult 等方式。Spring AI 的 FunctionCallback 支持返回 Future 类型，框架会处理好等待和结果提取。
+
+    ④ 并行工具调用
+    当 LLM 返回多个独立的 tool_calls 时，Spring AI 会默认用线程池并行执行这些工具，汇总结果后再统一返回给 LLM。这大幅减少了多工具调用场景的延迟。
+
+    ```java
+    // 框架内部逻辑伪代码
+    List<ToolCall> toolCalls = response.getToolCalls();
+    List<CompletableFuture<ToolResult>> futures = toolCalls.stream()
+        .map(tc -> CompletableFuture.supplyAsync(() -> execute(tc), executor))
+        .toList();
+    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+    ```
+
+    总的来说，Spring AI 的 Function Calling 是“声明式”的——你声明函数，框架处理调用、序列化、错误重试、并行执行。这种设计让业务逻辑和 AI 调用完全解耦，业务函数甚至可以脱离 AI 框架独立测试和部署。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AFyRwmNoZiYw94kQOOhc35Junpd
+  block_id: doxcnlF5lnbj9XN8LqvxyYZaA2f
+  page_token: AFyRwmNoZiYw94kQOOhc35Junpd
+  original_title: "⚙️ 6. 在 Spring AI 中如何实现 Function Calling？如何处理异步调用？"
+  imported_at: '2026-09-21'

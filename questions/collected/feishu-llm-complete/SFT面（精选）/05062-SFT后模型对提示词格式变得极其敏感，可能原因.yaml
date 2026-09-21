@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c0662b6e5812
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 28. SFT后模型对提示词格式变得极其敏感，可能原因？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 28. SFT后模型对提示词格式变得极其敏感，可能原因？
+answer:
+  mode: rubric
+  reference_answer: |-
+    SFT后模型对提示词格式极度敏感——比如只能在“### 指令：”后完美响应，换成“Q:”就手足无措——这是典型的指令格式过拟合或捷径学习的表现。问题的根源几乎全在SFT数据的构造上。
+
+    一、训练数据中的指令格式高度统一
+    如果SFT数据中100%的指令都使用了完全相同的模板（例如，全部以<|im_start|>user\n...<|im_end|>开头，且内部结构完全一致），模型会将这个特定模板的token序列作为“进入指令模式”的触发器。它没有学会底层的“理解指令”能力，而是学会了“当看到<|im_start|>user时，就启动指令执行模式”。一旦推理时的提示格式稍有变化，这个触发器没有出现，模型就退化到预训练时的续写模式，不再进行任务推理。
+
+    二、缺乏指令格式的多样性训练
+
+    SFT数据没有覆盖足够多的指令表达变体。应该为同一任务构造大量格式各异的指令，例如：
+
+    - 有系统提示的、无系统提示的
+
+    - 有开头### Instruction:的、直接提问的
+
+    - 使用不同角色标记的（User:, Human:, Q:）
+
+    - 带有背景信息的长指令、碎片化的口语短指令
+    缺少这种多样性，模型就无法抽象出“指令”这个概念，只能依赖固定的格式信号。
+
+    三、特殊Token的作用被过度强化
+    如果SFT数据中，所有指令都严格以<|im_start|>user开头，模型对这几个token的依赖就会极强。它们是格式敏感的根源。而在推理时，用户通常不会手动添加这些特殊token，导致模型行为异常。
+
+    四、模型容量或训练策略的放大效应
+
+    对于较小的模型，或者SFT训练过度（过多epoch），更容易发生格式过拟合。小模型容量有限，倾向于记住最有效的降损捷径（即固定格式），而不是学习通用规则。过多的训练轮次会不断强化这个捷径，导致对格式变化极其敏感。
+
+    五、如何修复
+
+    - 数据增强：在SFT数据中系统性地增加指令格式的多样性。为每条指令生成5-10种不同格式、措辞、语气的变体。
+
+    - 对抗训练：刻意构造一些“格式破坏”的指令，如缺少某些分隔符、使用不常见的标记，让模型学会在格式不完美的情况下仍然工作。
+
+    - Prompt Engineering：在推理时，用户看到的界面可能已经封装了标准模板，这可以缓解问题。但治本之策仍然在于SFT数据的多样性。
+
+    ✅ 总结：格式敏感的根源在于SFT数据的指令格式过于单一，导致模型学到了格式捷径而非语义理解。解决方案是大幅提升训练数据中指令表达格式的多样性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BdiuwRnUqijJb9kQLngc34v7ngc
+  block_id: IBqadsChGoLzukxXJrcc7uyVnFe
+  page_token: BdiuwRnUqijJb9kQLngc34v7ngc
+  original_title: 28. SFT后模型对提示词格式变得极其敏感，可能原因？
+  imported_at: '2026-09-21'

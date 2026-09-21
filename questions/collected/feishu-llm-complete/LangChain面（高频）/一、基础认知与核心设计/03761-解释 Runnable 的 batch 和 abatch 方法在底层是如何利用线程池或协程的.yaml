@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-56a00ff36196
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 Runnable 的 batch 和 abatch 方法在底层是如何利用线程池或协程的。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 一、基础认知与核心设计
+tags: &1
+- LangChain面（高频）
+- 一、基础认知与核心设计
+content:
+  prompt: 解释 Runnable 的 batch 和 abatch 方法在底层是如何利用线程池或协程的。
+answer:
+  mode: rubric
+  reference_answer: "⚡ batch 和 abatch 是 Runnable 接口提供的批量处理能力，让开发者能同时处理多个输入，提升吞吐量。\n\n\U0001F527
+    底层机制：\n\n- batch(inputs) 是同步方法，但内部会使用 线程池（ThreadPoolExecutor）来并发执行多个 invoke 调用。由于
+    LangChain 的 I/O 操作（如 API 请求）是阻塞的，使用多线程可以在等待网络响应时切换到其他任务，充分利用 CPU。\n\n- abatch(inputs)
+    是异步方法，内部使用 asyncio 协程 并发执行多个 ainvoke 调用。协程比线程更轻量，在单线程内通过事件循环调度，避免了多线程的上下文切换开销和
+    GIL 限制，适合高并发 I/O 密集型场景。\n\n\U0001F6E0️ 实现细节（简化版）：\n\n```python\nimport asyncio\nfrom
+    concurrent.futures import ThreadPoolExecutor\n\nclass Runnable:\n    def batch(self,
+    inputs, config=None):\n        with ThreadPoolExecutor(max_workers=10) as executor:\n
+    \           results = list(executor.map(lambda x: self.invoke(x, config), inputs))\n
+    \       return results\n\n    async def abatch(self, inputs, config=None):\n        tasks
+    = [self.ainvoke(x, config) for x in inputs]\n        return await asyncio.gather(*tasks)\n```\n\n⚙️
+    性能考量：\n\n- 线程池大小默认限制，防止过多并发压垮 LLM API（触发速率限制）。\n\n- 在 abatch 中，如果某个 ainvoke 失败，异常会被
+    asyncio.gather 收集，默认会抛给调用方。可以通过 return_exceptions=True 让部分失败不影响其他任务。\n\n- 对于本地模型推理（CPU/GPU
+    密集型），多线程/协程的加速效果有限，更适合用进程池或模型内部的批处理优化。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DigRwjkjbieJVVkMxvpcXMMXnnh
+  block_id: I2wMdYUd2oMAZdx6yvocbUOvnvf
+  page_token: DigRwjkjbieJVVkMxvpcXMMXnnh
+  original_title: 解释 Runnable 的 batch 和 abatch 方法在底层是如何利用线程池或协程的。
+  imported_at: '2026-09-21'

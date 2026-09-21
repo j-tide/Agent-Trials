@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0b5c26d3b99d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F511 在 Agent 中，如何控制它可以使用的工具列表？是否可以根据用户权限动态调整？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "\U0001F511 在 Agent 中，如何控制它可以使用的工具列表？是否可以根据用户权限动态调整？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    控制工具列表是 Agent 安全性和灵活性的关键。
+
+    静态控制：在初始化时传入工具列表
+
+    创建 Agent 时，tools 参数就是最终的工具列表。例如：
+
+    tools = [search, calculator, weather]
+    agent = create_openai_functions_agent(llm, tools, prompt)
+
+    动态控制：根据上下文或用户权限在运行时调整
+
+    - 每次调用 AgentExecutor.run() 时传入不同的工具
+    虽然 AgentExecutor 的工具列表在初始化时固定，但你可以创建多个 AgentExecutor 实例，或者在自定义循环中动态选择工具。更灵活的方式是使用自定义的 Agent 类，它可以根据输入动态生成 Prompt 中的工具描述。
+
+    - 在 Prompt 中动态插入工具列表
+
+    不依赖 LangChain 的自动工具注入，而是自己构建 Prompt，根据用户权限动态拼接工具描述。例如：
+
+    def build_prompt(user):
+        allowed_tools = get_tools_for_user(user)
+        tool_descriptions = "\n".join([f"- {t.name}: {t.description}" for t in allowed_tools])
+        return f"你可以使用以下工具：\n{tool_descriptions}\n\n{base_instructions}"
+
+    - 使用自定义 Agent 类
+    继承 BaseAgent 或 LLMSingleActionAgent，重写 plan 方法，在其中根据用户信息过滤可用工具，并生成相应的 Prompt。这需要更多的代码，但可以实现最精细的控制。
+
+    - 工具内部的权限检查
+
+    即使工具被列出，也可以在工具函数内部进行权限校验，如果用户无权调用则返回错误信息。这样做的好处是简化 Agent 逻辑，但 Agent 可能因为反复调用无权工具而浪费步数。
+
+    ✅ 实践：对于多租户应用，我通常采用“动态构建 Prompt”的方式。在用户请求进入时，根据其角色从工具注册表筛选出可用工具，然后渲染 Prompt，创建 AgentExecutor 实例（可以使用缓存来避免重复创建）。这样从源头限制了 Agent 的能力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/L6pCw9CICiNRXDkqTmbcNMZ5nzh
+  block_id: TKNhdjjO7oobOvxP75lciDYfnld
+  page_token: L6pCw9CICiNRXDkqTmbcNMZ5nzh
+  original_title: "\U0001F511 在 Agent 中，如何控制它可以使用的工具列表？是否可以根据用户权限动态调整？"
+  imported_at: '2026-09-21'

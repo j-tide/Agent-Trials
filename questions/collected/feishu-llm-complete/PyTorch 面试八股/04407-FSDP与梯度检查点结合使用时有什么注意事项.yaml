@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f8d80d3c59af
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: FSDP与梯度检查点结合使用时有什么注意事项？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: FSDP与梯度检查点结合使用时有什么注意事项？
+answer:
+  mode: rubric
+  reference_answer: |-
+    FSDP 和梯度检查点结合使用极为常见，两者都是节省显存的有效手段，配置时需注意：
+
+    - 分片粒度与检查点粒度协调：通常采用逐层（per-layer）FSDP 包裹，并对每个 Block 启用梯度检查点。这样前向完成后参数分片和激活几乎立即释放，显存节省最大化。
+
+    - 激活生命周期：两者在显存节省上是正交和累加的，检查点丢弃激活，FSDP 释放参数分片。
+
+    - 通信与计算重叠：反向时的重计算为 FSDP 的 All-Gather 和 Reduce-Scatter 提供更多计算时间，有助于隐藏通信延迟。
+
+    - 配置顺序：必须在 FSDP 包裹之前启用梯度检查点。FSDP 的 auto_wrap_policy 应设为按层包裹。可调整 forward_prefetch 和 backward_prefetch 以平衡通信和计算。
+
+    - 与混合精度兼容，重计算的激活精度与 AMP 一致。
+
+    最佳实践：先启用 FSDP (ZeRO-3)，再逐层检查点，最后叠加上 Flash Attention，按需调整预取。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KwdbwAt6ziL8zKkU7VMcVNEin8d
+  block_id: QTmDdMAQLodvwexM5rMcyOuHnwm
+  page_token: KwdbwAt6ziL8zKkU7VMcVNEin8d
+  original_title: FSDP与梯度检查点结合使用时有什么注意事项？
+  imported_at: '2026-09-21'

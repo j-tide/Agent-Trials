@@ -1,0 +1,118 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b6df39b3c715
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 知识库文档上传（PDF/Word）如何实现流式解析，边上传边向量化入库？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 知识库文档上传（PDF/Word）如何实现流式解析，边上传边向量化入库？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐⭐（流式处理、向量化、Agent 场景）\n\n1️⃣ Common Answer\n\n上传后解析 PDF/Word，提取文本，然后调用向量化接口入库。可以用
+    Apache POI 解析 Word，PDFBox 解析 PDF。\n\n2️⃣ Impressive Answer\n\n我给出完整的流式处理方案：\n\n-
+    流式上传 Controller：\n\n```text\n@RestController\n@RequestMapping(\"/api/agent/kb\")\npublic
+    class KnowledgeBaseController {\n    \n    @Autowired\n    private AgentDocumentService
+    documentService;\n    \n    // 流式上传并处理\n    @PostMapping(\"/upload/stream\")\n
+    \   public DeferredResult<UploadResult> uploadStream(\n        @RequestParam(\"file\")
+    MultipartFile file,\n        @RequestParam(\"agentId\") String agentId) {\n        \n
+    \       DeferredResult<UploadResult> result = new DeferredResult<>(60000L);\n
+    \       \n        result.onTimeout(() -> {\n            result.setErrorResult(UploadResult.error(\"Upload
+    timeout\"));\n        });\n        \n        // 异步流式处理\n        documentService.processStream(file.getInputStream(),
+    agentId, file.getOriginalFilename())\n            .thenAccept(result::setResult)\n
+    \           .exceptionally(ex -> {\n                result.setErrorResult(UploadResult.error(ex.getMessage()));\n
+    \               return null;\n            });\n        \n        return result;\n
+    \   }\n}\n```\n\n- 流式文档处理服务：\n\n```text\n@Service\npublic class AgentDocumentService
+    {\n    \n    @Autowired\n    private EmbeddingService embeddingService;\n    \n
+    \   @Autowired\n    private VectorStore vectorStore;\n    \n    @Async(\"docProcessExecutor\")\n
+    \   public CompletableFuture<UploadResult> processStream(\n        InputStream
+    inputStream,\n        String agentId,\n        String filename) {\n        \n
+    \       try {\n            // 1. 检测文件类型\n            String fileType = detectFileType(filename);\n
+    \           \n            // 2. 流式提取文本\n            List<TextChunk> chunks = new
+    ArrayList<>();\n            TextExtractor extractor = getExtractor(fileType);\n
+    \           \n            extractor.extractStream(inputStream, (text, pageIndex)
+    -> {\n                // 3. 分块处理\n                List<TextChunk> pageChunks =
+    chunkText(text, 500, 50);\n                chunks.addAll(pageChunks);\n                \n
+    \               // 4. 边提取边向量化\n                for (TextChunk chunk : pageChunks)
+    {\n                    processChunk(chunk, agentId, filename, pageIndex);\n                }\n
+    \           });\n            \n            return CompletableFuture.completedFuture(\n
+    \               UploadResult.success(filename, chunks.size()));\n            \n
+    \       } catch (Exception e) {\n            return CompletableFuture.failedFuture(e);\n
+    \       }\n    }\n    \n    private void processChunk(TextChunk chunk, String
+    agentId, String filename, int pageIndex) {\n        // 1. 向量化\n        List<Float>
+    embedding = embeddingService.embed(chunk.getText());\n        \n        // 2.
+    入库\n        vectorStore.insert(Document.builder()\n            .agentId(agentId)\n
+    \           .filename(filename)\n            .pageIndex(pageIndex)\n            .chunkIndex(chunk.getIndex())\n
+    \           .content(chunk.getText())\n            .embedding(embedding)\n            .metadata(Map.of(\n
+    \               \"filename\", filename,\n                \"pageIndex\", String.valueOf(pageIndex),\n
+    \               \"chunkIndex\", String.valueOf(chunk.getIndex())\n            ))\n
+    \           .build());\n    }\n}\n```\n\n- 文本提取器接口：\n\n```text\npublic interface
+    TextExtractor {\n    void extractStream(InputStream inputStream, BiConsumer<String,
+    Integer> callback) throws IOException;\n}\n\n@Component\npublic class PdfTextExtractor
+    implements TextExtractor {\n    \n    @Override\n    public void extractStream(InputStream
+    inputStream, BiConsumer<String, Integer> callback) throws IOException {\n        try
+    (PDDocument document = PDDocument.load(inputStream)) {\n            PDFTextStripper
+    stripper = new PDFTextStripper();\n            \n            for (int i = 0; i
+    < document.getNumberOfPages(); i++) {\n                stripper.setStartPage(i
+    + 1);\n                stripper.setEndPage(i + 1);\n                \n                String
+    text = stripper.getText(document);\n                callback.accept(text.trim(),
+    i);\n            }\n        }\n    }\n}\n\n@Component\npublic class WordTextExtractor
+    implements TextExtractor {\n    \n    @Override\n    public void extractStream(InputStream
+    inputStream, BiConsumer<String, Integer> callback) throws IOException {\n        XWPFDocument
+    document = new XWPFDocument(inputStream);\n        \n        for (int i = 0; i
+    < document.getParagraphs().size(); i++) {\n            XWPFParagraph paragraph
+    = document.getParagraphs().get(i);\n            String text = paragraph.getText();\n
+    \           \n            // 按段落分页（模拟）\n            int pageIndex = i / 10;\n
+    \           callback.accept(text, pageIndex);\n        }\n        \n        document.close();\n
+    \   }\n}\n```\n\n- 文本分块工具：\n\n```text\n@Component\npublic class TextChunker {\n
+    \   \n    public List<TextChunk> chunkText(String text, int chunkSize, int overlap)
+    {\n        List<TextChunk> chunks = new ArrayList<>();\n        \n        String[]
+    sentences = text.split(\"(?<=[.!?。！？])\\\\s+\");\n        StringBuilder currentChunk
+    = new StringBuilder();\n        int chunkIndex = 0;\n        \n        for (String
+    sentence : sentences) {\n            if (currentChunk.length() + sentence.length()
+    > chunkSize) {\n                if (currentChunk.length() > 0) {\n                    chunks.add(TextChunk.builder()\n
+    \                       .index(chunkIndex++)\n                        .text(currentChunk.toString())\n
+    \                       .build());\n                    \n                    //
+    保留重叠部分\n                    String overlapText = currentChunk.substring(\n                        Math.max(0,
+    currentChunk.length() - overlap));\n                    currentChunk = new StringBuilder(overlapText);\n
+    \               }\n            }\n            \n            currentChunk.append(sentence).append(\"
+    \");\n        }\n        \n        if (currentChunk.length() > 0) {\n            chunks.add(TextChunk.builder()\n
+    \               .index(chunkIndex)\n                .text(currentChunk.toString().trim())\n
+    \               .build());\n        }\n        \n        return chunks;\n    }\n}\n```\n\n-
+    异步线程池配置：\n\n```text\n@Configuration\n@EnableAsync\npublic class AsyncConfig {\n
+    \   \n    @Bean(\"docProcessExecutor\")\n    public Executor docProcessExecutor()
+    {\n        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();\n        executor.setCorePoolSize(5);\n
+    \       executor.setMaxPoolSize(20);\n        executor.setQueueCapacity(50);\n
+    \       executor.setThreadNamePrefix(\"doc-process-\");\n        executor.setRejectedExecutionHandler(new
+    ThreadPoolExecutor.CallerRunsPolicy());\n        executor.initialize();\n        return
+    executor;\n    }\n}\n```\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EvyJwQ60XiC313kQqbUcyFhEnAh
+  block_id: doxcnNEcyMCYaJBRLLcBK1OGr9f
+  page_token: EvyJwQ60XiC313kQqbUcyFhEnAh
+  original_title: 3、场景题：Agent 知识库文档上传（PDF/Word）如何实现流式解析，边上传边向量化入库？
+  imported_at: '2026-09-21'

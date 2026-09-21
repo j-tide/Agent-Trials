@@ -1,0 +1,156 @@
+---
+schema_version: 1
+id: feishu-llm-complete-521139d477f7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 构建一个完整的 Agent 工具调用循环：包含接收用户输入、调用 LLM 获取响应、解析工具调用（或结束标记）、执行工具、将结果反馈给 LLM，直到
+  LLM 输出最终答案，要求处理解析失败和工具执行异常。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 构建一个完整的 Agent 工具调用循环：包含接收用户输入、调用 LLM 获取响应、解析工具调用（或结束标记）、执行工具、将结果反馈给 LLM，直到
+    LLM 输出最终答案，要求处理解析失败和工具执行异常。
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    Agent 循环是 LLM Agent 的核心。其流程为：
+
+    - 接收用户输入，添加到对话历史。
+
+    - 调用 LLM，获取响应。
+
+    - 尝试从响应中解析工具调用。如果解析成功且工具调用有效，则执行工具，将执行结果作为 Observation 追加到对话历史，回到步骤 2。
+
+    - 如果解析失败（即响应中不包含工具调用，或解析出错），判断是否达到最大步数或 LLM 输出了最终答案（如包含 "Final Answer:" 标记）。若是，则将响应作为最终结果返回；否则将解析错误信息反馈给 LLM 并回到步骤 2。
+
+    - 若执行工具过程中出现异常，则将异常信息作为 Observation 反馈给 LLM，继续循环。
+
+    实现
+
+    ```python
+    import json
+    from typing import List, Dict, Any, Tuple
+
+    class AgentLoop:
+        def __init__(self, llm_fn, tool_registry, parse_fn, max_steps=10):
+            self.llm = llm_fn                     # 函数：输入对话历史，返回 LLM 响应文本
+            self.registry = tool_registry         # 工具名 -> 可调用对象
+            self.parse_fn = parse_fn              # 从文本解析工具调用的函数，返回 (tool_name, args) 或 None
+            self.max_steps = max_steps
+            self.history: List[Dict] = []
+
+        def run(self, user_input: str) -> str:
+            self.history.append({"role": "user", "content": user_input})
+            steps = 0
+            while steps < self.max_steps:
+                # 1. 调用 LLM
+                llm_response = self.llm(self.history)
+                # 2. 尝试解析工具调用
+                tool_call = self._parse_safe(llm_response)
+                if tool_call is None:
+                    # 无工具调用，检查是否是最终答案
+                    if self._is_final(llm_response):
+                        return llm_response
+                    # 否则将 LLM 响应作为普通回复添加到历史
+                    self.history.append({"role": "assistant", "content": llm_response})
+                    # 如果没有工具调用且不是最终答案，可能需要用户进一步输入，此处跳出循环
+                    break
+
+                tool_name, args = tool_call
+                # 3. 检查工具是否存在
+                if tool_name not in self.registry:
+                    obs = f"错误：工具 '{tool_name}' 未注册。"
+                else:
+                    # 4. 执行工具
+                    try:
+                        result = self.registry[tool_name](**args)
+                        obs = f"Observation: {json.dumps(result, ensure_ascii=False)}"
+                    except Exception as e:
+                        obs = f"工具执行错误: {type(e).__name__}: {e}"
+                # 5. 将工具调用和结果追加到历史
+                self.history.append({"role": "assistant", "content": llm_response})
+                self.history.append({"role": "tool", "content": obs})
+                steps += 1
+            # 超过最大步数，返回最后一次 LLM 响应（或提示）
+            if self.history:
+                last_msg = self.history[-1]["content"]
+                if self._is_final(last_msg):
+                    return last_msg
+                return "Agent 达到最大步数限制，未完成任务。"
+            return "无法完成任务。"
+
+        def _parse_safe(self, text: str) -> Tuple[str, Dict] | None:
+            try:
+                return self.parse_fn(text)
+            except Exception:
+                return None
+
+        def _is_final(self, text: str) -> bool:
+            return "Final Answer:" in text
+
+    # 示例 LLM 函数（模拟）
+    def mock_llm(history):
+        last = history[-1]["content"] if history else ""
+        if "天气" in last:
+            return 'Action: get_weather\nAction Input: {"city": "北京"}'
+        if "Observation" in last and "25" in last:
+            return 'Final Answer: 北京今天25°C，晴朗。'
+        if "错误" in last:
+            return 'Final Answer: 抱歉，我无法完成该操作。'
+        return 'Final Answer: 你好，有什么可以帮助的？'
+
+    def get_weather(city):
+        return {"city": city, "temp": 25, "condition": "晴"}
+
+    def parse_react(text):
+        # 简单实现
+        if "Action:" in text and "Action Input:" in text:
+            # 省略详细解析，返回模拟
+            return ("get_weather", {"city": "北京"})
+        return None
+
+    agent = AgentLoop(llm_fn=mock_llm, tool_registry={"get_weather": get_weather}, parse_fn=parse_react)
+    print(agent.run("北京天气怎么样？"))
+    ```
+
+    说明
+
+    - 循环中每次都将 LLM 响应和工具结果追加到历史，LLM 能逐步获得信息。
+
+    - _parse_safe 捕获解析异常，避免程序中断。
+
+    - 工具执行异常同样转为文本反馈，让 LLM 有机会调整（例如选择其他工具或请求用户帮助）。
+
+    - 最终答案通过特定标记判断，也可以让 LLM 输出一个 Finish 动作。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  block_id: SWB5dOym0oIcuZxlrNHcZAT5ny9
+  page_token: Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  original_title: 构建一个完整的 Agent 工具调用循环：包含接收用户输入、调用 LLM 获取响应、解析工具调用（或结束标记）、执行工具、将结果反馈给
+    LLM，直到 LLM 输出最终答案，要求处理解析失败和工具执行异常。
+  imported_at: '2026-09-21'

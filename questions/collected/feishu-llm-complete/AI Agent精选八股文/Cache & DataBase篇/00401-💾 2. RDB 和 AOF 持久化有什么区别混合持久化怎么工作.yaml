@@ -1,0 +1,88 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7274cd861cba
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BE 2. RDB 和 AOF 持久化有什么区别？混合持久化怎么工作？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F4BE 2. RDB 和 AOF 持久化有什么区别？混合持久化怎么工作？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Redis 数据在内存里，断电就丢。持久化就是给内存数据拍“快照”或记“日记”，让重启时能恢复。RDB 和 AOF 是两种完全不同的哲学。
+
+    RDB (快照)                        AOF (追加日志)
+    ───────────                       ──────────────
+      Redis 数据 → 二进制 dump.rdb      每一条写命令 → 追加到 appendonly.aof
+      周期性保存 (如每 5 分钟)           实时记录 (每 1 秒或每条命令 fsync)
+      恢复时直接加载二进制，极快         恢复时逐条重放命令，较慢
+      可能丢失最近几分钟的数据           数据安全性极高，最多丢 1 秒
+      文件小，适合备份                  文件大，但可重写压缩
+
+    RDB（Redis Database Backup）
+
+    - 原理：Redis 通过 fork() 创建子进程，子进程将当前内存数据写入一个临时的 .rdb 文件，写完后原子地替换旧的 RDB 文件。主进程在子进程工作时完全不阻塞。
+
+    - 优点：紧凑的二进制格式，恢复速度极快，适合灾难恢复和全量备份。
+
+    - 缺点：两次 RDB 之间如果宕机，这段时间的数据就丢了。不适合对数据安全性要求极高的场景。
+
+    AOF（Append Only File）
+
+    - 原理：将每一次写命令追加到 AOF 文件末尾，就像数据库的 WAL 日志。Redis 会定期对 AOF 文件进行重写（Rewrite），去除冗余命令，压缩体积。
+
+    - 优点：数据安全性极高，可以配置 appendfsync everysec（每秒刷盘一次），最多丢失 1 秒的数据。
+
+    - 缺点：AOF 文件通常比 RDB 大，恢复时需要逐条执行命令，速度比 RDB 慢。
+
+    混合持久化（Redis 4.0+ 引入）
+
+    混合持久化结合了 RDB 的恢复速度与 AOF 的数据安全性。它的 AOF 文件不再是一堆纯命令，而是前半部分为 RDB 格式的二进制快照，后半部分为快照之后的增量 AOF 命令。
+
+    [图片内容未导入]
+
+    工作流程：当 Redis 触发 AOF 重写时，子进程不再像以前那样逐条扫描 AOF 文件，而是直接把当前内存数据写成 RDB 格式，写入新的 AOF 文件开头；然后主进程把重写期间的新增命令以 AOF 格式追加到文件末尾。最终文件即具备了 RDB 的快速恢复能力，又保留了 AOF 的秒级数据安全。
+
+    代码示例：在配置中启用混合持久化
+
+    # redis.conf
+    save 900 1             # 仍然可以保留 RDB 作为备份
+    save 300 10
+    appendonly yes         # 开启 AOF
+    appendfsync everysec   # 每秒刷盘
+    aof-use-rdb-preamble yes   # 开启混合持久化 (关键配置)
+
+    在 Agent 场景的选择：如果 Redis 只是用来做缓存（比如 Embedding 缓存、对话上下文缓存），那么可以完全关闭持久化，因为数据丢了也无所谓。如果 Redis 用来存储 Agent 的任务状态、关键记忆，那么混合持久化是最佳选择——重启后秒级恢复，又不会丢失关键状态。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Q9QMw2nf7ixgxGkQ9NUcjdpZno0
+  block_id: doxcnMD1BYHc59OZJ8Am96oxH9c
+  page_token: Q9QMw2nf7ixgxGkQ9NUcjdpZno0
+  original_title: "\U0001F4BE 2. RDB 和 AOF 持久化有什么区别？混合持久化怎么工作？"
+  imported_at: '2026-09-21'

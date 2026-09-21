@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b31c68659fd7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么 ZeRO-3 不把激活值也分片？序列并行 (SP) 正好做这件事。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 为什么 ZeRO-3 不把激活值也分片？序列并行 (SP) 正好做这件事。
+answer:
+  mode: rubric
+  reference_answer: |-
+    激活值的生命周期和通信模式与参数/梯度截然不同：
+
+    - 生命周期短：激活值在每一层产生并立刻在下一层被消费，不能像参数那样持久分片。
+
+    - 依赖关系复杂：每一层的激活值大小取决于输入，各层之间必须严格串行，分片后需要频繁地收集和释放，通信开销将难以承受。
+
+    - ZeRO的设计哲学：专注于消除数据并行中的“静态”冗余（模型状态），而激活值属于“动态”临时数据，用其他专门策略处理更高效。
+
+    序列并行（SP） 正是为激活值分片而生的。它将激活张量的序列维度切分到多卡上，每卡只负责一部分token的计算。在注意力层，通过高效的AllGather或Ring Attention交换K和V，完成后再切回分片。SP通常与TP结合，将通信限制在节点内，利用高带宽NVLink，效率很高。因此，激活值的分片由SP负责，ZeRO专注于模型状态，各司其职，协同工作。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: XiYBdSzkfoHYnExFt0VcEiaFnbd
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: 为什么 ZeRO-3 不把激活值也分片？序列并行 (SP) 正好做这件事。
+  imported_at: '2026-09-21'

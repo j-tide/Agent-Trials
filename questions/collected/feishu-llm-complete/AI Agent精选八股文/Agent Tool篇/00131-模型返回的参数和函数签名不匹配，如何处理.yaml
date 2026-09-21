@@ -1,0 +1,125 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a297721c6122
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 模型返回的参数和函数签名不匹配，如何处理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent Tool篇
+tags: &1
+- AI Agent精选八股文
+- Agent Tool篇
+content:
+  prompt: 模型返回的参数和函数签名不匹配，如何处理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是 Function Calling 最常见的“翻车现场”：模型返回了 {"city_name": "Beijing"}，而你的函数签名是 get_weather(city: str) —— 参数名对不上，代码直接报错。
+
+    常见的不匹配类型：
+
+    - 参数名偏差：模型编了一个名字，或者大小写不对（City vs city）。
+
+    - 类型错误：需要 int，模型给了 "3"。
+
+    - 缺必填参数：required: ["from", "to"]，模型只给了 from。
+
+    - 多余参数：模型自己脑补了函数签名里没有的字段。
+
+    - 值不合法：参数名和类型都对，但值在业务上不成立（如负数数量）。
+
+    处理策略：防御性编程 + 闭环修正
+
+    我们不应该假设模型一次就给出完美参数，而是把“不匹配”当成正常情况，设计一套稳健的处理流水线：
+
+    [图片内容未导入]
+
+    代码示例：带自愈能力的 Function Calling 执行器
+
+    ```python
+    import jsonschema, json
+
+    def call_tool_with_recovery(messages, tools, tool_functions, max_retries=2):
+        """调用工具，带参数校验和自动修正重试"""
+        for attempt in range(max_retries + 1):
+            response = client.chat.completions.create(
+                model="gpt-4o", messages=messages, tools=tools
+            )
+            msg = response.choices[0].message
+            if not msg.tool_calls:
+                return msg.content  # 模型觉得不需要调工具，直接返回文本
+
+            tool_call = msg.tool_calls[0]
+            func_name = tool_call.function.name
+            try:
+                arguments = json.loads(tool_call.function.arguments)
+            except json.JSONDecodeError:
+                # 连 JSON 都解析失败，告诉模型重来
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": "Error: 参数 JSON 格式无效，请检查后重新生成。"
+                })
+                continue
+
+            # 1. 拿到该函数的 JSON Schema 进行结构校验
+            schema = tools_schema_map[func_name]["parameters"]
+            try:
+                jsonschema.validate(instance=arguments, schema=schema)
+            except jsonschema.ValidationError as e:
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": f"参数校验失败: {e.message}。请修正后重试。"
+                })
+                continue
+
+            # 2. 业务校验
+            try:
+                validate_business_rules(func_name, arguments)
+            except ValueError as e:
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": f"业务校验失败: {e}。请调整参数后重试。"
+                })
+                continue
+
+            # 3. 全部通过，执行函数并返回
+            result = tool_functions[func_name](**arguments)
+            return result
+
+        raise RuntimeError("工具调用失败：超过最大重试次数")
+    ```
+
+    核心思路： 遇到不匹配不要直接崩溃，而是把错误信息作为“tool”角色的消息喂回给模型。模型看到“你刚才的参数校验失败，原因是 xxx”，通常能自我纠正。这就像你告诉同事“这个表没填完”，他会马上补上，而不需要你替他填。
+
+    如果重试 2 次仍然失败，进入人工兜底或降级逻辑（如返回一个友好的错误提示给用户）。永远不要信任模型的输出，校验是你掌控安全与稳定性的最后防线。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/F5QpwqJp4i0pB3kmnPzcVpgGn19
+  block_id: doxcnDbktzwCyqMUZgjYtu5gGNh
+  page_token: F5QpwqJp4i0pB3kmnPzcVpgGn19
+  original_title: 模型返回的参数和函数签名不匹配，如何处理？
+  imported_at: '2026-09-21'

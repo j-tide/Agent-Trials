@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-25f0f9448473
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CF 11. 分割后，你如何评估分块的质量？有哪些定量指标？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F4CF 11. 分割后，你如何评估分块的质量？有哪些定量指标？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    分块质量评估需要同时看“结构保持度”和“下游任务表现”，我一般会用下面几个指标组合判断：
+
+    ① 语义连贯性 (Intra-chunk Cohesion)
+
+    衡量每个 chunk 内部的句子是否主题一致。计算方法：
+
+    - 将 chunk 内句子两两组成对，用 embedding 模型计算余弦相似度，取平均值。值越高说明 chunk 内部越聚焦。
+
+    - 也可以计算 chunk 内句子相似度的标准差，标准差越小越稳定。
+
+    ② 语义区分度 (Inter-chunk Separation)
+
+    相邻 chunk 之间的语义差异应该比较大。计算相邻 chunk 的 embedding 余弦距离（1 - 余弦相似度），取平均值，越高表示分割点找得越准。
+
+    ③ 信息完整率 (Entity Integrity)
+
+    使用 NER 模型检测实体（人名、组织、术语）是否被切分边界截断。定义“实体完整性比例” = 完整包含在单个 chunk 内的实体数 / 总实体数。该指标能直接反映“是否把 Transformer 切成 Transform 和 er”这类问题。
+
+    ④ 长度分布均匀性
+
+    不是越均匀越好，但过大的标准差意味着某些 chunk 可能超长或过短。可用变异系数（标准差/均值）衡量。对于需要批量处理的向量库，均匀的 chunk 长度能保证嵌入质量稳定。
+
+    ⑤ 检索命中率 (Recall@k / MRR)
+
+    最直接的金标准：用一组典型的用户查询做检索测试，看看正确答案是否出现在 top-k 的 chunk 中。MRR（平均倒数排名）能反映相关 chunk 的排序质量。
+
+    ⑥ 下游生成质量 (ROUGE / 人工评估)
+
+    将分块用于 RAG 生成，评估答案的完整性和准确性。可以用 ROUGE-L 或用 LLM 做 pairwise 比较。
+
+    实用工具：
+    我写过一个轻量评估脚本，接受原始文本和分块后的文档列表，自动计算上述指标，并用 datasets 库保存实验结果，便于不同参数对比。注意，这些指标需要与人的直觉一致，所以要先用少量样本校准，再批量跑。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/O97CwA74Ji4ZHWkDTIRcb7OanUg
+  block_id: JJ4xda4RDoQ6GGx4fzycjB2anEd
+  page_token: O97CwA74Ji4ZHWkDTIRcb7OanUg
+  original_title: "\U0001F4CF 11. 分割后，你如何评估分块的质量？有哪些定量指标？"
+  imported_at: '2026-09-21'

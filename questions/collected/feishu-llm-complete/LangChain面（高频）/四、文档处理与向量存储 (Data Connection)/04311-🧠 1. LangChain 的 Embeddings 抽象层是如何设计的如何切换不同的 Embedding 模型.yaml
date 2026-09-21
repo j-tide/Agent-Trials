@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ee16679c90f5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E0 1. LangChain 的 Embeddings 抽象层是如何设计的？如何切换不同的 Embedding 模型？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 四、文档处理与向量存储 (Data Connection)
+tags: &1
+- LangChain面（高频）
+- 四、文档处理与向量存储 (Data Connection)
+content:
+  prompt: "\U0001F9E0 1. LangChain 的 Embeddings 抽象层是如何设计的？如何切换不同的 Embedding 模型？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangChain 的 Embeddings 抽象层遵循依赖倒置原则，核心是一个统一的接口类 Embeddings，位于 langchain_core.embeddings 中。所有嵌入模型（无论云端还是本地）都必须实现这个接口，从而让上游的向量存储、检索器、分割器等组件可以无差别调用。
+
+    设计要点：
+
+    - 基类 Embeddings：定义了最核心的方法签名：
+
+    - embed_documents(texts: List[str]) -> List[List[float]]：对多段文本进行向量化（主要用于索引阶段）。
+
+    - embed_query(text: str) -> List[float]：对单条查询进行向量化（检索阶段）。
+    有些模型对文档和查询使用不同的嵌入策略（如对称与非对称模型），所以特意分成两个方法。
+
+    - 异步支持：同步方法外还有 aembed_documents 和 aembed_query，适合在异步框架（如 FastAPI）里发挥并发优势。
+
+    - 参数标准化：所有模型实现都通过构造函数接收必要的配置（API Key、model_name、batch_size 等），并可接受 **kwargs 传递给底层 SDK，保证灵活性。
+
+    - 切换模型的方式就是一行代码：因为所有模型都实现了同一个接口，所以只需替换初始化对象即可。
+
+    ```python
+    # 使用 OpenAI
+    from langchain_openai import OpenAIEmbeddings
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+    # 一键切换为 HuggingFace 本地模型
+    from langchain_huggingface import HuggingFaceEmbeddings
+    embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-small-zh")
+
+    # 切换到 Cohere
+    from langchain_cohere import CohereEmbeddings
+    embeddings = CohereEmbeddings(model="embed-multilingual-v3.0")
+
+    # 下游使用方式完全不变
+    vector = embeddings.embed_query("你好")
+    ```
+
+    深层设计理念：
+    这个抽象层还承担了“协议”的角色，使得 LangChain 的 VectorStore 不依赖具体模型。向量库只接收一个 Embeddings 对象，内部调用 embed_query 和 embed_documents，从而实现了存储与嵌入的解耦。这种设计让我们可以在开发环境用免费的本地模型，线上切到 OpenAI 或 Cohere，只需更改配置文件，业务代码零修改。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/I0Gnw9RQoiOa2yk59JjcwumPnrf
+  block_id: WgLZdZTsCoNjhYxbIn8c90r8n4d
+  page_token: I0Gnw9RQoiOa2yk59JjcwumPnrf
+  original_title: "\U0001F9E0 1. LangChain 的 Embeddings 抽象层是如何设计的？如何切换不同的 Embedding
+    模型？"
+  imported_at: '2026-09-21'

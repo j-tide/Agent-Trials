@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7a0fb7f26385
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E0 记忆模块在 Agent 中是如何使用的？Agent 的 scratchpad 和 memory 是什么关系？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F9E0 记忆模块在 Agent 中是如何使用的？Agent 的 scratchpad 和 memory 是什么关系？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 LangChain 的 Agent 中，Memory 和 scratchpad 是两个不同但互补的概念，它们共同构成了 Agent 的上下文窗口。
+
+    - Memory（记忆）：跨多次Agent调用（即多次 agent_executor.run 或整个会话）持久化的长期状态。它通常存储用户与Agent之间的对话历史、之前任务的结果等。Agent 的 Memory 与 Chain 的 Memory 功能类似，负责在会话级别维持状态。
+
+    - Scratchpad（草稿本/中间记录）：在一次Agent调用内部用于记录Agent思考和行动的临时日志。例如，Agent 在解决一个问题时，可能会先输出 Thought: ...，然后调用一个工具，再观察结果。这些中间步骤（Thought, Action, Observation）会被自动记录在 AgentScratchpad 中。它是瞬时的，只在当前这次 run 调用中有效，一旦任务完成（输出 Final Answer），scratchpad 就会被清空。它的作用是让 LLM 在同一个推理循环中能够查看之前的思考步骤，避免重复执行或遗忘已做的事情。
+
+    关系：
+
+    - Memory 是会话级的，用于多轮对话；scratchpad 是任务级的，用于单次复杂推理。
+
+    - 在实现上，Agent 通常会将 Memory 的历史 + Scratchpad 的中间步骤 一同组装进 Prompt，送给 LLM。这样 LLM 既知道历史对话背景（Memory），也了解当前任务的进展（Scratchpad）。
+
+    示例：
+
+    用户：“帮我查一下今天天气，然后推荐合适的衣服。”
+
+    - Agent 启动一次调用。此时 Memory 加载之前的对话历史（可能没有）。
+
+    - Agent 开始推理，第一步 Thought：“我需要先查询天气。”，然后调用天气API，Observation 返回“25度，晴”。这些 Thought/Action/Observation 会被追加到 Scratchpad 中。
+
+    - 第二步 Thought：“根据天气，推荐T恤和短裤。”，然后输出最终答案。此时 Scratchpad 中的所有中间步骤完成了使命，但不会进入 Memory。最终的用户请求和Agent的最终回答会被保存到 Memory，供下一轮对话使用。
+
+    如何配置 Memory：
+
+    ```python
+    from langchain.memory import ConversationBufferMemory
+    from langchain.agents import create_openai_functions_agent, AgentExecutor
+
+    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+    agent = create_openai_functions_agent(llm, tools, prompt)
+    agent_executor = AgentExecutor(agent=agent, tools=tools, memory=memory)
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H3N3wvSCiibLlPk5ZpjcveFHnNb
+  block_id: EkugdBlA0ort9SxyIFBcWsQjnAf
+  page_token: H3N3wvSCiibLlPk5ZpjcveFHnNb
+  original_title: "\U0001F9E0 记忆模块在 Agent 中是如何使用的？Agent 的 scratchpad 和 memory 是什么关系？"
+  imported_at: '2026-09-21'

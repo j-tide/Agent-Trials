@@ -1,0 +1,95 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3c5289f9c839
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写解析器，处理 LLM 输出中可能出现的“幻想工具调用”：检测解析出的工具名是否在注册表中，若不存在，则尝试模糊匹配最相似的工具名并建议更正，否则报错。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 编写解析器，处理 LLM 输出中可能出现的“幻想工具调用”：检测解析出的工具名是否在注册表中，若不存在，则尝试模糊匹配最相似的工具名并建议更正，否则报错。
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    LLM 可能生成不存在的工具名（幻觉）。我们可以利用编辑距离（Levenshtein）找出注册表中与解析出的工具名最相似的工具，若相似度高于阈值，则自动更正或提示用户。否则报错。
+
+    实现
+
+    ```python
+    import Levenshtein  # python-Levenshtein 库，需安装，也可用自实现
+
+    def correct_tool_name(parsed_name: str, registry_names: List[str], threshold: float = 0.8) -> str:
+        """
+        尝试修正幻想工具名。
+        Args:
+            parsed_name: 解析出的工具名
+            registry_names: 注册表中的所有工具名
+            threshold: 相似度阈值（0~1），超过则自动更正
+        Returns:
+            更正后的工具名，若未找到匹配则抛出 ValueError
+        """
+        best_sim = 0.0
+        best_name = None
+        for name in registry_names:
+            # 计算相似度：1 - 归一化编辑距离
+            sim = 1 - Levenshtein.distance(parsed_name.lower(), name.lower()) / max(len(parsed_name), len(name))
+            if sim > best_sim:
+                best_sim = sim
+                best_name = name
+        if best_sim >= threshold:
+            print(f"工具名 '{parsed_name}' 不存在，自动更正为 '{best_name}' (相似度 {best_sim:.2f})")
+            return best_name
+        else:
+            # 列出可能候选
+            candidates = sorted(registry_names, key=lambda n: Levenshtein.distance(parsed_name, n))[:3]
+            raise ValueError(f"工具 '{parsed_name}' 未注册。您是否想使用: {candidates}?")
+
+    # 示例
+    registry = ["search", "get_weather", "send_email", "delete_file"]
+    print(correct_tool_name("searh", registry))   # 自动更正为 "search"
+    try:
+        correct_tool_name("fly_to_moon", registry)
+    except ValueError as e:
+        print(e)
+    ```
+
+    说明
+
+    - 使用 Levenshtein.distance 计算编辑距离，相似度阈值通常设为 0.8。
+
+    - 若相似度不足，则提供最相似的候选项供用户或 LLM 确认。
+
+    - 可集成到工具调用链中，在调用前自动修正，提高容错性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  block_id: T0mNdKHovoRvozxVnybcArF6nmf
+  page_token: Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  original_title: 编写解析器，处理 LLM 输出中可能出现的“幻想工具调用”：检测解析出的工具名是否在注册表中，若不存在，则尝试模糊匹配最相似的工具名并建议更正，否则报错。
+  imported_at: '2026-09-21'

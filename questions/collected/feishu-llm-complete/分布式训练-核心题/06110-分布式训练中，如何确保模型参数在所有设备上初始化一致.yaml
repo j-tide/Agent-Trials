@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-259601f78109
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分布式训练中，如何确保模型参数在所有设备上初始化一致？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 分布式训练中，如何确保模型参数在所有设备上初始化一致？
+answer:
+  mode: rubric
+  reference_answer: |-
+    确保参数初始化一致是分布式训练正确收敛的前提。如果不同设备上的模型初始化不同，它们计算的梯度将基于不同的参数状态，梯度聚合就失去了意义，导致训练失败或性能严重下降。
+
+    实现方法：
+
+    - 相同的随机种子 (Random Seed)：这是最简单也最关键的一步。在所有参与训练的 GPU 进程中，统一设置 Python、NumPy 和 PyTorch/CUDA 的随机种子。这样，每个进程在调用随机初始化函数时，会生成完全相同的随机数序列，从而得到完全相同的初始化权重。
+
+    - 广播主节点的参数 (Broadcasting)：更保险的做法是，只在其中一个进程（通常是 Rank 0）上进行初始化，然后将该进程的模型参数通过 broadcast 操作发送给其他所有进程。其他进程直接用接收到的参数覆盖自己的本地模型。主流分布式框架（如 PyTorch DDP）会在构建模型后自动处理同步。
+
+    - 从 Checkpoint 统一加载：如果是从预训练权重或之前的 Checkpoint 恢复训练，确保所有进程读取的 Checkpoint 文件是完全相同的，并且在加载后不进行任何随机的微调（如新增模块的随机初始化），需要将新增部分单独广播。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Yto8wfa8ti5TgZktU1YczVp7nme
+  block_id: L1BpdOudloteeSx7dgzc2ILhnGg
+  page_token: Yto8wfa8ti5TgZktU1YczVp7nme
+  original_title: 分布式训练中，如何确保模型参数在所有设备上初始化一致？
+  imported_at: '2026-09-21'

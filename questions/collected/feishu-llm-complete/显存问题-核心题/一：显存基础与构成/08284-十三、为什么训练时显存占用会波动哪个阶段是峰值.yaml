@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5fab67a1579a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 十三、为什么训练时显存占用会波动？哪个阶段是峰值？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 一：显存基础与构成
+tags: &1
+- 显存问题-核心题
+- 一：显存基础与构成
+content:
+  prompt: 十三、为什么训练时显存占用会波动？哪个阶段是峰值？
+answer:
+  mode: rubric
+  reference_answer: |-
+    显存占用在单个训练迭代内不是恒定的，而是随着前向、反向、优化器更新的推进，呈现周期性波峰和波谷。这种波动性是显存优化的关键突破口。
+
+    波动的主要来源
+
+    - 激活值的生灭
+
+    - 梯度累积与 AllReduce
+
+    - 临时缓冲区（Workspace）
+
+    - 优化器步骤的临时分配
+
+    显存峰值常出现在两个阶段：
+
+    场景一：标准 DDP 全参数训练（无检查点）
+
+    - 峰值阶段：前向刚完成、反向尚未开始或刚开始时。
+
+    - 原因：所有层的激活值全部留存，等待反向使用。此时激活值总量最大，加上权重、优化器状态等静态数据，达到整个迭代的最高水位。
+
+    场景二：启用梯度检查点（Activation Checkpointing）
+
+    - 峰值阶段：反向传播到某个检查段落的末尾，此时需要重新前向计算这一段落的激活，会短暂地重新产生该段的激活值，与当前已保留的其他激活值叠加。
+
+    - 峰值可能不是全局最大，而是局部“尖峰”，但依然高于稳态。
+
+    场景三：通信与计算重叠
+
+    - 在 Nvidia 的 allreduce 分桶策略中，梯度桶的通信可能会和反向计算重叠，导致梯度的通信缓冲区和激活值同时存在，推高瞬时峰值。
+
+    实战经验：
+
+    - 观察 nvidia-smi 或利用 PyTorch profiler 的显存时间线，会看到类似“鲨鱼鳍”形状：前向攀升，反向缓慢下降。
+
+    - 避免峰值 OOM 的技巧：启用梯度检查点（牺牲计算换显存）、减小 micro batch size、使用 ZeRO 分片，或者在反向传播开始前手动删除不再需要的参考。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GR6GwGe1Hij4c3keg1Qckq5unRb
+  block_id: CctBdSZSRogwPbxVANTcS1HDnPb
+  page_token: GR6GwGe1Hij4c3keg1Qckq5unRb
+  original_title: 十三、为什么训练时显存占用会波动？哪个阶段是峰值？
+  imported_at: '2026-09-21'

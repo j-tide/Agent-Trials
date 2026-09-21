@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4b1713a7e02a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4BE 激活卸载（Activation Offloading）如何工作？代价是什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F4BE 激活卸载（Activation Offloading）如何工作？代价是什么？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 激活卸载在前向传播后将部分激活张量从 GPU 显存拷贝到 CPU 内存，反向传播时再异步取回，以 PCIe
+    带宽和延迟为代价，换取 GPU 显存的扩大。\n\n⚙️ 工作流程：\n\n- 前向传播：正常计算每一层的激活，在产生后，将选定的激活张量（如 attention
+    输出、FFN 中间结果）从 GPU 复制到 CPU 固定内存（pinned memory）。\n\n- 显存释放：GPU 上的该激活立即被释放，显存被腾出。\n\n-
+    反向传播需要时：提前从 CPU 异步预取需要的激活张量回 GPU。通过 overlap，将传输隐藏在计算之后。\n\n- 选择性卸载：通常只卸载部分层（如每隔几层）或较大张量，以避免传输量过大。\n\n⚖️
+    代价：\n\n- 速度下降：PCIe 带宽（如 PCIe 4.0 x16 理论 ~32 GB/s）远低于 GPU HBM 带宽（>1 TB/s）。如果计算时间不能完全隐藏传输时间，GPU
+    会停顿等待数据，导致训练变慢。实测可能导致 20%-50% 的吞吐下降，取决于卸载量和模型。\n\n- CPU 内存压力：需要大量 CPU 内存（数十 GB
+    至数百 GB）来存放激活。尤其大 batch 长序列时，CPU 内存也可能不足。\n\n- 实现复杂度：需要框架支持异步拷贝和良好调度。\n\n\U0001F91D
+    与梯度检查点结合：激活卸载可与梯度检查点互补。梯度检查点减少激活总量，卸载将剩余的激活转移到 CPU，两者结合能在极端条件下进一步扩展序列长度或 batch。\n\n✅
+    因此，激活卸载是显存极限扩展的最后手段之一，以明显的速度代价换取突破显存墙的可能。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IV7mwgNSpiSplMkLZJYcJWfmn5f
+  block_id: Aflfdo7ZeoDNuFxIUhScOBRXnDf
+  page_token: IV7mwgNSpiSplMkLZJYcJWfmn5f
+  original_title: "\U0001F4BE 激活卸载（Activation Offloading）如何工作？代价是什么？"
+  imported_at: '2026-09-21'

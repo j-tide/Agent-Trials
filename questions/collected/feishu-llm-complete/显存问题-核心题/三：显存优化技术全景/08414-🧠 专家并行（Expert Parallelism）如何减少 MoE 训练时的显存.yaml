@@ -1,0 +1,49 @@
+---
+schema_version: 1
+id: feishu-llm-complete-aad4467c7ee3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E0 专家并行（Expert Parallelism）如何减少 MoE 训练时的显存？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F9E0 专家并行（Expert Parallelism）如何减少 MoE 训练时的显存？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 专家并行将 MoE 中的不同专家（FFN）放置到不同的 GPU 上，每张卡只存储一部分专家权重及其优化器状态，从而显著降低单卡显存占用，代价是引入
+    All-to-All 通信来路由 token 到对应专家。\n\n\U0001F50D 工作原理：\n\n- 在 MoE（如 Mixtral 8x7B）中，每个
+    Transformer 层包含多个专家（如 8 个），每次 token 只激活其中 top-2。\n\n- 若不使用专家并行，一张卡必须容纳所有 8 个专家的完整权重（以及优化器状态），显存压力很大。\n\n-
+    专家并行将专家分布在多个设备上，例如 EP=4，则每卡仅存储 2 个专家。路由时，每个 token 经过门控网络选择专家 ID，然后通过 All-to-All
+    通信将 token 的隐状态发送到对应专家所在的 GPU 上进行计算，计算完再 All-to-All 传回原卡。\n\n- 这样，单卡的专家权重显存降为 1/(EP
+    度)，并且优化器状态、梯度也相应分片。\n\n✅ 节省的具体效果：\n\n- Mixtral 8x7B（总参数量 ~46.7B）中专家 FFN 占绝大多数参数。EP=4
+    时，单卡只需存储约 1/4 的专家权重，显著降低训练显存门槛。\n\n- 注意力层等共享部分通常仍复制或使用其他并行方式。\n\n⚠️ 注意： 专家并行需要高效的
+    All-to-All 通信，对网络带宽要求较高。它常与数据并行、张量并行混合使用，以平衡计算和通信。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WSBEwNJCni9q3ok7cN6cISL3nwe
+  block_id: QxfidwZ63oxdKHxyJlhcXluAnzc
+  page_token: WSBEwNJCni9q3ok7cN6cISL3nwe
+  original_title: "\U0001F9E0 专家并行（Expert Parallelism）如何减少 MoE 训练时的显存？"
+  imported_at: '2026-09-21'

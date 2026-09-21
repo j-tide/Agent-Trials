@@ -1,0 +1,97 @@
+---
+schema_version: 1
+id: feishu-llm-complete-28bb9b2b9ab6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何监控每个链的调用次数和延迟？在 LangChain 中通常借助什么组件？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: 如何监控每个链的调用次数和延迟？在 LangChain 中通常借助什么组件？
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangChain提供了强大的回调（Callback）机制，允许在链、LLM、工具等组件执行的关键节点插入自定义逻辑，是实现监控的基石。也可直接使用LangSmith一站式平台。
+
+    ### 2.1 基于自定义回调的监控
+
+    创建一个继承 BaseCallbackHandler 的类，重写 on_chain_start 和 on_chain_end 方法，在方法中记录时间戳和链名称，然后聚合统计数据。
+
+    ```python
+    from langchain_core.callbacks import BaseCallbackHandler
+    import time
+    from collections import defaultdict
+
+    class ChainMonitorCallback(BaseCallbackHandler):
+        def __init__(self):
+            self.stats = defaultdict(lambda: {"count": 0, "total_latency": 0.0})
+            self.start_times = {}
+
+        def on_chain_start(self, serialized, inputs, *, run_id, **kwargs):
+            chain_name = serialized.get("name", "unnamed_chain")
+            self.start_times[run_id] = (chain_name, time.time())
+
+        def on_chain_end(self, outputs, *, run_id, **kwargs):
+            if run_id in self.start_times:
+                chain_name, start = self.start_times.pop(run_id)
+                latency = time.time() - start
+                self.stats[chain_name]["count"] += 1
+                self.stats[chain_name]["total_latency"] += latency
+
+        def get_summary(self):
+            summary = {}
+            for name, data in self.stats.items():
+                avg_latency = data["total_latency"] / data["count"] if data["count"] else 0
+                summary[name] = {"calls": data["count"], "avg_latency_ms": avg_latency * 1000}
+            return summary
+    ```
+
+    使用方式：
+
+    ```python
+    monitor = ChainMonitorCallback()
+    chain.invoke(input, config={"callbacks": [monitor]})
+    print(monitor.get_summary())
+    ```
+
+    可以将统计信息上报到Prometheus、Datadog等监控系统，或写入日志文件。
+
+    ### 2.2 使用 LangSmith（推荐）
+
+    LangSmith是LangChain的官方可观测性平台。只需设置环境变量：
+
+    ```bash
+    LANGCHAIN_TRACING_V2=true
+    LANGCHAIN_API_KEY=your_key
+    ```
+
+    所有链调用、LLM请求、工具执行都会被自动记录。平台提供调用次数、延迟、Token消耗、错误率等聚合图表，并支持按链名称筛选。这是生产环境中最便捷的监控方案。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ReT9wTqbnirxZnkOZZGcyGyynKc
+  block_id: RL38dtewposHbVxcyR9cdEfdnhc
+  page_token: ReT9wTqbnirxZnkOZZGcyGyynKc
+  original_title: 如何监控每个链的调用次数和延迟？在 LangChain 中通常借助什么组件？
+  imported_at: '2026-09-21'

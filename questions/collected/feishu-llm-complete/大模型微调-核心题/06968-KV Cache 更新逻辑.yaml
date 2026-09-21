@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1635509d41e2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: KV Cache 更新逻辑
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: KV Cache 更新逻辑
+answer:
+  mode: rubric
+  reference_answer: |-
+    ```python
+    def update_kv_cache(
+        new_k: torch.Tensor,      # (batch, num_heads, 1, head_dim)
+        new_v: torch.Tensor,      # 同上
+        cache_k: torch.Tensor,    # (batch, num_heads, past_len, head_dim) 或 None
+        cache_v: torch.Tensor,
+        max_cache_len: int = None
+    ):
+        """
+        将新 token 的 K,V 拼接到历史缓存中。若 cache 为空，则直接返回 new_k, new_v。
+        若设置了 max_cache_len，则仅保留最近的 max_cache_len 个 token。
+        """
+        if cache_k is None:
+            return new_k, new_v
+        # 沿 seq_len 维度拼接 (dim=2)
+        updated_k = torch.cat([cache_k, new_k], dim=2)
+        updated_v = torch.cat([cache_v, new_v], dim=2)
+        if max_cache_len is not None and updated_k.size(2) > max_cache_len:
+            updated_k = updated_k[:, :, -max_cache_len:, :]
+            updated_v = updated_v[:, :, -max_cache_len:, :]
+        return updated_k, updated_v
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TvsNwM3P8ijpgik0kMAcxRLUnpb
+  block_id: KkdFdMhm6oYj5vxSwzrc5skdnKe
+  page_token: TvsNwM3P8ijpgik0kMAcxRLUnpb
+  original_title: KV Cache 更新逻辑
+  imported_at: '2026-09-21'

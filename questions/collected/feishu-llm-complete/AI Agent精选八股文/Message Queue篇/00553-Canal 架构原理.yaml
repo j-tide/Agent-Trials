@@ -1,0 +1,201 @@
+---
+schema_version: 1
+id: feishu-llm-complete-256d28eb080e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Canal 架构原理
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: Canal 架构原理
+answer:
+  mode: rubric
+  reference_answer: "1、基础题：什么是 Canal？它解决了什么问题？\n\n⭐（Canal 定义、应用场景）\n\nCanal 是阿里巴巴开源的
+    MySQL Binlog 增量订阅&消费组件，通过模拟 MySQL Slave 的交互协议，伪装成 MySQL Slave，向 MySQL Master 发送
+    dump 协议，MySQL Master 接收到 dump 请求后推送 Binlog 给 Canal，Canal 解析 Binlog 后发送到消息队列或存储到其他系统。\n\n主要应用场景：\n\n-
+    数据库镜像：数据库实时备份\n\n- 数据同步：将 MySQL 数据同步到 ES、Redis、MongoDB 等\n\n- 缓存更新：数据库变更后自动更新缓存\n\n-
+    数据解耦：将数据库变更事件化，解耦业务系统\n\n2、进阶题：请详细说明 Canal 的架构原理，以及它如何保证数据不丢失？\n\n⭐⭐（Canal 架构、数据可靠性保证）\n\n1️⃣
+    Common Answer Canal 就是模拟 MySQL Slave，向 Master 发送 dump 请求，Master 推送 Binlog 给 Canal，Canal
+    解析后发送到 MQ。为了保证数据不丢失，Canal 会记录消费位点，如果消费失败可以重试。\n\n2️⃣ Impressive Answer Canal 的核心原理是模拟
+    MySQL Slave 的交互协议，通过EventParser 解析 Binlog、EventSink 过滤和路由、EventStore 存储事件、EventAck
+    确认机制来保证数据可靠性。让我详细讲一下：\n\nCanal 整体架构\n\n核心组件详解\n\n- EventParser（事件解析器）\n\n负责模拟
+    MySQL Slave，向 MySQL Master 发送 dump 协议，接收并解析 Binlog。\n\n// EventParser 核心逻辑\npublic
+    class EventParser {\n    \n    private MySQLConnection mysqlConnection;\n    \n
+    \   public void start() {\n        // 1. 连接 MySQL Master\n        mysqlConnection.connect();\n
+    \       \n        // 2. 发送 dump 协议，请求 Binlog\n        BinlogDumpCommand dumpCommand
+    = new BinlogDumpCommand();\n        dumpCommand.setBinlogFileName(\"mysql-bin.000001\");\n
+    \       dumpCommand.setBinlogPosition(1000);\n        mysqlConnection.sendCommand(dumpCommand);\n
+    \       \n        // 3. 接收 Binlog Event\n        while (true) {\n            BinlogEvent
+    event = mysqlConnection.receiveEvent();\n            \n            // 4. 解析 Binlog
+    Event\n            if (event instanceof QueryEvent) {\n                // QUERY
+    事件（DDL）\n                parseQueryEvent((QueryEvent) event);\n            } else
+    if (event instanceof TableMapEvent) {\n                // TABLE_MAP 事件（表结构映射）\n
+    \               parseTableMapEvent((TableMapEvent) event);\n            } else
+    if (event instanceof WriteRowsEvent) {\n                // WRITE_ROWS 事件（INSERT）\n
+    \               parseWriteRowsEvent((WriteRowsEvent) event);\n            } else
+    if (event instanceof UpdateRowsEvent) {\n                // UPDATE_ROWS 事件（UPDATE）\n
+    \               parseUpdateRowsEvent((UpdateRowsEvent) event);\n            }
+    else if (event instanceof DeleteRowsEvent) {\n                // DELETE_ROWS 事件（DELETE）\n
+    \               parseDeleteRowsEvent((DeleteRowsEvent) event);\n            }\n
+    \       }\n    }\n}\n\n- EventSink（事件过滤器）\n\n负责过滤和路由 Binlog 事件，支持表名过滤、字段过滤等。\n\n//
+    EventSink 核心逻辑\npublic class EventSink {\n    \n    private List<CanalEventFilter>
+    filters;\n    private EventStore eventStore;\n    \n    public boolean sink(CanalEntry.Entry
+    entry) {\n        // 1. 表名过滤\n        String tableName = entry.getHeader().getTableName();\n
+    \       if (!isTableAllowed(tableName)) {\n            return false;\n        }\n
+    \       \n        // 2. 字段过滤\n        if (entry.getEntryType() == CanalEntry.EntryType.ROWDATA)
+    {\n            CanalEntry.RowChange rowChange = CanalEntry.RowChange.parseFrom(entry.getStoreValue());\n
+    \           filterColumns(rowChange);\n        }\n        \n        // 3. 路由到不同的
+    EventStore\n        routeToEventStore(entry);\n        \n        return true;\n
+    \   }\n}\n\n- EventStore（事件存储器）\n\n负责存储 Binlog 事件，支持内存存储、文件存储、混合存储。\n\n// EventStore
+    核心逻辑\npublic class MemoryEventStore implements EventStore {\n    \n    private
+    RingBuffer<CanalEntry.Entry> ringBuffer;\n    private PositionManager positionManager;\n
+    \   \n    public void put(CanalEntry.Entry entry) {\n        // 1. 存储事件到 RingBuffer\n
+    \       ringBuffer.put(entry);\n        \n        // 2. 记录位点\n        LogPosition
+    position = buildPosition(entry);\n        positionManager.persist(position);\n
+    \   }\n    \n    public CanalEntry.Entry get(Position position) {\n        //
+    1. 从 RingBuffer 获取事件\n        CanalEntry.Entry entry = ringBuffer.get(position);\n
+    \       \n        // 2. 更新消费位点\n        positionManager.update(position);\n        \n
+    \       return entry;\n    }\n}\n\n- EventAck（确认机制）\n\n负责确认消费位点，保证数据不丢失。\n\n//
+    EventAck 核心逻辑\npublic class EventAck {\n    \n    private PositionManager positionManager;\n
+    \   \n    public void ack(LogPosition position) {\n        // 1. 更新消费位点\n        positionManager.update(position);\n
+    \       \n        // 2. 持久化位点（防止重启丢失）\n        positionManager.persist(position);\n
+    \       \n        // 3. 定时清理已确认的事件\n        cleanConfirmedEvents(position);\n
+    \   }\n}\n\n数据可靠性保证机制\n\n- 位点记录（Position）\n\nCanal 记录了三个关键位点：\n\n- Binlog 文件名：mysql-bin.000001\n\n-
+    Binlog 位置：1000\n\n- 时间戳：1648560000000\n\n// 位点记录\npublic class LogPosition {\n
+    \   private String journalName;      // Binlog 文件名\n    private Long position;
+    \          // Binlog 位置\n    private Long timestamp;          // 时间戳\n    private
+    String gtid;             // GTID（MySQL 5.6+）\n}\n\n- 位点持久化\n\n位点存储在文件中，防止 Canal
+    重启后丢失：\n\n# canal.properties\ncanal.instance.master.journal.name=mysql-bin.000001\ncanal.instance.master.position=1000\ncanal.instance.master.timestamp=1648560000000\n\n-
+    消费确认机制\n\nCanal Client 消费成功后发送 ACK 确认：\n\n// Canal Client 消费代码\nCanalConnector
+    connector = CanalConnectors.newSingleConnector(\n    new InetSocketAddress(\"127.0.0.1\",
+    11111),\n    \"example\",\n    \"\",\n    \"\"\n);\n\nconnector.connect();\nconnector.subscribe(\".*\\\\..*\");\n\nwhile
+    (true) {\n    Message message = connector.getWithoutAck(100);  // 获取 100 条消息\n
+    \   long batchId = message.getId();\n    \n    try {\n        List<CanalEntry.Entry>
+    entries = message.getEntries();\n        \n        // 处理消息\n        for (CanalEntry.Entry
+    entry : entries) {\n            // 业务处理\n        }\n        \n        // 处理成功，ACK
+    确认\n        connector.ack(batchId);\n        \n    } catch (Exception e) {\n        //
+    处理失败，不 ACK，下次继续消费\n        connector.rollback(batchId);\n    }\n}\n\n- HA 高可用\n\nCanal
+    支持 HA 高可用，主节点宕机后自动切换：\n\n# canal.properties\ncanal.register.ip = 127.0.0.1\ncanal.port
+    = 11111\ncanal.zkServers = 127.0.0.1:2181  # ZooKeeper 地址\ncanal.cluster.mode
+    = true  # 集群模式\n\n异常场景处理\n\n[嵌入表格未展开]\n\n生产环境配置建议\n\n# canal.properties\ncanal.serverMode
+    = rocketMQ  # 使用 RocketMQ\ncanal.mq.servers = 127.0.0.1:9876\ncanal.mq.producerGroup
+    = canal_producer\ncanal.mq.topic = canal_order  # Topic 名称\ncanal.mq.partition
+    = 0  # 分区数\n\n# instance.properties\ncanal.instance.master.address=127.0.0.1:3306\ncanal.instance.dbUsername=canal\ncanal.instance.dbPassword=canal\ncanal.instance.connectionCharset=UTF-8\ncanal.instance.filter.regex=.*\\\\..*
+    \ # 监听所有表\ncanal.instance.filter.black.regex=mysql\\\\.slave_.*  # 黑名单\n\n# 性能优化\ncanal.instance.network.receiveBufferSize
+    = 16384\ncanal.instance.network.sendBufferSize = 16384\ncanal.instance.memory.batch.mode
+    = MEMSIZE  # 内存批处理模式\ncanal.instance.memory.buffer.size = 32768  # 缓冲区大小\n\n监控告警指标\n\n-
+    Binlog 延迟：监控 Canal 消费 Binlog 的延迟时间\n\n- 消费堆积：监控 EventStore 的堆积量\n\n- 消费失败率：监控消费失败的次数\n\n-
+    HA 切换次数：监控主节点切换次数\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n3、场景题：在电商系统中，需要将订单数据实时同步到
+    Elasticsearch，如何用 Canal 实现？\n\n⭐⭐⭐（Canal 实战、数据同步方案）\n\n1️⃣ Common Answer 用 Canal
+    监听 MySQL 的 Binlog，解析订单表的变更，然后发送到 RocketMQ，消费者消费消息后更新到 ES。如果消费失败就重试。\n\n2️⃣ Impressive
+    Answer 这是一个典型的 CDC 场景，我会用 Canal + RocketMQ + Elasticsearch 的架构来实现实时同步。让我详细设计一下：\n\n整体架构设计\n\n核心实现步骤\n\n步骤
+    1：配置 MySQL\n\n-- 确保 MySQL 开启 Binlog\nSHOW VARIABLES LIKE 'log_bin';\n\n-- 设置 Binlog
+    格式为 ROW\nSET GLOBAL binlog_format = 'ROW';\n\n-- 设置行镜像为 FULL\nSET GLOBAL binlog_row_image
+    = 'FULL';\n\n-- 创建 Canal 用户\nCREATE USER 'canal'@'%' IDENTIFIED BY 'canal';\nGRANT
+    SELECT, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'canal'@'%';\nFLUSH PRIVILEGES;\n\n--
+    验证权限\nSHOW GRANTS FOR 'canal'@'%';\n\n步骤 2：配置 Canal Server\n\n# canal.properties\ncanal.serverMode
+    = rocketMQ\ncanal.mq.servers = 127.0.0.1:9876\ncanal.mq.producerGroup = canal_producer\ncanal.mq.topic
+    = canal_order\ncanal.mq.partition = 0\ncanal.mq.partitionHash = .*\\\\..*:id  #
+    按 id 分区\n\n# instance.properties\ncanal.instance.master.address=127.0.0.1:3306\ncanal.instance.master.journal.name=\ncanal.instance.master.position=\ncanal.instance.master.timestamp=\ncanal.instance.dbUsername=canal\ncanal.instance.dbPassword=canal\ncanal.instance.connectionCharset=UTF-8\ncanal.instance.filter.regex=shop\\\\.orders
+    \ # 只监听 shop.orders 表\ncanal.instance.filter.black.regex=\ncanal.instance.network.receiveBufferSize
+    = 16384\ncanal.instance.network.sendBufferSize = 16384\ncanal.instance.memory.batch.mode
+    = MEMSIZE\ncanal.instance.memory.buffer.size = 32768\n\n步骤 3：消费者代码（同步订单到 ES）\n\n@RocketMQMessageListener(topic
+    = \"canal_order\", consumerGroup = \"es_sync_group\")\npublic class OrderToEsConsumer
+    implements RocketMQListener<MessageExt> {\n    \n    @Autowired\n    private ElasticsearchRestTemplate
+    esTemplate;\n    \n    @Autowired\n    private OrderMapper orderMapper;\n    \n
+    \   @Override\n    public void onMessage(MessageExt message) {\n        try {\n
+    \           // 1. 解析 Canal 消息\n            CanalMessage canalMessage = JSON.parseObject(new
+    String(message.getBody()), CanalMessage.class);\n            \n            for
+    (CanalEntry.Entry entry : canalMessage.getEntries()) {\n                if (entry.getEntryType()
+    == CanalEntry.EntryType.ROWDATA) {\n                    CanalEntry.RowChange rowChange
+    = CanalEntry.RowChange.parseFrom(entry.getStoreValue());\n                    String
+    tableName = entry.getHeader().getTableName();\n                    \n                    if
+    (\"orders\".equals(tableName)) {\n                        handleOrderChange(rowChange);\n
+    \                   }\n                }\n            }\n            \n        }
+    catch (Exception e) {\n            log.error(\"同步订单到 ES 失败\", e);\n            //
+    抛出异常，触发 RocketMQ 重试\n            throw e;\n        }\n    }\n    \n    private
+    void handleOrderChange(CanalEntry.RowChange rowChange) {\n        CanalEntry.EventType
+    eventType = rowChange.getEventType();\n        \n        if (eventType == CanalEntry.EventType.INSERT)
+    {\n            // 新增订单\n            for (CanalEntry.RowData rowData : rowChange.getRowDatasList())
+    {\n                Order order = parseOrder(rowData.getAfterColumnsList());\n
+    \               esTemplate.save(order);\n                log.info(\"新增订单同步到 ES
+    成功，orderId={}\", order.getId());\n            }\n            \n        } else
+    if (eventType == CanalEntry.EventType.UPDATE) {\n            // 更新订单\n            for
+    (CanalEntry.RowData rowData : rowChange.getRowDatasList()) {\n                Order
+    order = parseOrder(rowData.getAfterColumnsList());\n                esTemplate.save(order);\n
+    \               log.info(\"更新订单同步到 ES 成功，orderId={}\", order.getId());\n            }\n
+    \           \n        } else if (eventType == CanalEntry.EventType.DELETE) {\n
+    \           // 删除订单\n            for (CanalEntry.RowData rowData : rowChange.getRowDatasList())
+    {\n                Long orderId = parseOrderId(rowData.getBeforeColumnsList());\n
+    \               esTemplate.delete(orderId, Order.class);\n                log.info(\"删除订单同步到
+    ES 成功，orderId={}\", orderId);\n            }\n        }\n    }\n    \n    private
+    Order parseOrder(List<CanalEntry.Column> columns) {\n        Order order = new
+    Order();\n        for (CanalEntry.Column column : columns) {\n            String
+    name = column.getName();\n            String value = column.getValue();\n            \n
+    \           switch (name) {\n                case \"id\":\n                    order.setId(Long.parseLong(value));\n
+    \                   break;\n                case \"order_no\":\n                    order.setOrderNo(value);\n
+    \                   break;\n                case \"user_id\":\n                    order.setUserId(Long.parseLong(value));\n
+    \                   break;\n                case \"status\":\n                    order.setStatus(value);\n
+    \                   break;\n                case \"total_amount\":\n                    order.setTotalAmount(new
+    BigDecimal(value));\n                    break;\n                case \"create_time\":\n
+    \                   order.setCreateTime(parseDateTime(value));\n                    break;\n
+    \               case \"update_time\":\n                    order.setUpdateTime(parseDateTime(value));\n
+    \                   break;\n            }\n        }\n        return order;\n
+    \   }\n    \n    private Long parseOrderId(List<CanalEntry.Column> columns) {\n
+    \       for (CanalEntry.Column column : columns) {\n            if (\"id\".equals(column.getName()))
+    {\n                return Long.parseLong(column.getValue());\n            }\n
+    \       }\n        return null;\n    }\n}\n\n步骤 4：Elasticsearch 文档设计\n\n@Document(indexName
+    = \"orders\")\npublic class Order {\n    \n    @Id\n    private Long id;\n    \n
+    \   @Field(type = FieldType.Keyword)\n    private String orderNo;\n    \n    @Field(type
+    = FieldType.Long)\n    private Long userId;\n    \n    @Field(type = FieldType.Keyword)\n
+    \   private String status;\n    \n    @Field(type = FieldType.Double)\n    private
+    BigDecimal totalAmount;\n    \n    @Field(type = FieldType.Date, format = DateFormat.date_hour_minute_second)\n
+    \   private Date createTime;\n    \n    @Field(type = FieldType.Date, format =
+    DateFormat.date_hour_minute_second)\n    private Date updateTime;\n    \n    //
+    getter/setter...\n}\n\n异常场景处理\n\n[嵌入表格未展开]\n\n监控告警指标\n\n- Canal 延迟：监控 Canal 消费
+    Binlog 的延迟时间\n\n- ES 同步延迟：监控消息从 MQ 到 ES 的延迟时间\n\n- 同步失败率：监控 ES 同步失败的次数\n\n- 数据一致性：定时比对
+    DB 和 ES 的数据一致性\n\n性能优化建议\n\n- 批量消费：设置 consumeMessageBatchMaxSize=10，批量消费消息\n\n-
+    异步消费：使用 @RocketMQMessageListener(consumeMode = ConsumeMode.CONCURRENTLY) 并发消费\n\n-
+    ES 批量写入：使用 esTemplate.saveAll() 批量写入 ES\n\n- 索引分区：按时间分区索引，如 orders_202403、orders_202404\n\n测试用例\n\n@SpringBootTest\npublic
+    class OrderToEsConsumerTest {\n    \n    @Autowired\n    private OrderMapper orderMapper;\n
+    \   \n    @Autowired\n    private ElasticsearchRestTemplate esTemplate;\n    \n
+    \   @Test\n    public void testSyncOrderToEs() {\n        // 1. 插入订单到 MySQL\n
+    \       Order order = new Order();\n        order.setOrderNo(\"ORD20240329001\");\n
+    \       order.setUserId(1001L);\n        order.setStatus(\"UNPAID\");\n        order.setTotalAmount(new
+    BigDecimal(\"100.00\"));\n        order.setCreateTime(new Date());\n        order.setUpdateTime(new
+    Date());\n        orderMapper.insert(order);\n        \n        // 2. 等待 Canal
+    同步\n        Thread.sleep(5000);\n        \n        // 3. 查询 ES\n        Order
+    esOrder = esTemplate.get(order.getId(), Order.class);\n        \n        // 4.
+    验证数据\n        assertNotNull(esOrder);\n        assertEquals(order.getOrderNo(),
+    esOrder.getOrderNo());\n        assertEquals(order.getUserId(), esOrder.getUserId());\n
+    \       assertEquals(order.getStatus(), esOrder.getStatus());\n    }\n}\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n4、容易一起考的题\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JpfiwiBYoisbfUkjsLgcdTcHnTf
+  block_id: doxcnTTt4bN2WWCh4AEZzQZZ53d
+  page_token: JpfiwiBYoisbfUkjsLgcdTcHnTf
+  original_title: Canal 架构原理
+  imported_at: '2026-09-21'

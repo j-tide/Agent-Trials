@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0241dccb3f6d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: AMP 中的梯度缩放因子如何动态调整？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: AMP 中的梯度缩放因子如何动态调整？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 FP16 训练中，梯度值可能小到 FP16 无法表示（约 6×10⁻⁸ 以下），这会导致梯度下溢变为 0，模型无法更新。梯度缩放（Loss Scaling）正是为解决此问题：将 loss 乘以一个较大的缩放因子，反向传播时梯度也被放大，从而被推入 FP16 的可表示范围。更新参数前，再将梯度除以相同的缩放因子还原。
+
+    动态缩放策略：缩放因子并非一成不变。如果设得太小，无法完全避免下溢；设得太大，可能导致梯度上溢（变成 Inf/NaN）。PyTorch 的 GradScaler 会自动动态调整缩放因子：
+
+    - 初始缩放因子设为较大的值（如 2¹⁶ = 65536）。
+
+    - 每个训练步，scaler.scale(loss).backward() 产生缩放后的梯度。
+
+    - scaler.step(optimizer) 会检查缩放后的梯度是否包含 Inf/NaN。如果没有溢出，则正常更新参数，并视情况增大缩放因子（比如连续 2000 步无溢出，将缩放因子乘以 2.0）。
+
+    - 如果检测到溢出（梯度中有 Inf/NaN），则跳过本次更新，并将缩放因子减小（如乘以 0.5）。这步很关键，既保护了模型参数不被破坏，又自适应地找到了安全的缩放范围。
+
+    - scaler.update() 完成一次动态调整循环。
+
+    为什么动态调整重要：训练过程中，梯度分布会变化。训练初期梯度可能较大，需要较小的缩放因子；训练后期梯度变小，需要较大的缩放因子。动态调整让模型始终工作在安全又高效的缩放区间，无需人工干预。
+
+    BF16 的情况：BF16 的指数位与 FP32 相同，动态范围极大，几乎不会发生梯度下溢。因此使用 BF16 时，不需要 GradScaler，直接 loss.backward() 即可。这也是 BF16 相比 FP16 的一大优势。
+
+    - 算子融合：将相邻的逐元素操作（如激活函数、归一化、加法）融合成单个kernel，减少显存读写。
+
+    - 水平融合：将多个相同形状的矩阵乘（如QKV投影）合并为一次更大的矩阵乘。
+
+    - 内存规划：优化中间缓冲区的分配和复用，减少显存碎片和浪费。
+
+    - 自动混合精度：根据硬件特性，自动选择最优的数据类型。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HfoZwdjz1iRNmPkiI3icQQafnve
+  block_id: Gp21dQroDogED0xwCnvc3c2dnYt
+  page_token: HfoZwdjz1iRNmPkiI3icQQafnve
+  original_title: AMP 中的梯度缩放因子如何动态调整？
+  imported_at: '2026-09-21'

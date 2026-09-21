@@ -1,0 +1,122 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a5c1529b72bb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6D2 3. 在电商订单系统中，用户下单成功后需要异步通知库存系统扣减库存，如何保证下单和通知库存的一致性？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F6D2 3. 在电商订单系统中，用户下单成功后需要异步通知库存系统扣减库存，如何保证下单和通知库存的一致性？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是一个典型的分布式最终一致性问题。我们需要保证：订单创建成功 → 库存一定被扣减；订单创建失败 → 库存一定不扣减。
+
+    解决方案：使用 RocketMQ 事务消息 + 库存系统幂等消费
+
+    ```text
+    用户下单
+        │
+        ▼
+    ┌─────────────────┐
+    │  订单服务        │  ① 发送半消息 (OrderCreated)  →  Broker
+    │  执行本地事务     │  ② 插入订单数据 (本地数据库)
+    │  提交事务消息     │  ③ 本地事务成功 → 提交半消息
+    └─────────────────┘
+                            │
+                            ▼ ④ 消息对消费者可见
+                    ┌──────────────┐
+                    │  库存服务     │
+                    │  消费消息     │
+                    │  扣减库存     │  (幂等处理：根据 orderId 去重)
+                    └──────────────┘
+    ```
+
+    流程详解：
+
+    - 订单服务发送一条半消息，内容为“订单已创建，请扣减库存”，携带订单 ID。
+
+    - 半消息发送成功后，订单服务执行本地事务——向订单表插入一条记录。此时订单状态可以是“待支付”或“已创建”。
+
+    - 本地事务成功 → 订单服务向 Broker 提交事务消息，Broker 标记消息为可投递。若本地事务失败（如数据库主键冲突），订单服务回滚消息，Broker 删除该半消息。
+
+    - 库存服务订阅该消息。当收到消息后，执行库存扣减操作。为了应对重复消费（网络重试或回查导致），库存服务必须基于 orderId 做幂等处理——比如在库存表中记录一条扣减流水，以订单 ID 为唯一索引，重复消费时忽略。
+
+    为什么必须用事务消息？
+
+    如果订单服务和库存服务之间只用普通消息，会出现：
+
+    - 先插订单后发消息：如果发消息失败，订单创建了但库存没扣。
+
+    - 先发消息后插订单：如果插订单失败，消息已发出，库存白白扣减。
+
+    事务消息让“插订单”与“发消息”在同一个本地事务边界内，通过半消息的回查机制，保证了这两个操作的原子性。即便订单服务在发送半消息后宕机，Broker 也会通过回查来最终确认订单是否真实存在，从而决定是否投递扣库存的消息。
+
+    库存服务的幂等消费代码示例：
+
+    ```java
+    @Service
+    @RocketMQMessageListener(topic = "order_topic", consumerGroup = "inventory_group")
+    public class InventoryConsumer implements RocketMQListener<String> {
+
+        @Autowired
+        private InventoryService inventoryService;
+
+        @Override
+        public void onMessage(String message) {
+            OrderEvent event = JSON.parseObject(message, OrderEvent.class);
+            String orderId = event.getOrderId();
+
+            // 幂等处理：根据订单ID查询是否已经扣减过库存
+            if (inventoryService.isAlreadyDeducted(orderId)) {
+                log.info("库存已扣减，忽略重复消息");
+                return;
+            }
+
+            // 执行扣减库存，并记录扣减流水（在同一本地事务中）
+            inventoryService.deductAndRecord(orderId, event.getSkuItems());
+        }
+    }
+    ```
+
+    异常场景覆盖：
+
+    - 订单插入成功，提交消息失败：Broker 回查发现订单已存在 → 提交消息，库存最终扣减。
+
+    - 订单插入失败，但半消息已发：生产者回滚消息，Broker 删除；即使生产者宕机，回查发现订单不存在 → 回滚消息，库存不会扣减。
+
+    - 库存服务消费失败：RocketMQ 会重试消费，直到成功（保证幂等）。
+
+    - 网络超时导致半消息未确认：Broker 按固定间隔（如 6 秒开始，指数退避到 60 秒）持续回查，直到获得确认。这个机制保证了临时故障不会导致消息丢失。
+
+    通过这种设计，订单服务和库存服务在分布式环境下实现了最终一致性——要么订单与库存扣减同时成功，要么二者都不发生，系统绝不会出现“订单创建了但库存没扣”或“库存扣了但订单没创建”的不一致状态。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PKVIw2nCRi0Na6kOoiocSSfonrb
+  block_id: doxcnIKKJTB14qmaxfopP9XtG4b
+  page_token: PKVIw2nCRi0Na6kOoiocSSfonrb
+  original_title: "\U0001F6D2 3. 在电商订单系统中，用户下单成功后需要异步通知库存系统扣减库存，如何保证下单和通知库存的一致性？"
+  imported_at: '2026-09-21'

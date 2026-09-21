@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9a3b3c0892c5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Continuous Batching 如何与 PagedAttention 结合，实现高吞吐和低延迟？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 五：推理部署与高效化
+tags: &1
+- Transfomer精选面试
+- 五：推理部署与高效化
+content:
+  prompt: Continuous Batching 如何与 PagedAttention 结合，实现高吞吐和低延迟？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Continuous Batching 负责调度，PagedAttention 负责内存管理，二者结合形成了现代 LLM 推理服务的核心范式。
+
+    结合机制：
+
+    - 动态批次构成：Continuous Batching 在每次迭代（生成一个 token）时，从请求池中选择一组活跃请求构成 batch，而不必等待所有请求结束。当一个请求完成生成，立即将其移出；当有新请求到达，立即在下一次迭代中插入。
+
+    - 非连续 KV Cache 分配：PagedAttention 把每个请求的 KV cache 划分为固定大小的物理块（如 16 个 token 一块），并通过页表进行逻辑到物理的映射。请求刚加入时只分配少量块（如对应其 prompt 长度），之后每生成一个新 token，若当前块已满，就动态申请一个新块。请求结束后立刻回收所有块，完全消除内部碎片和提前预留大块连续内存的浪费。
+
+    - 无 padding 的异构批处理：因为每个请求拥有独立的页表，同一批次内序列的长度可以完全不同。注意力内核通过传入每个请求的块表，只读取实际有效的 KV 块，无需为对齐长度而进行 padding 计算。这从根本上消除了无效计算和显存浪费。
+
+    - 抢占与过载保护：当需调度高优先级请求而显存不足时，可把某些低优先级请求的 KV 块从 GPU 换出（swap out）到 CPU 内存，释放出空间；之后再换回继续生成。该过程由 Continuous Batching 调度器与 PagedAttention 的内存管理器协同完成。
+
+    综合效果：GPU 始终保持满载，等待时间趋近于零；显存利用率可达 90% 以上；新请求几乎没有排队延迟，短请求可迅速完成并释放资源，系统性实现了高吞吐与低延迟的统一。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XlvZwbMXgi5eebkXzxvcP7w4nnf
+  block_id: ElFedCo9mon7JHxaAeqcOmrsn4c
+  page_token: XlvZwbMXgi5eebkXzxvcP7w4nnf
+  original_title: Continuous Batching 如何与 PagedAttention 结合，实现高吞吐和低延迟？
+  imported_at: '2026-09-21'

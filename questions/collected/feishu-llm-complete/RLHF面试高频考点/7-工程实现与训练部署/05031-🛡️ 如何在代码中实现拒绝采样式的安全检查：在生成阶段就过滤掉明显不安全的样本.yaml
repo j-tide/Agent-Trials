@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b20536a68e32
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E1️ 如何在代码中实现“拒绝采样”式的安全检查：在生成阶段就过滤掉明显不安全的样本。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "\U0001F6E1️ 如何在代码中实现“拒绝采样”式的安全检查：在生成阶段就过滤掉明显不安全的样本。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在生成阶段进行实时安全检查，可防止明显的毒性内容进入训练数据，从源头降低安全对齐难度。
+
+    实现：
+
+    - 生成时后处理：Actor 生成完一个回答后，立即调用一个轻量级的安全分类器（如 Meta 的 Llama Guard，或基于 DistilBERT 的毒性检测模型）。若判定为不安全（毒性分数 > 阈值），直接丢弃该回答，并可根据策略重新采样或使用一个预设的“安全回复”替换。
+
+    - 关键词/正则表达式过滤：作为快速第一道防线，对于包含明确禁用词（如暴力、色情词汇）的回答，直接标记为不安全。
+
+    - 替换为 Chosen 回答：如果使用了 DPO 或类似偏好训练，可以将被拒绝的回答直接替换为之前缓存的、对相似 prompt 的“安全回答”模板，确保训练数据的平衡。
+
+    - 奖励修正：若不想完全丢弃，可以对不安全回答施加极大的负奖励（如 -10），使得它在 PPO 更新中被严厉惩罚，模型会自发学会避免。
+
+    注意：安全分类器不能过于复杂导致推理延迟显著增加。通常选择模型蒸馏出的小型分类器，部署在 GPU 上，与 Actor 共享资源，以极低延迟完成判断。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SrIPwt6g4iOx8zkf5StcnDK8nCc
+  block_id: UufidyW6Po55UAxUayRcwDhFnvd
+  page_token: SrIPwt6g4iOx8zkf5StcnDK8nCc
+  original_title: "\U0001F6E1️ 如何在代码中实现“拒绝采样”式的安全检查：在生成阶段就过滤掉明显不安全的样本。"
+  imported_at: '2026-09-21'

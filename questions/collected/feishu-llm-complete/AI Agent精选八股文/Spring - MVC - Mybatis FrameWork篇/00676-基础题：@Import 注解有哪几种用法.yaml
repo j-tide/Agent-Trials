@@ -1,0 +1,111 @@
+---
+schema_version: 1
+id: feishu-llm-complete-60bf4814cb79
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 1、基础题：@Import 注解有哪几种用法？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 1、基础题：@Import 注解有哪几种用法？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐（@Import、ImportSelector、ImportBeanDefinitionRegistrar）
+
+    1️⃣ Common Answer
+
+    @Import 可以导入一个配置类，相当于把那个类里的 Bean 都注册进来。Spring Boot 的自动装配就是用 @Import 实现的。
+
+    2️⃣ Impressive Answer
+
+    @Import 有三种用法，复杂度递增：
+
+    - 直接导入配置类：最简单，等价于在当前配置类中声明那个类。
+
+    ```text
+    @Configuration
+    @Import(DataSourceConfig.class)  // 直接导入另一个配置类
+    public class AppConfig {}
+    ```
+
+    - ImportSelector：动态决定导入哪些类，返回类名数组。@EnableAutoConfiguration 就是这种方式。
+
+    ```text
+    public class LLMProviderSelector implements ImportSelector {
+
+        @Override
+        public String[] selectImports(AnnotationMetadata importingClassMetadata) {
+            // 根据注解元数据动态决定导入哪个实现类
+            Map<String, Object> attrs = importingClassMetadata
+                .getAnnotationAttributes(EnableLLM.class.getName());
+            String provider = (String) attrs.get("provider");
+
+            return switch (provider) {
+                case "openai" -> new String[]{OpenAIConfig.class.getName()};
+                case "claude" -> new String[]{ClaudeConfig.class.getName()};
+                default -> new String[]{DefaultLLMConfig.class.getName()};
+            };
+        }
+    }
+
+    @Target(ElementType.TYPE)
+    @Retention(RetentionPolicy.RUNTIME)
+    @Import(LLMProviderSelector.class)
+    public @interface EnableLLM {
+        String provider() default "openai";
+    }
+    ```
+
+    - ImportBeanDefinitionRegistrar：最灵活，可以直接操作 BeanDefinitionRegistry，动态注册任意 BeanDefinition（MyBatis 的 @MapperScan 就是这种方式）。
+
+    ```text
+    public class ToolRegistrar implements ImportBeanDefinitionRegistrar {
+
+        @Override
+        public void registerBeanDefinitions(AnnotationMetadata metadata,
+                                            BeanDefinitionRegistry registry) {
+            // 扫描所有 @Tool 注解的类，动态注册为 Bean
+            ClassPathScanningCandidateComponentProvider scanner =
+                new ClassPathScanningCandidateComponentProvider(false);
+            scanner.addIncludeFilter(new AnnotationTypeFilter(Tool.class));
+
+            for (BeanDefinition bd : scanner.findCandidateComponents("com.example.tools")) {
+                registry.registerBeanDefinition(bd.getBeanClassName(), bd);
+            }
+        }
+    }
+    ```
+
+    3️⃣ Key Differences
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NHwYwCwRDiPz1OkM3b9cXNBinUd
+  block_id: doxcngLRTh9nr5cxskcmpgrTK4g
+  page_token: NHwYwCwRDiPz1OkM3b9cXNBinUd
+  original_title: 1、基础题：@Import 注解有哪几种用法？
+  imported_at: '2026-09-21'

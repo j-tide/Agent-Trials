@@ -1,0 +1,731 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e72a114f6cd6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 22、MongoDB 监控与可观测性
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: 22、MongoDB 监控与可观测性
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐~⭐⭐⭐⭐（mongostat、mongotop、opcounters、connections、wiredTiger cache、慢查询 Profiler）
+
+    基础题：如何监控 MongoDB 的健康状态？有哪些常用工具？
+
+    MongoDB 监控工具：
+
+    - mongostat：实时监控 MongoDB 状态（QPS、连接数、内存使用等）
+
+    - mongotop：监控集合读写时间，定位热点集合
+
+    - db.serverStatus()：查看服务器状态（内存、连接、锁等）
+
+    - db.currentOp()：查看当前运行的操作
+
+    - MongoDB Atlas：云服务自带监控仪表板
+
+    进阶题：mongostat/mongotop 的核心指标是什么？opcounters、connections、wiredTiger cache 分别代表什么？慢查询 Profiler 如何配置？
+
+    1️⃣ Common Answer
+
+    mongostat 看基本指标，mongotop 看集合读写时间。opcounters 是操作数，connections 是连接数，wiredTiger cache 是缓存。慢查询用 Profiler。
+
+    2️⃣ Impressive Answer
+
+    MongoDB 监控的核心指标和配置方法：
+
+    - mongostat 核心指标
+
+    - mongotop 核心指标
+
+    - db.serverStatus() 核心指标
+
+    - 慢查询 Profiler 配置
+
+    - Agent 场景监控
+
+    场景题：Agent 平台的 MongoDB 监控告警体系如何搭建？
+
+    1️⃣ Common Answer
+
+    用 Prometheus + Grafana 吧，监控 QPS、连接数、内存。具体搭建不太清楚。
+
+    2️⃣ Impressive Answer
+
+    Agent 平台 MongoDB 监控告警体系的搭建方案：
+
+    - 监控架构
+
+    - 监控指标
+
+    - 告警规则
+
+    - `
+
+    - Grafana 仪表板
+
+    - Agent 场景最佳实践
+
+    - 含义：从主节点或从节点读取最新数据，不保证已复制到大多数节点
+
+    - 隔离性：读未提交（Read Uncommitted）级别
+
+    - 场景：对一致性要求不高的场景，如日志、监控数据
+
+    - 含义：只读已复制到大多数节点的数据，保证数据不回滚
+
+    - 隔离性：读已提交（Read Committed）级别
+
+    - 场景：需要数据一致性的场景，如计费、订单
+
+    - 含义：读取最新写入的数据，保证线性一致性（类似串行化）
+
+    - 隔离性：可串行化（Serializable）级别
+
+    - 场景：需要强一致性的场景，如库存扣减、余额查询
+
+    - 代价：只能从主节点读，性能差
+
+    - 含义：读取事务开始时的快照数据，保证可重复读
+
+    - 隔离性：可重复读（Repeatable Read）级别
+
+    - 场景：多文档事务，需要读取一致的数据集
+
+    - 会话数据：writeConcern: w:1 + readConcern: local，性能优先
+
+    - 计费数据：writeConcern: w:majority + readConcern: majority，一致性优先
+
+    - 余额查询：readConcern: linearizable，保证读到最新数据
+
+    - WriteConcern：{w: "majority", j: true}，确保写入大多数节点且落盘
+
+    - ReadConcern：majority，确保读取已提交数据
+
+    - ReadPreference：primary，只从主节点读
+
+    - 理由：计费数据不能丢，不能读脏数据，性能可以牺牲
+
+    - WriteConcern：{w: 1, j: false}，写入主节点即返回
+
+    - ReadConcern：local，读取最新数据
+
+    - ReadPreference：secondaryPreferred，优先从从节点读
+
+    - 理由：会话数据量大，性能优先，短暂不一致可接受
+
+    - WriteConcern：{w: "majority", j: true}
+
+    - ReadConcern：linearizable，保证读到最新余额
+
+    - ReadPreference：primary，只能从主节点读
+
+    - 理由：余额查询需要强一致性，避免超卖
+
+    - 强一致配置：TPS 约 1000，延迟 10-50ms
+
+    - 最终一致配置：TPS 约 5000，延迟 1-5ms
+
+    - IS（意向共享锁）：事务打算读取文档，允许其他事务读取
+
+    - IX（意向排他锁）：事务打算修改文档，允许其他事务读取但不允许修改
+
+    - 作用：避免锁冲突，提高并发效率
+
+    - 兼容性：IS 兼容 IS/IX，IX 兼容 IS，IX 不兼容 IX
+
+    - 无锁读取：读操作不加锁，通过快照读取历史版本
+
+    - 写时复制：修改文档时创建新版本，旧版本保留
+
+    - 冲突检测：提交时检查是否有其他事务修改了相同文档
+
+    - 重试机制：冲突时自动重试（最多 10 次）
+
+    - 查看当前操作：db.currentOp({active: true, secs_running: {$gt: 5}})
+
+    - op：操作类型（insert/update/query）
+
+    - secs_running：运行时间（秒）
+
+    - lock：锁类型（r/w/R/W）
+
+    - waitingForLock：是否等待锁
+
+    - microsecs_running：运行时间（微秒）
+
+    - 关键字段：
+
+    - 终止操作：db.killOp(opId)，谨慎使用
+
+    - 会话高并发写入：文档级锁保证并发性能
+
+    - 慢查询排查：db.currentOp() 定位长时间运行的操作
+
+    - 锁竞争优化：避免长时间事务，减少锁持有时间
+
+    - 监控指标：wiredTiger.cache.pages read into cache（读入页数）和 pages evicted（驱逐页数）
+
+    - 查看锁等待：db.currentOp({waitingForLock: true}) 查看等待锁的操作
+
+    - 查看慢查询：db.setProfilingLevel(1, {slowms: 100}) 记录慢查询
+
+    - 避免大文档：拆分嵌套文档，减少单文档大小
+
+    - 分散写入：按用户 ID 分片，避免热点文档
+
+    - 方案一：优化文档设计
+
+    - 复合索引：ESR 规则（Equality → Sort → Range）
+
+    - 覆盖索引：查询字段全在索引中，避免回表
+
+    - 方案二：优化索引
+
+    - 批量写入：insertMany + ordered: false
+
+    - 异步写入：writeConcern: w:1，不等待从节点确认
+
+    - 方案三：优化写入策略
+
+    - 读写分离：读请求路由到从节点
+
+    - 分片集群：水平扩展，分散写入压力
+
+    - 方案四：架构优化
+
+    - 会话写入：按用户 ID 分片，避免同一会话高并发写入
+
+    - 批量导入：使用 insertMany + ordered: false，失败不中断
+
+    - 监控告警：锁等待时间超过阈值时告警
+
+    - 定义：客户端与 MongoDB 之间的逻辑会话，包含操作序列
+
+    - 作用：跟踪会话内的所有操作，保证因果顺序
+
+    - 创建方式：client.startSession() 或驱动自动创建
+
+    - 定义：MongoDB 全局递增的时间戳（包含时间 + 计数器）
+
+    - 作用：标记操作发生的时刻，用于因果排序
+
+    - 使用方式：find().readConcern("majority").afterClusterTime(clusterTime)
+
+    - 写操作：记录当前 clusterTime
+
+    - 读操作：使用 afterClusterTime，只读时间戳之后的数据
+
+    - 保证：如果写操作发生在读操作之前，读操作一定能读到写操作的结果
+
+    - 因果一致性：只保证有因果关系的操作顺序，无因果关系的操作可以乱序
+
+    - 线性一致性：所有操作按全局顺序执行，保证强一致
+
+    - 性能对比：因果一致性好于线性一致性，线性一致性只能从主节点读
+
+    - 适用场景：因果一致性适合大多数业务，线性一致性适合库存扣减等强一致场景
+
+    - 会话写入后立即读取：使用 ClientSession + afterClusterTime 保证读到最新数据
+
+    - 多步骤操作：在同一个 ClientSession 中执行，保证因果顺序
+
+    - WriteConcern：{w: "majority", j: true}
+
+    - ReadConcern：majority
+
+    - ReadPreference：primary
+
+    - 缺点：性能差，只能从主节点读
+
+    - 使用 ClientSession： `javascriptconst session = client.startSession();try {session.startTransaction();// 写入会话await db.sessions.insertOne({userId: "user123", content: "你好"}, {session});// 立即读取const result = await db.sessions.findOne({userId: "user123"}, {session,readConcern: {level: "majority"},readPreference: "primary"});await session.commitTransaction();} finally {session.endSession();}
+
+    - 写入后缓存：写入成功后，将数据缓存到 Redis
+
+    - 读取时先查缓存：优先从缓存读取，缓存未命中再查数据库
+
+    - 缺点：引入缓存复杂度，缓存一致性需要处理
+
+    - 会话写入后立即读取：使用 ClientSession + afterClusterTime
+
+    - 性能要求高：使用读后写缓存
+
+    - 数据一致性要求高：使用强一致配置
+
+    - maxPoolSize（默认 100）：最大连接数，超过则等待
+
+    - minPoolSize（默认 0）：最小连接数，保持连接池中有这么多连接
+
+    - waitQueueTimeoutMS（默认 0）：等待连接超时时间（毫秒），0 表示无限等待
+
+    - serverSelectionTimeoutMS（默认 30000）：选择服务器超时时间（毫秒）
+
+    - maxIdleTimeMS（默认 0）：连接最大空闲时间（毫秒），超过则关闭
+
+    - connectTimeoutMS（默认 10000）：连接超时时间（毫秒）
+
+    - 监控指标：db.serverStatus().connections 查看当前连接数
+
+    - 查看连接来源：db.currentOp() 查看当前操作和客户端信息
+
+    - 连接数告警：当前连接数超过 maxPoolSize * 0.8 时告警
+
+    - 代码审查：检查是否正确关闭连接（如使用 try-finally）
+
+    - maxPoolSize：根据应用并发量设置，一般 50-200
+
+    - minPoolSize：设置为 maxPoolSize * 0.5，避免冷启动
+
+    - waitQueueTimeoutMS：设置为 5000，避免无限等待
+
+    - maxIdleTimeMS：设置为 60000，关闭空闲连接
+
+    - 会话高并发：maxPoolSize: 200，minPoolSize: 100
+
+    - 监控告警：连接数超过 160 时告警
+
+    - 连接泄漏排查：定期检查 db.serverStatus().connections
+
+    - max-connections-per-host：每个主机最大连接数，根据应用并发量设置
+
+    - min-connections-per-host：每个主机最小连接数，避免冷启动
+
+    - max-connection-idle-time：连接最大空闲时间，关闭空闲连接
+
+    - max-connection-life-time：连接最大生命周期，定期重建连接
+
+    - connection-timeout：连接超时时间，避免长时间等待
+
+    - socket-timeout：Socket 超时时间，避免长时间阻塞
+
+    - Actuator 监控：启用 spring-boot-starter-actuator，查看 /actuator/metrics/mongo.driver.pool.size
+
+    - 日志配置：设置 logging.level.org.mongodb.driver.cluster: DEBUG，查看连接池日志
+
+    - 告警配置：连接数超过阈值时告警
+
+    - 会话高并发：max-connections-per-host: 200
+
+    - 监控告警：连接数超过 160 时告警
+
+    - 日志调试：开发环境开启 DEBUG 日志，生产环境关闭
+
+    - 自动分桶：按时间范围将数据分桶存储，默认桶大小 1 小时
+
+    - 列式压缩：同一列的数据连续存储，压缩比高（如时间戳压缩比 90%）
+
+    - 数据优化：自动删除重复数据，减少存储空间
+
+    - 索引优化：自动创建时间索引，加速时间范围查询
+
+    - 定义：时间粒度，决定分桶大小
+
+    - seconds：秒级粒度，适合高频数据
+
+    - minutes：分钟级粒度，适合分钟级数据
+
+    - hours：小时级粒度，适合小时级数据
+
+    - 可选值：
+
+    - 配置方式：createCollection({timeseries: {timeField: "timestamp", granularity: "minutes"}})
+
+    - 选择建议：根据数据频率选择，数据频率越高，粒度越小
+
+    - 存储空间：时序集合比普通集合节省 50-70% 空间
+
+    - 写入性能：时序集合比普通集合快 2-3 倍
+
+    - 查询性能：时间范围查询比普通集合快 5-10 倍
+
+    - 聚合性能：时间聚合查询比普通集合快 3-5 倍
+
+    - 调用链路指标：使用时序集合存储，granularity 设置为 seconds
+
+    - 用户行为埋点：使用时序集合存储，granularity 设置为 minutes
+
+    - 系统监控数据：使用时序集合存储，granularity 设置为 hours
+
+    - 时间索引：自动创建，加速时间范围查询
+
+    - 元数据索引：手动创建，加速元数据查询
+
+    - 时间范围查询： `javascriptdb.agent_metrics.find({"metadata.agentId": "agent123","timestamp": {$gte: ISODate("2024-01-15T00:00:00Z"),$lte: ISODate("2024-01-15T23:59:59Z")}})
+
+    - 存储优化：列式压缩节省 60% 存储空间
+
+    - 查询优化：时间范围查询快 8 倍
+
+    - 聚合优化：时间聚合查询快 4 倍
+
+    - 分层图结构：多层图，上层稀疏，下层密集
+
+    - 搜索过程：从顶层开始，逐层向下搜索，快速定位到最近邻
+
+    - 优势：查询速度快，索引构建快，内存占用低
+
+    - 定义：近似最近邻搜索，不保证找到绝对最近邻，但速度极快
+
+    - 精度权衡：通过调整 ef 参数（搜索宽度）平衡精度和性能
+
+    - 适用场景：大规模向量检索（百万级以上），需要毫秒级响应
+
+    - Atlas Vector Search：精度 95-98%，可调整 ef 参数
+
+    - pgvector：精度 90-95%，可调整 lists 参数
+
+    - 精度对比：
+
+    - Atlas Vector Search：查询速度 10-50ms，适合实时检索
+
+    - pgvector：查询速度 50-200ms，适合离线检索
+
+    - 性能对比：
+
+    - Atlas Vector Search：MongoDB 原生支持，无需额外组件，与文档存储集成
+
+    - pgvector：PostgreSQL 扩展，需要单独安装，与关系型数据库集成
+
+    - 生态对比：
+
+    - Atlas Vector Search：MongoDB Atlas 云服务，按使用量付费
+
+    - pgvector：开源免费，自建成本低
+
+    - 成本对比：
+
+    - 知识库向量检索：使用 Atlas Vector Search，实时检索要求高
+
+    - 用户行为分析：使用 pgvector，离线分析要求高
+
+    - 混合方案：热数据用 Atlas，冷数据用 pgvector
+
+    - 适用场景：实时检索、与文档存储集成、中小规模（百万级）
+
+    - MongoDB 原生支持，无需额外组件
+
+    - 与文档存储集成，方便管理
+
+    - 查询速度快（10-50ms）
+
+    - 优势：
+
+    - 仅支持 MongoDB Atlas 云服务
+
+    - 成本较高（按使用量付费）
+
+    - 劣势：
+
+    - Agent 场景：适合实时知识库检索，与 Agent 会话数据集成
+
+    - 适用场景：离线分析、与关系型数据库集成、中小规模（百万级）
+
+    - PostgreSQL 扩展，开源免费
+
+    - 与关系型数据库集成，方便管理
+
+    - 支持复杂查询（SQL）
+
+    - 优势：
+
+    - 查询速度慢（50-200ms）
+
+    - 需要单独安装和配置
+
+    - 劣势：
+
+    - Agent 场景：适合离线知识库分析，与用户行为数据集成
+
+    - 适用场景：大规模检索（千万级以上）、高性能要求、独立向量数据库
+
+    - 查询速度快（1-10ms）
+
+    - 支持大规模向量（十亿级）
+
+    - 开源免费
+
+    - 优势：
+
+    - 需要单独部署和管理
+
+    - 与文档存储分离，需要额外同步
+
+    - 劣势：
+
+    - Agent 场景：适合大规模知识库检索，独立向量数据库
+
+    - 实时检索 + 文档集成：选择 Atlas Vector Search
+
+    - 离线分析 + 关系型数据库：选择 pgvector
+
+    - 大规模检索 + 高性能：选择 Milvus
+
+    - 混合方案：热数据用 Atlas，冷数据用 Milvus
+
+    - 隔离性：最高，租户之间完全隔离
+
+    - 数据泄露风险：最低，租户无法访问其他租户数据
+
+    - 独立数据库：
+
+    - 隔离性：中等，通过 tenantId 字段隔离
+
+    - 数据泄露风险：中等，需要应用层保证查询带 tenantId
+
+    - 共享集合+tenantId：
+
+    - 隔离性：中等，租户数据分散到不同分片
+
+    - 数据泄露风险：中等，需要应用层保证查询带 tenantId
+
+    - 分片键隔离：
+
+    - 存储成本：高，每个租户独立数据库，存储空间浪费
+
+    - 运维成本：高，需要管理大量数据库
+
+    - 独立数据库：
+
+    - 存储成本：低，所有租户共享集合，存储空间利用率高
+
+    - 运维成本：低，只需要管理少量集合
+
+    - 共享集合+tenantId：
+
+    - 存储成本：中等，租户数据分散，存储空间利用率中等
+
+    - 运维成本：中等，需要管理分片集群
+
+    - 分片键隔离：
+
+    - 查询性能：高，每个租户独立数据库，索引小，查询快
+
+    - 扩展性：差，每个租户独立数据库，无法水平扩展
+
+    - 独立数据库：
+
+    - 查询性能：低，所有租户共享集合，索引大，查询慢
+
+    - 扩展性：好，可以水平扩展
+
+    - 共享集合+tenantId：
+
+    - 查询性能：中等，租户数据分散，索引中等，查询速度中等
+
+    - 扩展性：好，可以水平扩展
+
+    - 分片键隔离：
+
+    - 大客户（独立数据库）：安全要求高，查询性能要求高
+
+    - 中小客户（共享集合+tenantId）：成本敏感，查询性能要求低
+
+    - 混合方案：大客户独立数据库，中小客户共享集合
+
+    - 大客户（VIP）：独立数据库，安全要求高
+
+    - 中小客户（SMB）：共享集合+tenantId，成本敏感
+
+    - 租户分类：
+
+    - 大客户：每个租户一个数据库，如 tenant_001_db、tenant_002_db
+
+    - 中小客户：共享数据库，如 smb_db，集合中包含 tenantId 字段
+
+    - 数据库设计：
+
+    - 每个租户独立索引，索引小，查询快
+
+    - 索引示例：{userId: 1, createdAt: -1}
+
+    - 大客户：
+
+    - 共享索引，索引大，查询慢
+
+    - 索引示例：{tenantId: 1, userId: 1, createdAt: -1}
+
+    - 中小客户：
+
+    - 查询时指定数据库，如 db.tenant_001_db.sessions.find({...})
+
+    - 查询性能高，延迟 1-5ms
+
+    - 大客户：
+
+    - 查询时必须带 tenantId，如 db.smb_db.sessions.find({tenantId: "tenant123", ...})
+
+    - 查询性能中等，延迟 5-20ms
+
+    - 中小客户：
+
+    - 导出中小客户数据 → 创建独立数据库 → 导入数据 → 删除原数据
+
+    - 中小客户升级为大客户：
+
+    - 导出大客户数据 → 删除独立数据库 → 导入共享数据库
+
+    - 大客户降级为中小客户：
+
+    - 大客户：监控每个租户的数据库性能，独立告警
+
+    - 中小客户：监控共享数据库性能，统一告警
+
+    - 大客户：独立数据库，查询性能高，安全要求高
+
+    - 中小客户：共享集合+tenantId，成本低，查询性能中等
+
+    - 混合方案：根据租户规模动态调整
+
+    - insert/query/update/delete：每秒操作数（QPS）
+
+    - command：每秒命令数
+
+    - vsize：虚拟内存使用量
+
+    - res：物理内存使用量
+
+    - faults：每秒 Page Fault 数（内存不足时增加）
+
+    - qr|qw：读写队列长度（队列过长表示性能瓶颈）
+
+    - ar|aw：活跃读写连接数
+
+    - netIn/netOut：网络流入/流出量
+
+    - total：集合总读写时间
+
+    - read：集合读时间
+
+    - write：集合写时间
+
+    - 作用：定位热点集合，优化索引
+
+    - opcounters：操作计数器（insert/query/update/delete 总数）
+
+    - connections：连接数（current/available）
+
+    - pages read into cache：读入页数（内存不足时增加）
+
+    - pages evicted：驱逐页数（内存不足时增加）
+
+    - percentage dirty：脏页比例（过高时 Checkpoint 频繁）
+
+    - wiredTiger.cache：缓存指标
+
+    - 0：关闭
+
+    - 1：记录慢查询（默认超过 100ms）
+
+    - 2：记录所有查询（仅用于调试）
+
+    - 级别设置：
+
+    - 配置方式： `javascriptdb.setProfilingLevel(1, {slowms: 100}) `
+
+    - 查看慢查询： `javascriptdb.system.profile.find().sort({ts: -1}).limit(10) `
+
+    - 会话 QPS 监控：mongostat 监控 insert/query QPS
+
+    - 热点集合监控：mongotop 定位热点集合，优化索引
+
+    - 内存监控：db.serverStatus() 监控 wiredTiger cache，避免内存不足
+
+    - 慢查询监控：Profiler 记录慢查询，优化查询
+
+    - 数据采集：MongoDB Exporter 采集指标
+
+    - 数据存储：Prometheus 存储时序数据
+
+    - 数据展示：Grafana 可视化展示
+
+    - 告警通知：Alertmanager 发送告警
+
+    - QPS：mongod_op_counters_total（insert/query/update/delete）
+
+    - 连接数：mongod_connections_current / mongod_connections_available
+
+    - 内存：mongod_wiredtiger_cache_bytes（缓存大小）
+
+    - 基础指标：
+
+    - 延迟：mongod_latency_histogram（操作延迟）
+
+    - Page Fault：mongod_wiredtiger_cache_pages_evicted_total（驱逐页数）
+
+    - 队列长度：mongod_global_lock_current_queue（锁队列长度）
+
+    - 性能指标：
+
+    - 会话 QPS：按 agentId 分组统计
+
+    - 慢查询数：按集合分组统计
+
+    - 业务指标：
+
+    - alert: HighQPSexpr: rate(mongodopcounters_total[5m]) > 1000for: 5mlabels:severity: warningannotations:summary: "MongoDB QPS 过高"
+
+    - QPS 告警：QPS 超过阈值时告警 `yaml
+
+    - `
+
+    - alert: HighConnectionsexpr: mongodconnectionscurrent / mongodconnectionsavailable > 0.8for: 5mlabels:severity: warningannotations:summary: "MongoDB 连接数过高"
+
+    - 连接数告警：连接数超过阈值时告警 `yaml
+
+    - `
+
+    - alert: HighMemoryexpr: mongodwiredtigercachebytes / nodememoryMemTotalbytes > 0.8for: 5mlabels:severity: warningannotations:summary: "MongoDB 内存使用率过高"
+
+    - 内存告警：内存使用率超过阈值时告警 `yaml
+
+    - `
+
+    - alert: HighSlowQueryexpr: rate(mongodslowqueries_total[5m]) > 10for: 5mlabels:severity: warningannotations:summary: "MongoDB 慢查询过多"
+
+    - 慢查询告警：慢查询数超过阈值时告警 `yaml
+
+    - 基础仪表板：QPS、连接数、内存、延迟
+
+    - 业务仪表板：会话 QPS、慢查询数、热点集合
+
+    - 告警仪表板：告警历史、告警趋势
+
+    - 会话 QPS 监控：按 agentId 分组，定位热点 Agent
+
+    - 慢查询监控：按集合分组，优化慢查询
+
+    - 内存监控：监控 wiredTiger cache，避免内存不足
+
+    - 告警通知：钉钉、邮件、短信多渠道通知
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BXVdwSFoCiy4apkiMglchiTGnmh
+  block_id: doxcnU3xfcLkJb0Pu8RiNMUdQKZ
+  page_token: BXVdwSFoCiy4apkiMglchiTGnmh
+  original_title: 22、MongoDB 监控与可观测性
+  imported_at: '2026-09-21'

@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-460ccb1eb70b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 手写 LoRA 适配器
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: 手写 LoRA 适配器
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理：在预训练权重旁路插入低秩矩阵 A 和 B，前向为 Wx + BAx。
+    代码：
+
+    ```python
+    import torch
+    import torch.nn as nn
+
+    class LoRALayer(nn.Module):
+        def __init__(self, in_features, out_features, rank=4, alpha=1):
+            super().__init__()
+            std_dev = 1 / torch.sqrt(torch.tensor(rank).float())
+            self.A = nn.Parameter(torch.randn(in_features, rank) * std_dev)
+            self.B = nn.Parameter(torch.zeros(rank, out_features))
+            self.alpha = alpha
+            self.scaling = alpha / rank
+
+        def forward(self, x):
+            # x: (batch, in_features)
+            return (x @ self.A @ self.B) * self.scaling
+
+    class LoRALinear(nn.Module):
+        def __init__(self, linear, rank, alpha):
+            super().__init__()
+            self.linear = linear  # 原始冻结层
+            self.lora = LoRALayer(linear.in_features, linear.out_features, rank, alpha)
+
+        def forward(self, x):
+            return self.linear(x) + self.lora(x)
+
+        def merge(self):
+            # 训练后将 lora 权重合并回原层
+            self.linear.weight.data += (self.lora.A @ self.lora.B).T * self.lora.scaling
+    ```
+
+    关键点：初始化时 A 用高斯噪声，B 为零；合并权重时做转置和缩放。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AxkEwVG8kibSjokIPVEc6aggnjo
+  block_id: doxcnycOBBbqEMBDQAvbPvrOjcf
+  page_token: AxkEwVG8kibSjokIPVEc6aggnjo
+  original_title: 手写 LoRA 适配器
+  imported_at: '2026-09-21'

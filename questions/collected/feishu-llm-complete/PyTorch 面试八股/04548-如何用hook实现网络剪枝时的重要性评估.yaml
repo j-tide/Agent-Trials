@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e79ec04c8f82
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何用hook实现网络剪枝时的重要性评估？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何用hook实现网络剪枝时的重要性评估？
+answer:
+  mode: rubric
+  reference_answer: |-
+    网络剪枝通常需要评估权重的重要性，例如基于权重的绝对值、梯度的范数等。backward hook 可以捕获每个参数的梯度，结合权重本身，计算重要性分数。
+
+    基于梯度和权重的重要性（例如，|weight * grad|）：
+
+    ```python
+    importance_scores = []
+
+    for layer in model.modules():
+        if isinstance(layer, torch.nn.Conv2d):
+            # 注册backward hook
+            def hook_fn(module, grad_input, grad_output):
+                # grad_input[0] 是输入梯度，但我们需要权重梯度
+                pass  # 权重梯度在 layer.weight.grad 中
+
+            layer.register_backward_hook(hook_fn)
+    ```
+
+    实际上，更简单的方式是利用 backward 后存储在参数 .grad 中的梯度。可以直接遍历参数，计算 importance = (weight * weight.grad).abs()。但若要在训练过程中动态评估，可使用 backward hook 来获取中间梯度。
+
+    示例（基于输出梯度的L2范数）：
+
+    ```python
+    def get_grad_norm_hook(layer, score_dict):
+        def hook(module, grad_input, grad_output):
+            # 使用输出梯度（来自下一层）的L2范数作为重要性
+            score = grad_output[0].norm(2, dim=(2,3)).mean()
+            score_dict[layer] = score
+        return hook
+
+    score_dict = {}
+    for name, layer in model.named_modules():
+        if isinstance(layer, nn.Conv2d):
+            layer.register_backward_hook(get_grad_norm_hook(layer, score_dict))
+    # 训练或推理一个batch后，根据score_dict排序剪枝。
+    ```
+
+    注意：
+
+    - 剪枝评估通常在训练中或微调阶段进行。
+
+    - 重要性分数需要根据剪枝策略确定，例如全局阈值或每层固定比例。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  block_id: GzWXdPj8FowoGwxLFlKcgQRQnNe
+  page_token: Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  original_title: 如何用hook实现网络剪枝时的重要性评估？
+  imported_at: '2026-09-21'

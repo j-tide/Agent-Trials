@@ -1,0 +1,136 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e673a8bf03ac
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个简单的块分配器：支持从空闲块池中分配一个块，并返回块索引；当块释放时将其归还池中，要求用 Python 完成。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现一个简单的块分配器：支持从空闲块池中分配一个块，并返回块索引；当块释放时将其归还池中，要求用 Python 完成。
+answer:
+  mode: rubric
+  reference_answer: |-
+    9.1 基本分配器
+
+    ```python
+    class BlockAllocator:
+        def __init__(self, total_blocks: int):
+            # 空闲块索引栈，pop 操作 O(1)
+            self.free_blocks = list(range(total_blocks))
+            self.total = total_blocks
+
+        def allocate(self) -> int:
+            if not self.free_blocks:
+                raise MemoryError(f"All {self.total} blocks are in use.")
+            return self.free_blocks.pop()
+
+        def free(self, block_index: int):
+            if block_index < 0 or block_index >= self.total:
+                raise ValueError("Invalid block index")
+            self.free_blocks.append(block_index)
+
+        def available(self) -> int:
+            return len(self.free_blocks)
+    ```
+
+    9.2 线程安全版本
+
+    推理服务通常是多线程环境（如 vLLM 的调度器），需要加锁保护。
+
+    ```python
+    import threading
+
+    class ThreadSafeBlockAllocator(BlockAllocator):
+        def __init__(self, total_blocks: int):
+            super().__init__(total_blocks)
+            self.lock = threading.Lock()
+
+        def allocate(self) -> int:
+            with self.lock:
+                return super().allocate()
+
+        def free(self, block_index: int):
+            with self.lock:
+                super().free(block_index)
+    ```
+
+    9.3 与序列绑定的内存管理
+
+    实际使用时，我们会记录每个序列占用了哪些物理块。当序列完成或换出时，遍历其块表，释放所有块。
+
+    ```python
+    class SequenceBlockManager:
+        def __init__(self, allocator: BlockAllocator, block_size: int):
+            self.allocator = allocator
+            self.block_size = block_size
+            self.seq_blocks = {}  # seq_id -> list of physical block indices
+
+        def allocate_blocks_for_seq(self, seq_id: int, num_blocks: int):
+            if seq_id in self.seq_blocks:
+                self.free_seq(seq_id)
+            blocks = [self.allocator.allocate() for _ in range(num_blocks)]
+            self.seq_blocks[seq_id] = blocks
+            return blocks
+
+        def free_seq(self, seq_id: int):
+            for blk in self.seq_blocks.pop(seq_id, []):
+                self.allocator.free(blk)
+    ```
+
+    9.4 扩展：支持“写时复制”和共享
+
+    当多个序列共享前缀（如 beam search 或并行采样）时，物理块可以被多个序列的块表引用。此时需要引用计数，当引用计数归零时才真正释放块。这可以通过将 free_blocks 改为引用计数数组来实现。
+
+    ```python
+    class RefCountBlockAllocator:
+        def __init__(self, total_blocks):
+            self.ref_counts = [0] * total_blocks
+            self.free_blocks = list(range(total_blocks))
+
+        def allocate(self) -> int:
+            blk = self.free_blocks.pop()
+            self.ref_counts[blk] = 1
+            return blk
+
+        def incref(self, block_index: int):
+            self.ref_counts[block_index] += 1
+
+        def decref(self, block_index: int):
+            self.ref_counts[block_index] -= 1
+            if self.ref_counts[block_index] == 0:
+                self.free_blocks.append(block_index)
+    ```
+
+    以上设计构成了 vLLM 等现代推理引擎中 KV Cache 管理的基石。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IhgfwCPtoif3TWkyezuc4sW9nbg
+  block_id: Rw8BdM421o50c3xF6JecUNDenKc
+  page_token: IhgfwCPtoif3TWkyezuc4sW9nbg
+  original_title: 实现一个简单的块分配器：支持从空闲块池中分配一个块，并返回块索引；当块释放时将其归还池中，要求用 Python 完成。
+  imported_at: '2026-09-21'

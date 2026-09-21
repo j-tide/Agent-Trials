@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-be702fd3af6d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F680 为什么上下文长度从 4K 扩展到 128K 时，显存成为头号瓶颈？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 五：前沿与趋势
+tags: &1
+- 显存问题-核心题
+- 五：前沿与趋势
+content:
+  prompt: "\U0001F680 为什么上下文长度从 4K 扩展到 128K 时，显存成为头号瓶颈？"
+answer:
+  mode: rubric
+  reference_answer: "在推理时，模型权重是一次性加载并常驻显存的，其占用量与序列长度完全无关。假设一个 7B 模型，使用 FP16 精度，权重固定占用约
+    14 GB。而 KV Cache 的大小与序列长度呈线性正比，每生成一个新 token，就必须在每一层追加该 token 的 Key 和 Value 张量。当上下文长度只有
+    4K 时，KV Cache 可能仅占 1~2 GB，在总显存中属于次要角色；但当长度扩展到 128K（增加 32 倍），KV Cache 就会膨胀到数十 GB，瞬间从“配角”变成“主角”，远远超过权重的占用，成为限制系统能力的硬瓶颈。\n\n\U0001F4CA
+    具体数据对比（以 7B 模型，32 层，32 头，头维度 128，无 GQA 为例）：\n\n- 每 token 的 KV Cache 大小：\n2 (K,
+    V) × 层数 × 头数 × 头维度 × FP16字节数\n= 2 × 32 × 32 × 128 × 2 = 524,288 字节 ≈ 0.5 MB。\n\n-
+    4K token 的 KV Cache：4096 × 0.5 MB = 2 GB。\n\n- 128K token 的 KV Cache：131072 ×
+    0.5 MB = 64 GB。\n\n此时，权重 14 GB + KV Cache 64 GB + 其他开销 ≈ 80 GB+。单张 A100 80GB 显卡都可能直接
+    OOM，更不用说还要处理并发请求或保留临时激活缓冲区。\n\n计算量（注意力复杂度 O(L²)）虽然也急剧增加，但现代 GPU 的算力可以通过 FlashAttention
+    等优化有效降低，而显存是物理上限，无法通过算法突破，必须通过压缩、分片或 offload 来解决。因此，显存成为 128K 长上下文推理的第一道高墙。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MJGdw1gNQi7XukkJrfvczohinLU
+  block_id: WgTldHHuwo9kL0x5Vj7cP1cZnlc
+  page_token: MJGdw1gNQi7XukkJrfvczohinLU
+  original_title: "\U0001F680 为什么上下文长度从 4K 扩展到 128K 时，显存成为头号瓶颈？"
+  imported_at: '2026-09-21'

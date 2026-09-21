@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9dd873449930
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 比较 GPipe 和 PipeDream（1F1B 调度）的区别。1F1B 如何减少显存峰值？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 比较 GPipe 和 PipeDream（1F1B 调度）的区别。1F1B 如何减少显存峰值？
+answer:
+  mode: rubric
+  reference_answer: |-
+    GPipe：
+
+    - 先完成所有微批次的前向，再开始反向。
+
+    - 需要存储所有微批次的前向激活值，直到反向传播。显存峰值极高（与微批次数量 M 成正比）。
+
+    - 实现简单，但显存不友好，通常需要配合 Gradient Checkpointing。
+
+    PipeDream（1F1B，One Forward One Backward）调度：
+
+    - 在预热阶段执行若干前向传播，使得流水线填充。然后进入稳定阶段，每个设备交替执行一个前向和一个反向（1F1B）。
+
+    - 显存峰值大幅降低：因为较早完成的微批次的前向激活值可以尽早被反向消费并释放。显存占用大致与流水线深度（P）相关，而不是微批次数量 M。这允许使用更大的 M 来减少气泡而不导致 OOM。
+
+    - 实现更复杂，但已成为主流 PP 调度算法。
+
+    1F1B 减少显存峰值的原理：反向传播可以及时释放激活值。通过限制同时“存活”的微批次数量（大致为流水线深度 P），而非 GPipe 的 M（M>>P），显存峰值控制在一个较低水平。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: Nlu8dB1TBo9LkNxJhXEcD0ubnte
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: 比较 GPipe 和 PipeDream（1F1B 调度）的区别。1F1B 如何减少显存峰值？
+  imported_at: '2026-09-21'

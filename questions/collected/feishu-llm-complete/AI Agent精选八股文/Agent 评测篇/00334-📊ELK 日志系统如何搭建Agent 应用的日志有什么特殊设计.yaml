@@ -1,0 +1,205 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3011f69a6be8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CAELK 日志系统如何搭建？Agent 应用的日志有什么特殊设计？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 评测篇
+tags: &1
+- AI Agent精选八股文
+- Agent 评测篇
+content:
+  prompt: "\U0001F4CAELK 日志系统如何搭建？Agent 应用的日志有什么特殊设计？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    ELK 是 Elasticsearch、Logstash、Kibana 三个开源项目的首字母缩写，是目前最成熟的开源日志处理栈之一。它的核心思想是：集中收集、高效搜索、可视化展示。
+
+    1.1 ELK 搭建蓝图
+
+    [图片内容未导入]
+
+    核心组件职责：
+
+    - Filebeat：轻量级日志采集器，放在应用服务器上，读取日志文件并发送给 Logstash 或直接入 Elasticsearch。
+
+    - Logstash：重量级数据处理管道，可对日志进行复杂的解析（如 grok 正则）、过滤、增强（如 GeoIP 补充地理信息），然后输出到 Elasticsearch。
+
+    - Elasticsearch：分布式搜索与分析引擎，存储并索引日志数据，提供近乎实时的全文搜索能力。
+
+    - Kibana：数据可视化工具，用来创建仪表板、探索数据、设置告警。
+
+    Docker Compose 快速搭建示例：
+
+    ```yaml
+    version: '3.7'
+    services:
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.10.2
+        environment:
+          - discovery.type=single-node
+          - xpack.security.enabled=false
+        ports:
+          - "9200:9200"
+        volumes:
+          - es_data:/usr/share/elasticsearch/data
+
+      logstash:
+        image: docker.elastic.co/logstash/logstash:8.10.2
+        volumes:
+          - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+        ports:
+          - "5044:5044"
+
+      kibana:
+        image: docker.elastic.co/kibana/kibana:8.10.2
+        ports:
+          - "5601:5601"
+        environment:
+          - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+
+    volumes:
+      es_data:
+    ```
+
+    Logstash 配置示例（logstash.conf）：
+
+    ```text
+    input {
+      beats {
+        port => 5044
+      }
+    }
+
+    filter {
+      json {
+        source => "message"
+      }
+    }
+
+    output {
+      elasticsearch {
+        hosts => ["http://elasticsearch:9200"]
+        index => "agent-logs-%{+YYYY.MM.dd}"
+      }
+    }
+    ```
+
+    1.2 Agent 应用日志的特殊设计
+
+    与传统应用不同，AI Agent 的日志需要捕捉非确定性的推理过程、外部工具的调用链、敏感的上下文数据以及模型消耗的 Token 成本。只记 INFO 和 ERROR 远远不够。
+
+    六大特殊设计原则：
+
+    ① 全链路追踪
+    一个用户请求可能触发多次 LLM 调用、多个工具串联。每条日志必须带上 trace_id 和 span_id，将整个任务的生命周期串起来。这样当用户反馈“第三轮回答错了”，你能快速回溯该次对话的全部推理链。
+
+    ```python
+    import uuid, time, logging, json
+
+    class AgentLogger:
+        def __init__(self, trace_id=None):
+            self.trace_id = trace_id or str(uuid.uuid4())
+            self.span_id = str(uuid.uuid4())[:8]
+
+        def log(self, event_type, **kwargs):
+            entry = {
+                "timestamp": time.time(),
+                "trace_id": self.trace_id,
+                "span_id": self.span_id,
+                "event_type": event_type,
+                **kwargs
+            }
+            # 输出为 JSON 行，方便 Logstash 解析
+            print(json.dumps(entry, ensure_ascii=False))
+
+    logger = AgentLogger()
+    logger.log("llm_call", model="gpt-4o", input_tokens=150, output_tokens=80, latency=1.2)
+    ```
+
+    ② 结构化日志，而非纯文本
+    日志必须是 JSON 格式。Elasticsearch 可以自动索引 JSON 字段，Kibana 中你就能直接对 latency 做聚合，对 model 做过滤。不要在日志里写“模型调用成功，耗时1.2秒”——这是给人看的，机器分析不了。
+
+    ③ 记录 LLM 调用的详细上下文
+
+    这不是指记录完整的对话历史（那会让日志爆炸），而是记录关键摘要 + Token 用量 + 延迟 + 模型名 + 是否命中缓存。当成本突然飙升时，你能立刻定位是哪个 Agent 在过度调用。
+
+    ```python
+    def log_llm_call(logger, model, messages, response):
+        # 仅记录对话的摘要，而非全量内容（避免敏感信息泄漏）
+        summary = " -> ".join([m["role"] for m in messages])
+        logger.log("llm_call",
+            model=model,
+            message_summary=summary,
+            input_tokens=response.usage.prompt_tokens,
+            output_tokens=response.usage.completion_tokens,
+            latency=response.latency,
+            finish_reason=response.choices[0].finish_reason
+        )
+    ```
+
+    ④ 工具调用的输入输出脱敏与审计
+    工具调用往往涉及数据库查询、API 调用，参数中可能含有用户手机号、邮箱等敏感信息。日志写入前必须进行 PII 脱敏（如用正则替换为 [REDACTED]）。同时，记录工具调用的成功/失败状态、耗时，用于监控外部依赖的可用性。
+
+    ⑤ 安全与合规审计
+    任何涉及权限检查、内容过滤、用户认证的操作，都要落审计日志。这类日志通常需要保留更长时间，且不可删除。典型字段包括 user_id、action（如 tool_denied）、resource、decision（allow/deny）。
+
+    ⑥ 分级采样，控制日志量
+
+    Agent 的高频调用可能产生海量日志。应对策略是：
+
+    - 全量记录：错误日志、审计日志。
+
+    - 采样记录：正常的 LLM 调用详情（如 10% 采样）。
+
+    - 聚合记录：高频工具调用（如每分钟汇总一次调用次数和平均耗时）。
+
+    一个 Agent 日志的完整结构示例：
+
+    ```json
+    {
+      "timestamp": "2026-07-03T10:15:30.123Z",
+      "trace_id": "a1b2c3d4",
+      "span_id": "e5f6g7h8",
+      "event_type": "tool_call",
+      "agent_role": "research_agent",
+      "tool_name": "search_web",
+      "input": {"query": "新能源补贴政策"},
+      "output_summary": "返回 3 条结果，共 450 字符",
+      "status": "success",
+      "duration_ms": 820,
+      "user_id": "user_12345",
+      "session_id": "sess_67890"
+    }
+    ```
+
+    一句话收束： Agent 的日志不应只是开发者的 Debug 工具，更是运维的监控眼、安全的审计员、成本的控制台。让它结构化、可追踪、守隐私，它才能在关键时刻告诉你——系统到底发生了什么。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NeK0wkFRfi2KLHkHiQucC7hWnpI
+  block_id: doxcnVo67wt1ZHMTvdY4ZVerv1b
+  page_token: NeK0wkFRfi2KLHkHiQucC7hWnpI
+  original_title: "\U0001F4CAELK 日志系统如何搭建？Agent 应用的日志有什么特殊设计？"
+  imported_at: '2026-09-21'

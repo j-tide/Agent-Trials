@@ -1,0 +1,120 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e04ec24ecb20
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: '设计一个函数，将自然语言描述的工具列表（如“search(query: str) -> str: 搜索互联网”）转换为 JSON Schema 格式，支持提取函数名、参数名、参数类型、描述和返回值类型。'
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: '设计一个函数，将自然语言描述的工具列表（如“search(query: str) -> str: 搜索互联网”）转换为 JSON Schema
+    格式，支持提取函数名、参数名、参数类型、描述和返回值类型。'
+answer:
+  mode: rubric
+  reference_answer: |-
+    原理
+
+    输入的自然语言描述具有一定的模式，例如：
+
+    ```python
+    search(query: str, num: int) -> str: 搜索互联网
+    ```
+
+    我们需要使用正则表达式提取函数签名中的函数名、参数列表、返回值类型，以及冒号后的描述。
+
+    实现
+
+    ```python
+    import re
+    from typing import Dict, List
+
+    def parse_tool_description(description: str) -> Dict[str, Any]:
+        """
+        解析自然语言工具描述，返回 JSON Schema 格式。
+        示例输入: "search(query: str, max_results: int) -> dict: 搜索互联网并返回结果"
+        Args:
+            description: 工具描述字符串
+        Returns:
+            schema 字典
+        """
+        # 正则表达式匹配函数签名
+        pattern = r'(\w+)\s*\(([^)]*)\)\s*->\s*(\w+)\s*:\s*(.*)'
+        match = re.match(pattern, description.strip())
+        if not match:
+            raise ValueError(f"无法解析工具描述: {description}")
+
+        func_name = match.group(1)
+        params_str = match.group(2)
+        return_type = match.group(3)
+        desc = match.group(4).strip()
+
+        parameters = {}
+        if params_str.strip():
+            # 分割参数
+            for param in params_str.split(','):
+                param = param.strip()
+                if not param:
+                    continue
+                # 每个参数格式: name: type
+                parts = param.split(':')
+                if len(parts) != 2:
+                    raise ValueError(f"参数格式错误: {param}")
+                param_name = parts[0].strip()
+                param_type = parts[1].strip()
+                parameters[param_name] = {
+                    "type": param_type,
+                    "description": ""
+                }
+
+        return {
+            "name": func_name,
+            "description": desc,
+            "parameters": parameters,
+            "return_type": return_type
+        }
+
+    # 示例
+    desc1 = "search(query: str, max_results: int) -> list: 搜索互联网并返回结果列表"
+    print(parse_tool_description(desc1))
+
+    desc2 = "get_weather(city: str) -> str: 获取指定城市的天气信息"
+    print(parse_tool_description(desc2))
+    ```
+
+    扩展
+
+    - 可以进一步解析参数是否可选（例如 name: str = None）或默认值。
+
+    - 支持复杂的参数类型（如 list[int]）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  block_id: MKmpd4nveoPT2lxhlJGcykFonHg
+  page_token: Eo4Qwws4iiQu3Lk970Gcfy0EnSb
+  original_title: '设计一个函数，将自然语言描述的工具列表（如“search(query: str) -> str: 搜索互联网”）转换为 JSON
+    Schema 格式，支持提取函数名、参数名、参数类型、描述和返回值类型。'
+  imported_at: '2026-09-21'

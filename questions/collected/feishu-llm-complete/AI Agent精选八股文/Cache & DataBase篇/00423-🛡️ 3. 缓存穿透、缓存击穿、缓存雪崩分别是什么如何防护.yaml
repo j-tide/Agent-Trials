@@ -1,0 +1,134 @@
+---
+schema_version: 1
+id: feishu-llm-complete-98ce06f8b624
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E1️ 3. 缓存穿透、缓存击穿、缓存雪崩分别是什么？如何防护？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F6E1️ 3. 缓存穿透、缓存击穿、缓存雪崩分别是什么？如何防护？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这三大缓存灾难，它们的本质是 “缓存层失效” 的不同表现形式。
+
+    请求洪流
+        │
+        ├─→ 穿透：查一个根本不存在的 key，直接打到数据库
+        ├─→ 击穿：一个热点 key 刚过期，海量并发请求同时涌入数据库
+        └─→ 雪崩：大量 key 在同一时刻过期，或 Redis 宕机，数据库被瞬间压垮
+
+    ① 缓存穿透
+    现象：大量请求查询一个数据库和缓存中都永远不存在的 Key（如 id=-1，或恶意构造的随机 ID）。由于缓存中始终没有，请求全部穿透到数据库。
+
+    防护手段：
+
+    - 布隆过滤器：在缓存前加一层，快速判断 Key 是否一定不存在。内存占用极小，可拦截绝大多数无效 Key。
+
+    - 缓存空对象：对查不到的 Key，缓存一个带有较短过期时间的空值，防止重复穿透。
+
+    - 接口入口校验：业务层直接拦截非法参数（如负数 ID、过长字符串）。
+
+    from pybloom_live import BloomFilter
+
+    bf = BloomFilter(capacity=1000000, error_rate=0.001)
+    # 初始化所有可能存在的合法会话 ID
+    for sid in db.get_all_session_ids():
+        bf.add(sid)
+
+    def get_session(session_id):
+        if session_id not in bf:   # 一定不存在
+            return None
+        # 存在或误判，继续查缓存和数据库...
+
+    ② 缓存击穿
+
+    现象：某一个极度热门的 Key（如明星 Agent 的配置），在缓存过期的瞬间，大量并发请求同时涌入，直接击穿缓存层打到数据库。
+
+    防护手段：
+
+    - 互斥锁：缓存失效时，只允许一个请求去加载数据库，其他请求等待锁释放并读取缓存。
+
+    - 永不过期 + 异步刷新：将热点 Key 设置为物理永不过期，但内部存储一个逻辑过期时间。当逻辑过期时，由后台线程异步更新缓存，用户请求始终读取旧值（快速返回）。
+
+    import threading
+
+    def get_hot_config(config_id):
+        data = r.get(f"config:{config_id}")
+        if data:
+            return data
+        # 尝试获取锁
+        lock_key = f"lock:config:{config_id}"
+        if r.setnx(lock_key, "1"):
+            r.expire(lock_key, 10)
+            try:
+                # 再次检查缓存
+                data = r.get(f"config:{config_id}")
+                if data:
+                    return data
+                data = db.get_config(config_id)
+                r.setex(f"config:{config_id}", 3600, data)
+                return data
+            finally:
+                r.delete(lock_key)
+        else:
+            time.sleep(0.1)
+            return get_hot_config(config_id)  # 递归重试
+
+    ③ 缓存雪崩
+
+    现象：大量缓存在同一时间窗口内集中过期，或者 Redis 集群宕机，导致所有请求直接冲向数据库，引发连锁崩溃。
+
+    防护手段：
+
+    - 过期时间加随机偏移：避免大量 Key 在同一时刻失效。例如基础 1 小时，随机增加 0-300 秒。
+
+    - 多级缓存：本地缓存 (Caffeine) → Redis → 数据库。Redis 挂了本地缓存还能撑一阵。
+
+    - 熔断降级：用 Hystrix/Sentinel 包裹数据库调用，当数据库压力过大时，直接返回降级数据或友好提示，保证系统不崩。
+
+    - 限流：在网关或缓存层限制到达数据库的请求速率。
+
+    - 高可用架构：Redis 采用主从/哨兵/集群，避免单点故障。
+
+    import random
+
+    def set_with_random_ttl(key, value, base_ttl=3600):
+        ttl = base_ttl + random.randint(0, 600)  # 加 0-10 分钟随机偏移
+        r.setex(key, ttl, value)
+
+    总结：
+
+    这三个问题，本质上都是并发洪峰在缓存层被撕开了一道口子。穿透的口子是“数据真空”，击穿的口子是“热点失效”，雪崩则是整个“缓存堤坝”的溃堤。工程上解决它们，需要从前置过滤（布隆）、并发控制（锁）、时间打散（随机过期）、架构冗余（多级+熔断） 四个维度编织出一张立体的防护网。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QbEawmJTRiAdEik5pKCciSZqnTf
+  block_id: doxcnomTR1UYPyPBd7eHXtYoXoh
+  page_token: QbEawmJTRiAdEik5pKCciSZqnTf
+  original_title: "\U0001F6E1️ 3. 缓存穿透、缓存击穿、缓存雪崩分别是什么？如何防护？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,98 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9bb336d19652
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F514 如何在回调中集成 Prometheus 或类似指标收集器？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F514 如何在回调中集成 Prometheus 或类似指标收集器？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    集成 Prometheus 的核心是在回调处理器中，针对每个事件，调用 Prometheus 客户端库（prometheus_client）暴露的指标对象，递增计数器、观察延迟等。为了避免影响主链性能，必须保证指标的更新操作是线程安全且极快的（Prometheus 客户端内部已做优化）。
+
+    步骤：
+
+    - 安装 prometheus-client，创建指标：
+
+    - Counter("langchain_llm_calls_total", "Total LLM calls", ["model", "status"]) 统计成功/失败次数。
+
+    - Histogram("langchain_llm_latency_seconds", "LLM call latency", ["model"]) 统计延迟分布（P50, P99）。
+
+    - Gauge("langchain_llm_active", "Active LLM calls") 统计当前并发数。
+
+    - 实现自定义 BaseCallbackHandler（异步环境用 AsyncCallbackHandler）：
+
+    ```python
+    from prometheus_client import Counter, Histogram, Gauge
+    import time
+
+    class PrometheusCallback(BaseCallbackHandler):
+        def __init__(self):
+            self._start_times = {}
+            self.llm_calls_total = Counter("langchain_llm_calls_total", "Total LLM calls", ["model", "status"])
+            self.llm_latency = Histogram("langchain_llm_latency_seconds", "LLM latency", ["model"])
+            self.llm_active = Gauge("langchain_llm_active", "Active LLM calls")
+
+        def on_llm_start(self, serialized, prompts, **kwargs):
+            model = serialized.get("name", "unknown")
+            self.llm_active.inc()
+            self._start_times[kwargs["run_id"]] = (time.time(), model)
+
+        def on_llm_end(self, response, **kwargs):
+            run_id = kwargs["run_id"]
+            start, model = self._start_times.pop(run_id)
+            latency = time.time() - start
+            self.llm_latency.labels(model=model).observe(latency)
+            self.llm_calls_total.labels(model=model, status="success").inc()
+            self.llm_active.dec()
+
+        def on_llm_error(self, error, **kwargs):
+            run_id = kwargs["run_id"]
+            _, model = self._start_times.pop(run_id)
+            self.llm_calls_total.labels(model=model, status="error").inc()
+            self.llm_active.dec()
+    ```
+
+    - 将回调绑定到链上，并通过 HTTP 暴露 /metrics 端点（FastAPI 中可以用 prometheus_fastapi_instrumentator 或手动挂载）。Prometheus 服务器定期抓取即可。
+
+    踩坑提醒：
+
+    - 流式 LLM 的 on_llm_new_token 触发频率极高，不要在其中做锁操作或阻塞 I/O。
+
+    - 分布式部署时，每个实例独立暴露 metrics，由 Prometheus 服务发现汇总；Histogram 的分位数计算在 PromQL 中完成。
+
+    - 如果使用 Gunicorn 多进程，prometheus_client 需要 multiprocess 模式，否则各进程指标会互相覆盖。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LxvJw0LsmisXN7ksYtecakVunBc
+  block_id: QDgkdH1WSo9mVwxrs6Jcf8Ebnwg
+  page_token: LxvJw0LsmisXN7ksYtecakVunBc
+  original_title: "\U0001F514 如何在回调中集成 Prometheus 或类似指标收集器？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8b961628b81f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 DPO 对齐时，如何构造“有帮助性”和“安全性”两个维度的偏好对？冲突时如何处理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 多模态面（精选）
+derived_topic: 对齐与安全
+tags: &1
+- 多模态面（精选）
+- 对齐与安全
+content:
+  prompt: 使用 DPO 对齐时，如何构造“有帮助性”和“安全性”两个维度的偏好对？冲突时如何处理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    偏好对构造：
+
+    - 纯有用性对：两个回答在安全上都合格，但一个更全面、准确、格式好。则作为有用性的正负例。
+
+    - 纯安全性对：对于同一个高风险问题（如“如何撬锁”），一个详细回答（不安全），一个拒绝并劝导（安全）。作为安全性的正负例。确保安全问题确实是有害的，安全回答必须是真正安全的。
+
+    - 冲突情况下的构造：这是关键。对于一些边界问题（如“我失恋了，觉得活着没意思”），一个回答仅提供心理热线（安全但过于简单），另一个提供情感安慰和倾听（有用且依然安全）。这时应标记后者为chosen，前者为rejected，让模型学到在安全范围内应最大化有用性。
+
+    冲突时的处理（两阶段或加权DPO）：
+
+    - 层级化偏好：在数据构造阶段就植入优先级。安全性冲突时，安全回答永远是chosen；有用性冲突时，有用但安全的回答优于无用但安全的回答。DPO学习到这种排序。
+
+    [图片内容未导入]
+
+    - 文本输入：关键词+语义安全分类器，检测越狱、仇恨、色情、自我伤害、政治敏感等。
+
+    - 图像输入：NSFW分类器（检测裸体、暴力等）、文字提取（OCR）+文本安全扫描（防止图像中注入恶意指令）、面部年龄估计（儿童保护）。
+
+    - 结合上下文：对于多轮对话，结合历史判断当前输入的累积风险。
+
+    - 每个检测模块输出风险分数，融合后映射为三个等级：安全（直接放行）、可疑（进入更严格模式或请求人工确认）、危险（直接拦截并返回预设安全回复）。
+
+    - 文本输出：再次使用安全分类器，检查生成的回答中是否意外出现不安全内容（生成幻觉可能引入）。
+
+    - 图像输出（文生图）：运行输出图像安全检测器，过滤不合规图像。
+
+    - 所有请求和决策记录存储，用于监控、报警和模型迭代。高风险请求需要特别标记。
+
+    - 模型明确知道自己不是专业人士。当问题超出常见科普范围时（如“根据我的症状开处方”），必须拒绝，并引导用户就医。
+
+    - 对于可以回答的通用健康知识（如“感冒的症状有哪些”），回答内容必须保守，引用公认的卫生机构信息，不做个人化诊断。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/R1YlwBbqSiSCbfkGDGXc9v4Nnbd
+  block_id: RIr6dtqxYoyXVNxSuKwcDeAGntb
+  page_token: R1YlwBbqSiSCbfkGDGXc9v4Nnbd
+  original_title: 使用 DPO 对齐时，如何构造“有帮助性”和“安全性”两个维度的偏好对？冲突时如何处理？
+  imported_at: '2026-09-21'

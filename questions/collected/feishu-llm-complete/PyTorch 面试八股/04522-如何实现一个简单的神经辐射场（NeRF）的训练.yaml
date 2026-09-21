@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-15f7f3bc5435
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何实现一个简单的“神经辐射场”（NeRF）的训练？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何实现一个简单的“神经辐射场”（NeRF）的训练？
+answer:
+  mode: rubric
+  reference_answer: |-
+    NeRF 使用一个 MLP 表示 3D 场景，输入为 5D 坐标（空间位置 + 观测方向），输出颜色和密度。训练通过体渲染重建 2D 图像。简易步骤如下：
+
+    - 模型定义：
+
+    ```python
+    class NeRF(nn.Module):
+        def __init__(self, D=8, W=256):
+            super().__init__()
+            # 位置编码后的维度（未编码时直接使用坐标）
+            # 这里简化为不使用位置编码的版本
+            self.linears = nn.ModuleList([nn.Linear(3, W)] + [nn.Linear(W, W) for _ in range(D-1)])
+            self.alpha_out = nn.Linear(W, 1)   # 密度
+            self.rgb_out = nn.Linear(W, 3)     # 颜色
+
+        def forward(self, pts, viewdirs=None):
+            h = pts
+            for layer in self.linears:
+                h = F.relu(layer(h))
+            alpha = F.softplus(self.alpha_out(h))  # 保证密度 > 0
+            rgb = torch.sigmoid(self.rgb_out(h))
+            return rgb, alpha
+    ```
+
+    - 体渲染函数：从相机光线采样点，沿光线积分颜色和密度。
+
+    - 训练循环：
+
+    ```python
+    for epoch in range(epochs):
+        rays_o, rays_d, target_colors = sample_rays()  # 从图像生成光线
+        pts = rays_o + rays_d * t_vals  # 采样空间点
+        pred_rgb, alpha = model(pts)
+        loss = F.mse_loss(pred_rgb, target_colors)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+    ```
+
+    完整实现需加入位置编码、分层采样（Coarse + Fine）等，但以上框架展示了核心逻辑。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  block_id: Gr7mdwiyOocYu7xvXW7cMlsmn1f
+  page_token: AfmowRhTNiPEZ0kZQTHcJKjTnkh
+  original_title: 如何实现一个简单的“神经辐射场”（NeRF）的训练？
+  imported_at: '2026-09-21'

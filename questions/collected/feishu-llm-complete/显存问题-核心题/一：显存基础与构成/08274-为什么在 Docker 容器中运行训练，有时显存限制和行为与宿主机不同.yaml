@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-86666449616c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么在 Docker 容器中运行训练，有时显存限制和行为与宿主机不同？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 一：显存基础与构成
+tags: &1
+- 显存问题-核心题
+- 一：显存基础与构成
+content:
+  prompt: 为什么在 Docker 容器中运行训练，有时显存限制和行为与宿主机不同？
+answer:
+  mode: rubric
+  reference_answer: "在 Docker 容器中运行 GPU 训练时，显存行为和限制可能与直接在宿主机上运行有所不同，这通常源于 CUDA 驱动版本差异、容器运行时的显存隔离策略
+    以及 环境变量设置。\n\n\U0001F50D 主要原因\n\n- NVIDIA 驱动与 CUDA 版本兼容性\nDocker 容器本身不包含 GPU 驱动，而是依赖宿主机的
+    NVIDIA 驱动。如果在容器内安装了与宿主机驱动版本不兼容的 CUDA Toolkit（例如宿主机驱动只支持 CUDA 11.8，而容器内安装了 CUDA
+    12.1），可能导致容器内应用无法正常调用 GPU，或者只能使用降级功能。这不会直接改变显存大小，但可能导致某些算子无法使用 Tensor Core 或显存分配失败。\n\n-
+    --gpus 与显存隔离限制\n启动 Docker 容器时，可以使用 --gpus 参数指定哪些 GPU 可见，但默认情况下，容器内的进程可以使用该 GPU
+    的全部显存。如果你想限制容器内的显存使用量，不能通过 Docker 的 --memory 标志（那是限制 CPU RAM），而需要：\n\n- CUDA 环境变量差异\n宿主机上可能设置了全局的
+    CUDA 环境变量（如 CUDA_VISIBLE_DEVICES, CUDA_CACHE_PATH, CUDA_MPS_PIPE_DIRECTORY 等），而容器内的环境是隔离的。如果容器内缺少某些环境变量（例如未设置
+    CUDA_VISIBLE_DEVICES），PyTorch 可能会看到所有 GPU，并在默认的 0 号 GPU 上分配显存，可能与宿主机上其他进程冲突。另外，PYTORCH_CUDA_ALLOC_CONF
+    这类配置如果在宿主机上设置，容器内可能未继承，导致显存分配行为不同（例如碎片的产生）。\n\n- 共享内存（Shared Memory）限制\nDocker
+    默认的 /dev/shm 大小是 64MB。PyTorch 的多进程数据加载器（DataLoader, num_workers>0）需要使用共享内存来在进程间传输数据。如果共享内存不足，PyTorch
+    会回退到使用 /tmp 磁盘文件，导致数据加载极慢，甚至引发 OOM（因为磁盘 I/O 内存映射也可能占用显存）。启动容器时应该用 --shm-size=1g
+    或更大来避免此问题。\n\n\U0001F4A1 结论：Docker 容器内训练与宿主机行为的差异主要源于显存隔离策略、CUDA 环境变量和共享内存限制。对于生产环境，建议使用
+    MIG 或 Kubernetes 设备插件进行精细的显存分配，并确保容器内的 CUDA 环境与宿主机驱动兼容。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ASR1w4TNSiuI8wk9EFTcEhTunZd
+  block_id: ROaQdExgOoPDH1xIWqbcDzgJnO9
+  page_token: ASR1w4TNSiuI8wk9EFTcEhTunZd
+  original_title: 为什么在 Docker 容器中运行训练，有时显存限制和行为与宿主机不同？
+  imported_at: '2026-09-21'

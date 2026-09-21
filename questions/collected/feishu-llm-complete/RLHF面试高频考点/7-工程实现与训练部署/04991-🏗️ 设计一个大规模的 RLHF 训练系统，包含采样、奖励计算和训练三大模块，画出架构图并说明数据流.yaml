@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7d7d62f03692
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3D7️ 设计一个大规模的 RLHF 训练系统，包含采样、奖励计算和训练三大模块，画出架构图并说明数据流。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 7-工程实现与训练部署
+tags: &1
+- RLHF面试高频考点
+- 7-工程实现与训练部署
+content:
+  prompt: "\U0001F3D7️ 设计一个大规模的 RLHF 训练系统，包含采样、奖励计算和训练三大模块，画出架构图并说明数据流。"
+answer:
+  mode: rubric
+  reference_answer: "架构概览\n\n一个生产级 RLHF 系统通常由三大解耦的模块组成：采样集群（Actor Rollout）、奖励计算服务（Reward
+    & Ref Server）、训练集群（PPO Trainer）。它们之间通过高性能消息队列或分布式数据总线连接，形成异步流水线。\n\n架构图（文字版）\n\n[图片内容未导入]\n\n\U0001F501
+    数据流详述\n\n- 采样阶段：调度器从 Prompt 池中拉取一批无标签 prompt，推送给采样集群。Actor 模型使用当前最新权重进行自回归生成，为每个
+    prompt 生成候选回答，并记录每一步的对数概率 log⁡πθ(at∣st)logπθ(at∣st)。回答和概率数据被打包成 RolloutBatch，发送到经验缓冲区。\n\n-
+    奖励计算阶段：奖励计算服务从缓冲区拉取 RolloutBatch，将其中的 prompt 和 response 分别送入冻结的 Reward Model 和
+    Reference Model。Reward Model 输出序列级标量奖励 rRMrRM；Reference Model 输出每 token 对数概率 log⁡πreflogπref。服务将
+    KL 惩罚 −β(log⁡πθ−log⁡πref)−β(logπθ−logπref) 加到奖励上，形成最终奖励序列，再写回缓冲区。\n\n- 训练阶段：PPO
+    Trainer 从缓冲区拉取完整的经验数据（包含状态、动作、旧对数概率、奖励、价值估计等）。使用 GAE 计算优势函数，然后执行多轮 PPO 更新，更新 Actor
+    和 Critic 的参数。更新完成后，Trainer 将最新的 Actor 权重推送到模型仓库，供采样集群拉取。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TWMuwtjygiXKQYkjGELcArHan1b
+  block_id: TOagdJaoSoKCnvxG8RncYEXcnJe
+  page_token: TWMuwtjygiXKQYkjGELcArHan1b
+  original_title: "\U0001F3D7️ 设计一个大规模的 RLHF 训练系统，包含采样、奖励计算和训练三大模块，画出架构图并说明数据流。"
+  imported_at: '2026-09-21'

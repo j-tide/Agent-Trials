@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-91531801d492
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Megatron 中的序列并行是如何实现的？它对 LayerNorm 和 Attention 的处理。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: Megatron 中的序列并行是如何实现的？它对 LayerNorm 和 Attention 的处理。
+answer:
+  mode: rubric
+  reference_answer: |-
+    Megatron-LM 的序列并行与张量并行结合使用。假设已开启 TP（切分隐藏维度），在此基础上启用 SP，将激活张量的序列维度 seq_len 进一步切分到同一 TP 组内的设备上。
+
+    具体实现：
+
+    - LayerNorm 和 Dropout：这些操作在序列维度上是独立的（对每个 token 独立归一化）。在 SP 模式下，每个设备只拥有序列的一部分 tokens，因此可以独立执行 LayerNorm 和 Dropout，无需通信。这减少了冗余计算。
+
+    - 自注意力：注意力计算需要完整的序列信息（因为每个 token 要与所有 token 交互）。在 SP 中，每个设备只持有部分 token 的 Q，但需要完整的 K 和 V 来计算注意力。因此，在计算 QKV 投影后，需要AllGather 操作收集完整的 K 和 V（在序列维度上拼接），然后计算注意力。注意力输出同样在序列维度上被切分回各设备（通过 ReduceScatter 或类似操作）。更高效的实现（如 Ring Attention）则通过环形通信逐步传输 KV 块，避免一次性 AllGather 的大显存。
+
+    - MLP 和残差连接：这些也是 token 独立操作，无需通信，各设备独立计算。
+
+    通信模式：SP 在自注意力层引入额外的 AllGather 和 ReduceScatter（或等效的 Ring 通信），增加了通信量。但由于 SP 通常与 TP 结合，且长序列时注意力计算成为瓶颈，通信开销往往可以被隐藏。通过 SP，激活显存进一步降低，使得训练超长序列成为可能。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: GOYpdZcUNoBdYdxaoRBceg3yn3d
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: Megatron 中的序列并行是如何实现的？它对 LayerNorm 和 Attention 的处理。
+  imported_at: '2026-09-21'

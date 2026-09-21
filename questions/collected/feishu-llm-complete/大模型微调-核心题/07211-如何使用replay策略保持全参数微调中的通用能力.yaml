@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7d621927249d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用“replay”策略保持全参数微调中的通用能力？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如何使用“replay”策略保持全参数微调中的通用能力？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Replay（经验回放） 是从持续学习领域借鉴的核心策略，通过在微调过程中持续“重放”预训练阶段见过的数据，使模型参数优化时不仅要降低新任务损失，还要保持在旧任务（通用知识）上的低损失。
+
+    实现方式：
+
+    - 构建重放缓冲区：从预训练语料中（如维基百科、书籍、高质量网页）随机采样一个子集，大小通常为目标SFT数据集的5%~20%。这些数据代表“旧知识”。
+
+    - 混合训练：在每个训练batch中，不仅包含SFT样本，还按比例混入重放缓冲区的预训练文本。这些文本直接按标准语言建模任务处理（预测下一个token），与SFT损失相加。
+
+    - 动态更新：缓冲区可以固定，也可以每个epoch重新随机采样一部分，以覆盖更广的预训练分布。
+
+    为什么有效：
+
+    从优化视角看，微调数据的梯度会将参数拉向狭窄的任务分布，而重放数据的梯度则提供了指向原预训练分布广阔区域的“修正力”。参数更新方向是两者的加权平均，从而防止参数完全脱离旧知识的盆地。这相当于在损失曲面上施加了一个“锚”。
+
+    效果：
+
+    - 极大缓解灾难性遗忘，实验显示混入10%预训练数据可使MMLU等通用基准下降幅度从-5%缩小到-1%以内。
+
+    - 维持生成多样性和语言流畅度。
+
+    - 对SFT任务本身的学习影响很小，因为预训练数据的损失与SFT损失是累加关系，只要比例适当，SFT信号依然占主导。
+
+    混合比例的确定：
+
+    - 全参数微调风险高，建议重放数据占每个batch的10%~15%。
+
+    - PEFT时遗忘风险低，可减至1%~5%或不使用。
+
+    - 可通过监控通用基准验证：用10%比例训练一轮，若通用能力下降可接受，则维持；若下降明显，提高到15%或20%。
+
+    潜在问题：重放数据如果含有噪声或低质内容，可能引入负面影响，因此需清洗筛选。另外，重放数据与SFT数据在长度、格式上的差异可能导致训练效率降低，可通过适当截断或padding解决。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: AJCidjPiKo3j6jxPHwZc137mn8b
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 如何使用“replay”策略保持全参数微调中的通用能力？
+  imported_at: '2026-09-21'

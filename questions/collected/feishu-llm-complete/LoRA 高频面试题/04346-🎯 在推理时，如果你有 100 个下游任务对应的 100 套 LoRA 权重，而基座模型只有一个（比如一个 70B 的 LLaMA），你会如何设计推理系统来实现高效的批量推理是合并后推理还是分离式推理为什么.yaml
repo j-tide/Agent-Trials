@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-41acd99eebab
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3AF 在推理时，如果你有 100 个下游任务对应的 100 套 LoRA 权重，而基座模型只有一个（比如一个 70B 的 LLaMA），你会如何设计推理系统来实现高效的批量推理？是合并后推理还是分离式推理？为什么？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LoRA 高频面试题
+derived_topic: 
+tags: &1
+- LoRA 高频面试题
+content:
+  prompt: "\U0001F3AF 在推理时，如果你有 100 个下游任务对应的 100 套 LoRA 权重，而基座模型只有一个（比如一个 70B 的 LLaMA），你会如何设计推理系统来实现高效的批量推理？是合并后推理还是分离式推理？为什么？"
+answer:
+  mode: rubric
+  reference_answer: "面对 100 套不同的 LoRA 权重和一个共享的基座模型，我会选择 “分离式推理 + 动态分组批处理” 的方案，而不是传统的“合并后推理”。原因如下：\n\n\U0001F6AB
+    合并后推理的致命缺陷\n\n[图片内容未导入]\n\n✅ 分离式推理 + 动态批处理\n这种模式的核心是：基座权重 W0W0 在 GPU 中保持唯一一份，所有
+    LoRA 矩阵（Ai,Bi）也预先加载到 GPU 显存中（因为 100 套 LoRA 加起来可能只有几 GB，完全装得下）。推理时，根据每个请求携带的 LoRA_ID，动态地在每一层的计算中应用对应的
+    LoRA 残差。\n\n[图片内容未导入]\n\n- 批处理挑战：当同一个 batch 中包含了来自不同任务的请求时，不同请求需要使用不同的 LoRA 矩阵。标准的
+    torch.matmul 无法直接处理这种“分组矩阵乘法”。解决方案是：\n\n\U0001F4C8 性能优势\n\n- 显存高效：只需一份基座权重和全部
+    LoRA 矩阵（约 140 GB + 几 GB），相比 100 个合并模型（约 14 TB）节省了 99% 的显存。\n\n- 高吞吐：通过内核优化，不同
+    LoRA 的请求可以在同一个 batch 中高效并行处理，不会出现串行切换的延迟。\n\n- 弹性伸缩：新增第 101 个任务时，只需加载其微小的 LoRA
+    矩阵，无需任何模型重新加载。\n\n实践：我们曾为多个客户提供定制化的客服 LLM，每个客户有一套微调的 LoRA。部署时使用了支持动态 LoRA 的 vLLM
+    分支，将全部 LoRA 挂载到同一个基座模型上，处理并发请求时，系统自动进行分组批处理，整体吞吐量几乎与单任务推理持平，而显存成本降低了两个数量级。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MUH8wwD1nigAKikWjdJc1MHjn8f
+  block_id: YnX8dP5u6oe7mxxq0KHcH1A2nXg
+  page_token: MUH8wwD1nigAKikWjdJc1MHjn8f
+  original_title: "\U0001F3AF 在推理时，如果你有 100 个下游任务对应的 100 套 LoRA 权重，而基座模型只有一个（比如一个
+    70B 的 LLaMA），你会如何设计推理系统来实现高效的批量推理？是合并后推理还是分离式推理？为什么？"
+  imported_at: '2026-09-21'

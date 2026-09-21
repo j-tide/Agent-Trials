@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1d5ef77454ba
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“数据预取” (Data Prefetching)？num_workers 和 prefetch_factor 的设置。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 什么是“数据预取” (Data Prefetching)？num_workers 和 prefetch_factor 的设置。
+answer:
+  mode: rubric
+  reference_answer: |-
+    数据预取是指在GPU处理当前batch的同时，CPU在后台提前准备好后续几个batch的数据。这样GPU永远不会因为等数据而空闲，形成“计算-数据准备”的流水线。
+
+    在PyTorch的DataLoader中，num_workers控制预取进程的数量，prefetch_factor控制每个worker预先准备的batch数量。总预取队列长度 = num_workers * prefetch_factor。
+
+    - num_workers：每个worker是一个独立的Python进程，并行执行getitem。通常设为4-8，对于重CPU任务（如图像解码）可设到16甚至更高。但worker太多会消耗大量CPU内存，因为每个worker都会fork主进程的内存空间（如果cache了大数据集，内存占用会翻倍）。建议用htop监控CPU内存和利用率，找到最优值。一个经验法则是：观察一个step中GPU空闲时间，逐步增加worker数直到GPU不再空闲。
+
+    - prefetch_factor：每个worker提前加载的batch数。默认为2。增大它可以让队列更长，更能应对数据加载的瞬时波动，但会占用更多CPU内存。如果数据加载很稳定，设为2就够；如果数据预处理耗时波动大（比如不同样本的处理时间差异大），可以设到4-8。
+
+    - persistent_workers：设为True可以保持worker进程存活，避免每个epoch重新fork的开销。但注意，如果数据集的epoch间shuffle逻辑有问题，可能会导致重复数据。
+
+    最佳实践：先设num_workers=4, prefetch_factor=2, persistent_workers=True跑几个step，用nvidia-smi观察GPU利用率是否稳定且高。如果GPU经常空闲，逐步增加worker数；如果CPU内存告急，减少worker或使用轻量级预处理。还可以在DataLoader中使用pin_memory=True和pin_memory_device来加速数据传输。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HfoZwdjz1iRNmPkiI3icQQafnve
+  block_id: UsBndqDLbo4MBlxDWY4cxwRtnpd
+  page_token: HfoZwdjz1iRNmPkiI3icQQafnve
+  original_title: 什么是“数据预取” (Data Prefetching)？num_workers 和 prefetch_factor 的设置。
+  imported_at: '2026-09-21'

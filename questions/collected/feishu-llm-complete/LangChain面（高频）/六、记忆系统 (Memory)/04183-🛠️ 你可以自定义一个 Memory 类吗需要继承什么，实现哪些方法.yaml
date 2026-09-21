@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9b51cf19b7a8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E0️ 你可以自定义一个 Memory 类吗？需要继承什么，实现哪些方法？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F6E0️ 你可以自定义一个 Memory 类吗？需要继承什么，实现哪些方法？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    完全可以。自定义 Memory 只需要继承 BaseMemory 或 BaseChatMemory，并实现几个关键方法。
+
+    需要实现的核心方法：
+
+    - load_memory_variables(self, inputs: Dict) -> Dict：这是最重要的方法。根据传入的 inputs（通常包含用户输入），返回一个包含记忆变量的字典。例如返回 {"history": "对话历史文本"}，这些变量会被注入到 Prompt 中。
+
+    - save_context(self, inputs: Dict, outputs: Dict)：在每次链调用后，保存新的上下文。inputs 是链的输入，outputs 是链的输出。你需要在此方法中更新你的记忆数据。
+
+    - clear(self)：清空记忆。
+
+    如果你需要与聊天消息格式更好集成，可以继承 BaseChatMemory，它内部已经帮你管理了 chat_memory 属性（一个 BaseChatMessageHistory 对象）。你只需要实现 buffer 的组装逻辑即可。
+
+    示例：一个只记住用户名字的记忆类
+
+    ```python
+    from langchain.memory import BaseMemory
+    from typing import Any, Dict
+
+    class RememberNameMemory(BaseMemory):
+        user_name: str = ""
+
+        @property
+        def memory_variables(self):
+            return ["user_name"]
+
+        def load_memory_variables(self, inputs: Dict[str, Any]) -> Dict[str, str]:
+            return {"user_name": self.user_name}
+
+        def save_context(self, inputs: Dict[str, Any], outputs: Dict[str, str]):
+            # 假设有一个函数可以提取名字
+            if "my name is" in inputs["input"]:
+                # 简单提取
+                name = inputs["input"].split("my name is")[-1].strip()
+                self.user_name = name
+
+        def clear(self):
+            self.user_name = ""
+    ```
+
+    使用这个自定义记忆，每次链调用时，{user_name} 会自动填充进 Prompt。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H3N3wvSCiibLlPk5ZpjcveFHnNb
+  block_id: ZUF9dQu0AoTRYlxacqFcn2Nvnae
+  page_token: H3N3wvSCiibLlPk5ZpjcveFHnNb
+  original_title: "\U0001F6E0️ 你可以自定义一个 Memory 类吗？需要继承什么，实现哪些方法？"
+  imported_at: '2026-09-21'

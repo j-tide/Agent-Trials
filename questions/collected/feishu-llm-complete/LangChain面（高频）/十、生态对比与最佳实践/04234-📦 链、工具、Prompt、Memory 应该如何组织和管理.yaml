@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f86febd0f32e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4E6 链、工具、Prompt、Memory 应该如何组织和管理？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 十、生态对比与最佳实践
+tags: &1
+- LangChain面（高频）
+- 十、生态对比与最佳实践
+content:
+  prompt: "\U0001F4E6 链、工具、Prompt、Memory 应该如何组织和管理？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这些组件是 LangChain 应用的核心资产，必须像代码一样进行版本管理和测试。
+
+    链 (Chains)：
+
+    - 工厂函数模式：不直接暴露链实例，而是通过工厂函数创建，接受运行时配置（如模型实例、Prompt模板）。这样可以在单元测试中替换组件。
+
+    - LCEL 优先：用 LCEL 的 Runnable 接口构建链，避免使用过时的 SequentialChain。每个链都定义明确的 input_type 和 output_type。
+
+    - 链的注册与发现：如果有很多链，可以创建一个 ChainRegistry 字典，根据名称获取链，便于动态路由和A/B测试。
+
+    工具 (Tools)：
+
+    - 单一职责：每个工具文件只包含一个工具函数及其Schema定义。使用 @tool 装饰器并添加完整的 docstring。
+
+    - 依赖注入：工具如果需要外部资源（如数据库连接），通过工厂函数传入，而不是使用全局变量。
+
+    - 错误处理包装：工具内部必须捕获所有异常，并返回结构化的错误信息，绝不让异常传播到 AgentExecutor。
+
+    Prompt：
+
+    - 外部化管理：将 Prompt 模板存储在 config/prompts/ 下的 YAML 文件中。文件按业务领域分，比如 customer_service.yaml, legal.yaml。YAML 结构包含版本号、模板内容、输入变量列表。
+
+    - Prompt 版本控制：每次修改 Prompt 时，不直接覆盖，而是新建一个版本条目，旧版本保留。链在创建时指定使用的版本。
+
+    - Prompt 测试：为每个 Prompt 编写单元测试，验证模板变量是否完整、格式是否正确。
+
+    Memory：
+
+    - 会话级实例化：不在全局创建 Memory 实例，而是为每个会话（session_id）动态创建，通过工厂函数从 Redis 或数据库加载历史。
+
+    - 统一接口：如果需要多种 Memory 类型（窗口、摘要、向量），抽象一个 MemoryFactory，根据配置返回对应的 BaseMemory 实例。
+
+    - 持久化与缓存：Memory 的存储后端（Redis、PostgreSQL）应该可配置，并且通过连接池管理。
+
+    管理原则：所有这些组件都应该被视为“配置+代码”，它们的变化频率高于业务逻辑，因此需要轻量级的更新机制，最好能支持热加载（对于 Prompt 和某些配置）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/OutcwjKcbiXdEJkV2g7cmhUnnkf
+  block_id: I6HVdiKZxos8vQxzi1vc5bbDnXe
+  page_token: OutcwjKcbiXdEJkV2g7cmhUnnkf
+  original_title: "\U0001F4E6 链、工具、Prompt、Memory 应该如何组织和管理？"
+  imported_at: '2026-09-21'

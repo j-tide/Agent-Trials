@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e0cb6594c3e5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F517 MultiQueryRetriever 生成多个查询后，如何合并各查询的检索结果？有哪些合并策略？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 五：检索器与高级检索策略 (Retrievers)
+tags: &1
+- LangChain面（高频）
+- 五：检索器与高级检索策略 (Retrievers)
+content:
+  prompt: "\U0001F517 MultiQueryRetriever 生成多个查询后，如何合并各查询的检索结果？有哪些合并策略？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    MultiQueryRetriever 在得到多个查询各自的文档列表后，需要进行合并。LangChain 的默认实现采用的是一种简单的去重合并策略。
+
+    默认合并流程：
+
+    - 将各个查询返回的文档列表展平（flatten）为一个大的文档列表。
+
+    - 基于文档的唯一标识（通常是 page_content 的哈希值，或文档对象的ID）进行去重，保留第一次出现的文档（顺序影响最终排序）。
+
+    - 返回去重后的文档列表。
+
+    默认策略的局限性：
+
+    - 不考虑不同查询的优先级，所有查询的文档一视同仁。
+
+    - 去重后不进行重新排序，可能导致最相关的文档淹没在列表中。
+
+    自定义合并策略：
+    你可以通过子类化 MultiQueryRetriever 并重写 _get_relevant_documents 或 _combine_documents 方法来实现更高级的合并：
+
+    - 加权合并：为每个查询返回的文档赋予不同权重（例如，原始查询的结果权重更高），然后按累加权重排序。
+
+    - RRF（Reciprocal Rank Fusion）：一种常用的多路召回融合算法，对每个文档在不同查询中的排名取倒数求和，再按得分排序。
+
+    - 基于相似度分数的重排序：如果底层检索器返回了相似度分数，可以按分数降序排列。
+
+    - 使用 Cross-Encoder 重排序：将合并后的文档与原始问题一起输入一个 Cross-Encoder 模型，重新打分并排序。
+
+    例如，实现一个简单的重排序合并：
+
+    ```python
+    from langchain.retrievers.multi_query import MultiQueryRetriever
+
+    class RerankMultiQueryRetriever(MultiQueryRetriever):
+        def _combine_documents(self, doc_lists: list):
+            # 展平并去重
+            unique_docs = {}
+            for doc in (d for sublist in doc_lists for d in sublist):
+                unique_docs[doc.page_content] = doc
+            docs = list(unique_docs.values())
+            # 这里可以调用你的重排序模型对docs重新打分排序
+            # 假设按某种逻辑排序
+            return docs
+    ```
+
+    在实际项目中，如果需要更精细的控制，常使用 EnsembleRetriever 或自定义管线。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YrNHwdqUUiHr0JkXRNrc4c0kn5d
+  block_id: GTdYdkOD0oN2chxPSiec5sTPnuf
+  page_token: YrNHwdqUUiHr0JkXRNrc4c0kn5d
+  original_title: "\U0001F517 MultiQueryRetriever 生成多个查询后，如何合并各查询的检索结果？有哪些合并策略？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e2993bd09160
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚙️ 10. 如何自定义 Spring AI 的 ChatClient，实现多轮对话和上下文管理？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "⚙️ 10. 如何自定义 Spring AI 的 ChatClient，实现多轮对话和上下文管理？"
+answer:
+  mode: rubric
+  reference_answer: "ChatClient 是 Spring AI 提供的流式构建器，通过它可以轻松装配多轮对话记忆、Advisor、默认系统提示等。\n\n实现多轮对话的关键：将对话历史注入上下文窗口。\n\nSpring
+    AI 默认是无状态的，要实现“记住之前说过的话”，需要把历史消息手动追加到 Prompt 中。我们可以把这个逻辑封装在一个 Advisor 里，实现透明化的上下文管理。\n\n自定义
+    ConversationMemoryAdvisor：\n\n```java\n@Component\npublic class ConversationMemoryAdvisor
+    implements RequestResponseAdvisor {\n\n    // 使用线程安全的 Map 存储不同会话的历史，实际应用可改用 Redis\n
+    \   private final Map<String, List<Message>> conversationStore = new ConcurrentHashMap<>();\n\n
+    \   @Override\n    public AdvisedRequest adviseRequest(AdvisedRequest request,
+    Map<String, Object> context) {\n        // 1. 获取会话 ID，可从请求中携带，也可用用户标识\n        String
+    conversationId = request.getAdviseParam(\"conversationId\", String.class, \"default\");\n
+    \       \n        // 2. 获取该会话的历史消息\n        List<Message> history = conversationStore.computeIfAbsent(conversationId,
+    k -> new ArrayList<>());\n        \n        // 3. 构建带历史的消息列表：系统提示 + 历史消息 + 当前用户消息\n
+    \       List<Message> fullMessages = new ArrayList<>();\n        fullMessages.add(new
+    SystemMessage(request.systemText()));\n        fullMessages.addAll(history);\n
+    \       fullMessages.add(new UserMessage(request.userText()));\n        \n        //
+    4. 替换原始的 Prompt，改由包含历史的消息列表\n        Prompt newPrompt = new Prompt(fullMessages,
+    request.options());\n        return AdvisedRequest.from(request).withPrompt(newPrompt).build();\n
+    \   }\n\n    @Override\n    public ChatResponse adviseResponse(ChatResponse response,
+    Map<String, Object> context) {\n        // 5. 从请求上下文中取出当前用户消息\n        Message
+    userMessage = new UserMessage(response.getMetadata().get(\"originalUserText\",
+    String.class));\n        // 6. 从响应中取出模型的回复\n        Message assistantMessage =
+    response.getResult().getOutput();\n        \n        // 7. 更新历史：将当前轮的一对消息追加进会话历史\n
+    \       String conversationId = context.get(\"conversationId\", String.class,
+    \"default\");\n        List<Message> history = conversationStore.get(conversationId);\n
+    \       if (history != null) {\n            history.add(userMessage);\n            history.add(assistantMessage);\n
+    \           \n            // 控制历史长度，避免 token 超限，保留最近 20 条消息\n            if (history.size()
+    > 20) {\n                history.subList(0, history.size() - 20).clear();\n            }\n
+    \       }\n        return response;\n    }\n\n    @Override\n    public int getOrder()
+    { return 10; }\n}\n```\n\n装配到 ChatClient 并使用：\n\n```java\n@Bean\npublic ChatClient
+    chatClient(ChatClient.Builder builder, ConversationMemoryAdvisor memoryAdvisor)
+    {\n    return builder\n            .defaultSystem(\"你是一个智能助手，请用简洁的中文回答。\")\n            .defaultAdvisors(memoryAdvisor)\n
+    \           .build();\n}\n\n// 业务调用\n@Autowired\nprivate ChatClient chatClient;\n\npublic
+    String chat(String userInput, String conversationId) {\n    return chatClient.prompt()\n
+    \           .user(userInput)\n            .adviseParam(\"conversationId\", conversationId)
+    \ // 传入会话 ID\n            .call()\n            .content();\n}\n```\n\n效果：同一个 conversationId
+    下的所有调用，都会自动携带之前所有的对话历史，模型能记住上下文。\n\n进阶设计：\n\n- 历史持久化：将 Map 替换为 Redis，实现跨 JVM、跨重启的持久会话。\n\n-
+    摘要压缩：当历史过长时，不直接删除旧消息，而是用 LLM 生成一份摘要，保留关键信息，极大节省 token。\n\n- 多用户隔离：conversationId
+    可以与登录用户绑定，避免不同用户串话。\n\n收束：\n自定义 ChatClient 的精髓就在于通过 Advisor 把“上下文管理”这个横切关注点独立出来。业务代码只关心发什么消息，完全不感知记忆机制的存在。这种干净分离让你可以单独测试记忆策略、随时切换存储后端，甚至给不同用户配置不同的记忆长度——所有复杂性都藏在了
+    Advisor 内部。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AFyRwmNoZiYw94kQOOhc35Junpd
+  block_id: doxcnSJ9Wpx4VfdZMAj8VEtQrXe
+  page_token: AFyRwmNoZiYw94kQOOhc35Junpd
+  original_title: "⚙️ 10. 如何自定义 Spring AI 的 ChatClient，实现多轮对话和上下文管理？"
+  imported_at: '2026-09-21'

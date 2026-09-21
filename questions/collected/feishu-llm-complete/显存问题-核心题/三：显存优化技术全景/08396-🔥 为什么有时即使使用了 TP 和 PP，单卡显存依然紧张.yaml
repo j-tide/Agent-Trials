@@ -1,0 +1,49 @@
+---
+schema_version: 1
+id: feishu-llm-complete-34d5773908f6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F525 为什么有时即使使用了 TP 和 PP，单卡显存依然紧张？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "\U0001F525 为什么有时即使使用了 TP 和 PP，单卡显存依然紧张？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 TP 和 PP 虽然能大幅削减权重和激活，但长序列、大 batch 和 KV Cache（推理时）或激活重计算的限制，以及未切分层的累积和通信缓冲区仍可能导致显存吃紧。\n\n\U0001F50D
+    主要原因：\n\n- 激活显存依然是瓶颈\nTP 切分了层内权重和部分激活，但一些区域（如 LayerNorm）在纯 TP 下仍会保留完整的激活副本。若序列长度极大（如
+    128K），即使层数被 PP 切分，单卡的激活可能仍很高。\n\n- 未切分的固定开销\nEmbedding 层、输出头、位置编码等通常不被 TP/PP 完美切分，可能被复制到每张卡，当词汇量巨大时（>100k），这些层本身就能占数
+    GB。\n\n- 通信缓冲区占据显存\nTP 需要 All-Reduce/All-Gather 缓冲区，PP 需要发送/接收中间激活的缓冲区。在大规模并行时，这些缓冲可能占用数
+    GB。\n\n- 优化器状态\n使用 ZeRO-1/2 时优化器状态可能仍完整存储（除非用 ZeRO-3），造成显存压力。\n\n- Micro-batch
+    过大\n为了减少 PP 气泡，通常增大 micro-batch 数，而这会增加激活峰值（受限于 1F1B 的上限，但若 M > P 仍有累积），从而抵消了部分
+    PP 节省的显存。\n\n- 推理时 KV Cache\n推理阶段，KV Cache 随序列长度线性增长，而 TP/PP 只能切分权重，KV Cache 若不使用张量并行切分或量化，依然是单卡完整存储（或分头存储），长上下文下会爆显存。\n\n✅
+    因此，显存紧张时需进一步采用序列并行（SP）、KV Cache 量化、激活重计算、专家并行等组合手段，并减小 batch 或序列长度。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WSBEwNJCni9q3ok7cN6cISL3nwe
+  block_id: YLiQdkUOXoDtCtxNK1EcimW0nfb
+  page_token: WSBEwNJCni9q3ok7cN6cISL3nwe
+  original_title: "\U0001F525 为什么有时即使使用了 TP 和 PP，单卡显存依然紧张？"
+  imported_at: '2026-09-21'

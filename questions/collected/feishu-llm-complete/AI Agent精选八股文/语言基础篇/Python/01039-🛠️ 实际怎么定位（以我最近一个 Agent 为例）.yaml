@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9033baa0cd1f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6E0️ 实际怎么定位（以我最近一个 Agent 为例）"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 语言基础篇 / Python
+tags: &1
+- AI Agent精选八股文
+- 语言基础篇
+- Python
+content:
+  prompt: "\U0001F6E0️ 实际怎么定位（以我最近一个 Agent 为例）"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Step 1：起一个 tracemalloc 对比
+
+    ```python
+    import tracemalloc
+    tracemalloc.start()
+    # ... 跑 100 轮对话 ...
+    snapshot = tracemalloc.take_snapshot()
+    # 再跑 100 轮
+    snapshot2 = tracemalloc.take_snapshot()
+    stats = snapshot2.compare_to(snapshot, 'lineno')
+    for s in stats[:5]:
+        print(s)
+    ```
+
+    立刻看到 Top1 是某个 messages 列表的大小在疯长。
+
+    Step 2：查谁在抓着这个列表不放
+    用 gc.get_referrers() 或 objgraph.show_backrefs() 画出来：
+
+    ```python
+    import objgraph
+    obj = problematic_messages_list
+    objgraph.show_backrefs([obj], max_depth=5, filename='chain.png')
+    ```
+
+    结果发现链是：messages_list → dict → Tool 实例 → Tool.init 里 self.callback = lambda: messages_list 形成的闭包循环。这个 Tool 实例又因为放在全局 ACTIVE_TOOLS 里，永远不释放。
+
+    Step 3：验证修复
+    把全局 dict 换成 WeakValueDictionary，把闭包改成 weakref.ref(messages_list) 后回调时先解引用判空。再跑相同压测，tracemalloc 对比差值归零。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/U2mNwf4Ivi97WGkx4Sjc3qbHnqb
+  block_id: doxcnnu9O5PQQcQqi45JUBMA9jf
+  page_token: U2mNwf4Ivi97WGkx4Sjc3qbHnqb
+  original_title: "\U0001F6E0️ 实际怎么定位（以我最近一个 Agent 为例）"
+  imported_at: '2026-09-21'

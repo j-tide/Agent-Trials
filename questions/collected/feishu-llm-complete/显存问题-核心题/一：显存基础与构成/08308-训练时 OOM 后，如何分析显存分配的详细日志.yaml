@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-48833c8cd527
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练时 OOM 后，如何分析显存分配的详细日志？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 一：显存基础与构成
+tags: &1
+- 显存问题-核心题
+- 一：显存基础与构成
+content:
+  prompt: 训练时 OOM 后，如何分析显存分配的详细日志？
+answer:
+  mode: rubric
+  reference_answer: "训练时遇到 CUDA OOM 错误，最头疼的是不知道是哪部分数据撑爆了显存。分析 OOM 需要系统的方法和工具。\n\n\U0001F527
+    分析方法与工具\n\n- 启用 PyTorch 的显存分配日志\nPyTorch 提供了环境变量 PYTORCH_CUDA_ALLOC_CONF，可以在 OOM
+    时打印出当前所有张量的显存占用快照。\n\n```bash\nexport PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True,max_split_size_mb:128\n```\n\n更强大的功能是
+    backtrace，它可以记录每一次显存分配时的调用栈，当 OOM 发生时，打印出最后一次成功分配的位置，以及导致 OOM 的那次分配的请求大小。\n\n```bash\nexport
+    PYTORCH_CUDA_ALLOC_CONF=backtrace:dump,expandable_segments:True\n```\n\n当 OOM
+    时，会在日志中输出一个 JSON 文件，其中包含了所有当前活跃的显存分配记录及其调用栈。\n\n- 使用 torch.cuda.memory_summary()\n在训练循环的某个检查点，或者捕获
+    OOM 异常后，调用 print(torch.cuda.memory_summary())。它会打印一份详细的报告，包括：分配器持有的总显存、当前实际使用的显存、各种大小块的数量、碎片化程度等。通过对比
+    OOM 前后的报告，可以定位是哪类张量快速增长。\n\n- 使用 PyTorch Profiler\ntorch.profiler.profile 不仅可以分析计算时间，还可以记录显存变化的时间线。配合
+    tensorboard，可以直观地看到每个操作的显存峰值，以及哪些操作导致了显存的急剧上升。\n\n```python\nwith torch.profiler.profile(\n
+    \   activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],\n
+    \   profile_memory=True,\n    with_stack=True\n) as prof:\n    # 你的训练代码\n    pass\nprint(prof.key_averages().table(sort_by=\"cuda_memory_usage\",
+    row_limit=10))\n```\n\n- 使用第三方工具 gpustat 和 nvtop\n这些命令行工具可以实时监控 GPU 显存利用率和进程占用情况，帮助你快速判断是哪个进程或哪张
+    GPU 先发生 OOM。\n\n- 手动注入检查点\n在没有日志工具的情况下，可以在训练循环的关键位置（例如 optimizer.step() 前后、每个
+    layer 的前向后）插入 torch.cuda.memory_allocated() 打印，手动绘制显存增长曲线，定位是在哪个阶段显存突然飙升。\n\n\U0001F4A1
+    排查思路：\n\n- 确认 OOM 发生的时机：是初始化模型时就 OOM（权重放不下），还是前向传播时（激活值过大），还是反向传播时（梯度或中间值过大），还是优化器更新时（优化器状态过大）。\n\n-
+    根据时机缩小范围：前向 OOM 通常与 batch size 或序列长度有关；反向 OOM 可能与 retain_graph=True 或错误的计算图残留有关；优化器
+    OOM 则与模型参数量直接相关。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ASR1w4TNSiuI8wk9EFTcEhTunZd
+  block_id: OgOzdYC2aopO4KxPv0bc1ZS6n2c
+  page_token: ASR1w4TNSiuI8wk9EFTcEhTunZd
+  original_title: 训练时 OOM 后，如何分析显存分配的详细日志？
+  imported_at: '2026-09-21'

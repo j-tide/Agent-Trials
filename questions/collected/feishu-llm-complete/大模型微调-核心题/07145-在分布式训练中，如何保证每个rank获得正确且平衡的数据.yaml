@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b420bfd4f8d2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在分布式训练中，如何保证每个rank获得正确且平衡的数据？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 在分布式训练中，如何保证每个rank获得正确且平衡的数据？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在多卡（多rank）训练中，数据加载器必须确保每个rank看到互不重叠且数量均衡的数据，避免模型在不同卡上学习到有偏的分布。
+
+    核心机制：
+
+    - DistributedSampler：PyTorch提供的分布式采样器。其原理是：将整个数据集的索引按rank数量均分（通常补齐到可整除），然后每个rank只从分配给它的那部分索引中采样。在每个epoch开始时，所有rank使用相同的随机种子对全局索引进行打乱，然后取自己的那份。这保证了所有数据在每个epoch内被且仅被消费一次，且各rank数据量相等。
+
+    - 分片数据集时的协调：如果使用流式加载，每个rank需要从不同的分片子集中加载数据。可以在初始化时，根据rank ID和总rank数，分配不同的分片索引范围。例如，rank 0读取分片0-3，rank 1读取分片4-7，以此类推，确保数据无重叠且覆盖全部。
+
+    平衡性保障：
+
+    - 处理不可整除：如果总样本数不能被rank数整除，DistributedSampler会将剩余的样本分配给部分rank，或者通过填充（drop_last）保证等长。在微调中，通常允许少量不均衡，或开启drop_last。
+
+    - 避免同步偏差：所有数据加载器应使用相同的全局随机种子，以保证在每个epoch，所有rank的索引打乱结果一致，只是各取一部分，避免了某个rank的样本分布集中在某个特定领域。
+
+    高级策略：
+
+    - 对于多任务不均衡数据，可以在每个rank内部使用自定义的BatchSampler，结合温度采样、上限控制等策略，确保每个rank内部的微型batch也大致均衡，避免梯度更新偏向高频任务。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DPSewakAfi4q7rkB8nQcmT0onob
+  block_id: YCOgd4c1no2HVrxDctvcApj9nPf
+  page_token: DPSewakAfi4q7rkB8nQcmT0onob
+  original_title: 在分布式训练中，如何保证每个rank获得正确且平衡的数据？
+  imported_at: '2026-09-21'

@@ -1,0 +1,165 @@
+---
+schema_version: 1
+id: feishu-llm-complete-94cdf46d890e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3.5 长文档处理与成本优化
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: 3.5 长文档处理与成本优化
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### 长文档处理策略：分块 vs Map-Reduce vs 递归摘要
+
+    1、基础题：LLM 的 Context Window 是什么？超出限制时会发生什么？
+
+    难度级别：⭐（Context Window 定义、超出后的截断或报错行为）
+
+    LLM 的 Context Window 是模型单次处理的最大 token 数限制，超出后 API 会报错或截断输入。不同模型限制不同，比如 GPT-4o 支持 128K token，Claude 3 支持 200K token。处理长文档时必须先把文档切分或压缩到 Context Window 以内，才能正常调用。
+
+    ---
+
+    2、进阶题：处理超出 LLM Context Window 的长文档时，有哪些主流策略？请对比直接分块、Map-Reduce 和递归摘要的适用场景与成本差异。
+
+    难度级别：⭐⭐（直接分块的跨块信息丢失、Map-Reduce 并行聚合、递归摘要树状压缩、O(N)/O(N log N) 调用次数分析）
+
+    1️⃣ Common Answer
+
+    当文档太长超过模型的 Context Window 时，可以用几种方法来处理。直接分块就是把文档切成固定长度的片段，分别处理。Map-Reduce 是先对每个分块生成摘要，再把所有摘要汇总成最终结果。递归摘要是对超长文档递归地做摘要，直到长度满足要求。三种方法的选择取决于文档长度和对精度的要求，分块最简单但可能丢失信息，Map-Reduce 效果更好，递归摘要适合非常长的文档。
+
+    2️⃣ Impressive Answer
+
+    我会从三个策略的核心权衡出发思考这个问题：
+
+    - 首先，直接分块（Chunking）是最简单的方案，但有核心缺陷。按固定 token 数切割后，跨块的完整论述会被截断，两边都失去上下文。加 overlap（块间重叠 50 token）只能缓解，不能根治。更大的问题是——如果任务需要整合全文信息（比如"全文的主要矛盾"），单块根本答不了。适用场景：各条款之间彼此独立的信息提取类任务，比如从合同里提取关键日期。
+
+    - 其次，Map-Reduce 分两阶段处理，能覆盖全文。Map 阶段对各 chunk 并行生成摘要，Reduce 阶段把所有摘要合并再调一次 LLM 输出最终结果。优点是可并行、信息损失可控；成本是 LLM 调用次数 = chunk 数 + 1，线性增长。适用场景：需要整合全文信息的任务，文档在 100K token 以内。
+
+    - 最后，递归摘要解决 Reduce 阶段自身超长的问题。Map-Reduce 在文档极长时，Reduce 收到几十个摘要本身又超长了。递归摘要用树状结构层层合并，调用次数约 O(N log N)。另一个变体是 Refine 模式：顺序处理每个 chunk，把"当前摘要 + 新 chunk"一起精炼，保留线性叙事结构，但严格串行，延迟高（O(N) 次调用）。适用场景：整本书、长篇报告的全文摘要。补充一点：如果任务是 QA，优先考虑 RAG——只检索相关 chunk，成本最低，效果往往更好。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：有一份 300 页的法律合同需要做全文风险摘要，该选哪种策略？
+
+    难度级别：⭐⭐（策略选型决策、长文档全文理解任务的成本与质量权衡）
+
+    1️⃣ Common Answer
+
+    300 页的合同很长，可以用 Map-Reduce 来处理，先对每段生成摘要，再汇总。或者用递归摘要，把文档层层压缩。
+
+    2️⃣ Impressive Answer
+
+    300 页合同约 15-20 万 token，超出大多数模型单次 Context Window，且任务是全文风险摘要，需要跨章节整合信息，直接分块不适用。
+
+    选型思路：先用 Map-Reduce 对每个章节并行生成风险要点摘要（Map 阶段可并行，速度快）。如果章节数量很多导致 Reduce 阶段的摘要拼合又超长，则在 Reduce 之前再做一轮树状合并——即退化为递归摘要。两者可以组合使用。Refine 模式因为串行延迟太高，300 页文档不推荐。另外，合同各条款之间有强逻辑关联，Map 阶段的 Prompt 里需要明确要求模型关注"与其他条款的关联风险"，不然 Reduce 阶段很难发现跨章节的矛盾。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+
+    ### LLM 调用的成本控制策略
+
+    ---
+
+    1、基础题：LLM API 的计费方式是什么？
+
+    难度级别：⭐（Token 计费、input/output token 的区别）
+
+    LLM API 通常按 token 计费，分 input token（你发给模型的内容）和 output token（模型生成的内容）两部分，output token 通常更贵。比如 GPT-4o 的定价是 input $2.5/百万 token、output $10/百万 token。控制成本的核心就是减少不必要的 token 消耗。
+
+    ---
+
+    2、进阶题：在生产环境中，LLM API 调用成本很高，有哪些有效的成本控制手段？
+
+    难度级别：⭐⭐（语义缓存命中率、大小模型路由、LLMLingua Prompt 压缩、Batch API 50% 折扣）
+
+    1️⃣ Common Answer
+
+    LLM 调用成本控制主要有以下几个方法：一是缓存，对相同的请求直接返回缓存结果，避免重复调用；二是使用更便宜的小模型，简单的问题不需要用 GPT-4 这样贵的模型；三是尽量精简 Prompt，减少 Token 数量；四是批量处理，把多个请求合并发送。
+
+    2️⃣ Impressive Answer
+
+    我会从四个独立的优化维度来回答这个问题：
+
+    - 首先是语义缓存（Semantic Cache），命中率最高、收益最直接。普通 exact match 缓存只能命中完全相同的请求，实际用处有限。语义缓存用 embedding 相似度检索历史请求，相似度超过阈值（比如 0.85）直接返回缓存，FAQ 类场景命中率可达 60-70%。工具上可以用 GPTCache 接入 LangChain。上线前要先统计请求分布，估算 ROI，命中率低于 20% 的场景可能不值得投入缓存基础设施。
+
+    - 其次是大小模型路由（Model Routing），降低单次调用成本。不是所有请求都需要 GPT-4o。用两层路由：先用关键词规则过滤（翻译、格式化等简单请求直接走 mini 模型），再用小模型做复杂度分类，复杂推理才走大模型。GPT-4o-mini 成本约为 GPT-4o 的 1/30，实践中 60-70% 的请求可以走小模型，整体成本能降 50% 以上。
+
+    - 再次是 Prompt 压缩（LLMLingua），专门针对 RAG 场景的冗余 Context。检索回来的 Context 往往包含大量无关内容。LLMLingua 用小语言模型给每个 token 打重要性分，按比例删掉不重要的 token，在信息损失可控的前提下把 Context 压缩 60-80%，大幅降低 input token 数。
+
+    - 最后是 Batch API，离线任务的折扣利器。对于非实时任务（数据标注、离线文档处理），OpenAI Batch API 提供 50% 折扣，代价是最长 24 小时内完成。这四种手段组合使用，优先级是：语义缓存（零成本命中）→ 模型路由（降单次成本）→ Prompt 压缩（降 token 数）→ Batch API（离线任务）。项目落地后整体 LLM 成本降了约 65%。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    3、场景题：公司的 LLM 调用成本每月 $50,000，老板要求降低 50%，你会怎么做？
+
+    难度级别：⭐⭐（成本分析诊断、优化优先级决策、量化效果预估）
+
+    1️⃣ Common Answer
+
+    可以用便宜的小模型替换部分调用，同时加缓存，这样应该能降低成本。
+
+    2️⃣ Impressive Answer
+
+    降本 50% 是具体目标，我会先诊断再优化，而不是盲目上手段。
+
+    第一步，诊断成本结构：按模型、功能模块、用户维度拆分成本，找到前 20% 的高成本来源，通常 80% 的成本集中在少数几个场景。第二步，按 ROI 排优先级：语义缓存实施成本最低，先看 FAQ 类场景的请求重复率，如果超过 30% 就先上缓存（FAQ 场景命中率 60-70%，可能直接省掉 $15,000-20,000）。然后看请求复杂度分布，如果 60% 的请求是简单任务（翻译、格式化），上模型路由能再省 50% 的这部分成本。如果有 RAG 场景，上 LLMLingua 压缩 Context 可以削减 input token 的 60-80%。离线任务批量化用 Batch API 再拿 50% 折扣。组合下来，$50,000 降到 $20,000-25,000 是合理预期，但前提是先量化现状，不能凭感觉排优先级。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MtcJwOeh8il1EhkIooccEEwBntb
+  block_id: doxcnK4zNwe1eeKVoAG6VaAhaxh
+  page_token: MtcJwOeh8il1EhkIooccEEwBntb
+  original_title: 3.5 长文档处理与成本优化
+  imported_at: '2026-09-21'

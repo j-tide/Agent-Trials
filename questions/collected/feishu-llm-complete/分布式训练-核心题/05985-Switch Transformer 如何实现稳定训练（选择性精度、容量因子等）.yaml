@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-94f8358d45d6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Switch Transformer 如何实现稳定训练？（选择性精度、容量因子等）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: Switch Transformer 如何实现稳定训练？（选择性精度、容量因子等）
+answer:
+  mode: rubric
+  reference_answer: |-
+    Switch Transformer 采用了一系列工程技巧来克服 Top-1 路由带来的训练不稳定性，这些技巧后来也成为 MoE 训练的通用最佳实践。
+
+    选择性精度 (Selective Precision)
+
+    并非所有操作都需要 FP32 或 FP16。Switch Transformer 采用了一种“混合精度+选择性 FP32”策略：
+
+    - 大型矩阵乘法（专家 FFN 内部的计算）使用 FP16/BF16，利用 Tensor Core 加速。
+
+    - 路由网络的计算使用 FP32，因为门控输出直接影响 token 分发，对精度敏感。FP32 的精度能确保 softmax 概率估计更准确，避免因精度问题导致路由偏差。
+
+    - 梯度同步和优化器状态也使用 FP32，保证更新稳定。
+
+    容量因子 (Capacity Factor)
+    Switch Transformer 大量依赖容量因子来控制专家负载。通常设置 capacity_factor = 1.25，意味着每个专家能处理平均分配量 1.25 倍的 token。如果某个专家收到的 token 超过这个上限，多余的 token 直接被丢弃（残差连接兜底）。这个机制从物理上防止了任何专家过载，即便门控网络试图把所有 token 发给同一个专家，容量限制也会强制溢出部分 token 到其他专家或丢弃，保护训练稳定性。
+
+    负载均衡损失
+    Switch Transformer 使用了一个简化的负载均衡损失公式：L_aux = α * N * Σ(f_i * P_i)，其中 α=0.01。这个损失鼓励均匀分配。与容量因子配合，两者形成了“软约束+硬限制”的双重保障。
+
+    随机路由 (Stochastic Routing)
+
+    训练初期，Switch Transformer 在 Top-1 选择时加入 Gumbel 噪声，使路由随机化，鼓励探索。随着训练进行，噪声逐步衰减，模型逐渐过渡到确定性 Top-1 路由。
+
+    初始化技巧
+
+    门控网络的权重初始化为均值为 0、方差较小的正态分布，使得初始时各专家被选中的概率接近，避免一开局就坍塌。
+
+    大批量训练
+
+    Switch Transformer 使用极大的 batch size，使专家负载统计更稳定，减少单步波动。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQczwN8cliZ2XSkOI26ckCcPnuf
+  block_id: TS1QdjvpUoiFDpxBfM8cmwcWnUh
+  page_token: GQczwN8cliZ2XSkOI26ckCcPnuf
+  original_title: Switch Transformer 如何实现稳定训练？（选择性精度、容量因子等）
+  imported_at: '2026-09-21'

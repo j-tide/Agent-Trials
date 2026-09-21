@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3c6f8e58c93d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 给定一组语料，实现添加特殊 token（如 [CLS], [SEP], [MASK], [PAD], [UNK]）到词汇表中，并确保它们在 BPE 训练过程中不被拆分
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 给定一组语料，实现添加特殊 token（如 [CLS], [SEP], [MASK], [PAD], [UNK]）到词汇表中，并确保它们在 BPE
+    训练过程中不被拆分
+answer:
+  mode: rubric
+  reference_answer: "特殊 token 是完整的、不可分割的符号。在 BPE 训练中，若不特殊处理，[CLS] 会被初始化为字符序列 ['[',
+    'C', 'L', 'S', ']']，然后可能参与合并，甚至被拆散，这是不可接受的。因此需要保证这些特殊标记在训练时就作为单个整体 token，并且永远不被进一步拆分或合并。通常采用以下方法：\n\n-
+    在初始化前，将特殊 token 作为独立“单词”加入词频统计：例如，在语料中可能没有 [CLS]，但我们可以人为地将其加入词频字典，频率可以设为 0 或 1（如果语料中本身出现了
+    [CLS] 文本则正常统计）。\n\n- 将整个特殊 token 视为一个不可拆分的符号：即它由单一符号表示，而不是字符序列。初始化时，我们不将其拆分为字符加结束符，而是直接作为一个符号，末尾也加上结束符
+    </w>，使其保持完整性。例如，单词 \"[CLS]\" 被表示成符号序列 ['[CLS]', '</w>']。这样在 BPE 合并过程中，[CLS] 作为一个原子符号存在，只有它与
+    </w> 的边界可能参与合并，但因为 [CLS] 本身是整体，不会被拆分。\n\n- 如果需要完全阻止它与任何其他符号合并（包括结束符），可以将 [CLS]
+    视为已包含词尾的特殊 token，即不需要额外的 </w>，或者在合并算法中跳过包含特殊 token 的 pair。通常的做法是：特殊 token 不需要结束符，它们自身就是边界。可在初始化时把它们当成完整的
+    token，序列只有 ['[CLS]'] 而没有 </w>，但这样一来它们永远无法与后序单词合并（符合预期）。另外，合并规则中如果涉及特殊 token，应禁止合并。实现时可以在选择
+    best pair 时排除包含特殊 token 的 pair，或者在合并步骤中不对它们进行替换。最简单的策略是：在初始化时，特殊 token 被封装为单独的符号，如
+    '[CLS]'，并且该符号不在任何单词序列中作为与其他符号可合并的单元（因为它的序列就是 ['[CLS]']，不与任何其他符号相邻）。但为了编码文本时灵活插入
+    [CLS]，我们可以定义 [CLS] 就是一个 token，编码时如果用户要求，直接加入输出，而不经过字符拆分与合并。\n\n实现步骤：\n\n- 定义特殊
+    token 列表，如 special_tokens = [\"[PAD]\", \"[UNK]\", \"[CLS]\", \"[SEP]\", \"[MASK]\"]。\n\n-
+    在词频统计阶段，为每个特殊 token 分配一个极小的频率（或 0），使得它们出现在词汇表中。或者可以在初始化词汇表时直接插入它们。\n\n- 初始化符号序列时，对于特殊
+    token 单词，不进行字符拆分，而是直接将其整个字符串作为一个符号，并加上 </w>（或直接用自身作为词尾，免去结束符）。例如，\"[CLS]\" ->
+    ['[CLS]', '</w>']。\n\n- 在 BPE 合并循环中，我们需要确保合并不会破坏特殊 token 的内部。如果我们将特殊 token 作为原子符号，它就不会被拆分。但必须防止合并操作将特殊
+    token 与相邻符号合并。例如 '[CLS]' 和 '</w>' 可能会被认为是一个 pair。如果我们保留结束符，那么 BPE 可能会学习到合并 ('[CLS]',
+    '</w>') 成为一个新符号 \"[CLS]</w>\"。这并无大碍，但通常我们希望 [CLS] 作为独立的 token 出现在最终词汇表中。为了避免合并，我们可以选择在每次选择
+    best pair 时，排除任何一个元素在 special_tokens 集合中的 pair。或者在合并后，如果生成了包含特殊 token 的新符号，禁止它。更简单的是：在初始化时，特殊
+    token 不带结束符，且序列只包含该 token 本身（无结束符），这样它就处于孤立状态，不会与任何符号形成 bigram（除非单词内有多个 token？但我们不会把特殊
+    token 和普通单词连在一起）。在编码时，特殊 token 直接映射到一个 ID，不需要经过 BPE 合并流程。\n\n示例实现：\n\n```python\ndef
+    initialize_vocab_with_special(word_freq: dict, special_tokens: list) -> list:\n
+    \   word_symbols = []\n    special_token_set = set(special_tokens)\n    \n    for
+    word, freq in word_freq.items():\n        if word in special_token_set:\n            #
+    特殊 token 作为一个整体符号，不加结束符，避免与其他合并\n            symbols = [word]\n        else:\n
+    \           symbols = list(word) + ['</w>']\n        word_symbols.append((symbols,
+    freq))\n    \n    # 确保所有特殊 token 都存在于 word_symbols 中，即使频率为 0\n    existing = {word
+    for word, _ in word_freq.items()}\n    for sp in special_tokens:\n        if sp
+    not in existing:\n            word_symbols.append(([sp], 0))\n    \n    return
+    word_symbols\n```\n\n在合并循环中，best_pair 如果包含了特殊 token 的元素，则跳过（但如果我们采用无结束符的方式，特殊
+    token 根本不与任何符号相邻，故其 bigram 频率为 0，不可能被选中）。如果特殊 token 有结束符，我们可在选择时过滤：\n\n```python\ndef
+    select_best_pair(bigram_freq, forbidden_symbols):\n    # 过滤掉包含禁止符号的 pair\n    allowed
+    = {pair: freq for pair, freq in bigram_freq.items()\n               if pair[0]
+    not in forbidden_symbols and pair[1] not in forbidden_symbols}\n    if not allowed:\n
+    \       return None\n    max_freq = max(allowed.values())\n    best_pair = min(pair
+    for pair, f in allowed.items() if f == max_freq)\n    return best_pair\n```\n\n最终：词汇表构建时，特殊
+    token 将被分配固定的 ID（通常是最前面的几个 ID），且编码时若文本中出现这些特殊 token 字符串，会直接映射到对应 ID，无需字符拆分。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XDqKw0GPGi6JvkkfpwUcqpdAndd
+  block_id: XoIediN0PoRLT0xtuwZcGgkLnxb
+  page_token: XDqKw0GPGi6JvkkfpwUcqpdAndd
+  original_title: 给定一组语料，实现添加特殊 token（如 [CLS], [SEP], [MASK], [PAD], [UNK]）到词汇表中，并确保它们在
+    BPE 训练过程中不被拆分
+  imported_at: '2026-09-21'

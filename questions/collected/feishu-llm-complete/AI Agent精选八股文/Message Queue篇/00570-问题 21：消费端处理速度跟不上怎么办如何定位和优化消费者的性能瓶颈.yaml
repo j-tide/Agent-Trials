@@ -1,0 +1,97 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2cc7fe10e673
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 问题 21：消费端处理速度跟不上怎么办？如何定位和优化消费者的性能瓶颈？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 问题 21：消费端处理速度跟不上怎么办？如何定位和优化消费者的性能瓶颈？
+answer:
+  mode: rubric
+  reference_answer: "难度：⭐⭐⭐（消费线程模型、批量消费、异步落库、pull vs push）\n\n1️⃣ Common Answer 嗯...消费慢的话，可以增加消费者数量，或者增加分区数。批量消费也能提升性能，一次处理多条消息。异步处理也可以，消费完放到队列里，后台线程慢慢处理数据库。Kafka
+    是 pull 模式，RocketMQ 是 push 模式。\n\n2️⃣ Impressive Answer 我会从这几个角度思考：\n\n- 消费线程模型对比\n\nKafka：单线程
+    poll + 多线程处理\n\n```text\n// 主线程：单线程 poll 消息\nwhile (true) {\n    ConsumerRecords<String,
+    String> records = consumer.poll(Duration.ofMillis(100));\n    \n    // 多线程处理（线程池）\n
+    \   executorService.submit(() -> {\n        for (ConsumerRecord<String, String>
+    record : records) {\n            processMessage(record);\n        }\n    });\n}\n\n//
+    注意：多线程处理时需要手动提交 offset\nconsumer.commitSync();\n```\n\nRocketMQ：线程池消费\n\n```text\n//
+    默认使用线程池消费（ConsumeThreadMin=20, ConsumeThreadMax=20）\nDefaultMQPushConsumer consumer
+    = new DefaultMQPushConsumer(\"ConsumerGroup\");\nconsumer.setConsumeThreadMin(20);
+    \ // 最小线程数\nconsumer.setConsumeThreadMax(20);  // 最大线程数\nconsumer.setPullBatchSize(32);
+    \    // 每次 pull 的消息数\n\nconsumer.registerMessageListener(new MessageListenerConcurrently()
+    {\n    @Override\n    public ConsumeConcurrentlyStatus consumeMessage(\n        List<MessageExt>
+    msgs, \n        ConsumeConcurrentlyContext context\n    ) {\n        // msgs 是批量消息（默认
+    1 条，可配置 pullBatchSize）\n        for (MessageExt msg : msgs) {\n            processMessage(msg);\n
+    \       }\n        return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;\n    }\n});\n```\n\n对比：\n\n-
+    Kafka：单线程 poll，避免并发提交 offset 问题，处理逻辑需要多线程\n\n- RocketMQ：线程池消费，框架自动管理并发和 offset
+    提交\n\n- 批量消费：减少网络开销和事务提交次数\n\nKafka 批量消费配置：\n\n```text\n# 每次 poll 最大拉取条数（默认 500）\nmax.poll.records=500\n\n#
+    批量处理代码\nConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));\nList<ConsumerRecord<String,
+    String>> batch = new ArrayList<>(records);\n\n// 批量插入数据库（减少事务提交次数）\njdbcTemplate.batchUpdate(\"INSERT
+    INTO t_order VALUES (?, ?)\", batch);\n```\n\nRocketMQ 批量消费配置：\n\n```text\nconsumer.setPullBatchSize(32);
+    \ // 每次 pull 32 条\n\n// 批量处理\nconsumer.registerMessageListener(new MessageListenerConcurrently()
+    {\n    @Override\n    public ConsumeConcurrentlyStatus consumeMessage(\n        List<MessageExt>
+    msgs, \n        ConsumeConcurrentlyContext context\n    ) {\n        // msgs 可能包含多条消息（根据
+    pullBatchSize）\n        List<Order> orders = parseOrders(msgs);\n        orderService.batchInsert(orders);
+    \ // 批量插入\n        return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;\n    }\n});\n```\n\n优化效果：\n\n-
+    单条消费：1000 条消息 = 1000 次网络 IO + 1000 次事务提交\n\n- 批量消费（100 条/批次）：1000 条消息 = 10 次网络
+    IO + 10 次事务提交\n\n- 性能提升：10-50 倍\n\n- 异步落库：消费 → 内存队列 → 批量写入数据库\n\n架构设计：\n\n```text\nMQ
+    Consumer → 内存队列（BlockingQueue） → 后台线程批量写入 DB\n```\n\n代码示例：\n\n```text\n// 内存队列\nBlockingQueue<Order>
+    orderQueue = new LinkedBlockingQueue<>(10000);\n\n// 消费者：快速消费到内存队列\nconsumer.registerMessageListener(new
+    MessageListenerConcurrently() {\n    @Override\n    public ConsumeConcurrentlyStatus
+    consumeMessage(\n        List<MessageExt> msgs, \n        ConsumeConcurrentlyContext
+    context\n    ) {\n        for (MessageExt msg : msgs) {\n            Order order
+    = parseOrder(msg);\n            orderQueue.offer(order);  // 非阻塞写入队列\n        }\n
+    \       return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;\n    }\n});\n\n// 后台线程：批量写入数据库\nScheduledExecutorService
+    executor = Executors.newScheduledThreadPool(1);\nexecutor.scheduleAtFixedRate(()
+    -> {\n    List<Order> batch = new ArrayList<>(500);\n    orderQueue.drainTo(batch,
+    500);  // 最多取 500 条\n    \n    if (!batch.isEmpty()) {\n        orderService.batchInsert(batch);
+    \ // 批量插入\n    }\n}, 100, 100, TimeUnit.MILLISECONDS);  // 每 100ms 执行一次\n```\n\n优化效果：\n\n-
+    消费速度提升 5-10 倍（无需等待 DB 写入）\n\n- DB 写入批量处理，减少事务提交次数\n\n- 整体消费延迟从分钟级优化到秒级\n\n- pull
+    vs push 模型对比\n\n[嵌入表格未展开]\n\n- 消费者并发度调优\n\nKafka 调优：\n\n```text\n# 分区数 = 消费者数（每个消费者消费多个分区）\n#
+    例如：8 个分区，4 个消费者，每个消费者消费 2 个分区\n\n# 消费者数配置\nnum.consumer.instances=4\n\n# 每个 Consumer
+    线程数（可选）\nconsumer.threads.per.instance=2\n```\n\nRocketMQ 调优：\n\n```text\n// 消费线程数（默认
+    20）\nconsumer.setConsumeThreadMin(20);\nconsumer.setConsumeThreadMax(50);  //
+    最大 50 线程\n\n// 每次 pull 消息数（默认 32）\nconsumer.setPullBatchSize(100);  // 每次 pull
+    100 条\n\n// 消费最小间隔（默认 0）\nconsumer.setPullInterval(0);  // 无间隔，最快消费\n```\n\n调优原则：\n\n-
+    消费线程数 = CPU 核心数 × 2\n\n- pullBatchSize = 消费线程数 × 5-10（确保线程不空闲）\n\n- 消费者数 ≤ 分区数（Kafka）\n\n-
+    实战：消费延迟从分钟级优化到秒级的完整方案\n\n问题现象：\n\n- 消费延迟：10 分钟\n\n- 消息堆积：100 万条\n\n- 消费者：2 个实例，单实例
+    20 线程\n\n优化方案：\n\nStep 1：增加消费者数量\n\n```text\n// 从 2 个实例增加到 8 个实例\n// 每个实例 20 线程，总并发
+    160 线程\n```\n\nStep 2：启用批量消费\n\n```text\n// Kafka\nmax.poll.records=500\n\n//
+    RocketMQ\nconsumer.setPullBatchSize(100);  // 每次 pull 100 条\n```\n\nStep 3：异步落库\n\n```text\n//
+    消费 → 内存队列 → 批量写入 DB\n// 见上文代码示例\n```\n\nStep 4：优化 DB 写入\n\n```text\n// 批量插入（500
+    条/批次）\njdbcTemplate.batchUpdate(sql, batch);\n\n// 异步写入（非核心业务）\n// 或者使用 MQ 二次分发到专门的
+    DB 写入服务\n```\n\n优化效果：\n\n- 消费延迟：10 分钟 → 30 秒\n\n- 消息堆积：100 万条 → 0\n\n- 吞吐量：2000
+    TPS → 50000 TPS\n\n监控指标：\n\n- 消费延迟（Consumer Lag）\n\n- 消息堆积量（Message Backlog）\n\n-
+    消费 TPS（Messages per Second）\n\n- 消费线程 CPU 使用率\n\n- DB 写入耗时\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---\n\n###
+    6.22 Saga 分布式事务编排"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcnNDQHcNBAwALqMjI3ZrGZTg
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: 问题 21：消费端处理速度跟不上怎么办？如何定位和优化消费者的性能瓶颈？
+  imported_at: '2026-09-21'

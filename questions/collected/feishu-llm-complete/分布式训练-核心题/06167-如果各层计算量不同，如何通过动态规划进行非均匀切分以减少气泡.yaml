@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ba15c973553d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果各层计算量不同，如何通过“动态规划”进行非均匀切分以减少气泡？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 如果各层计算量不同，如何通过“动态规划”进行非均匀切分以减少气泡？
+answer:
+  mode: rubric
+  reference_answer: |-
+    问题建模：假设模型共有L层，第i层的计算时间为c[i]。需要将模型划分到P个流水线阶段，每个阶段负责连续若干层，使得所有阶段中最大计算时间最小化。这等价于经典的“分割数组为P段，最小化最大段和”问题。
+
+    动态规划解法：
+
+    - 定义dp[i][k]为前i层划分为k段的最小化最大段和。
+
+    - 状态转移：dp[i][k] = min_{j < i} { max(dp[j][k-1], sum(c[j+1..i])) }
+
+    - 时间复杂度O(L²P)，对于L=96, P=16完全可行。
+
+    求解后：得到每段的层范围，按照该划分进行PP分配。由于每段计算量均衡，流水线气泡主要由P本身引起，而非额外的不均衡气泡。
+
+    实践中的近似：由于精确测量每层计算时间有误差，且通信时间也会影响，通常采用贪心：从输入层开始，累加计算量，当累加值达到目标平均值附近时，切分一个阶段。这种方法简单，也能获得很好的负载均衡效果。
+
+    通过动态规划或贪心进行非均匀切分，是减少流水线气泡、提高训练效率的关键步骤，尤其在模型层数不是PP并行度整数倍时尤为重要。
+
+    - 在SP中，每个设备只拥有部分token的Q，但需要完整的K和V来计算注意力分数。标准的做法是：在计算QKV投影后，执行一次AllGather将各设备的K和V在序列维度上拼接，得到完整K和V；计算完注意力后，通过ReduceScatter将输出在序列维度上切分回各设备。
+
+    - 由于TP已经对隐藏维度进行了切分，SP的AllGather/ReduceScatter的通信数据量是 batch_size × (seq_len/TP) × hidden_dim，实际上是按TP切分后的维度计算的，因此通信量相比纯SP有所减少。
+
+    - 进一步优化：可以使用Ring Attention代替AllGather，通过环形通信逐步传输KV块，避免一次性收集完整序列带来的显存峰值和通信突发，实现通信与计算的重叠。
+
+    - 若TP=2, PP=48：PP并行度过高，气泡大，且48个阶段可能导致负载不均。
+
+    - 若只用ZeRO-3而不使用TP/PP：ZeRO-3可以训练175B模型，但ZeRO-3需要频繁AllGather参数，通信压力大，不如3D并行通信效率高，尤其在超大规模集群上，混合并行通常能获得更高的MFU。
+
+    - TP组：参与张量并行的设备列表。
+
+    - PP组：参与流水线并行的设备列表（通常与TP组交叉，形成网格）。
+
+    - DP组：剩余设备用于数据并行。一个DP组内包含多个模型副本，每个副本是一个完整的TP+PP组合。
+
+    - 在每个设备上，根据其所在的TP和PP组，构建它负责的那部分模型层。
+
+    - 将构建好的模型实例用DDP包裹。DDP会自动识别DP组内的所有设备，并在反向传播时进行梯度AllReduce。
+
+    - 在每个训练步中，TP和PP内部的通信由Megatron-LM控制（f/g操作和层间Send/Recv）。
+
+    - 当反向传播完成，DDP层拦截梯度，并启动DP组内的梯度AllReduce。
+
+    - 对于使用ZeRO的情况，DeepSpeed会接管优化器状态分片等操作，但DDP的基本梯度同步逻辑类似。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: XCGfdFmKso0uUuxgJHRcac79nHf
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: 如果各层计算量不同，如何通过“动态规划”进行非均匀切分以减少气泡？
+  imported_at: '2026-09-21'

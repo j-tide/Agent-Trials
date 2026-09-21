@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-71598f0461e3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练过程中出现 NaN，可能的原因有哪些？如何排查？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 训练过程中出现 NaN，可能的原因有哪些？如何排查？
+answer:
+  mode: rubric
+  reference_answer: |-
+    训练中出现NaN，意味着模型参数或中间结果变成了非法数值，训练瞬间崩溃。排查需要系统性的方法，常见原因按概率从高到低排列如下。
+
+    ### 可能的原因
+
+    - 学习率过大：这是最常见的元凶。学习率太高，单步更新量过大，权重值急剧膨胀，前向传播时激活值超出浮点数表示范围（FP16最大65504），反向时梯度变成Inf，Inf参与运算就产生NaN。
+
+    - 混合精度训练问题：FP16的范围很窄，很容易溢出。例如注意力机制中Q和K的点积值可能很大，softmax前没有正确缩放就会溢出。此外，FP16最小正规数约6e-8，更小的梯度会“下溢”变成0，虽然不直接产生NaN，但累积后可能造成优化器状态异常。
+
+    - 数据中有脏数据：文本中出现极端长度的token序列、图像损坏、音频爆音等。例如某条文本经过分词后产生了数万个token，远超模型最大长度，截断或填充不当可能引入异常值。
+
+    - 初始化不当：权重初始化方差太大或太小。深层网络中，若残差连接未配合恰当的归一化，信号可能逐层指数级放大，最终溢出。
+
+    - 损失函数计算错误：比如对log(0)操作，或自定义损失函数中存在除以零的风险。
+
+    - 除零操作或sqrt负数：在一些归一化层或自定义算子中可能出现。
+
+    ### 如何排查
+
+    - 开启梯度监控：在训练循环中记录每一步的梯度范数。当NaN出现时，查看是哪个层的梯度最先变成NaN，这能直接锁定问题源。
+
+    - 前向传播插桩：在关键节点（注意力输出、FFN输出、loss计算前）插入数值检查torch.isnan().any()，一旦发现NaN立刻打印当前步数和层名。
+
+    - 二分法排查数据：如果怀疑是数据问题，把当前批次的数据dump出来，用一个小模型单独过一遍，看是否复现NaN。也可以从检查点恢复，跳过当前批次继续训练。
+
+    - 降低学习率测试：将学习率减小10倍，观察是否还会出现NaN。如果消失，说明原学习率过大。
+
+    - 切换精度测试：如果使用FP16，尝试切换到BF16（动态范围与FP32相同，不易溢出）或FP32，看问题是否消失。这能判断是否是精度导致。
+
+    - 检查模型结构：确保所有层都有正确的初始化，残差连接、LayerNorm等位置无误。特别是自定义的模块。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Yto8wfa8ti5TgZktU1YczVp7nme
+  block_id: SPjedaFEzodfSKxLO38cvRT7nBh
+  page_token: Yto8wfa8ti5TgZktU1YczVp7nme
+  original_title: 训练过程中出现 NaN，可能的原因有哪些？如何排查？
+  imported_at: '2026-09-21'

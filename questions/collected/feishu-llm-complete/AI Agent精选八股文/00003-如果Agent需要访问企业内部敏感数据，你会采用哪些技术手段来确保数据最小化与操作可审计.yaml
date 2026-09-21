@@ -1,0 +1,142 @@
+---
+schema_version: 1
+id: feishu-llm-complete-002106b36ed9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 11.如果Agent需要访问企业内部敏感数据，你会采用哪些技术手段来确保数据最小化与操作可审计？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 
+tags: &1
+- AI Agent精选八股文
+content:
+  prompt: 11.如果Agent需要访问企业内部敏感数据，你会采用哪些技术手段来确保数据最小化与操作可审计？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在面试场景下，回答需要体现系统性和可落地性。我会从数据最小化和操作可审计两个维度展开，并结合具体技术手段。
+
+    ---
+
+    ### 一、数据最小化：只给 Agent 完成任务所必需的数据
+
+    ### 动态脱敏与字段级权限控制
+
+    - 技术：使用数据库代理（如 Apache Ranger、Greenplum 或 数据中台）或应用层的 ABAC（基于属性的访问控制）。
+
+    - 做法：Agent 的数据库账号默认只能看到非敏感字段（如用户 ID 哈希、订单金额范围，而非真实手机号、身份证）。需要敏感字段时，必须由审批流程临时授予 token。
+
+    - 示例：查询 SELECT * FROM orders 自动改写为 SELECT order_id, amount_range, region FROM orders，屏蔽 customer_phone 列。
+
+    ### 行级安全（Row-Level Security）
+
+    - 技术：PostgreSQL RLS、Snowflake 行访问策略、或 Redis 的键模式限定。
+
+    - 做法：强制每个查询只能访问属于当前 Agent 会话所授权用户的行。例如 WHERE tenant_id = session_tenant，由系统自动注入，Agent 无法绕过。
+
+    ### 查询结果行数/数据量限制
+
+    - 技术：在 JDBC/ODBC 驱动层或代理层添加 LIMIT 覆盖。
+
+    - 做法：Agent 的任何查询最多返回 100 行或 1MB 数据，防止批量拉取敏感数据。
+
+    ### 动态数据遮蔽（Data Masking）
+
+    - 技术：Apache ShardingSphere、DataVeil 或自定义网关。
+
+    - 做法：根据 Agent 身份动态决定显示原始值、部分遮蔽（如手机号 138**0000）还是完全遮蔽（*）。
+
+    ### 最小化 API 设计（不是直接给 SQL）
+
+    - 技术：为 Agent 提供有限且预定义的操作接口（例如 get_customer_risk_level(customer_id) 而不是 query_database）。
+
+    - 做法：内部实现中只查询必要字段，返回聚合后的结果（如风险等级“高/中/低”），不暴露原始数据。
+
+    ---
+
+    ### 二、操作可审计：记录所有数据访问行为，且不可抵赖
+
+    ### 全链路审计日志
+
+    - 技术：OpenTelemetry + 日志系统（如 ELK、Loki），配合 WORM 存储（如 AWS S3 Object Lock）。
+
+    - 记录内容：谁（Agent ID / session_id）、何时、从哪个 IP、执行了什么操作（查询语句/API 调用）、返回了多少行数据、是否脱敏。
+
+    - 不可篡改：日志发送到外部审计系统（如 Splunk、Google Chronicle），并计算哈希链或使用区块链存证。
+
+    ### 敏感操作实时告警与拦截
+
+    - 技术：实时规则引擎（如 Drools、Flink CEP）。
+
+    - 规则示例：
+
+    ### 数据访问的“签名”与“阻隔”
+
+    - 技术：强制所有 Agent 发起的查询携带不可伪造的会话令牌，令牌中包含访问意图（intent）。审计系统对比实际查询与声明意图是否一致。
+
+    - 示例：Agent 声称需要“统计 2024 年订单总数”，但实际查询了 SELECT phone, address FROM orders → 立即记录为异常并阻断。
+
+    ### 定期重放审计（Audit Replay）
+
+    - 技术：将生产日志导入沙箱环境，重放 Agent 的查询，检查是否返回了超出授权的数据。
+
+    - 工具：Apache Ranger 的审计分析器、自定义脚本。
+
+    ### 数据溯源与水印
+
+    - 技术：对返回给 Agent 的敏感数据添加数字水印（如行级水印或结果集指纹）。
+
+    - 做法：如果该数据被泄露到外部，可以追溯到是哪个 Agent 会话、什么时间获取的。
+
+    ---
+
+    ### 三、组合示例：一个典型的访问流程
+
+    Agent 请求 → 授权网关（检查意图令牌）
+        ↓
+    数据代理层（如 ShardingSphere-Proxy）
+        ├─ 强制行级过滤（tenant_id = session.tenant）
+        ├─ 动态脱敏（手机号中间4位遮蔽）
+        ├─ 限制返回行数（最多 100 行）
+        └─ 生成审计日志（包含 SQL 原文、脱敏后结果哈希）
+        ↓
+    后端数据库
+
+    同时：
+
+    - 审计日志实时发送到 Kafka → ClickHouse，用于分析。
+
+    - 敏感操作（如“查询用户详细地址”）触发 PagerDuty 告警到安全团队。
+
+    ---
+
+    ### 四、面试加分点总结
+
+    [嵌入表格未展开]
+
+    最后强调：安全设计应该让 Agent “天然”无法访问多余数据，而不是依赖 Agent 自己的承诺。所有控制必须在数据存储和传输路径上强制实施。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M526wldNTiQFB3kmM2mcFsoaneh
+  block_id: T9SXdHZNvokN6kxm7sFc3q9znlg
+  page_token: M526wldNTiQFB3kmM2mcFsoaneh
+  original_title: 11.如果Agent需要访问企业内部敏感数据，你会采用哪些技术手段来确保数据最小化与操作可审计？
+  imported_at: '2026-09-21'

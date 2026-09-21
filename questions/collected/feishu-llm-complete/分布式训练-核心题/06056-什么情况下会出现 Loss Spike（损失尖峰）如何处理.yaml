@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-38996c46a5a3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么情况下会出现 Loss Spike（损失尖峰）？如何处理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 什么情况下会出现 Loss Spike（损失尖峰）？如何处理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Loss Spike指损失值在某个训练步瞬间剧烈升高，形成一个尖锐的波峰，随后可能回落。它与梯度爆炸密切相关，但梯度爆炸不一定每次都导致Loss Spike（可能直接NaN）。
+
+    出现原因：
+
+    - 异常数据样本：某条数据包含极端噪声、错误标注或过长文本，导致该batch的损失远高于正常值，梯度被异常放大，引发连锁反应。这是预训练中Loss Spike最常见的原因。
+
+    - 优化器状态突变：Adam等自适应优化器维护的动量m和方差v可能因某个异常梯度而剧烈变化，导致有效学习率瞬间放大，产生巨大的参数更新。
+
+    - 混合精度训练的Loss Scaling动态调整滞后：当遇到大梯度时，Loss Scaling可能未及时降低，导致梯度上溢，然后又突然降低缩放因子，造成损失值剧烈波动。
+
+    - 学习率与模型当前状态不匹配：训练后期，模型接近收敛，此时若学习率衰减不当或突然增大（如从预训练切换到微调时的错误配置），可能产生尖峰。
+
+    - 硬件故障：GPU内存错误（ECC错误）或网络传输丢包，导致计算的梯度在传输中损坏，产生异常值。
+
+    处理措施：
+
+    - 立即反应：如果在训练循环中检测到Loss Spike，最安全的做法是跳过本次参数更新，不将该batch的梯度应用到模型上。同时可丢弃该batch，重新采样下一个batch。
+
+    - 回滚检查点：如果Loss Spike后损失持续升高或不稳定，应从最近的健康检查点恢复训练，并跳过引发尖峰的数据（如果可定位）。
+
+    - 降低学习率：尖峰频繁出现时，将当前学习率减半，并适当延长Warmup。
+
+    - 增强梯度裁剪：适当降低裁剪阈值，如从1.0降至0.5，确保异常梯度被及时抑制。
+
+    - 检查数据质量：分析引发尖峰的batch，排查是否存在异常样本，必要时加强数据清洗。
+
+    - 调整优化器：适当增大Adam的β₂（如从0.999到0.9999），使二阶矩估计更平滑，避免有效学习率骤然放大。
+
+    - 切换精度：如果使用FP16，可切换到BF16（动态范围大，不易溢出）或采用更高精度的梯度累积。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: LRtudhwWWos6MdxrKb9cAJd5nxG
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: 什么情况下会出现 Loss Spike（损失尖峰）？如何处理？
+  imported_at: '2026-09-21'

@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b66d571ec94c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 模拟数据并行中异步更新（ASGD）的通信：每个 worker 计算梯度后异步发送到参数服务器，参数服务器汇总后更新并返回新参数，worker 不等待完成就继续计算。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 模拟数据并行中异步更新（ASGD）的通信：每个 worker 计算梯度后异步发送到参数服务器，参数服务器汇总后更新并返回新参数，worker 不等待完成就继续计算。
+answer:
+  mode: rubric
+  reference_answer: |-
+    20.1 异步 SGD 原理
+
+    在异步数据并行中，存在一个或多个参数服务器（PS），保存全局模型参数。每个 worker 独立从 PS 拉取最新参数，计算本地梯度，然后将梯度推送回 PS，不等待其他 worker。PS 收到梯度后，应用更新到全局模型，并可能将新参数发送给请求的 worker。这会导致梯度延迟（staleness），但能提高并行度和吞吐量。
+
+    20.2 模拟实现
+
+    ```python
+    import threading
+    import time
+    import numpy as np
+
+    class ParameterServer:
+        def __init__(self, param_shape):
+            self.params = np.zeros(param_shape)
+            self.lock = threading.Lock()
+        def push_gradient(self, grad, lr=0.01):
+            with self.lock:
+                self.params -= lr * grad
+        def get_params(self):
+            with self.lock:
+                return self.params.copy()
+
+    class Worker(threading.Thread):
+        def __init__(self, worker_id, ps, data_loader):
+            super().__init__()
+            self.worker_id = worker_id
+            self.ps = ps
+            self.data_loader = data_loader
+        def run(self):
+            for data in self.data_loader:
+                # 1. 拉取最新参数（可能不是最新的，有延迟）
+                params = self.ps.get_params()
+                # 2. 计算梯度（模拟）
+                grad = compute_gradient(params, data)
+                # 3. 异步推送梯度，不等待
+                self.ps.push_gradient(grad)
+                # 继续下一轮，无需等待其他worker
+    ```
+
+    模拟时，多个 worker 线程并发运行，参数服务器加锁保证一致性。由于异步特性，worker 可能会用旧参数计算梯度，导致更新冲突，但能加速训练。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdtIwBP2wiedbmkxnoxcJcdtnyf
+  block_id: TPXpdxtncoMYKVxwbTpcI7Ahnah
+  page_token: RdtIwBP2wiedbmkxnoxcJcdtnyf
+  original_title: 模拟数据并行中异步更新（ASGD）的通信：每个 worker 计算梯度后异步发送到参数服务器，参数服务器汇总后更新并返回新参数，worker
+    不等待完成就继续计算。
+  imported_at: '2026-09-21'

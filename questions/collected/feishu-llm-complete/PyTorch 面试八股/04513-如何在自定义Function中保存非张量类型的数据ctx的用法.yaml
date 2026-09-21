@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d6c319898f78
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在自定义Function中保存非张量类型的数据？ctx的用法。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: 如何在自定义Function中保存非张量类型的数据？ctx的用法。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ctx.save_for_backward 只能保存张量。对于非张量数据（如整数、列表、Python 对象），可以直接赋值给 ctx 的属性。因为 ctx 是一个上下文对象，在 forward 和 backward 之间共享。
+
+    ```python
+    class MyFunc(torch.autograd.Function):
+        @staticmethod
+        def forward(ctx, x, alpha):
+            ctx.alpha = alpha               # 保存非张量
+            ctx.save_for_backward(x)       # 保存张量
+            return x * alpha
+
+        @staticmethod
+        def backward(ctx, grad_output):
+            alpha = ctx.alpha
+            x, = ctx.saved_tensors
+            grad_x = grad_output * alpha
+            return grad_x, None  # alpha 不需要梯度
+    ```
+
+    注意事项：
+
+    - 属性名可自定义，避免与 ctx 已有属性（如 saved_tensors）冲突。
+
+    - 保存的对象不会被 PyTorch 自动管理内存，需确保其在反向传播时仍然有效。
+
+    - 如果保存了可变对象且在 forward 后修改，可能影响 backward，故通常只保存不可变标量或简单数据类型。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  block_id: SnE5dzkCRoPycixMOxmcau3NnLc
+  page_token: Hhqlw03mDiSEFqkYLBJcsJ6xngd
+  original_title: 如何在自定义Function中保存非张量类型的数据？ctx的用法。
+  imported_at: '2026-09-21'

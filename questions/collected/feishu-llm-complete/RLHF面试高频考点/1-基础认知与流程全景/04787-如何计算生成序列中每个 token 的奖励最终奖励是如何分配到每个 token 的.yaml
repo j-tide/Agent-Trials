@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-63e0352466c4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何计算生成序列中每个 token 的奖励？最终奖励是如何分配到每个 token 的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: RLHF面试高频考点
+derived_topic: 1-基础认知与流程全景
+tags: &1
+- RLHF面试高频考点
+- 1-基础认知与流程全景
+content:
+  prompt: 如何计算生成序列中每个 token 的奖励？最终奖励是如何分配到每个 token 的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    RLHF 中的奖励本质上是序列级的稀疏奖励，但 Actor-Critic 方法需要每个时间步都有奖励信号来计算优势函数和回报。因此，必须将最终的单一奖励合理地“分配”或“构造”到序列的每个 token 上。
+
+    构造过程如下：
+
+    [图片内容未导入]
+
+    这个值可正可负：正表示 Actor 比 Ref 更偏爱该 token（偏离），负表示 Actor 比 Ref 更不喜欢该 token。
+
+    - 构造逐 token 奖励
+    对于所有非终止 token，即时奖励仅由 KL 惩罚贡献：
+
+    [图片内容未导入]
+
+    对于序列的最后一个 token（通常是 EOS 或达到最大长度时的那个 token），将其即时奖励设为：
+
+    [图片内容未导入]
+
+    为何这样分配？
+
+    - 将最终奖励放在末尾：这与“生成任务的最终质量仅在结束时才能完全评估”的直觉一致。Actor 只有完成了整个回答，才知道它做得好不好。如果把 rfinalrfinal 平均分配到每个 token，会导致因果混淆：开头的一个好词可能误被惩罚，结尾的一个坏词可能误被奖励。放在末尾能通过价值函数 V(st) 和优势函数 At 将“未来会有高奖励”的信息通过时序反向传播给前面的 token。Critic 会学习到“在这个状态下，继续按策略走下去，未来会获得高奖励”，从而指导前面的 token 选择。
+
+    - KL 惩罚在每个 token：因为语言崩溃和偏离可能发生在任何一个时刻，所以需要在每一步都进行约束。
+
+    Critic 的价值预测与 GAE 的作用：
+
+    [图片内容未导入]
+
+    结论：最终奖励并没有被直接“切碎”分配，而是作为轨迹的终结信号，通过价值网络和 GAE 间接地影响每个 token 的决策。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TopFwyc4Si1SxFkkfQlc4kXxnJd
+  block_id: VNI4d8TmFo94iXxMsUeczBnrnjc
+  page_token: TopFwyc4Si1SxFkkfQlc4kXxnJd
+  original_title: 如何计算生成序列中每个 token 的奖励？最终奖励是如何分配到每个 token 的？
+  imported_at: '2026-09-21'

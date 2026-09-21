@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ee6c015527a0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果你有多个子链，每个链的输出是下一个链的输入，但需要额外注入其他参数，你怎么做？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 三、核心组件：链 (Chains)
+tags: &1
+- LangChain面（高频）
+- 三、核心组件：链 (Chains)
+content:
+  prompt: 如果你有多个子链，每个链的输出是下一个链的输入，但需要额外注入其他参数，你怎么做？
+answer:
+  mode: rubric
+  reference_answer: "在纯 SequentialChain 中，所有变量默认来自上游输出或初始输入。如果需要额外注入不属于任何上游输出的外部参数，可以通过以下方式实现。\n\n\U0001F527
+    方法一：在初始输入中注入\n将所有需要的额外参数作为 input_variables 的一部分在调用时传入。SequentialChain 会将其保留在整个变量池中，下游链可以直接引用。\n\n```python\n#
+    假设 chain2 需要外部参数 'style'\nprompt2 = PromptTemplate.from_template(\"将以下内容翻译成英文，风格为{style}：{text}\")\nchain2
+    = LLMChain(prompt=prompt2, llm=model, output_key=\"translated\")\n\noverall_chain
+    = SequentialChain(\n    chains=[chain1, chain2],\n    input_variables=[\"movie\",
+    \"style\"],  # 额外参数在这里声明\n    output_variables=[\"translated\"]\n)\n\n# 调用时注入额外参数\nresult
+    = overall_chain({\"movie\": \"流浪地球\", \"style\": \"幽默风趣\"})\n```\n\n\U0001F527
+    方法二：使用 RunnablePassthrough 在 LCEL 中注入\n在 LCEL 中，RunnablePassthrough 是专门用于数据透传和额外参数注入的工具。\n\n```python\nfrom
+    langchain_core.runnables import RunnablePassthrough\n\nchain1 = prompt1 | model1
+    | StrOutputParser()\nchain2 = prompt2 | model2 | StrOutputParser()\n\n# 额外参数注入：将
+    'style' 参数透传，同时链1的输出作为 'text'\nfull_chain = (\n    {\"text\": chain1, \"style\":
+    RunnablePassthrough()}  # 透传 'style'\n    | prompt2 | model2\n)\n\nresult = full_chain.invoke({\"movie\":
+    \"...\", \"style\": \"幽默风趣\"})\n```\n\n这种方式将链1的输出映射为 text，同时保持外部 style 参数不变，实现了额外的参数注入，比
+    SequentialChain 更灵活和直观。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ReT9wTqbnirxZnkOZZGcyGyynKc
+  block_id: WRIrdJf7uo3ZyrxXyzmcNHO3nAh
+  page_token: ReT9wTqbnirxZnkOZZGcyGyynKc
+  original_title: 如果你有多个子链，每个链的输出是下一个链的输入，但需要额外注入其他参数，你怎么做？
+  imported_at: '2026-09-21'

@@ -1,0 +1,101 @@
+---
+schema_version: 1
+id: feishu-llm-complete-253d37baadc6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F510 在 LangServe 中，如何为 API 添加认证和授权？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F510 在 LangServe 中，如何为 API 添加认证和授权？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangServe 本身不提供内置的认证功能，但由于它是基于 FastAPI 的，你可以利用 FastAPI 强大的依赖注入系统来灵活地实现认证和授权。推荐的做法是通过 per_req_config_modifier 或 FastAPI 的 Depends 来控制访问权限。
+
+    方法一：使用 FastAPI 的 Depends 保护整个路由
+
+    你可以在添加路由之前，为 FastAPI 应用添加全局依赖，或者使用 APIRouter 并应用依赖。例如使用 Bearer Token 认证：
+
+    ```python
+    from fastapi import FastAPI, Depends, HTTPException
+    from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+    from langserve import add_routes
+
+    app = FastAPI()
+    security = HTTPBearer()
+
+    # 验证函数
+    async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+        token = credentials.credentials
+        if token != "my-secret-token":
+            raise HTTPException(status_code=403, detail="Invalid token")
+        return token
+
+    # 将依赖应用到整个应用或特定路由
+    app.add_middleware(...)  # 也可以使用中间件
+    # 或者为 add_routes 创建一个带有依赖的 APIRouter
+    from fastapi import APIRouter
+    router = APIRouter(dependencies=[Depends(verify_token)])
+    add_routes(router, chain, path="/chat")
+    app.include_router(router)
+    ```
+
+    方法二：使用 per_req_config_modifier 注入认证信息
+    per_req_config_modifier 是一个函数，它在每个请求处理前被调用，可以修改传递给链的 config。你可以在其中进行认证检查，并将认证后的用户信息放入 config 的 metadata 中，供链内部使用。
+
+    ```python
+    from fastapi import Request, HTTPException
+
+    def auth_modifier(config, request: Request):
+        # 从请求头获取token并验证
+        token = request.headers.get("Authorization")
+        if not token or token != "Bearer valid-token":
+            raise HTTPException(status_code=403)
+        # 将用户信息注入config
+        config["metadata"]["user_id"] = "user123"
+        return config
+
+    add_routes(app, chain, path="/chat", per_req_config_modifier=auth_modifier)
+    ```
+
+    这个方法的好处是认证逻辑与业务链解耦，并且可以在不修改链的情况下传递上下文。
+
+    方法三：结合 API 网关
+
+    在生产环境中，更常见的做法是在 LangServe 服务前面放置一个 API 网关（如 Kong、Nginx、Cloudflare Zero Trust），由网关处理认证、限流、路由等。这样 LangServe 服务本身可以专注于业务逻辑，不需要处理认证细节。这是微服务架构的最佳实践。
+
+    权限授权：如果需要更细粒度的权限控制（比如不同用户只能访问特定的工具），可以在链内部或工具函数中检查 config 中传递的 user_id，并根据角色决定是否执行操作。同时配合 per_req_config_modifier 将用户角色注入，实现完整的访问控制。
+
+    安全提醒：不要将 LangServe 暴露在没有认证的公网上，尤其是 Playground，它可能被恶意利用消耗大量 API 费用。始终加上认证层，并限制速率。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K973wYln7iD4oCkYW2acmsT4nke
+  block_id: OJcHdCdUAoSVBWxVbmkc6iFwnEg
+  page_token: K973wYln7iD4oCkYW2acmsT4nke
+  original_title: "\U0001F510 在 LangServe 中，如何为 API 添加认证和授权？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0c30286740b4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: LoRA + ZeRO 的组合效果如何？是否冲突？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: LoRA + ZeRO 的组合效果如何？是否冲突？
+answer:
+  mode: rubric
+  reference_answer: |-
+    完全不冲突，而且组合起来威力强大。
+
+    LoRA冻结了绝大部分原始参数，只有极少低秩适配矩阵需要梯度，因此梯度和优化器状态占比极小。但原始参数的FP16副本仍然占用大量显存（7B约14GB，13B约26GB）。如果单卡放不下这些只读参数，或者想增大batch size、加长序列，就必须解决参数存储问题。
+
+    ZeRO-3恰好能分片这些只读参数，每卡只存1/N，例如8卡训练，每卡仅需约1.75GB存放7B模型参数。这样，LoRA解决了“梯度和优化器状态”的显存，ZeRO-3解决了“预训练参数存储”的显存。两者各自独立地压缩显存的不同部分，不存在冲突。实践中，LoRA + ZeRO-3可以在单张24GB显卡上微调65B甚至更大的模型；若再加上ZeRO-Offload，门槛还能进一步降低。
+
+    因此，LoRA与ZeRO-3是绝佳搭档，尤其在消费级硬件上微调超大模型时。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: OAc9d0aYAo4sBBx54LEcTtynnqg
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: LoRA + ZeRO 的组合效果如何？是否冲突？
+  imported_at: '2026-09-21'

@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6fb6b1a54c79
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: DDP中梯度是如何同步的？AllReduce发生在什么时候？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: PyTorch 面试八股
+derived_topic: 
+tags: &1
+- PyTorch 面试八股
+content:
+  prompt: DDP中梯度是如何同步的？AllReduce发生在什么时候？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在DDP中，梯度同步通过All-Reduce操作完成，该操作将每个进程的本地梯度张量求和或求平均，并让所有进程得到相同的结果。
+
+    发生时机：
+    DDP采用自动微分的Hook机制，在反向传播过程中，每当计算完一个参数的梯度，autograd引擎就会触发为该参数注册的Hook。DDP的Hook会立即启动对该参数的异步All-Reduce。这意味着通信与计算可以重叠：当模型后面层的梯度还在计算时，前面层的梯度已经在同步了。所有同步完成后，每个进程拥有了全局平均的梯度。
+
+    同步算法的选择：
+    默认使用NCCL的All-Reduce，底层通常是高效的Ring All-Reduce算法。它将所有GPU组成一个逻辑环，梯度被分割成小块，在环上并行传输和累加，最后广播。这种方法通信量约为2 * (N-1) / N * 数据量，效率极高。
+
+    梯度的平均：
+    All-Reduce默认对梯度求和，但为了保持全局batch size的语义，DDP在backward后会自动将求和结果除以world_size，得到平均梯度。这样，无论使用多少GPU，参数更新的量级与大batch训练一致。
+
+    图示流程：
+
+    - loss.backward()触发反向传播。
+
+    - 计算第L层梯度。
+
+    - DDP Hook自动异步启动第L层梯度的All-Reduce。
+
+    - 继续计算第L-1层梯度，同时第L层的通信正在进行。
+
+    - ... ...
+
+    - 所有层梯度同步完成，每个进程拥有完全相同的平均梯度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KwdbwAt6ziL8zKkU7VMcVNEin8d
+  block_id: X2SFd48v8o6DENxmNi6cLr3CnKd
+  page_token: KwdbwAt6ziL8zKkU7VMcVNEin8d
+  original_title: DDP中梯度是如何同步的？AllReduce发生在什么时候？
+  imported_at: '2026-09-21'

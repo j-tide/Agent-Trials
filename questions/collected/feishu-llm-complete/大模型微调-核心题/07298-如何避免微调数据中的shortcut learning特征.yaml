@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fa3da5d8fa90
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何避免微调数据中的“shortcut learning”特征？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 如何避免微调数据中的“shortcut learning”特征？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Shortcut learning（捷径学习） 是指模型在训练中发现了数据集中某些表面特征与标签之间的虚假统计关联，并依赖这些捷径来降低损失，而非真正学习所需的底层能力。在微调中，这表现为模型学到的不是指令理解和任务执行，而是“识别某些关键词或固定模板然后套用答案”。
+
+    避免策略：
+
+    - 对抗性数据注入：刻意构造让捷径失效的数据。例如，如果怀疑模型依赖“翻译”这个关键词，就构造指令：“请翻译这句话”和“请不要翻译，直接告诉我这句话有多少个词”。用两种指令交替训练，前者需要翻译，后者需要计数。模型被迫关注“不要”这一否定词，不能再依赖“翻译”关键词。
+
+    - 关键信息的随机位置放置：不要在数据中总是把核心约束放在指令的同一位置（比如末尾）。有意识地将关键约束（如字数限制、格式要求）随机分布在指令的开头、中间和末尾。这迫使模型完整阅读指令，而不是只扫首尾。
+
+    - 任务标签与指令措辞解耦：不使用高度一致的指令模板。例如，所有翻译任务不要都以“翻译：”开头，而应使用多样的表达：“把这段话变成英文”、“用英语说”、“英文版”、“Translate this”等。模型无法再依赖单一关键词，必须理解任务的深层语义。
+
+    - 引入“反例”与“对比”数据：构造对比数据：同一个任务要求，在两条数据中以完全不同的方式表达，但正确答案相同。这强迫模型关注语义等价性。更强烈的做法是构造“陷阱”数据——指令包含误导性关键词但实际任务不同，让模型因为依赖关键词而犯错，从而在梯度更新中削弱该捷径。
+
+    - 使用“拒绝采样”清洗数据：用当前模型对训练集中的指令生成回答。如果发现模型对某些指令经常产生捷径式的错误回答（如总是套用某个模板），说明这些数据可能被模型找到了捷径。可以对这些数据进行改写，或将其替换为更高质量、更不易被“钻空子”的样本。
+
+    - 模型诊断与针对性修补：先训练一个初步模型，分析其在哪些指令上成功、哪些上失败。如果发现模型对改写后的指令表现骤降，说明原数据中存在捷径。针对性地为这些“改写失败”的指令构造训练数据，进行增量微调。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DPSewakAfi4q7rkB8nQcmT0onob
+  block_id: CGKQdByBCo1g2AxXyfNcxBqAn1d
+  page_token: DPSewakAfi4q7rkB8nQcmT0onob
+  original_title: 如何避免微调数据中的“shortcut learning”特征？
+  imported_at: '2026-09-21'

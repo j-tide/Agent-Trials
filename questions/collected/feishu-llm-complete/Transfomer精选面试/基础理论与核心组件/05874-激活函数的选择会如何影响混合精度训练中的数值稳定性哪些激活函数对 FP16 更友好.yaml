@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-49eca583d845
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 激活函数的选择会如何影响混合精度训练中的数值稳定性？哪些激活函数对 FP16 更友好？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 基础理论与核心组件
+tags: &1
+- Transfomer精选面试
+- 基础理论与核心组件
+content:
+  prompt: 激活函数的选择会如何影响混合精度训练中的数值稳定性？哪些激活函数对 FP16 更友好？
+answer:
+  mode: rubric
+  reference_answer: |-
+    混合精度训练（通常指 FP16 权重和激活，FP32 主权重）对数值范围非常敏感。FP16 的表示范围大约在 6×10⁻⁸ 到 65504 之间，超出则溢出为 Inf，低于最小正规数则可能变成零或产生非正规数，导致梯度消失。
+
+    激活函数的影响：
+
+    - ReLU：在 FP16 下相对安全，因为负半轴直接输出 0，正半轴线性。但正半轴如果输入值很大（超过 65504），仍然会溢出。更隐蔽的是，ReLU 的梯度在正半轴为 1，稳定；负半轴梯度为 0，不会产生微小梯度，避免了非正规数下溢问题。
+
+    - GELU：负值区输出不是零，而是约 0.5x(1+erf(x/√2))，当 x 很负时，输出接近零但非零。在 FP16 下，这些微小值可能落入非正规数范围或直接下溢为 0。同时，GELU 的梯度在负值区有微小值，也容易下溢，可能影响训练稳定性。因此使用 GELU 时通常需要配合 loss scaling，将梯度放大后再裁剪，以保持有效位数。
+
+    - SiLU（Swish）：在负值区输出也是负值，接近 0，梯度变化平滑。同样有微小梯度下溢的风险。但 SiLU 的形状使得它在很多实现中与 GELU 有类似的行为。
+
+    - SwiGLU 中的门控乘法：输出在负值区被门控抑制为接近 0，正值区可能被放大。乘法操作会放大数值范围，一旦 gate 较大且 values 也较大，乘积可能溢出 FP16 范围。这需要门控投影和值投影的初始化和缩放（如使用小初始权重或合理的方差）来控制激活值规模。
+
+    哪些对 FP16 更友好？
+
+    - 理论上，ReLU 是最简单的，没有微小梯度问题，只有正半轴的溢出需要注意。
+
+    - GELU 和 SiLU 都需要更细致的梯度缩放。实践中，几乎所有大模型都使用 BF16（Brain Float 16）来替代 FP16，因为 BF16 的指数位与 FP32 相同，动态范围极大，几乎不会溢出，且对微小值下溢的容忍度更高。因此，在现代 GPU（如 A100、H100）上，激活函数的选择对数值稳定性的影响被大大降低。
+
+    - 如果必须使用 FP16，则推荐使用 GELU 或 SiLU 的近似实现，并在训练中开启 loss scaling，同时监控梯度的直方图。
+
+    总结：在 BF16 环境下，激活函数的选择更多取决于任务性能而非数值稳定性；在 FP16 下，需要额外关注激活值的动态范围并配合 loss scaling。ReLU 最稳健，但表达能力受限；GELU/SiLU 表达能力更强，但需要更谨慎的数值管理。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XLeKwLdoyiv7xUk0ntpcn8BYnsg
+  block_id: UhsldCWebofrINxsupVcuJx5nwd
+  page_token: XLeKwLdoyiv7xUk0ntpcn8BYnsg
+  original_title: 激活函数的选择会如何影响混合精度训练中的数值稳定性？哪些激活函数对 FP16 更友好？
+  imported_at: '2026-09-21'

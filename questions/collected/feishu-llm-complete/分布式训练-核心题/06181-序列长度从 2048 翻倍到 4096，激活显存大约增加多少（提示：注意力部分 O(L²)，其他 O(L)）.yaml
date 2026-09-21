@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f059270fd3a0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 序列长度从 2048 翻倍到 4096，激活显存大约增加多少？（提示：注意力部分 O(L²)，其他 O(L)）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 序列长度从 2048 翻倍到 4096，激活显存大约增加多少？（提示：注意力部分 O(L²)，其他 O(L)）
+answer:
+  mode: rubric
+  reference_answer: |-
+    序列长度L对激活显存的影响是训练长文本时必须精算的成本。激活显存按来源可拆分为两部分：注意力相关的二次项，和其他线性项。
+
+    注意力部分的二次增长：标准自注意力需要计算一个形状为 [batch, heads, L, L] 的注意力分数矩阵（或softmax之后的概率矩阵）。这个矩阵在反向传播时需要被保存（或用重计算避免）。其显存占用量正比于 L²。当L从2048增加到4096，L²变为原来的4倍。假设原序列长度下注意力矩阵占用 M_attn GB，翻倍后变为 4 × M_attn GB，增量 3 × M_attn。
+
+    其他部分的线性增长：Q、K、V、FFN中间激活等张量，其形状通常是 [batch, L, hidden_dim] 或类似，与L成正比。这部分显存从 M_linear 变为 2 × M_linear，增量 M_linear。
+
+    总增长幅度取决于M_attn和M_linear的相对比例。在较短序列下，M_linear可能占主导，增长近似线性；但在长序列下，M_attn成为绝对大头，增长接近二次。以GPT-3为例，2048长度下注意力矩阵可占激活显存的40%~60%；翻倍到4096后，注意力矩阵部分膨胀4倍，可能占据总激活显存的70%以上，总激活显存大约变为原来的2.5~3倍。具体数字需要根据模型隐藏维度、头数等参数计算，但二次增长的趋势是确定的。
+
+    因此，训练长序列时，如果不采用FlashAttention等优化，显存成本会急剧膨胀，这也是FlashAttention成为标配的根本驱动力。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: PBWwdnhVWoFyD3xRcu5cfDPVn3B
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 序列长度从 2048 翻倍到 4096，激活显存大约增加多少？（提示：注意力部分 O(L²)，其他 O(L)）
+  imported_at: '2026-09-21'

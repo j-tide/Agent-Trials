@@ -1,0 +1,175 @@
+---
+schema_version: 1
+id: feishu-llm-complete-125aaae11145
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F530 如何设计一个 Prompt 版本管理和 A/B 测试系统？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 大模型基础篇
+tags: &1
+- AI Agent精选八股文
+- 大模型基础篇
+content:
+  prompt: "\U0001F530 如何设计一个 Prompt 版本管理和 A/B 测试系统？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    真正的生产级 LLM 应用，提示词就是核心资产，必须像管理代码那样管理提示词，像测试产品那样测试效果。下面给出一个可落地的系统设计骨架，融合版本控制、在线实验和自动评估。
+
+    整体架构：
+
+    [图片内容未导入]
+
+    1 Prompt 版本管理
+
+    像代码一样在 Git 中维护 Prompt 文件，使用结构化 YAML，每个版本包含元数据、模板、变量、预期输入输出样例。
+
+    # prompts/sentiment_analysis/v1.2.yaml
+    name: "情感分析-少样本Cot版"
+    version: "1.2"
+    created: "2026-06-20"
+    author: "team-llm"
+    template: |
+      你是一个情感分析专家。请逐步分析以下文本的方面级情感。
+
+      示例:
+      文本: “味道不错但服务太慢”
+      思考: 文本提到两个实体：味道和服务。味道是正面的，服务是负面的。
+      结果: [{"aspect": "味道", "sentiment": "正面"}, {"aspect": "服务", "sentiment": "负面"}]
+
+      现在分析:
+      文本: {{user_input}}
+      思考:
+    variables:
+      - user_input
+    test_cases:
+      - input: "环境优雅，价格公道"
+        expected: [{"aspect": "环境", "sentiment": "正面"}, {"aspect": "价格", "sentiment": "正面"}]
+
+    版本策略：语义化版本号，主版本（大改思路）、次版本（调整样例/措辞）、补丁（修复格式错误）。每次变更用 PR 审核，合并触发 CI 自动评估。
+
+    2 A/B 实验分流
+
+    在应用层加入实验配置，无侵入地切换 Prompt 版本。
+
+    # 简易的 Prompt 管理器 + 实验分流
+    import yaml, random, hashlib
+
+    class PromptManager:
+        def __init__(self):
+            self.versions = {}  # version_name -> config
+            self.load_all()
+
+        def load_all(self):
+            # 实际从 Git 仓库拉取或缓存读取
+            pass
+
+        def render(self, version, variables):
+            template = self.versions[version]['template']
+            # 简单的变量替换
+            for var, val in variables.items():
+                template = template.replace(f"{{{{{var}}}}}", val)
+            return template
+
+    # A/B 分流器：按 user_id 哈希决定版本，保证用户一致性
+    def get_prompt_version(user_id, experiment_config):
+        if experiment_config["enabled"]:
+            bucket = int(hashlib.md5(user_id.encode()).hexdigest(), 16) % 100
+            for version, ratio in experiment_config["groups"]:
+                if bucket < ratio:
+                    return version
+                bucket -= ratio
+        return experiment_config["default"]
+
+    # 实验配置
+    exp_config = {
+        "enabled": True,
+        "default": "v1.2",
+        "groups": [("v1.2", 50), ("v2.0-cot-plus", 50)]  # 各50%流量
+    }
+    user_input = "环境优雅，价格公道"
+    version = get_prompt_version("user_abc", exp_config)
+    final_prompt = prompt_manager.render(version, {"user_input": user_input})
+    # 调用 LLM...
+
+    3 多维度评估体系
+
+    离线评估（自动）与在线指标结合。
+
+    离线自动评估：
+
+    def evaluate_prompt(prompt_version, test_dataset):
+        scores = []
+        for case in test_dataset:
+            rendered = prompt_manager.render(prompt_version, {"user_input": case["input"]})
+            output = call_llm(rendered)
+            # 多维度打分
+            structure_score = validate_json_structure(output, case["expected"])
+            content_score = semantic_match(output, case["expected"])  # 基于嵌入相似度
+            scores.append(0.7*structure_score + 0.3*content_score)
+        return {"mean_score": np.mean(scores), "n": len(scores)}
+
+    在线指标与统计检验：
+
+    收集用户级指标：准确率（人工标注或用户反馈）、任务完成率、延迟、成本（token 用量）。
+
+    # 简化版统计比较
+    from scipy import stats
+
+    def ab_test_report(metrics_v1, metrics_v2, alpha=0.05):
+        # metrics 是数组，例如 [1,0,1,...] 表示每次任务是否成功
+        t_stat, p_value = stats.ttest_ind(metrics_v1, metrics_v2)
+        mean1, mean2 = np.mean(metrics_v1), np.mean(metrics_v2)
+        lift = (mean2 - mean1) / mean1 * 100
+        return {
+            "p_value": p_value,
+            "significant": p_value < alpha,
+            "lift": lift,
+            "winner": "v2" if (lift > 0 and p_value < alpha) else "v1" if (lift < 0 and p_value < alpha) else "no winner"
+        }
+
+    工作流：
+
+    - 工程师在 YAML 中创建新版本并推送 Git。
+
+    - CI 运行离线测试，输出分数与基线的对比。
+
+    - 通过后，配置 10% 灰度在线实验，收集数据 24h。
+
+    - 查看 A/B 报表，若新版本在核心指标上显著优于旧版且无副作用，全量切换。
+
+    进阶点：
+
+    - 动态 Prompt 优化：可以用 DSPy 等框架自动优化 few-shot 样例选择，将自动评估分数作为信号，自动调整示例顺序和数量。
+
+    - 上下文长度管理：在上下文工程层面，A/B 测试也可以针对不同的检索策略、历史摘要方法进行实验，整个链路版本化。
+
+    ---
+
+    从提示词的雕琢，到上下文的生态设计，再到工程化的版本实验，这三层构成了今天 LLM 应用构建的核心阶梯。真正成熟的 LLM 产品，并不是靠一个神奇的 prompt 运行，而是靠一套可以持续迭代、量化评估、安全回滚的 Prompt 研发体系。 当你开始这样思考问题时，你就从 Prompt 写手变成了 LLM 产品工程师。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GYUxwBtHhidVxYk1GsEc65zVnTf
+  block_id: doxcnSTcUuaeDz5tSdID1p8dQ4b
+  page_token: GYUxwBtHhidVxYk1GsEc65zVnTf
+  original_title: "\U0001F530 如何设计一个 Prompt 版本管理和 A/B 测试系统？"
+  imported_at: '2026-09-21'

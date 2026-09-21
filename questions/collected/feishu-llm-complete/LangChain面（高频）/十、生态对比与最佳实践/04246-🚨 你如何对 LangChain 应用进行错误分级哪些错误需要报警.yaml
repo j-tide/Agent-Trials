@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-307ef9ffd32a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F6A8 你如何对 LangChain 应用进行错误分级？哪些错误需要报警？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 十、生态对比与最佳实践
+tags: &1
+- LangChain面（高频）
+- 十、生态对比与最佳实践
+content:
+  prompt: "\U0001F6A8 你如何对 LangChain 应用进行错误分级？哪些错误需要报警？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    错误分级是为了合理分配注意力，避免“狼来了”效应。我通常将错误分为四级：
+
+    P0 - 紧急（立即报警，需要马上处理）：
+
+    - LLM API 调用全部失败：所有请求都返回 5xx 或网络不可达。可能是 API 服务商宕机或账号被封。此时用户无法获得任何服务。
+
+    - 内容安全严重违规：LLM 输出包含极端暴力、色情、儿童虐待等内容。这可能导致法律风险和公关危机。
+
+    - 数据泄露：检测到 LLM 输出中包含系统 Prompt、API Key、内部敏感信息等。
+
+    - 大规模攻击：检测到 Prompt 注入攻击频率激增，或恶意请求导致成本暴涨。
+
+    P1 - 高危（需要尽快处理，工作时间内响应）：
+
+    - LLM API 调用错误率超过阈值：比如连续 5 分钟超过 10% 的请求返回 429 或 5xx。可能是速率限制或配额不足。
+
+    - Output Parser 持续解析失败：表明模型输出格式发生了重大变化，需要调整 Prompt。
+
+    - 核心工具（如向量库、数据库）不可用：导致 RAG 或 Agent 的核心能力丧失。
+
+    - 对话记忆加载/保存失败：导致用户上下文丢失。
+
+    P2 - 警告（需要关注，可排入下一个迭代修复）：
+
+    - LLM 调用延迟超过阈值：P95 延迟超过预设值，用户体验下降。
+
+    - Agent 执行步数频繁达到上限：表明 Agent 在某些场景下效率低下，需要优化 Prompt。
+
+    - 非关键工具偶发失败：比如天气查询偶发超时，不影响主流程。
+
+    P3 - 信息（仅记录，用于统计和优化）：
+
+    - Token 消耗超出预期：用于成本分析和优化。
+
+    - 缓存命中率下降：需要评估缓存策略。
+
+    - 用户输入触发了安全规则但被成功拦截：用于统计攻击趋势。
+
+    实现方式：通过自定义回调处理器，在 on_llm_error、on_tool_error、on_chain_error 等方法中，根据异常类型和上下文信息判断错误级别，然后通过日志、Prometheus 指标、或直接调用告警接口（如 PagerDuty、钉钉机器人）发送通知。
+
+    实践：我们定义了一套错误码，所有回调处理器在捕获错误时，都会附带错误码。告警规则基于错误码和频率动态调整。比如，同样的 429 错误，如果 1 分钟内出现 100 次，就是 P1；如果只是偶尔 1 次，就是 P3。这样既不会漏掉重要问题，也不会被噪音淹没。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JnXtweizdiLAPukHzMGcNKZHn5M
+  block_id: LfIndHxrpopB2ExzfHOcMeTDnUg
+  page_token: JnXtweizdiLAPukHzMGcNKZHn5M
+  original_title: "\U0001F6A8 你如何对 LangChain 应用进行错误分级？哪些错误需要报警？"
+  imported_at: '2026-09-21'

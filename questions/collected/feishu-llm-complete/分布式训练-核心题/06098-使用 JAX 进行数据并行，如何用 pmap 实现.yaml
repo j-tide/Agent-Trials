@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-392a059fe956
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 JAX 进行数据并行，如何用 pmap 实现？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 使用 JAX 进行数据并行，如何用 pmap 实现？
+answer:
+  mode: rubric
+  reference_answer: |-
+    JAX 的 pmap 是一种单程序多数据（SPMD）并行原语，能将一个函数映射到多个设备（如多块 GPU 或 TPU）上并行执行，同时自动处理数据的分发和结果的收集。使用 pmap 实现数据并行的步骤如下：
+
+    - 定义训练步函数：编写一个包含前向传播、损失计算、梯度计算和参数更新的函数。该函数接受模型参数、输入数据和优化器状态，返回更新后的参数和损失。
+
+    - 用 jax.pmap 装饰该函数：pmap 会将函数复制到所有可用设备上。需要在 pmap 中指定 axis_name 用于后续的集合通信，以及 in_axes 和 out_axes 来指定输入输出数据在不同设备上的分布方式。通常，数据 batch 沿第 0 维（设备维度）切分，参数和优化器状态则广播到所有设备（in_axes=0 表示沿第 0 维拆分，None 表示广播）。
+
+    - 梯度同步：在训练步函数内部，使用 jax.lax.pmean 计算各设备梯度的均值（自动 AllReduce），实现梯度同步。
+
+    - 数据加载：确保每个设备获得不同的数据分片。通常在每个 epoch 开始时，将整个 batch 数据 reshape 为 (num_devices, batch_per_device, ...) 的形式，然后传入 pmap 函数。
+
+    伪代码示例：
+
+    ```python
+    import jax
+    import jax.numpy as jnp
+    from jax import pmap, lax
+
+    def train_step(params, optimizer_state, batch):
+        def loss_fn(params):
+            logits = model.apply(params, batch['input'])
+            return cross_entropy_loss(logits, batch['target'])
+        grads = jax.grad(loss_fn)(params)
+        grads = lax.pmean(grads, axis_name='devices')  # 跨设备平均
+        # 更新参数和优化器
+        new_params = apply_gradients(params, grads)
+        return new_params, optimizer_state
+
+    # 使用 pmap 并行化
+    p_train_step = pmap(train_step, axis_name='devices',
+                        in_axes=(None, None, 0),  # params 和 optimizer 广播，batch 拆分
+                        out_axes=(None, None))
+    # 调用时传入分片后的 batch
+    ```
+
+    JAX 的 pmap 还会自动将函数编译为 XLA 计算图，并进行算子融合，效率极高。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GSO0wLgvGi8yaCktRbBc92Dbnhh
+  block_id: Pus4dHeVCoF8m5x8d7jcOeyvncb
+  page_token: GSO0wLgvGi8yaCktRbBc92Dbnhh
+  original_title: 使用 JAX 进行数据并行，如何用 pmap 实现？
+  imported_at: '2026-09-21'

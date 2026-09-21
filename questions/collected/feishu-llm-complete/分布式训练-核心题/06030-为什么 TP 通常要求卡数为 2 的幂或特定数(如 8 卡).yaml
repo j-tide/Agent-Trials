@@ -1,0 +1,48 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e2748c234d89
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么 TP 通常要求卡数为 2 的幂或特定数？(如 8 卡)
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 为什么 TP 通常要求卡数为 2 的幂或特定数？(如 8 卡)
+answer:
+  mode: rubric
+  reference_answer: |-
+    原因一：模型维度的整除性。张量并行需要将隐藏维度、注意力头数等切分到各设备。模型设计时，这些维度通常取2的幂（如512, 1024, 2048）或与2的幂密切相关。为了不引入额外的填充（padding），TP并行度也取2的幂，能自然整除这些维度。例如，隐藏维度4096，TP=8整除；若TP=6则不整除，需要特殊处理。
+
+    原因二：NCCL通信效率。NCCL的集合通信算法（如Ring AllReduce、Tree AllReduce）在2的幂规模下经过高度优化，能够达到最优的带宽利用率和最低的延迟。在非2的幂规模下，通信拓扑可能非对称，效率下降。
+
+    原因三：硬件拓扑对齐。单节点内GPU通常为8卡（A100/H100服务器），且内部通过NVSwitch全互联。TP=8刚好占满一个节点，TP通信完全在节点内解决，避免了跨节点TP。如果TP=4，则一个节点内可以放2个TP组。
+
+    但并非绝对：TP=2, 4也是常见配置。对于某些模型，如果注意力头数不是2的幂（如头数=48），TP=6也可行，只要整除即可。但出于效率考虑，主流大模型和框架默认推荐2的幂。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: Dp4FdSCDJofLvMxHipDcU96InAe
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: 为什么 TP 通常要求卡数为 2 的幂或特定数？(如 8 卡)
+  imported_at: '2026-09-21'

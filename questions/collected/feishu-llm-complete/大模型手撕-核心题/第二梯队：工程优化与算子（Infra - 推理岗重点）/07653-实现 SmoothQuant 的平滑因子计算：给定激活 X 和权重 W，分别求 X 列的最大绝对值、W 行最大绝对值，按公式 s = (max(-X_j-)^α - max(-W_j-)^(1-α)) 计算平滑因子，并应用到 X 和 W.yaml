@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-985b790294c3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 SmoothQuant 的平滑因子计算：给定激活 X 和权重 W，分别求 X 列的最大绝对值、W 行最大绝对值，按公式 s = (max(|X_j|)^α
+  / max(|W_j|)^(1-α)) 计算平滑因子，并应用到 X 和 W
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现 SmoothQuant 的平滑因子计算：给定激活 X 和权重 W，分别求 X 列的最大绝对值、W 行最大绝对值，按公式 s = (max(|X_j|)^α
+    / max(|W_j|)^(1-α)) 计算平滑因子，并应用到 X 和 W
+answer:
+  mode: rubric
+  reference_answer: "SmoothQuant 是一种缓解激活异常值导致量化困难的技巧。它通过将量化难度从激活转移到权重来实现。具体来说，对于激活
+    X 和权重 W（形状分别为 [M, K] 和 [N, K]，注意 W 的输入维度与 X 的列维度相同，均为 K），我们计算每个输入通道 j (0 ≤ j <
+    K) 的平滑因子 s_j：\n\n[图片内容未导入]\n\n其中 α 通常为 0.5。然后将激活除以 s_j，权重乘以 s_j（在对应的输入通道维度上），从而保持乘积结果不变。这样使激活变得更平滑，易于量化；权重的异常值相应变化。\n\n计算步骤：\n\n-
+    对于激活 X: shape [M, K]，计算每个通道的最大绝对值 max_x = max(|X|, dim=0).values -> [K]。\n\n-
+    对于权重 W: shape [N, K]，沿 N 维度（输出通道）求每个输入通道的最大绝对值？注意公式中 max(|W_j|) 应为权重在输入通道 j 上的最大绝对值，即
+    max(|W[:, j]|) -> [K]。\n\n- 计算 s_j = (max_x[j] ** alpha) / (max_w[j] ** (1 - alpha))，避免除零加
+    epsilon。\n\n- 应用平滑：X_new = X / s (广播)；W_new = W * s (广播，在输入通道维度)。\n\n代码：\n\n```python\ndef
+    smoothquant_scale(X: torch.Tensor, W: torch.Tensor, alpha=0.5, eps=1e-8):\n    \"\"\"\n
+    \   X: 激活 [M, K]  FP32\n    W: 权重 [N, K]  FP32  (注意第二维是输入通道)\n    alpha: 平滑系数\n
+    \   Returns:\n        X_smooth, W_smooth, s\n    \"\"\"\n    # 每个输入通道的最大绝对值\n
+    \   max_x, _ = torch.max(torch.abs(X), dim=0)  # [K]\n    max_w, _ = torch.max(torch.abs(W),
+    dim=0)  # [K]\n    \n    # 平滑因子\n    s = (max_x.pow(alpha) + eps) / (max_w.pow(1
+    - alpha) + eps)  # [K]\n    \n    # 应用\n    X_smooth = X / s  # 广播除\n    W_smooth
+    = W * s  # 广播乘\n    \n    return X_smooth, W_smooth, s\n```\n\n注意：公式中的 α 调整激活与权重之间的量化难度分配。α=1
+    时等价于仅平滑激活（相当于激活量化友好），α=0 时仅平滑权重。经验值 0.5 适用于多数场景。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: RpAndnnHwongpUxD4Qxc6QZDnnW
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 实现 SmoothQuant 的平滑因子计算：给定激活 X 和权重 W，分别求 X 列的最大绝对值、W 行最大绝对值，按公式 s
+    = (max(|X_j|)^α / max(|W_j|)^(1-α)) 计算平滑因子，并应用到 X 和 W
+  imported_at: '2026-09-21'

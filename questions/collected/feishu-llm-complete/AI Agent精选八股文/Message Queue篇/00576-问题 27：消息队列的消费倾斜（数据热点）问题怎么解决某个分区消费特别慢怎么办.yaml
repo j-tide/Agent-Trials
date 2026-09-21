@@ -1,0 +1,165 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4c29b5f3a959
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 问题 27：消息队列的消费倾斜（数据热点）问题怎么解决？某个分区消费特别慢怎么办？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 问题 27：消息队列的消费倾斜（数据热点）问题怎么解决？某个分区消费特别慢怎么办？
+answer:
+  mode: rubric
+  reference_answer: "难度：⭐⭐⭐（热点 key、分区不均、自定义分区策略、动态扩分区）\n\n1️⃣ Common Answer\n\n嗯...消费倾斜的话，一般是某个分区数据太多，或者某个消费者处理太慢。先看看是不是热点
+    key 导致的，比如某个商品特别热，所有消息都到一个分区了。解决的话，可以自定义分区策略，把热点 key 打散到不同分区。或者动态增加分区数，再加几个消费者。还可以在消费者内部用本地队列再做一次负载均衡。\n\n2️⃣
+    Impressive Answer\n\n我会从这几个角度思考：\n\n- 消费倾斜的表现\n\n监控各分区 lag：\n\n```text\n// 监控脚本\npublic
+    class PartitionLagMonitor {\n    public void monitorLag() {\n        AdminClient
+    adminClient = AdminClient.create(adminConfig);\n        \n        // 获取 Topic
+    分区列表\n        DescribeTopicsResult describeTopics = adminClient.describeTopics(\n
+    \           Collections.singletonList(\"order-topic\")\n        );\n        \n
+    \       TopicDescription topicDescription = describeTopics.allTopics().get().get(\"order-topic\");\n
+    \       List<TopicPartitionInfo> partitions = topicDescription.partitions();\n
+    \       \n        // 获取每个分区的 lag\n        for (TopicPartitionInfo partition :
+    partitions) {\n            int partitionId = partition.partition();\n            TopicPartition
+    tp = new TopicPartition(\"order-topic\", partitionId);\n            \n            //
+    获取生产者 offset（最新 offset）\n            Map<TopicPartition, Long> endOffsets = adminClient.endOffsets(\n
+    \               Collections.singletonList(tp)\n            );\n            long
+    endOffset = endOffsets.get(tp);\n            \n            // 获取消费者 offset\n            Map<TopicPartition,
+    OffsetAndMetadata> consumerOffsets = adminClient.listConsumerGroupOffsets(\n                \"order-consumer-group\"\n
+    \           ).partitionsToOffsetAndMetadata().get();\n            long consumerOffset
+    = consumerOffsets.get(tp).offset();\n            \n            // 计算 lag\n            long
+    lag = endOffset - consumerOffset;\n            \n            log.info(\"Partition
+    lag: topic={}, partition={}, lag={}\", \n                \"order-topic\", partitionId,
+    lag);\n            \n            // 告警：某个分区 lag 远高于其他分区\n            if (lag >
+    100000) {\n                alertManager.sendAlert(\n                    String.format(\"High
+    lag detected: partition=%d, lag=%d\", partitionId, lag)\n                );\n
+    \           }\n        }\n    }\n}\n\n// 输出示例：\n// Partition lag: topic=order-topic,
+    partition=0, lag=100\n// Partition lag: topic=order-topic, partition=1, lag=150\n//
+    Partition lag: topic=order-topic, partition=2, lag=50000  ← 倾斜！\n// Partition
+    lag: topic=order-topic, partition=3, lag=120\n```\n\n- 常见原因\n\n原因一：热点 key 导致分区不均\n\n```text\n//
+    示例：订单消息按商品 ID 分区\nString productId = order.getProductId();\n// 如果某个商品特别热，所有该商品的消息都到一个分区\nint
+    partition = Math.abs(productId.hashCode()) % 4;\n// 假设商品 \"iPhone15\" 特别热，所有 iPhone15
+    订单都到分区 2\n```\n\n原因二：消费者处理能力不均\n\n```text\n// 示例：消费者 1 处理逻辑复杂，消费者 2 处理逻辑简单\n//
+    Consumer 1\npublic void processMessage(Message message) {\n    // 复杂的数据库操作\n    saveToDatabase(message);\n
+    \   // 复杂的缓存更新\n    updateCache(message);\n    // 复杂的外部接口调用\n    callExternalApi(message);\n}\n\n//
+    Consumer 2\npublic void processMessage(Message message) {\n    // 简单的日志记录\n    log.info(\"Message:
+    {}\", message);\n}\n```\n\n原因三：分区数据量不均\n\n```text\n# 检查各分区数据量\nkafka-run-class.sh
+    kafka.tools.GetOffsetShell \\\n  --broker-list broker1:9092 \\\n  --topic order-topic
+    \\\n  --time -1\n\n# 输出示例：\n# order-topic:0:1000\n# order-topic:1:1200\n# order-topic:2:50000
+    \ ← 数据量远高于其他分区\n# order-topic:3:1100\n```\n\n- 排查方法\n\n检查 key 分布：\n\n```text\n//
+    分析 key 分布\npublic class KeyDistributionAnalyzer {\n    public void analyzeKeyDistribution()
+    {\n        KafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerConfig);\n
+    \       consumer.subscribe(Collections.singletonList(\"order-topic\"));\n        \n
+    \       Map<String, Integer> keyCountMap = new HashMap<>();\n        \n        while
+    (true) {\n            ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(1000));\n
+    \           for (ConsumerRecord<String, String> record : records) {\n                String
+    key = record.key();\n                keyCountMap.put(key, keyCountMap.getOrDefault(key,
+    0) + 1);\n            }\n            \n            // 定期输出 key 分布\n            if
+    (System.currentTimeMillis() % 60000 == 0) {\n                log.info(\"Key distribution:
+    {}\", keyCountMap);\n                \n                // 找出热点 key\n                keyCountMap.entrySet().stream()\n
+    \                   .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())\n
+    \                   .limit(10)\n                    .forEach(entry -> \n                        log.info(\"Hot
+    key: key={}, count={}\", entry.getKey(), entry.getValue())\n                    );\n
+    \           }\n        }\n    }\n\n    // 输出示例：\n    // Hot key: key=iPhone15,
+    count=50000\n    // Hot key: key=MacBookPro, count=10000\n    // Hot key: key=iPad,
+    count=5000\n}\n```\n\n分析消费者处理耗时：\n\n```text\n// 监控消费者处理耗时\npublic class ConsumerPerformanceMonitor
+    {\n    public void monitorPerformance() {\n        KafkaConsumer<String, String>
+    consumer = new KafkaConsumer<>(consumerConfig);\n        consumer.subscribe(Collections.singletonList(\"order-topic\"));\n
+    \       \n        while (true) {\n            ConsumerRecords<String, String>
+    records = consumer.poll(Duration.ofMillis(1000));\n            \n            for
+    (ConsumerRecord<String, String> record : records) {\n                long startTime
+    = System.currentTimeMillis();\n                \n                try {\n                    processMessage(record);\n
+    \               } finally {\n                    long endTime = System.currentTimeMillis();\n
+    \                   long duration = endTime - startTime;\n                    \n
+    \                   log.info(\"Process time: partition={}, offset={}, duration={}ms\",
+    \n                        record.partition(), record.offset(), duration);\n                    \n
+    \                   // 记录到监控系统\n                    metrics.histogram(\"consumer.process.time\",
+    duration);\n                }\n            }\n        }\n    }\n}\n```\n\n- 解决方案一：自定义分区策略，打散热点
+    key\n\nJava 代码示例：\n\n```text\n// 自定义分区器\npublic class HotKeyPartitioner implements
+    Partitioner {\n    private Random random = new Random();\n    \n    // 热点 key
+    列表（可配置）\n    private Set<String> hotKeys = new HashSet<>(Arrays.asList(\n        \"iPhone15\",
+    \"MacBookPro\", \"iPad\"\n    ));\n    \n    @Override\n    public int partition(String
+    topic, Object key, byte[] keyBytes, \n                        Object value, byte[]
+    valueBytes, Cluster cluster) {\n        String keyStr = (String) key;\n        \n
+    \       // 如果是热点 key，随机分配到不同分区\n        if (hotKeys.contains(keyStr)) {\n            int
+    partitionCount = cluster.partitionCountForTopic(topic);\n            return random.nextInt(partitionCount);\n
+    \       }\n        \n        // 非热点 key，使用默认的 hash 分区\n        int partitionCount
+    = cluster.partitionCountForTopic(topic);\n        return Math.abs(keyStr.hashCode())
+    % partitionCount;\n    }\n    \n    @Override\n    public void close() {}\n    \n
+    \   @Override\n    public void configure(Map<String, ?> configs) {\n        //
+    可以从配置中读取热点 key 列表\n        String hotKeysConfig = (String) configs.get(\"hot.keys\");\n
+    \       if (hotKeysConfig != null) {\n            hotKeys = new HashSet<>(Arrays.asList(hotKeysConfig.split(\",\")));\n
+    \       }\n    }\n}\n\n// 配置分区器\nProperties props = new Properties();\nprops.put(\"partitioner.class\",
+    \"com.example.HotKeyPartitioner\");\nprops.put(\"hot.keys\", \"iPhone15,MacBookPro,iPad\");\n\nKafkaProducer<String,
+    String> producer = new KafkaProducer<>(props);\n```\n\n- 解决方案二：动态扩分区 + 消费者扩容\n\n动态扩分区：\n\n```text\n#
+    步骤 1：增加分区数\nkafka-topics.sh --bootstrap-server broker1:9092 \\\n  --alter --topic
+    order-topic \\\n  --partitions 8\n\n# 步骤 2：验证分区数\nkafka-topics.sh --bootstrap-server
+    broker1:9092 \\\n  --describe --topic order-topic\n\n# 输出示例：\n# Topic: order-topic
+    PartitionCount: 8 ReplicationFactor: 3\n```\n\n消费者扩容：\n\n```text\n// 原来有 4 个消费者，现在扩容到
+    8 个\n// Consumer 1\nKafkaConsumer<String, String> consumer1 = new KafkaConsumer<>(props);\nconsumer1.subscribe(Collections.singletonList(\"order-topic\"));\n\n//
+    Consumer 2\nKafkaConsumer<String, String> consumer2 = new KafkaConsumer<>(props);\nconsumer2.subscribe(Collections.singletonList(\"order-topic\"));\n\n//
+    ... Consumer 3-8\n\n// Kafka 会自动重新分配分区\n// 原来：4 个消费者，每个消费 1 个分区\n// 现在：8 个消费者，每个消费
+    1 个分区（8 个分区）\n```\n\n- 解决方案三：本地队列二次分发\n\n消费者内部再做负载均衡：\n\n```text\n// 主消费者\npublic
+    class MainConsumer {\n    private KafkaConsumer<String, String> kafkaConsumer;\n
+    \   private ExecutorService executorService;\n    private BlockingQueue<Message>
+    localQueue;\n    \n    public void start() {\n        kafkaConsumer = new KafkaConsumer<>(consumerConfig);\n
+    \       kafkaConsumer.subscribe(Collections.singletonList(\"order-topic\"));\n
+    \       \n        // 本地队列（内存队列）\n        localQueue = new LinkedBlockingQueue<>(10000);\n
+    \       \n        // 线程池（本地消费者）\n        executorService = Executors.newFixedThreadPool(10);\n
+    \       \n        // 启动本地消费者\n        for (int i = 0; i < 10; i++) {\n            executorService.submit(new
+    LocalConsumer(localQueue));\n        }\n        \n        // 主消费者：拉取消息，放入本地队列\n
+    \       while (true) {\n            ConsumerRecords<String, String> records =
+    kafkaConsumer.poll(Duration.ofMillis(100));\n            for (ConsumerRecord<String,
+    String> record : records) {\n                Message message = new Message(record.key(),
+    record.value());\n                localQueue.offer(message);\n            }\n
+    \       }\n    }\n}\n\n// 本地消费者\npublic class LocalConsumer implements Runnable
+    {\n    private BlockingQueue<Message> queue;\n    \n    public LocalConsumer(BlockingQueue<Message>
+    queue) {\n        this.queue = queue;\n    }\n    \n    @Override\n    public
+    void run() {\n        while (true) {\n            try {\n                Message
+    message = queue.take();\n                processMessage(message);\n            }
+    catch (InterruptedException e) {\n                Thread.currentThread().interrupt();\n
+    \               break;\n            }\n        }\n    }\n}\n\n// 架构图：\n// Kafka
+    Topic (4 分区)\n//   ↓\n// Main Consumer (1 个)\n//   ↓\n// Local Queue (内存队列)\n//
+    \  ↓\n// Local Consumers (10 个线程)\n```\n\n- 实战：大促期间热点商品导致消费倾斜的处理经验\n\n实战案例：\n\n```text\n【背景】\n双
+    11 大促，订单消息量激增 10 倍\nTopic: order-topic, 4 个分区, 4 个消费者\n发现：分区 2 的 lag 远高于其他分区（50000
+    vs 100）\n\n【排查】\n1. 检查 key 分布\n   发现：商品 \"iPhone15\" 的订单占 80%，全部在分区 2\n   \n2.
+    检查消费者处理耗时\n   发现：所有消费者处理耗时相近（平均 50ms）\n   \n3. 结论：热点商品导致分区倾斜\n\n【解决方案】\n方案演进：\n\n阶段一：自定义分区器（快速缓解）\n-
+    实现 HotKeyPartitioner，将热点商品随机分配到 4 个分区\n- 效果：lag 从 50000 降到 20000，缓解但不彻底\n\n阶段二：动态扩分区（根本解决）\n-
+    将分区数从 4 扩到 16\n- 消费者数从 4 扩到 16\n- 效果：lag 降到 1000，基本解决\n\n阶段三：本地队列二次分发（最终优化）\n-
+    每个消费者内部用 10 个线程消费\n- 总处理能力：16 消费者 × 10 线程 = 160 并发\n- 效果：lag 降到 100，完全解决\n\n【总结】\n消费倾斜的解决思路：\n1.
+    先用自定义分区器快速缓解（5 分钟）\n2. 再用扩分区 + 扩消费者根本解决（30 分钟）\n3. 最后用本地队列二次分发优化（1 小时）\n```\n\n3️⃣
+    Key Differences\n\n[嵌入表格未展开]\n\n### 6.28 关联问题速查表\n\n[嵌入表格未展开]\n\n- 原因：吞吐量极高，天然适配流式处理（Flink/Spark）\n\n-
+    典型场景：埋点日志、监控指标采集、实时数仓\n\n- 原因：支持事务消息，保障最终一致性；可靠性高，消息不丢失\n\n- 典型场景：订单创建、支付回调、库存扣减\n\n-
+    原因：Exchange-Queue 模型灵活，延迟极低\n\n- 典型场景：即时通讯、复杂规则路由、微服务解耦\n\n- COMMIT_MESSAGE：提交事务\n\n-
+    ROLLBACK_MESSAGE：回滚事务\n\n- UNKNOWN：继续回查\n\n- 候选者发起选举，向其他节点请求投票\n\n- 收到多数节点投票（N/2
+    + 1）则成为 Leader\n\n- Leader 定期发送心跳维持统治地位\n\n- 需要与 TransactionCoordinator 交互\n\n-
+    两阶段提交增加网络往返\n\n- _transactionstate Topic 的写入开销"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcn6uO9Ro4qILlwPyu6cP3vcg
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: 问题 27：消息队列的消费倾斜（数据热点）问题怎么解决？某个分区消费特别慢怎么办？
+  imported_at: '2026-09-21'

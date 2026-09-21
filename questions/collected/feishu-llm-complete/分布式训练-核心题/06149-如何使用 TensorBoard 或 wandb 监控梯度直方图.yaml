@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ece8c9af1b32
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用 TensorBoard 或 wandb 监控梯度直方图？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 如何使用 TensorBoard 或 wandb 监控梯度直方图？
+answer:
+  mode: rubric
+  reference_answer: |-
+    TensorBoard：
+
+    - 使用 PyTorch 的 torch.utils.tensorboard.SummaryWriter。
+
+    - 在训练循环中，每隔一定步数，遍历模型所有命名参数，通过 writer.add_histogram(f'gradients/{name}', param.grad, global_step) 记录梯度的直方图。
+
+    - 同时可以记录梯度的 L2 范数：total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm) 并使用 writer.add_scalar('gradients/total_norm', total_norm, step)。
+
+    wandb：
+
+    - 使用 wandb.init() 和 wandb.log()。
+
+    - 类似地，可以构建一个梯度的字典：grads = {f'gradients/{name}': wandb.Histogram(param.grad.cpu().numpy()) for name, param in model.named_parameters() if param.grad is not None}。
+
+    - 然后 wandb.log(grads, step=step)。wandb 会自动将 Histogram 渲染为直方图。
+
+    - 也可记录梯度范数标量。
+
+    分析梯度直方图：
+
+    - 观察梯度的分布形状（是否正态、是否有长尾）、范围（是否过大或过小）。
+
+    - 大部分参数的梯度应该集中在0附近，呈正态分布。如果分布极其分散，或出现大量 NaN，则说明有问题。
+
+    - 对比不同层的梯度：浅层梯度应较大，深层梯度应较小？实际上 Pre-Norm 下各层梯度范数大致均衡。如果某层梯度异常小，可能存在梯度消失。
+
+    通过监控梯度直方图，可以直观了解训练动态，及早发现并定位梯度爆炸、消失或优化器状态异常等问题。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PxlNw0uh3i9WhvkxYxIc15Otnrf
+  block_id: KbXddjnxsowWaYxQRXqcKg4nnUf
+  page_token: PxlNw0uh3i9WhvkxYxIc15Otnrf
+  original_title: 如何使用 TensorBoard 或 wandb 监控梯度直方图？
+  imported_at: '2026-09-21'

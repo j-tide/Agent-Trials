@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e9e5f67de5a7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 全参数微调过程中，如何监控GPU利用率和显存使用？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 全参数微调过程中，如何监控GPU利用率和显存使用？
+answer:
+  mode: rubric
+  reference_answer: |-
+    实时监控GPU状态是发现训练瓶颈、优化资源使用和避免OOM的关键。需要从粗粒度实时观察和细粒度记录分析两个层面进行。
+
+    一、粗粒度实时监控（命令行）
+
+    - nvidia-smi 循环：最常用的工具。watch -n 1 nvidia-smi 可以每秒刷新GPU利用率（GPU-Util）、显存使用（Memory-Usage）、温度等。简单直观。
+
+    - nvidia-smi dmon：更专业的持续监控，可输出pucm（功耗、利用率、时钟、显存）等指标的流式数据，适合重定向到日志文件供后续分析。
+
+    - nvtop：交互式、全屏的GPU监控工具，类似htop，适合单机快速查看。
+
+    二、细粒度记录与分析（Python/Profiler）
+
+    - PyTorch内置函数：
+
+    - PyTorch Profiler：如前所述，可记录每一步的显存使用、GPU执行时间线，配合memory_snapshot导出显存分配详情，定位哪个算子分配了大量显存。
+
+    - nvidia-ml-py库：通过编程方式获取显存、利用率等指标，可集成到自定义监控脚本中，发送到TensorBoard或Prometheus。
+
+    三、分布式训练监控
+
+    - NVIDIA DCGM + Prometheus + Grafana：这是工业级方案。DCGM Exporter采集每个GPU的数十种指标，Prometheus抓取存储，Grafana展示成仪表盘。可设置告警，当显存或利用率异常时自动通知。
+
+    - DeepSpeed Monitor：DeepSpeed内置了监控功能，可在配置文件中开启tensorboard或wandb集成，自动记录显存、吞吐等。
+
+    四、关键监控项与告警
+
+    - 显存使用率：持续超过90%就需警惕碎片或泄漏。
+
+    - GPU利用率（SM利用率）：持续低于60%可能存在数据加载瓶颈或通信瓶颈。
+
+    - 显存带宽利用率：通过nvidia-smi dmon观察mem读写速率，判断是否受限于带宽。
+
+    - 训练吞吐（tokens/sec）：突然下降往往意味着速度瓶颈或硬件异常。
+
+    实践建议：在训练脚本中引入周期性打印torch.cuda.max_memory_allocated()，并在~/.bashrc中设置export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True以减少碎片。对于长时间训练，务必部署DCGM+Prometheus实现无人值守监控。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: VxCkdpOPSo0Or6xSNYBcAMcondd
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: 全参数微调过程中，如何监控GPU利用率和显存使用？
+  imported_at: '2026-09-21'

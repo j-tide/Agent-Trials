@@ -1,0 +1,117 @@
+---
+schema_version: 1
+id: feishu-llm-complete-75cd804bc7e3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 1.1 事务基础
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇 / Mysql
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+- Mysql
+content:
+  prompt: 1.1 事务基础
+answer:
+  mode: rubric
+  reference_answer: |-
+    ### ACID 四大特性及其实现原理
+
+    1、基础题：什么是数据库事务的 ACID 四大特性？
+
+    ⭐（考察事务基本概念、ACID 含义）
+
+    ACID 是数据库事务的四个基本特性，分别是：
+
+    - 原子性（Atomicity）：事务中的所有操作要么全部成功，要么全部失败回滚，不会出现部分执行的情况
+
+    - 一致性（Consistency）：事务执行前后，数据库从一个一致性状态变换到另一个一致性状态
+
+    - 隔离性（Isolation）：多个事务并发执行时，每个事务的执行互不干扰，彼此隔离
+
+    - 持久性（Durability）：事务一旦提交，对数据库的修改就是永久性的，即使系统故障也不会丢失
+
+    2、进阶题：MySQL 是如何实现 ACID 四大特性的？
+
+    ⭐⭐（考察底层实现机制、redo log/undo log）
+
+    1️⃣ Common Answer 原子性就是要么全做要么全不做，用回滚实现。一致性就是数据要正确。隔离性就是事务之间不互相影响。持久性就是提交了就永久保存，用日志实现的。MySQL 有 redo log 和 undo log 两个日志，redo log 记录修改，undo log 记录修改前的数据，这样就可以回滚了。
+
+    2️⃣ Impressive Answer MySQL 通过 redo log、undo log 和锁机制来实现 ACID 四大特性，我来具体说明每个特性的实现方式：
+
+    原子性的实现依赖于 undo log。当事务执行失败或主动回滚时，MySQL 会利用 undo log 中记录的修改前的数据，将数据恢复到事务开始前的状态，保证事务要么全部生效，要么全部失效。
+
+    一致性是数据库的最终目标，它依赖于其他三个特性的配合。通过原子性保证操作完整性，通过隔离性防止并发问题，通过持久性保证数据不丢失，最终实现数据的一致性状态。
+
+    隔离性的实现依赖于 MVCC 多版本并发控制和锁机制。MVCC 通过 ReadView 和版本链实现读写不阻塞，锁机制通过行锁、表锁、间隙锁等解决写写冲突，确保不同事务之间的执行互不干扰。
+
+    持久性的实现依赖于 redo log。MySQL 采用 WAL（Write-Ahead Logging）机制，事务提交时先写 redo log 再异步刷盘到数据文件。即使系统崩溃，重启后也可以通过 redo log 重放已提交的事务，保证数据不丢失。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    3、场景题：在转账场景中，如何保证 ACID 特性？
+
+    ⭐⭐⭐（考察事务应用场景、异常处理）
+
+    1️⃣ Common Answer 转账就是一个事务，用 begin transaction 开始，然后更新两个账户余额，最后 commit。如果中间出错了就 rollback，这样就能保证 ACID 了。MySQL 会自动处理这些，我们只要用事务就行了。
+
+    2️⃣ Impressive Answer 在转账场景中，我们需要严格保证 ACID 特性来避免资金安全问题。假设用户 A 向用户 B 转账 100 元，我会这样设计：
+
+    ```text
+    START TRANSACTION;
+    -- 检查 A 账户余额是否充足
+    SELECT balance FROM account WHERE user_id = 'A' FOR UPDATE;
+    -- 扣除 A 账户余额
+    UPDATE account SET balance = balance - 100 WHERE user_id = 'A';
+    -- 增加 B 账户余额
+    UPDATE account SET balance = balance + 100 WHERE user_id = 'B';
+    COMMIT;
+    ```
+
+    在这个场景中，原子性通过 undo log 保证，如果第二步或第三步失败，整个事务会回滚，A 账户的余额不会被扣除。
+
+    一致性通过业务逻辑和数据库约束保证，我们不仅检查余额是否充足，还可以在表上添加 CHECK 约束确保余额不能为负，保证转账前后总金额不变。
+
+    隔离性通过 FOR UPDATE 行锁保证，防止其他事务在转账过程中修改 A 或 B 的账户余额，避免脏写问题。如果业务对并发要求高，也可以考虑使用乐观锁版本号机制。
+
+    持久性通过 redo log 保证，即使数据库服务器在事务提交后立即宕机，重启后也能通过 redo log 恢复转账结果，保证资金安全。
+
+    实际项目中，我还会考虑分布式场景，如果两个账户在不同数据库，需要使用分布式事务（如 Seata）或 TCC 模式来保证跨服务的 ACID 特性。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    4、容易一起考的题
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IYWfwSFCOiA86JkcgEmcmZJNnSb
+  block_id: doxcnseJiH01pWbuljoE5X7jJVf
+  page_token: IYWfwSFCOiA86JkcgEmcmZJNnSb
+  original_title: 1.1 事务基础
+  imported_at: '2026-09-21'

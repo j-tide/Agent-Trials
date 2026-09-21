@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b30a81c9afa8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果让你设计一个监控系统来实时追踪显存瓶颈，你会监控哪些指标？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 一：显存基础与构成
+tags: &1
+- 显存问题-核心题
+- 一：显存基础与构成
+content:
+  prompt: 如果让你设计一个监控系统来实时追踪显存瓶颈，你会监控哪些指标？
+answer:
+  mode: rubric
+  reference_answer: "一个有效的显存监控系统需要能够实时感知容量、带宽、碎片和业务层面的显存压力，并具备预警和自动响应能力。\n\n\U0001F4CA
+    核心监控指标\n\n- 容量相关：\n\n- 带宽相关：\n\n- 碎片相关：\n\n- KV Cache 相关（推理）：\n\n- 业务层面：\n\n\U0001F6A8
+    告警与自动响应\n\n- 容量告警：当 gpu_memory_utilization > 90% 且碎片率高时，触发告警，并自动降低推理的最大并发数或训练
+    batch size。\n\n- 带宽告警：当 pcie_tx_bytes 持续过高且 GPU 利用率低时，提示 Offload 成为瓶颈，建议优化卸载策略。\n\n-
+    碎片告警：当 fragmentation_ratio > 0.3 且发生 OOM 时，自动触发缓存清理或服务重启。\n\n\U0001F4A1 总结：一个好的显存监控系统不仅要看“用了多少”，还要看“用得是否高效”、“有没有碎片”、“业务是否受影响”。将容量、带宽、碎片和业务指标结合，才能全方位定位显存瓶颈。\n\n-
+    流水线并行（Pipeline Parallelism, PP）：将模型的不同层放在不同 GPU 上。由于不同层的参数量、激活值大小各不相同（例如第一层和最后一层可能因词表嵌入而更大），导致各
+    GPU 的显存占用不同。\n\n- 张量并行（Tensor Parallelism, TP）：通常是对权重矩阵进行均匀切分，每张卡占用相同大小的权重块。但某些操作（如
+    LayerNorm、激活值）可能无法均匀分割，或者各卡上产生的中间激活值大小有微小差异。\n\n- 序列并行（Sequence Parallelism）：将序列维度切分到多张
+    GPU。各卡处理的 token 数可能因切分方式而产生微小不均。\n\n- 每个算子（operator）的显存分配和释放时间点。\n\n- 显存的峰值出现在哪一刻。\n\n-
+    哪些算子产生了巨大的临时张量。\n\n- 显存的累积曲线，直观反映整个训练过程的显存变化。\n\n- 使用 NVIDIA Container Toolkit
+    的 --gpus 配合环境变量，如 NVIDIA_VISIBLE_DEVICES 和 NVIDIA_REQUIRE_CUDA，但这只是设备可见性，不限制显存。\n\n-
+    使用 GPU 虚拟化技术，如 NVIDIA MIG（多实例 GPU）可以将一张 GPU 划分为多个独立的实例，每个实例有专用的显存和计算资源。在 Docker
+    中启动容器时，指定 --gpus '\"device=0:1g.10gb\"' 可以限制容器只使用一个 10GB 的 MIG 实例。\n\n- 使用 GPU
+    共享调度器，如 Run:ai、Kubernetes GPU 设备插件 等，可以进行显存限制。如果未正确配置，容器内的进程可能误以为自己拥有全部 GPU 显存，从而申请超出实际可用的量，导致
+    OOM 或性能下降。\n\n- Adam/AdamW：维护 m 和 v，占用 8P8P 字节（FP32）。\n\n- SGD with Momentum：仅维护动量缓冲，占用
+    4P4P 字节（FP32）。\n\n- Adafactor：采用因式分解的动量，占用约 2P2P 字节。\n\n- 8-bit Adam：将 m 和 v 量化为
+    INT8，占用 2P2P 字节，极大节省显存。\n\n- FP32（4字节/参数）：标准配置，精度最高，占用最大。\n\n- BF16/FP16：通常不用来存储优化器状态，因为精度不足以累积微小更新。\n\n-
+    INT8：通过量化压缩，降低显存需求。\n\n- 在 LoRA 中，基座权重被冻结，只有 LoRA 矩阵和可能的 LayerNorm 参数需要优化器状态。\n\n-
+    一些层（如 Embedding）可能被冻结，不参与训练，因此不需要优化器状态。\n\n- 不使用 ZeRO 时，每张 GPU 都存储完整的优化器状态。\n\n-
+    ZeRO-1 将优化器状态分片到所有数据并行 GPU 上，单卡显存占用降为原来的 1/DP1/DP。\n\n- ZeRO-2 和 ZeRO-3 进一步分片梯度和参数。\n\n-
+    gpu_memory_total：GPU 物理显存总量。\n\n- gpu_memory_used：当前被使用的显存量（来自 nvidia-smi 或 DCGM）。\n\n-
+    gpu_memory_utilization：显存使用率（used / total）。\n\n- pytorch_memory_allocated：PyTorch
+    实际用于张量的显存量。\n\n- pytorch_memory_reserved：PyTorch 缓存分配器预留的总显存量。\n\n- gpu_memory_bandwidth_utilization：显存带宽利用率。来自
+    NVIDIA DCGM。如果持续接近 100%，说明系统是带宽瓶颈。\n\n- pcie_tx_bytes / pcie_rx_bytes：PCIe 传输速率。如果很高，说明大量数据在
+    CPU 和 GPU 之间搬运（Offload），可能是瓶颈。\n\n- fragmentation_ratio：自定义指标，计算 (pytorch_memory_reserved
+    - pytorch_memory_allocated) / pytorch_memory_reserved。这个比值越高，说明缓存池中空闲但不可用的碎片越多。\n\n-
+    num_free_blocks（如果有框架支持）：从 PyTorch 分配器内部获取不同大小空闲块的数量。\n\n- kv_cache_size：当前 KV
+    Cache 占用的总显存。\n\n- num_active_sequences：当前活跃的序列数量。\n\n- avg_sequence_length：平均序列长度。\n\n-
+    max_batch_size_possible：根据当前空闲显存和模型配置，估算可支持的最大 batch size。\n\n- oom_events_total：OOM
+    事件计数器。\n\n- latency_p99 / throughput：延迟和吞吐量，用于判断显存压力是否已影响服务质量。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ASR1w4TNSiuI8wk9EFTcEhTunZd
+  block_id: X8fUdB4ioobvSZxBFTIcjCW6nNb
+  page_token: ASR1w4TNSiuI8wk9EFTcEhTunZd
+  original_title: 如果让你设计一个监控系统来实时追踪显存瓶颈，你会监控哪些指标？
+  imported_at: '2026-09-21'

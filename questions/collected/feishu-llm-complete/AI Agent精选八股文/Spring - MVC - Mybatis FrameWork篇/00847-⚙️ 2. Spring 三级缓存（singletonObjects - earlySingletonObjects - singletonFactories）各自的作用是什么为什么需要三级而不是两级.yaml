@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ffb9f77c763c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚙️ 2. Spring 三级缓存（singletonObjects / earlySingletonObjects / singletonFactories）各自的作用是什么？为什么需要三级而不是两级？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: "⚙️ 2. Spring 三级缓存（singletonObjects / earlySingletonObjects / singletonFactories）各自的作用是什么？为什么需要三级而不是两级？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 DefaultSingletonBeanRegistry 中，Spring 维护了三个关键的 Map：
+
+    [图片内容未导入]
+
+    创建流程中缓存的交互过程：
+
+    实例化 A → 将 A 的 ObjectFactory 放入三级缓存
+             → 属性填充 A，发现需要 B
+             → 创建 B
+                → 实例化 B → 将 B 的 ObjectFactory 放入三级缓存
+                → 属性填充 B，发现需要 A
+                   → 从三级缓存找到 A 的 factory
+                   → 调用 factory.getObject() → 得到 A 的早期引用（可能已代理）
+                   → 将 A 的早期引用放入二级缓存，从三级缓存移除 A 的 factory
+                   → 注入 A 给 B
+                → B 初始化完成 → B 放入一级缓存
+             → 注入完全体的 B 给 A
+             → A 初始化完成 → A 从二级缓存升级到一级缓存
+
+    为什么需要三级，而不是两级？
+
+    很多人会问：如果把半成品直接放在二级缓存里，等需要时拿出来用，不就够了？关键原因在于 AOP 代理。
+
+    Spring 在初始化 Bean 时，会通过 BeanPostProcessor 对 Bean 进行后置处理，其中最关键的是生成 AOP 代理。这个代理的生成时机在初始化之后。但是，当发生循环依赖时，一个 Bean 可能需要提前暴露给另一个 Bean，此时它还没有执行初始化，更不可能执行后置处理生成代理。
+
+    如果只有两级缓存（成品和半成品），那么提前暴露的只能是一个原始对象，而不是代理对象。当循环依赖涉及 AOP（比如 A 需要 B，B 需要 A，而 A 有事务切面需要代理），注入给 B 的就只是一个没有切面功能的原始 A，这会破坏 AOP 的正确性。
+
+    三级缓存（singletonFactories）的作用，就是用一个 ObjectFactory 把“获取早期引用”的动作延迟到真正需要的时候。这个 ObjectFactory 内部会调用 getEarlyBeanReference，它会遍历所有 SmartInstantiationAwareBeanPostProcessor，有机会提前生成代理对象，即使 Bean 还没有完成初始化。这样，当 B 需要 A 时，从三级缓存中拿到的 ObjectFactory 就能返回一个已经生成代理的 A 的引用，从而保证了 AOP 的完整性。
+
+    一句话收束：二级缓存只能存一个死的半成品，而三级缓存的工厂方法能在“用到时”才决定要不要生产一个代理，这就保障了循环依赖场景下 AOP 依然有效。这是 Spring 设计中最令人拍案的地方。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NaU2wG7daipncPkfzJrclPdWnhh
+  block_id: doxcnVqgU5KSig3mblLr4lBZprf
+  page_token: NaU2wG7daipncPkfzJrclPdWnhh
+  original_title: "⚙️ 2. Spring 三级缓存（singletonObjects / earlySingletonObjects / singletonFactories）各自的作用是什么？为什么需要三级而不是两级？"
+  imported_at: '2026-09-21'

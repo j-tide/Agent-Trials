@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e738385c0b7b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: EWC（弹性权重巩固）在全参数微调中如何实现？有何局限？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: EWC（弹性权重巩固）在全参数微调中如何实现？有何局限？
+answer:
+  mode: rubric
+  reference_answer: |-
+    EWC 是一种经典克服灾难性遗忘的方法。其核心思想是：在学习新任务时，对旧任务“重要”的参数施加更大的更新阻力，相当于给这些参数系上了“弹簧”，强行将它们拉向旧任务的最优值附近。
+
+    全参数微调中的实现步骤：
+
+    - 计算参数重要性：在开始微调前，用预训练模型在一组代表性数据（可以是预训练数据的一小部分，如维基百科片段）上做一次前向传播。对于每个参数 θiθi，计算其 Fisher 信息矩阵的对角线近似值 FiFi。FiFi 代表了该参数对旧任务损失函数的敏感度，即其重要性。通常只取对角线元素，因为完整 Fisher 矩阵存储开销极大。
+
+    [图片内容未导入]
+
+    其中 λλ 是一个超参数，控制遗忘抑制的强度。这个惩罚项迫使模型在新任务上学习时，不能过度修改那些对旧任务至关重要的参数。
+
+    - 训练：使用这个修改后的损失进行标准梯度下降。在反向传播时，除了新任务的梯度，还要加上 EWC 惩罚项的梯度。
+
+    局限：
+
+    - Fisher 信息矩阵的局限性：使用对角线近似假设参数之间相互独立，忽略了参数间的协方差，这在实际中往往不成立，导致重要性估计粗糙，抑制效果不够精准。
+
+    - “旧任务”的代表性数据难以选择：计算 Fisher 信息需要用到旧任务数据。在全参数微调中，“旧任务”是庞大的预训练语料。我们不可能使用全部预训练数据，只能抽取一小批作为代理。这批次数据的分布是否能代表整个预训练分布，直接决定了 EWC 的有效性。选择不当则可能保护了不重要的参数，遗漏了真正关键的知识。
+
+    - 巨大的存储和计算开销：需要存储与模型参数量相当的 Fisher 值（例如 70B 模型需额外约 280 GB 显存放 FP32 Fisher 值），这在大模型微调时几乎不可能。即使使用对角线近似，依旧是一笔不小的显存开销。同时，Fisher 信息的计算也需要额外的算力和时间。
+
+    - 任务增量学习的设定不完全匹配：EWC 原本设计用于连续学习多个不同任务，而 LLM 的微调更像是将模型从一个通用域适配到一个特定域，两者之间有较大重叠。生硬地保护所有预训练参数，可能阻碍模型学习新领域所必需的参数调整。
+
+    - λ 的调节困难：λ 过大则模型拒绝学习新任务；λ 过小则遗忘抑制效果甚微。找到一个合适的 λ 需要大量实验，成本高昂。
+
+    鉴于上述局限，EWC 在现代大模型微调中并不常用。工业界通常选择更简单高效的 PEFT（如 LoRA）或数据回放（混合预训练数据）来避免灾难性遗忘。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  block_id: H2apdnYA3oYd4ixFXRWcWv15nNg
+  page_token: IrXjwKpCJiqIgdk5NAbcJQoBnGh
+  original_title: EWC（弹性权重巩固）在全参数微调中如何实现？有何局限？
+  imported_at: '2026-09-21'

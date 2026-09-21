@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-497e40f71c56
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚡ 什么是工具的“coroutine”？在哪些场景下需要返回协程？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "⚡ 什么是工具的“coroutine”？在哪些场景下需要返回协程？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 LangChain 中，工具的 coroutine（协程） 指的是将工具函数定义为 async def 异步函数。这使得工具在执行时不会阻塞事件循环，能够在等待 I/O 操作（如网络请求、数据库查询）时让出控制权，从而提升并发性能。
+
+    定义方式：只需将函数改为 async def，并配合异步库使用。
+
+    ```python
+    @tool
+    async def fetch_price(product: str) -> str:
+        """异步查询商品价格。输入商品名称，返回当前价格。"""
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"https://api.example.com/price/{product}") as resp:
+                data = await resp.json()
+                return f"{product} 现价 {data['price']} 元"
+    ```
+
+    需要返回协程的场景：
+
+    - 高并发 I/O 操作：当 Agent 需要同时调用多个工具（如查询多个数据源），异步工具能大幅缩短总等待时间。LangChain 的 AgentExecutor 使用 arun 时会并行调度这些协程。
+
+    - 长时间运行但计算不密集的任务：比如等待外部 API 的缓慢响应。如果用同步工具，整个 Agent 推理线程都会被阻塞，影响系统吞吐量。
+
+    - 与异步 Web 框架集成：如果你的应用基于 FastAPI 等异步框架，使用异步工具可以避免阻塞事件循环，保持服务的响应性。
+
+    - 流式处理与超时控制：协程更容易与 asyncio.wait_for 结合实现超时，也能在等待期间执行其他逻辑。
+
+    在 Agent 中的使用：当调用 agent_executor.arun() 时，LangChain 会自动检测工具是否为协程，并以 await 方式调用。对于同步工具，会通过 asyncio.to_thread 在线程池中执行，但异步工具更高效。
+
+    ✅ 实践经验：在构建一个需要同时抓取多个网站数据的 Agent 时，将所有抓取工具改为异步后，执行时间从 8 秒降至 1.5 秒。但要注意，异步工具必须使用异步库（如 aiohttp），如果内部使用了同步库，协程优势将消失。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZZIjwAYoMiY0VEk7JiDcIuK3nPb
+  block_id: F8Y5dskPAoN85xxJqMvcKRO8nMh
+  page_token: ZZIjwAYoMiY0VEk7JiDcIuK3nPb
+  original_title: "⚡ 什么是工具的“coroutine”？在哪些场景下需要返回协程？"
+  imported_at: '2026-09-21'

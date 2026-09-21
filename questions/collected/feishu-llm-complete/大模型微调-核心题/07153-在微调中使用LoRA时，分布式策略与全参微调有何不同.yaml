@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6b87fe0dd2b2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在微调中使用LoRA时，分布式策略与全参微调有何不同？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 在微调中使用LoRA时，分布式策略与全参微调有何不同？
+answer:
+  mode: rubric
+  reference_answer: |-
+    使用LoRA（Low-Rank Adaptation）微调时，仅训练极少量的低秩适配器参数，而基座模型权重被冻结。这从根本上改变了分布式策略的需求。
+
+    - 显存瓶颈转移：全参微调的显存主要被权重、梯度、优化器状态占据。LoRA中，基座权重不更新，梯度仅存在于极小的适配器矩阵，优化器状态也极小。显存的最大消耗变成了冻结的基座权重和激活值。因此，分布式策略的目标从“分片模型状态”转变为“分片冻结参数以降低单卡权重存储，或者分片激活以支持更大batch”。
+
+    - 数据并行即可满足多数情况：由于LoRA的显存需求极低，很多时候单卡就能装下基座模型（甚至量化后）和适配器。如果需要加速训练，使用标准的数据并行（DDP）足够，因为每张卡都可以加载完整的冻结权重，只需同步适配器的微小梯度，通信量极小。
+
+    - 若基座模型过大，仍需分片权重：对于70B模型，FP16全量权重需要140 GB，单卡放不下。这时可以使用ZeRO-3或FSDP来分片冻结的基座权重。训练时，冻结参数依然会被分片，但在计算该层时通过All-Gather收集完整权重（只读），反向传播时不更新它们。由于适配器梯度极小，ZeRO-3的通信开销相对较低。
+
+    - 不需要复杂的TP/PP：LoRA微调通常不需要张量并行或流水线并行，因为计算量不大，分片权重即可。
+
+    - 与QLoRA结合：使用4-bit量化权重（QLoRA）时，基座权重可以被压缩到更小，进一步降低单卡显存，甚至70B模型在单卡48GB上就能微调，无需分布式。
+
+    因此，LoRA分布式策略的核心是：优先使用DDP；如果单卡装不下基座权重，则使用ZeRO-3/FSDP分片冻结参数；基本不需要TP/PP。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: QiIQdzoiOoiLJExkVYScMvmYn2d
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 在微调中使用LoRA时，分布式策略与全参微调有何不同？
+  imported_at: '2026-09-21'

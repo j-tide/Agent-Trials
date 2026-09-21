@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c855e27231ca
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: PyTorch 中如何实现梯度检查点？torch.utils.checkpoint。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: PyTorch 中如何实现梯度检查点？torch.utils.checkpoint。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在PyTorch中，使用torch.utils.checkpoint.checkpoint函数来包裹一个模块的前向传播。基本用法：
+
+    import torch
+    from torch.utils.checkpoint import checkpoint
+
+    class TransformerLayer(nn.Module):
+        def __init__(self, ...):
+            self.self_attn = MultiHeadAttention(...)
+            self.ffn = FeedForward(...)
+            self.norm1 = nn.LayerNorm(hidden_dim)
+            self.norm2 = nn.LayerNorm(hidden_dim)
+
+        def forward(self, x):
+            # 使用检查点包裹自注意力块
+            x = x + checkpoint(self.self_attn, self.norm1(x), use_reentrant=False)
+            # 使用检查点包裹FFN块
+            x = x + checkpoint(self.ffn, self.norm2(x), use_reentrant=False)
+            return x
+
+    use_reentrant=False是推荐设置，它使用非重入版本，避免了在多线程环境下的一些潜在问题，且支持更多的PyTorch特性。
+
+    也可以对整个Transformer层的forward做一次包裹，但这会重计算整个层，而非细粒度的子层。实际中可以根据需要决定粒度。
+
+    注意：检查点要求输入张量的requires_grad=True，且模型在训练模式下。被包裹的函数不应该有随机操作（如Dropout），因为重计算时会重新随机化导致不一致。PyTorch会尝试在重计算时恢复相同的随机状态，但保险起见，通常将Dropout放在检查点之外，或者在包裹的函数内部手动设置seed。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HfoZwdjz1iRNmPkiI3icQQafnve
+  block_id: MzZwdlopno4PcXxbEZcc13OgnCh
+  page_token: HfoZwdjz1iRNmPkiI3icQQafnve
+  original_title: PyTorch 中如何实现梯度检查点？torch.utils.checkpoint。
+  imported_at: '2026-09-21'

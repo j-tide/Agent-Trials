@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-adca9015c7d8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 进阶题：在 AI Agent 中集成代码执行能力时，如何设计安全沙箱？Docker 容器隔离和 E2B 沙箱各有什么特点？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent Tool篇
+tags: &1
+- AI Agent精选八股文
+- Agent Tool篇
+content:
+  prompt: 进阶题：在 AI Agent 中集成代码执行能力时，如何设计安全沙箱？Docker 容器隔离和 E2B 沙箱各有什么特点？
+answer:
+  mode: rubric
+  reference_answer: |-
+    难度级别：⭐⭐⭐（Docker vs E2B 对比、完整资源限制、多层防护设计、黑名单局限性）
+
+    1️⃣ Common Answer
+
+    用 Docker 容器隔离代码执行环境，每次执行创建新容器，执行完销毁，这样代码出问题也不影响宿主机。用 --memory 和 --cpus 限制资源，设置超时时间。再做个黑名单过滤 rm -rf、os.system 这类危险操作。E2B 是专门的沙箱服务，比自己搭 Docker 更方便。
+
+    2️⃣ Impressive Answer
+
+    我会从 3 个角度来思考这个问题：
+
+    - Docker vs E2B 的选型对比。Docker 自托管：完全可控、成本低，但容器启动延迟 500ms-2s，需要自己维护镜像安全更新和容器逃逸补丁，适合数据安全要求严格、不能发给第三方的场景（金融、医疗）。E2B：基于 Firecracker 微虚拟机，启动延迟低于 200ms，天然多租户隔离，提供文件系统持久化和流式输出等 Agent 场景所需能力，适合快速落地、对延迟敏感的 Agent 产品。
+
+    - 资源限制要做完整清单，不能只限内存和 CPU。还需要限制进程数（pids_limit 防 fork bomb）、完全断网或白名单网络（network_mode: none）、根文件系统只读（read_only: True）、删除所有 Linux capabilities（cap_drop: ALL）。只靠内存和 CPU 限制，很容易被绕过。
+
+    - 防护要分多层，黑名单是最弱的防线。import('os').system('rm -rf /') 这类变形写法黑名单根本穷举不完。正确做法是：执行前用 AST 解析检测危险模块导入（比字符串匹配更难绕过）；执行中用容器隔离+syscall 白名单（seccomp profile）；执行后对输出做内容安全扫描防止信息泄露。黑名单只做第一道粗筛。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/F5QpwqJp4i0pB3kmnPzcVpgGn19
+  block_id: doxcnTr5rLNoSuFxsz6779JXvkg
+  page_token: F5QpwqJp4i0pB3kmnPzcVpgGn19
+  original_title: 进阶题：在 AI Agent 中集成代码执行能力时，如何设计安全沙箱？Docker 容器隔离和 E2B 沙箱各有什么特点？
+  imported_at: '2026-09-21'

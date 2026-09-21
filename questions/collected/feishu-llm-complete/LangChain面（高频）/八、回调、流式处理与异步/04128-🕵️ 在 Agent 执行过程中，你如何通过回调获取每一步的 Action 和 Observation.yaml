@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-18de03309686
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F575️ 在 Agent 执行过程中，你如何通过回调获取每一步的 Action 和 Observation？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F575️ 在 Agent 执行过程中，你如何通过回调获取每一步的 Action 和 Observation？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Agent 的回调主要依赖 on_agent_action 和 on_tool_end。
+
+    class AgentStepRecorder(BaseCallbackHandler):
+        def __init__(self):
+            self.steps = []  # 每一步的完整记录
+
+        def on_agent_action(self, action, **kwargs):
+            # action 是 AgentAction 对象，包含 tool, tool_input, log
+            step = {
+                "thought": action.log,  # 包含 Thought: ... 部分
+                "tool": action.tool,
+                "tool_input": action.tool_input,
+                "observation": None
+            }
+            self.steps.append(step)
+
+        def on_tool_end(self, output, **kwargs):
+            # 工具返回结果，补充到最新的一步
+            if self.steps:
+                self.steps[-1]["observation"] = output
+
+        def on_agent_finish(self, finish, **kwargs):
+            # finish.return_values 包含最终的输出
+            pass
+
+    在 ReAct Agent 中，action.log 是类似这样的字符串：
+
+    Thought: I need to search for the weather.
+    Action: Search
+    Action Input: "New York weather"
+
+    通过记录每一步，你可以完整回溯 Agent 的推理路径。这对于调试“Agent 为什么做出某个决定”非常有价值。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  block_id: GCT7dRgcIo27WrxKjQTc9530nCg
+  page_token: LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  original_title: "\U0001F575️ 在 Agent 执行过程中，你如何通过回调获取每一步的 Action 和 Observation？"
+  imported_at: '2026-09-21'

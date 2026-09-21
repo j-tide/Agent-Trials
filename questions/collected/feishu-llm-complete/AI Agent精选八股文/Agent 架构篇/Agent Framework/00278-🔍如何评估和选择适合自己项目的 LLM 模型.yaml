@@ -1,0 +1,107 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c5ff64cc712b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50D如何评估和选择适合自己项目的 LLM 模型？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F50D如何评估和选择适合自己项目的 LLM 模型？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    选模型不是跑个分就完事了。我的做法是建立一个评估矩阵，从五个维度量化候选模型，然后根据业务权重打分。
+
+    五个评估维度：
+
+    [嵌入表格未展开]
+
+    评估流程（我的实际做法）：
+
+    1. 候选池筛选
+       根据合规要求（如数据不出境）和预算，从 GPT-4o、Claude 3.5 Sonnet、DeepSeek-V3、
+       Qwen-Max、Llama 3.1 等中圈定 3~5 个候选。
+
+    2. 业务测试集构建
+       从真实用户日志中抽取 200 条代表性 query，覆盖高频、长尾、多语言、多轮等场景。
+       标注标准答案和关键信息点。
+
+    3. 离线评测
+       编写自动化脚本，用每个候选模型回答这 200 条 query，收集结果。
+       自动指标：ROUGE-L、BERTScore、答案长度、响应时间。
+       人工打分：双盲评审，从准确性、完整性、流畅性三个角度 1-5 分。
+
+    4. 综合评分
+       根据业务侧重赋权。比如客服场景“安全性”权重高，创意写作场景“多样性”权重高。
+       最终选综合得分最高的模型，同时保留第二名作为降级备选。
+
+    示例代码：调用多个模型并记录结果
+
+    import time, json
+    from openai import OpenAI
+
+    models = ["gpt-4o", "claude-3-5-sonnet", "deepseek-chat"]
+    test_queries = [{"q": "合同违约金上限是多少？", "ref": "违约金不超过损失的30%"}]
+    results = []
+
+    for model_name in models:
+        client = OpenAI(base_url=get_base_url(model_name), api_key=get_key(model_name))
+        for item in test_queries:
+            start = time.time()
+            resp = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": item["q"]}],
+                temperature=0
+            )
+            elapsed = time.time() - start
+            results.append({
+                "model": model_name,
+                "query": item["q"],
+                "answer": resp.choices[0].message.content,
+                "latency": elapsed,
+                "tokens": resp.usage.total_tokens
+            })
+    # 后续可用另一个 LLM 或人工对 results 打分
+
+    选择决策树：
+
+    需要私有化部署？ → 否 → 成本敏感？ → 是 → 国产大模型 (DeepSeek/Qwen)
+                      → 否 → 需要强推理？ → 是 → GPT-4o / Claude 3.5
+                             → 否 → GPT-4o-mini / Claude Haiku
+    需要私有化部署？ → 是 → GPU 资源充足？ → 是 → Llama 3.1 70B (微调)
+                         → 否 → Qwen2.5 7B / DeepSeek-V2-Lite
+
+    模型选择不是一次性的，上线后我会持续收集用户反馈（点赞/点踩），每个月复盘一次模型效果，必要时切换或引入 A/B 测试。模型是易耗品，选择框架才是长期投资。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AuVxwYFDWiT663kKLskczm8mnIh
+  block_id: doxcnYYmZOiKxQZON5yytmqDe7e
+  page_token: AuVxwYFDWiT663kKLskczm8mnIh
+  original_title: "\U0001F50D如何评估和选择适合自己项目的 LLM 模型？"
+  imported_at: '2026-09-21'

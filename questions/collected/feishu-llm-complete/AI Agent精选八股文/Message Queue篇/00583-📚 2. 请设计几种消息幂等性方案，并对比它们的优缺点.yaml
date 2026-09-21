@@ -1,0 +1,127 @@
+---
+schema_version: 1
+id: feishu-llm-complete-881282f29300
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4DA 2. 请设计几种消息幂等性方案，并对比它们的优缺点？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: "\U0001F4DA 2. 请设计几种消息幂等性方案，并对比它们的优缺点？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    实现幂等性的核心思路是：记录每条消息的“已处理”状态，在处理前检查。根据记录介质和去重方式的不同，常见方案如下：
+
+    [图片内容未导入]
+
+    方案一：数据库唯一索引（最可靠）
+
+    原理：在数据库中建一张“消息去重表”，将消息 ID（或业务唯一键）作为唯一索引。处理消息时，先向这张表插入记录，如果插入成功说明是首次处理，执行业务逻辑；如果插入失败（唯一键冲突），说明消息已处理过，直接忽略。
+
+    示例代码：
+
+    -- 消息去重表
+    CREATE TABLE msg_dedup (
+        msg_id VARCHAR(64) PRIMARY KEY,
+        create_time DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB;
+
+    @Transactional
+    public void processMessage(String msgId, OrderEvent event) {
+        try {
+            // 1. 尝试插入去重记录，利用主键冲突
+            msgDedupMapper.insert(msgId);
+        } catch (DuplicateKeyException e) {
+            // 已处理过，直接返回
+            return;
+        }
+        // 2. 执行业务逻辑：增加积分
+        pointsService.addPoints(event.getUserId(), event.getAmount());
+    }
+
+    优点：天然可靠，依赖数据库的 ACID 保证，无需额外组件。
+
+    缺点：增加数据库写压力；如果业务操作和去重记录不在同一个数据库，需要跨库事务。
+
+    ---
+
+    方案二：Redis + 业务 Token（高性能）
+
+    原理：每条消息生成一个唯一的 Token（通常是 msgId 或 业务Id+版本号），写入 Redis，并设置过期时间（如 24 小时）。处理前用 SETNX 命令尝试写入，成功则处理，失败则跳过。
+
+    示例代码：
+
+    public void processMessage(String msgId, OrderEvent event) {
+        String key = "msg:dedup:" + msgId;
+        // SETNX: 如果 key 不存在则设置并返回 true，否则 false
+        Boolean isFirst = redisTemplate.opsForValue().setIfAbsent(key, "1", Duration.ofHours(24));
+        if (Boolean.FALSE.equals(isFirst)) {
+            return; // 已处理
+        }
+        pointsService.addPoints(event.getUserId(), event.getAmount());
+    }
+
+    优点：高性能，Redis 读写极快，适合高并发；自动过期，节省空间。
+
+    缺点：依赖 Redis 的高可用；Redis 数据丢失可能导致重复消费（需要评估风险）。
+
+    ---
+
+    方案三：业务状态机 + 乐观锁（最轻量）
+
+    原理：利用业务本身的状态字段（如订单状态从“已支付”变成“已发放积分”），通过更新状态的条件（乐观锁）来保证只执行一次。
+
+    示例代码：
+
+    // 通过更新积分发放状态来防重，该操作本身也是业务的一部分
+    int rows = db.execute(
+        "UPDATE orders SET points_status='GRANTED' WHERE order_id=? AND points_status='PENDING'",
+        event.getOrderId()
+    );
+    if (rows > 0) {
+        pointsService.addPoints(event.getUserId(), event.getAmount());
+    }
+
+    优点：零额外存储，性能最好，复用业务状态。
+
+    缺点：要求业务本身有明确的状态流转；如果业务操作本身不具备状态字段（如“发送通知”），则不适用。
+
+    ---
+
+    方案对比总结：
+
+    [嵌入表格未展开]
+
+    推荐组合：核心资金类用“数据库唯一索引 + 业务状态机”双保险；非核心通知类用 Redis Token；同时所有消费者都应实现幂等，形成纵深防御。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JpfiwiBYoisbfUkjsLgcdTcHnTf
+  block_id: doxcn2Z41QCSsoTuISEtuywc71d
+  page_token: JpfiwiBYoisbfUkjsLgcdTcHnTf
+  original_title: "\U0001F4DA 2. 请设计几种消息幂等性方案，并对比它们的优缺点？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-aa428e390313
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F47B 为什么有时 PyTorch 报告 OOM，但 nvidia-smi 显示显存未满？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F47B 为什么有时 PyTorch 报告 OOM，但 nvidia-smi 显示显存未满？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 PyTorch 报告 OOM 时，是指缓存分配器无法找到足够大的连续显存块来满足本次分配请求，而 nvidia-smi
+    显示的是进程占用的总显存（可能包含大量闲置碎片或缓存），所以总占用未满但无连续大块，导致 OOM。\n\n\U0001F50D 核心原因——显存碎片：\n\n-
+    PyTorch 的 CUDA 缓存分配器为减少 cudaMalloc 调用，会保留已释放的张量空间在缓存池中。随着训练进行，频繁分配不同大小的张量，池中会出现许多不连续的小空洞。\n\n-
+    当请求一个大张量（如注意力矩阵、梯度桶）时，分配器在池中找不到连续满足尺寸的空闲块，即使总空闲字节足够，也会抛出 OOM。\n\n- nvidia-smi
+    只看到进程 used 总量，不清楚连续块可用性，所以显示未满。\n\n\U0001FA7B 诊断方法：\n\n- 使用 torch.cuda.memory_summary()
+    查看缓存池的空闲块分布，会显示最大连续空闲块大小。若该值远小于所需分配量，证实为碎片。\n\n- 对比 torch.cuda.memory_allocated()
+    和 memory_reserved()，若差值大且 allocated 未达上限，则是碎片。\n\n\U0001F527 缓解：\n\n- 设置 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+    允许内存段动态扩展，减少碎片。\n\n- 定期调用 torch.cuda.empty_cache() 释放缓存（但会短暂拖慢速度）。\n\n- 使用统一内存分配器或预分配大块池（如
+    vLLM）。\n\n✅ 所以，nvidia-smi 看的是容量，PyTorch 看的是连续性，两者分歧是碎片惹的祸。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BbCrwkO3wiWmAikFy0zc2OK6nPg
+  block_id: XBMcdXoSwoGKT9x76gQcC1wwnGu
+  page_token: BbCrwkO3wiWmAikFy0zc2OK6nPg
+  original_title: "\U0001F47B 为什么有时 PyTorch 报告 OOM，但 nvidia-smi 显示显存未满？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-87186bc64f5e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 图像token数量对训练显存和速度影响有多大？如何优化？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 图像token数量对训练显存和速度影响有多大？如何优化？
+answer:
+  mode: rubric
+  reference_answer: |-
+    图像token的数量直接决定了输入LLM的序列长度，对显存和计算速度有平方级（注意力机制）和线性级（FFN）的影响，是多模态微调中最大的开销来源。
+
+    影响：
+
+    - 激活显存：Q、K、V等中间激活与总token数（图像token + 文本token）成正比。对于一张使用ViT-L/14（14x14 patch, 256 tokens）的图像，其token数可能相当于一段数百字的文本。
+
+    - 计算速度：自注意力计算复杂度为 O(N2)O(N2)，总token数翻倍会导致注意力计算时间翻四倍。
+
+    优化方法：
+
+    - 减少图像token数量：
+
+    - 使用Flash Attention：这是大模型训练的标配。它能将自注意力的显存复杂度从 O(N2)O(N2) 降为 O(N)O(N)，并极大加速计算。在多模态微调中，必须开启。
+
+    - 序列并行（Sequence Parallelism）：当图像和文本的总token数极长时，可以将序列维度切分到多个GPU上，降低单卡显存。
+
+    - 梯度检查点：用来控制激活显存的峰值，以时间换空间。
+
+    - 使用更小的视觉编码器：如使用ViT-Base代替ViT-Large，权衡视觉能力和效率。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KYvmwfyDpiVkXckdpoBcXEzAnJf
+  block_id: DeP7dxoCLoOVs0xkBkjcEepjnHg
+  page_token: KYvmwfyDpiVkXckdpoBcXEzAnJf
+  original_title: 图像token数量对训练显存和速度影响有多大？如何优化？
+  imported_at: '2026-09-21'

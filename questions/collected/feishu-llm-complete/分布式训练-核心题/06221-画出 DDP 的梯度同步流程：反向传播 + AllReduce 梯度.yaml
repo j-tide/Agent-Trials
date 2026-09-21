@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-17b168bbea99
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 画出 DDP 的梯度同步流程：反向传播 + AllReduce 梯度。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 画出 DDP 的梯度同步流程：反向传播 + AllReduce 梯度。
+answer:
+  mode: rubric
+  reference_answer: |-
+    DDP的梯度同步是嵌入在反向传播过程中的，而非等整个反向传播结束才启动。这一设计精妙地实现了通信与计算的重叠。
+
+    ```text
+    前向传播
+      │
+      ├─ 各GPU独立前向，计算损失 loss
+      │
+    反向传播开始
+      │
+      ├─ 计算输出层的梯度
+      │
+      ├─ 逐层反向传播，计算各层参数的梯度
+      │     │
+      │     ├─ 当某个“梯度桶”内的所有参数梯度都已计算完成时
+      │     │     │
+      │     │     └─ 立即启动该桶的 AllReduce（异步）
+      │     │           │
+      │     │           └─ 通信进行的同时，反向传播继续向更浅层推进
+      │     │
+      │     └─ 重复此过程，直到所有桶的梯度都完成 AllReduce
+      │
+    反向传播结束
+      │
+      └─ 所有参数梯度已全局同步，各GPU调用 optimizer.step() 更新参数
+    ```
+
+    关键设计：DDP预先将模型参数分组（默认按层），每个组称为一个“梯度桶”。反向传播从输出层向输入层进行。当某个桶（例如第N层）的所有参数梯度都计算出来后，立即将该桶的梯度加入通信队列，启动AllReduce。此时反向传播继续向前一层推进，AllReduce在后台异步执行。由于深层参数的梯度先被计算，其AllReduce可以与浅层的梯度计算和通信重叠。最终，整个模型的梯度同步延迟几乎完全被隐藏。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  block_id: Lx6KdzzBboBBsxxVGU5cCTpGnAe
+  page_token: Ti2gwYR2GiBOeBknE6PcUoCqnpb
+  original_title: 画出 DDP 的梯度同步流程：反向传播 + AllReduce 梯度。
+  imported_at: '2026-09-21'

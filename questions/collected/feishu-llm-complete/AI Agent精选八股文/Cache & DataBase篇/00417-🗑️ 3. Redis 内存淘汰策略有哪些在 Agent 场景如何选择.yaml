@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-45ad6e1e8dd7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F5D1️ 3. Redis 内存淘汰策略有哪些？在 Agent 场景如何选择？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Cache & DataBase篇
+tags: &1
+- AI Agent精选八股文
+- Cache & DataBase篇
+content:
+  prompt: "\U0001F5D1️ 3. Redis 内存淘汰策略有哪些？在 Agent 场景如何选择？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Redis 作为内存数据库，内存是有限且昂贵的。当写入数据超过 maxmemory 上限时，Redis 必须按照某种策略淘汰一些旧数据，为新数据腾出空间。这就产生了八种策略，按“会不会淘汰”和“淘汰谁”两个维度分类。
+
+    [图片内容未导入]
+
+    [嵌入表格未展开]
+
+    在 Agent 场景下如何选择？
+
+    Agent 系统通常用 Redis 存储三类数据，它们的淘汰策略应该区别对待：
+
+    - 对话上下文 / 任务状态：这是 Agent 的“短期记忆”，丢失意味着任务中断。这类数据绝不希望被淘汰。应该使用 noeviction，并在应用层做好过期清理（比如设置过期时间 EXPIRE session_id 3600）。当内存不足时，宁可拒绝新任务，也不要把正在进行的任务状态删掉。
+
+    - LLM 调用结果缓存 / Embedding 缓存：这是典型的“热缓存”，用 Redis 就是为了加速。推荐 allkeys-lru 或 allkeys-lfu。LRU 适合访问模式均匀的场景，LFU 适合有明显冷热之分的场景（比如高频 FAQ 的缓存，不希望被一次性的大流量查询冲掉）。
+
+    - 工具调用结果缓存（如网页搜索、API 结果）：这类数据通常有过期时间（因为外部数据会更新），所以可以全部设置过期时间，然后使用 volatile-lru 或 volatile-ttl。如果希望快到期的数据优先被淘汰，volatile-ttl 很合适。
+
+    示例代码：设置 maxmemory-policy 和过期时间
+
+    import redis
+
+    r = redis.Redis(host='localhost', port=6379)
+
+    # 1. 运行时设置内存上限 (100MB)
+    r.config_set('maxmemory', '100mb')
+
+    # 2. 设置全局淘汰策略为 allkeys-lru（针对缓存类数据）
+    r.config_set('maxmemory-policy', 'allkeys-lru')
+
+    # 3. 对会话状态类数据，使用独立的 Redis 实例或 DB，策略设为 noeviction
+    r_state = redis.Redis(host='localhost', port=6380)
+    r_state.config_set('maxmemory-policy', 'noeviction')
+
+    # 4. 对缓存数据设置过期时间
+    r.setex(f"llm_cache:{query_hash}", 3600, response_text)
+    r.setex(f"session:{session_id}:context", 1800, context_json)
+
+    精细的做法——多实例隔离：如果同一个 Redis 实例里既有“绝不能丢”的会话数据，又有“可随意淘汰”的缓存数据，用同一种策略会互相伤害。更好的方式是用两个 Redis 实例，或至少两个 DB，分别配置不同的 maxmemory-policy，从物理上隔离它们的淘汰行为。
+
+    一句话选型指南：
+
+    - 数据丢了会出生产事故（如任务状态、消息队列）→ noeviction + 监控告警。
+
+    - 数据丢了只是多调一次 LLM / 多算一次 Embedding（如各类缓存）→ allkeys-lru 或 allkeys-lfu。
+
+    - 数据都有明确的 TTL，且希望快到期的先被淘汰 → volatile-ttl。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Q9QMw2nf7ixgxGkQ9NUcjdpZno0
+  block_id: doxcnogFZMoekrDppZQp32mO6Jf
+  page_token: Q9QMw2nf7ixgxGkQ9NUcjdpZno0
+  original_title: "\U0001F5D1️ 3. Redis 内存淘汰策略有哪些？在 Agent 场景如何选择？"
+  imported_at: '2026-09-21'

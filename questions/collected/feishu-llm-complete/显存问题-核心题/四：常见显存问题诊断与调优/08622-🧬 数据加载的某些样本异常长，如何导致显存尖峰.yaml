@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e77329eb4852
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9EC 数据加载的某些样本异常长，如何导致显存尖峰？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F9EC 数据加载的某些样本异常长，如何导致显存尖峰？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 异常长的样本直接增加序列长度 L，而 Transformer 中的激活显存与 L 成线性或平方关系（注意力矩阵）。因此，当某个
+    batch 包含超长样本时，激活显存瞬间膨胀，形成一个尖锐的峰值，若超过剩余显存则 OOM。\n\n\U0001F50D 机制分解：\n\n- 注意力矩阵的平方增长\n在标准自注意力中，需要计算
+    QK^T 并存储 softmax 的结果，形状为 [B, heads, L, L]。当 L 从 2048 跳变到 8192 时，该矩阵的显存占用量增加了 16
+    倍。即使使用 FlashAttention 不存储完整矩阵，前向/反向过程中仍会临时需要与 L 成线性关系的 Q、K、V 张量，其大小也增加了 4 倍。\n\n-
+    线性层激活的线性增长\n每个 Transformer 层的输入输出、FFN 中间激活都是 [B, L, H] 形状。L 增大时，这些张量同比例增大。对于一个
+    32 层的 7B 模型，L 从 2048→8192，仅 Q、K、V 张量每层就从约 16MB 涨到 64MB，总计增加量可能达数 GB。\n\n- padding
+    造成计算浪费\n如果使用静态 padding，一个 batch 内所有样本会被 pad 到该 batch 最长样本的长度。一个超长样本会导致整个 batch
+    的序列长度都被提升到该长度，激活显存成倍放大。\n\n- 动态形状带来的额外开销\n框架可能在遇到不同序列长度时重新分配内部缓冲区，这个操作本身需要临时显存，且可能留下碎片。\n\n\U0001F4C8
+    实例：\n假设显存还剩 5GB。训练 L=2048 时，激活占用 3GB，一切正常。突然遇到一个 L=10000 的样本，注意力矩阵（无 FlashAttention）大小
+    ≈ 32 heads * (10000^2) * 2 bytes ≈ 6.4 GB，仅此一项就超出剩余显存，立即 OOM。\n\n\U0001F527 应对措施：\n\n-
+    强制截断：max_seq_length=4096，超出部分截断或滑动窗口。\n\n- 使用 FlashAttention 消除 O(L²) 矩阵。\n\n-
+    动态 batch：检测到长序列时自动减小 batch size，保证总 token 数大致恒定。\n\n- 预计算数据长度分布，采样时避免极端组合。\n\n✅
+    因此，数据异常长样本是显存尖峰的最常见触发器，控制序列长度是关键。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K8Caw8DYRifcnzkTTjUcLwE4ngd
+  block_id: Du7sdf1XdoGAWrxVBOfccUhZnng
+  page_token: K8Caw8DYRifcnzkTTjUcLwE4ngd
+  original_title: "\U0001F9EC 数据加载的某些样本异常长，如何导致显存尖峰？"
+  imported_at: '2026-09-21'

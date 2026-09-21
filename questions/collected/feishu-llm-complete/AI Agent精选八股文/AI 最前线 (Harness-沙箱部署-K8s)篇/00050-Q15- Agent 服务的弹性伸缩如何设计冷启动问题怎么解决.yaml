@@ -1,0 +1,133 @@
+---
+schema_version: 1
+id: feishu-llm-complete-695fab0c8960
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 'Q15: Agent 服务的弹性伸缩如何设计？冷启动问题怎么解决？'
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: AI 最前线 (Harness|沙箱部署|K8s)篇
+tags: &1
+- AI Agent精选八股文
+- AI 最前线 (Harness|沙箱部署|K8s)篇
+content:
+  prompt: 'Q15: Agent 服务的弹性伸缩如何设计？冷启动问题怎么解决？'
+answer:
+  mode: rubric
+  reference_answer: |-
+    ⭐⭐⭐（HPA 自定义指标、KEDA 事件驱动扩缩、冷启动优化、Pod 预热池、缩容保护）
+
+    1️⃣ Common Answer
+
+    我们会用 Kubernetes 的 HPA 做自动扩缩容，根据 CPU 使用率来调整 Pod 数量。当请求量增加时，HPA 会自动增加副本数，减少时自动缩容。冷启动问题可以通过设置一个最小副本数来缓解，避免完全缩容到零。另外可以优化镜像大小，加快 Pod 启动速度。我们也会用 readiness probe 确保只有完全就绪的 Pod 才会接收流量。
+
+    2️⃣ Impressive Answer
+
+    Agent 服务的弹性伸缩设计需要从水平扩缩、垂直扩缩、事件驱动、冷启动优化四个维度系统考虑。
+
+    - HPA 自定义指标设计
+
+    Agent 服务不能用 CPU 做 HPA，因为瓶颈在 GPU、推理延迟和队列深度。我们通过 Prometheus Adapter 暴露自定义指标，包括：QPS、GPU 利用率、请求队列深度、P99 延迟。比如当队列深度超过阈值时触发扩容，P99 延迟过高时提前扩容。
+
+    - KEDA 事件驱动扩缩
+
+    对于基于消息队列的异步 Agent 任务，用 KEDA 基于 Kafka/RabbitMQ 的积压量触发扩容，比 HPA 更精准。比如 Kafka 消费组 lag 超过 1000 时，KEDA 自动增加 consumer Pod。
+
+    - VPA 垂直扩缩
+
+    动态调整单 Pod 的 CPU/内存 requests，避免资源浪费。但 VPA 和 HPA 同时使用时要注意冲突，一般建议 HPA 管水平扩缩，VPA 只在非关键环境使用。
+
+    - 冷启动优化——四层方案
+
+    - 模型预加载：在 readiness probe 中做模型加载，只有加载完成才标记 Ready
+
+    - Pod 预热池（Warm Pool）：维护一批已加载模型的待命 Pod，收到请求直接复用
+
+    - 镜像预拉取：用 DaemonSet 在所有节点预拉取镜像，减少镜像下载时间
+
+    - 模型缓存：用 PVC 或 hostPath 缓存模型文件，避免每次启动都从 OSS 下载
+
+    - 缩容保护
+
+    - cooldownPeriod：避免频繁扩缩
+
+    - minReplicas：保证最小副本数
+
+    - PDB（PodDisruptionBudget）：保护关键 Pod 不被意外驱逐
+
+    HPA + Prometheus Adapter 配置示例：
+
+    ```text
+    apiVersion: autoscaling/v2
+    kind: HorizontalPodAutoscaler
+    metadata:
+      name: agent-hpa
+    spec:
+      scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: agent-server
+      minReplicas: 3
+      maxReplicas: 20
+      metrics:
+      - type: Pods
+        pods:
+          metric:
+            name: request_queue_depth
+          target:
+            type: AverageValue
+            averageValue: 50
+      - type: Pods
+        pods:
+          metric:
+            name: inference_latency_p99
+          target:
+            type: AverageValue
+            averageValue: 500m
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 30
+          policies:
+          - type: Percent
+            value: 100
+            periodSeconds: 15
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+          - type: Percent
+            value: 10
+            periodSeconds: 60
+    ```
+
+    我的实践：在 Agent 服务中用 HPA + KEDA 混合扩缩，同步请求用 HPA 基于 P99 延迟扩容，异步任务用 KEDA 基于 Kafka lag 扩容。冷启动方面，用 Warm Pool 维持 3 个最小副本，新 Pod 启动时从 PVC 缓存加载模型，启动时间从 2 分钟降到 20 秒。PDB 保护保证升级时至少 2 个 Pod 可用，避免服务中断。
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M0n4w1EKwiQwxKkHxMvc4LZUn7p
+  block_id: doxcny0XXoVmqimOVI3GxpscBYe
+  page_token: M0n4w1EKwiQwxKkHxMvc4LZUn7p
+  original_title: 'Q15: Agent 服务的弹性伸缩如何设计？冷启动问题怎么解决？'
+  imported_at: '2026-09-21'

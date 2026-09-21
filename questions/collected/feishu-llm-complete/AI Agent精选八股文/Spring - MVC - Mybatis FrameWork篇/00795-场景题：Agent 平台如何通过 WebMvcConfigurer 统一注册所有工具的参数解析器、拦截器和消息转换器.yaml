@@ -1,0 +1,118 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1991f589deb7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 3、场景题：Agent 平台如何通过 WebMvcConfigurer 统一注册所有工具的参数解析器、拦截器和消息转换器？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: 3、场景题：Agent 平台如何通过 WebMvcConfigurer 统一注册所有工具的参数解析器、拦截器和消息转换器？
+answer:
+  mode: rubric
+  reference_answer: "难度级别：⭐⭐⭐⭐（统一配置、Agent 平台、扩展点组合）\n\n1️⃣ Common Answer\n\n在 WebMvcConfigurer
+    里分别添加参数解析器、拦截器和消息转换器。可以用循环注册多个。\n\n2️⃣ Impressive Answer\n\n我给出完整的统一配置方案：\n\n-
+    Agent 组件自动注册机制：\n\n```text\n// Agent 组件接口\npublic interface AgentComponent {\n
+    \   String getName();\n    int getOrder();\n}\n\n// Agent 参数解析器接口\npublic interface
+    AgentArgumentResolver extends HandlerMethodArgumentResolver, AgentComponent {\n}\n\n//
+    Agent 拦截器接口\npublic interface AgentInterceptor extends HandlerInterceptor, AgentComponent
+    {\n}\n\n// Agent 消息转换器接口\npublic interface AgentMessageConverter extends HttpMessageConverter<?>,
+    AgentComponent {\n}\n```\n\n- 组件自动发现配置：\n\n```text\n@Configuration\npublic class
+    AgentComponentAutoConfig {\n    \n    @Autowired\n    private ApplicationContext
+    applicationContext;\n    \n    @Bean\n    public List<AgentArgumentResolver> agentArgumentResolvers()
+    {\n        return applicationContext.getBeansOfType(AgentArgumentResolver.class)\n
+    \           .values()\n            .stream()\n            .sorted(Comparator.comparingInt(AgentComponent::getOrder))\n
+    \           .collect(Collectors.toList());\n    }\n    \n    @Bean\n    public
+    List<AgentInterceptor> agentInterceptors() {\n        return applicationContext.getBeansOfType(AgentInterceptor.class)\n
+    \           .values()\n            .stream()\n            .sorted(Comparator.comparingInt(AgentComponent::getOrder))\n
+    \           .collect(Collectors.toList());\n    }\n    \n    @Bean\n    public
+    List<AgentMessageConverter> agentMessageConverters() {\n        return applicationContext.getBeansOfType(AgentMessageConverter.class)\n
+    \           .values()\n            .stream()\n            .sorted(Comparator.comparingInt(AgentComponent::getOrder))\n
+    \           .collect(Collectors.toList());\n    }\n}\n```\n\n- 统一 WebMvcConfigurer：\n\n```text\n@Configuration\npublic
+    class AgentWebConfig implements WebMvcConfigurer {\n    \n    @Autowired\n    private
+    List<AgentArgumentResolver> agentArgumentResolvers;\n    \n    @Autowired\n    private
+    List<AgentInterceptor> agentInterceptors;\n    \n    @Autowired\n    private List<AgentMessageConverter>
+    agentMessageConverters;\n    \n    @Override\n    public void addArgumentResolvers(List<HandlerMethodArgumentResolver>
+    resolvers) {\n        log.info(\"Registering {} Agent argument resolvers\", agentArgumentResolvers.size());\n
+    \       agentArgumentResolvers.forEach(resolver -> {\n            log.info(\"
+    \ - {}\", resolver.getName());\n            resolvers.add(resolver);\n        });\n
+    \   }\n    \n    @Override\n    public void addInterceptors(InterceptorRegistry
+    registry) {\n        log.info(\"Registering {} Agent interceptors\", agentInterceptors.size());\n
+    \       agentInterceptors.forEach(interceptor -> {\n            log.info(\"  -
+    {}\", interceptor.getName());\n            registry.addInterceptor(interceptor)\n
+    \               .addPathPatterns(\"/api/agent/**\");\n        });\n    }\n    \n
+    \   @Override\n    public void extendMessageConverters(List<HttpMessageConverter<?>>
+    converters) {\n        log.info(\"Registering {} Agent message converters\", agentMessageConverters.size());\n
+    \       agentMessageConverters.forEach(converter -> {\n            log.info(\"
+    \ - {}\", converter.getName());\n            converters.add(0, converter); //
+    添加到开头，优先级最高\n        });\n    }\n}\n```\n\n- 具体组件实现：\n\n```text\n// Agent 上下文解析器\n@Component\n@Slf4j\npublic
+    class AgentContextResolver implements AgentArgumentResolver {\n    \n    @Override\n
+    \   public boolean supportsParameter(MethodParameter parameter) {\n        return
+    parameter.getParameterAnnotation(AgentContext.class) != null;\n    }\n    \n    @Override\n
+    \   public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer
+    mavContainer,\n                                  NativeWebRequest webRequest,
+    WebDataBinderFactory binderFactory) {\n        String agentId = webRequest.getHeader(\"X-Agent-Id\");\n
+    \       String agentVersion = webRequest.getHeader(\"X-Agent-Version\");\n        \n
+    \       return AgentContext.builder()\n            .agentId(agentId)\n            .version(agentVersion)\n
+    \           .timestamp(System.currentTimeMillis())\n            .build();\n    }\n
+    \   \n    @Override\n    public String getName() {\n        return \"AgentContextResolver\";\n
+    \   }\n    \n    @Override\n    public int getOrder() {\n        return 100;\n
+    \   }\n}\n\n// Agent 认证拦截器\n@Component\n@Slf4j\npublic class AgentAuthInterceptor
+    implements AgentInterceptor {\n    \n    @Autowired\n    private AgentAuthService
+    authService;\n    \n    @Override\n    public boolean preHandle(HttpServletRequest
+    request, HttpServletResponse response, Object handler) {\n        String token
+    = request.getHeader(\"X-Agent-Token\");\n        \n        if (!authService.validateToken(token))
+    {\n            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);\n            return
+    false;\n        }\n        \n        return true;\n    }\n    \n    @Override\n
+    \   public String getName() {\n        return \"AgentAuthInterceptor\";\n    }\n
+    \   \n    @Override\n    public int getOrder() {\n        return 100;\n    }\n}\n\n//
+    Agent Protobuf 消息转换器\n@Component\n@Slf4j\npublic class AgentProtobufConverter
+    implements AgentMessageConverter {\n    \n    private final ProtobufHttpMessageConverter
+    delegate = new ProtobufHttpMessageConverter();\n    \n    @Override\n    public
+    boolean canRead(Class<?> clazz, MediaType mediaType) {\n        return Message.class.isAssignableFrom(clazz)
+    && \n               delegate.canRead(clazz, mediaType);\n    }\n    \n    @Override\n
+    \   public boolean canWrite(Class<?> clazz, MediaType mediaType) {\n        return
+    Message.class.isAssignableFrom(clazz) && \n               delegate.canWrite(clazz,
+    mediaType);\n    }\n    \n    @Override\n    public List<MediaType> getSupportedMediaTypes()
+    {\n        return delegate.getSupportedMediaTypes();\n    }\n    \n    @Override\n
+    \   public Object read(Class<?> clazz, HttpInputMessage inputMessage) throws IOException
+    {\n        return delegate.read(clazz, inputMessage);\n    }\n    \n    @Override\n
+    \   public void write(Object t, MediaType contentType, HttpOutputMessage outputMessage)
+    throws IOException {\n        delegate.write(t, contentType, outputMessage);\n
+    \   }\n    \n    @Override\n    public String getName() {\n        return \"AgentProtobufConverter\";\n
+    \   }\n    \n    @Override\n    public int getOrder() {\n        return 100;\n
+    \   }\n}\n```\n\n- 使用示例：\n\n```text\n@RestController\n@RequestMapping(\"/api/agent\")\npublic
+    class AgentController {\n    \n    // 自动注入 AgentContext\n    @PostMapping(\"/chat\")\n
+    \   public String chat(@RequestBody ChatRequest request, @AgentContext AgentContext
+    context) {\n        log.info(\"Agent ID: {}, Version: {}\", context.getAgentId(),
+    context.getVersion());\n        return agentService.chat(request, context);\n
+    \   }\n}\n```\n\n3️⃣ Key Differences\n\n[嵌入表格未展开]\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EvyJwQ60XiC313kQqbUcyFhEnAh
+  block_id: doxcnMb26JVgAFWIFnN5K5RoPEb
+  page_token: EvyJwQ60XiC313kQqbUcyFhEnAh
+  original_title: 3、场景题：Agent 平台如何通过 WebMvcConfigurer 统一注册所有工具的参数解析器、拦截器和消息转换器？
+  imported_at: '2026-09-21'

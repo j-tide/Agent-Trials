@@ -1,0 +1,123 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c4b51ce79c59
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 MinMax 校准方法：给定一组校准数据，统计 activation 的全局最小值和最大值，计算对称量化的 scale（支持 per-tensor
+  和 per-token 选项）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第二梯队：工程优化与算子（Infra / 推理岗重点）
+tags: &1
+- 大模型手撕-核心题
+- 第二梯队：工程优化与算子（Infra / 推理岗重点）
+content:
+  prompt: 实现 MinMax 校准方法：给定一组校准数据，统计 activation 的全局最小值和最大值，计算对称量化的 scale（支持 per-tensor
+    和 per-token 选项）
+answer:
+  mode: rubric
+  reference_answer: |-
+    MinMax 校准 是最简单的校准方式：在校准数据集上运行模型，收集每层激活（或权重）的 min 和 max，然后基于全局或 per-token 的极值计算 scale。
+
+    - per-tensor：所有校准批次中激活张量的全局 min 和 max。
+
+    - per-token：对每个 token 位置单独统计 min/max（常用于激活量化）。注意“per-token”可能指每个 token 位置（如序列中每个 token）或者每个 token 维度独立？通常指对形状 [B, L, D] 的激活，我们希望计算每个 token（即每个 (b,l)）的 min/max，然后得出每个 token 的 scale，但校准期间需要将这些统计聚合为某种代表性尺度。常见实践是：对每个 token 位置，我们记录 running min/max，最终得到 shape [1, 1, D]? 或者 per-tensor 就是标量。本题要求支持 per-tensor 和 per-token 选项。per-tensor 使用单个全局 scale；per-token 为每个 token 位置独立计算 scale（如每个 token 的 D 维向量有自己的 scale），统计时需记录每个 token 的 max_abs 的滑动平均或全局最大值。
+
+    我们实现一个校准器类，输入校准数据（激活张量），逐步更新 min/max，最后计算 scale。
+
+    代码示例：
+
+    ```python
+    class MinMaxCalibrator:
+        def __init__(self, mode='per_tensor', bits=8):
+            """
+            mode: 'per_tensor' 或 'per_token'
+            """
+            self.mode = mode
+            self.bits = bits
+            self.qmax = 2 ** (bits - 1) - 1
+            self.initialized = False
+            # 统计值
+            self.min_val = None
+            self.max_val = None
+
+        def update(self, x: torch.Tensor):
+            """
+            x: 激活张量，可以是任意维度，假设最后维度是特征维度
+            """
+            if self.mode == 'per_tensor':
+                batch_min = torch.min(x)
+                batch_max = torch.max(x)
+                if not self.initialized:
+                    self.min_val = batch_min
+                    self.max_val = batch_max
+                    self.initialized = True
+                else:
+                    self.min_val = torch.min(self.min_val, batch_min)
+                    self.max_val = torch.max(self.max_val, batch_max)
+            elif self.mode == 'per_token':
+                # 假设 token 维度为最后两维之前的维度，如 [B, L, D]，per-token 意味着每个 token (B,L) 独立
+                # 简化：对整个张量，保留每个 token 的 min/max 形状和输入匹配
+                # 此处实现为保留每个 token 的 min/max（按元素）
+                # 计算沿最后一维的 min/max
+                token_min = torch.min(x, dim=-1, keepdim=True)[0]  # [..., 1]
+                token_max = torch.max(x, dim=-1, keepdim=True)[0]
+                if not self.initialized:
+                    self.min_val = token_min
+                    self.max_val = token_max
+                    self.initialized = True
+                else:
+                    # 假设输入形状在 token 维度一致，逐元素取 min/max
+                    self.min_val = torch.min(self.min_val, token_min)
+                    self.max_val = torch.max(self.max_val, token_max)
+            else:
+                raise ValueError("mode 必须是 'per_tensor' 或 'per_token'")
+
+        def compute_scale(self, symmetric=True):
+            if not self.initialized:
+                raise RuntimeError("未提供校准数据")
+            if symmetric:
+                max_abs = torch.max(torch.abs(self.min_val), torch.abs(self.max_val))
+                scale = max_abs / self.qmax
+            else:
+                scale = (self.max_val - self.min_val) / (2 ** self.bits - 1)
+            return scale
+    ```
+
+    使用：
+
+    ```python
+    calib = MinMaxCalibrator(mode='per_tensor', bits=8)
+    for data in calib_loader:
+        act = model.get_activation(data)  # 形状任意
+        calib.update(act)
+    scale = calib.compute_scale()
+    ```
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  block_id: E4p6dbXrAopmwyx8Aphc0COSn24
+  page_token: QzmWwCtIFiz8CqkovdHcKNCsn9Y
+  original_title: 实现 MinMax 校准方法：给定一组校准数据，统计 activation 的全局最小值和最大值，计算对称量化的 scale（支持
+    per-tensor 和 per-token 选项）
+  imported_at: '2026-09-21'

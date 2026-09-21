@@ -1,0 +1,49 @@
+---
+schema_version: 1
+id: feishu-llm-complete-522a5862a0d1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⏳ 为什么长上下文模型在推理时，第一 token 延迟远大于后续 token？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 五：前沿与趋势
+tags: &1
+- 显存问题-核心题
+- 五：前沿与趋势
+content:
+  prompt: "⏳ 为什么长上下文模型在推理时，第一 token 延迟远大于后续 token？"
+answer:
+  mode: rubric
+  reference_answer: "第一 token 延迟（TTFT）远大于后续 token 延迟的根本原因在于 Prefill 阶段和 Decode 阶段的计算量存在巨大差异。\n\n-
+    Prefill（生成第一个 token）：必须一次性处理整个输入 prompt。注意力计算的复杂度为 O(L²)（即使采用 FlashAttention，其计算量依然是
+    O(L²)，只是内存访问优化）。此外，需要为整个序列生成 K 和 V 并写入 KV Cache，这是一个大矩阵乘法。因此，L 很大时，计算量非常庞大，延迟自然极高。\n\n-
+    Decode（后续每个 token）：每次仅处理一个新 token，注意力计算变为 O(L)（新 token 与所有历史 token 进行注意力）。由于 L
+    已经固定，每个新 token 的计算量近似恒定，且远小于 Prefill。所以后续 token 的生成延迟很低且稳定。\n\n\U0001F4CA 量化对比：对于
+    L=128K，Prefill 的计算量可能是单个 decode 步骤的几千倍。此外，Prefill 可能受限于 GPU 的显存带宽和计算资源，而 Decode
+    往往受限于内存带宽（因为要反复读取整个 KV Cache）。因此 TTFT 常以秒计，而后续 token 延迟为毫秒级。\n\n优化方向：chunked prefill
+    将首次延迟分解为更小的首批 token 时间，使得用户更快看到首个输出；prefix caching 可复用已计算的 KV，避免重复 Prefill。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MJGdw1gNQi7XukkJrfvczohinLU
+  block_id: I7vCdVluXozRCZxW0nucCN2QnmU
+  page_token: MJGdw1gNQi7XukkJrfvczohinLU
+  original_title: "⏳ 为什么长上下文模型在推理时，第一 token 延迟远大于后续 token？"
+  imported_at: '2026-09-21'

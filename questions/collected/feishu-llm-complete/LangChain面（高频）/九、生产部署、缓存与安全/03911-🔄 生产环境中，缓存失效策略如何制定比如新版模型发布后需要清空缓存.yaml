@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-df8a5bed2898
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F504 生产环境中，缓存失效策略如何制定？比如新版模型发布后需要清空缓存。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 九、生产部署、缓存与安全
+tags: &1
+- LangChain面（高频）
+- 九、生产部署、缓存与安全
+content:
+  prompt: "\U0001F504 生产环境中，缓存失效策略如何制定？比如新版模型发布后需要清空缓存。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    生产环境缓存失效策略需兼顾数据新鲜度、成本和一致性。
+
+    - 基于版本的 Key 前缀
+    在缓存的 Key 中加入模型版本号。例如，使用 v1、v2 作为前缀。当模型升级时，只需更换前缀，旧缓存自然失效，无需删除。LangChain 的 llm_string 已经包含了部分版本信息，但对于业务层面的大版本，可以自己封装。
+
+    - 主动清空
+    在模型部署流水线中，触发缓存清理任务。例如，通过 Redis 的 FLUSHDB 或扫描匹配特定前缀的 Key 并删除。适合 Redis 等可操控后端。
+
+    - 设置 TTL（生存时间）
+    对于实时性要求高的场景（如新闻摘要），为缓存条目设置 TTL。LangChain 的 RedisCache 支持 ttl 参数（需自定义或使用 RedisSemanticCache 的 ttl）。GPTCache 内置了 TTL 支持。
+
+    - 差异化失效
+
+    不是所有 Prompt 都同等对待。对于知识密集型、时效性低的查询（如“勾股定理”），可以设置较长 TTL 甚至永久缓存；对于实时数据查询，设置短 TTL 或不缓存。
+
+    - 基于业务事件的失效
+
+    当知识库更新、数据库变更时，主动通知缓存服务清除相关 Prompt 的缓存。这需要更复杂的事件驱动架构。
+
+    实践中：我们使用 RedisSemanticCache 并设置 ttl=3600（1小时）用于一般问答，对于产品文档类 Prompt，TTL 设为 24 小时；在 CI/CD 中，每当发布新模型时，执行一条 Redis SCAN + DEL 命令清理包含旧版本号的 Key。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VWvFwnt5pi19m7ky7Udc0PatnRe
+  block_id: Q9GddF96Vo0OdZxV7EVcVDixnvc
+  page_token: VWvFwnt5pi19m7ky7Udc0PatnRe
+  original_title: "\U0001F504 生产环境中，缓存失效策略如何制定？比如新版模型发布后需要清空缓存。"
+  imported_at: '2026-09-21'

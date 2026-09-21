@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5fc3a4a6ee5d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 如何统计流式输出的总 token 数？回调在这里扮演什么角色？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F4CA 如何统计流式输出的总 token 数？回调在这里扮演什么角色？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    流式模式下，token 是逐个到达的，因此无法像非流式那样直接从返回对象中拿到 token_usage。回调则是捕获这些 token 并进行累加的理想场所。
+
+    方法一：利用 on_llm_new_token 回调计数
+    每次回调触发时，将计数器加一。但这只能统计生成的 token 数（completion tokens），无法直接获取 prompt tokens。要获得完整统计，需要在 on_llm_end 中读取 LLM 返回的 usage 信息（OpenAI 等流式 API 在最后一条 chunk 中会包含 usage）。
+
+    ```python
+    class TokenCounter(BaseCallbackHandler):
+        def __init__(self):
+            self.prompt_tokens = 0
+            self.completion_tokens = 0
+            self.total_tokens = 0
+
+        def on_llm_new_token(self, token: str, **kwargs):
+            self.completion_tokens += 1
+
+        def on_llm_end(self, response, **kwargs):
+            # 尝试从 response 中获取 usage（如果流式最后携带）
+            if hasattr(response, 'llm_output') and response.llm_output:
+                usage = response.llm_output.get('token_usage', {})
+                self.prompt_tokens = usage.get('prompt_tokens', 0)
+                self.completion_tokens = usage.get('completion_tokens', self.completion_tokens)  # 修正
+                self.total_tokens = usage.get('total_tokens', self.prompt_tokens + self.completion_tokens)
+            else:
+                self.total_tokens = self.prompt_tokens + self.completion_tokens
+    ```
+
+    方法二：使用 stream 迭代器自行统计
+    如果你在消费 stream 迭代器，可以边生成边计数，但 prompt tokens 无法获得。只能通过预先用 tokenizer 计算 prompt 长度来估算。
+
+    ```python
+    import tiktoken
+    enc = tiktoken.encoding_for_model("gpt-3.5-turbo")
+    prompt_tokens = len(enc.encode(prompt))
+    completion_tokens = 0
+    for chunk in chain.stream(...):
+        completion_tokens += 1
+    ```
+
+    回调角色：回调是横切关注点的利器，它让你无需修改业务代码就能全局统计 token，配合 run_id 还能区分不同的 LLM 调用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CZWewxKPziW9NLkL7iBcV35cncy
+  block_id: HC2rdCz6cowrGvxIilLc361pnke
+  page_token: CZWewxKPziW9NLkL7iBcV35cncy
+  original_title: "\U0001F4CA 如何统计流式输出的总 token 数？回调在这里扮演什么角色？"
+  imported_at: '2026-09-21'

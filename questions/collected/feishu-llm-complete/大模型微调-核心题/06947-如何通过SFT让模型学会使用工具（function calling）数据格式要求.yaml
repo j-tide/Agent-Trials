@@ -1,0 +1,98 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bd5002c687d2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 34. 如何通过SFT让模型学会使用工具（function calling）？数据格式要求？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 34. 如何通过SFT让模型学会使用工具（function calling）？数据格式要求？
+answer:
+  mode: rubric
+  reference_answer: |-
+    让模型学会在对话中调用外部工具，是通过构造包含完整“工具调用‑工具返回‑结果整合”循环的SFT数据来实现的。这要求数据格式必须精确、无歧义。
+
+    一、数据格式标准
+
+    一般采用扩展的对话模板（如ChatML），增加一个tool角色来承载工具返回结果。下面是一个天气查询的完整示例：
+
+    ```text
+    <|im_start|>system
+    你是一个助手，可以使用以下工具：
+    {
+    "name": "get_weather",
+    "description": "查询指定城市的天气",
+    "parameters": {
+    "city": { "type": "string", "description": "城市名" }
+    }
+    }
+    <|im_end|>
+    <|im_start|>user
+    今天北京天气怎么样？<|im_end|>
+    <|im_start|>assistant
+    好的，让我查一下。
+    <tool_call>
+    {"name": "get_weather", "arguments": {"city": "北京"}}
+    </tool_call><|im_end|>
+    <|im_start|>tool
+    {"temperature": 25, "condition": "晴"}<|im_end|>
+    <|im_start|>assistant
+    北京今天晴天，气温25°C，适合出行。<|im_end|>
+    ```
+
+    二、关键格式要素
+
+    - 工具定义：放在system prompt中，必须使用明确的JSON Schema，描述名称、功能、参数类型和是否必填。
+
+    - 调用标记：模型生成工具调用时，必须用特殊token（如<tool_call>和</tool_call>）包裹，内部是严格的JSON。这些标记最好是词表中新增的专用token，避免与用户输入混淆。
+
+    - 工具返回：以<|im_start|>tool开始，内容是工具返回的原始JSON或错误信息。这部分在训练时需要被mask掉（不计算损失），因为模型不应学习生成工具返回的结果。
+
+    - 最终回复：模型在看到工具返回后，继续生成的自然语言回复。这部分计算损失。
+
+    三、训练数据必须覆盖的场景
+
+    - 并行调用：一次生成多个独立的工具调用。
+
+    - 串行依赖：根据第一个工具的结果，决定是否及如何调用第二个工具。
+
+    - 错误处理：工具返回错误时，模型应能分析错误并尝试修正参数重新调用，或向用户说明并请求澄清。
+
+    - 无需调用工具：也包含大量不需要工具就能回答的样本，让模型学会何时不应该调用工具。
+
+    四、损失掩码规则
+
+    计算损失时，只对assistant角色生成的内容计算损失，包括<tool_call>及其内部JSON（让模型学会生成正确的调用格式），以及最终的总结回复。对system、user、tool角色全部掩码。
+
+    ✅ 总结：通过SFT让模型学会工具调用，就是为模型编写一本“工具使用说明书和练习册”。关键是用特殊token精确标记调用边界，用JSON Schema规范参数，并通过丰富的数据覆盖各种成功和失败路径。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PMU2wL6MLiKo4yk5L39cu6vqnIc
+  block_id: KoDsdzuLWomT2px1pJKcIoBnnZg
+  page_token: PMU2wL6MLiKo4yk5L39cu6vqnIc
+  original_title: 34. 如何通过SFT让模型学会使用工具（function calling）？数据格式要求？
+  imported_at: '2026-09-21'

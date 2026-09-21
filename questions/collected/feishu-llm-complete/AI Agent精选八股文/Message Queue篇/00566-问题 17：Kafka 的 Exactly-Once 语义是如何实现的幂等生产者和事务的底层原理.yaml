@@ -1,0 +1,97 @@
+---
+schema_version: 1
+id: feishu-llm-complete-42afad1d4d11
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 问题 17：Kafka 的 Exactly-Once 语义是如何实现的？幂等生产者和事务的底层原理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Message Queue篇
+tags: &1
+- AI Agent精选八股文
+- Message Queue篇
+content:
+  prompt: 问题 17：Kafka 的 Exactly-Once 语义是如何实现的？幂等生产者和事务的底层原理？
+answer:
+  mode: rubric
+  reference_answer: "难度：⭐⭐⭐⭐（PID + Sequence Number、事务协调器、两阶段提交、isolation.level）\n\nCommon
+    Answer\n\n嗯...Kafka 支持 Exactly-Once 语义，通过幂等生产者和事务机制实现。幂等生产者就是保证消息不重复，事务就是保证一组消息要么都成功要么都失败。配置
+    enable.idempotence=true 就可以了。\n\nImpressive Answer\n\n- 三种语义对比\n\n[嵌入表格未展开]\n\n-
+    幂等生产者原理\n\n核心机制：PID（Producer ID）+ Sequence Number 去重\n\n```text\n// 配置幂等生产者\nprops.put(\"enable.idempotence\",
+    true);  // 自动配置 acks=all, retries=Integer.MAX_VALUE\n```\n\n工作流程：\n\n```text\n1.
+    Producer 初始化时向 Broker 申请 PID\n2. 每个 TopicPartition 维护一个 Sequence Number（从 0 开始递增）\n3.
+    发送消息时携带 <PID, TopicPartition, Sequence Number>\n4. Broker 端维护 PID 表，记录每个 TopicPartition
+    的最新 Sequence Number\n5. 收到消息时检查：\n   - 如果 Sequence Number == 预期值（当前最大值 + 1）：接受\n
+    \  - 如果 Sequence Number <= 当前最大值：重复消息，丢弃\n   - 如果 Sequence Number > 当前最大值 + 1：数据丢失，抛出异常\n```\n\nBroker
+    端检测重复的伪代码：\n\n```text\npublic class PidManager {\n    private Map<TopicPartition,
+    Integer> sequenceNumbers = new ConcurrentHashMap<>();\n    \n    public boolean
+    acceptMessage(ProducerIdAndEpoch producerId, \n                                  TopicPartition
+    partition, \n                                  int sequenceNumber) {\n        int
+    currentMax = sequenceNumbers.getOrDefault(partition, -1);\n        if (sequenceNumber
+    == currentMax + 1) {\n            sequenceNumbers.put(partition, sequenceNumber);\n
+    \           return true;  // 接受\n        } else if (sequenceNumber <= currentMax)
+    {\n            return false;  // 重复，丢弃\n        } else {\n            throw new
+    OutOfOrderSequenceException();  // 数据丢失\n        }\n    }\n}\n```\n\n限制：\n\n-
+    只能保证单次会话内的幂等（Producer 重启后 PID 会变化）\n\n- 只能保证单个 Partition 内的顺序和去重\n\n- 事务机制完整流程\n\n核心组件：\n\n-
+    TransactionCoordinator：事务协调器（类似 Group Coordinator）\n\n- _transactionstate Topic：存储事务状态（内部
+    Topic）\n\n完整流程：\n\n```text\n1. initTransactions\n   Producer 向 TransactionCoordinator
+    注册，获取 PID\n   \n2. beginTransaction\n   标记事务开始\n   \n3. send (多个消息)\n   发送消息到多个
+    Partition\n   消息带有事务标记（TRANSACTIONAL）\n   \n4. commitTransaction / abortTransaction\n
+    \  向 TransactionCoordinator 提交/回滚事务\n```\n\nTransactionCoordinator 的角色：\n\n- 管理
+    Producer 的事务状态\n\n- 协调多个 Partition 的提交\n\n- 处理 _transactionstate Topic 的日志\n\n-
+    两阶段提交：PREPARE → COMMIT/ABORT\n\n阶段 1：PREPARE\n\n```text\n1. Producer 向 TransactionCoordinator
+    发送 COMMIT 请求\n2. TransactionCoordinator 在 __transaction_state Topic 写入 PREPARE
+    状态\n3. TransactionCoordinator 向所有涉及 Partition 的 Leader 发送 PREPARE 请求\n4. Partition
+    Leader 在本地日志写入事务标记（TRANSACTIONAL）\n```\n\n阶段 2：COMMIT / ABORT\n\n```text\nCOMMIT:\n1.
+    TransactionCoordinator 向 Partition Leader 发送 COMMIT 请求\n2. Partition Leader 标记事务为
+    COMMITTED\n3. TransactionCoordinator 在 __transaction_state Topic 写入 COMMIT_COMPLETE\n\nABORT:\n1.
+    TransactionCoordinator 向 Partition Leader 发送 ABORT 请求\n2. Partition Leader 标记事务为
+    ABORTED\n3. TransactionCoordinator 在 __transaction_state Topic 写入 ABORT_COMPLETE\n```\n\n-
+    消费端配合：isolation.level=read_committed\n\n```text\n// 消费者配置\nprops.put(\"isolation.level\",
+    \"read_committed\");  // 只读已提交的消息\n// 默认是 read_uncommitted，会读到未提交的消息\n```\n\n工作原理：\n\n-
+    Consumer 过滤掉 ABORTED 的事务消息\n\n- 只消费 COMMITTED 的事务消息\n\n- 非事务消息正常消费\n\n- 端到端 Exactly-Once
+    的完整链路（consume-transform-produce 模式）\n\n场景：从 Topic A 消费，处理后写入 Topic B\n\n```text\n1.
+    Consumer 消费 Topic A（isolation.level=read_committed）\n2. 处理消息（业务逻辑）\n3. Producer
+    写入 Topic B（事务模式）\n4. 提交消费 Offset 和生产消息的事务（原子操作）\n\n关键：\n- 消费 Offset 也作为事务的一部分写入
+    __transaction_state Topic\n- 事务提交后，Offset 和 Topic B 的消息同时生效\n- 事务回滚后，Offset 和
+    Topic B 的消息都回滚\n```\n\n- 性能影响和实战取舍\n\n性能开销：\n\n- 事务开销约 10-20%（相比普通生产）\n\n- 原因：\n\n实战取舍：\n\n-
+    At Least Once + 幂等消费：大多数场景够用，性能好\n\n- Exactly Once：金融、订单等强一致性场景，性能可接受\n\n- Java
+    代码示例\n\n```text\n// Producer 配置\nProperties props = new Properties();\nprops.put(\"bootstrap.servers\",
+    \"localhost:9092\");\nprops.put(\"transactional.id\", \"my-transactional-id\");
+    \ // 必须配置\nprops.put(\"enable.idempotence\", true);  // 自动启用\n\nKafkaProducer<String,
+    String> producer = new KafkaProducer<>(props);\n\n// 初始化事务\nproducer.initTransactions();\n\ntry
+    {\n    // 开始事务\n    producer.beginTransaction();\n    \n    // 发送多个消息\n    producer.send(new
+    ProducerRecord<>(\"topic1\", \"key1\", \"value1\"));\n    producer.send(new ProducerRecord<>(\"topic2\",
+    \"key2\", \"value2\"));\n    \n    // 提交事务\n    producer.commitTransaction();\n}
+    catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException
+    e) {\n    // 严重错误，关闭 Producer\n    producer.close();\n} catch (KafkaException
+    e) {\n    // 可恢复错误，回滚事务\n    producer.abortTransaction();\n}\n\n// Consumer 配置\nProperties
+    consumerProps = new Properties();\nconsumerProps.put(\"bootstrap.servers\", \"localhost:9092\");\nconsumerProps.put(\"group.id\",
+    \"test-group\");\nconsumerProps.put(\"isolation.level\", \"read_committed\");
+    \ // 只读已提交消息\n\nKafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerProps);\n```\n\nKey
+    Differences\n\n[嵌入表格未展开]"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H556w6qdEiJHvUkQmBtcvJbPnHd
+  block_id: doxcnxSwng721wuL3WtNk73WXbe
+  page_token: H556w6qdEiJHvUkQmBtcvJbPnHd
+  original_title: 问题 17：Kafka 的 Exactly-Once 语义是如何实现的？幂等生产者和事务的底层原理？
+  imported_at: '2026-09-21'

@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3dc3a9305a37
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是长度外推？为什么训练时 2K 的模型在推理 8K 时性能会大幅下降？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 三：位置编码深度解析
+tags: &1
+- Transfomer精选面试
+- 三：位置编码深度解析
+content:
+  prompt: 什么是长度外推？为什么训练时 2K 的模型在推理 8K 时性能会大幅下降？
+answer:
+  mode: rubric
+  reference_answer: |-
+    长度外推是指模型在推理阶段处理超过训练时最大序列长度的文本时，仍能保持较好的性能。一个典型场景是，模型在 2048 长度的序列上训练，但用户希望它能理解 8192 甚至更长的一本书的章节。
+
+    当推理长度从 2K 扩展到 8K 时，性能下降的根源是多方面的：
+
+    位置编码的分布外问题。这是最直接也是最核心的原因。如果模型使用的是可学习的绝对位置编码，那么位置 2048 到 8191 的嵌入向量在训练时从未被见过，完全是随机初始化或未定义的。模型根本不知道如何处理这些新位置的信号，就像考试时遇到从未学过的知识点。即使使用正弦位置编码，模型也只在有限的位置范围内学习到了注意力模式。当位置索引超出训练范围，正弦函数虽然可以外推，但模型学到的权重组合并未针对这些新的位置变化模式进行优化。
+
+    注意力分数的分布漂移。随着序列变长，softmax 需要归一化的元素数量从 2048 增加到 8192。即使每个 token 的注意力分布保持不变，归一化后每个位置的权重都会被稀释。更关键的是，模型在训练时习惯了在 2048 个候选中分配注意力，突然面对 8192 个候选，那些原本应该获得高注意力的 token 可能被淹没在大量无关 token 中。这就好比在 10 个人的房间里找人很容易，在 1000 人的广场上找同一个人就困难得多。
+
+    长距离依赖的失效。模型在训练时学到的“远距离”最多是 2048。当上下文扩展到 8192 时，token 之间的相对距离远远超出了训练时见过的范围。模型没有学会如何处理相隔 5000 个 token 的两个词之间的关系，它可能会把这种超远距离的 token 当作无关噪声处理，导致长距离的指代消解、篇章连贯性等能力大幅下降。
+
+    局部窗口的破碎。某些注意力头在训练中形成了关注邻近 token 的局部模式（如关注前后 10 个 token）。在长序列中，这种局部注意力模式可能无法有效覆盖所有需要的位置，或者因为序列变长而导致了注意力碎片化。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HasJwmdu6iV0FTkkaEOchy7on5e
+  block_id: Vf9DdogQWoCCfmxmyUjc2bfnnce
+  page_token: HasJwmdu6iV0FTkkaEOchy7on5e
+  original_title: 什么是长度外推？为什么训练时 2K 的模型在推理 8K 时性能会大幅下降？
+  imported_at: '2026-09-21'

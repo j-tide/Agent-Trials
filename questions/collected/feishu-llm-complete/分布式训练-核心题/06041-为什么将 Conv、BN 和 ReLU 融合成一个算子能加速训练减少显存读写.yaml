@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9b32bec54483
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么将 Conv、BN 和 ReLU 融合成一个算子能加速训练？减少显存读写。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 为什么将 Conv、BN 和 ReLU 融合成一个算子能加速训练？减少显存读写。
+answer:
+  mode: rubric
+  reference_answer: |-
+    我们将这个经典融合作为案例，剖析其加速原理：
+
+    未融合的执行过程：
+
+    - 卷积操作：从显存读取输入特征图，执行矩阵乘加，将输出特征图写回显存。
+
+    - BatchNorm：从显存读取卷积的输出，计算均值、方差、归一化、缩放、偏移，将结果写回显存。
+
+    - ReLU：从显存读取BN的输出，逐元素应用max(0, x)，将结果写回显存。
+
+    在这个过程中，特征图被完整地读写了三遍（每步一读一写）。特征图通常很大（例如[batch, 512, 56, 56]在FP16下约12MB）。每次读写都需要占用宝贵的显存带宽（A100的HBM带宽约2TB/s，但大模型训练中，带宽常被大量参数和梯度同步挤占）。
+
+    融合后的执行过程：
+
+    一个融合kernel被启动。它从显存读取输入特征图，在片上寄存器或共享内存中依次完成卷积、BN和ReLU的计算，将最终结果写回显存。整个过程特征图只被读写一次。
+
+    性能提升来源：
+
+    - 减少显存带宽压力：读写次数降为原来的1/3，直接节省了大量时间。对于受带宽约束的操作（如卷积、归一化），这几乎是线性加速。
+
+    - 消除kernel启动开销：每个独立kernel的启动都有固定延迟（几微秒到几十微秒）。融合后只需一次启动。
+
+    - 提高数据局部性：中间数据直接保持在片上内存中，比反复从HBM读取快数十倍。
+
+    在Transformer训练中，这种融合对FFN层和归一化层尤其有效。虽然Transformer较少使用BatchNorm（多用LayerNorm），但LayerNorm、残差加法等同样可以进行类似融合。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HfoZwdjz1iRNmPkiI3icQQafnve
+  block_id: CPUQdJW60o28X7xIiDlc2pqWnBf
+  page_token: HfoZwdjz1iRNmPkiI3icQQafnve
+  original_title: 为什么将 Conv、BN 和 ReLU 融合成一个算子能加速训练？减少显存读写。
+  imported_at: '2026-09-21'

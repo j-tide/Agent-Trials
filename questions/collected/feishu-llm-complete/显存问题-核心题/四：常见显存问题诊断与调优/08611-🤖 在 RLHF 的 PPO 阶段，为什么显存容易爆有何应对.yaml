@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-810f1cacfa97
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F916 在 RLHF 的 PPO 阶段，为什么显存容易爆？有何应对？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F916 在 RLHF 的 PPO 阶段，为什么显存容易爆？有何应对？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 PPO（Proximal Policy Optimization）微调阶段需要同时维护策略模型、参考模型、价值模型和奖励模型等多个大模型，并且要存储大量的生成样本、logprobs、优势值等中间结果，显存需求是
+    SFT 阶段的数倍，极易 OOM。\n\n\U0001F50D 显存爆炸的根源：\n\n- 多模型常驻显存\n典型的 RLHF PPO 训练需要四个模型：\n\n-
+    生成阶段的显存消耗\nPPO 每个 step 需要根据当前策略生成一批回复（rollout），这是一个自回归解码过程，会产生完整的 KV Cache。如果生成序列较长，KV
+    Cache 会占据大量显存，并且这些 Cache 在计算奖励和优势时可能需要保留。\n\n- 存储 rollout 数据\n生成的序列、对应的 log probabilities、values、rewards、advantages
+    等都需要保存在显存或频繁在 CPU/GPU 间搬运。尤其在计算 PPO 损失时，需要用到这些旧策略下的概率，必须保持张量存活。\n\n- 多次前向/反向\n为了计算
+    PPO 的 clipped 目标，需要对同一批数据多次前向计算 Actor（新旧策略），再加上 Critic 的更新，反向传播的激活和梯度数量庞大。\n\n-
+    混合精度训练的额外开销\n多个模型可能导致 Loss Scaling 各自独立，优化器状态数目庞大。\n\n⚙️ 应对策略：\n\n- 模型卸载（Offload）：将冻结的
+    Reference 和 Reward Model 卸载到 CPU，仅在需要计算 KL 惩罚或奖励时临时加载到 GPU。DeepSpeed-Chat 就使用这种策略，大幅度降低
+    GPU 显存。\n\n- 共享模型组件：Actor 和 Critic 可以共享底层 Transformer，仅头部不同，减少权重冗余。\n\n- 使用 LoRA/QLoRA：对
+    Actor 和 Critic 仅训练低秩适配器，冻结主模型，大量减少可训练参数和优化器状态。\n\n- 梯度检查点与 FlashAttention：开启后降低激活值占用。\n\n-
+    减小生成长度和 batch size：适当缩短 rollout 序列，减少 KV Cache 和储存。\n\n- 利用 ZeRO 分片：跨多卡分片优化器状态和梯度。\n\n-
+    流水线并行：将模型切分到多张 GPU，但会增加通信。\n\n\U0001F4CA 实际案例：使用 8×A100 80G 训练 LLaMA-7B 的 RLHF，若不做任何优化，单卡显存超
+    70GB。开启 DeepSpeed-Chat 的 Hybrid Engine 和 Offload 后，单卡显存降至 30GB 左右。\n\n✅ 因此，PPO
+    阶段显存容易爆是由于多模型共存和大量中间数据，必须综合运用卸载、PEFT 和分片技术。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/K8Caw8DYRifcnzkTTjUcLwE4ngd
+  block_id: TJLzd98yZoi8JRxXdo0c7ZG9nVb
+  page_token: K8Caw8DYRifcnzkTTjUcLwE4ngd
+  original_title: "\U0001F916 在 RLHF 的 PPO 阶段，为什么显存容易爆？有何应对？"
+  imported_at: '2026-09-21'

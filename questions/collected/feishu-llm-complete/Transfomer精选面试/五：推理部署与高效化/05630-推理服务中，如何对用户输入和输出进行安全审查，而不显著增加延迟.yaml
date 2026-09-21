@@ -1,0 +1,153 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9cef8a0d33a4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 推理服务中，如何对用户输入和输出进行安全审查，而不显著增加延迟？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 五：推理部署与高效化
+tags: &1
+- Transfomer精选面试
+- 五：推理部署与高效化
+content:
+  prompt: 推理服务中，如何对用户输入和输出进行安全审查，而不显著增加延迟？
+answer:
+  mode: rubric
+  reference_answer: |-
+    安全审查通常需要运行额外的模型或规则引擎，为了不影响主推理延迟，可利用流水线、异步及缓存技术。
+
+    - 异步审查 + 流式中断
+
+    - 输入审查：用户 prompt 到达后，立即启动主模型的 prefill 并流式生成，与此同时，异步调用一个轻量级的安全审查模型（如 Llama Guard、ShieldGemma）或关键词过滤服务。由于生成第一个 token 需要时间，只要输入审查能在首个 token 生成前完成，就完全隐藏延迟。
+
+    - 输出审查：在 token 逐个生成并推送给用户的同时，后台累计已生成文本，并定期（如每 4 个 token 或每隔 200ms）进行安全性扫描。若检测到不安全内容（如暴力、色情），即刻中止生成，并向客户端发送终止信号，同时可替换为预设安全回复。这样大部分正常输出无延迟增加，仅有少量不安全请求会被切断，用户体验可接受。
+
+    - 核心技术：利用流式传输的渐进性，让审查与生成并行，用微小的“安全窗口”风险换取零延迟。
+
+    - 预处理级联小模型
+
+    - 在 API 网关层或请求入口侧，部署一个极轻量级文本分类模型（如 DistilBERT 微调的分类器，几毫秒延迟）对输入进行快速初筛。如果明确安全，直接放行；如果疑似违规，再交给大模型深度审查或直接拒绝。90% 以上安全请求可毫秒级通过。
+
+    - 输出端同样可以级联，先用关键词表和简单逻辑判断（如正则匹配禁止词）进行毫秒级过滤，再做小模型分类。
+
+    - 并行调度到同一 GPU 的额外 capacity
+
+    - 如果主推理服务所在 GPU 还有闲置的 SM 或 MIG 切片，可将安全模型加载在同一 GPU 的独立 CUDA Stream 或小 MIG 实例上，与主推理并发执行。通过 CUDA 多流或 MPS，小模型审查几乎不占用大模型算力。当大模型在 decode 等待 KV cache 搬运时，安全模型可以执行。
+
+    - 使用投机采样思想：让安全模型“并行验证”输出 token，类似草稿模型一样与大模型并行工作，但用于检测而非预测。
+
+    - 缓存与复用
+
+    - 对系统固定提示（system prompt）和常见输出的安全结论进行缓存。例如同一系统提示的输入审查结果可以长期缓存，请求命中后直接跳过审查。
+
+    - 利用前缀的哈希值，对于完全相同或相似前缀的输入，复用之前的安全判断结果。
+
+    - 安全审查服务化与独立扩展
+
+    - 将安全审查拆分为微服务，支持独立于推理引擎的弹性扩展。通过 gRPC 异步调用，并设置超时时间（如 100ms），超时或服务不可用时可根据策略（宁可放过不可中断？或阻塞）决定降级，以免拖慢主流程。
+
+    - 延迟预算分配
+
+    - 给整体链路设定端到端延迟 SLO，如 TTFT < 200ms。若安全审查需 20ms，则主推理需在 180ms 内完成。通过严格的延迟预算保证即使在同步部分审查时也不超出 SLA。此时会将轻量模型优化到极致（INT8 量化、C++推理、GPU 预热）。
+
+    通过“异步+中断”模式，可以在几乎不增加用户感知延迟的情况下实现内容安全防护，是现代 LLM 推理服务的标准实践。
+
+    - 推理框架需支持优雅退出：收到 SIGTERM 后，完成当前正在处理的请求，同时不再接受新请求。
+
+    - 配合调度器的排空（Drain）功能，通知负载均衡器该实例即将下线，新请求不再发往该实例。
+
+    - 需确保至少一个实例始终可用，且 KV cache 切换时会导致正在进行的请求被丢弃（除非做状态迁移，极难）。因此对长连接流式请求，热更新会造成中断，需由客户端重试或设计应用层容错。
+
+    - Android：使用 JNI 调用 C/C++ 推理库（如 llama.cpp 的 Android 编译），或集成 ExecuTorch 运行时。可充分利用 NEON SIMD 加速。
+
+    - iOS：利用 Core ML 将模型转换为 .mlmodelc 并利用 ANE（Apple Neural Engine）加速；或直接使用 Metal Performance Shaders 后端（如 llama.cpp 的 Metal 支持），在 GPU 上运行量化计算。
+
+    - 使用 mmap 直接映射模型文件，延迟加载，避免全部读入内存。
+
+    - 优化 KV cache 占用，可结合滑动窗口注意力或 PagedAttention 的块管理思想，限制最大缓存长度。
+
+    - 限制并发请求，单线程推理，防止 APP 卡顿。
+
+    - 支持多种模型（不同参数量、不同架构）的注册、版本控制、安全扫描和自动加载。平台可同时运行多个模型实例（或 LoRA 适配器），根据任务路由到不同模型。
+
+    - 利用 PagedAttention 的内存池统一管理不同模型的 KV cache 块，提升显存复用。
+
+    - 智能路由器，解析请求的模型名、任务类型（chat/completion/embeddings）、预估长度和优先级，将其分派到对应的推理引擎实例或 LoRA 组。
+
+    - 全局调度器负责在多个模型实例间实现公平的 GPU 资源共享（时间片或加权调度），防止一个任务占满资源。
+
+    - 对于共享基础模型但不同 LoRA 的任务，可在同一批次中混合服务多个 LoRA 适配器（vLLM 已支持），大幅提升硬件利用率。
+
+    - 扩展引擎以处理图像、音频等多模态输入（多模态 Transformer），需要融合视觉/音频编码器，统一 token 生成流水线。
+
+    - 对 embedding 任务（无需生成，只有 prefill）和生成任务（prefill+decode）进行分离优化，前者可快速批量完成，后者需要 Continuous Batching。
+
+    - 许多任务共享系统提示或任务前缀（如“将以下文本翻译为法语：”），平台应自动识别并缓存这些前缀的 KV cache，跨请求复用，大幅降低高并发下相同任务的延迟与计算开销。
+
+    - 实现以项目/团队为单位的资源配额，按 token 使用量精确计费。对每个租户的请求限流、优先级控制，并确保数据和模型隔离（对于私有模型或微调适配器，需加载到专用显存区域）。
+
+    - 提供在线热插拔 LoRA 适配器能力，允许用户上传、管理自有微调适配器，平台自动挂载到底座模型上。需适配器权重安全隔离、版本化、度量其推理成本。
+
+    - 不同任务有不同波峰波谷，平台应能对每种模型实例进行独立的弹性伸缩，甚至利用 Spot 实例承载可中断的批处理任务，降低成本。
+
+    - 对延迟不敏感的任务可排队并合并批次，增大 batch size，提升吞吐。
+
+    - 记录每条请求的详细 trace（包括模型、任务、长度、延迟、适配器等），提供租户维度和任务维度的性能报表。
+
+    - 基于反馈自动优化调度策略（如调整不同任务的权重、调整批处理参数）。
+
+    - 提供与 OpenAI API 兼容的统一接口，屏蔽底层多模型的复杂度。开发者只需指定 model 字段（可映射到具体模型+任务组合），即可调用。
+
+    - 旧版本：llm-v1，保持现有流量。
+
+    - 新版本：llm-v2，使用新模型镜像、权重或适配器。初始设置 replicas 为较小数量（如 1 个 Pod），待正常启动。
+
+    - 使用 Istio VirtualService 实现细粒度加权路由：
+
+    - 初始 5% 流量导入 v2，持续观察 15~30 分钟。关键指标：错误率、P50/P99 TTFT/TPOT、OOM 事件、输出质量抽样结果（可通过自动化评估）。
+
+    - 无异常后将权重调至 25% → 50% → 100%。每次提升后监控一段时间。
+
+    - LLM 推理通常为流式 gRPC/WebSocket 长连接，连接建立时路由到特定版本后，直到会话结束不应切换版本，否则会因 KV cache 丢失而中断。
+
+    - Istio 支持 consistentHash 基于 session id 或 token，保证同一会话粘滞到固定 Pod，直到其完成。
+
+    - 金丝雀发布过程中，旧版本 Pod 可设置为优雅终止，等待所有活跃长连接关闭后再退出。
+
+    - 如发现问题，立即将新版本权重置为 0，流量全部切回 v1。然后排查并撤回 v2 部署。
+
+    - 由于推理服务的状态性（KV cache），回滚只会影响新建立的会话，旧 v2 的会话可能报错，但影响面小。
+
+    - 高通 Hexagon NPU：使用 SNPE（Snapdragon Neural Processing Engine）或 QNN（Qualcomm Neural Network），将 ONNX/TensorFlow 模型转换为 .dlc 或 QNN 格式。
+
+    - 苹果 ANE（Neural Engine）：通过 Core ML Tools 将 PyTorch/TF 模型转为 .mlmodelc，并启用 computeUnits= .all 来使用 ANE。
+
+    - 联发科 APU：NeuroPilot SDK 转换 ONNX 模型。
+
+    - 通用路径：使用 ExecuTorch 并选择相应委托（Delegate），如高通的 QNN Delegate，Apple 的 Core ML Delegate，以及 Android 的 NNAPI Delegate。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/L2bpwgVV1iZoZnkrvgac88LjnCc
+  block_id: HZzSd1NAuo75DcxG8VZcgPO1n9g
+  page_token: L2bpwgVV1iZoZnkrvgac88LjnCc
+  original_title: 推理服务中，如何对用户输入和输出进行安全审查，而不显著增加延迟？
+  imported_at: '2026-09-21'

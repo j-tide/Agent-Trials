@@ -1,0 +1,112 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cb7bc5c5e4ba
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F422开发了一个 MCP Server 提供数据库查询工具，上线后 Agent 调用响应很慢，如何排查优化？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 基础篇
+tags: &1
+- AI Agent精选八股文
+- Agent 基础篇
+content:
+  prompt: "\U0001F422开发了一个 MCP Server 提供数据库查询工具，上线后 Agent 调用响应很慢，如何排查优化？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    现象： Agent 每次调用 query_db 都要等好几秒才返回，用户体验极差。我们需要系统性地定位瓶颈。
+
+    排查思路：分层定位法
+
+    [图片内容未导入]
+
+    第一层：工具内部埋点计时（定位是 Server 慢还是 DB 慢）
+
+    @McpTool(name = "query_db", description = "执行 SELECT 查询")
+    public String queryDb(String sql) {
+        long start = System.currentTimeMillis();
+        // 参数校验...
+        long validEnd = System.currentTimeMillis();
+        List<Map<String, Object>> result = jdbcTemplate.queryForList(sql);
+        long queryEnd = System.currentTimeMillis();
+        String json = objectMapper.writeValueAsString(result);
+        long jsonEnd = System.currentTimeMillis();
+        log.info("query_db 耗时: 校验={}ms, SQL={}ms, JSON序列化={}ms, 总={}ms",
+                 validEnd - start, queryEnd - validEnd, jsonEnd - queryEnd, jsonEnd - start);
+        return json;
+    }
+
+    常见瓶颈及解决方案：
+
+    [嵌入表格未展开]
+
+    第二层：连接池配置优化
+
+    // application.yml
+    spring.datasource.hikari:
+      maximum-pool-size: 20        # 根据并发调高
+      minimum-idle: 5
+      connection-timeout: 3000     # 3秒
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 10000  # 10秒未归还则告警
+
+    第三层：Agent 侧增加约束（从源头减少慢查询）
+
+    在工具描述中直接约定：
+
+    {
+      "name": "query_db",
+      "description": "执行 SQL 查询。注意：只支持 SELECT，必须包含 LIMIT 子句，最多返回 50 行。",
+      "inputSchema": {
+        "properties": {
+          "sql": {
+            "type": "string",
+            "description": "SQL 查询语句，必须包含 LIMIT 且 LIMIT <= 50"
+          }
+        }
+      }
+    }
+
+    并在 Server 端做强制检查：
+
+    if (!sql.toUpperCase().contains("LIMIT") || sql.contains("LIMIT 0")) {
+        sql += " LIMIT 50";  // 强制追加，或直接返回错误提示
+    }
+
+    第四层：启用缓存
+
+    对相同的 SQL 查询，短时间内直接返回缓存：
+
+    @Cacheable(value = "queryCache", key = "#sql", unless = "#result.length() > 10000")
+    public String queryDb(String sql) { ... }
+
+    收束： 慢查询排查要像剥洋葱，一层层从内到外，先确定是代码、SQL、连接池还是网络。加上必要的防御性编程（强加 LIMIT），才能让 Agent 既灵活又不会打垮数据库。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Na85wIeNuichcjklD4LcUQ6Gn2c
+  block_id: doxcnkEHC7N3Aad5KBj9mbbQMTf
+  page_token: Na85wIeNuichcjklD4LcUQ6Gn2c
+  original_title: "\U0001F422开发了一个 MCP Server 提供数据库查询工具，上线后 Agent 调用响应很慢，如何排查优化？"
+  imported_at: '2026-09-21'

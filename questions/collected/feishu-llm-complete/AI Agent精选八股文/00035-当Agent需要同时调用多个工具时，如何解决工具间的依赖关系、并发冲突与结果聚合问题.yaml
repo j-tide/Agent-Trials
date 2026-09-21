@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-aad80455b353
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 6.当Agent需要同时调用多个工具时，如何解决工具间的依赖关系、并发冲突与结果聚合问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: 
+tags: &1
+- AI Agent精选八股文
+content:
+  prompt: 6.当Agent需要同时调用多个工具时，如何解决工具间的依赖关系、并发冲突与结果聚合问题？
+answer:
+  mode: rubric
+  reference_answer: "### 一、 工具间的依赖关系：从“顺序”到“DAG”\n\n依赖关系是指工具 B 的执行需要工具 A 的输出作为输入。如果
+    Agent 直接并发调用，会导致数据缺失或错误。\n\n显式定义依赖图（DAG）\n\n在系统层面，不依赖模型隐式推理，而是通过代码或配置声明工具之间的数据流。例如：\n\ntools:\n
+    \ - name: search_product\n    outputs: [\"product_id\", \"price\"]\n  - name:
+    check_inventory\n    inputs: [\"product_id\"]\n    depends_on: [\"search_product\"]\n
+    \ - name: calculate_shipping\n    inputs: [\"product_id\", \"user_address\"]\n
+    \   depends_on: [\"search_product\"]  # 与 check_inventory 无依赖，可并行\n\n模型驱动的计划执行（Plan-and-Execute）\n\n让大模型先生成一个执行计划（Plan），该计划是一个有向无环图（DAG）或步骤列表，明确标注每一步依赖的上一步输出。然后由执行器按照计划顺序或并发执行。\n\n-
+    示例计划输出：\n\n{\n  \"steps\": [\n    {\"id\": 1, \"tool\": \"search_product\", \"params\":
+    {\"query\": \"laptop\"}, \"output_var\": \"prod\"},\n    {\"id\": 2, \"tool\":
+    \"check_inventory\", \"params\": {\"product_id\": \"$prod.id\"}, \"depends_on\":
+    [1]},\n    {\"id\": 3, \"tool\": \"get_user_address\", \"params\": {\"user_id\":
+    \"123\"}, \"output_var\": \"addr\", \"depends_on\": []}\n  ]\n}\n\n- 执行器：解析计划，将无依赖的步骤（如
+    step1 和 step3）放入并发池，有依赖的步骤等待前置完成。\n\n动态依赖解析（ReAct 的增强）\n\n如果坚持用 ReAct（推理-行动）循环，可以在工具描述中加入“输出格式约定”，让模型显式传递依赖。\n\n-
+    工具描述示例：\n\n- 然后在代码层，维护一个上下文变量字典，每次工具执行后，将其输出按 key 存储。模型在请求下一个工具时，可以用 {{context.product_id}}
+    占位符，由系统替换为实际值。\n\n---\n\n### 二、 并发冲突：读/写、竞态条件与幂等设计\n\n当多个工具同时访问同一数据源（如数据库、API、文件）时，可能产生冲突。\n\n资源锁与事务隔离\n\n-
+    乐观锁：适用于冲突概率低的场景。每个写操作附带版本号，更新时检查版本是否被修改过。\n\n- 悲观锁：在工具执行前锁定资源（如 Redis 分布式锁），执行完释放。适用于高冲突写操作。\n\n-
+    数据库事务：将多个写工具的操作包裹在一个数据库事务中，要么全部成功，要么全部回滚。\n\n工具设计为幂等\n\n幂等意味着多次调用同一工具（相同参数）产生的结果与一次调用相同，且不会产生副作用叠加。\n\n-
+    示例：add_to_cart(product_id, quantity) 不是幂等的（重复调用会重复添加）。改为 set_cart_item(product_id,
+    quantity) 就是幂等的。\n\n- 实践：尽可能将工具设计为“设置值”而非“增加值”，或要求模型携带幂等键（idempotency_key）。\n\n冲突避免：任务分区与顺序化\n\n-
+    如果两个工具必然写同一个资源，可以强制它们串行执行，而不是并发。例如：update_inventory 和 create_order 都操作库存表，就让它们按固定顺序执行（先扣库存，后建订单）。\n\n-
+    使用队列（如 RabbitMQ、Kafka）将写请求串行化处理。\n\n读操作：允许快照隔离\n\n对于只读工具，并发基本无害。但要注意“读后写”模式：工具
+    A 读取数据，工具 B 基于 A 的结果做修改。此时应使用事务或乐观锁，否则可能基于过期数据修改。\n\n---\n\n### 三、 结果聚合：从零散输出到连贯答案\n\n多个工具返回的结果往往格式各异、内容碎片化，需要聚合为一条对用户友好的回答。\n\n上下文拼接
+    + 最终生成\n\n最常用的方法：将每个工具的输出以结构化形式存入“工作记忆”（如一个 JSON 对象或消息列表），最后让大模型基于所有记忆生成最终回答。\n\n-
+    示例：\n\n用户问：“北京的天气如何？顺便推荐一家附近的餐厅。”\n工具1返回：{\"city\":\"北京\",\"temp\":25,\"condition\":\"晴\"}\n工具2返回：[{\"name\":\"海底捞\",\"rating\":4.5}]\n\n-
+    最终提示词：\n\n数据融合：冲突解决与去重\n\n当多个工具返回的信息有重叠或矛盾时，需要定义优先级。\n\n- 时间优先级：以最新工具的输出为准。\n\n-
+    来源优先级：如数据库结果优先于外部 API。\n\n- 显式规则：例如 search_product 和 get_product_detail 都返回价格，以
+    get_product_detail 为准。\n\n渐进式聚合（Streaming）\n\n如果工具执行时间较长，可以每完成一个工具就向用户推送部分结果（如“已查到天气：晴，正在为您查找餐厅...”），最终再给出完整回答。这改善了用户体验，但要求
+    Agent 支持流式输出。\n\n失败回退与部分聚合\n\n当某个工具调用失败时，不应让整个任务失败。可以：\n\n- 忽略该工具的结果，并在最终回答中说明：“无法获取餐厅信息，以下是天气信息...”。\n\n-
+    调用备用工具（如失败后使用缓存数据）。\n\n---\n\n### 四、 工程实践建议：一个可落地的架构\n\nclass MultiToolExecutor:\n
+    \   def __init__(self, tools, planner):\n        self.tools = tools          #
+    工具注册表\n        self.planner = planner      # 计划生成器（基于LLM）\n        self.executor
+    = AsyncExecutor()\n\n    async def run(self, user_query):\n        # 1. 生成执行计划（DAG）\n
+    \       plan = await self.planner.plan(user_query, self.tools)\n        \n        #
+    2. 准备共享上下文（用于依赖传递和结果聚合）\n        context = {}\n        \n        # 3. 按依赖关系执行\n
+    \       results = await self.executor.execute_dag(plan, context)\n        \n        #
+    4. 聚合结果并生成最终回答\n        final_answer = await self.aggregator.aggregate(results,
+    user_query)\n        return final_answer\n\n关键组件：\n\n- 计划生成器：用少样本提示让 LLM 输出 JSON
+    格式的 DAG。\n\n- 执行器：使用 asyncio 或线程池，根据依赖图动态调度。\n\n- 冲突管理器：对写操作自动加分布式锁（如 redis-py
+    的锁）。\n\n- 聚合器：将结果列表和原始用户查询一起发送给 LLM，要求生成自然语言回答。\n\n---\n\n### 五、 总结：三者之间的权衡\n\n[嵌入表格未展开]\n\n最佳实践是：用显式的计划生成分离“决策”与“执行”，这样依赖关系清晰、并发可控、结果聚合自然。如果追求简单，可采用
+    ReAct 顺序执行，但无法充分利用并发，且依赖关系完全依赖模型记忆，容易出错。\n\n对于生产级 Agent，强烈推荐使用 Plan-and-Execute
+    模式配合工作流引擎（如 LangGraph、DSPy），它们内置了依赖解析、并发控制和结果合并机制。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/M526wldNTiQFB3kmM2mcFsoaneh
+  block_id: Ov1bdsdGloNcUyx6nwkcLv4ZnLf
+  page_token: M526wldNTiQFB3kmM2mcFsoaneh
+  original_title: 6.当Agent需要同时调用多个工具时，如何解决工具间的依赖关系、并发冲突与结果聚合问题？
+  imported_at: '2026-09-21'

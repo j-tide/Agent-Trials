@@ -1,0 +1,167 @@
+---
+schema_version: 1
+id: feishu-llm-complete-efd9d854f2ed
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 2、进阶题（⭐⭐⭐）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Distributed systems and consistency篇
+tags: &1
+- AI Agent精选八股文
+- Distributed systems and consistency篇
+content:
+  prompt: 2、进阶题（⭐⭐⭐）
+answer:
+  mode: rubric
+  reference_answer: |-
+    题目：分布式限流（跨多实例）怎么实现？Redis + Lua 滑动窗口的原理？
+
+    1️⃣ Common Answer 分布式限流可以使用 Redis 来存储计数器。每个请求来的时候，检查 Redis 中的计数是否超过阈值，如果没超过就加 1。滑动窗口可以使用 Redis 的 ZSet，用时间戳作为 score，记录每个请求的时间。删除过期的记录，统计窗口内的请求数量。Lua 脚本可以保证原子性，避免并发问题。
+
+    2️⃣ Impressive Answer 分布式限流的核心挑战在于保证多实例间的原子性和一致性，Redis + Lua 滑动窗口是业界主流方案：
+
+    滑动窗口算法原理：
+
+    - 将时间划分为固定大小的窗口（如 1 秒）
+
+    - 每个请求记录其时间戳，存储在有序集合（ZSet）中
+
+    - 统计当前窗口内的请求数量，超过阈值则拒绝
+
+    Redis + Lua 实现方案：
+
+    数据结构：
+
+    ```text
+    Key: rate_limit:{api_key}:{user_id}
+    Type: ZSet
+    Score: 请求时间戳（毫秒）
+    Member: 请求 ID（UUID）
+    ```
+
+    Lua 脚本核心逻辑：
+
+    ```text
+    local key = KEYS[1]
+    local window = tonumber(ARGV[1])  -- 窗口大小（毫秒）
+    local limit = tonumber(ARGV[2])   -- 限流阈值
+    local now = tonumber(ARGV[3])     -- 当前时间戳
+    local request_id = ARGV[4]        -- 请求 ID
+
+    -- 1. 删除窗口外的过期数据
+    redis.call('ZREMRANGEBYSCORE', key, 0, now - window)
+
+    -- 2. 统计当前窗口内的请求数
+    local count = redis.call('ZCARD', key)
+
+    -- 3. 判断是否超过限流阈值
+    if count < limit then
+        -- 未超限，记录当前请求
+        redis.call('ZADD', key, now, request_id)
+        -- 设置过期时间（窗口大小 + 1 秒）
+        redis.call('EXPIRE', key, window / 1000 + 1)
+        return {1, count + 1}  -- 允许通过，返回当前请求数
+    else
+        return {0, count}  -- 拒绝通过
+    end
+    ```
+
+    技术要点：
+
+    - 原子性保证：
+
+    - Lua 脚本在 Redis 中单线程执行，保证操作的原子性
+
+    - 避免了"检查-设置"竞态条件
+
+    - 多实例并发请求也能保证限流准确性
+
+    - 精确度优化：
+
+    - 使用毫秒级时间戳，提高窗口精度
+
+    - 支持动态调整窗口大小和限流阈值
+
+    - 可扩展为多级限流（秒级 + 分钟级）
+
+    - 性能优化：
+
+    - ZSet 的 ZREMRANGEBYSCORE 和 ZCARD 都是 O(log N) 复杂度
+
+    - 合理设置过期时间，避免内存泄漏
+
+    - 使用 Pipeline 批量执行多个限流检查
+
+    工程实践：
+
+    多维度限流实现：
+
+    ```text
+    限流维度组合：
+    - API 级别：/api/chat
+    - 用户级别：user_id
+    - 模型级别：model_name
+    - IP 级别：client_ip
+
+    Redis Key 设计：
+    rate_limit:{api}:{user}:{model}:{ip}
+    ```
+
+    限流策略配置：
+
+    ```text
+    rate_limits:
+      - api: /api/chat
+        dimensions: [user, model, ip]
+        rules:
+          - dimension: user
+            limit: 100
+            window: 60000  # 1 分钟
+          - dimension: model
+            limit: 1000
+            window: 60000
+          - dimension: ip
+            limit: 50
+            window: 60000
+        strategy: "strict"  # strict/loose
+    ```
+
+    降级策略：
+
+    - 限流触发时返回 429 状态码
+
+    - 提供 Retry-After 响应头
+
+    - 集成熔断器，连续限流触发降级
+
+    3️⃣ Key Differences
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YhRxwgmAsiJbzZktG6wcNPNznyg
+  block_id: doxcnoF4ORCCndt7hwpybkAGz2c
+  page_token: YhRxwgmAsiJbzZktG6wcNPNznyg
+  original_title: 2、进阶题（⭐⭐⭐）
+  imported_at: '2026-09-21'

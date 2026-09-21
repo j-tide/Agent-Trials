@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5d6283b7cc60
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 怎样利用 LangChain 的声明式配置将同一个链部署到不同的环境（开发、测试、生产）？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 一、基础认知与核心设计
+tags: &1
+- LangChain面（高频）
+- 一、基础认知与核心设计
+content:
+  prompt: 怎样利用 LangChain 的声明式配置将同一个链部署到不同的环境（开发、测试、生产）？
+answer:
+  mode: rubric
+  reference_answer: "\U0001F3D7️ 核心思路：将环境相关的配置（模型名称、温度、API 密钥、缓存策略）外置到配置文件或环境变量中，链的结构保持不变。LCEL
+    的 .bind() 和 .with_config() 方法允许动态注入参数。\n\n\U0001F5C2️ 使用 YAML/JSON 配置文件：\n\n```yaml\n#
+    config/production.yaml\nmodel: gpt-4\ntemperature: 0.2\nmax_tokens: 1024\ncache:
+    redis\napi_key_env: OPENAI_API_KEY\n\n# config/development.yaml\nmodel: gpt-3.5-turbo\ntemperature:
+    0.7\nmax_tokens: 512\ncache: in_memory\napi_key_env: OPENAI_API_KEY\n```\n\n\U0001F4DC
+    加载配置并根据环境构建链：\n\n```python\nimport os\nimport yaml\n\nenv = os.getenv(\"APP_ENV\",
+    \"development\")\nwith open(f\"config/{env}.yaml\") as f:\n    cfg = yaml.safe_load(f)\n\nmodel
+    = ChatOpenAI(\n    model=cfg[\"model\"],\n    temperature=cfg[\"temperature\"],\n
+    \   max_tokens=cfg[\"max_tokens\"],\n    cache=RedisCache() if cfg[\"cache\"]
+    == \"redis\" else InMemoryCache()\n)\n\nchain = prompt | model | output_parser\n```\n\n⚙️
+    利用 LCEL 的动态绑定：\n\n```python\nchain = (\n    prompt\n    | model.bind(model=cfg[\"model\"],
+    temperature=cfg[\"temperature\"])\n    | output_parser\n)\n```\n\n\U0001F3F7️
+    使用 with_config 注入标签，便于监控区分环境：\n\n```python\nprod_chain = chain.with_config(tags=[\"production\"],
+    metadata={\"env\": \"prod\"})\ndev_chain = chain.with_config(tags=[\"development\"],
+    metadata={\"env\": \"dev\"})\n```\n\n\U0001F4E6 封装为可部署单元：借助 LangServe 或 FastAPI，将最终链包装为
+    REST 端点。部署时通过环境变量控制加载的配置，实现 “构建一次，处处运行”。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DPfNwcDyYiIwkGkVfjDcpKE6nNf
+  block_id: VYQGdDGk2ozO8ZxPlSrcxG2Cnqc
+  page_token: DPfNwcDyYiIwkGkVfjDcpKE6nNf
+  original_title: 怎样利用 LangChain 的声明式配置将同一个链部署到不同的环境（开发、测试、生产）？
+  imported_at: '2026-09-21'

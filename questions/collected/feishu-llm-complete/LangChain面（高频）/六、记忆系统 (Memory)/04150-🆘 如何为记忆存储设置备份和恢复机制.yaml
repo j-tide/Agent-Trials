@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cb579d74a957
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F198 如何为记忆存储设置备份和恢复机制？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F198 如何为记忆存储设置备份和恢复机制？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    备份和恢复是生产环境必不可少的环节。方案取决于使用的存储后端。
+
+    - PostgreSQL
+
+    使用数据库自带的备份工具：
+
+    - 逻辑备份：pg_dump 导出特定表的数据。
+
+    - 物理备份：pg_basebackup 或 WAL 归档。
+
+    - 可以设置定时任务（cron）每天导出 chat_history 表为 SQL 文件，并上传到对象存储（S3）。
+
+    - Redis
+
+    - 开启 AOF 或 RDB 持久化，定期将持久化文件复制到异地。
+
+    - 使用 redis-cli --rdb dump.rdb 或 BGSAVE 命令手动触发快照。
+
+    - 自动化脚本：定期执行 BGSAVE，并将生成的 dump.rdb 备份到安全位置。
+
+    - 应用层备份
+    你可以实现一个自定义的 ChatMessageHistory，在每次 add_message 时将消息同时写入一个备用存储（如 S3、日志文件）作为冷备。这样即使主存储损坏，也可以从备份中恢复。
+
+    恢复机制：
+
+    - 对于 PostgreSQL，使用 psql 或 pg_restore 恢复数据。
+
+    - 对于 Redis，停止服务，用备份的 dump.rdb 替换当前文件，重启即可。
+
+    - 恢复后，需要确保 session_id 对应的历史记录重新加载到内存或缓存中。
+
+    测试：定期进行恢复演练，确保备份文件可用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Dajiw8ewCiTjamklohBcMVI0nre
+  block_id: ZoF7d0ZbOoINcsxZ1PQcSeJSnlT
+  page_token: Dajiw8ewCiTjamklohBcMVI0nre
+  original_title: "\U0001F198 如何为记忆存储设置备份和恢复机制？"
+  imported_at: '2026-09-21'

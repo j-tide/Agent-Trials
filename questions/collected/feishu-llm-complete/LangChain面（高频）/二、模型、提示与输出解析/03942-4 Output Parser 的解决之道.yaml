@@ -1,0 +1,132 @@
+---
+schema_version: 1
+id: feishu-llm-complete-63612239e4cc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 1.4 Output Parser 的解决之道
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 二、模型、提示与输出解析
+tags: &1
+- LangChain面（高频）
+- 二、模型、提示与输出解析
+content:
+  prompt: 1.4 Output Parser 的解决之道
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangChain 的 Output Parser 提供了一套声明式、可复用的解决方案：
+
+    - 自动生成格式指令：通过 get_format_instructions() 方法，自动生成清晰、结构化的格式说明，并注入 Prompt。这相当于给模型提供了一份“模板”，告诉它必须严格按照何种结构输出。
+
+    - 自动解析与验证：它不仅能将文本转为 Python 对象（字典、列表、Pydantic 模型），还能进行类型校验（如使用 Pydantic）。
+
+    - 自我修复与重试机制：当解析失败时，有专门的 OutputFixingParser 和 RetryWithErrorOutputParser 可以自动调用 LLM 修复错误，或者将错误信息反馈给模型重试，形成闭环。
+
+    - 无缝集成 LCEL：通过 | 管道操作符，可以像搭积木一样将解析器嵌入到链中，数据流畅流转。
+
+    ### 写一个 PydanticOutputParser 的例子，定义 Pydantic 类，并将其用于提取 JSON 结果。
+
+    PydanticOutputParser 是 LangChain 中最强大、最常用的解析器之一。它利用 Python 的 Pydantic 库来定义数据模型，自动生成 JSON Schema，并在解析时进行严格的类型检查和数据验证。
+
+    下面是一个详细的实战例子，演示如何从一段学术文本中提取论文信息。
+
+    ```python
+    # 导入必要的模块
+    from langchain_core.output_parsers import PydanticOutputParser
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_openai import ChatOpenAI
+    from pydantic import BaseModel, Field
+    from typing import List
+
+    # 第一步：定义我们期望的数据结构
+    # 使用 Pydantic 的 BaseModel，可以定义字段、类型和描述
+    class Paper(BaseModel):
+        # Field 中的 description 会帮助 LLM 理解该字段的含义
+        title: str = Field(description="论文标题")
+        authors: List[str] = Field(description="作者列表，即使只有一个作者也要用列表格式")
+        year: int = Field(description="发表年份，必须是整数")
+        keywords: List[str] = Field(description="关键词列表")
+
+    # 第二步：创建解析器实例
+    parser = PydanticOutputParser(pydantic_object=Paper)
+
+    # 第三步：查看并理解解析器自动生成的格式指令
+    # 这是 Output Parser 的精髓之一，它告诉 LLM 该怎么输出
+    format_instructions = parser.get_format_instructions()
+    print("生成的格式指令如下：\n", format_instructions)
+    # 输出示例：
+    # The output should be a JSON object with the following keys:
+    # - "title": (论文标题)
+    # - "authors": (作者列表)
+    # - "year": (发表年份)
+    # ...
+
+    # 第四步：构建 Prompt 模板
+    # 将格式指令嵌入到系统提示中，让 LLM 严格遵守
+    template = ChatPromptTemplate.from_messages([
+        ("system", "你是一个专业的学术信息提取助手。请严格按照以下JSON格式输出提取结果，不要输出任何其他文字：\n{format_instructions}"),
+        ("human", "请从以下文本中提取论文信息：\n{text}")
+    ])
+
+    # 第五步：初始化模型并组装链
+    model = ChatOpenAI(model="gpt-4o", temperature=0)  # temperature=0 能让输出更稳定
+    chain = template | model | parser  # 使用 LCEL 管道符串联
+
+    # 第六步：准备数据并调用
+    text = "《Attention Is All You Need》由Ashish Vaswani等人于2017年发表，提出了Transformer架构，关键词包括注意力机制、机器翻译。"
+    result = chain.invoke({
+        "text": text,
+        "format_instructions": format_instructions  # 注入格式指令
+    })
+
+    # 第七步：查看和使用结果
+    print("解析后的对象类型:", type(result))  # <class '__main__.Paper'>
+    print("论文标题:", result.title)
+    print("发表年份:", result.year)
+    print("作者数量:", len(result.authors))
+    # 输出：
+    # 解析后的对象类型: <class '__main__.Paper'>
+    # 论文标题: Attention Is All You Need
+    # 发表年份: 2017
+    # 作者数量: 1
+    ```
+
+    背后机制深挖：
+
+    - get_format_instructions() 方法内部会根据 Pydantic 模型生成一个详细的 JSON Schema 描述，包括每个字段的名称、类型和 description 内容。这个描述清晰到足以让 LLM 理解并遵守。
+
+    - 当链被调用时，template 首先将变量替换，生成一个包含具体格式指令的完整提示。
+
+    - model 接收提示，生成符合格式的 JSON 字符串。
+
+    - parser 接收模型输出，底层调用 json.loads 将字符串解析为 Python 字典，然后使用 Paper(**dict) 实例化 Pydantic 对象。Pydantic 会自动进行类型转换（例如将 "2017" 转为 2017）和验证（例如检查 year 是否为整数）。
+
+    ### 当 LLM 返回的 JSON 不合法时，LangChain 的 OutputFixingParser 是如何修正的？
+
+    尽管我们提供了严格的格式指令，LLM 还是可能偶尔“犯错”，比如在 JSON 前后多说了几句话，或者遗漏了一个引号。这时，OutputFixingParser 就登场了。它实际上是一个装饰器（Wrapper），包装了另一个基础解析器（如 PydanticOutputParser），提供了兜底修复能力。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/FkhTw9yBsiro60k5CSIcZezcnj6
+  block_id: LXWvdOf0voI9OGx0J4kciRcUnUf
+  page_token: FkhTw9yBsiro60k5CSIcZezcnj6
+  original_title: 1.4 Output Parser 的解决之道
+  imported_at: '2026-09-21'

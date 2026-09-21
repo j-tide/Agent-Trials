@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c58050c0482c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分布式训练中，如何保证不同节点的随机种子一致，使数据增强同步？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 分布式训练中，如何保证不同节点的随机种子一致，使数据增强同步？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在分布式训练中，为了保证所有GPU对同一样本应用相同的数据增强（如随机打乱、mask等），需要同步随机状态。主要手段：
+
+    - 全局种子统一：在所有进程中设置相同的torch.manual_seed(seed)和random.seed(seed)，确保每个进程的随机数生成器初始状态一致。
+
+    - 利用DistributedSampler：该采样器确保每个进程在相同epoch下，获得全局索引中属于自己那部分不重叠的数据子集，且其内部的shuffle基于epoch种子同步（sampler.set_epoch(epoch)）。这样所有进程在相同epoch看到的数据顺序在全局层面是一致的。
+
+    - DataLoader worker的种子：如果使用多个worker加载数据，必须通过worker_init_fn基于epoch和全局种子为每个worker设置一致的种子，保证它们产生的增强随机序列同步。通常做法是：seed = base_seed + epoch，然后在worker_init_fn中使用这个seed初始化该worker的随机状态。
+
+    - 动态通信：在每步训练前，由rank0生成一个随机数并广播，所有进程用这个数作为当前步的随机种子，确保在训练过程中的随机操作（如dropout）也保持一致。
+
+    最终效果是所有GPU在相同数据上看到完全相同的增强结果，避免了因增强差异导致的梯度混乱。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NPa1wWjUDi2y4IkHOCOcJXeanvR
+  block_id: OzsKdYlKnoyk4lx5ClncODCAnqd
+  page_token: NPa1wWjUDi2y4IkHOCOcJXeanvR
+  original_title: 分布式训练中，如何保证不同节点的随机种子一致，使数据增强同步？
+  imported_at: '2026-09-21'

@@ -1,0 +1,103 @@
+---
+schema_version: 1
+id: feishu-llm-complete-63b96eb66e41
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 DPO 损失训练时，如何动态调整 β 系数？比如根据 reward margin 自适应调整，写出一个简单的自适应 β 调整策略的实现。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 使用 DPO 损失训练时，如何动态调整 β 系数？比如根据 reward margin 自适应调整，写出一个简单的自适应 β 调整策略的实现。
+answer:
+  mode: rubric
+  reference_answer: |-
+    动机
+
+    β 控制着 DPO 中偏好信号的强度。固定 β 可能导致训练初期 chosen 和 rejected 的 reward margin 很小，学习缓慢；后期 margin 已经很大，继续使用相同的 β 可能导致过拟合。自适应 β 可以根据当前模型的状态动态调整：当 margin 较小时增大 β 以加强信号；当 margin 过大时减小 β 以防止过度优化，同时可以保持与参考模型的合理 KL 距离。
+
+    简单的自适应策略
+
+    一种启发式策略：计算最近几个 batch 的平均 reward margin，并与一个目标 margin 比较，通过比例积分（PI）控制器调整 β。例如：
+
+    [图片内容未导入]
+
+    其中 γ 是调整步长。当实际 margin 低于目标时，β 增加；反之减小。同时需要 clamp β 在一个合理范围（如 0.01~1.0）。
+
+    实现
+
+    ```python
+    class AdaptiveBetaScheduler:
+        def __init__(self, initial_beta=0.1, target_margin=1.0, adjust_rate=0.01,
+                     min_beta=0.01, max_beta=1.0):
+            self.beta = initial_beta
+            self.target_margin = target_margin
+            self.adjust_rate = adjust_rate
+            self.min_beta = min_beta
+            self.max_beta = max_beta
+            self.margin_history = []  # 存储最近的 reward margin
+
+        def update(self, current_margin: float):
+            """根据当前 margin 更新 beta，并返回新 beta"""
+            self.margin_history.append(current_margin)
+            # 使用最近 N 个 margin 的均值，这里简单取最近一次
+            avg_margin = current_margin
+            # 指数调整
+            self.beta *= torch.exp(torch.tensor(self.adjust_rate * (self.target_margin - avg_margin)))
+            # clamp
+            self.beta = max(self.min_beta, min(self.max_beta, self.beta))
+            return self.beta
+
+        def get_beta(self):
+            return self.beta
+    ```
+
+    训练循环中使用
+
+    ```python
+    scheduler = AdaptiveBetaScheduler(initial_beta=0.1, target_margin=1.0)
+
+    for step, batch in enumerate(dataloader):
+        # 计算当前 reward margin（可以在计算 loss 时顺便获得，或单独计算）
+        with torch.no_grad():
+            # 假设我们已经得到了 chosen_rewards 和 rejected_rewards
+            margin = (chosen_rewards - rejected_rewards).mean().item()
+        beta = scheduler.update(margin)
+
+        # 使用 beta 计算 DPO 损失
+        loss = dpo_loss(..., beta=beta)
+        loss.backward()
+        optimizer.step()
+    ```
+
+    更高级的策略
+
+    也可以基于模型在 chosen 上的 log-prob 变化、KL 散度等指标来调整 β。核心思想是维持一个健康的 reward margin，避免过大或过小。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  block_id: IBuld6dl2oNUXQxdUGRcSlGqn3s
+  page_token: Q1jXwkiaGiDkUNk4sfCcz8CbnJd
+  original_title: 使用 DPO 损失训练时，如何动态调整 β 系数？比如根据 reward margin 自适应调整，写出一个简单的自适应 β 调整策略的实现。
+  imported_at: '2026-09-21'

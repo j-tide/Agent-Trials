@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c664c760ce7b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F50C 推理时，多 LoRA 适配器切换如何做到零显存开销？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 四：常见显存问题诊断与调优
+tags: &1
+- 显存问题-核心题
+- 四：常见显存问题诊断与调优
+content:
+  prompt: "\U0001F50C 推理时，多 LoRA 适配器切换如何做到零显存开销？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    “零显存开销”指 GPU 显存中同时只驻留当前活跃的 LoRA 权重，切换时不增加额外永久占用。实现原理：
+
+    - 基础模型常驻，LoRA 按需加载
+    GPU 显存中始终只保留基础模型权重。LoRA 适配器存在 CPU 内存或 SSD 上。
+
+    - 分页 LoRA 权重管理（S-LoRA）
+    类似 KV 块池，将 LoRA 矩阵也切成固定大小块，统一放在一个 LoRA 块池中。GPU 只为当前需要执行的 LoRA 请求加载对应的块，其他适配器的块保留在 CPU。切换就是换入换出块，不占额外显存。
+
+    - 预取与流水线
+    调度器根据请求队列提前将即将使用的 LoRA 块从 CPU 异步预取到 GPU 的空闲块中，完成计算后如果不再需要，该块可被覆盖。这样 GPU 上 LoRA 块的总占用保持恒定（等于池大小），不会随适配器数量增长。
+
+    - 合并计算
+    对于同一适配器的请求，尽量批量执行，减少块换入换出频率。
+
+    因此，只要 LoRA 池大小经过合理设置，就可以支持成千上万个适配器而不额外增加显存占用。切换时仅在池内替换块，消耗几乎为零。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tr76wMZZwibI1ikxqpEcjhJtnZc
+  block_id: MgoUdpsxKogBZcxAD4acrTSYn6c
+  page_token: Tr76wMZZwibI1ikxqpEcjhJtnZc
+  original_title: "\U0001F50C 推理时，多 LoRA 适配器切换如何做到零显存开销？"
+  imported_at: '2026-09-21'

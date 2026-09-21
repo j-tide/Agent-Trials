@@ -1,0 +1,189 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c3a4bdb328d4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3D7️ 6. 用 CrewAI 实现一个多 Agent 代码审查系统，如何设计 Agent 角色、Task 依赖和输出格式？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F3D7️ 6. 用 CrewAI 实现一个多 Agent 代码审查系统，如何设计 Agent 角色、Task 依赖和输出格式？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    我们设计一个系统，对提交的代码进行静态分析、安全漏洞扫描、性能评估，最后汇总成审查报告。四个 Agent 分工明确，依赖关系清晰。
+
+    架构图：
+
+    [图片内容未导入]
+
+    第一步：定义 Agent（角色、目标、背景、工具）
+
+    from crewai import Agent, Task, Crew, Process
+    from crewai.tools import BaseTool
+
+    # 工具占位（可以复用前面的自定义工具）
+    class StaticAnalysisTool(BaseTool):
+        name: str = "静态分析工具"
+        description: str = "检查代码风格、复杂度、潜在Bug"
+        def _run(self, code: str) -> str:
+            # 模拟分析
+            return "代码行数: 150, 圈复杂度: 8, 未使用的变量: 2"
+
+    class SecurityScanTool(BaseTool):
+        name: str = "安全扫描工具"
+        description: str = "扫描常见安全漏洞：SQL注入、XSS、硬编码密钥等"
+        def _run(self, code: str) -> str:
+            return "发现硬编码的API密钥1处，SQL注入风险1处"
+
+    class PerformanceProfilerTool(BaseTool):
+        name: str = "性能分析工具"
+        description: str = "评估时间复杂度、内存占用等"
+        def _run(self, code: str) -> str:
+            return "最坏时间复杂度 O(n²)，建议优化循环"
+
+    # Agent 定义
+    static_agent = Agent(
+        role="代码静态分析专家",
+        goal="对代码进行静态分析，识别代码异味、风格问题和逻辑错误",
+        backstory="你是一位注重代码质量的工匠，擅长用工具和眼光发现隐藏的问题。",
+        tools=[StaticAnalysisTool()],
+        verbose=True
+    )
+
+    security_agent = Agent(
+        role="安全审查专家",
+        goal="发现代码中的安全漏洞并提供修复建议",
+        backstory="你是一位白帽黑客，熟悉OWASP Top 10，能够快速定位安全风险。",
+        tools=[SecurityScanTool()],
+        verbose=True
+    )
+
+    performance_agent = Agent(
+        role="性能优化专家",
+        goal="评估代码的时间和空间复杂度，找出性能瓶颈",
+        backstory="你是一位追求极致性能的工程师，对算法复杂度了如指掌。",
+        tools=[PerformanceProfilerTool()],
+        verbose=True
+    )
+
+    reporter_agent = Agent(
+        role="审查报告汇总专家",
+        goal="整合各专项审查结果，生成一份结构清晰、可操作的代码审查报告",
+        backstory="你是一位技术文档撰写高手，能将零散发现整理成规范的审查报告。",
+        verbose=True
+    )
+
+    第二步：定义 Task 及依赖关系
+
+    # 待审查的代码（实际可从文件读取或API传入）
+    code_sample = """
+    def fetch_user(user_id):
+        query = "SELECT * FROM users WHERE id = " + user_id
+        return database.execute(query)
+    """
+
+    # Task 1-3：三个专项审查，可并行（async_execution）
+    task_static = Task(
+        description=f"对以下代码执行静态分析：\n{code_sample}",
+        expected_output="列出代码异味、风格问题和潜在Bug的清单",
+        agent=static_agent,
+        async_execution=True
+    )
+
+    task_security = Task(
+        description=f"对以下代码进行安全漏洞扫描：\n{code_sample}",
+        expected_output="列出所有安全漏洞，按严重程度分级，并给出修复建议",
+        agent=security_agent,
+        async_execution=True
+    )
+
+    task_performance = Task(
+        description=f"分析以下代码的性能特征：\n{code_sample}",
+        expected_output="评估时间/空间复杂度，指出性能瓶颈和优化方向",
+        agent=performance_agent,
+        async_execution=True
+    )
+
+    # Task 4：汇总，依赖前三个输出
+    task_report = Task(
+        description="根据代码静态分析、安全扫描、性能分析的结果，生成一份综合代码审查报告。"
+                    "报告需包含：摘要、静态分析结果、安全漏洞详情、性能评估、总体建议。"
+                    "使用 Markdown 格式，对每个问题提供代码片段和行号。",
+        expected_output="一份完整的 Markdown 格式代码审查报告",
+        agent=reporter_agent,
+        context=[task_static, task_security, task_performance]  # 关键：自动注入前置结果
+    )
+
+    第三步：组装 Crew 并运行
+
+    crew = Crew(
+        agents=[static_agent, security_agent, performance_agent, reporter_agent],
+        tasks=[task_static, task_security, task_performance, task_report],
+        process=Process.sequential,   # 串行，但内部 async_execution 实现并行
+        verbose=True
+    )
+
+    result = crew.kickoff()
+    print(result)
+
+    设计要点解析：
+
+    - 角色专精：每个 Agent 只负责一个维度，System Prompt 和工具都高度定制，保证了审查的专业深度。
+
+    - 并行提速：三个专项审查设置为 async_execution=True，CrewAI 会同时启动它们，总耗时约等于最慢的一个审查时间。
+
+    - 上下文粘合：汇总 Agent 的 Task 通过 context 获得了前三个 Task 的输出全文，无需人工拼接。汇总 Agent 在提示词中直接看到“静态分析结果：...”、“安全扫描结果：...”，从而能写出连贯的报告。
+
+    - 输出格式约束：在 expected_output 中明确要求 Markdown 格式、包含修复建议等，让最终产物可直接作为 PR 评论发布。
+
+    - 扩展性：如果未来需要增加“依赖分析 Agent”，只需新加一个 Agent 和 Task，并将其 context 设为现有任务即可，不影响其他 Agent。
+
+    实际运行可能的输出片段：
+
+    # 代码审查报告
+
+    ## 摘要
+    本次审查发现 **3个安全漏洞**、**2个代码异味**、**1个性能瓶颈**，建议立即修复。
+
+    ## 安全漏洞
+    | 严重程度 | 位置 | 描述 | 修复建议 |
+    |---------|------|-----|---------|
+    | 高危 | fetch_user() L2 | SQL注入：直接拼接user_id | 使用参数化查询 |
+
+    ## 静态分析
+    - 未使用的变量：无
+    - 圈复杂度：8 (偏高)
+
+    ## 性能评估
+    - 数据库查询未加索引提示，可能导致全表扫描
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/URfRwgIyEi3zoQk8qc5cj7yPnfb
+  block_id: doxcnfa6vzZa315eowd3Gvfg3oh
+  page_token: URfRwgIyEi3zoQk8qc5cj7yPnfb
+  original_title: "\U0001F3D7️ 6. 用 CrewAI 实现一个多 Agent 代码审查系统，如何设计 Agent 角色、Task 依赖和输出格式？"
+  imported_at: '2026-09-21'

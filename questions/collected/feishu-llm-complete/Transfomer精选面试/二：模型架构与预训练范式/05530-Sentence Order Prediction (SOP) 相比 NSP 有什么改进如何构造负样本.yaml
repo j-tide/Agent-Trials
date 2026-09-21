@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-04abaaeb4541
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Sentence Order Prediction (SOP) 相比 NSP 有什么改进？如何构造负样本？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 二：模型架构与预训练范式
+tags: &1
+- Transfomer精选面试
+- 二：模型架构与预训练范式
+content:
+  prompt: Sentence Order Prediction (SOP) 相比 NSP 有什么改进？如何构造负样本？
+answer:
+  mode: rubric
+  reference_answer: |-
+    核心改进：从“主题检测”到“关系推理”
+
+    SOP对NSP进行了精准的“靶向升级”。NSP的负样本是随机抽取的其他句子，正负样本的主要差异在于主题是否相关。模型学会的是“主题一致=正样本，主题不同=负样本”。这不需要理解句子间的精细逻辑。
+
+    SOP做了一个关键修改：负样本不再是随机抽取的无关句子，而是将两个原本连续的句子顺序颠倒。这样，正负样本的主题完全一致，唯一的区别是句子顺序是否正确。模型无法再依赖主题差异，必须学会区分句子间的逻辑连贯性——包括时间先后（“他起床”应该在“他刷牙”前面）、因果链条（“下雨了”应该在“地湿了”前面）、叙事逻辑（“提出问题”应该在“给出答案”前面）等。
+
+    负样本构造方法
+
+    以ALBERT的实现为例：
+
+    - 从原始文档中取出两个连续的句子A和B。
+
+    - 正样本：保持原顺序[A, B]，标签为“顺序正确”。
+
+    - 负样本：交换顺序变为[B, A]，标签为“顺序错误”。
+
+    这样做有两个精妙之处。第一，主题一致性保证难度：正负样本涉及完全相同的词汇和主题，模型无法从内容差异判断，只能从连贯性推理。第二，构造成本几乎为零：不需要任何人工标注，不需要筛选“合适的负样本”，只需要将现成的连续文本倒序即可，可以无限量自动生成。
+
+    为什么SOP比NSP更有效
+
+    实验效果上，ALBERT在多个需要句子间推理的基准上（如RACE阅读理解、MultiNLI推理）显著优于同等配置的BERT。这是因为SOP教会了模型的是“连贯性”这个更本质的语言特性，而NSP教会的是“主题聚类”。
+
+    一个直观的理解方式：NSP像是在考“这段话和那段话是不是讲同一件事？”——这是粗粒度的语义匹配。SOP则是在考“这两句话应该谁先谁后？”——这需要理解事件逻辑、时间顺序、指代消解、因果关系等细粒度的语言结构。
+
+    由于SOP难度更高，对模型能力的要求也更高，因此它能驱动模型学习更深层的语言表示。这些表示在迁移到下游需要推理的任务时，自然具有更强的泛化能力。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IvhswLbEUiXCsXkJOiNcgAn0n1x
+  block_id: CiqPdEgnfo81u3xbuUJcgni4nwd
+  page_token: IvhswLbEUiXCsXkJOiNcgAn0n1x
+  original_title: Sentence Order Prediction (SOP) 相比 NSP 有什么改进？如何构造负样本？
+  imported_at: '2026-09-21'

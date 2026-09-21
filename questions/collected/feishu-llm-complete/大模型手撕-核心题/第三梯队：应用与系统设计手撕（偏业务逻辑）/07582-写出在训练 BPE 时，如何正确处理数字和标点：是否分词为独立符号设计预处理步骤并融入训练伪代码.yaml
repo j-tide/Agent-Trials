@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-924839c4f3b4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出在训练 BPE 时，如何正确处理数字和标点：是否分词为独立符号？设计预处理步骤并融入训练伪代码
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型手撕-核心题
+derived_topic: 第三梯队：应用与系统设计手撕（偏业务逻辑）
+tags: &1
+- 大模型手撕-核心题
+- 第三梯队：应用与系统设计手撕（偏业务逻辑）
+content:
+  prompt: 写出在训练 BPE 时，如何正确处理数字和标点：是否分词为独立符号？设计预处理步骤并融入训练伪代码
+answer:
+  mode: rubric
+  reference_answer: "数字和标点的处理直接影响最终子词单元的质量。目标是将文本分割成合适的初始单词，使得标点、数字等能够作为独立的实体参与 BPE
+    合并，而不是粘在相邻单词上，导致词汇表膨胀或产生无意义的子词。常见预处理策略有：\n\n- 按空格分词，但将标点与相邻单词分开：在英文 NLP 中，通常使用
+    Moses tokenizer 或类似方法，将标点（如 .,!?;:()[]{}'\" 等）切分为独立的 token，数字保留原样或进一步切分（如将年份 1990s
+    分为 1990 和 s）。这可以确保标点成为独立的“单词”，并加上结束符，使得 BPE 能够学习到标点后通常跟随词尾等特点。\n\n- 对于数字，可以将连续数字作为一个整体单词，也可以按位拆分。但通常保留连续数字作为整体，让
+    BPE 内部按需合并（如 100 可能合并为 1 0 0 或者整体）。如果语料中有很多数字，BPE 可能学习到 100 的整体表示，但更好的做法是让数字保持为字符级或字节级，由
+    BPE 自动处理。\n\n- 预处理伪代码：在训练前加入一个分词器（tokenizer），将原始文本拆分成单词序列（每个单词将独立加上 </w>）。这个分词器的行为是：按空格和标点拆分，保留标点作为单独
+    token。\n\n具体预处理步骤：\n\n- 利用正则表达式将文本分割为 tokens（单词和标点独立）。例如，模式 r'\\w+|[^\\w\\s]'
+    可以匹配所有单词字符序列或者非空白非单词字符（标点）。也可以处理缩写中的标点如 's 等。\n\n- 对于每个 token，统计频率，将它们作为“单词”输入
+    BPE 初始化。即 token 序列中的每一项都看作一个单词，末尾加结束符。\n\n- 对于数字，可以选择保留连续数字，或者进一步拆分为单个数字。但 BPE
+    在字符级或字节级初始化后，自然会处理数字内部的合并。若初始化为字符级，数字字符 '1', '2' 等成为基本符号；若为 Byte-Level，数字的 UTF-8
+    编码为一个字节（ASCII），仍是基本符号。\n\n融入训练伪代码：\n\n```text\n算法 BPE_Train_with_preprocess(raw_text,
+    num_merges):\n    # 预处理：tokenize 成单词和标点\n    tokens = []\n    for match in re.finditer(r'\\w+|[^\\w\\s]',
+    raw_text):\n        tokens.append(match.group())\n    # 或者更复杂的如 Moses tokenizer\n
+    \   \n    # 统计频率\n    word_freq = Counter(tokens)\n    \n    # 后续初始化与合并同原始伪代码\n
+    \   word_symbols = ...\n    for word, freq in word_freq.items():\n        symbols
+    = list(word) + ['</w>']\n        ...\n```\n\n在 Byte-Level BPE 中，预处理同样重要，因为需要将字节序列分配给正确的“单词”边界。如果文本没有预先将标点分离，\"world!\"
+    会被视为一个单词，结束符加在感叹号后。经过 BPE 可能学到 world!</w> 作为一个整体，不利于泛化。分离后 \"world\" 和 \"!\" 各有词尾，BPE
+    会学到 world</w> 和 !</w>，更为合理。\n\n数字处理细节：若数字保留为连续 token（如 \"123\"），BPE 可能将其整体作为一个符号或拆分为多字节合并。由于数字种类无限，通常
+    BPE 会将连续数字拆成单数字字符，依赖模型学习数字的组成模式。因此，一些实现会将数字预处理为 0 或保留原样。但如果保持 Byte-Level，字节序列
+    49 50 51（即 '1','2','3'）会自然学习合并。\n\n标点处理总结：将标点与单词分开作为独立 token 是标准做法。在训练伪代码中，第一步就是应用一个合适的
+    tokenizer 将文本划分为 tokens，再用 BPE 训练这些 tokens。这样可以避免标点粘附在词上导致的词汇冗余。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XDqKw0GPGi6JvkkfpwUcqpdAndd
+  block_id: VpWpdnwdGoBe3tx3c8Qc5VaInKe
+  page_token: XDqKw0GPGi6JvkkfpwUcqpdAndd
+  original_title: 写出在训练 BPE 时，如何正确处理数字和标点：是否分词为独立符号？设计预处理步骤并融入训练伪代码
+  imported_at: '2026-09-21'

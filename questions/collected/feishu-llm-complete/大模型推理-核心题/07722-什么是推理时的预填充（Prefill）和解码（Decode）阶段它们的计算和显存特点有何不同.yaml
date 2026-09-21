@@ -1,0 +1,60 @@
+---
+schema_version: 1
+id: feishu-llm-complete-36415f0f8fdc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是推理时的“预填充”（Prefill）和“解码”（Decode）阶段？它们的计算和显存特点有何不同？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型推理-核心题
+derived_topic: 
+tags: &1
+- 大模型推理-核心题
+content:
+  prompt: 什么是推理时的“预填充”（Prefill）和“解码”（Decode）阶段？它们的计算和显存特点有何不同？
+answer:
+  mode: rubric
+  reference_answer: |-
+    理解这两个阶段，就理解了推理性能优化的全部核心。它本质上是“并行处理”与“串行循环”两种计算模式的切换。
+
+    - 预填充 (Prefill) 阶段 —— 并行计算的冲刺
+
+    - 它在做什么？ 当你把一个问题（Prompt）发送给模型时，它会把整个Prompt序列一次性“吞入”肚子里。在这一步，它并行计算出所有token的注意力，并为每个token生成第一批Key和Value缓存。这相当于一个学生花几分钟一口气读完一道冗长的材料题。
+
+    - 计算特点：计算密集型。大量的矩阵乘法（比如 Q × K^T）在这个阶段同时发生，能将GPU的Tensor Core算力占满。GPU在此时就像一台全速运转的涡轮发动机。
+
+    - 显存特点：显存峰值高。并行处理意味着需要在显存中同时展开整个计算图，会产生一个巨大的、与序列长度平方成正比的注意力矩阵（如果未使用FlashAttention），这会形成一个瞬时的显存高峰。这就像冲刺时需要大口呼吸，消耗大量氧气。
+
+    - 解码 (Decode) 阶段 —— 串行循环的马拉松
+
+    - 它在做什么？ 预填充完成后，模型进入“一个字一个字”的生成过程。每生成一个新词，它只计算这个新词的查询向量（Q），然后从显存中读取之前存好的所有历史Key和Value，完成注意力计算。这就像学生动笔答题，每写一个字都要回顾一遍整篇材料。
+
+    - 计算特点：显存带宽受限。每生成一个词，计算量极小，但需要从显存中读取整个模型权重（数十GB）和全部的KV Cache（可达数GB）到计算核心。此时，GPU的99%算力都在闲置等待数据，就像一个法拉利引擎被堵在早高峰的车流中。它的速度完全取决于显存搬运数据的快慢（带宽）。
+
+    - 显存特点：动态稳定增长。临时计算的“草稿纸”（激活值）占用很小且稳定，但KV Cache这座“记忆仓库”会随着每个新词的生成而线性扩建，成为显存占用的主体。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/C0pNwQLAmiNN2tkVnWGccLYLns0
+  block_id: ENl2daM77oBwvGxJCC8cD9binvf
+  page_token: C0pNwQLAmiNN2tkVnWGccLYLns0
+  original_title: 什么是推理时的“预填充”（Prefill）和“解码”（Decode）阶段？它们的计算和显存特点有何不同？
+  imported_at: '2026-09-21'

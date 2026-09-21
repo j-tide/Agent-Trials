@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e69d0d604c3f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4CA 在 Agent 执行中，如何通过回调实现一个“执行进度条”？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 八、回调、流式处理与异步
+tags: &1
+- LangChain面（高频）
+- 八、回调、流式处理与异步
+content:
+  prompt: "\U0001F4CA 在 Agent 执行中，如何通过回调实现一个“执行进度条”？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Agent 的执行步数不确定，用户可能等待较长时间。通过回调向用户展示进度，能有效缓解等待焦虑。
+
+    实现思路：
+
+    - 在 on_agent_action 中递增步数，并更新进度条。
+
+    - 在 on_agent_finish 中标记完成。
+
+    基于 tqdm 的简单进度条：
+
+    from tqdm import tqdm
+    from langchain.callbacks import BaseCallbackHandler
+
+    class AgentProgressBar(BaseCallbackHandler):
+        def __init__(self, max_steps=10):
+            self.pbar = tqdm(total=max_steps, desc="Agent 推理", unit="step")
+            self.current_step = 0
+
+        def on_agent_action(self, action, **kwargs):
+            self.current_step += 1
+            self.pbar.update(1)
+            # 可以在描述中显示当前工具
+            self.pbar.set_postfix_str(f"工具: {action.tool}")
+
+        def on_agent_finish(self, finish, **kwargs):
+            self.pbar.close()
+
+        def on_chain_end(self, outputs, **kwargs):
+            if self.pbar.n < self.pbar.total:
+                self.pbar.close()
+
+    对于流式前端，你可以通过 WebSocket 发送进度事件。在回调中调用 websocket.send_json({"step": self.current_step, "tool": action.tool})。
+
+    注意：进度条的总步数是不确定的，你可以设置一个上限（如 max_iterations），或者使用无限进度条模式。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  block_id: XQJ5d119PoFEdhx3YfqcyMA0nWh
+  page_token: LBEfwqP1mi0i5RkjO7ZcMocLnHh
+  original_title: "\U0001F4CA 在 Agent 执行中，如何通过回调实现一个“执行进度条”？"
+  imported_at: '2026-09-21'

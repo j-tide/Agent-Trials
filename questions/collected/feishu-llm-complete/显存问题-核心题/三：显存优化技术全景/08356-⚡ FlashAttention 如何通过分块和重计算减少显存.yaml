@@ -1,0 +1,50 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cfe33e6d0ad9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "⚡ FlashAttention 如何通过分块和重计算减少显存？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 三：显存优化技术全景
+tags: &1
+- 显存问题-核心题
+- 三：显存优化技术全景
+content:
+  prompt: "⚡ FlashAttention 如何通过分块和重计算减少显存？"
+answer:
+  mode: rubric
+  reference_answer: "\U0001F4A1 FlashAttention 通过将注意力矩阵分块（tiling），在片上 SRAM 内完成 Softmax
+    的增量计算，并依赖重计算（recomputation）丢弃中间大矩阵，从而避免存储完整的 [seq, seq] 注意力分数矩阵，将显存复杂度从 O(N²)
+    降至 O(N)。\n\n\U0001F52C 核心机制：\n\n- 分块（Tiling）：将 Q、K、V 矩阵沿序列维度切分成小块。计算时，逐块加载到 SRAM
+    中，使用在线 Softmax 算法（numerically stable）累积归一化因子，从而在块内完成注意力的所有数学运算，而无需将整个注意力分数矩阵 S
+    = QK^T（尺寸 [N, N]）写出到 HBM。\n\n- 重计算（Recomputation）：反向传播时，不保留前向的注意力分数矩阵（那是显存杀手）。而是利用前向保存的
+    Q、K、V 和 Softmax 的统计量（row_max, row_sum），在反向时重新计算一次 QK^T 和 Softmax，得出梯度所需的值。这样，显存中始终不需要完整存储
+    S。\n\n\U0001F4CA 显存节省：标准注意力需要存储 S 和 P = softmax(S)，两者均为 [batch, heads, N, N] 形状，FP16
+    下占 2 * batch * heads * N * N * 2 字节。FlashAttention 将这些完全消除，只保留 Q、K、V 和少量标量，显存从
+    O(N²) 降为 O(N)。对于长序列（如 N=4096），节省可达几十倍。\n\n✅ 因此，FlashAttention 通过巧妙的 IO 优化和重计算，在保证精确性的同时，让长序列训练的显存需求回归线性。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IV7mwgNSpiSplMkLZJYcJWfmn5f
+  block_id: VFnNdq8TjoivbTxGPJec8KzfnZd
+  page_token: IV7mwgNSpiSplMkLZJYcJWfmn5f
+  original_title: "⚡ FlashAttention 如何通过分块和重计算减少显存？"
+  imported_at: '2026-09-21'

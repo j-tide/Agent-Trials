@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cdebc00df2ac
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练过程中，显存占用逐渐增加是什么原因？如何检测并解决内存泄漏？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 训练过程中，显存占用逐渐增加是什么原因？如何检测并解决内存泄漏？
+answer:
+  mode: rubric
+  reference_answer: |-
+    训练过程中显存持续增长，最终OOM，是典型的“内存泄漏”症状。与训练初期的OOM不同，泄漏发生在训练已经稳定运行一段时间后。
+
+    常见原因：
+
+    一是在训练循环中无意保留了张量的引用。例如，为了记录每个batch的loss，将loss值存入一个Python列表。但loss是一个标量张量，它持有整个计算图的引用，导致反向传播后计算图无法释放，激活值和梯度全部堆积在显存中。
+
+    二是一些中间计算结果被意外保存。例如可视化的注意力图、调试用的中间激活值、未及时detach的生成结果等。
+
+    三是第三方库或自定义算子的内部缓存。某些算子（如FlashAttention的旧版本、某些自定义CUDA扩展）会维护内部状态或缓存，这些缓存可能随训练步数增长。
+
+    四是DDP或NCCL的通信缓冲区。在梯度同步过程中，通信库会分配临时缓冲区。如果通信模式频繁变化，可能导致缓冲区逐渐膨胀。
+
+    检测方法：
+
+    使用torch.cuda.memory_allocated()记录每一步训练后的显存占用，观察是否有持续上升的趋势。正常情况下，除前几步外，显存应保持稳定。如果发现持续上涨，在训练循环中逐段插入torch.cuda.empty_cache()和memory_summary()，定位是哪个操作导致了增长。
+
+    更系统的方法是使用PyTorch的memory profiler或NVIDIA的Nsight Systems，捕获完整的显存时间线，可视化每次分配和释放。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  block_id: W9nyddpKpoStQwxVgv4coeS6nLd
+  page_token: HaMHwK9V9i2b0VkHAXpcNV1KnEd
+  original_title: 训练过程中，显存占用逐渐增加是什么原因？如何检测并解决内存泄漏？
+  imported_at: '2026-09-21'

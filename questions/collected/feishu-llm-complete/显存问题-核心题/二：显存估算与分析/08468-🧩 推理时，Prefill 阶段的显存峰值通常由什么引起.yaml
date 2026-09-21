@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-91cc1b547e7f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F9E9 推理时，Prefill 阶段的显存峰值通常由什么引起？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 二：显存估算与分析
+tags: &1
+- 显存问题-核心题
+- 二：显存估算与分析
+content:
+  prompt: "\U0001F9E9 推理时，Prefill 阶段的显存峰值通常由什么引起？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Prefill 阶段是将输入 prompt 一次性送入模型进行计算，产生第一个 token 的过程。它的显存峰值通常高于解码阶段，主要原因：
+
+    - 中间激活（activations）的大量占用。在 Prefill 阶段，整个输入序列（比如 2048 token）需要同时进行注意力计算和 FFN 前向传播，这会产生较大的中间张量，例如 QKV 矩阵、注意力分数矩阵（形状 [batch, 头数, 序列长度, 序列长度]），该矩阵与序列长度的平方成正比。即使批大小为 1，当输入长度达 8192 时，注意力分数矩阵约 8K×8K×头数，FP16 下可能达数百 MB。而解码阶段每次只有一个新 token，注意力矩阵是 1 × 当前长度，激活量小得多。
+
+    - 框架内存分配策略：PyTorch 会缓存分配器，导致峰值可能比理论值更高。vLLM 等通过预分配和共享内存缓解。
+
+    - 某些算子需要额外的临时缓冲区，比如 FlashAttention 虽然节省了注意力矩阵的显存，但仍有一些中间梯度（尽管推理无梯度，但算子实现可能有工作空间）。
+
+    因此，显存峰值通常在 Prefill 阶段，由长序列的 注意力中间激活 和 临时缓冲区 叠加权重与 KV Cache 造成。优化技术如 FlashAttention、vLLM 的 paged attention 可以显著降低 Prefill 的显存峰值，使得长上下文推理可行。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/U2u9wFuzEiPu2okJIcFcYZkUnhc
+  block_id: StgIdbUWeoeLVZxC4iqc2BQOntc
+  page_token: U2u9wFuzEiPu2okJIcFcYZkUnhc
+  original_title: "\U0001F9E9 推理时，Prefill 阶段的显存峰值通常由什么引起？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a43a735d9e03
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 模型热更新怎么实现？如何在不中断服务的情况下切换模型版本？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 五：推理部署与高效化
+tags: &1
+- Transfomer精选面试
+- 五：推理部署与高效化
+content:
+  prompt: 模型热更新怎么实现？如何在不中断服务的情况下切换模型版本？
+answer:
+  mode: rubric
+  reference_answer: |-
+    实现不停服切换模型版本，本质是把流量从旧模型实例平滑迁移到新模型实例，并可即时回滚。
+
+    主流方案：
+
+    - 蓝绿部署（Blue/Green）：同时运行旧版本（Blue）和新版本（Green）的所有实例，待 Green 全部健康就绪后，通过 API 网关或调度器一次性将全部流量切到 Green。如果出现问题，瞬间切回 Blue。优点是简单，缺点是需要两倍硬件资源。
+
+    - 金丝雀（Canary）发布：新版本先拉起少量实例，导入少量比例流量（如 5%），观察一段时间（错误率、延迟等），确认无异常后再逐步提升流量比例至 100%，同时逐步缩减旧实例。可通过 Service Mesh（如 Istio）或 API 网关的加权路由精准控制。
+
+    - 滚动更新（Rolling Update）：K8s 原生支持的 Deployment 策略，逐个将旧 Pod 替换为新 Pod。为了不中断服务，需配合健康检查与优雅终止：
+
+    - 推理引擎内模型热切换：部分框架（如 Triton Inference Server）支持同一个进程内动态加载/卸载模型版本。当新模型加载到 GPU 显存后，Triton 自动将新请求路由到新版本，旧版本在所有进行中请求完成后被卸载。这要求显存足够容纳新旧双模型，切换粒度更细。对于显存紧张场景，可采用「先缩容旧模型，加载新模型，再扩容」的操作顺序。
+
+    - 共享 KV Cache 前缀的极限方案：如果新老模型只是 LoRA adapter 或部分权重不同，可通过只替换特定参数矩阵而不重启，实现真正的零停机。但如为全量模型变动，必须重载权重。
+
+    最佳实践：在 K8s 中使用 Deployment 滚动更新 + preStop hook 通知引擎暂停接收新请求并等待排空；配合 Envoy/Istio 实现流量的一键加权切换与健康检查，可实现数分钟内完成无感知的模型版本升级。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/L2bpwgVV1iZoZnkrvgac88LjnCc
+  block_id: X62ydns5zozx9sxdUudcF03Fni6
+  page_token: L2bpwgVV1iZoZnkrvgac88LjnCc
+  original_title: 模型热更新怎么实现？如何在不中断服务的情况下切换模型版本？
+  imported_at: '2026-09-21'

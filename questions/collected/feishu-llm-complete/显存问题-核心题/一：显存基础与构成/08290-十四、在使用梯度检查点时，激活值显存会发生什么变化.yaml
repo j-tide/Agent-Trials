@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5ca85fef17e1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 十四、在使用梯度检查点时，激活值显存会发生什么变化？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 显存问题-核心题
+derived_topic: 一：显存基础与构成
+tags: &1
+- 显存问题-核心题
+- 一：显存基础与构成
+content:
+  prompt: 十四、在使用梯度检查点时，激活值显存会发生什么变化？
+answer:
+  mode: rubric
+  reference_answer: |-
+    梯度检查点（Gradient Checkpointing，也称作 Activation Checkpointing）是一种用计算换显存的技术，它以增加一次额外的子图重前向计算为代价，将激活值显存压缩到亚线性甚至常数量级。
+
+    默认行为的激活存储模型
+
+    [图片内容未导入]
+
+    检查点的核心思想
+
+    - 将计算图划分为多个检查段（segments）。PyTorch 的 torch.utils.checkpoint 默认以一个 nn.Module 为边界（也可以自定义）。
+
+    - 前向阶段：只保留检查段输入张量，段内产生的中间激活全部丢弃（不保存）。
+
+    - 反向阶段：当需要该段的梯度时，利用保存的输入，重新执行一次段的前向计算，临时恢复所需的中间激活，计算完该段的所有梯度后，再将这些临时激活丢弃。
+
+    - 这样，任何一个时刻，只需要存储少量的检查点输入和当前段的临时激活，而无需保存所有层的全部激活。
+
+    激活显存的变化（按段划分）
+
+    假设一个模型有 L 层，划分为 k 个段（每段包含 L/k 层）。
+
+    - 无检查点：激活量 ∝L
+
+    - 全部检查点（每层一个段）：激活量 ∝1（只需一个层的激活临时重建，加上检查点输入的少量开销）。但增加了 33% 的计算（每个层都重算一次前向）。
+
+    [图片内容未导入]
+
+    需要注意的副作用
+
+    - 计算开销：每段多执行一次前向，总的额外计算量约为 33%（如果每层都重算）。可通过选择性检查点（仅对注意力部分检查点，保留 FFN 激活）来降低开销。
+
+    - 与反向传播的结合：重算的前向仍然需要临时显存来存放该段的中间结果，峰值可能比无检查点的平稳水位更高，形成局部尖峰。
+
+    - 随机操作：重算过程中 Dropout 等的随机性必须被固定（通过保存 RNG 状态），否则重算结果与原始前向不一致。
+
+    一句话总结：梯度检查点把激活值的常驻显存从整座山压缩成一张薄片，只在反向时短暂地“租用”一片空间进行计算，随后立即归还。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GR6GwGe1Hij4c3keg1Qckq5unRb
+  block_id: AbZEdkgVlo1bBbxUORaccjAjn30
+  page_token: GR6GwGe1Hij4c3keg1Qckq5unRb
+  original_title: 十四、在使用梯度检查点时，激活值显存会发生什么变化？
+  imported_at: '2026-09-21'

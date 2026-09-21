@@ -1,0 +1,162 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7c83c58c873d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F3AF 12. Agent 频繁调用工具时参数不合法，如何从 Tool 定义层面减少这类错误？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F3AF 12. Agent 频繁调用工具时参数不合法，如何从 Tool 定义层面减少这类错误？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    Agent 调用工具参数不合法的常见原因有：
+
+    - 参数描述模糊，LLM 填入了非法值（如负数、错误日期格式）。
+
+    - 枚举值未约束，LLM 自己编造了不存在的选项。
+
+    - 缺乏示例，LLM 不理解边界情况。
+
+    从 Tool 定义层面，有五项可以立即落地的优化策略：
+
+    策略一：用 Pydantic 的约束类型明确边界
+
+    不要在 docstring 里口头说“必须是正整数”，而要用 Pydantic 的 Field(gt=0)、min_length、regex 等硬约束。
+
+    ```python
+    from pydantic import BaseModel, Field, conint
+
+    class OrderInput(BaseModel):
+        quantity: conint(gt=0, le=100) = Field(description="购买数量，必须在 1 到 100 之间")
+        email: str = Field(description="用户邮箱", pattern=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
+    ```
+
+    这些约束会转换成 JSON Schema 中的 minimum、maximum、pattern 等字段，LLM 看到后会显著降低填错概率。
+
+    策略二：用 Literal 限制枚举选项
+
+    如果参数只有几个固定值，必须用 Literal，不要写成 str 然后在描述里列选项。
+
+    ```python
+    from typing import Literal
+
+    class SortInput(BaseModel):
+        sort_by: Literal["price", "rating", "sales"] = Field(description="排序字段")
+        order: Literal["asc", "desc"] = Field(description="排序方向")
+    ```
+
+    LLM 看到 enum: ["price", "rating", "sales"] 后，几乎不可能再编造一个 "popularity" 出来。
+
+    策略三：在 description 中嵌入具体示例
+
+    大模型对示例的遵从度远高于对规则的遵从度。在 Field(description=...) 里直接写一两个正确值示例。
+
+    ```python
+    class DateInput(BaseModel):
+        date: str = Field(description="查询日期，格式 YYYY-MM-DD，例如 2026-07-02")
+    ```
+
+    不要只写“格式为 YYYY-MM-DD”，加上一个具体日期，LLM 会照着模仿。
+
+    策略四：在描述中定义“失败后果”，引导 LLM 谨慎填写
+
+    人会对 LLM 说“如果填错会返回错误”，LLM 也会因此更仔细。
+
+    ```python
+    class TransferInput(BaseModel):
+        amount: float = Field(description="转账金额，必须大于 0 且不超过账户余额，否则转账失败")
+    ```
+
+    这种“自然后果”式的描述，比硬规则更能激活模型的遵从意识。
+
+    策略五：启用 handle_parsing_errors 并返回清晰错误信息
+
+    这不是 Tool 定义本身，而是 Agent 配置层面的防御。当参数解析失败时，把具体错误反馈给 LLM，让它自我修正。
+
+    ```python
+    agent = initialize_agent(
+        tools,
+        llm,
+        agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+        handle_parsing_errors=True,  # 自动捕获解析错误
+        max_iterations=5
+    )
+    ```
+
+    如果工具参数不合法导致执行失败，你可以把错误信息包装成 Observation 返回：
+
+    ```python
+    def robust_tool(**kwargs):
+        try:
+            validate_params(kwargs)
+            return actual_execute(**kwargs)
+        except ValueError as e:
+            return f"参数错误: {e}。请检查并重试。"
+    ```
+
+    LLM 看到这个错误后，通常能在下一轮给出正确参数。
+
+    一个综合了以上策略的生产级工具定义：
+
+    ```python
+    from pydantic import BaseModel, Field
+    from typing import Literal
+    from langchain.tools import StructuredTool
+
+    class FlightSearchInput(BaseModel):
+        origin: str = Field(description="出发城市，IATA 三字码，如 PEK")
+        destination: str = Field(description="到达城市，IATA 三字码，如 SHA")
+        date: str = Field(description="出发日期，格式 YYYY-MM-DD，例如 2026-07-15")
+        cabin: Literal["economy", "business", "first"] = Field(description="舱位等级")
+        passengers: int = Field(description="乘客数量", ge=1, le=9)
+
+    def search_flights(origin, destination, date, cabin, passengers):
+        # 实际查询逻辑
+        pass
+
+    flight_tool = StructuredTool.from_function(
+        func=search_flights,
+        name="search_flights",
+        description="搜索航班信息，返回航班号、起降时间、价格",
+        args_schema=FlightSearchInput,
+        handle_tool_error=True  # 如果函数内抛异常，自动转为错误消息给 LLM
+    )
+    ```
+
+    总结：
+
+    工具定义是 Agent 和真实世界之间的“闸门”。你在 Pydantic Schema 中花的每一分钟，都会在运行时节省无数次失败的函数调用。记住，LLM 只看得到 Schema 和描述，所以把这两样写到“即便是一个认真的实习生”也绝不会填错的程度，你的 Agent 才能稳健地工作在生产环境里。
+
+    ### LangChain 深度进阶
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SuxqwVBLli4q94kJFBAcOLkFnZc
+  block_id: doxcn55xPu0PVqjF1QISALVIcFh
+  page_token: SuxqwVBLli4q94kJFBAcOLkFnZc
+  original_title: "\U0001F3AF 12. Agent 频繁调用工具时参数不合法，如何从 Tool 定义层面减少这类错误？"
+  imported_at: '2026-09-21'

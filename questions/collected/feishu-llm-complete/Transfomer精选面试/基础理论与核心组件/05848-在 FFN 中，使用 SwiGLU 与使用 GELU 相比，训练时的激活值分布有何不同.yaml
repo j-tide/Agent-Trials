@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-95e617edbd8a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 FFN 中，使用 SwiGLU 与使用 GELU 相比，训练时的激活值分布有何不同？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: Transfomer精选面试
+derived_topic: 基础理论与核心组件
+tags: &1
+- Transfomer精选面试
+- 基础理论与核心组件
+content:
+  prompt: 在 FFN 中，使用 SwiGLU 与使用 GELU 相比，训练时的激活值分布有何不同？
+answer:
+  mode: rubric
+  reference_answer: |-
+    标准 FFN 使用 GELU 时，激活值分布大致是对称的，中心在零附近，负值被平滑地压缩至接近零但保留微小梯度，正值近似线性。整体分布比较紧凑，方差相对可控。
+
+    SwiGLU 引入了门控乘法运算 gate ⊙ values，这会使激活值分布发生显著变化：
+
+    - 分布形状更复杂：gate 经过 SiLU 后，正值区接近线性，负值区接近零且平滑。values 是线性投影的输出，未经过任何非线性。两者逐元素相乘后，结果的分布是这两个分布的结合。正值区域的 values 会被线性缩放，负值区域的 values 被强烈衰减。因此最终的激活值分布不再是简单的对称分布，而是一种“正偏态”且尾部更重的形状。
+
+    - 稀疏性增强：SwiGLU 的门控倾向于将许多神经元的部分输出置零或接近零（尤其是当 gate 为负值时），这导致了比 GELU 更明显的稀疏激活。在深层 Transformer 中，SwiGLU 层的输出中零值比例通常更高。
+
+    - 方差可能更大：由于门控的缩放效应，激活值在正值方向的波动可能比 GELU 更剧烈。这要求更好的初始化策略和归一化（如 RMSNorm）来防止前向激活值爆炸。
+
+    - 对混合精度更友好？：SwiGLU 的这种稀疏性和可控的正值分布实际上有利于 FP16 等低精度训练。GELU 在负值区有细微的梯度，对下溢出敏感；而 SwiGLU 的负值区直接输出接近零，并且梯度也接近零，这在 FP16 中表示为精确零而非微小非正规数，更不容易产生异常值。不过门控乘法仍可能产生极值，需要合理的缩放。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XLeKwLdoyiv7xUk0ntpcn8BYnsg
+  block_id: KniGdJDdGoeXjaxdHJfcuO9Rn6f
+  page_token: XLeKwLdoyiv7xUk0ntpcn8BYnsg
+  original_title: 在 FFN 中，使用 SwiGLU 与使用 GELU 相比，训练时的激活值分布有何不同？
+  imported_at: '2026-09-21'

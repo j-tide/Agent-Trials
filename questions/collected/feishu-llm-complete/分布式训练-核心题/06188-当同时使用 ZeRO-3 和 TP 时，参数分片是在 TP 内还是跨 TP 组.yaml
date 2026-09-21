@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fdec6bd846fc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当同时使用 ZeRO-3 和 TP 时，参数分片是在 TP 内还是跨 TP 组？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 分布式训练-核心题
+derived_topic: 
+tags: &1
+- 分布式训练-核心题
+content:
+  prompt: 当同时使用 ZeRO-3 和 TP 时，参数分片是在 TP 内还是跨 TP 组？
+answer:
+  mode: rubric
+  reference_answer: |-
+    当 ZeRO-3 与 TP 结合时，参数分片是跨 TP 组（即跨数据并行副本），而不是在 TP 组内部。
+
+    原因解析：
+
+    - TP 组内部的 GPU 共同拥有完整的一层参数（虽然被切分到各卡，但逻辑上属于同一个模型副本）。如果 ZeRO-3 的分片再在 TP 组内进行，就会破坏 TP 计算的完整性——TP 需要每张卡持有该层的完整逻辑参数（虽然物理上切分，但通过 AllGather 可组装）。ZeRO-3 的参数分片是在 DP 维度上进行的，即在不同的模型副本之间。
+
+    - 一个 TP 组内的所有 GPU 共同构成一个“大 GPU”，它们对外表现为一个完整的模型副本。ZeRO-3 把这个副本的参数再切分到不同的 TP 组上。
+
+    举例：设 TP=4，DP=8（即有 8 个 TP 组，每个 TP 组 4 卡）。ZeRO-3 会把整个模型的参数均匀分片到这 8 个 TP 组上。也就是说，每个 TP 组持久存储的参数是总参数的 1/8。当某个 TP 组需要计算某层时，它要从其他 7 个 TP 组 AllGather 收集该层的完整参数（这是跨节点的通信）。而 TP 组内部，各卡仍然通过 TP 的 f/g 操作（节点内通信）协同计算该层。
+
+    因此，ZeRO-3 的分片粒度是模型副本级别，TP 的分片粒度是层内矩阵级别，二者不冲突。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MTQXwjC20iblnmkFzfGc8qBwnwU
+  block_id: YsWydqVoXo9AUcx16mWcPFYdn8K
+  page_token: MTQXwjC20iblnmkFzfGc8qBwnwU
+  original_title: 当同时使用 ZeRO-3 和 TP 时，参数分片是在 TP 内还是跨 TP 组？
+  imported_at: '2026-09-21'

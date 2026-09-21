@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3eca7d2dbb9f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多模态对话中，如何保持多轮图片对话的上下文？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 多模态对话中，如何保持多轮图片对话的上下文？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多轮图片对话的上下文保持，依赖于将所有历史视觉和文本信息完整地序列化，并利用 Transformer 的自注意力机制进行条件生成。
+
+    实现机制：
+
+    - 对话历史序列化：将当前轮次之前的所有交互（用户图片、用户文本、模型回答）按照时间顺序拼接成一个长序列。每一轮的用户图片会被转换为视觉 token 序列，并放置在对应文本之前。
+
+    - 统一模板：使用 ChatML 等标准化模板，为每条消息添加角色标记。例如：
+
+    <|im_start|>user
+    <image_tokens_1> 这张图片里有什么？<|im_end|>
+    <|im_start|>assistant
+    这是一只猫。<|im_end|>
+    <|im_start|>user
+    <image_tokens_2> 那这个呢？它和刚才的猫有什么不同？<|im_end|>
+
+    - 注意力回溯：LLM 的自回归因果注意力机制，使得模型在生成当前回答时，可以关注到序列中所有在前面的 token，包括之前所有图片的视觉 token。因此，模型能够“回忆”起前面轮次的图片内容，实现跨图片的指代消解和对比推理。
+
+    实践挑战与对策：
+
+    - 序列长度爆炸：多图多轮会导致输入序列极长。需使用 Flash Attention、量化、KV Cache 等优化技术。
+
+    - 显存压力：可通过限制最大历史轮次、对旧的视觉 token 进行压缩（如只保留 CLS token）或摘要化来缓解。
+
+    - Loss Mask：训练时只对当前轮次的助手回复计算损失，所有历史和用户输入均被掩码。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KYvmwfyDpiVkXckdpoBcXEzAnJf
+  block_id: VHRkdHuItoYVqcxvf8yceXu9nkv
+  page_token: KYvmwfyDpiVkXckdpoBcXEzAnJf
+  original_title: 多模态对话中，如何保持多轮图片对话的上下文？
+  imported_at: '2026-09-21'

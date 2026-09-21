@@ -1,0 +1,110 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cc00b72c4036
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4E6 2. LangGraph 的 State 是什么？如何设计一个合理的 AgentState？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent 架构篇 / Agent Framework
+tags: &1
+- AI Agent精选八股文
+- Agent 架构篇
+- Agent Framework
+content:
+  prompt: "\U0001F4E6 2. LangGraph 的 State 是什么？如何设计一个合理的 AgentState？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    State 是整个图运行时所有节点都能访问的共享内存。 它在 Python 里通常是一个 TypedDict 或 Pydantic 模型，每经过一个节点，State 都可能被更新（增量地覆盖部分字段）。
+
+    设计一个合理的 AgentState，要遵循四个原则：
+
+    - 承载全局上下文：所有节点需要用到的信息，都必须存在于 State 中。
+
+    - 字段尽量扁平，避免深层嵌套：节点更新 State 是浅合并的，嵌套太深容易出错，且不利于调试。
+
+    - 区分“持久数据”和“控制字段”：messages 这类持续累积的是数据，next_step、should_continue 这类决定图流向的是控制字段。
+
+    - 为 Checkpoint 和恢复留好位子：比如可以加一个 user_approval 字段，用于中断时暂存外部输入。
+
+    好设计 vs 坏设计：
+
+    # ❌ 差：把所有东西丢进一个大字典，没有类型
+    state = {"everything": [...]}
+
+    # ❌ 差：控制字段和数据字段混在一起，名字模糊
+    class BadState(TypedDict):
+        flag: bool
+        temp: str
+        data: dict
+
+    # ✅ 好：职责清晰，字段有类型
+    from typing import TypedDict, List, Optional
+    from langgraph.graph.message import add_messages
+
+    class GoodAgentState(TypedDict):
+        # 数据字段
+        messages: List[dict]          # 对话历史（用 add_messages 合并）
+        user_query: str               # 原始用户输入
+        intermediate_results: dict    # 工具返回的中间结果
+        final_answer: Optional[str]   # 最终答案
+
+        # 控制字段
+        next_agent: str               # 下一个要激活的节点
+        should_continue: bool         # 是否继续循环
+        error_count: int              # 连续失败次数
+
+    三个典型场景的 State 设计：
+
+    ① 简单的 Chatbot
+
+    class ChatState(TypedDict):
+        messages: list  # 只需要对话历史
+
+    ② ReAct Agent
+
+    class ReActState(TypedDict):
+        messages: list
+        tools_results: dict
+        iteration: int
+        final_answer: Optional[str]
+
+    ③ 需要人工审批的 Supervisor
+
+    class SupervisorState(TypedDict):
+        messages: list
+        worker_outputs: dict
+        pending_action: Optional[str]   # 待审批的动作
+        user_decision: Optional[str]    # 用户在中断时输入的决策
+
+    设计时的铁律：
+
+    每次你想加一个字段，先问自己：“哪个节点需要它？”如果只有一个节点需要，那它可能不该放在全局 State 里，而是该节点内部的局部变量。State 只放跨节点共享的东西。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BGoPwvMLhic7wKkrioacP0oynIh
+  block_id: doxcnoW45AaE4rVKLEN3ys0qbBH
+  page_token: BGoPwvMLhic7wKkrioacP0oynIh
+  original_title: "\U0001F4E6 2. LangGraph 的 State 是什么？如何设计一个合理的 AgentState？"
+  imported_at: '2026-09-21'

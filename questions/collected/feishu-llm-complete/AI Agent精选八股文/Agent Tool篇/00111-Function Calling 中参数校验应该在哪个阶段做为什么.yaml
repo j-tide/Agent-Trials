@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c6b22969d9e9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Function Calling 中参数校验应该在哪个阶段做？为什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Agent Tool篇
+tags: &1
+- AI Agent精选八股文
+- Agent Tool篇
+content:
+  prompt: Function Calling 中参数校验应该在哪个阶段做？为什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    答案：参数校验必须在“应用执行阶段”做，而不是依赖模型生成阶段。永远是“先校验，再执行”。
+
+    [图片内容未导入]
+
+    为什么不能依赖模型？
+
+    - 模型是概率性的，不可靠：温度不为 0 时，同一输入可能产生不同的参数。即使温度=0，模型也可能出现逻辑幻觉，比如把城市名填成日期。
+
+    - 没有绝对安全的生成：即使用 JSON Schema 约束，模型也可能生成合法的 JSON 但包含不合理的值（比如 "quantity": -100，或者 SQL 注入片段）。
+
+    - 越权风险：模型不知道当前用户的权限边界。一个普通用户可能通过精心构造的 prompt 让模型生成 delete_all_users 函数的调用，只有执行前校验才能拦住。
+
+    三层校验体系示例代码：
+
+    ```python
+    def execute_tool_safely(func_name, arguments, user_context):
+        # 1. 结构校验：用 JSON Schema 验证参数格式
+        schema = get_tool_schema(func_name)
+        try:
+            jsonschema.validate(instance=arguments, schema=schema)
+        except jsonschema.ValidationError as e:
+            raise InvalidArguments(f"参数格式错误: {e.message}")
+
+        # 2. 业务校验：值范围、业务规则
+        if func_name == "transfer_money":
+            if arguments["amount"] <= 0:
+                raise InvalidArguments("转账金额必须大于 0")
+            if arguments["amount"] > user_context.daily_limit:
+                raise PermissionDenied("超出每日转账额度")
+
+        if func_name == "query_database":
+            if any(keyword in arguments["sql"].upper() for keyword in ["DROP", "DELETE", "UPDATE"]):
+                raise InvalidArguments("只允许 SELECT 查询")
+
+        # 3. 权限校验：当前用户能否调用此工具
+        if func_name not in user_context.allowed_tools:
+            raise PermissionDenied(f"无权调用 {func_name}")
+
+        # 全部通过，真正执行
+        return call_actual_function(func_name, arguments)
+    ```
+
+    补充一点：在模型侧也可以做“软校验”
+    虽然不是安全防线，但在 description 中加上约束（如“金额必须为正数，且不超过用户余额”），能让模型在生成参数时就倾向于合规，减少无效调用次数，降低成本和延迟。这是“用户体验优化”，而“代码硬校验”是“安全保障”，两者并不矛盾，应该兼用。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/F5QpwqJp4i0pB3kmnPzcVpgGn19
+  block_id: doxcn7gYFCEhDfJB9m0GsH1AkNf
+  page_token: F5QpwqJp4i0pB3kmnPzcVpgGn19
+  original_title: Function Calling 中参数校验应该在哪个阶段做？为什么？
+  imported_at: '2026-09-21'

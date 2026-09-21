@@ -1,0 +1,99 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0e6e725a3073
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F916 3. 如何用 Actuator 监控 Agent 服务的 LLM 调用成功率、Token 消耗量、工具调用延迟等核心指标？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: AI Agent精选八股文
+derived_topic: Spring / MVC / Mybatis FrameWork篇
+tags: &1
+- AI Agent精选八股文
+- Spring / MVC / Mybatis FrameWork篇
+content:
+  prompt: "\U0001F916 3. 如何用 Actuator 监控 Agent 服务的 LLM 调用成功率、Token 消耗量、工具调用延迟等核心指标？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是整个回答的落地关键。一个 Agent 服务在推理、工具调用、回复生成等环节都有瓶颈点，我们要把核心交互变成可监控的黄金指标。
+
+    需要监控的指标清单
+
+    - llm.calls（Counter，标签 status=success|failure） → 调用成功率
+
+    - llm.tokens（Counter，标签 type=prompt|completion） → Token 消耗量及趋势
+
+    - llm.call.duration（Timer） → LLM 响应延迟 P95/P99
+
+    - tool.calls（Counter，标签 tool_name、status） → 每个工具调用次数和成功率
+
+    - tool.call.duration（Timer，标签 tool_name） → 工具调用延迟
+
+    实现方式（以 AOP + Micrometer 为例）
+
+    定义一个注解 @MonitoredLLM，切面里统一埋点：
+
+    ```java
+    @Around("@annotation(monitoredLLM)")
+    public Object monitorLLM(ProceedingJoinPoint pjp, MonitoredLLM monitoredLLM) {
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            Object result = pjp.proceed();
+            meterRegistry.counter("llm.calls", "status", "success").increment();
+            // 假设能从返回值中获取 token 用量
+            long tokens = extractTokens(result);
+            meterRegistry.counter("llm.tokens", "type", "completion").increment(tokens);
+            return result;
+        } catch (Exception e) {
+            meterRegistry.counter("llm.calls", "status", "failure").increment();
+            throw e;
+        } finally {
+            sample.stop(Timer.builder("llm.call.duration")
+                    .publishPercentiles(0.95, 0.99)
+                    .register(meterRegistry));
+        }
+    }
+    ```
+
+    工具调用同理，用 tool.calls Counter 和 tool.call.duration Timer，标签区分工具名称。
+
+    在 Actuator 里验证
+    启动后访问 /actuator/metrics/llm.calls，可以看到带标签的成功失败次数。在 Grafana 中配面板：
+
+    - 成功率：sum(rate(llm_calls_total{status="success"}[1m])) / sum(rate(llm_calls_total[1m]))
+
+    - Token 消耗趋势：sum(rate(llm_tokens_total[5m]))
+
+    - LLM 调用 P99 延迟：histogram_quantile(0.99, rate(llm_call_duration_seconds_bucket[5m]))
+
+    - 告警规则：比如连续 3 分钟成功率低于 99%，就触发 PagerDuty。
+
+    进阶：结合健康检查做熔断
+    如果 LLM 的错误率超过阈值，可以在 LLMHealthIndicator 中读取 Micrometer 指标，动态将健康状态置为 DOWN，配合 Kubernetes 的 readinessProbe 自动摘除该实例，避免扩散雪崩。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NHwYwCwRDiPz1OkM3b9cXNBinUd
+  block_id: doxcnqmZZZmCo8qjeperX6m8NPh
+  page_token: NHwYwCwRDiPz1OkM3b9cXNBinUd
+  original_title: "\U0001F916 3. 如何用 Actuator 监控 Agent 服务的 LLM 调用成功率、Token 消耗量、工具调用延迟等核心指标？"
+  imported_at: '2026-09-21'

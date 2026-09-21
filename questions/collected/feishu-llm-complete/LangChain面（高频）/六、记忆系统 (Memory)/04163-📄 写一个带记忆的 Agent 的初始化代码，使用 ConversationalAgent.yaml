@@ -1,0 +1,102 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5c2d5b9ac635
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "\U0001F4C4 写一个带记忆的 Agent 的初始化代码，使用 ConversationalAgent。"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 六、记忆系统 (Memory)
+tags: &1
+- LangChain面（高频）
+- 六、记忆系统 (Memory)
+content:
+  prompt: "\U0001F4C4 写一个带记忆的 Agent 的初始化代码，使用 ConversationalAgent。"
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 LangChain 中，ConversationalAgent 已被 create_openai_functions_agent 或 create_react_agent 所取代，但经典的 ConversationalAgent 仍然可用。下面给出一个使用 ConversationalAgent + Memory 的完整示例。
+
+    ```python
+    from langchain.agents import initialize_agent, AgentType
+    from langchain.chat_models import ChatOpenAI
+    from langchain.memory import ConversationBufferMemory
+    from langchain.tools import Tool
+
+    # 1. 定义工具
+    def search(query: str) -> str:
+        # 模拟搜索
+        return f"搜索结果：关于'{query}'的信息..."
+
+    tools = [
+        Tool(name="Search", func=search, description="当你需要查找实时信息时使用")
+    ]
+
+    # 2. 初始化 LLM
+    llm = ChatOpenAI(model="gpt-4", temperature=0)
+
+    # 3. 创建记忆（带消息格式）
+    memory = ConversationBufferMemory(
+        memory_key="chat_history",
+        return_messages=True
+    )
+
+    # 4. 初始化 Agent
+    agent = initialize_agent(
+        tools=tools,
+        llm=llm,
+        agent=AgentType.CONVERSATIONAL_REACT_DESCRIPTION,  # 对话式 Agent
+        memory=memory,
+        verbose=True,
+        handle_parsing_errors=True,
+        max_iterations=5,
+        early_stopping_method="generate",
+    )
+
+    # 5. 运行
+    response = agent.run("帮我搜索一下量子计算的最新进展")
+    print(response)
+    ```
+
+    关键配置说明：
+
+    - AgentType.CONVERSATIONAL_REACT_DESCRIPTION：专门为对话优化的 ReAct Agent，其 Prompt 中包含了对话历史的占位符。
+
+    - memory=memory：将记忆注入 Agent。记忆会自动记录每次交互的 Human 输入和 AI 回复。
+
+    - return_messages=True：现代聊天模型推荐使用消息列表格式，记忆会返回 List[BaseMessage]，而不是字符串。
+
+    踩坑经验：
+
+    - 这个 Agent 类型比较老，对于复杂的工具调用可能不如 create_openai_functions_agent 稳定。
+
+    - 如果 Memory 过大，Prompt 会超限，建议配合 ConversationSummaryBufferMemory 使用。
+
+    - 工具的描述（description）要足够清晰，否则 Agent 不知道何时调用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PGF2wlLMeiiO4SkG7iycSQbwnNf
+  block_id: Szbsdm6GbolS86xVLhZczFXgn8e
+  page_token: PGF2wlLMeiiO4SkG7iycSQbwnNf
+  original_title: "\U0001F4C4 写一个带记忆的 Agent 的初始化代码，使用 ConversationalAgent。"
+  imported_at: '2026-09-21'

@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-433233da7bae
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: "❓ 如果工具的输入需要多步确认（如“确定要删除吗？”），这在 LangChain 中怎么实现？"
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LangChain面（高频）
+derived_topic: 七、代理与工具 (Agents & Tools)
+tags: &1
+- LangChain面（高频）
+- 七、代理与工具 (Agents & Tools)
+content:
+  prompt: "❓ 如果工具的输入需要多步确认（如“确定要删除吗？”），这在 LangChain 中怎么实现？"
+answer:
+  mode: rubric
+  reference_answer: |-
+    需要用户确认的操作（如删除数据、支付）不能单靠工具函数本身，因为 Agent 默认是自动执行的，不会中途暂停等待用户输入。实现多步确认有以下几种方式：
+
+    方案一：工具返回“确认请求”，由 Agent 询问用户（最自然）
+    工具不执行实际操作，而是返回一个特殊的标记，比如 "CONFIRM_REQUIRED: 确定要删除订单 #12345 吗？请回复 Y/N"。Agent 看到这个返回后，应该在 Thought 中理解这需要用户确认，然后将这个确认请求作为 Final Answer 返回给用户。下一轮对话时，用户的确认（“Y”）会作为新的输入，Agent 再次调用该工具，并附上确认参数。
+
+    ```python
+    @tool
+    def delete_order(order_id: str, confirmed: bool = False) -> str:
+        """删除订单。首次调用时请将 confirmed 设为 False 以请求确认。"""
+        if not confirmed:
+            return f"CONFIRM_REQUIRED: 确定要删除订单 {order_id} 吗？此操作不可撤销。"
+        # 实际删除逻辑
+        return f"订单 {order_id} 已删除"
+    ```
+
+    方案二：使用 Human-in-the-Loop 工具
+    LangChain 提供了 HumanInputTool 或 InputTool，可以在工具执行时暂停并等待人工输入。但这种方法需要特殊的运行环境（如 Jupyter Notebook）。
+
+    方案三：在 Agent 外部增加确认拦截器
+    在 AgentExecutor 和用户界面之间加一层逻辑：当 Agent 返回的 Final Answer 中包含 CONFIRM_REQUIRED 时，UI 渲染确认按钮，用户点击后，再发起新的一轮对话（附带确认信息）。
+
+    方案四：利用回调中断
+
+    在工具执行前的回调中，根据条件暂停执行，但实现起来较复杂。
+
+    ✅ 实践建议：我倾向于方案一，因为它最符合 Agent 的自然交互模式。它利用 Agent 的推理能力来处理确认流程，而不是依赖外部机制。关键是工具设计时要支持“两段式”调用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZZIjwAYoMiY0VEk7JiDcIuK3nPb
+  block_id: DbmodHZIKoT7SixOINtcKjRhnIh
+  page_token: ZZIjwAYoMiY0VEk7JiDcIuK3nPb
+  original_title: "❓ 如果工具的输入需要多步确认（如“确定要删除吗？”），这在 LangChain 中怎么实现？"
+  imported_at: '2026-09-21'

@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7ed0167acde6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么不能仅凭loss选择最优微调checkpoint？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: 大模型微调-核心题
+derived_topic: 
+tags: &1
+- 大模型微调-核心题
+content:
+  prompt: 为什么不能仅凭loss选择最优微调checkpoint？
+answer:
+  mode: rubric
+  reference_answer: |-
+    仅凭Loss选checkpoint是微调中极其常见的错误，原因在于Loss与最终模型质量的脱节：
+
+    - Loss是统计指标，不反映高级语义质量：Loss衡量的是模型对标准回答中每个token的预测概率。它鼓励模型变得“保守”和“模板化”，因为那些高频的、安全但平庸的回答模式能稳定地降低Loss。一个彻底过拟合、只会背模板的模型，其验证Loss可能极低，但实际对话体验可能极差（如冗长啰嗦、答非所问）。
+
+    - 分布坍缩在Loss曲线上是“隐形的”：当模型输出多样性丧失时，Loss可能不升反降。因为模型将全部概率质量都集中到了少数几个“正确”模式上，对验证集中标准回答的预测反而更准确了。直到我们发现模型只会翻来覆去说那几句话时，为时已晚。
+
+    - 灾难性遗忘被掩盖：验证集与训练集分布相似，无法检测通用知识（如MMLU）的遗忘。一个严重遗忘但格式遵循良好的模型，在SFT验证集上的Loss可能依然很低。
+
+    - 错误的安全与对齐信号：如果模型学会了过度拒绝或生硬拒绝，这在训练数据中可能表现为高概率的“拒绝话术”，从而降低了Loss，但这显然不是我们想要的。
+
+    正确做法：在训练过程中，定期（如每N步）保存checkpoint，并在一个综合离线评估套件上运行，包括：验证损失（仅作参考）、IFEval（指令遵循）、通用基准（遗忘监控）、安全率、GPT-4-as-Judge生成质量评分等。选择那个在这些多维指标上达到最佳平衡的checkpoint，而不是Loss最低的那个。 通常情况下，性能最优的checkpoint出现在验证损失刚刚趋于平缓的“高原”早期，而非谷底。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/W8ogw5bIzisu3CkICRmcGngqnWc
+  block_id: FWegdmvE1oAP17xUs4bc4dnvn5g
+  page_token: W8ogw5bIzisu3CkICRmcGngqnWc
+  original_title: 为什么不能仅凭loss选择最优微调checkpoint？
+  imported_at: '2026-09-21'

@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f356312aaf4b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个序列打包（packing）函数，将多个输入拼接到一个序列并生成attention mask
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: SFT面（精选）
+derived_topic: 
+tags: &1
+- SFT面（精选）
+content:
+  prompt: 实现一个序列打包（packing）函数，将多个输入拼接到一个序列并生成attention mask
+answer:
+  mode: rubric
+  reference_answer: "该函数将多个样本的 input_ids 拼接成一个长序列，同时构建分块对角注意力掩码，使得不同样本之间不能互相关注。\n\n```python\nimport
+    torch\n\ndef pack_sequences(\n    input_ids_list: list[torch.Tensor],   # 每个样本的
+    input_ids (1D)\n    labels_list: list[torch.Tensor],      # 每个样本的 labels\n    pad_token_id:
+    int = 0,\n    eos_token_id: int = 2\n) -> dict:\n    \"\"\"\n    将多个样本拼接为一个 packed
+    序列，返回 input_ids, labels, attention_mask。\n    attention_mask 采用 4D 分块对角形式：形状 (1,
+    1, total_len, total_len)\n    \"\"\"\n    # 在样本之间插入 EOS 作为分隔（可选）\n    packed_input_ids
+    = []\n    packed_labels = []\n    segment_boundaries = []  # 每个样本的 (start, end)
+    索引（包含）\n    \n    offset = 0\n    for inp, lab in zip(input_ids_list, labels_list):\n
+    \       L = inp.size(0)\n        packed_input_ids.append(inp)\n        packed_labels.append(lab)\n
+    \       segment_boundaries.append((offset, offset + L - 1))\n        offset +=
+    L\n        # 插入分隔 token (EOS)，其 label 设为 -100（忽略）\n        packed_input_ids.append(torch.tensor([eos_token_id]))\n
+    \       packed_labels.append(torch.tensor([-100]))\n        offset += 1\n\n    #
+    移除最后一个多余的 EOS（如果末尾不需要）\n    if packed_input_ids and len(packed_input_ids[-1])
+    == 1:\n        packed_input_ids.pop()\n        packed_labels.pop()\n        offset
+    -= 1\n\n    input_ids = torch.cat(packed_input_ids, dim=0)\n    labels = torch.cat(packed_labels,
+    dim=0)\n    total_len = input_ids.size(0)\n\n    # 构建注意力掩码：上三角因果 + 分块对角（不同样本之间屏蔽）\n
+    \   causal_mask = torch.tril(torch.ones(total_len, total_len)).bool()\n    block_mask
+    = torch.zeros(total_len, total_len).bool()\n    for start, end in segment_boundaries:\n
+    \       block_mask[start:end+1, start:end+1] = True\n    attention_mask = causal_mask
+    & block_mask   # 两者同时满足\n    attention_mask = attention_mask.unsqueeze(0).unsqueeze(0)
+    \ # (1, 1, total_len, total_len)\n\n    return {\n        'input_ids': input_ids.unsqueeze(0),
+    \ # (1, total_len)\n        'labels': labels.unsqueeze(0),\n        'attention_mask':
+    attention_mask\n    }\n```\n\n说明：\n\n- 函数在每个样本后插入一个 EOS token，其 label 设为 -100，不参与损失计算。\n\n-
+    注意力掩码结合了因果掩码和分块对角掩码，确保不同样本间互不干扰。\n\n- 这种 packing 方式可提高训练效率，减少 padding 浪费。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JFt9wvuo1ijVfLktrcDcfTR8nTd
+  block_id: B8FZdtHEXotCN5xtRGvcgtxPnxb
+  page_token: JFt9wvuo1ijVfLktrcDcfTR8nTd
+  original_title: 实现一个序列打包（packing）函数，将多个输入拼接到一个序列并生成attention mask
+  imported_at: '2026-09-21'
