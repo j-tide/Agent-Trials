@@ -11,43 +11,45 @@
 
 题库是版本化内容，学习进度是运行时状态，不应该提交回题库仓库。
 
-## 当前网页 MVP
+## 当前网页版本
 
 当前页面使用存储键：
 
 ```text
-agent-trials.progress.v1
+agent-trials.progress.v2
 ```
 
 示例数据结构：
 
 ```json
 {
-  "version": 1,
-  "day": "2026-09-19",
-  "completedToday": 6,
+  "version": 2,
   "dailyGoal": 10,
-  "streakDays": 12,
-  "mastery": {
-    "Agent 基础": 78,
-    "Tool Calling": 64,
-    "RAG & Memory": 52,
-    "Evaluation": 41
+  "schedules": {
+    "feishu-llm-complete-001": {
+      "repetitions": 2,
+      "intervalDays": 3,
+      "lastRating": "remember",
+      "lastReviewedAt": "2026-09-21T06:00:00.000Z",
+      "nextReviewAt": "2026-09-24T06:00:00.000Z"
+    }
   },
   "attempts": [
     {
-      "questionId": "agent-harness",
-      "domain": "Agent 基础",
-      "day": "2026-09-19",
-      "isCorrect": true,
-      "selectedAnswer": 1,
-      "createdAt": "2026-09-19T05:00:00.000Z"
+      "questionId": "feishu-llm-complete-001",
+      "day": "2026-09-21",
+      "rating": "remember",
+      "answerLength": 156,
+      "reviewedAt": "2026-09-21T06:00:00.000Z"
     }
-  ]
+  ],
+  "drafts": {
+    "feishu-llm-complete-002": "尚未提交的回答草稿"
+  }
 }
 ```
 
-页面通过 `ProgressStore` 访问数据，因此以后接入后端时，只需要把 `load/save` 换成 API 调用。
+页面通过 `loadProgress/saveProgress` 访问数据，因此以后接入后端时，只需要替换这个存储适配层，不需要改刷题页面和调度策略。
 
 ## 后端版本建议
 
