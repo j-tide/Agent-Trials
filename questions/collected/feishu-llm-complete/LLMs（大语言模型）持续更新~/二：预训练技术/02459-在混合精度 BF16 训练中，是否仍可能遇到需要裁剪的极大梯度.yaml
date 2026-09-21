@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-50db9c5eb925
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在混合精度 BF16 训练中，是否仍可能遇到需要裁剪的极大梯度？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 在混合精度 BF16 训练中，是否仍可能遇到需要裁剪的极大梯度？
+answer:
+  mode: rubric
+  reference_answer: |-
+    答案是：不仅可能，而且概率并不低。
+
+    BF16的优势是它和FP32共享8位指数位，因此动态范围极大，理论上能表示的数值上限和FP32一样（约3.4×10^38）。所以很多人认为BF16训练不会出现梯度溢出，也不需要损失缩放，因此对梯度裁剪的需求会降低。但这个想法过于乐观了。
+
+    首先，梯度的爆炸不一定非要达到浮点数上限。即使BF16可以表示一个非常大的梯度值，如果这个梯度的范数达到了1000甚至10000，那么一步更新就会把参数推到完全未知的区域。虽然不会像FP16那样直接变成NaN，但模型性能会在这一瞬间严重受损，后续可能需要几百甚至上千步才能恢复，甚至永远无法恢复到这个尖峰之前的损失水平。所以，梯度裁剪是为了控制更新步长的合理性，而不仅仅是为了防止数值溢出。
+
+    其次，BF16的尾数只有7位，精度很低。在深度网络的某些层，尤其是注意力矩阵计算过程中，由于低精度累积误差，可能导致某些参数的梯度估计出现严重偏差，产生尖峰。这种尖峰在数值上可能远远超过正常梯度的量级，但由于BF16范围大，它不会饱和或溢出，而是以巨大的数值存在。此时，如果不裁剪，Adam的动量和二阶矩会被这个巨大值严重污染，优化器状态需要很长时间才能恢复。
+
+    我个人的经验是，即使在纯BF16训练中，仍然保持max_grad_norm=1.0或者稍微宽松一点（比如2.0）是明智的。它能起到稳定训练的作用，而且代价几乎为零。不要因为BF16动态范围大就放弃裁剪，这两者解决的是不同层面的问题。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TlYvww7Aoi1oXhkFGQwcFQYxnin
+  block_id: QJcRd4pLjoL4N5xpe6gct9Hynfd
+  page_token: TlYvww7Aoi1oXhkFGQwcFQYxnin
+  original_title: 在混合精度 BF16 训练中，是否仍可能遇到需要裁剪的极大梯度？
+  imported_at: '2026-09-21'

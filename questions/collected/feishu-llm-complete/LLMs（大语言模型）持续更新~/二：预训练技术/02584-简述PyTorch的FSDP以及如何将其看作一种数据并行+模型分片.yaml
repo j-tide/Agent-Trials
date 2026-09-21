@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e3ce4c82e734
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 简述PyTorch的FSDP以及如何将其看作一种数据并行+模型分片。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 简述PyTorch的FSDP以及如何将其看作一种数据并行+模型分片。
+answer:
+  mode: rubric
+  reference_answer: |-
+    FSDP (Fully Sharded Data Parallel) 是PyTorch 1.11+ 原生支持的一种数据并行策略，其核心思想与微软的ZeRO-3等价。它将模型参数、梯度、优化器状态分片（shard）到数据并行组内的所有GPU上，而非每张卡持有完整副本。
+
+    如何工作：
+
+    - 参数分片：在FSDP中，一个完整的模型参数矩阵被展平并按 GPU 数量平均切分。每张GPU只拥有并维护自己的一小片参数，显著降低每卡显存占用。
+
+    - 前向/反向时的通信：当某一层计算需要完整参数时，FSDP通过 All-Gather 从所有GPU收集该层的完整参数，计算完成后立即释放非本地分片。反向传播时，同样需要All-Gather参数来计算梯度。梯度计算完成后，通过 Reduce-Scatter 将各GPU上的分片梯度归约并分散到对应分片的所有者上。优化器状态同样被分片存储，仅在参数更新时由本地所有者应用。
+
+    为何是“数据并行+模型分片”：
+
+    - 数据并行性：FSDP构建在标准DDP之上，每个数据并行组处理不同的mini-batch数据，具备数据并行的所有特征（如分布式采样器）。
+
+    - 模型分片：它通过ZeRO-3技术，将模型状态（参数、梯度、优化器）按DP组切分，使得单卡所需显存与模型总大小除以GPU数成正比，极大突破了单卡显存限制。
+
+    - 与标准DP的对比：标准DDP中每卡需存完整模型，无法训练大模型。FSDP将DDP的显存瓶颈从“单卡模型大小”转变为“单卡模型分片+激活大小”，使得在同样的硬件上训练百亿甚至千亿参数模型成为可能，且编程接口相对简单，无需复杂的模型并行改造。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQ7qw1klCirayhkUauicscbqnpc
+  block_id: A8V1dsnMxotlkgxYsTscLZe0nxe
+  page_token: GQ7qw1klCirayhkUauicscbqnpc
+  original_title: 简述PyTorch的FSDP以及如何将其看作一种数据并行+模型分片。
+  imported_at: '2026-09-21'

@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-97723c756be8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: LangChain Agent 的工具选择机制：模型如何决定调用哪个工具？提示是如何构造的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: LangChain Agent 的工具选择机制：模型如何决定调用哪个工具？提示是如何构造的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangChain Agent 的工具选择，本质上是 LLM 在阅读了一段精心构造的提示词后，进行的一次“意图分类”和“槽位填充”的联合推理。其核心在于提示词的构造。
+
+    提示词的构造逻辑
+
+    当 AgentExecutor 准备调用 LLM 时，它会将以下所有信息组装成一个庞大的提示。
+
+    - 系统级指令（前缀）：这部分在提示的最开头，定义了 Agent 的行为准则。例如：“你是一个智能助手。你可以使用以下工具来帮助回答用户问题。请严格遵循 Thought/Action 格式。”
+
+    - 工具描述（核心）：所有可用工具的 name 和 description 被清晰地列出。每一条工具描述都像一篇微型 API 文档，详细阐述了该工具的功能、使用场景和参数要求。这是 LLM 进行选择的唯一依据。例如：
+
+    ```text
+    你可以使用以下工具：
+    search_web: 用于搜索互联网信息，参数 query: 搜索关键词。
+    calculator: 用于计算数学表达式，参数 expression: 数学表达式。
+    ```
+
+    - 对话历史：当前会话中的所有消息，包括用户的问题、模型之前的思考、执行的动作以及工具返回的观察。
+
+    - 格式指令（后缀）：这部分定义了 LLM 应该如何输出它的决策。对于 ReAct Agent，它会强制要求模型以 Thought: ... 和 Action: ... 的格式输出。对于 Functions Agent，则要求输出合法的函数调用 JSON。
+
+    模型如何决策
+
+    当 LLM 接收到这个庞大的提示后，它会逐 Token 地生成响应。在其内部，自注意力机制会同时处理所有信息。模型的“决策过程”是隐式完成的：它会将用户问题、对话历史的语义，与每个工具的 description 进行匹配。如果它判断用户的意图最符合某个工具的能力描述，并且它能够从对话历史中提取出该工具所需的参数，那么它就会选择这个工具，并按照格式指令生成相应的 Action。
+
+    例如，如果用户问“帮我算一下 123 乘以 456”，模型会将这句话与 calculator 工具的描述进行高权重匹配，因为该描述中提到了“计算数学表达式”。同时，它会从用户的话中提取出 123 * 456 作为参数。
+
+    这个过程是完全端到端的，LLM 在一次前向传播中同时完成了工具选择和参数提取。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/F9htw07hOih4oik4Vi3cSBIjnVd
+  block_id: CTALdSuuvoqbHexEVOCcClBvnCg
+  page_token: F9htw07hOih4oik4Vi3cSBIjnVd
+  original_title: LangChain Agent 的工具选择机制：模型如何决定调用哪个工具？提示是如何构造的？
+  imported_at: '2026-09-21'

@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-64072a24dde2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何将 KV Cache 复用与推测解码结合，例如草稿模型提前计算 KV？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如何将 KV Cache 复用与推测解码结合，例如草稿模型提前计算 KV？
+answer:
+  mode: rubric
+  reference_answer: |-
+    当草稿模型与目标模型共享部分结构（如相同的 embedding 层、前若干 Transformer 层）时，可以实现KV Cache 复用，显著减少冗余计算。
+
+    复用机制：
+
+    - 草稿阶段：草稿模型在自回归生成草稿 token 的过程中，为共享层计算并存储 KV Cache。这些缓存对应原始 prefix 加上逐 token 生成的新 token。
+
+    - 验证阶段：目标模型验证时，对于共享层，直接加载草稿模型已计算好的 KV Cache，无需重新计算。对于目标模型独有的高层，只需计算这些层的 KV（基于共享层的输出或中间表示）。
+
+    - 实现要求推理引擎支持 KV Cache 的跨模型传递，并能将共享层的物理块映射到目标模型的对应层。
+
+    优势：
+
+    - 消除了目标模型在验证时对 prefix 及草稿 token 的共享层重计算，大幅降低验证前向的延迟，进一步放大加速比。
+
+    - 结合 PagedAttention，草稿模型生成的 KV 可存储在与目标模型共享的物理块中，通过引用计数和块表实现零拷贝共享。
+
+    典型场景：如使用 Medusa 或共享 embedding + 前几层的小草稿模型，KV 复用几乎是“免费”的性能提升，是推测解码系统的重要优化方向。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Us9awBi8iiwtfZkqtRzcSfVcnJe
+  block_id: WLijdgOjzo2EwIxW4b4cnx34nFh
+  page_token: Us9awBi8iiwtfZkqtRzcSfVcnJe
+  original_title: 如何将 KV Cache 复用与推测解码结合，例如草稿模型提前计算 KV？
+  imported_at: '2026-09-21'

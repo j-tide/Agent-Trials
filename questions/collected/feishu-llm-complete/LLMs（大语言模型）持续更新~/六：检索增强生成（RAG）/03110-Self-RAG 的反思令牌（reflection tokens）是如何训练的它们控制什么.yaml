@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b434e8b2ef1d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Self-RAG 的“反思令牌”（reflection tokens）是如何训练的？它们控制什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: Self-RAG 的“反思令牌”（reflection tokens）是如何训练的？它们控制什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    反思令牌的本质
+
+    反思令牌是一类特殊的、被模型当作普通词汇来预测的控制符号，例如 <Retrieve>、<Relevant>、<Irrelevant>、<Supported>、<No Support> 等。它们将模型的“内心思考”外显为可控的文本，使得模型的检索和评估行为可以被训练和可解释。
+
+    训练过程：数据构造与模型微调
+
+    训练反思令牌的关键在于构造一个包含这些令牌的大规模增强训练数据集。这个过程通常借助一个强大的教师模型来完成。
+
+    - 原始数据收集：收集大量包含输入、输出和检索文档的示例。
+
+    - 教师模型标注：对于每一个例子，教师模型（如 GPT-4）被要求分析在生成输出的每个阶段，下一步的最佳行动是什么。例如：在当前位置是否需要检索外部信息？检索到的某篇文档是否相关？生成的某个句子是否能从文档中得到支持？
+
+    - 令牌插入：教师模型将分析结果转化为具体的反思令牌，并将其插入到原始训练文本的相应位置。例如，在需要检索的地方插入 <Retrieve>，在不相关文档的末尾插入 <Irrelevant>，在已生成句子的末尾插入 <Supported>。
+
+    - 监督微调：用这个带有反思令牌的增强语料对目标大语言模型进行监督微调。模型通过标准的语言建模损失函数，学习预测这些令牌以及令牌前后的内容序列。由于反思令牌的引入改变了文本的结构，模型被迫学会在合适的上下文中准确地生成这些控制信号。
+
+    反思令牌的控制功能
+
+    训练完成后，这些反思令牌在推理时控制着整个 Self-RAG 流程的三个关键环节：
+
+    - 检索控制：<Retrieve> 令牌直接控制何时触发外部检索。
+
+    - 文档筛选：<Relevant> / <Irrelevant> 令牌控制哪些检索到的文档被纳入上下文，实现细粒度的输入过滤。
+
+    - 事实核查与自纠：<Supported> / <Partially Supported> / <No Support> 令牌用于评估生成内容的可靠性，为后续的可能修正提供依据，也让整个系统的输出更加可信。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y1dXw3l0KiZYg7kLXpQcX5gpn3f
+  block_id: VKcnd7lgnoqFaUxLTD2cRoeOnXg
+  page_token: Y1dXw3l0KiZYg7kLXpQcX5gpn3f
+  original_title: Self-RAG 的“反思令牌”（reflection tokens）是如何训练的？它们控制什么？
+  imported_at: '2026-09-21'

@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a0c17e7bf839
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当 assistant 回复中包含不希望模型学习的部分（如不确定的标注），如何局部掩码？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 当 assistant 回复中包含不希望模型学习的部分（如不确定的标注），如何局部掩码？
+answer:
+  mode: rubric
+  reference_answer: "在实际标注中，某些 assistant 回复可能只有部分内容是正确的，其他部分存在不确定性。我们不应直接丢弃整条数据，而是精准地只学习正确的部分。\n\n实现“局部掩码”的方法：\n\n-
+    使用特殊标记符标注不确定区域：在数据标注时，用 [UNCERTAIN] 和 [/UNCERTAIN] 这类特殊标记将不确定的文本片段包裹起来。这些标记符会被添加到模型的词表中。\n\n-
+    在构建 labels 时进行精确掩码：\n\n```python\ndef create_local_mask(input_ids, tokenizer):\n
+    \   labels = input_ids.clone()\n    uncertain_start = tokenizer.convert_tokens_to_ids(\"[UNCERTAIN]\")\n
+    \   uncertain_end = tokenizer.convert_tokens_to_ids(\"[/UNCERTAIN]\")\n    \n
+    \   in_uncertain = False\n    for i in range(labels.shape[1]):\n        token
+    = labels[0, i].item()\n        if token == uncertain_start:\n            in_uncertain
+    = True\n            labels[0, i] = -100\n        elif token == uncertain_end:\n
+    \           labels[0, i] = -100\n            in_uncertain = False\n        elif
+    in_uncertain:\n            labels[0, i] = -100\n    return labels\n```\n\n优势：这种方式保护了数据中的有效部分不被浪费，同时避免了模型学习到错误或模糊的知识。\n\n关键：这需要标注者或自动标注流程具备识别不确定内容的能力，并将其用特殊标记符标注出来。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VOrVwrhLzi4WRokQOMPcOsPWnwg
+  block_id: HsCSdsokgouALfxcPipcu1OMnLf
+  page_token: VOrVwrhLzi4WRokQOMPcOsPWnwg
+  original_title: 当 assistant 回复中包含不希望模型学习的部分（如不确定的标注），如何局部掩码？
+  imported_at: '2026-09-21'

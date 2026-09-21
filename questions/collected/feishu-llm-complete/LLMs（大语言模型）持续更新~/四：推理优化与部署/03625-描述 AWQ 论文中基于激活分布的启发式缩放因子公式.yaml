@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c2a16b1f4881
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 描述 AWQ 论文中基于“激活分布”的启发式缩放因子公式。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 描述 AWQ 论文中基于“激活分布”的启发式缩放因子公式。
+answer:
+  mode: rubric
+  reference_answer: |-
+    AWQ 论文给出了一个简单而有效的启发式公式，利用校准数据的激活统计量来确定逐通道的缩放因子。
+
+    基本形式：
+    设对于某一线性层，校准数据集上收集的输入激活为 X，对每个输入通道 i，计算其平均绝对幅度（或其他统计量）：
+
+    [图片内容未导入]
+
+    其中 α∈[0,1] 是控制缩放强度的超参数。当 α=0 时，所有 si=1，退化为无缩放；α=1 时，缩放因子完全正比于激活幅度，迁移最激进。
+
+    AutoAWQ 中的具体实现（默认）：
+
+    - 对每个通道，取激活的绝对最大值平滑版本：act_max = max(|X_{:,i}|)
+
+    - 应用平滑因子和缩放强度：s_i = (act_max / smooth_factor) ^ alpha，其中 smooth_factor 常设为全局 act_max 的均值或某个百分位数，防止极端值。
+
+    - 最后通常 clip 到 [1e-5, 1e5]，并保证缩放因子在合适的数值范围内，避免反量化时溢出。
+
+    效果：此公式使大激活通道获得大的 si，显著放大对应权重，从而减小其量化相对误差；小激活通道的权重则可能被相对缩小，但其对输出的影响本就微弱，额外误差可忽略。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CNm5w5hEKiUhQ5kMnPrcFoSGnVd
+  block_id: Hyh9dW4cxoQIrsxvINGcrEaHnuQ
+  page_token: CNm5w5hEKiUhQ5kMnPrcFoSGnVd
+  original_title: 描述 AWQ 论文中基于“激活分布”的启发式缩放因子公式。
+  imported_at: '2026-09-21'

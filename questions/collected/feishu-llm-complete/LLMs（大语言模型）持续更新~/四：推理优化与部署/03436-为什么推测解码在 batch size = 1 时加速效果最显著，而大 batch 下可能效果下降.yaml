@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-78381b14d65c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么推测解码在 batch size = 1 时加速效果最显著，而大 batch 下可能效果下降？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 为什么推测解码在 batch size = 1 时加速效果最显著，而大 batch 下可能效果下降？
+answer:
+  mode: rubric
+  reference_answer: |-
+    根源在于 GPU 计算模式的变化。
+
+    Batch size = 1（延迟敏感场景）：
+
+    - 目标模型每次前向只处理 1 个请求。模型计算是延迟密集型，GPU 算力大量空闲，但受限于每次迭代必须串行执行。推测解码通过减少模型调用次数，直接降低延迟，几乎能按 1/(1-α) 倍降低整体 decode 时间。
+
+    - 草稿模型的开销相对目标模型很小，加速比接近理论上限。
+
+    大 batch（吞吐导向场景）：
+
+    - 在高并发下，GPU 已经被大量请求的并行计算填满，目标模型每次前向可同时为所有请求生成 token，计算效率极高。此时，吞吐已经接近硬件极限。推测解码虽然能减少目标模型调用次数，但每次调用处理的请求数不变，吞吐提升有限。
+
+    - 同时，草稿模型需要为 batch 中每个请求生成草稿 token，草稿阶段的计算量随 batch 线性增长，可能成为新的瓶颈。大 batch 下草稿模型的执行时间占比上升，降低了净加速。
+
+    - 此外，大 batch 下内存带宽紧张，推测解码额外的 KV Cache 访问可能加剧带宽压力。
+
+    定量分析：设大 batch 下目标模型吞吐为 T_t tokens/s。推测解码减少了目标模型调用次数，但增加了草稿模型工作。若草稿模型吞吐为 T_d，加速比约为 1 / (1/T_t + K/T_d) * E，在大 batch 下 T_t 和 T_d 都可能接近硬件峰值，提升空间小。
+
+    因此，推测解码是延迟优化技术，主要提升单用户或低并发下的响应速度；在高吞吐服务中，如果已经充分利用硬件，其增益有限，甚至因草稿模型开销而略降吞吐。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Us9awBi8iiwtfZkqtRzcSfVcnJe
+  block_id: Jo9xd1HeIocszXxGl25cMHPknIe
+  page_token: Us9awBi8iiwtfZkqtRzcSfVcnJe
+  original_title: 为什么推测解码在 batch size = 1 时加速效果最显著，而大 batch 下可能效果下降？
+  imported_at: '2026-09-21'

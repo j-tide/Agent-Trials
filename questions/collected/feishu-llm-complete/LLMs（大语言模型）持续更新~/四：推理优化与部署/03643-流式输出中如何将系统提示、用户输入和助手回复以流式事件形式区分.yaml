@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9be3833fec95
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 流式输出中如何将“系统提示”、“用户输入”和“助手回复”以流式事件形式区分？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 流式输出中如何将“系统提示”、“用户输入”和“助手回复”以流式事件形式区分？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在多轮对话中，或需要区分消息角色时，可以通过 SSE 的 event 字段或消息中的 role 字段来标识不同部分。
+
+    方案：
+
+    - 使用 SSE event 类型
+    服务端在推送不同角色内容时，设置不同的 event 名称：
+
+    - 在数据 JSON 中包含 role 字段
+    类似 OpenAI Chat Completion 流式，每个 chunk 的 choices[0].delta 中包含 role（仅在第一个 chunk 中指定 role: "assistant"），后续 chunk 不包含 role。前端根据首 chunk 的角色分配消息框。
+
+    - 多阶段流
+    对于复杂的多步骤对话（如工具调用），服务端可以在一个流中依次发送多种事件：
+
+    - 实现细节
+    在服务端生成循环中，根据当前生成的阶段，设置对应的 SSE event 或 JSON 字段。例如，在开始生成助手回复时，先发送：
+
+    ```text
+    event: assistant
+    data: {"role": "assistant", "content": ""}
+    ```
+
+    - 然后后续 token 均发送 event: assistant 或省略 event 使用默认助手角色。
+
+    这样前端可以基于事件类型构建清晰的多角色对话界面，实现类似 ChatGPT 的显示效果。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/P30KwGxJIiaDg5kjcX0c8HC6ntd
+  block_id: OcgsdMxFoo0ehIxBhWmc72PNnJb
+  page_token: P30KwGxJIiaDg5kjcX0c8HC6ntd
+  original_title: 流式输出中如何将“系统提示”、“用户输入”和“助手回复”以流式事件形式区分？
+  imported_at: '2026-09-21'

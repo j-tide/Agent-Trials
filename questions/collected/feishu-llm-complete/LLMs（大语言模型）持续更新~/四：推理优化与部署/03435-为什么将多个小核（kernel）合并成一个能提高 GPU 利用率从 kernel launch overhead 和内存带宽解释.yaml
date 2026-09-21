@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0b03841f8b92
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么将多个小核（kernel）合并成一个能提高 GPU 利用率？从 kernel launch overhead 和内存带宽解释。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 为什么将多个小核（kernel）合并成一个能提高 GPU 利用率？从 kernel launch overhead 和内存带宽解释。
+answer:
+  mode: rubric
+  reference_answer: |-
+    - Kernel Launch Overhead 角度
+
+    每次在 GPU 上启动一个 kernel，都需要 CPU 线程发起调用、通过 CUDA 驱动程序提交到队列，然后 GPU 调度器分配资源并执行。这个过程存在固定开销（通常在 5~15 微秒）。如果模型由数百个小操作组成，每个操作本身计算时间可能仅几微秒，那么 launch 开销将占据总时间的大部分，GPU 大部分时间处于空闲等待任务。将所有小操作融合为一个 kernel，只需一次 launch，消除了重复的调度延迟，使得 GPU 执行更紧凑，有效计算时间占比大增。
+
+    - 内存带宽角度
+
+    GPU 的 HBM 带宽相对于计算能力往往成为瓶颈，尤其在推理中。离散的每个算子都需要从 HBM 读取输入并写回输出。例如，一个 element-wise 加法：读两个张量，写一个张量，操作强度极低，几乎纯带宽消耗。连续多个小算子会造成同一数据反复在 HBM 和计算单元之间搬运。融合后，中间结果通过寄存器或共享内存传递，不经过 HBM，显著减少了对全局内存的读写次数，让宝贵的内存带宽更多地用于加载原始输入和写出最终结果，而非临时张量。
+
+    综合效果：融合后的 kernel 有更高的算术强度（FLOP/Byte），更容易从带宽受限转变为计算受限，从而充分利用 GPU 的计算资源，提高整体利用率。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Uhg6wKBvGiSyqckdgPTciRAMn9f
+  block_id: G9wXdnZBtoZoQxxAMhocp5ZOntc
+  page_token: Uhg6wKBvGiSyqckdgPTciRAMn9f
+  original_title: 为什么将多个小核（kernel）合并成一个能提高 GPU 利用率？从 kernel launch overhead 和内存带宽解释。
+  imported_at: '2026-09-21'

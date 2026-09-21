@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7dae94660212
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当使用 GQA 时，FlashAttention 的实现需要做哪些适配？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 当使用 GQA 时，FlashAttention 的实现需要做哪些适配？
+answer:
+  mode: rubric
+  reference_answer: |-
+    FlashAttention 通过分块（tiling）和重计算来减少 HBM 读写，核心是将 Q, K, V 分成小块，在 SRAM 中完成 softmax 缩放和累积。原生 FlashAttention 假定 Q 与 KV 的头数相同（MHA）。适配 GQA 需要处理KV 头数小于 Q 头数的情况，即 g<h。
+
+    主要适配点：
+
+    - 引入分组广播（Group Expand）：
+    FlashAttention 内核需要知道哪些 Q 头对应哪个 KV 头。输入时将 K, V 的张量形状维持为 [b, s_{kv}, g, d]，而 Q 为 [b, s_q, h, d]。在循环分块时，每个线程块处理的 Q 头索引需要映射到对应的 KV 头。实现上可以在 CUDA kernel 中根据 Q 头的组索引 group_idx = head_idx * g / h 来加载对应的 K, V 块。例如，当 Q 头索引 i 属于组 j 时，K, V 取第 j 个头的数据。
+
+    - K, V 的加载与复用：
+    由于多个 Q 头共享同一 K, V，在 SRAM 中可以一次加载 K, V 块，然后依次与属于该组的所有 Q 头进行计算，从而最大化数据复用，减少对 HBM 的访问。FlashAttention-2 中，通过在外层循环按 KV 块迭代，内层循环遍历共享该 KV 的所有 Q 头，即可自然适配 GQA。
+
+    - 索引与步幅调整：
+    在核函数中，张量的步幅（stride）需要根据 GQA 重新计算。例如 K 的头部步幅仅为 g 个头的内存跨度，而 Q 为 h 个头。在 softmax 归一化和输出累加时，需要正确处理不同 Q 头对应的不同 m, l（softmax 统计量），因为它们共享同一份 K, V 但仍需独立计算 softmax。
+
+    - 软件层面的接口适配：
+    像 PyTorch 的 scaled_dot_product_attention 或 flash_attn 库，直接提供了 num_heads_kv 参数。用户传入 q, k, v，其中 k, v 的头部维度可能小于 q 的头部维度，内部实现通过 repeat_kv 之类的函数在需要时逻辑扩展，但真正的 FlashAttention 内核在 CUDA 层级会避免物理扩展，直接根据组映射计算。
+
+    具体实现逻辑（以 FlashAttention-2 为例）：
+
+    - 内核按照 KV 头数进行调度，对于每个 KV 头，分配一组线程块处理其对应的所有 Q 头。在 inner loop 中，逐块加载 K, V，然后循环处理组内的每个 Q 头，执行点积、softmax 更新、乘累加。
+
+    - 这种适配不仅正确，而且高效，因为 KV 的 SRAM 驻留可以被组内所有 Q 头重复利用，减少了 HBM 读取 KV 的次数，恰好利用了 GQA 的带宽优势。
+
+    因此，适配的核心是在分块策略中引入“组”的概念，让 KV 块在组内多个 Q 头间共享，从而无需显式扩展 KV 张量。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YD2SwSsy9iTGMmkEs4jcylEZnnd
+  block_id: Aw6idMUzSoJhgVxEAsecxgMenwh
+  page_token: YD2SwSsy9iTGMmkEs4jcylEZnnd
+  original_title: 当使用 GQA 时，FlashAttention 的实现需要做哪些适配？
+  imported_at: '2026-09-21'

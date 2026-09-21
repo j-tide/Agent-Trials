@@ -1,0 +1,87 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dc11d5b83792
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果已经使用了 GQA，再结合 KV 量化，KV Cache 能缩小到什么程度？给出数量级估算。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如果已经使用了 GQA，再结合 KV 量化，KV Cache 能缩小到什么程度？给出数量级估算。
+answer:
+  mode: rubric
+  reference_answer: |-
+    GQA 和 KV 量化分别从头数和位宽两个正交维度压缩 KV Cache，它们的压缩效果是乘法叠加的。我们可以通过一个典型大模型配置来估算总压缩倍数。
+
+    假设配置：
+
+    - 模型：LLaMA 2-70B 风格，层数 L=80，嵌入维度 d model=8192，查询头数 h=64，使用 GQA 且 KV 头数 g=8。
+
+    - 原始 MHA 采用 FP16 存储（每元素 16 bits = 2 bytes）。
+
+    - 量化方案：将 KV Cache 量化为 INT4（4 bits = 0.5 bytes），或更激进地采用 2-bit 量化。
+
+    - 原始 MHA (FP16) 每 token 的 KV 缓存量：
+
+    每个 token 每层需要存储的 Key 和 Value 元素数为：
+
+    [图片内容未导入]
+
+    80 层总计：80×32 KB=2.56 MB/token。
+
+    - 使用 GQA (g=8) 后，每 token 缓存元素数：
+
+    [图片内容未导入]
+
+    相比 MHA 的元素压缩比为 g/h=8/64=1/8，字节数（FP16）为 2048×2=4096 bytes≈4 KB/token/layer。80 层：320 KB/token。
+
+    - 结合 INT4 量化：
+
+    将 FP16（16 bits）量化为 INT4（4 bits），存储量再减少为原来的 1/4。此时每 token 每层：
+
+    [图片内容未导入]
+
+    80 层：80 KB/token。
+
+    - 总压缩倍数估算：
+
+    相对于 MHA FP16 的 2.56 MB/token，GQA + INT4 的 80 KB/token 缩小了：
+
+    [图片内容未导入]
+
+    即压缩约 33 倍。如果量化到 2-bit，则再缩小 2 倍，达到 ~66 倍。
+
+    现实意义：
+
+    一块 80 GB 显存的 GPU，若仅用 MHA FP16，只能存储约 31k token 的 KV Cache（80 GB / 2.56 MB ≈ 31250）。改用 GQA + INT4 后，可存储超过 100 万 token（80 GB / 80 KB = 1,000,000）。这为 100K+ 超长上下文和极高并发 batch 推理铺平了道路，且目前已在生产环境中广泛实践（如 TensorRT-LLM 的 INT8/INT4 KV Cache 支持）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YD2SwSsy9iTGMmkEs4jcylEZnnd
+  block_id: L6JPdBWwkotpC7xExlVcl0vdnSh
+  page_token: YD2SwSsy9iTGMmkEs4jcylEZnnd
+  original_title: 如果已经使用了 GQA，再结合 KV 量化，KV Cache 能缩小到什么程度？给出数量级估算。
+  imported_at: '2026-09-21'

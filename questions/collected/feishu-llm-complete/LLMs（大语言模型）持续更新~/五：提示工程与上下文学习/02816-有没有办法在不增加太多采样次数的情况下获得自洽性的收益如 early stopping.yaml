@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-53ef28eb427b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 有没有办法在不增加太多采样次数的情况下获得自洽性的收益？如 early stopping。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: 有没有办法在不增加太多采样次数的情况下获得自洽性的收益？如 early stopping。
+answer:
+  mode: rubric
+  reference_answer: |-
+    自洽性的计算成本与采样次数成正比。为了在成本和收益之间取得更好的平衡，研究者们探索了多种减少有效采样次数的方法。
+
+    - 自适应早停
+
+    这是最直观的方法。不预先设定 N=10 或 20，而是动态决定采多少。流程如下：
+
+    - 先采样较少的路径，比如 3 条或 5 条。
+
+    - 统计当前答案的分布。如果已经出现了一个非常占优势的答案（比如得票率超过 60%，或者与第二名的票差大于 2），那么就提前停止，直接输出这个答案。
+
+    - 如果票数非常分散，没有明显赢家，就继续追加采样，直到达到预设的最大采样数 N_max，或者某一答案获得了足够优势。
+    这种方法可以在简单问题或模型很确定时节省大量计算，而把计算留给真正困难、需要更多思考的问题。根据已有研究，在数学推理等任务上，自适应早停可以在平均采样次数减少 30%~50% 的情况下，保持接近全采样的准确率。
+
+    - 基于一致性的置信度过滤
+
+    类似的思想，但不一定完全停止，而是根据早期采样的“一致程度”来决定最终是否需要更多采样。如果早期采样高度一致，答案的可信度已经很高，即使再加采样也不会改变结果，就可以停止。
+
+    - 并行采样与部分投票
+
+    如果系统支持批量并行生成（batch inference），同时生成 N 条路径在延迟上与生成一条路径相差无几（只增加显存和算力）。那么，通过高效的批量推理，N 次采样的墙钟时间几乎等于一次，这时“减少采样次数”的动机就弱化了。但在显存有限或按 token 收费的 API 调用中，减少 N 仍有直接的经济意义。
+
+    - 使用更小、更快的模型进行初筛
+
+    先让一个小模型生成多条推理路径，只保留那些答案在小模型投票中进入前几名的候选路径，然后用大模型对这些候选路径进行重验证或重新推理。这可以大大减少昂贵的大模型调用次数。
+
+    - 贪心一致性
+
+    它利用模型的自注意力或隐层状态来推断，如果进行多次采样，哪个答案更可能胜出，而不实际执行多次生成。这类方法仍处于研究阶段，尚未成熟。
+
+    实用经验：自适应早停是目前最实用、最容易部署的降本方案。在很多推理框架中，可以通过简单包装一个循环来实现：设置最小采样数 min_N 和最大采样数 max_N，并在每轮采样后检查投票的熵或最高票比例。当满足停止条件或达到 max_N 时输出结果。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MGuPw0n6Ji2qNJkRj17cdAcWnue
+  block_id: D8LDdbSJ5oktkmx5XC7cqhiKnoc
+  page_token: MGuPw0n6Ji2qNJkRj17cdAcWnue
+  original_title: 有没有办法在不增加太多采样次数的情况下获得自洽性的收益？如 early stopping。
+  imported_at: '2026-09-21'

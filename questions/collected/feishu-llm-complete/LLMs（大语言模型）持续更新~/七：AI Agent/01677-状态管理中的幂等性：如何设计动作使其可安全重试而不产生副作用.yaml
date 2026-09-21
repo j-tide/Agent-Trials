@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d303307a550e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 状态管理中的“幂等性”：如何设计动作使其可安全重试而不产生副作用？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 状态管理中的“幂等性”：如何设计动作使其可安全重试而不产生副作用？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 Agent 状态管理和工具执行中，幂等性是一项核心的设计原则。它指的是一个操作执行一次和执行多次，对系统产生的最终效果和状态改变是相同的，且不会产生额外的副作用。
+
+    为什么需要幂等性
+
+    Agent 运行环境充满了不确定性：网络超时、执行器崩溃、状态同步延迟。这些因素都可能导致同一个动作被意外地重复执行。如果没有幂等性设计，重试可能导致灾难性后果，如重复下单、重复扣款、发送多封相同邮件。
+
+    实现幂等性的设计模式
+
+    - 唯一操作ID：这是实现幂等性的关键。在 Agent 每次发起一个具有副作用的工具调用时，后端为其生成一个全局唯一的操作 ID（如 UUID）。这个 ID 在重试时保持不变。工具调用的目标 API 或数据库接口需要支持接收这个 ID，并在内部维护一个“已处理操作ID”的集合。当收到新的请求时，它首先检查该 ID 是否已被处理过。如果是，则直接返回第一次操作的成功结果，而不再执行实际操作。
+
+    - 区分“安全方法”与“非安全方法”：对 Agent 的工具集进行分类。像 search、read_file 这些只读操作，天生是幂等的，可以放心重试。而像 send_email、create_order 等写操作，必须实现幂等性。
+
+    - 乐观锁与状态校验：在执行一个动作前，Agent 需要检查当前的状态是否仍然允许执行该动作。例如，一个“批准”操作，只有当任务状态仍为“待审批”时才有效。如果状态已经因上一次重试而变成了“已批准”，那么后续的重试请求就会被乐观锁机制拒绝。
+
+    - 唯一索引与冲突忽略：在数据库层面，为关键字段（如订单号、邮件ID）创建唯一索引。当重试导致重复插入时，数据库会抛出冲突错误。后端可以捕获这个错误，并将其视为“幂等成功”，而不是业务错误。
+
+    通过将“唯一操作 ID”与“乐观锁”等机制结合，我们可以将脆弱的、不可靠的工具调用，转变为健壮的、可安全重试的可靠操作，极大地提升了 Agent 系统的鲁棒性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/N9kPwKx7siGuUMkJ3jRc5htKnAb
+  block_id: WDr9dwmrkoG10rxT5h7cOqHKnuN
+  page_token: N9kPwKx7siGuUMkJ3jRc5htKnAb
+  original_title: 状态管理中的“幂等性”：如何设计动作使其可安全重试而不产生副作用？
+  imported_at: '2026-09-21'

@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b35404fdd418
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ToT 中，如何平衡探索与利用？是否可以使用 UCB 进行选择？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: ToT 中，如何平衡探索与利用？是否可以使用 UCB 进行选择？
+answer:
+  mode: rubric
+  reference_answer: |-
+    探索（exploration）与利用（exploitation）的平衡是所有搜索算法的核心挑战。利用意味着继续深化当前看起来最有希望的分支，探索则意味着尝试那些目前评分不高但可能蕴藏惊喜的分支。在 ToT 中，如果只利用（如束搜索始终保留分数最高的 K 个），可能过早陷入局部最优，错过那些起步慢但后劲足的解法；如果过度探索，计算资源将分散在大量低质分支上，效率低下。
+
+    ToT 中现有的平衡手段：
+
+    - 束搜索的束宽 K：K 越大，探索越充分，因为保留了更多非最优节点。这是一种简单的平衡：利用通过选择 Top-K 体现，探索通过保留一定数量的次优节点来体现。
+
+    - 采样生成（带温度）：在生成候选思维时使用一定的温度，鼓励生成多样化的选项，本身就是一种探索。低温则更偏向利用（选最可能的）。
+
+    - 评估中的鼓励探索：在提示词中要求 LLM 评估时考虑“该状态虽然目前不突出，但可能开辟新路径”，给有探索价值的状态稍高的分数。但这较主观。
+
+    - 逐步增加束宽：如前一问所述，初始束宽小，若找不到解再增大束宽，相当于先利用后探索。
+
+    能否使用 UCB（Upper Confidence Bound）进行选择？
+
+    可以，这正是 MCTS 在 ToT 中的应用。UCB 公式为：
+
+    [图片内容未导入]
+
+    [图片内容未导入]
+
+    应用 UCB 的 ToT 流程：
+
+    - 初始化根节点，访问次数为 0。
+
+    - 从根节点开始，递归地根据 UCB 选择子节点，直到到达未完全扩展的节点（即尚有未生成的候选思维）或叶节点。
+
+    - 对于未完全扩展的节点，生成一个新的候选思维（扩展一个子节点），并用 LLM 评估该新状态的价值。将这个价值视为一次“模拟”的回报。
+
+    [图片内容未导入]
+
+    实际挑战：
+
+    - LLM 调用成本：MCTS 通常需要成千上万次模拟，但每次模拟在 ToT 中都意味着一次 LLM 评估调用，成本极高。因此，纯粹的 MCTS 对 ToT 来说往往过于昂贵。
+
+    - 价值评估的稳定性：UCB 假设每次价值评估是带噪声的无偏估计。但 LLM 评估可能存在系统性偏差（如对某种格式的偏好），且同一条路径重复评估结果可能波动。
+
+    - 实现复杂度：需要为每个状态维护统计数据，并支持高效的回溯更新，工程上比束搜索复杂。
+
+    折中方案：可以将 UCB 用于选择“下一步扩展哪个节点”，但限制总模拟次数（如总共只进行 50 次扩展和评估）。每次扩展仍使用 LLM 生成一个候选和评估。这种轻量级 MCTS 在部分研究中已被采用，并显示出比固定束搜索更高效的计算分配。当计算预算非常有限时，UCB 可以帮助把钱花在刀刃上。
+
+    总的来说，是否使用 UCB 取决于你是否能承受较多的 LLM 调用，以及问题对探索的需求有多强。如果任务很容易陷入局部最优，且预算允许，采用 UCB 的变体能够显著提升 ToT 的鲁棒性和最终解的质量。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YLhCwBILIiMYuXkdn6IcggP8nEh
+  block_id: QgaudssF9oz73XxOZAmc1e0onEg
+  page_token: YLhCwBILIiMYuXkdn6IcggP8nEh
+  original_title: ToT 中，如何平衡探索与利用？是否可以使用 UCB 进行选择？
+  imported_at: '2026-09-21'

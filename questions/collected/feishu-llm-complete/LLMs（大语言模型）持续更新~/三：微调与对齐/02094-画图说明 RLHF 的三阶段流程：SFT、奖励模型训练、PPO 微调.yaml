@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8772321d30db
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 画图说明 RLHF 的三阶段流程：SFT、奖励模型训练、PPO 微调。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 画图说明 RLHF 的三阶段流程：SFT、奖励模型训练、PPO 微调。
+answer:
+  mode: rubric
+  reference_answer: |-
+    RLHF 的流程可以分为三个界限清晰、目标明确的阶段。以下通过流程图和文字结合的方式进行说明。
+
+    第一阶段：监督微调
+
+    - 输入：预训练基座模型（Base LLM）。
+
+    - 数据：高质量、多样化的（提示，人工书写的理想回复）对。
+
+    - 过程：使用这些标注数据，以标准的自回归交叉熵损失对预训练模型进行微调。训练时只对回复部分计算损失。此阶段结束后，得到一个能够进行流畅对话、遵循基本指令的SFT模型。
+
+    - 目标：教会模型“什么是好的对话格式和风格”，为后续的强化学习提供一个稳定、可控的初始策略。
+
+    第二阶段：奖励模型训练
+
+    - 输入：第一阶段得到的 SFT 模型（或预训练模型）。
+
+    - 数据：人类偏好数据。对于同一个提示，人类标注者（或更强大的模型）会在模型生成的多个回复中，根据有用性、真实性、无害性等标准进行排序，形成一个高质量回复和低质量回复的对。
+
+    - 过程：将 SFT 模型的生成头替换为一个输出标量分数的回归头。在这个偏好数据集上训练该模型，使其能对任意回复给出一个与人类偏好排序一致的分数。这个分数代表了回复的“质量”或“对人类而言的价值”。
+
+    - 目标：训练出一个能替代人类进行打分的奖励函数 RϕRϕ，为后续强化学习提供即时的、自动化的反馈信号。
+
+    第三阶段：PPO 微调
+
+    - 输入：第一阶段得到的 SFT 模型（作为初始策略 Actor 和 Reference 模型）、第二阶段得到的奖励模型（RM），以及一个价值模型（Critic，通常由奖励模型初始化）。
+
+    - 数据：大量的、无标注的提示。
+
+    - 过程：这是一个在线的强化学习循环。
+
+    - 对于一个提示，Actor 模型（待优化的策略）生成回复。
+
+    - 该回复被送入 Reward Model 得到一个奖励分数 rθrθ。
+
+    - 同时，计算 Actor 生成该回复的概率与 Reference 模型生成该回复的概率之间的 KL 散度，作为惩罚项。
+
+    - Critic 模型估计当前状态（提示+已生成的token）的价值 V(s)V(s)，用于计算优势函数 AtAt。
+
+    - 最后，使用 PPO 算法，最大化“奖励得分减去 KL 惩罚”，来更新 Actor 模型和 Critic 模型的参数。
+
+    - 目标：在不过度偏离 SFT 模型（保证语言流畅性）的前提下，最大化生成回复的质量，使模型的行为与复杂的人类价值观对齐。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MGw3w7lz2iOeYdkCNNScUU7wnDg
+  block_id: VYovdeaFfoZ2Fyxw3B8cbOeNnjb
+  page_token: MGw3w7lz2iOeYdkCNNScUU7wnDg
+  original_title: 画图说明 RLHF 的三阶段流程：SFT、奖励模型训练、PPO 微调。
+  imported_at: '2026-09-21'

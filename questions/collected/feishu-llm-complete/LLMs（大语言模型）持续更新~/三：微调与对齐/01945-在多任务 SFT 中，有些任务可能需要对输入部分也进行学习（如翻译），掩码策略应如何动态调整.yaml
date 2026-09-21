@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3fff87c9ac2d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在多任务 SFT 中，有些任务可能需要对输入部分也进行学习（如翻译），掩码策略应如何动态调整？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 在多任务 SFT 中，有些任务可能需要对输入部分也进行学习（如翻译），掩码策略应如何动态调整？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多任务微调中，不同任务的优化目标不同。对于翻译任务，模型需要学习的正是“输入→输出”的映射，因此需要对输入部分也计算损失。
+
+    动态调整策略：
+
+    - 在数据样本中添加任务类型标签：为每条训练数据添加一个 task_type 字段，如 "chat", "translation", "code"。
+
+    - 根据任务类型实现不同的掩码逻辑：
+
+    - 在 Data Collator 中实现动态掩码：
+
+    ```python
+    def dynamic_loss_mask(sample, input_ids):
+        if sample["task_type"] == "translation":
+            # 翻译任务：只对目标语言部分计算损失，或者对整个输入+输出计算损失
+            return input_ids.clone()
+        else:
+            # 对话任务：只对 assistant 部分计算损失
+            return create_chat_mask(input_ids, tokenizer)
+    ```
+
+    通过这种方式，可以实现在一个 batch 内混合多种任务类型，并且每种任务都采用其最优的掩码策略。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VOrVwrhLzi4WRokQOMPcOsPWnwg
+  block_id: SoFwd0AVNoO18txIkazcQUDknve
+  page_token: VOrVwrhLzi4WRokQOMPcOsPWnwg
+  original_title: 在多任务 SFT 中，有些任务可能需要对输入部分也进行学习（如翻译），掩码策略应如何动态调整？
+  imported_at: '2026-09-21'

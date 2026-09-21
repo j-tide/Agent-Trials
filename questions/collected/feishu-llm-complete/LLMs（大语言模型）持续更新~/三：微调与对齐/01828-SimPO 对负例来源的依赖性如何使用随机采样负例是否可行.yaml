@@ -1,0 +1,119 @@
+---
+schema_version: 1
+id: feishu-llm-complete-571e4b282848
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: SimPO 对负例来源的依赖性如何？使用随机采样负例是否可行？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: SimPO 对负例来源的依赖性如何？使用随机采样负例是否可行？
+answer:
+  mode: rubric
+  reference_answer: |-
+    SimPO 对负例的质量高度敏感，随机采样负例通常不可行。
+
+    为什么依赖高质量负例？
+    SimPO 的目标不仅仅是让模型觉得 chosen 比 rejected 好，而是要求拉开一个显著的差距。如果 rejected 回复本身太差（例如，语法不通、完全答非所问），模型在训练初期就能轻松地将它和 chosen
+
+    [图片内容未导入]
+
+    型提供有效的学习信号，模型从它们身上学不到任何关于“细微偏好”的知识。这就像让一个大学生去做小学算术题，对他能力的提升毫无帮助。
+
+    随机采样负例会带来什么问题？
+
+    随机采样的负例质量参差不齐，绝大多数可能都属于上述“太差”的类别。用这样的数据训练出的模型，在面对两个质量相近、但存在微妙偏好的回复时（例如，一个更简洁，一个更详细），往往会表现得很糟糕。因为它从未被要求去学习如何分辨这种“难例”。
+
+    最优的负例来源是什么？
+
+    最有效的负例是所谓的 “hard negatives” 。它们具有以下特征：
+
+    - 与 chosen 回复相似但稍差：例如，由早期版本的模型生成的回复，或者与 chosen 回复主题相同但包含事实错误、逻辑漏洞或风格不佳的回复。
+
+    - 模型当前难以区分的：让当前策略模型对一批回复打分，选择那些得分与 chosen 很接近的作为 rejected。这正是 DPO 等算法常用的构造偏好对的方法。
+
+    总结：SimPO 的成功在很大程度上依赖于一个精心构造的、包含足够多“难例”的偏好数据集。使用随机负例会严重稀释数据质量，导致模型无法学习到精细的偏好，最终效果会大打折扣。因此，在准备训练数据时，投入资源构造高质量的负例，是发挥 SimPO 潜力的关键前提。
+
+    - SimPO 使用的是 “平均对数概率”。它直接计算模型自身对回复序列的生成概率，并除以长度。它回答的问题是：“模型平均每个词有多确信要生成这个回复？”
+
+    - ORPO 使用的是 “比值比 (Odds Ratio)”。它计算的是模型“愿意生成该回复的概率”与“不愿意生成该回复的概率”之比。它回答的问题是：“模型有多大概率会选这个回复，而不是其他所有可能？”
+
+    - SimPO 的损失函数是 DPO 的一个变体，是一个单层优化目标。它通过比较平均对数概率并引入边际 γ 来直接优化。
+
+    - ORPO 的损失函数是 SFT 损失 + OR 损失的二元结构。它将对齐任务“寄生”在指令微调任务之上。SFT 部分负责“鼓励”好回复，OR 部分负责“惩罚”坏回复。其惩罚机制源于 Odds Ratio 对低概率事件的天然敏感性。
+
+    - SimPO 是比较驱动。它的核心是比较 chosen 和 rejected 回复的平均对数概率，并强制拉开差距。
+
+    - ORPO 是惩罚驱动。它通过 Odds Ratio 项，给 rejected 回复施加一个极其强大的、将其概率推向 0 的惩罚梯度，从而让模型主动远离“坏”行为。这种方式对负样本的压制比 SimPO 更为激进和直接。
+
+    - 对掩码后的 token-level loss 在序列维度上进行求和，得到序列的总损失（Total Loss）。
+
+    - 对掩码求和，得到有效 token 的数量 LvalidLvalid（即序列长度）。
+
+    - 序列的平均损失 = 总损失 / 有效token数。
+
+    [图片内容未导入]
+
+    - 二分类的评分（好/坏）
+
+    - 连续的评分（如 1-5 星）
+
+    - 甚至是用户的行为数据（如点击、点赞）
+    因此，KTO 可以直接利用这些非成对的、单点的偏好数据进行训练，无需为每个提示都构造出对比对。这在实践中非常灵活，因为收集“A 比 B 好”的成本远高于收集“A 是好是坏”。
+
+    - 如果你有高质量的成对偏好数据（例如，由强大的标注模型生成的大量对比对），SimPO 和 KTO 都可以使用，且 SimPO 可能因其直接对比的设计而更加高效。
+
+    - 如果你的数据是非成对的（例如，从用户反馈中收集的点赞/点踩记录、不同质量的评分数据集），那么 KTO 是唯一的选择。SimPO 无法直接处理这种数据格式。
+
+    - 选择一个基座模型，如 LLaMA-7B。
+
+    - 使用相同的 SFT 模型作为共同的起点。
+
+    - 准备一个固定的偏好数据集。
+
+    - 在相同的硬件上进行训练，记录 GPU 型号、驱动和 CUDA 版本。
+
+    [图片内容未导入]
+
+    - 设置完全相同的 global batch size、序列长度和优化器（如 AdamW）。
+
+    - 将 DPO 的 β 和 SimPO 的 β 设为相同值，SimPO 的 γ 设为 0，以尽可能对齐条件。
+
+    - 显存占用：通过 nvidia-smi 或 PyTorch 的 torch.cuda.memory_allocated() 在训练过程中稳定后，记录峰值显存。
+
+    - 单步训练时间：在一个固定的 batch 上，运行 100 个训练步，取平均时间，并计算出每秒处理样本数（Throughput）。
+
+    - 收敛速度：在一个独立的验证集上（如使用 reward model 打分），绘制训练步数-性能曲线。比较两者达到相同性能水平所需的训练步数和时间。
+
+    - 编码器处理输入 x，产生一个隐藏状态表示。
+
+    - 解码器根据这个隐藏状态和已生成的 token，自回归地生成输出序列 yy。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NYUaw2x0Wi7SsckMF9Vc4Qjcnze
+  block_id: PC3YdfVUAopCDGxeO3BcdvDgndd
+  page_token: NYUaw2x0Wi7SsckMF9Vc4Qjcnze
+  original_title: SimPO 对负例来源的依赖性如何？使用随机采样负例是否可行？
+  imported_at: '2026-09-21'

@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-41340b099d38
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果微调数据包含图像或其他模态，损失掩码的概念如何扩展到多模态序列？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 如果微调数据包含图像或其他模态，损失掩码的概念如何扩展到多模态序列？
+answer:
+  mode: rubric
+  reference_answer: "多模态大模型（如 LLaVA）通常将图像 token 和文本 token 拼接成一个序列。损失掩码的核心原则不变：只对模型需要学习的输出部分计算损失。\n\n具体扩展方式：\n\n-
+    图像 token 部分：图像 token 是输入的一部分，模型不需要生成它们。因此，所有图像 token 对应的 labels 都应该设为 -100。\n\n-
+    文本部分：与纯文本对话相同，system 和 user 的文本 token 的 labels 设为 -100，只有 assistant 的文本 token
+    保持原始 ID。\n\n- 多模态的特殊标记：例如 <image>, </image> 等标记，同样设为 -100。\n\n```python\ndef create_multimodal_labels(input_ids,
+    tokenizer, image_token_id, assistant_start_id, assistant_end_id):\n    labels
+    = input_ids.clone().fill_(-100)\n    \n    seq_len = input_ids.shape[1]\n    i
+    = 0\n    while i < seq_len:\n        token = input_ids[0, i].item()\n        if
+    token == assistant_start_id:\n            j = i + 1\n            while j < seq_len
+    and input_ids[0, j] != assistant_end_id:\n                j += 1\n            if
+    j < seq_len:\n                labels[0, i+1:j] = input_ids[0, i+1:j]\n            i
+    = j + 1\n        else:\n            i += 1\n    return labels\n```\n\n关键：无论输入序列中包含多少种模态，损失掩码的逻辑始终保持一致——只对需要模型自回归生成的部分计算损失。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VOrVwrhLzi4WRokQOMPcOsPWnwg
+  block_id: K2KbdFKpioHxouxcgijcuCvGnLe
+  page_token: VOrVwrhLzi4WRokQOMPcOsPWnwg
+  original_title: 如果微调数据包含图像或其他模态，损失掩码的概念如何扩展到多模态序列？
+  imported_at: '2026-09-21'

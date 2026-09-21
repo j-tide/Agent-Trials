@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-729ff052bc18
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 Transformer 推理中，常见的可融合算子组合有哪些？如 QKV 投影融合、残差+层归一化融合。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在 Transformer 推理中，常见的可融合算子组合有哪些？如 QKV 投影融合、残差+层归一化融合。
+answer:
+  mode: rubric
+  reference_answer: |-
+    Transformer 模型中有多处天然适合融合的算子组合：
+
+    - QKV 投影融合
+
+    [图片内容未导入]
+
+    - 残差连接 + 层归一化（Add & LayerNorm）
+    将残差相加与后续的 LayerNorm 融合为一个 kernel。在残差相加后立即在寄存器或共享内存中进行均值和方差计算，归一化并写入最终结果，避免中间张量的读写。
+
+    - 激活函数与线性层融合（如 GeLU/ReLU + Linear）
+    将线性层的输出矩阵乘后紧跟的激活函数（如 GeLU）融合。在 GEMM 的 epilogue 中直接对输出应用激活函数，无需单独 kernel。TensorRT 的 PointWise 融合就包括此类。
+
+    - Attention 内核中的融合
+    FlashAttention 将 QK^T、softmax、乘以 V 全部融合在一个 kernel 中。更进一步，还可以融合注意力 mask、dropout（训练）、缩放、以及位置编码（如 RoPE 应用在加载 Q、K 时）。
+
+    - MLP 块融合
+    第一个线性层 + 激活 + 第二个线性层可以通过算子融合技术（如把激活融合到第一个 GEMM 的输出）。更激进的融合会将两个线性层和激活全部用一个 kernel 实现。
+
+    - 词嵌入与位置编码的相加融合
+    在输入阶段，将 token embedding 和 position embedding 的加法融合到一个 kernel 中，减少一次显存往返。
+
+    - KV Cache 追加与注意力
+    在 decode 阶段，将当前 token 的新 K、V 追加写入缓存的操作可以与注意力计算融合，直接使用新 K、V 而不必先写回全局内存。
+
+    这些融合显著减少了 kernel launch 次数和显存带宽使用，是推理引擎中普遍实现的优化。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Uhg6wKBvGiSyqckdgPTciRAMn9f
+  block_id: ENOOd8bCCo1ggoxzCrVc0s5gn0d
+  page_token: Uhg6wKBvGiSyqckdgPTciRAMn9f
+  original_title: 在 Transformer 推理中，常见的可融合算子组合有哪些？如 QKV 投影融合、残差+层归一化融合。
+  imported_at: '2026-09-21'

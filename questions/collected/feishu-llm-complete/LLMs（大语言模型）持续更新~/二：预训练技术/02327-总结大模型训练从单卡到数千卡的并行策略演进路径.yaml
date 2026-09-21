@@ -1,0 +1,135 @@
+---
+schema_version: 1
+id: feishu-llm-complete-202750b092af
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 30. 总结大模型训练从单卡到数千卡的并行策略演进路径
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 30. 总结大模型训练从单卡到数千卡的并行策略演进路径
+answer:
+  mode: rubric
+  reference_answer: |-
+    - 单卡时代：早期模型小，单 GPU 足以容纳参数和激活，无并行。
+
+    - 数据并行（DP）：模型增大，单卡显存不足，引入多卡 DP（PyTorch DDP）。每卡保有完整副本，显存瓶颈仍制约模型规模。
+
+    - 朴素模型并行：手动将模型不同层放到不同 GPU（流水线雏形），或手写矩阵切分（张量雏形），效率低下。
+
+    - 张量并行（TP）与流水线并行（PP）系统化：Megatron‑LM 提出高效 1D TP，在单机 NVLink 内切分层内矩阵；GPipe/PipeDream 等标准化 PP 调度（微批次、1F1B），使跨节点层切分可行。
+
+    - 3D 并行融合（TP+PP+DP）：Megatron‑Turing NLG 等千亿模型将三者结合，分层通信：TP 在机内 NVLink，PP 跨节点 IB，DP 在最外层扩展 batch size。这是训练百亿至千亿参数稠密模型的标准范式。
+
+    - ZeRO 优化：DeepSpeed 提出 ZeRO‑DP，在数据并行内分片模型状态（参数、梯度、优化器），极大降低单卡显存，使纯 DP 也能训练中等规模大模型，并与 3D 并行混合以进一步榨取硬件潜力。
+
+    - MoE 与专家并行（EP）：稀疏 MoE 架构兴起，引入专家并行（Expert Parallelism），将不同专家分布到多 GPU。训练范式变为 DP+TP+PP+EP+ZeRO 的五维混合，支持万亿参数模型。
+
+    - 自动化与编译优化：当前趋势是通过编译器（如 TorchDynamo、Alpa）自动搜索最优并行策略，减轻人工设计负担，同时结合通信融合、异步调度等更精细的优化，在数千卡集群上追求极致效率。
+
+    - 在每一步迭代中，每个设备使用当前本地存储的 K, V 块，与自身的 Q 计算局部注意力，并累积 softmax 归一化统计量（用于在线 rescale）。
+
+    - 然后，每个设备将自己的 K, V 块发送给环中的下一个设备，并从上个设备接收新的 K, V 块。
+
+    - 重复此过程，直到所有设备的 K, V 块都遍历一圈。
+
+    - 最终，每个设备都计算出了其局部 Q 对应的完整全局自注意力输出。
+
+    - 用于单机内部的8张GPU之间。
+
+    - 将每个Transformer层的矩阵乘法切分，利用机内NVLink/NVSwitch超高带宽（>900 GB/s）来承载频繁且大通信量的All-Reduce/Reduce-Scatter。
+
+    - TP度通常较小（如2,4,8），因为通信开销随TP度增加而激增。
+
+    - 用于同一流水线组内的多个节点之间。
+
+    - 将模型的不同层组分配给不同节点，节点间通过InfiniBand (IB) 网络连接（如200~400 GB/s）。
+
+    - 通信在层边界以点对点（Send/Recv）方式传递激活和梯度，对带宽要求适中。
+
+    - PP度决定了模型可被切分的深度，可以根据需要设置较大（如16,32）。
+
+    - 将上述完整的（TP×PP）流水线复制多份，形成多个数据并行组。
+
+    - 每个数据并行组处理不同的micro-batch，组间通过All-Reduce同步梯度。
+
+    - DP通信量固定（梯度大小），频率为每步一次，利用节点间IB网络完成。
+
+    - 是 → 纯数据并行（DP）即可。若需更大batch size，可结合梯度累积。
+
+    - 否 → 进入下一步。
+
+    - 是 → 优先使用张量并行（TP） + 数据并行（DP）。TP利用机内NVLink切分模型，DP扩展到多机。
+
+    - 否 → 模型太大，单机显存不足，必须使用流水线并行（PP）将模型切分到多个节点。此时通常采用DP+PP+TP的3D并行。
+
+    - 节点间有高速互联（如HDR InfiniBand 200Gbps+）：可适度使用跨节点的张量并行（TP），但通常仍建议将TP限制在单机内，PP跨节点。
+
+    - 节点间带宽较低（如以太网 <100 Gbps）：尽量避免跨节点TP。优先使用PP来跨节点，TP严格限制在单机内。必要时可降低TP度，提高PP度或DP度。
+
+    - 模型极为深（如数百层）：优先增大流水线并行度（PP），减少TP度以降低通信占比。
+
+    - 模型层数少但宽（如超大FFN）：适合增大张量并行度（TP），有效切分巨型矩阵乘法。
+
+    - 序列极长（如128k）：可能引发激活显存爆炸，需结合序列并行（SP），常与TP结合使用（如Megatron的Sequence Parallelism）。
+
+    - 海量数据，但模型不算特别大：可以仅用ZeRO-3（FSDP）这种数据并行+分片方案，避免复杂的PP和TP，编程更简单。
+
+    - 模型并行（张量并行/流水线并行） 是垂直地将模型的计算图切分到不同设备，每张卡负责模型的一部分层或一层内部分运算。这需要修改模型结构，引入复杂的通信模式（如All-Reduce、P2P）。
+
+    - ZeRO 是水平地切分模型状态，但每张卡仍然负责完整的模型计算图，只是每次需要时通过All-Gather收集参数。因此它不需要改变模型结构。
+
+    - 相同点：都是为了解决大模型无法装入单卡的问题，都会引入额外通信。
+
+    - 不同点：ZeRO-DP本质上是数据并行+状态分片，计算图保持完整，通信集中在参数收集和梯度分发。模型并行是将计算图切分，通信发生在层内或层间。两者常结合使用：例如，在3D并行中，先用张量并行和流水线并行将模型切分到可接受的单卡显存，然后在此基础上使用ZeRO-1（仅分片优化器状态）进一步降低显存，以增大batch size或序列长度。
+
+    - 放大时间线，观察 Compute Stream（默认流）和 Communication Stream（NCCL 流）。若计算流上出现长时间空白（GPU Idle），而通信流正在执行 ncclAllReduce 等操作，说明 GPU 在等待通信，这就是通信瓶颈。
+
+    - 测量 NCCL 操作的持续时间。如果某次 All‑Reduce 耗时占比超过单步总时间的 20%，需要优化。
+
+    - 在 Timeline 中，NCCL 操作通常与 PyTorch 的 autograd 节点关联。通过 NVTX 标记 或自动生成的名称，可识别出是哪个 Transformer 层的 Attention 或 MLP 的 All‑Reduce 最耗时。
+
+    - 例如，“layer12_attn_output_AllReduce” 时间明显长于其他层，可能该层的通信量或调度存在问题。
+
+    - 查看每次通信的 Payload Size 和 Bandwidth Utilization。若数据传输量小但延迟高（latency‑bound），应考虑合并小通信；若带宽利用率低，可能是网络拓扑或拥塞问题。
+
+    - 对比 计算与通信的重叠：理想情况是计算与通信同时进行，Timeline 上计算流和通信流应同时有密集活动。若它们交替出现，说明重叠不足，需调整并行策略或通信调度。
+
+    - 分桶（Bucketing）与长度均衡：在数据加载时，根据序列长度将样本分到不同的桶，每个桶内长度相近。训练时从同一桶抽取样本构成 mini‑batch，再切分为 micro‑batch，可保证各 micro‑batch 计算量基本均匀。这是最有效且最通用的方法。
+
+    - 序列并行（Sequence Parallelism, SP）：对于极长序列，使用 SP 将序列切分到多个 GPU，降低单 GPU 的计算和显存压力，同时也使得各 micro‑batch 的计算时间更均衡。
+
+    - 动态 micro‑batch 划分：根据序列实际长度动态调整每个 micro‑batch 包含的 token 数，使每个 micro‑batch 的总计算量保持恒定。这增加了数据加载和调度逻辑的复杂度。
+
+    - 混合精度训练：FP16/BF16 可大幅减少计算时间，从而在相同绝对差异下，相对波动更小。
+
+    - 采用更灵活的调度算法：如使用动态规划或 lookahead 调度，预先根据 micro‑batch 的计算量规划顺序，使气泡最小化。这类方法在学术研究中被探索，但工程落地较复杂。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQ7qw1klCirayhkUauicscbqnpc
+  block_id: QlmPdwIdUopZO0x2YHDce4nUn5g
+  page_token: GQ7qw1klCirayhkUauicscbqnpc
+  original_title: 30. 总结大模型训练从单卡到数千卡的并行策略演进路径
+  imported_at: '2026-09-21'

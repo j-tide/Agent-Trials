@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-af31d9b9984f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: vLLM 如何支持多 GPU 的张量并行和流水线并行？配置复杂度如何？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: vLLM 如何支持多 GPU 的张量并行和流水线并行？配置复杂度如何？
+answer:
+  mode: rubric
+  reference_answer: |-
+    张量并行 (Tensor Parallelism)：
+
+    - vLLM 通过在启动时指定 --tensor-parallel-size N（或在 LLM 类中设置 tensor_parallel_size=N），即可将模型权重切分到 N 块 GPU 上。
+
+    - 内部使用 Megatron-LM 风格的张量并行：将 Attention 的 QKV 头、MLP 的中间层切分，插入 NCCL All-Reduce 或 All-Gather 通信。对用户完全透明，只需将模型加载代码中的设备改为多卡。
+
+    - 配置极度简单，通常仅需一个参数。要求是模型层数、头数能被 TP size 整除。
+
+    流水线并行 (Pipeline Parallelism)：
+
+    - vLLM 目前主要依赖张量并行进行多卡扩展；原生的流水线并行支持有限，不是主要使用模式。
+
+    - 对于更大模型，可以结合张量并行与流水线并行（例如通过设置 --pipeline-parallel-size 参数），将层划分到不同的 GPU 组，形成流水线。但这一功能相较 TP 尚在持续完善中。
+
+    - 配置复杂度稍高，需要确保划分均衡，并可能需要调节 micro-batch 大小以优化气泡。
+
+    总体：vLLM 的多 GPU 部署主打极简：单参数开启张量并行即可，极大降低了分布式推理的门槛。相比于 TensorRT-LLM 或 DeepSpeed，其多节点复杂并行策略的支持目前仍以 TP 为主，更高级的 PP 或混合并行可能需要更多手动配置或使用其他引擎。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZXcXweoHiilNSmkYRs9cZyF8n1f
+  block_id: WnKpdC7bqozQIBxt4ETcFrSBn0b
+  page_token: ZXcXweoHiilNSmkYRs9cZyF8n1f
+  original_title: vLLM 如何支持多 GPU 的张量并行和流水线并行？配置复杂度如何？
+  imported_at: '2026-09-21'

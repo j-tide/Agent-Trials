@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-491acf406756
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当 LLM 输出无法解析为有效动作时，如何处理？重试、请求澄清、回退到人工？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 当 LLM 输出无法解析为有效动作时，如何处理？重试、请求澄清、回退到人工？
+answer:
+  mode: rubric
+  reference_answer: |-
+    当 LLM 的输出无法被解析为有效的动作指令时，这是 Agent 执行流程中最常见的“硬错误”之一。针对它，需要一套由易到难、由自动到人工的递进式处理方案。
+
+    - 自动重试与格式修正
+    这是首选策略，成本最低。Agent 的解析器在失败时，不应抛出异常，而是将解析错误信息（例如，“你的 Action 格式错误，缺少方括号”）格式化为一条带有警告性质的 Observation，并追加回对话历史。然后，系统立即向 LLM 发起一次新的请求，整个对话历史和最新的错误观察一并发送。由于 LLM 能理解“我上次的格式错了，需要修正”这一上下文，它在绝大多数情况下能够成功生成一个格式正确的修正版。这种自我纠错能力是最宝贵的。
+
+    - 降低输出复杂度与备用策略
+
+    如果自动重试失败（例如连续 2 次都解析失败），说明当前的 Agent 提示模板或要求可能超出了该 LLM 的能力。此时，系统可以采取降级策略。
+
+    - 切换至更简单的输出格式：如果当前使用的是要求输出复杂 JSON 的 Agent，可以临时回退为更简单的 ReAct 格式，或者要求 LLM 只输出一个函数名，参数由系统通过其他方式解析。
+
+    - 更换更强大的模型：如果系统配置了模型路由，可以将解析失败的任务自动升级，使用一个能力更强的 LLM（例如从 GPT-3.5 升级到 GPT-4）来重新生成响应。更强的模型在遵循指令和格式控制方面通常表现更佳。
+
+    - 请求人类用户澄清或帮助
+
+    当所有自动化手段都无效时，意味着任务超出了 AI 当前的能力边界。最佳实践不是放弃，而是进行人机协同的升级。Agent 应暂停任务，生成一段清晰、诚恳的求助消息，将当前遇到的问题（包括之前的对话上下文和它多次尝试但失败的动作）呈现给人类用户。例如：“抱歉，我在尝试为您执行搜索时，多次输出了错误的指令格式。请问您能帮我直接提供搜索的关键词吗？或者您可以输入 ‘放弃’ 来终止当前任务。” 这种方式既坦诚，又赋予了用户控制权。
+
+    - 最终的失败与优雅退出
+
+    如果任务没有人类实时参与，且所有自动恢复策略都已失败，Agent 必须拥有“承认失败”的能力。它不应该陷入死循环，而是在达到最大重试次数后，触发“任务失败”的终止流程。它会基于已有的上下文，生成一份报告，说明任务失败的原因、它尝试了哪些方法，以及还有哪些未完成的步骤，然后将这份报告作为最终产出返回。
+
+    这种递进式的处理方案，确保了系统在面对 LLM 输出的不稳定性时，既能展现出强大的自我修正韧性，又能在边界处保持诚实和可控。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/N9kPwKx7siGuUMkJ3jRc5htKnAb
+  block_id: J5nPdB1wRoCihJxZcfNcIgZnn3b
+  page_token: N9kPwKx7siGuUMkJ3jRc5htKnAb
+  original_title: 当 LLM 输出无法解析为有效动作时，如何处理？重试、请求澄清、回退到人工？
+  imported_at: '2026-09-21'

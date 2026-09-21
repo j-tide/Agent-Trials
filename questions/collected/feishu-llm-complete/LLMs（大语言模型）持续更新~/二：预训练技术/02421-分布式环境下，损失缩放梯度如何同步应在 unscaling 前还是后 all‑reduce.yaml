@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-962b88112e2a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分布式环境下，损失缩放梯度如何同步？应在 unscaling 前还是后 all‑reduce？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 分布式环境下，损失缩放梯度如何同步？应在 unscaling 前还是后 all‑reduce？
+answer:
+  mode: rubric
+  reference_answer: |-
+    正确顺序：在 unscaling 前进行 all‑reduce，在 all‑reduce 后再 unscaling。
+
+    原因在于FP16的有限动态范围。如果先unscale，梯度值恢复到真实尺度（往往很小），在跨GPU做All-Reduce时，这些小值在FP16通信中容易下溢为0，丢失信息。损失缩放正是为了解决这个问题：将梯度放大到安全范围后再进行通信，从而保留梯度精度。因此，All-Reduce必须在放大后的梯度上进行。
+
+    在PyTorch的DDP（DistributedDataParallel）中，backward() 调用之后，DDP会自动触发All-Reduce，同步所有GPU的 .grad 字段。当与 GradScaler 配合时，scaler.scale(loss).backward() 产生的梯度已经是放大后的，DDP在此时进行All-Reduce，通信完毕后再由 scaler.unscale_(optimizer) 恢复。整个过程自然满足正确顺序，无需手动干预。
+
+    如果自行实现通信（例如使用 torch.distributed.all_reduce），必须在 unscale 之前调用 all_reduce，并确保通信数据类型能容纳放大后的数值。
+
+    [图片内容未导入]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H1LqwP3PkibEdykjijgc533Rnue
+  block_id: U2PMdgyIfokDT3xLbgmcBLoNnTc
+  page_token: H1LqwP3PkibEdykjijgc533Rnue
+  original_title: 分布式环境下，损失缩放梯度如何同步？应在 unscaling 前还是后 all‑reduce？
+  imported_at: '2026-09-21'

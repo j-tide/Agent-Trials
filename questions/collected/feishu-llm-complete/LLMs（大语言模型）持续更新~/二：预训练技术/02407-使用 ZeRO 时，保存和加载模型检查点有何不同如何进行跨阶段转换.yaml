@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9f7943dce0e0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 ZeRO 时，保存和加载模型检查点有何不同？如何进行跨阶段转换？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 使用 ZeRO 时，保存和加载模型检查点有何不同？如何进行跨阶段转换？
+answer:
+  mode: rubric
+  reference_answer: |-
+    保存：
+
+    - ZeRO-1/2：参数未分片，每个 GPU 都有完整参数，可直接保存单个完整的模型检查点（如 model.state_dict()），但通常由 rank 0 保存。也可保存分布式检查点。
+
+    - ZeRO-3：参数分片，每个 GPU 只持有部分参数。要保存完整模型，需将所有分片收集（All-Gather）到 rank 0 后再保存，或保存分片检查点（每个 rank 保存自己的分片，以及元数据）。DeepSpeed 提供 save_16bit_model 方法自动完成收集。
+
+    加载：
+
+    - 加载完整检查点到 ZeRO-3 时，每个 GPU 先加载完整模型，然后根据分片信息丢弃自己不需要的部分（或由 DeepSpeed 自动分片）。
+
+    - 加载分片检查点：每个 GPU 直接加载自己的分片，无需通信，启动更快。
+
+    跨阶段转换（如 ZeRO-2 → ZeRO-3）：需要将 ZeRO-2 的完整优化器状态检查点转换为 ZeRO-3 的分片格式。DeepSpeed 提供工具 zero_to_fp32.py 可以将分片检查点合并为完整 FP32 模型，再按需分片。通常流程：用 ZeRO-2 训练并保存完整检查点，然后转换为 ZeRO-3 可用的分片格式（或直接用 ZeRO-3 加载完整检查点并分片）。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdlMwr6zHiurCIkdVS6c9aFDnUg
+  block_id: WGx6dwUIJoEswUxLqaPcn3GDnCc
+  page_token: RdlMwr6zHiurCIkdVS6c9aFDnUg
+  original_title: 使用 ZeRO 时，保存和加载模型检查点有何不同？如何进行跨阶段转换？
+  imported_at: '2026-09-21'

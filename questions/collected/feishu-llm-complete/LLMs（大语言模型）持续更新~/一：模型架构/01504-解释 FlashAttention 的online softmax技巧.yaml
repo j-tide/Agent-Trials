@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2f17c1c030a7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 FlashAttention 的“online softmax”技巧。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 解释 FlashAttention 的“online softmax”技巧。
+answer:
+  mode: rubric
+  reference_answer: |-
+    Online softmax 是 FlashAttention 实现分块计算且保持精确的数学基础。它解决了“如何在不看到整行所有分数的情况下，计算出正确的 softmax”这一难题。
+
+    核心思想：在遍历 K、V 块时，动态维护三个量——当前的全局最大值 m、归一化分母 l 和输出累加器 acc。当处理一个新块时：
+
+    [图片内容未导入]
+
+    - 更新全局最大值：m_new = max(m_old, m_local)。
+
+    - 由于最大值变大，之前基于旧最大值计算的指数值需要被“缩小”以保证正确。因此，将旧的累加器和分母乘以缩放因子 exp(m_old - m_new)。
+
+    - 对新块计算稳定的指数 exp(score - m_new)，并将其累加到缩放后的累加器和分母上。
+
+    随着逐块处理，累加器中始终维护着相当于已经处理过的所有元素的正确加权和。当遍历完所有 K、V 块后，累加器中的值就是精确的完整 softmax 输出。整个过程只在 SRAM 中进行，无需存储整个 n×n 的注意力矩阵。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RxQzwT6xWiMq6jkFtGTcVVECnmg
+  block_id: UEnOdicrvopa9UxfgCtccbMSnzr
+  page_token: RxQzwT6xWiMq6jkFtGTcVVECnmg
+  original_title: 解释 FlashAttention 的“online softmax”技巧。
+  imported_at: '2026-09-21'

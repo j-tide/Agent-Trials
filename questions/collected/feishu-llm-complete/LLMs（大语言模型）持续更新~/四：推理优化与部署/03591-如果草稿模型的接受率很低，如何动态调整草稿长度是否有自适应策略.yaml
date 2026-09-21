@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2381a2eee94e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果草稿模型的接受率很低，如何动态调整草稿长度？是否有自适应策略？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如果草稿模型的接受率很低，如何动态调整草稿长度？是否有自适应策略？
+answer:
+  mode: rubric
+  reference_answer: |-
+    当接受率较低时，生成太长的草稿序列会导致大量草稿 token 被拒绝，浪费草稿模型计算和显存带宽。因此需要动态调整每轮的草稿长度 K。主要的自适应策略包括：
+
+    - 基于移动平均接受率调整
+    维护最近的接受率指数移动平均（EMA）α_avg。设定目标期望接受率或期望生成 token 数，根据 α_avg 调整 K。若 α_avg 低，减小 K，避免浪费；若高，增大 K 以挖掘更多并行潜力。例如：
+
+    ```python
+    if α_avg < low_threshold: K = max(K_min, K-1)
+    elif α_avg > high_threshold: K = min(K_max, K+1)
+    ```
+
+    - 期望收益最大化策略
+    定义每轮推测解码的期望净收益：G(K) = E[accepted_tokens | K] - cost(K)。在每轮开始前根据当前估计的接受率分布，选择能最大化期望收益的 K。这可以建模为动态规划或简单的查表，因为 cost(K) 与草稿模型 K 次前向成正比。
+
+    - 概率停止（Early Termination of Drafting）
+    在草稿模型逐 token 生成过程中，使用一个轻量的置信度评估器（甚至草稿模型自身的概率）来决定是否提前停止生成。例如，如果当前 token 的生成概率 q(x_t) 低于阈值，或者预测的接受概率 min(1, p(x_t)/q(x_t)) 近似期望很低，则停止草稿生成，不再继续后续 token。这可以即时切断低质量草稿。
+
+    - 基于令牌类型或上下文的自适应
+    不同上下文（如代码、自由文本）接受率不同。可以训练一个元模型或启发式规则，根据前缀特征动态选择 K。一些实现（如 SpecInfer）采用多长度草稿，在多个草稿长度间调度。
+
+    总结：自适应调整 K 是推测解码实用化的关键，常见于推理框架中，通过实时监测接受率并调整，可避免在低接受率场景下反而变慢，同时在高接受率场景下最大化加速。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Us9awBi8iiwtfZkqtRzcSfVcnJe
+  block_id: RjPcdBBGCoxKzzxyd2scf2NLnTe
+  page_token: Us9awBi8iiwtfZkqtRzcSfVcnJe
+  original_title: 如果草稿模型的接受率很低，如何动态调整草稿长度？是否有自适应策略？
+  imported_at: '2026-09-21'

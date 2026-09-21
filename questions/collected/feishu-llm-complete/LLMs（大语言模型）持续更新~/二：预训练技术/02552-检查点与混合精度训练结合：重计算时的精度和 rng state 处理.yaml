@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e85c07619df0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 检查点与混合精度训练结合：重计算时的精度和 rng state 处理。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 检查点与混合精度训练结合：重计算时的精度和 rng state 处理。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在混合精度训练中，前向传播通常在 autocast 上下文中，某些操作使用半精度，某些保持FP32。当结合梯度检查点时，需要注意：
+
+    - 重计算时的精度：重计算发生在反向传播期间，此时是否还在 autocast 上下文中？取决于代码结构。一般 autocast 只包裹前向传播，反向传播时不会自动启用。因此，在 checkpoint 内部的 _forward_impl 需要再次显式进入 autocast 吗？通常不需要，因为重计算时PyTorch会重放原始的前向代码，而原始前向代码中已经包含了 autocast 上下文。但必须确保 autocast 状态在重计算时得到恢复。使用 use_reentrant=False 的新版checkpoint能更好地处理 autocast。
+
+    - rng state（随机数状态）：如果网络中有Dropout等非确定性操作，重计算时必须保证随机掩码与首次前向一致，否则两次前向输出不同，导致梯度错误。PyTorch checkpoint 默认 preserve_rng_state=True，会在前向时保存RNG状态，并在重计算时恢复。这增加了少量CPU开销。如果网络中没有Dropout（或使用确定性模式），可以设置 preserve_rng_state=False 来提升性能。
+
+    - FP16损失缩放：GradScaler的 scale(loss).backward() 流程正常，重计算不受影响。但注意，重计算前向时，参数仍然是半精度，主权重副本（FP32）仅用于更新，不影响重计算。
+
+    最佳实践：在混合精度训练中，开启 torch.cuda.amp.autocast 包裹整个前向传播，模型内部使用 checkpoint 且 preserve_rng_state=True（若含Dropout）。若使用BF16，同样适用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  block_id: U7ySdZMaIoCgSDxcRz6c4atIndb
+  page_token: DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  original_title: 检查点与混合精度训练结合：重计算时的精度和 rng state 处理。
+  imported_at: '2026-09-21'

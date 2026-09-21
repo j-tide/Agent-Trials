@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-55620e4bae80
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 动态量化（如 INT8 activation）在 LLM 推理中是否常用？为什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 动态量化（如 INT8 activation）在 LLM 推理中是否常用？为什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    动态量化（Dynamic Quantization） 通常指推理时动态地计算激活的量化参数（缩放因子、零点），即每次前向传播根据实际输入张量的数值范围即时量化激活，然后执行低精度矩阵乘，最后反量化输出。与之相对的是静态量化（Static Quantization），它使用校准数据预先固定激活的量化参数。
+
+    在 LLM 推理中，动态激活量化并不常用，主要受限于精度、延迟和硬件生态。
+
+    原因分析：
+
+    - 精度剧烈波动
+    LLM 的激活分布会随输入、序列位置、甚至 token 的变化而剧烈波动。动态量化的缩放因子完全由当前 batch 的实际数据决定，这虽然使量化区间尽量贴合，但会导致严重的跨步不一致性。在自回归解码中，每步激活范围不同，导致量化误差模式不断变化，累积放大，造成输出质量显著下降。SmoothQuant 等工作的出现，正是因为直接量化激活很困难。
+
+    - 额外的计算开销
+    动态量化需要在每次矩阵乘法前扫描整个激活张量以计算 min/max（reduction 操作），这引入了额外 kernel launch 和延迟，对于 decode 阶段这种极度内存带宽受限的场景，这点计算也可能成为瓶颈。且为了获得缩放因子，往往需要同步等待，破坏流水线。
+
+    - 硬件 kernel 支持有限
+    GPU Tensor Core 的 INT8 矩阵乘法（IMMA）通常要求预先校准的静态缩放因子，并期望权重和激活的量化参数保持不变或按固定策略变化。动态量化需要将每一层的量化参数作为输入传入 kernel，且要求 kernel 能处理按 token/per-tensor 变化的缩放因子。虽然 cuDNN 和 CUTLASS 支持部分动态模式，但性能优化不如静态量化成熟，且并非所有推理引擎都深度集成。
+
+    - 预填充与解码行为差异
+    即使强行使用动态量化，prefill 阶段激活张量大，统计量稳定，可能可行；但 decode 阶段每次只有一个 token，激活向量极小，动态计算的缩放因子噪声极大，几乎不可用。
+
+    所以，主流做法是：
+
+    - 权重量化为静态（INT4/INT8）。
+
+    - 激活保持 FP16/BF16（W4A16），即不量化激活。这完全规避了激活量化的痛苦。
+
+    - 若必须量化激活以进一步加速（如 W8A8），则使用 SmoothQuant 等离线方法将激活难度转移给权重，再实施静态量化激活。
+
+    - 动态量化仅在一些 CPU 推理场景（如 PyTorch 的 torch.ao.quantization 默认动态量化）用于简单模型，LLM 极少采用。
+
+    结论：动态 INT8 激活量化在 LLM 推理中极不常用，激活要么保持 FP16，要么经 SmoothQuant 处理后进行静态量化。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Mkz0wXtPeiHfvJksSVSc0TWTnxd
+  block_id: Us7Jd30ssoeXYwx5YaLcgEb0nId
+  page_token: Mkz0wXtPeiHfvJksSVSc0TWTnxd
+  original_title: 动态量化（如 INT8 activation）在 LLM 推理中是否常用？为什么？
+  imported_at: '2026-09-21'

@@ -1,0 +1,175 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f02d898268e3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果生成过程中出现错误（如显存不足），如何在流式通道中优雅地通知客户端？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如果生成过程中出现错误（如显存不足），如何在流式通道中优雅地通知客户端？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在流式响应中，如果发生不可恢复的错误，必须通知客户端，同时保证连接正常关闭。可以通过定义特殊的 SSE 事件或错误数据结构来实现。
+
+    实现方式：
+
+    - SSE error 事件
+    服务端发送一个 event: error 的 SSE 消息，数据中包含错误码和错误信息：
+
+    ```text
+    event: error
+    data: {"code": "out_of_memory", "message": "显存不足，请稍后重试。"}
+    ```
+
+    然后服务端主动关闭连接。
+    客户端监听 error 事件并展示相应提示。
+
+    - 在常规数据中附加错误字段
+    在最后一次数据推送中包含 "error" 字段（类似于 OpenAI API 在非流式中的错误处理）。但这不如专用错误事件显眼。
+
+    - 发送 HTTP 错误状态码（如果可能）
+    若错误发生在流建立之前，直接返回 500 错误；如果流已经开始，则通过上述 SSE 事件告知。
+
+    - 客户端检测连接关闭
+    如果服务端意外断开而没有发送错误事件，客户端应检测到连接关闭，并视为“生成中断”，显示通用错误提示。可通过 EventSource.onerror 或 fetch 的 reader.closed 实现。
+
+    - 提供重试或恢复建议
+    错误数据中可以包含 retry_after 或 request_id 以便客户端重试或联系支持。
+
+    注意点：
+
+    - 在关闭连接前，确保错误事件被成功发送，可能需要短暂延迟或同步刷新。
+
+    - 对于部分生成结果（已推送的 token），客户端可以选择保留显示，并附加错误标记。
+
+    - 服务端需正确清理该请求的资源（释放 KV Cache 等），防止泄漏。
+
+    优雅错误处理示例（Python 伪代码）：
+
+    ```python
+    try:
+        for token in generate():
+            yield f"data: {json.dumps({'token': token})}\n\n"
+    except MemoryError:
+        yield f"event: error\ndata: {json.dumps({'error': 'out_of_memory'})}\n\n"
+    finally:
+        yield "data: [DONE]\n\n"
+    ```
+
+    这样客户端就能在流中收到明确的错误通知，而非突然断开。
+
+    - 如果解码成功且没有不完整序列，则输出解码后的文本，清空或保留缓冲区。
+
+    - 如果解码失败（遇到不完整多字节序列），则保留缓冲区，等待后续 token 补充完整。将已成功解码的前缀部分输出。
+
+    - 可以使用多模式字符串匹配算法（如 Aho-Corasick）高效同时检测多个 stop string。
+
+    - 由于 stop string 可能跨 token 边界，必须使用文本缓冲区而非仅检查最后一个 token。
+
+    - 立即将该 stop string 之前的文本（已去除了结束符）作为最终输出的一部分推送给客户端（如果还未推送）。
+
+    - 发送一个结束信号（SSE [DONE] 或 WebSocket close frame）。
+
+    - 通知推理引擎停止该请求的继续生成（设置标志，在下次调度时将其标记为完成）。
+
+    - 释放该请求的 KV Cache 等资源。
+
+    - 使用支持增量更新的 Markdown 库（如 react-markdown 配合 remark 或 marked），每次将新文本附加到已有内容，只重新渲染变化的部分。
+
+    - 或者将原始 Markdown 直接显示在文本编辑器中（如代码编辑器风格），由用户自行查看渲染后的效果，但主流聊天界面通常实时渲染。
+
+    - 如果检测到当前处于未闭合的代码块内，可以暂时不渲染为代码块，而是显示为普通文本，直到代码块结束。
+
+    - 或者单独将代码块区域提取出来，使用等宽字体展示，待闭合后再应用语法高亮。
+
+    - 更优方案：将 Markdown 解析为抽象语法树（AST），遇到未闭合的代码块时，前端只渲染代码块前缀部分，内部内容增量追加并应用代码样式。
+
+    - 服务端在每条 SSE 消息中附加 id: <序列号>。序列号可以是对应 token 的序号或偏移量。
+
+    - 当重连请求到达，服务端解析 Last-Event-ID，找到该请求中断前已发送的最后一个 token 位置，并从该位置之后的 token 开始推送。这要求服务端能够缓存已生成的 token 序列（至少缓存最近的 token）或能够根据序列索引重新生成（不现实）。常见实现：服务端维护每个请求的生成历史，客户端重连后，服务端先发送 id 和对应数据，客户端跳过已接收的消息。
+
+    - 在流断开时，重新发起请求，并携带 Last-Event-ID。
+
+    - 客户端维护接收到的最大 id，丢弃重复数据。
+
+    - stream: 布尔值，是否流式输出。
+
+    - stop: 停止字符串列表。
+
+    - max_tokens: 最大生成长度。
+
+    - temperature, top_p 等标准采样参数。
+
+    - event: text -> 文本块
+
+    - event: image -> 图像 URL/Base64 数据或占位符
+
+    - 前端根据不同事件类型在 UI 中分别渲染文本和图像。
+    例如：
+
+    - 立即替换或屏蔽敏感部分。
+
+    - 若需要完全停止生成（如触发安全策略），立即通知引擎终止该请求。
+    由于检测通常在 CPU 上进行（快速字符串匹配），可以在推理引擎的每次迭代后、流式推送前执行，延迟几乎可忽略（微秒级）。
+
+    - 客户端可以在接收 token 流的同时，随时向服务端发送控制消息，例如中止生成、调整采样参数（如 temperature）、注入新的系统指令等。这在交互式创作、对话式 AI 中非常有用。
+
+    - SSE 是单向的，客户端若需中止只能关闭连接，无法优雅地发送“停止”信号让服务端提前释放资源。
+
+    - gRPC 基于 HTTP/2，原生支持多路复用，可以在一个 TCP 连接上同时处理多个流（例如多个并行生成请求），减少连接开销。
+
+    - WebSocket 也支持全双工，但需要应用层自己管理多路复用。
+
+    - WebSocket 的消息帧开销比 SSE 文本格式更小，支持二进制传输，对于需要发送大量 token 或媒体数据的场景更高效。
+
+    - gRPC 使用 Protocol Buffers 序列化，结构紧凑，解析效率高。
+
+    - gRPC 通过 .proto 定义服务接口，生成强类型客户端/服务端代码，减少出错，适合大型系统集成。
+
+    - WebSocket 消息格式需自定义，易产生歧义。
+
+    - gRPC 和 WebSocket 底层 TCP 具有流控机制，可以自然实现背压：如果客户端处理慢，服务端发送缓冲区满，会自动减速。gRPC 还有应用层流控。
+
+    - event: system → 系统提示内容
+
+    - event: user → 用户输入回显或生成过程中的用户中断
+
+    - event: assistant → 助手回复（默认流式输出）
+    这对于区分同一连接中的多个角色消息非常清晰。
+
+    - 先发送 event: thought 内部思考
+
+    - 再发送 event: tool_call 工具调用
+
+    - 最后发送 event: answer 最终回答
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/P30KwGxJIiaDg5kjcX0c8HC6ntd
+  block_id: AflpdumTLo9g3lxySZ1cIcd2nGe
+  page_token: P30KwGxJIiaDg5kjcX0c8HC6ntd
+  original_title: 如果生成过程中出现错误（如显存不足），如何在流式通道中优雅地通知客户端？
+  imported_at: '2026-09-21'

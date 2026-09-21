@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3835055f2b76
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对于需要低延迟的场景，如何选择或部署模型服务架构？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 九：前沿与工程实践
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 九：前沿与工程实践
+content:
+  prompt: 对于需要低延迟的场景，如何选择或部署模型服务架构？
+answer:
+  mode: rubric
+  reference_answer: |-
+    追求低延迟（交互式应用如语音助手、搜索等）意味着必须将 TTFT 和 TPOT 这两个指标压到极低。核心策略是“多管齐下”，从架构、模型和调度层面进行优化。
+
+    - 模型选择是第一步
+
+    选择一个参数规模适合、延迟可接受的模型至关重要。
+
+    - Mixture-of-Experts (MoE)：这类模型总参数量巨大，但单次推理激活的参数量较小。如果能在显存中放下所有专家（或者通过快速交换），它能在提供大模型能力的同时，保持相对较低的延迟。
+
+    - 量化模型：使用 INT8 或 INT4 量化的模型。这不仅能大幅降低显存占用（允许更大的 batch size 或 KV Cache），还能减少内存带宽压力，显著加速推理。
+
+    - 推理引擎与部署环境优化
+
+    - 选择高性能推理引擎：必须使用 vLLM, TensorRT-LLM 等对低延迟高度优化的框架。它们通过算子融合、内核优化和 PagedAttention 等技术，将推理效率推向极致。
+
+    - 利用推测解码：在生成阶段，用一个极轻量的小模型快速生成候选 token，再由大模型并行验证。这能将生成延迟降低约 2-3 倍。
+
+    - 硬件选择：使用具有大显存带宽和高计算能力的顶级 GPU（如 NVIDIA H100），并确保模型部署在单机甚至单卡上，避免跨机通信带来的不可控延迟。
+
+    - 优化请求调度与缓存
+
+    - 尽力避免排队：这是保证低延迟的关键。调度策略应从“最大化吞吐”转为“优先保证延迟”。这意味着需要预留更多冗余算力，保持较低的 GPU 利用率水位，以随时应对突发请求。
+
+    - 充分利用 Prefix Caching：对于具有固定 System Prompt 的对话应用，将请求调度到可以复用其前缀的实例上，可以极大地降低 TTFT。
+
+    - 客户端优化：在请求 API 时，best_of 等需要多次采样的参数绝对不能用，因为它会成倍增加延迟。流式输出 (Streaming) 必须开启，以降低用户的感知延迟。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  block_id: MIcPd3a43oSLz9xWn6HcEfNwn8d
+  page_token: Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  original_title: 对于需要低延迟的场景，如何选择或部署模型服务架构？
+  imported_at: '2026-09-21'

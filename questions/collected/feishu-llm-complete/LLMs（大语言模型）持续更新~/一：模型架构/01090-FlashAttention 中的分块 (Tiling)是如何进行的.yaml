@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dae2e603a1c8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: FlashAttention 中的“分块 (Tiling)”是如何进行的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: FlashAttention 中的“分块 (Tiling)”是如何进行的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    分块是 FlashAttention 降低 IO 的核心技术。它将输入的 Q、K、V 矩阵沿序列维度（或批次维度）分割成若干个小块（blocks），使得每个块可以完全放入 SRAM 中。
+
+    具体步骤：
+
+    [图片内容未导入]
+
+    - 在 SRAM 中对 Sij 进行 softmax。由于 softmax 具有可结合的性质（可通过保存每个位置当前的最大值和归一化分母来逐块更新），FlashAttention 在遍历 K 块时，动态地维护该行 Q 块的 softmax 统计量（rowmax 和 rowsum），逐块计算出正确的 softmax 结果，而无需一次性将整个 n×n 矩阵放入 SRAM。
+
+    - 利用当前的 softmax 权重，立即将对应的 V 块加权求和并累加到输出累加器中。这样，每个 Q 块在遍历完所有 K、V 块后，就在 SRAM 中完整地计算出了该块的注意力输出，此时再将结果写回 HBM。
+
+    通过这种方式，FlashAttention 在整个前向过程中只需要在 HBM 中存储 Q、K、V 和最终的输出 O，从未将完整的注意力矩阵 S 或 P 写入 HBM。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RxQzwT6xWiMq6jkFtGTcVVECnmg
+  block_id: BKF9dQ6eoo66b0xH4BccjmyAnnb
+  page_token: RxQzwT6xWiMq6jkFtGTcVVECnmg
+  original_title: FlashAttention 中的“分块 (Tiling)”是如何进行的？
+  imported_at: '2026-09-21'

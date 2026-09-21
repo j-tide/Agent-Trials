@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-71cf5d482f63
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 混合精度结合梯度检查点时，激活存储精度如何影响内存和计算。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 混合精度结合梯度检查点时，激活存储精度如何影响内存和计算。
+answer:
+  mode: rubric
+  reference_answer: |-
+    梯度检查点通过仅保存部分层的激活，在反向时重计算其余激活，来减少显存占用。在混合精度下：
+
+    - 激活存储精度：通常与计算精度一致，即FP16或BF16。因此，每个被保存的检查点张量，其内存占用是FP32的一半。这进一步降低了显存峰值，使得在同样内存预算下可以保存更多检查点（从而减少重计算量）或支持更大batch。
+
+    - 重计算的计算精度：重计算时，前向使用半精度权重和半精度输入，计算速度比FP32快（Tensor Cores加速）。虽然重计算增加了FLOPs，但减少的显存允许更大的并行度，总体上往往能提升吞吐量。
+
+    - 数值影响：重计算在半精度下进行，由于舍入误差，重计算出的激活可能与原始前向的激活有微小差异，但实际训练中这种差异几乎不影响收敛。若需严格一致，可以强制重计算部分使用FP32，但会增加开销，不推荐。
+
+    配置建议：通常在Transformer中，对每个Transformer块应用检查点，存储其输入（半精度），重计算时利用高效注意力（如FlashAttention）进一步提升速度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H1LqwP3PkibEdykjijgc533Rnue
+  block_id: Y1QIdYN8RovoBxxXNyScLzMSnmh
+  page_token: H1LqwP3PkibEdykjijgc533Rnue
+  original_title: 混合精度结合梯度检查点时，激活存储精度如何影响内存和计算。
+  imported_at: '2026-09-21'

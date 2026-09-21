@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bbf8f66c8100
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何精确测算 PyTorch 训练中的显存分配和缓存？torch.cuda.memory_stats
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 如何精确测算 PyTorch 训练中的显存分配和缓存？torch.cuda.memory_stats
+answer:
+  mode: rubric
+  reference_answer: |-
+    PyTorch 提供了一套显存监控 API，位于 torch.cuda 模块。最常用的是：
+
+    - torch.cuda.memory_allocated(device=None)：返回当前被张量占用的显存字节数。
+
+    - torch.cuda.max_memory_allocated(device=None)：返回程序启动以来张量分配峰值的字节数。
+
+    - torch.cuda.memory_reserved(device=None)：返回 PyTorch 缓存分配器向 CUDA 申请的显存总量。由于缓存机制，此值通常 ≥ allocated。
+
+    - torch.cuda.reset_peak_memory_stats(device=None)：重置峰值统计。
+
+    - torch.cuda.memory_stats(device=None)：返回详细的显存使用字典，包括分配次数、释放次数、碎片信息等。
+
+    - torch.cuda.memory_summary(device=None)：以表格形式打印显存使用概览，包含各部件占用。
+
+    实际监控示例：在训练循环中插入显存监控，定位瓶颈。
+
+    import torch
+
+    for step, batch in enumerate(train_loader):
+        optimizer.zero_grad()
+        loss = model(batch).loss
+        loss.backward()
+        optimizer.step()
+
+        if step % 100 == 0:
+            alloc = torch.cuda.memory_allocated() / 1e9
+            reserv = torch.cuda.memory_reserved() / 1e9
+            peak = torch.cuda.max_memory_allocated() / 1e9
+            print(f"Step {step}: Allocated={alloc:.2f}GB, Reserved={reserv:.2f}GB, Peak={peak:.2f}GB")
+            torch.cuda.reset_peak_memory_stats()  # 每100步重置峰值，观察短期波动
+
+    若要进一步细分显存来源（参数、梯度、激活等），可结合 PyTorch Profiler 或 Nsight Systems。torch.profiler.profile 可以记录每个算子的内存分配和释放时间线。
+
+    缓存分配器：PyTorch 使用 caching_allocator，它管理一个内存池，避免频繁调用 cudaFree 和 cudaMalloc。因此，即使张量被释放，memory_reserved 可能不会立即下降，但会被后续分配复用。这就是为什么 empty_cache() 可以强制清理缓存以释放显存到系统，但通常不需要手动调用。
+
+    [图片内容未导入]
+
+    [图片内容未导入]
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/FC4Hws8cVieV7okFYIXcIkgvn0f
+  block_id: Hek8djBOhoEf6Dx3hndcCGg0nwd
+  page_token: FC4Hws8cVieV7okFYIXcIkgvn0f
+  original_title: 如何精确测算 PyTorch 训练中的显存分配和缓存？torch.cuda.memory_stats
+  imported_at: '2026-09-21'

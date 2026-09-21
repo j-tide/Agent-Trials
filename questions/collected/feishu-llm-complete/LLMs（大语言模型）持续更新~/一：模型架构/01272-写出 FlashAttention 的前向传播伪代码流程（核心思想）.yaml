@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c14911fc53ed
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出 FlashAttention 的前向传播伪代码流程（核心思想）。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 写出 FlashAttention 的前向传播伪代码流程（核心思想）。
+answer:
+  mode: rubric
+  reference_answer: |-
+    以下伪代码描述了 FlashAttention 前向传播的核心流程。假设 Q、K、V、O 存储在 HBM 中，块大小 Br 和 Bc 根据 SRAM 大小确定。
+
+    # 在 HBM 中分配 Q, K, V, O
+    # 将 Q, K, V 分成块: Q_1..Q_{T_r}, K_1..K_{T_c}, V_1..V_{T_c}
+
+    for i in 1..T_r:                          # 遍历 Q 块
+        load Q_i from HBM to SRAM             # 加载一个 Q 块
+        # 初始化该 Q 块的统计量
+        m_i = (-inf)                          # 当前行最大值
+        l_i = 0                                # 当前行 softmax 分母
+        acc_i = 0                              # 输出累加器 O_i
+
+        for j in 1..T_c:                      # 遍历 K, V 块
+            load K_j, V_j from HBM to SRAM    # 加载一对 K, V 块
+            # 计算局部注意力得分
+            S_ij = Q_i @ K_j^T                # 大小 B_r x B_c
+            # 应用掩码（如果需要）
+            S_ij = apply_mask(S_ij)
+
+            # 更新 softmax 统计量
+            m_new = max(m_i, rowmax(S_ij))
+            # 缩放因子
+            alpha = exp(m_i - m_new)
+            beta = exp(S_ij - m_new)
+            # 更新累加器和分母
+            l_new = alpha * l_i + rowsum(beta)
+            acc_i = (alpha * l_i / l_new) * acc_i + (beta / l_new) @ V_j
+
+            # 更新 m_i, l_i
+            m_i = m_new
+            l_i = l_new
+
+        # 最终写入 O_i
+        O_i = acc_i
+        store O_i to HBM
+
+    # 如果需要，额外存储 softmax 统计量用于反向传播
+
+    核心思想：
+
+    - 外层循环遍历 Q 块，内层循环遍历 K、V 块。
+
+    - 通过动态维护每行的最大值和 softmax 分母，可以逐块更新注意力输出，最终结果与全局计算完全相同。
+
+    - 整个过程中，大的注意力矩阵从未完整地写入或读出 HBM，只在 SRAM 中短暂存在，从而大幅度减少了 IO。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RxQzwT6xWiMq6jkFtGTcVVECnmg
+  block_id: LKipdBgzWoK75kxa2HEcOWZXnRc
+  page_token: RxQzwT6xWiMq6jkFtGTcVVECnmg
+  original_title: 写出 FlashAttention 的前向传播伪代码流程（核心思想）。
+  imported_at: '2026-09-21'

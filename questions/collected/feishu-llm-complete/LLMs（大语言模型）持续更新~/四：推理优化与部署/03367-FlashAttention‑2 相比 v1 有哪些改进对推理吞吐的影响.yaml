@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9330f8993d35
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: FlashAttention‑2 相比 v1 有哪些改进？对推理吞吐的影响。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: FlashAttention‑2 相比 v1 有哪些改进？对推理吞吐的影响。
+answer:
+  mode: rubric
+  reference_answer: |-
+    FlashAttention-2 在算法和工程上做了多项改进，将注意力计算的效率推至硬件极限，尤其对 prefill 阶段吞吐提升显著。
+
+    主要改进：
+
+    - 减少非 matmul FLOP 和重整调度：v1 中 softmax 的统计量更新使用了较多 scalar 操作，v2 将这些操作融合，并优化了线程块在 SM 上的调度。更重要的是，v2 让外层循环遍历 K,V 块，内层循环遍历 Q 块（与 v1 相反），这样更有利于在序列维度上实现连续的线程块处理，减少 warp 调度开销。
+
+    - 更好的序列长度并行化：v2 将 Q 的序列维并行化，而不是在 batch 和 head 维度并行。这使得在长序列时能更充分地利用 GPU 的并行性，提升了 prefill 的吞吐。
+
+    - 减少 shared memory 访问和指令数：通过更精细地组织数据布局（如 K,V 在 shared memory 中转置），减少了 bank conflict。并且 v2 利用 Tensor Core 的矩阵乘法指令 (mma) 来加速 QK^T 和 PV 计算，而 v1 中可能用了更通用的指令。
+
+    - 更好的分块大小选择：v2 根据头维度和序列长度自动调优分块参数，以最大化 SRAM 利用率和 TLP（线程级并行）。
+
+    - 前向加速显著：FlashAttention-2 在训练和 prefill 上比 v1 大约快 2 倍，达到了理论最大吞吐的 70% 以上。
+
+    对推理吞吐的影响：
+
+    - Prefill 吞吐大幅提升：对于长提示词的一次性处理，v2 使得 TTFT（首 token 延迟）显著降低，同时可支持更大的 batch 进行 prefill，提高系统吞吐。
+
+    - Decode 影响有限：因为 decode 本身就是带宽受限，且序列长度虽大但 Q 只有 1。v2 的改进主要利于长序列 prefill，对 decode 的延迟改进不大（可能在 10% 以内）。因此整体推理吞吐的增益主要来源于更快的 prefill 阶段。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/OuSIwe7IQi1cflkQ601cDNfQn3c
+  block_id: GqWWdyomrooiIFxggcccaH9VnOh
+  page_token: OuSIwe7IQi1cflkQ601cDNfQn3c
+  original_title: FlashAttention‑2 相比 v1 有哪些改进？对推理吞吐的影响。
+  imported_at: '2026-09-21'

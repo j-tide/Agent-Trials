@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1e3fd35f9357
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在多轮对话中，KV Cache 如何复用？如何区分系统提示、历史对话和当前轮次？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在多轮对话中，KV Cache 如何复用？如何区分系统提示、历史对话和当前轮次？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多轮对话是 KV Cache 复用的绝佳场景。其核心思想是：对话的公共前缀（如系统提示和早期历史）的 KV Cache 只需计算一次，后续轮次直接复用。
+
+    复用过程：
+
+    - 第一轮对话：系统提示 + 用户提问1。Prefill 阶段计算并缓存完整的 KV Cache。Decode 阶段生成回复1，其 KV 也被追加。
+
+    - 第二轮对话：用户提问2。模型的输入 = 第一轮的完整序列 + 用户提问2。此时，第一轮序列的 KV Cache 已经存在，Prefill 阶段只需计算新增的“用户提问2”部分，其注意力计算可以自然关注到所有缓存的 Key。这样，系统提示和历史对话的 KV 被完美复用，极大地降低了 Prefill 延迟。
+
+    区分各部分：
+
+    现代推理引擎（如 vLLM, SGLang）通过前缀匹配（Prefix Matching）机制来自动识别和复用 KV Cache。引擎会将系统提示词（通常是固定的）和早期对话历史（在多轮中是共享的）的 KV 缓存标记为一个“公共前缀”。当新请求到来时，引擎会检测其 Prompt 的哪些部分与已缓存的前缀重合，然后直接复用重合部分的 KV Cache，只计算剩余部分。
+
+    这种机制不仅节省了计算，还节省了显存。它就像对话的“记忆”，每次新问题都基于之前的完整记忆进行，而不需要从头回忆。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  block_id: XPkvdKPEioJoiRxgyaccQYySnWd
+  page_token: N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  original_title: 在多轮对话中，KV Cache 如何复用？如何区分系统提示、历史对话和当前轮次？
+  imported_at: '2026-09-21'

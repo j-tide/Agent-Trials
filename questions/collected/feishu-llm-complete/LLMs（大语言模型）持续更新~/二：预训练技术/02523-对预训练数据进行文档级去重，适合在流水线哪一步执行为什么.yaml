@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b31850cc4dda
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对预训练数据进行文档级去重，适合在流水线哪一步执行？为什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 对预训练数据进行文档级去重，适合在流水线哪一步执行？为什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    文档级去重最适合在正文提取和基础清洗之后、质量过滤和最终混合之前执行。理想位置是在流水线的中后期。
+
+    原因分析：
+
+    - 必须在正文提取之后：原始 HTML 包含大量样式代码、导航、广告等，这些内容在不同网页间高度相似，但并非真正的文档内容重复。如果直接对 HTML 去重，会因为相同的网站模板、CSS、脚本而将大量不同内容的页面误判为重复，造成数据损失。只有提取出纯文本后，才能基于实质内容判断文档是否重复。
+
+    - 应在基础清洗之后、质量过滤之前：去重依赖于文档内容的相似度。基础清洗（如去除特殊字符、统一空格、小写等）可以使文档签名更纯粹，避免因标点、空格差异导致相同文本被判定为不重复。同时，去重应在质量过滤之前，因为如果先进行质量过滤，可能会错误地移除某些高质量版本的文档而保留低质量版本；先去重可以确保每个文档簇只保留一个或少数几个代表，然后对保留的文档进行质量评估，既能减少后续处理的文档数量，又能保证数据多样性。
+
+    - 不应在语言过滤之前：语言过滤应早于去重，因为多语言混合可能导致相似度计算复杂化（需要根据语言调整相似度阈值）。通常流水线顺序是：语言识别过滤 → 基础清洗 → 去重 → 质量过滤 → PII 清洗 → 最终混合。
+
+    - 不应在流水线的最早期：原始 WARC 文件体积庞大，如果立即进行全文档去重，计算开销巨大且大部分文档最终会被丢弃（非目标语言、低质量等），浪费资源。早期应先用轻量规则过滤掉明显无效的文档（如 HTTP 错误、空文档、非目标语言），再进行昂贵的去重计算。
+
+    因此，文档级去重的理想位置是：语言过滤和基础清洗之后，质量评分和过滤之前。这样既保证了去重的准确性，又降低了后续处理的数据规模，实现了效率和效果的平衡。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VQryw3HUdiWHbekHEfpc0JK2nDe
+  block_id: UHBxdp7oboNUHuxN0RGcvk6Hnqe
+  page_token: VQryw3HUdiWHbekHEfpc0JK2nDe
+  original_title: 对预训练数据进行文档级去重，适合在流水线哪一步执行？为什么？
+  imported_at: '2026-09-21'

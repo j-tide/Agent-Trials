@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6c3821b24e59
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在训练代码中实现“分段损失掩码”，对对话的不同段设置不同权重？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 如何在训练代码中实现“分段损失掩码”，对对话的不同段设置不同权重？
+answer:
+  mode: rubric
+  reference_answer: "在某些高级场景中，我们希望对不同的 assistant 回复赋予不同的重要性。例如，某个任务的示例回复比日常闲聊的回复更重要。此时，我们可以对损失进行分段加权。\n\n实现方式：将
+    labels 中的值从简单的 -100 或 token_id，扩展为可以携带权重信息的结构。\n\n具体代码实现：\n\n```python\nimport
+    torch\n\ndef create_weighted_loss_mask(input_ids, tokenizer, sample_weights):\n
+    \   \"\"\"\n    sample_weights 是一个列表，元素为 (start_str, end_str, weight)\n    start_str/end_str
+    用于标识重要文本段的起止文本\n    weight 是该段的损失权重，默认其他区域的权重为 1.0\n    \"\"\"\n    # 克隆原始 input_ids
+    作为 labels 的基础\n    labels = input_ids.clone()\n    # 初始化权重张量，默认所有位置权重为 1.0\n    weights
+    = torch.ones_like(input_ids, dtype=torch.float)\n    \n    # 首先，将非 assistant 部分的权重设为
+    0（相当于原始掩码）\n    assistant_start = tokenizer.encode(\"<|im_start|>assistant\")[0]\n
+    \   assistant_end = tokenizer.encode(\"<|im_end|>\")[0]\n    \n    in_assistant
+    = False\n    for i in range(input_ids.shape[1]):\n        token = input_ids[0,
+    i].item()\n        if token == assistant_start:\n            in_assistant = True\n
+    \           weights[0, i] = 0.0  # 特殊token本身不计算损失\n        elif token == assistant_end:\n
+    \           weights[0, i] = 0.0\n            in_assistant = False\n        elif
+    not in_assistant:\n            weights[0, i] = 0.0\n    \n    # 其次，根据 sample_weights
+    对特定 assistant 回复段调整权重\n    for start_str, end_str, weight in sample_weights:\n
+    \       start_ids = tokenizer.encode(start_str, add_special_tokens=False)\n        end_ids
+    = tokenizer.encode(end_str, add_special_tokens=False)\n        # 在 input_ids 中定位这些文本段，并为对应位置设置权重\n
+    \       # （此处为简化示例，实际开发中需要更复杂的序列匹配算法）\n    \n    # 计算加权损失\n    outputs = model(input_ids=input_ids,
+    labels=labels)\n    logits = outputs.logits\n    shift_logits = logits[..., :-1,
+    :].contiguous()\n    shift_labels = labels[..., 1:].contiguous()\n    shift_weights
+    = weights[..., 1:].contiguous()\n    \n    # 逐 token 计算交叉熵\n    loss_fct = torch.nn.CrossEntropyLoss(reduction='none')\n
+    \   token_losses = loss_fct(\n        shift_logits.view(-1, shift_logits.size(-1)),\n
+    \       shift_labels.view(-1)\n    )\n    token_losses = token_losses.view(shift_labels.shape)\n
+    \   \n    # 应用掩码（权重为0的位置损失为0）\n    masked_losses = token_losses * shift_weights\n
+    \   \n    # 应用权重并计算最终损失\n    final_loss = masked_losses.sum() / (shift_weights.sum()
+    + 1e-8)\n    return final_loss\n```\n\n应用场景：\n\n- 课程学习：训练初期，对简单样本的 assistant 回复赋予高权重；随着训练进行，逐步降低简单样本权重，提高困难样本权重。\n\n-
+    多任务平衡：不同任务的数据量差异巨大，对数据量少的任务的 assistant 回复赋予更高权重，防止被数据量大的任务淹没。\n\n- 质量导向训练：对经过人工验证的高质量回复赋予更高权重，对自动生成、可能含噪声的回复赋予较低权重。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VOrVwrhLzi4WRokQOMPcOsPWnwg
+  block_id: Nl7RdWGZPoFRqaxGVqRc1lpPnMf
+  page_token: VOrVwrhLzi4WRokQOMPcOsPWnwg
+  original_title: 如何在训练代码中实现“分段损失掩码”，对对话的不同段设置不同权重？
+  imported_at: '2026-09-21'

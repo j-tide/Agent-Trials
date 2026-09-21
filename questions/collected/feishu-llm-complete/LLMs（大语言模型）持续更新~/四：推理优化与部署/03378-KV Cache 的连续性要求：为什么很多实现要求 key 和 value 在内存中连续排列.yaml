@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-45df67ca2e23
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: KV Cache 的连续性要求：为什么很多实现要求 key 和 value 在内存中连续排列？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: KV Cache 的连续性要求：为什么很多实现要求 key 和 value 在内存中连续排列？
+answer:
+  mode: rubric
+  reference_answer: |-
+    连续性要求是指将 Key 和 Value 张量在物理内存中相邻、线性地存储。这是为了最大化 GPU 内存带宽的利用率。
+
+    核心原因：内存访问的局部性与合并访问
+
+    - GPU 的显存带宽是一个宝贵的资源。当 GPU 的一个线程束（Warp）发起内存读取请求时，如果这些请求访问的内存地址是连续的，硬件就可以将这些请求合并（Coalesce） 为一次或少数几次大块数据传输，从而高效利用带宽。这就像一辆装满货的卡车一次送完，而不是派多辆小车零散运输。
+
+    - 在 Decode 阶段，模型每步都需要读取当前 token 的 Key 和 Value，它们是沿序列维度相邻的。如果 K 和 V 在内存中都是连续存储的，这些读取操作就能被硬件高度并行地合并处理，极大地减少读取延迟。
+
+    相反，非连续的、碎片化的存储会导致多次、小数据量的内存访问，严重降低有效带宽，使得推理速度受限于带宽瓶颈。
+
+    PagedAttention 虽然将逻辑上连续的 KV Cache 切分为物理上可能不连续的页，但它在每个页内部，仍然是连续存储的。这是它在解决碎片化问题的同时，仍然能保持高内存效率的关键。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  block_id: Yp0bdWRjsoUWaUxE5GKcTzoRnNe
+  page_token: N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  original_title: KV Cache 的连续性要求：为什么很多实现要求 key 和 value 在内存中连续排列？
+  imported_at: '2026-09-21'

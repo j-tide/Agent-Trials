@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-61fe424f9194
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“最短作业优先”（SJF）？在 LLM 推理中如何预估作业长度？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 什么是“最短作业优先”（SJF）？在 LLM 推理中如何预估作业长度？
+answer:
+  mode: rubric
+  reference_answer: |-
+    最短作业优先（Shortest Job First, SJF） 是一种优先处理预计执行时间最短的请求的调度策略，可以理论证明它最小化平均等待时间。
+
+    在 LLM 推理中，作业长度通常指还需生成的 token 数。但问题在于，生成尚未开始或只进行了一部分时，我们无法确知总长度。预估方法有：
+
+    - 基于 prompt 的预测：训练一个轻量级的回归模型（或使用小 LLM），输入 prompt 文本，预测输出长度。可用 prompt 的长度、类型、语义特征作为特征。
+
+    - 用户指定最大长度：将 max_tokens 参数作为上限，但此上限往往远大于实际长度，导致预估偏大。
+
+    - 历史统计：对于特定应用（如客服），维护各类别请求的平均生成长度。
+
+    - 在线动态预估：在生成过程中，根据已生成的 token 数和当前解码速度，结合长度预测模型动态修正剩余长度。例如利用模型的置信度、已生成文本的语义判断是否接近结束。
+
+    - 保守近似：在没有预测能力时，可以将所有新请求的预估长度设为某个中等值，或依赖连续的动态重调度（如 SRPT：最短剩余处理时间优先）。部分系统支持在生成中途抢占长请求，插入短请求，此时只需相对长度排序，无需绝对预估，通过观察当前序列长度作为剩余长度的粗略指标（序列越长的请求，其剩余可能也越长）。
+
+    实现 SRPT：在连续批处理中，每个请求已经生成的 token 数已知，可近似认为已生成 token 数越多，剩余越少（但不总是，有的请求本来就长）。更准确的，可以结合用户设定的 max_tokens 和已生成数，计算 remaining = max_tokens - generated 作为上限进行排序。
+
+    SJF/SRPT 在 LLM 服务中通过优先服务即将完成的请求，能显著降低平均延迟，但需注意长请求饥饿问题，通常配合老化机制（等待时间过长则提升优先级）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  block_id: AgYzdmqg6oCRIBxvAF9cOuUYn8e
+  page_token: Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  original_title: 什么是“最短作业优先”（SJF）？在 LLM 推理中如何预估作业长度？
+  imported_at: '2026-09-21'

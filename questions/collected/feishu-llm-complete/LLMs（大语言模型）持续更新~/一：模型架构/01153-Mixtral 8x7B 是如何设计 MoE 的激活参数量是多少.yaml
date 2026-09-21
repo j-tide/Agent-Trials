@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bdc4ddc1baf4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Mixtral 8x7B 是如何设计 MoE 的？激活参数量是多少？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: Mixtral 8x7B 是如何设计 MoE 的？激活参数量是多少？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Mixtral 8x7B 是 Mistral AI 推出的基于 MoE 的 Decoder-Only 语言模型，其 MoE 设计如下：
+
+    - 基座架构：继承 Mistral 7B，使用滑动窗口注意力、RoPE、RMSNorm、SwiGLU FFN，但将每层的密集 FFN 替换为 MoE 模块。
+
+    - 专家配置：共有 8 个专家，每个专家的结构与 Mistral 7B 的 FFN 相同（中间维度 14336）。
+
+    - 路由机制：对于每个 token，门控网络从 8 个专家中选择 Top-2（k=2）专家。两个专家各自计算输出，按门控权重加权求和。
+
+    - 稀疏性：每个 token 仅激活 2 个专家，因此每个 token 的实际计算量约为密集 Mistral 7B 的 2/8（但加上路由开销，实际计算量大致与密集模型相当，因为专家的中间维度相同）。
+
+    - 总参数量：约 46.7B（8 个专家各约 5.8B 参数，加上共享的注意力层等，总数为 46.7B）。
+
+    - 激活参数量：在推理时，每个 token 激活的参数量包括所有共享层（注意力、归一化等）加上 2 个激活的专家。由于注意力等共享层参数约 0.5B，每个专家 FFN 约 5.8B，因此激活参数 ≈ 0.5+2×5.8=12.1B（通常报告为约 12.9B，可能包含了其他共享参数）。所以 Mixtral 是一个总参数 46.7B、但仅激活约 12.9B 参数的模型，具有极高的参数效率。
+
+    性能：Mixtral 8x7B 在众多基准上超越了 LLaMA-2 70B 等更大密集模型，同时推理速度因稀疏激活而更快，成为 MoE 在大语言模型中成功应用的标志性工作。
+
+    [图片内容未导入]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PdQowhnKGiWKbpkF2tUchOQBnlh
+  block_id: W5QWd2R08oWvTpxcqvXcuuhhnlf
+  page_token: PdQowhnKGiWKbpkF2tUchOQBnlh
+  original_title: Mixtral 8x7B 是如何设计 MoE 的？激活参数量是多少？
+  imported_at: '2026-09-21'

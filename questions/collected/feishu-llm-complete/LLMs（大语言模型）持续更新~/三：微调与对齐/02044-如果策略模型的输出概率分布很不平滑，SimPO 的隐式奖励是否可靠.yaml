@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c733de04ba80
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果策略模型的输出概率分布很不平滑，SimPO 的隐式奖励是否可靠？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 如果策略模型的输出概率分布很不平滑，SimPO 的隐式奖励是否可靠？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这个问题的答案是 “在大多数情况下可靠，但极端不平滑会带来风险”。SimPO 的隐式奖励是序列的平均对数概率，这个定义本身就赋予了它一定的鲁棒性，但也存在短板。
+
+    为什么通常可靠（平均化的平滑效应）
+
+    [图片内容未导入]
+
+    何时不可靠（方差过大与离群值）
+
+    当模型的输出概率分布全局性地非常不平滑时，SimPO 的隐式奖励会变得不可靠。这通常发生在以下情况：
+
+    - 训练初期或模型崩溃时：模型对大量 token 的预测极度不确定，概率分布近似均匀，或者对某些 token 的预测概率趋近于 0（对数概率趋向负无穷）。此时，平均对数概率的方差极大，无法准确反映回复之间的真实质量差异。
+
+    - 离群值主导：即使有平均化，如果回复中出现了概率极低的长尾词（比如生僻字），该点的对数概率会成为一个巨大的负值，将整个序列的平均分大幅拉低。这会导致模型错误地惩罚一个仅仅因为使用了一个生僻词的高质量回复。
+
+    提升可靠性的改进方法
+
+    可以通过以下方式增强 SimPO 在概率不平滑时的鲁棒性：
+
+    - 温度缩放（Temperature Scaling）：在计算隐式奖励之前，对 logits 应用一个大于 1 的温度 TT。这能平滑概率分布，避免极端概率值的出现，从而使对数概率信号更稳定。
+
+    - 裁剪对数概率：对单步的对数概率设定一个最小值（如 -20），防止个别极低概率的 token 对平均分产生不成比例的巨大影响。
+
+    - Top-p 掩码后计算：只在模型通过 Top-p 采样认为合理的 token 集合上计算对数概率，但这种方式会改变原始的生成概率定义，需要谨慎使用。
+
+    总结：SimPO 的隐式奖励在模型正常训练阶段是可靠的，其平均化机制能有效平滑局部噪声。但在训练初期、模型分布极度异常时，可能需要配合温度缩放等技巧来保证信号的稳定性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NYUaw2x0Wi7SsckMF9Vc4Qjcnze
+  block_id: PQDqdk6LVoCDdTxir38cBKHonGd
+  page_token: NYUaw2x0Wi7SsckMF9Vc4Qjcnze
+  original_title: 如果策略模型的输出概率分布很不平滑，SimPO 的隐式奖励是否可靠？
+  imported_at: '2026-09-21'

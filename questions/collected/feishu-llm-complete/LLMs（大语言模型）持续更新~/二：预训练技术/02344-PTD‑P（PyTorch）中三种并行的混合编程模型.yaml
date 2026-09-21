@@ -1,0 +1,81 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2554b8475899
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: PTD‑P（PyTorch）中三种并行的混合编程模型
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: PTD‑P（PyTorch）中三种并行的混合编程模型
+answer:
+  mode: rubric
+  reference_answer: |-
+    PTD‑P 指 Pipeline, Tensor, Data parallelism 的组合，是 PyTorch 训练超大模型的标准范式。其编程模型通过分层通信组和模块封装实现。
+
+    张量并行 (TP)：
+
+    - 通常采用 Megatron 风格，手动修改 nn.Linear 等层，替换为列切分/行切分版本，并在前向和反向中插入 all_reduce 或 reduce_scatter。
+
+    - 新版 PyTorch 提供 torch.distributed.tensor.parallel API，可以自动将模型转换为 TP 模式。
+
+    - TP 通信组一般为单机内所有 GPU（利用 NVLink），在初始化时创建子通信组。
+
+    流水线并行 (PP)：
+
+    - 使用 torch.distributed.pipeline.sync.Pipe，将模型按 nn.Sequential 包装，并指定 chunks（micro‑batch 数）和 checkpoint 策略。
+
+    - Pipe 会自动将 Sequential 的各个子模块分配到不同的 GPU（stage），并实现 1F1B 调度和梯度累积。
+
+    - PP 通信组是跨节点的，通过 P2P 通信传递激活和梯度。
+
+    数据并行 (DP)：
+
+    - 在最外层使用 DistributedDataParallel (DDP) 或 FullyShardedDataParallel (FSDP)。
+
+    - DP 通信组包含所有参与数据并行的 GPU，负责梯度 All‑Reduce 或参数分片同步。
+
+    混合编程模型（嵌套通信组）：
+
+    - 初始化全局分布式环境，获取 rank 和 world_size。
+
+    - 根据 TP、PP、DP 的配置，创建子通信组：首先创建 TP 组（如每 8 个 rank 一组），再在剩余维度上创建 PP 组和 DP 组。
+
+    - 构建模型时，先应用 TP 封装（或直接使用 TP 层），然后将整个模型用 Pipe 包装（指定 PP 组的 ranks）。
+
+    - 将 Pipe 包装后的模型传入 DDP/FSDP，DDP 会在每个 DP 进程组内复制该流水线。
+
+    - 训练循环中，数据加载器会根据 DP rank 分发数据；Pipe 自动处理 micro‑batch 切割和调度；优化器更新需在所有并行维度同步后执行。
+
+    PyTorch 2.0+ 的 torch.distributed.tensor 等新 API 正朝更自动化、更声明式的方向演进，但上述混合模型仍是当前工业界的基石。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQ7qw1klCirayhkUauicscbqnpc
+  block_id: P9hWdzDVVotJGRxx2ZUcGyBbnS8
+  page_token: GQ7qw1klCirayhkUauicscbqnpc
+  original_title: PTD‑P（PyTorch）中三种并行的混合编程模型
+  imported_at: '2026-09-21'

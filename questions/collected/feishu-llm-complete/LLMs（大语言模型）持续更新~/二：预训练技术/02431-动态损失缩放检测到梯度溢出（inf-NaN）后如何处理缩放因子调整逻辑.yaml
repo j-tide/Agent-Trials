@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a2f568b09461
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 动态损失缩放检测到梯度溢出（inf/NaN）后如何处理？缩放因子调整逻辑。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 动态损失缩放检测到梯度溢出（inf/NaN）后如何处理？缩放因子调整逻辑。
+answer:
+  mode: rubric
+  reference_answer: |-
+    当 GradScaler 在 step(optimizer) 时检测到任何参数的 .grad 中包含 inf 或 NaN 时，表明本次迭代的缩放因子过大，导致梯度被放大后超出了 FP16 的表示上限（溢出）。
+
+    处理流程：
+
+    - 跳过本次参数更新：scaler.step(optimizer) 内部不执行 optimizer.step()，模型参数保持不变。这防止了无效梯度对模型的破坏。
+
+    - 降低缩放因子：调用 scaler.update() 时，将缩放因子乘以回退因子（默认 0.5），使其减小。新的缩放因子用于下一次迭代，以减少溢出概率。
+
+    - 重置连续成功计数：将无溢出步数计数器清零，避免立即又增大缩放因子。
+
+    - 梯度不会被 unscale 也不会用于更新：被污染的梯度直接丢弃，确保不会影响模型状态。
+
+    缩放因子调整逻辑（PyTorch 默认）：
+
+    [图片内容未导入]
+
+    - 每次 update()：
+
+    溢出检测机制：GradScaler 通过检查每个参数梯度的 torch.isnan(grad).any() 或 torch.isinf(grad).any() 来判定溢出。如果任一张量存在 inf/NaN，则整体视为溢出。
+
+    工程实践：
+
+    - 若频繁溢出，说明初始缩放因子或增长因子过大，可适当降低初始 S 或减小增长因子，或延长增长间隔。
+
+    [图片内容未导入]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H1LqwP3PkibEdykjijgc533Rnue
+  block_id: UoJ3dUyxzodMKAxYrWGcdOCRnph
+  page_token: H1LqwP3PkibEdykjijgc533Rnue
+  original_title: 动态损失缩放检测到梯度溢出（inf/NaN）后如何处理？缩放因子调整逻辑。
+  imported_at: '2026-09-21'

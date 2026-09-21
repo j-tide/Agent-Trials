@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-364b4c916e07
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 利用检查点训练 175B 模型，激活显存峰值降低至原来的多少？给出估算。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 利用检查点训练 175B 模型，激活显存峰值降低至原来的多少？给出估算。
+answer:
+  mode: rubric
+  reference_answer: |-
+    以 GPT‑3 175B 模型为例，参考配置：
+
+    - 层数 L=96，隐藏维度 d=12288，头数 h=96，序列长度 s=2048，batch size b=1（假设），精度 FP16（2 字节）。
+
+    无检查点的激活内存估算（每层主要中间张量）：
+
+    - 注意力部分：
+
+    [图片内容未导入]
+
+    - FFN 部分：
+
+    - 每层总激活 ≈ 1.7 GB + 0.43 GB ≈ 2.1 GB。加上其他（残差、LayerNorm 等），取约 2.5 GB/层。
+
+    96 层总激活 ≈ 96×2.5=240 GB（假设全部保留）。实际上还有嵌入层等，但已可见巨大。
+
+    使用每层检查点后：
+
+    - 前向不保留每层内部激活，仅保留每层输入张量（形状 b×s×d），大小约 2048×12288×2=48 MB。96 层输入共约 96×48=4.6 GB。
+
+    - 反向重计算时，仅当前正在计算的一层需要展开其完整的中间激活（约 2.5 GB）。其他层的内部激活不在内存中。
+
+    - 峰值显存 ≈ 保留的输入 (4.6 GB) + 重计算一层的激活 (2.5 GB) + 模型参数/梯度/优化器状态（约占 数百 GB，但不在“激活”范畴）。仅就激活部分，峰值约 7 GB 左右，而原来为 240 GB。
+
+    降低倍数 ≈ 240/7≈34 倍。与层数 L=96 相近。因此激活峰值可降至原来的约 1%～3%。
+
+    实际中，结合 FlashAttention（进一步降低注意力矩阵内存）和选择性检查点，效果更佳。这是 175B 模型能在数百 GB 显存上训练的关键。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  block_id: TdvldXrIGofVobxcr8VcspKjnn9
+  page_token: DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  original_title: 利用检查点训练 175B 模型，激活显存峰值降低至原来的多少？给出估算。
+  imported_at: '2026-09-21'

@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4a09456b07d5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 PagedAttention 后，prefill 阶段如何分配物理块？与 decode 阶段有何不同？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 使用 PagedAttention 后，prefill 阶段如何分配物理块？与 decode 阶段有何不同？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Prefill 阶段的物理块分配：
+
+    - 在请求进入时，调度器根据其 prompt 长度 一次性估算并分配足够容纳整个 prompt 的物理块数量：num_blocks = ceil(prompt_length / block_size)。
+
+    - 从空闲块池中取出对应数量的物理块，分配该请求，并初始化块表（前 num_blocks 个条目填入物理块号，后续为 -1）。
+
+    - 在 prefill 计算过程中，生成的 K、V 张量按 token 顺序写入这些物理块。最后一个块可能未满，形成少量内部碎片，后续 decode 会在该块上继续填充。
+
+    - Prefill 阶段需要一次性分配多块，但只占用与实际 prompt 长度成正比的块数，没有预分配最大长度的浪费。
+
+    Decode 阶段的物理块分配：
+
+    - 每次生成一个新 token，按需追加。若当前最后一个物理块已满（token 数达到 block_size），则从空闲池再分配 一个 新物理块，并将其索引追加到块表末尾。
+
+    - 若未满，则直接写入该块的下一个空闲位置，无需新块。
+
+    - Decode 分配是惰性的、增量式的，每次最多 1 个块，显存占用随序列增长平滑上升。
+
+    核心区别总结：
+
+    [嵌入表格未展开]
+
+    这种分离使得长 prompt 和长生成各自得到优化：prompt 不会浪费 decode 预留的空间，decode 也不会因为预先分配过长而耗尽显存。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  block_id: GWmwd2tVEoEg8hxmsFccawqsnbc
+  page_token: Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  original_title: 使用 PagedAttention 后，prefill 阶段如何分配物理块？与 decode 阶段有何不同？
+  imported_at: '2026-09-21'

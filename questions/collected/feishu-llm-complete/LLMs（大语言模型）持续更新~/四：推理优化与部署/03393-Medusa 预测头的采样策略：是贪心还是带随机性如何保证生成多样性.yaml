@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2fd516c12cc1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Medusa 预测头的采样策略：是贪心还是带随机性？如何保证生成多样性？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: Medusa 预测头的采样策略：是贪心还是带随机性？如何保证生成多样性？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Medusa heads 在生成候选 token 时可采用贪心、top-k 或 top-p 采样，与普通自回归生成类似。为了在保持高接受率的同时提高多样性（从而可能增加树并行度和接受长度），通常使用带随机性的采样。
+
+    采样策略：
+
+    - 贪心：每个 head 直接选择概率最高的 token，生成单一的候选序列。树只有一条链，验证最简单，加速比稳定但可能较低（因为一旦预测错误就被拒绝）。
+
+    - Top-k 采样：每个 head 保留 top-k 个候选 token（如 top-2），形成分支，构造树。这增加了验证阶段的节点数，但提高了至少有一条路径被完全接受的概率，可提升期望接受长度。
+
+    - 融合采样：Medusa 论文中常用的做法是从每个 head 的分布中采样一个或多个 token（可用 temperature 控制随机性），并确保和原始模型分布不冲突。由于树验证保证分布一致性，采样不影响最终输出质量。
+
+    保证生成多样性：
+
+    - 通过调整温度和 top-k 值，可在树中产生多样化的候选，提高接受率。
+
+    - 由于最终的验证步骤使用拒绝采样，即使 head 采样很“冒险”，最终输出仍然严格服从目标模型分布，因此可以安全地采用较高随机性来探索，而不会污染生成结果。
+
+    总结：Medusa 可以自由选择采样策略，用随机性换取更高的期望接受长度，而不牺牲生成质量。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NR2xwXzjpi4F01khCQ7c89EgnWg
+  block_id: ZpcNdWknIoks7BxNg1wc71nxnPc
+  page_token: NR2xwXzjpi4F01khCQ7c89EgnWg
+  original_title: Medusa 预测头的采样策略：是贪心还是带随机性？如何保证生成多样性？
+  imported_at: '2026-09-21'

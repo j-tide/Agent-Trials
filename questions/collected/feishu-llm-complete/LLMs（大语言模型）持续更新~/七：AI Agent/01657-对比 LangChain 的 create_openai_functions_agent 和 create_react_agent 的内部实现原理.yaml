@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e6cdbabd5017
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对比 LangChain 的 create_openai_functions_agent 和 create_react_agent 的内部实现原理。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 对比 LangChain 的 create_openai_functions_agent 和 create_react_agent 的内部实现原理。
+answer:
+  mode: rubric
+  reference_answer: |-
+    这两个函数是 LangChain 中创建 Agent 的两种主要方式，它们分别代表了两种不同的决策和执行范式，其内部实现原理也截然不同。
+
+    create_openai_functions_agent：模型原生调用
+
+    这是一种专为 OpenAI 优化、极其可靠的 Agent 实现。
+
+    - 提示构造：它不依赖复杂的文本指令，而是将工具的定义转换为 OpenAI API 所需的 tools 参数（即一个 JSON Schema 列表）。同时，它会注入一个简洁的 System Prompt，引导模型在需要时调用工具。
+
+    - 模型调用与决策：它直接利用 OpenAI 模型的 Function Calling 能力。模型在生成时，如果判断需要工具，其响应会直接包含一个 tool_calls 对象，这是一个结构化的列表，每个元素包含 id、function.name 和 function.arguments (JSON 字符串)。这个决策过程是模型被专门训练过的，因此极其精确，几乎不会出现格式错误。
+
+    - 输出解析与执行：AgentExecutor 接收到响应后，直接检查 message.tool_calls 是否存在。如果存在，它遍历列表，将 arguments 解析为 JSON，调用对应的工具，并将工具返回的结果封装成 role: "tool" 的消息，与 tool_call_id 一一对应地追加回对话历史，供模型进行下一轮推理。
+
+    - 停止条件：当模型的响应不再包含 tool_calls，而是包含普通的文本消息时，AgentExecutor 将其视为最终答案，停止循环。此实现原生支持并行工具调用。
+
+    create_react_agent：文本解析驱动
+
+    这是一种更通用、模型无关的 Agent 实现，通过提示工程来模拟决策过程。
+
+    - 提示构造：它将所有工具的描述格式化为一段纯文本，并与一个复杂的 ReAct 格式模板拼接。模板包含严格的指令和示例，要求模型以 Thought: ... \nAction: ... \nAction Input: ... 的固定格式输出。
+
+    - 模型调用与决策：它向 LLM 发送构造好的文本 Prompt。模型以自然语言生成的方式，按照模板格式输出它的“思考”和“行动决定”。
+
+    - 输出解析：这是关键而脆弱的一步。AgentExecutor 必须使用正则表达式或特定解析器，从模型生成的自由文本中，精确地提取出最新的 Action 和 Action Input。这一步极易因为模型输出的微小格式偏差（如多一个空格、换行）而失败。
+
+    - 执行与停止：解析成功后，执行工具，并将结果以 Observation: ... 的格式追加回文本。循环直到模型输出包含一个 Final Answer: 的 Action，解析器提取出最终答案并停止。
+
+    核心对比
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/F9htw07hOih4oik4Vi3cSBIjnVd
+  block_id: A43ediMUHowwZjxXYNkcpC8hn7e
+  page_token: F9htw07hOih4oik4Vi3cSBIjnVd
+  original_title: 对比 LangChain 的 create_openai_functions_agent 和 create_react_agent
+    的内部实现原理。
+  imported_at: '2026-09-21'

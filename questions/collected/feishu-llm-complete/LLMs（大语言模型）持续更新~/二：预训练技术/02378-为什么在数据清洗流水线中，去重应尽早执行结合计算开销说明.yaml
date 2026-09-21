@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9683b44c5b7a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么在数据清洗流水线中，去重应尽早执行？结合计算开销说明。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 为什么在数据清洗流水线中，去重应尽早执行？结合计算开销说明。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在数据处理流水线中，去重应被置于相对靠前的位置，尤其是在进行昂贵的质量过滤、PII 清洗和模型训练之前。核心原因是去重能极大地减少需要处理的数据总量，从而节省下游所有步骤的计算和存储资源。
+
+    结合开销说明：
+
+    - 后续步骤是“按文档/按Token”计费的：质量分类器（如 KenLM 困惑度计算）、毒性检测、命名实体识别（NER）等操作的计算成本都与输入文本的长度或文档数量呈正比。如果一个数据集有 20% 的文档是重复的，那么在这些步骤上我们就会浪费 20% 的计算资源。如果先去重，我们就可以避免对这 20% 的重复数据进行昂贵分析。
+
+    - 去重本身的开销相对可控：文档级去重基于哈希，计算成本极低（O(文档长度)）。近似去重（MinHash+LSH）虽然更复杂，但它的计算成本（主要为签名计算和哈希分桶）也远低于运行一个 Transformer 模型去评估文本质量。因此，用去重作为“粗筛”的投入产出比极高。
+
+    - 质量评估的分布偏差：大量的重复文本会扭曲质量评估模型的统计。例如，一篇低质量的样板文本重复出现 1000 次，如果不去重，它在训练一个基于统计的质量分类器时会被过度强调，导致分类器错误地将这种样板文本模式误判为高质量。先去重可以保证质量分类器在更多样、更均衡的数据上训练。
+
+    - 数据混合与配比的准确性：在流水线末端，我们需要按特定比例混合不同来源的数据。如果某个来源包含大量内部重复，它的有效信息密度会远低于预期。即使其文档数很多，模型学到的也只是重复模式。先去重可以确保每个来源的配比是基于信息量而非文档拷贝数，从而实现更准确的预训练数据配方。
+
+    典型顺序：理想情况下，去重应在语言过滤之后、正文提取之后，但在质量过滤、PII 过滤之前执行。即：语言过滤 -> 正文提取 -> 基础清洗 -> 文档级去重 -> 近似去重 -> 质量过滤 -> PII 清洗。这样可以在数据量最大的时候砍掉冗余，为后续质量门槛减压。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KVkRw5fvSilOXfkibArc5VHSndf
+  block_id: IfPIdN8yooGTogxkbg6cd0z8nuc
+  page_token: KVkRw5fvSilOXfkibArc5VHSndf
+  original_title: 为什么在数据清洗流水线中，去重应尽早执行？结合计算开销说明。
+  imported_at: '2026-09-21'

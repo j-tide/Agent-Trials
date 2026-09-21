@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ef69346b2639
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 比较 vLLM 的 continuous batching 和传统静态 batching 在延迟和吞吐上的性能差异。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 比较 vLLM 的 continuous batching 和传统静态 batching 在延迟和吞吐上的性能差异。
+answer:
+  mode: rubric
+  reference_answer: |-
+    vLLM 采用迭代级连续批处理配合 PagedAttention，与静态批处理相比，性能差异显著：
+
+    吞吐量：
+
+    - 静态批处理：吞吐受批次内最长序列限制。例如 batch 中包含 1 个长请求和多个短请求，短请求完成后，GPU 在剩余时间只服务长请求，batch 利用率低。实验数据表明，静态批处理在混合长度场景下，吞吐可能仅为硬件极限的 30%~50%。
+
+    - vLLM 连续批处理：短请求完成后立即退出，新请求马上加入，使得 batch 中始终有尽可能多的活跃请求。在请求到达率足够时，吞吐可达静态批处理的 2~4 倍，接近 GPU 的物理 token/s 上限。
+
+    延迟：
+
+    - 平均延迟：vLLM 显著低于静态批处理，因为短请求不必等待长请求。对于正常分布的用户请求，平均 TTFT（首 token 延迟）和 TPOT（每 token 延迟）可降低 50% 以上。
+
+    - 尾部延迟（P99）：静态批处理尾部延迟极高（受 max 序列长度支配），vLLM 的尾部延迟主要由最大独立请求长度和显存容量决定，较静态改善 5~10 倍。
+
+    - 长请求不恶化短请求：连续批处理具有请求隔离性，一个超长请求不会阻塞其他请求，而静态批处理造成“连坐”。
+
+    基准测试示例：在 ShareGPT 数据集上，使用 LLaMA-13B，vLLM 相比静态批处理（HuggingFace pipeline）的吞吐提升 8.5 倍（官方数据），且 P50 延迟降低数倍。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqBawimrwioo11kNL45cwrfznle
+  block_id: GQEIdSz1Jo84tHxJBrLcFGMNnSr
+  page_token: EqBawimrwioo11kNL45cwrfznle
+  original_title: 比较 vLLM 的 continuous batching 和传统静态 batching 在延迟和吞吐上的性能差异。
+  imported_at: '2026-09-21'

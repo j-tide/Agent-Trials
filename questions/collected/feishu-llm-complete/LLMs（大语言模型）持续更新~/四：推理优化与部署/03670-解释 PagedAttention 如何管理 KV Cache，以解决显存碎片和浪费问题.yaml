@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-833e31b94434
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 PagedAttention 如何管理 KV Cache，以解决显存碎片和浪费问题。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 解释 PagedAttention 如何管理 KV Cache，以解决显存碎片和浪费问题。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在传统实现中，KV Cache 通常被预先分配为一个巨大的连续张量。这会导致三个严重问题：
+
+    - 显存浪费：为了应对最大序列长度，必须预留巨大空间，而实际使用中很多请求可能很短，预留的空间被白白浪费。
+
+    - 显存碎片：当多个不同长度的请求并发执行，频繁分配和释放大小不一的 KV Cache 块，会产生大量外部碎片。
+
+    - 无法内存共享：不同请求即使有相同的前缀，其 KV Cache 也无法共享。
+
+    PagedAttention 的核心思想：将 KV Cache 切分成固定大小的、连续的“页”（Page），每个页可以存储固定数量 token（例如 16 个）的 Key 和 Value。请求的 KV Cache 不再要求连续的显存，而是由一系列不连续的页组成，通过一个“页表”进行索引。这完全借鉴了操作系统中的虚拟内存和分页机制。
+
+    PagedAttention 如何解决问题：
+
+    - 解决浪费：按需分配页，无需预留巨大空间。如果一个请求只生成了 10 个 token，它只占用 1 个页，而不是一个巨大的预留块。
+
+    - 解决碎片：所有页大小相同，分配和回收时不会产生外部碎片。小块的显存可以被高效地循环利用。
+
+    - 实现共享：当多个请求共享相同的前缀（如系统提示）时，它们可以物理地共享存储该前缀的页，而不是各自存储一份拷贝。这极大地节省了显存，并加速了 Prefill 阶段。
+
+    PagedAttention 是 vLLM 等高性能推理引擎的核心技术，它将 LLM 推理的显存利用率从传统方法的不足 50% 提升至接近 100%，并支持极高的并发量。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  block_id: UlwldsOJGoRf9WxbGVCcmy2YnQh
+  page_token: N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  original_title: 解释 PagedAttention 如何管理 KV Cache，以解决显存碎片和浪费问题。
+  imported_at: '2026-09-21'

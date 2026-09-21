@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-60de1c7b9a1c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 梯度后置同步或异步更新在数据并行中的潜在风险
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 梯度后置同步或异步更新在数据并行中的潜在风险
+answer:
+  mode: rubric
+  reference_answer: |-
+    梯度后置同步（Asynchronous Update）指各 GPU 在梯度尚未与其他 GPU 完全同步时，就使用本地梯度或过时的全局梯度进行参数更新。虽然这可以隐藏通信延迟，但引入了严重风险：
+
+    - 模型不一致（梯度过时）：不同 GPU 上的模型参数版本出现差异，导致计算的梯度基于不同的参数状态，相当于使用了“噪声”梯度。这会减缓收敛速度，甚至在恶劣情况下导致不收敛或收敛到次优点。
+
+    - 精度损失与训练震荡：异步更新引入了额外的随机噪声，尤其在训练后期模型对学习率敏感时，可能引发损失函数剧烈震荡，难以精细调优，甚至发散。
+
+    - 对优化器假设的违背：Adam、LAMB 等自适应优化器依赖于准确的梯度估计和全局一致的参数更新。异步更新破坏了这些假设，可能导致优化器内部状态（如一阶、二阶矩）的估计出现偏差，影响更新质量。
+
+    - 难以复现和调试：由于更新是非确定性的，每次运行的 loss 曲线都会不同，使得比较不同超参数或修改的效果变得几乎不可能。
+
+    - 在混合并行中的风险放大：在 3D 并行（TP+PP+DP）中，DP 是外层。若 DP 的梯度异步，它与 TP/PP 内部严格的同步机制会产生复杂交互，可能导致死锁、数值错误或梯度污染。
+
+    缓解：现代大模型训练几乎全部采用同步更新（All‑Reduce 完成后统一更新），并依赖高速互联（如 NVLink、InfiniBand）和通信优化（如梯度分桶、融合通信）来降低通信延迟，而非冒险使用异步方法。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQ7qw1klCirayhkUauicscbqnpc
+  block_id: V0yydsre5oaboKxQeJZctW5SnmW
+  page_token: GQ7qw1klCirayhkUauicscbqnpc
+  original_title: 梯度后置同步或异步更新在数据并行中的潜在风险
+  imported_at: '2026-09-21'

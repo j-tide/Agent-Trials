@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-03ff13f0aee7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 能否用生成假设文档来增强训练数据，从而微调 embedding 模型？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 能否用生成假设文档来增强训练数据，从而微调 embedding 模型？
+answer:
+  mode: rubric
+  reference_answer: |-
+    完全可以，这是 HyDE 思想一个非常深刻且极具价值的应用拓展。其核心逻辑是：利用一个强大的 LLM（教师模型）为大量文档生成对应的“伪查询”或“假设文档”，从而构造出海量的、高质量的“查询-文档”或“文档-文档”的弱监督训练对，用于微调 Embedding 模型，尤其是双塔模型。
+
+    具体应用场景：
+
+    - 生成伪查询以微调检索模型（最经典）：
+    对于知识库中的每一篇文档 D，使用 LLM 生成一组可能用于查找该文档的查询 Q。指令可以是：“请设想用户可能会提出哪些问题，而这篇文档正好是答案”。这样就构造了一个 (Q, D) 正样本对。用海量的这样的正样本对，结合对比学习，去微调一个 Embedding 模型。微调后，查询编码器就能更好地将用户查询映射到与相关文档接近的向量空间位置。这个思路可以看作是 HyDE 的“反向操作”或“数据增强版本”，其效果已被许多研究（如 InPars, Promptagator）所证明，是领域适配 Embedding 模型的利器。
+
+    - 生成假设文档以微调文档编码器：
+    这更贴近 HyDE 的原始思想。对于用户查询 Q，使用 LLM 生成假设文档 D'。然后，可以在微调时，拉近查询 Q 的向量与它对应的假设文档 D' 的向量。这教会查询编码器直接生成一种“理想文档”的表示，从而弥合查询-文档鸿沟。
+
+    - 生成“文档-伪文档”对以进行自监督微调：
+    对于一篇真实文档 D_real，使用 LLM 对其进行概括、重写或扩展，生成一个内容相近但表述不同的伪文档 D'_gen。然后，将 (D_real, D'_gen) 作为正样本对，对 Embedding 模型进行对比学习。这能极大增强模型的语义理解和文本概括能力，使其向量表示更加鲁棒。
+
+    优势：
+
+    - 成本低、规模大：不需要昂贵的人工标注，可以利用 LLM 自动生成近乎无限的训练数据。
+
+    - 领域适配性强：生成的伪查询或假设文档可以完美地模仿目标领域的语言风格，从而训练出领域专用的强 Embedding 模型。
+
+    风险与对策：
+
+    - 噪声标签：LLM 生成的伪查询可能质量不高，与文档不完全相关。可以通过设置置信度阈值、使用多个 LLM 互验证或人工抽检来过滤低质量样本。
+
+    - 模型偏差：学生模型可能会学习到教师模型的偏见和局限。因此，在微调时通常会混合一部分高质量的人工标注数据。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EyyswXtsriVa9Tkpr17czXpHnjd
+  block_id: SG7QdRedco3dKAxxneGcS9cmnLh
+  page_token: EyyswXtsriVa9Tkpr17czXpHnjd
+  original_title: 能否用生成假设文档来增强训练数据，从而微调 embedding 模型？
+  imported_at: '2026-09-21'

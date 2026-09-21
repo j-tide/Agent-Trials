@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b70b2f3aac26
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对比 MQA 和标准 MHA 在推理吞吐上的实际提升，除了缓存大小还有什么因素？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 对比 MQA 和标准 MHA 在推理吞吐上的实际提升，除了缓存大小还有什么因素？
+answer:
+  mode: rubric
+  reference_answer: |-
+    除了显存占用减少带来的最大 batch size 扩增外，MQA 在推理吞吐上的提升还源于以下几个常被低估的维度：
+
+    - 内存带宽瓶颈的极大缓解
+
+    [图片内容未导入]
+
+    当 batch size 较小（decode 阶段的典型情况），每 token 所需的 KV 读取字节数直接限制了速度。MQA 将此字节数减小了 h 倍，因此在带宽受限区间可以实现接近 h 倍的每步延迟降低，从而大幅提升单请求生成速度。
+
+    - 计算量的轻微减少与计算强度提升
+    虽然 Q 头数不变，但 K 和 V 的线性投影只需要计算 1 个头，而不是 h 个头。这少量减少了每层的前向 FLOPs。更重要的是，由于 KV 数据量变小，计算强度（FLOP/Byte）显著上升，使 GPU 更容易从带宽受限转向计算受限，从而更充分地利用 Tensor Core，进一步提升吞吐。
+
+    - 更高效的注意力计算内核
+
+    在 FlashAttention 等优化实现中，K 和 V 块需要从 HBM 加载到 SRAM。MQA 下，K 块只需要加载一次，就可以与所有 Q 头进行计算（广播），减少了 HBM 读取次数，并提高了 SRAM 数据复用率。这与 GQA 的分组共享类似，只是更极端。因此，MQA 的注意力 kernel 执行时间也会更短。
+
+    - 减少通信开销（分布式推理）
+
+    在张量并行 (TP) 中，若采用复制 KV 头的策略，MQA 的 KV 缓存是所有头共享的，每个 GPU 要么保存完整的一份（极小的显存增量），要么根本不需要按头划分 KV 通信。相比 MHA 可能需要针对 KV 进行 all-gather 或按头切分缓存，MQA 简化了并行策略，减少了通信延迟。
+
+    综合影响示例：
+
+    在 batch=1 的延迟敏感场景，MQA 可以将每 token 生成时间缩短为原来的约 1/5 甚至更低。在高吞吐服务场景，小缓存允许将 batch size 扩大数倍，且解码速度更快，最终系统吞吐（token/s）可能实现 3~10 倍的提升，远超仅凭缓存容量计算出的 1:1 扩展比例。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YD2SwSsy9iTGMmkEs4jcylEZnnd
+  block_id: LtLydDRAnorbU4xiDkDcAEuFnxc
+  page_token: YD2SwSsy9iTGMmkEs4jcylEZnnd
+  original_title: 对比 MQA 和标准 MHA 在推理吞吐上的实际提升，除了缓存大小还有什么因素？
+  imported_at: '2026-09-21'

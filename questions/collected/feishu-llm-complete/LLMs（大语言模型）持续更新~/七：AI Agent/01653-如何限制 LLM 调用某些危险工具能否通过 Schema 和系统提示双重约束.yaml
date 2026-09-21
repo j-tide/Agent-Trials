@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9cbf9ed4fe91
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何限制 LLM 调用某些危险工具？能否通过 Schema 和系统提示双重约束？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 如何限制 LLM 调用某些危险工具？能否通过 Schema 和系统提示双重约束？
+answer:
+  mode: rubric
+  reference_answer: |-
+    限制 LLM 调用危险工具，必须采用“软约束”与“硬约束”相结合的纵深防御体系。单纯依赖任何一种手段，都将是不牢靠的。
+
+    一、软约束：让模型自身“不想”或“不敢”调用
+
+    这是通过提示工程实现的，成本低，但并非绝对可靠。
+
+    - 系统提示：在全局系统提示中，用严厉、无歧义的语言设定行为边界。例如：“你绝对不能调用 delete_user、drop_table 等危险函数。这些函数仅供系统管理员在离线模式下使用。你的职责是帮助用户完成信息查询和常规操作。” 这相当于为 Agent 定下了思想钢印。
+
+    - 工具描述：对于高危工具，在其自身的 description 字段中，可以加入明显的警告性文字，例如“【危险操作，请谨慎调用】”。这会让模型在选择该工具时，多一层心理负担。
+
+    - 用户意图确认：可以训练模型，当它判断需要调用高危工具时，不直接生成调用指令，而是先反问用户进行二次确认。
+
+    二、硬约束：在系统架构上强制阻断
+
+    软约束存在被模型“幻觉”或“越狱”绕过的可能。因此，最终的、不可逾越的防线必须在后端执行器。
+
+    - 工具注册的白名单机制：Agent 的推理环境（如 LangChain, LlamaIndex）在实例化时，有一个工具注册表。最根本的限制是：绝不将危险工具注册到该 Agent 实例的可用工具列表中。LLM 根本“看不到”这个工具，自然也就无从调用。
+
+    - 执行前拦截与权限验证：如果因业务需要，危险工具必须存在于注册表中，那么就要将防线设在执行器。这是最坚固的硬约束。在工具函数被实际调用的那一刻，执行环境必须进行独立的权限校验。这个校验过程完全独立于 LLM，它检查当前请求的上下文（如用户身份、时间、IP 地址）是否具备调用该工具的权限。如果权限不足，则直接返回一个“权限拒绝”的错误，而不执行工具的内部逻辑。这是一个由代码执行的、不可绕过的安全断言。
+
+    结论：限制危险工具的正确姿势是：在系统提示中设定软约束，在工具注册和执行器中构建硬约束。软约束是预防，硬约束是兜底。两者结合，才能构建起对抗意外和恶意调用的坚固屏障。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IA43wgi1niRa19kxIa6c0Qo5nCh
+  block_id: I89sdmiz8oB8rkxqerPcYnwJnTc
+  page_token: IA43wgi1niRa19kxIa6c0Qo5nCh
+  original_title: 如何限制 LLM 调用某些危险工具？能否通过 Schema 和系统提示双重约束？
+  imported_at: '2026-09-21'

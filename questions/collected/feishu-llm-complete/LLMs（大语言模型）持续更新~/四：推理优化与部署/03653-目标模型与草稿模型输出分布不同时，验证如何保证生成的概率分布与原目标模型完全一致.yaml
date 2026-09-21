@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7554f915466a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 目标模型与草稿模型输出分布不同时，验证如何保证生成的概率分布与原目标模型完全一致？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 目标模型与草稿模型输出分布不同时，验证如何保证生成的概率分布与原目标模型完全一致？
+answer:
+  mode: rubric
+  reference_answer: |-
+    即使草稿模型分布 q 与目标模型分布 p 不同，推测解码通过无偏的拒绝采样（Rejection Sampling） 保证最终生成序列的联合分布严格等于纯目标模型自回归采样的分布。
+
+    保证机制：
+    对于每个验证位置 t，目标模型已给出该位置的条件概率分布 p(x | context)。我们有来自草稿模型的提议 token x ~ q，以及其概率 q(x)。拒绝采样过程为：
+
+    - 以概率 min(1, p(x)/q(x)) 接受 x。
+
+    - 若拒绝，则从残差分布 p_res(x) = norm(max(0, p(x) - q(x))) 中重新采样 token。
+
+    证明该过程产生的 token 服从分布 p：
+    对于任意 token y，它被最终输出的概率 = 它被接受的概率 + 它被拒绝后从残差分布采样的概率。
+
+    - 当 y = x（草稿 token）：
+    输出概率 = q(y) * min(1, p(y)/q(y)) + (1 - total_accept) * p_res(y)（如果 y 也在残差分布中）
+    经过代数化简，该概率恰好等于 p(y)。
+
+    - 当 y ≠ x（非草稿 token）：
+    它只能通过残差分布被采样。残差分布定义为 norm(max(0, p - q))，结合全概率公式，最终采样概率也等于 p(y)。
+
+    详细推导见推测解码原始论文（Leviathan et al. 2023, Chen et al. 2023），但核心结论是：无论 q 和 p 差异多大，拒绝采样框架总是产生准确的 p 分布样本。这就是推测解码能在保持质量无损的同时利用不完美的草稿模型的理论基础。
+
+    实践意义：这使得我们可以大胆使用非常轻量甚至粗糙的草稿模型，而不必担心污染目标模型的输出分布，接受率低只会影响加速效果，不会降低生成质量。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Us9awBi8iiwtfZkqtRzcSfVcnJe
+  block_id: Srmld51jMohpIexjg48cvxQLnyc
+  page_token: Us9awBi8iiwtfZkqtRzcSfVcnJe
+  original_title: 目标模型与草稿模型输出分布不同时，验证如何保证生成的概率分布与原目标模型完全一致？
+  imported_at: '2026-09-21'

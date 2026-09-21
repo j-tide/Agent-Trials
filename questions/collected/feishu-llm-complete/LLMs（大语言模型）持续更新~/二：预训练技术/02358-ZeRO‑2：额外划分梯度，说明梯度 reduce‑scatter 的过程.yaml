@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-129fba790934
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ZeRO‑2：额外划分梯度，说明梯度 reduce‑scatter 的过程
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: ZeRO‑2：额外划分梯度，说明梯度 reduce‑scatter 的过程
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO-2 在 ZeRO-1 的基础上，进一步将梯度也分片到 Nd 个进程中。每张卡仍然存储完整参数，但只负责更新一部分梯度（对应于其分片的优化器状态）。反向传播计算出所有参数的梯度后，不再执行 All-Reduce 将完整梯度同步给所有进程，而是使用 Reduce-Scatter 操作：每个进程将自己的梯度贡献规约到对应分片的进程上，最终每个进程只拥有自己所负责的那部分参数的聚合梯度，然后更新这部分参数和优化器状态。
+
+    梯度 Reduce-Scatter 过程：
+
+    - 每个 GPU 反向计算出完整梯度（所有参数），但梯度还没有同步。
+
+    - 将完整梯度在 DP 组内进行 Reduce-Scatter：对于每个参数分片（假设按参数展平后均匀切分），执行 reduce-scatter 通信，使得第 i 个 GPU 最终获得该分片的规约和（所有 GPU 的贡献之和）。
+
+    - 通信结束后，每个 GPU 仅持有自己所管理那部分参数的梯度（其余部分被释放），然后利用该梯度更新对应的优化器状态和参数。
+
+    [图片内容未导入]
+
+    内存节省：每个 GPU 不再存储完整梯度（2Ψ 字节），而是只存储自己分片的梯度，大小为 2Ψ/Nd 字节。结合 ZeRO-1 的优化器分片，总模型状态内存（参数+梯度+优化器）降至 2Ψ+2Ψ/Nd+12Ψ/Nd。当 Nd 较大时，显存主要由参数占用，因此 ZeRO-2 对中型模型效果显著，但对超大模型仍有参数冗余。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdlMwr6zHiurCIkdVS6c9aFDnUg
+  block_id: UJkSdEf0Qo9GwFxK23Ycv6Kdnju
+  page_token: RdlMwr6zHiurCIkdVS6c9aFDnUg
+  original_title: ZeRO‑2：额外划分梯度，说明梯度 reduce‑scatter 的过程
+  imported_at: '2026-09-21'

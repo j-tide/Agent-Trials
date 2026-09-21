@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6705bf137c82
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 MoE 中，如何进行分布式训练？专家并行是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 在 MoE 中，如何进行分布式训练？专家并行是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    MoE 模型通常非常庞大，需要分布式训练。除了数据并行、模型并行外，专家并行（Expert Parallelism） 是 MoE 特有的高效并行策略。
+
+    专家并行的核心思想：将不同的专家分布到不同的设备（GPU）上。每个设备持有部分专家的参数，负责计算分配给自己专家的 token。由于每个 token 只激活少数专家，设备间只需要交换被路由的 token 及其结果，而非整个模型或全部数据。
+
+    具体流程：
+
+    - All-to-All 通信：门控网络计算出每个 token 的专家选择后，通过 All-to-All 通信，将每个 token 发送到它被分配到的专家所在的设备上。
+
+    - 本地计算：各设备独立计算自己持有的专家的前向和反向传播。
+
+    - All-to-All 反向：计算完成后，将 token 的输出（或梯度）通过 All-to-All 通信传回原始设备，确保每个 token 沿其原始路径继续往下或往上一层流动。
+
+    与数据并行/模型并行的结合：
+
+    - 可以在专家内部使用数据并行（对同一个专家复制到多个设备）来处理超大 token 量。
+
+    - 非 MoE 层（如注意力层）可以使用传统的模型并行或数据并行。
+
+    - 实际上，训练大规模 MoE 时常采用 3D 并行：数据并行 + 张量并行（注意力）+ 专家并行（FFN）。
+
+    专家并行使 MoE 的训练能够线性扩展：增加设备即可容纳更多专家或更大专家，通信量仅与每个 token 激活的专家数相关，与总专家数无关。
+
+    [图片内容未导入]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/PdQowhnKGiWKbpkF2tUchOQBnlh
+  block_id: L0lZdgvduo7irGxWqz0cUuuwnKe
+  page_token: PdQowhnKGiWKbpkF2tUchOQBnlh
+  original_title: 在 MoE 中，如何进行分布式训练？专家并行是什么？
+  imported_at: '2026-09-21'

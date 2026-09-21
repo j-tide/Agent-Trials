@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c279628f1f21
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: LangChain 的 ContextualCompressionRetriever 是如何工作的？其输入输出是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: LangChain 的 ContextualCompressionRetriever 是如何工作的？其输入输出是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    LangChain 中的 ContextualCompressionRetriever 是一个经典的装饰器模式应用，它将一个基础的检索器和一个或多个文档压缩器无缝地组合在一起，为上层提供与普通检索器完全一致的接口，但返回的结果已经经过压缩处理。
+
+    它的工作原理非常简单而高效。初始化时，你需要传入两个核心对象：一个 base_retriever（基础检索器），负责从向量库或搜索引擎中召回原始文档；一个 base_compressor（文档压缩器），负责对召回的文档进行加工。当外部的 get_relevant_documents(query) 方法被调用时，它首先将查询透传给 base_retriever，获得一批原始的 Document 对象。然后，它将这些文档连同查询一起，传递给 base_compressor。压缩器对每个文档或整个文档列表进行处理，返回一个新的 Document 列表，其中每个文档的 page_content 字段已经是被压缩或过滤后的文本。最终，这个列表作为结果返回给调用者。
+
+    它所支持的压缩器种类丰富，决定了其功能的上限。最常见的包括：
+
+    - LLMChainExtractor：对每个文档，使用 LLM 从中提取与查询相关的句子，生成新的“压缩文档”。内部实现是逐文档调用一个提示链，返回提取后的文本。
+
+    - LLMChainFilter：更轻量，使用 LLM 对每个文档进行二分类（相关/不相关），仅保留被判定为相关的文档，但文档内容本身不变。这更像一个过滤器而不是真正的压缩器。
+
+    - EmbeddingsFilter：基于向量相似度，计算每个文档与查询的嵌入余弦距离，只保留得分高于阈值的文档或句子。
+
+    - DocumentCompressorPipeline：允许将多个压缩器串联或并联，形成一条压缩流水线。例如，先用 EmbeddingsFilter 快速滤除明显无关的文档，再用 LLMChainExtractor 对保留下来的文档进行精细抽取。
+
+    输入输出角度，这个检索器完全符合 LangChain 的 BaseRetriever 接口，所以它可以被集成到任何 RAG 管道中，替换原有的检索器。输入只有用户查询，输出是经压缩的 List[Document]。对上层来说，这是一次透明的增强：上下文更紧凑、更相关，但接口丝毫没有改变。这种设计使得系统的迭代和调试变得非常容易，你可以随时更换压缩器，或者对比压缩前后的检索效果，而不需要触碰其他任何代码。它将上下文压缩这种高级功能，封装成了一个开箱即用的标准件。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZalwwBaIBiyRcGk5NTBcHrX6nKd
+  block_id: GUmVdGjX0oEoeExUduwczQkyn0c
+  page_token: ZalwwBaIBiyRcGk5NTBcHrX6nKd
+  original_title: LangChain 的 ContextualCompressionRetriever 是如何工作的？其输入输出是什么？
+  imported_at: '2026-09-21'

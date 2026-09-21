@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ff5988f3f3e3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在验证阶段，如何高效地并行验证草稿模型生成的多个 token？写出主要的验证逻辑。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在验证阶段，如何高效地并行验证草稿模型生成的多个 token？写出主要的验证逻辑。
+answer:
+  mode: rubric
+  reference_answer: "验证阶段的高效并行化是推测解码加速的关键。目标模型通过一次前向传播计算出所有 K 个位置的条件概率，然后执行逐 token
+    的串行验证（仅在逻辑上串行，计算量极小）。以下是验证逻辑的伪代码和说明。\n\n输入：\n\n- prefix: 上下文序列\n\n- draft_tokens:
+    草稿模型生成的候选 token 列表 [x_1, ..., x_K]\n\n- draft_probs: 草稿模型记录的每个位置生成该 token 的概率
+    [q_1(x_1), ..., q_K(x_K)]\n\n步骤 1: 目标模型并行前向\n\n```python\n# 将 prefix + draft_tokens
+    拼接，一次性送入目标模型\ninputs = concat(prefix, draft_tokens)\nlogits = target_model.forward(inputs)
+    \ # 形状 [K, vocab_size]\ntarget_probs = [softmax(logits[t]) for t in range(K)]
+    \ # 每个位置的条件概率分布\n```\n\n步骤 2: 逐 token 验证与修正\n\n```python\ngenerated = []  # 最终输出的
+    token 序列\nfor t in range(K):\n    p = target_probs[t]  # 目标模型对位置 t 的概率分布\n    q_val
+    = draft_probs[t]  # 草稿模型在该位置生成 x_t 的概率\n    x = draft_tokens[t]\n    \n    # 计算接受概率\n
+    \   accept_prob = min(1.0, p[x] / q_val) if q_val > 0 else 1.0  # 简略处理 q=0\n    \n
+    \   # 生成随机数决定接受与否\n    if random() < accept_prob:\n        # 接受草稿 token\n        generated.append(x)\n
+    \   else:\n        # 拒绝：从修正分布中采样新 token\n        corrected_dist = norm(max(0,
+    p - draft_probs_full[t]))  # draft_probs_full 是草稿模型的完整分布\n        new_token =
+    sample(corrected_dist)\n        generated.append(new_token)\n        break  #
+    一旦拒绝，丢弃后续所有草稿 token\n\n# 如果 K 个 token 全部被接受，则可能需要继续生成（或者本轮验证结束，进入下一轮草稿-验证）\n```\n\n关键点：\n\n-
+    目标模型只需一次前向，得到所有位置的分布。验证循环计算量极小（几次比较和采样），几乎不占时间。\n\n- 修正分布 max(0, p - q) 保证了从总分布中去掉已被草稿模型“使用过的”概率质量，使得拒绝后重新采样的结果符合目标分布。\n\n-
+    使用 GPU 时，logits 处理可以部分并行化，例如批量计算接受概率或使用预生成的随机数。对于严格的拒绝采样，逐 token 循环无法完全并行，但开销可忽略。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Us9awBi8iiwtfZkqtRzcSfVcnJe
+  block_id: LAFidyxa6oyL0DxOsjQc4yznnOe
+  page_token: Us9awBi8iiwtfZkqtRzcSfVcnJe
+  original_title: 在验证阶段，如何高效地并行验证草稿模型生成的多个 token？写出主要的验证逻辑。
+  imported_at: '2026-09-21'

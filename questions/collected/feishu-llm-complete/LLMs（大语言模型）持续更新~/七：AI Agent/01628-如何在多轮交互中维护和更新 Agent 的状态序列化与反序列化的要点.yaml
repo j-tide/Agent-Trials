@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-733613555523
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在多轮交互中维护和更新 Agent 的状态？序列化与反序列化的要点。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 如何在多轮交互中维护和更新 Agent 的状态？序列化与反序列化的要点。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在多轮交互中维护和更新 Agent 状态，是一个围绕状态对象进行的、严格的“读取-执行-写入”循环。而序列化与反序列化则是这个循环中实现状态持久化和跨系统传输的关键技术。
+
+    状态的维护与更新流程
+
+    - 加载状态：当一个任务请求到来时，AgentExecutor 首先根据会话 ID 从持久化存储中加载出该任务的最新状态对象。如果这是一个新会话，则初始化一个默认的空状态。
+
+    - 注入上下文：在执行新一步的推理前，Executor 从状态对象中提取出必要的信息（如最近的 N 轮对话历史、当前的任务计划、关键的 scratchpad 变量），并将它们格式化后注入到 LLM 的 Prompt 中。
+
+    - LLM 推理与执行：Executor 调用 LLM 进行推理，LLM 返回一个决策（如调用某个工具）。Executor 解析并执行该决策。
+
+    - 更新状态：这是核心步骤。Executor 根据 LLM 的决策和执行结果，对状态对象进行增量更新。这包括：
+
+    - 持久化状态：将更新后的整个状态对象，通过序列化技术保存回持久化存储中。这个操作通常是同步的，以保证数据不会丢失。
+
+    序列化与反序列化的要点
+
+    - 选择序列化格式：JSON 是首选，因为它具有跨语言、人类可读、安全性高的优点。但 JSON 无法处理日期、复杂对象引用等特殊情况，需要额外的处理。pickle 可以序列化任意 Python 对象，但存在安全风险，且不适合跨语言环境。
+
+    - 处理循环引用与复杂对象：在存储 chat_history 中的消息对象（如 AIMessage）时，需要将它们转换为标准的字典或 JSON 兼容的格式。LangChain 等框架通常提供了内置的 to_json 和 from_json 方法。
+
+    - 版本控制：状态模型本身可能会随着 Agent 的升级而发生变化。反序列化时，必须能够处理旧版本的状态数据，例如通过迁移脚本或默认值填充。
+
+    - 性能考虑：对于包含长对话历史的大型状态，全量序列化和写入可能会成为性能瓶颈。可以采用增量更新（如只写入变更部分），或者对不经常变更的部分进行压缩。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/N9kPwKx7siGuUMkJ3jRc5htKnAb
+  block_id: RybTdqS8FoWiLpxDnQwcq4rJnhg
+  page_token: N9kPwKx7siGuUMkJ3jRc5htKnAb
+  original_title: 如何在多轮交互中维护和更新 Agent 的状态？序列化与反序列化的要点。
+  imported_at: '2026-09-21'

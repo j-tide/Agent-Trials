@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1a00472d4df8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 比较 CoT 与 Self-Consistency 的组合使用方式，能带来多大提升？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: 比较 CoT 与 Self-Consistency 的组合使用方式，能带来多大提升？
+answer:
+  mode: rubric
+  reference_answer: |-
+    CoT 与 Self-Consistency 的组合是当前提升 LLM 推理准确率最经典、最有效的方式之一，它的威力来自于把“思考深度”和“思考广度”结合起来。
+
+    组合方式的具体运作
+
+    标准的 CoT 是一次生成一条推理路径，然后给出最终答案。这里面有个隐患：模型在每一步生成时都有一定概率出现小偏差，尤其是算术计算、逻辑跳步或事实引用错误。一个步骤错了，后面就会沿着错误方向越走越远。Self-Consistency（自洽性）的解决办法是：不把鸡蛋放在一个篮子里。我们在解码时故意设置较高温度（比如 0.7 甚至 0.8），并让模型独立生成多条推理链（例如 10 条、20 条），然后统计每条链得出的最终答案，选择出现频率最高的那个作为最终输出。
+
+    这种做法本质上是一种“多数投票”集成。它背后的直觉是：对于真正困难的问题，模型并不是完全不会，而是它的“思考”存在波动。让模型多思考几次，如果大多数思考路径都收敛到同一个答案，那么这个答案很可能是正确的；如果路径分散在不同答案上，说明问题确实超出了模型的稳定推理能力，此时即使选多数答案，也应当谨慎对待。
+
+    具体提升幅度
+
+    在 GSM8K（小学数学应用题）这类典型基准上，不加 Self-Consistency 的 CoT 准确率大概在 60%–70%（视模型而定）。加上 Self-Consistency 并采样 10 条路径，准确率可以提高到 75%–85%；采样 40 条甚至能达到 80%–90%。对于某些符号推理任务（如日期理解、字母拼接），提升幅度同样显著，经常有 8–15 个百分点的绝对提升。
+
+    需要注意的是，提升并非线性增长。从 1 条到 5 条的边际收益最大，5 条到 20 条收益递减，20 条以上逐渐饱和。此外，对于本身简单、模型已经几乎不会错的任务，Self-Consistency 几乎没有帮助，反而白白浪费计算资源。
+
+    工程上的代价与实用策略
+
+    这种组合的最大代价是推理成本成倍增加：生成 10 条路径相当于 10 次推理。因此在实际系统中必须做取舍：
+
+    - 对延迟敏感的场景（如实时对话），可以只用单次 CoT，并通过流式输出改善用户体验。
+
+    - 对精度敏感但延迟可接受的后台批处理（如试卷批改、数据分析），可以启用 Self-Consistency。
+
+    - 可以采用自适应策略：先用单次 CoT 生成答案，同时输出模型的置信度（如平均 token logprob），若置信度低于阈值，再触发额外的采样投票。这样兼顾了效率与准确率。
+
+    总结
+
+    CoT + Self-Consistency 组合将“一次深思”变为“多次深思后投票”，在不改变模型本身的情况下，借助计算量换取准确率，是 LLM 推理能力的最强实用技巧之一。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LXJlwBNini6BizkrUhhcyWpunsf
+  block_id: AfC2dEooIoTKlKxTHZacHDO7nlb
+  page_token: LXJlwBNini6BizkrUhhcyWpunsf
+  original_title: 比较 CoT 与 Self-Consistency 的组合使用方式，能带来多大提升？
+  imported_at: '2026-09-21'

@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-25ed696f6412
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在低延迟要求下，多模态文档的解析和检索如何优化流水线？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 在低延迟要求下，多模态文档的解析和检索如何优化流水线？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在实时性要求高的 RAG 应用中，多模态文档处理极易成为延迟瓶颈。优化需要贯穿解析、嵌入、检索和生成的全流程，采取“避免、加速和缓存”的组合策略。
+
+    解析环节：核心是异步化和预计算。绝不能让用户请求触发实时解析。在文档进入知识库时，就应通过离线管道完成所有繁重的解析工作，包括布局分析、OCR、表格识别等。可以将解析任务推入消息队列，由专门的 GPU 工作池处理，结果存入对象存储。在检索时，只访问已解析好的结构化文本和元数据。对于必须实时处理的场景，对解析模型进行量化（如使用 ONNX Runtime 部署轻量级 OCR），并严格设置超时和降级策略（解析失败则仅使用可提取的文本层）。
+
+    嵌入与索引：使用高效的向量库和近似最近邻搜索。将基础索引常驻内存，使用 IVF_PQ 等压缩索引以减少内存占用和加速搜索。对于已知的热点查询，可以实施语义缓存，将查询向量和结果存储起来，命中时直接返回，完全绕过检索和生成环节。
+
+    检索与生成：采用多级检索漏斗。第一级用极快的轻量级方法（如 BM25 关键词匹配）进行粗筛，将候选集从百万级缩小到百级；第二级用向量相似度进行精排；如果候选集仍较大，第三级用 Cross-Encoder 进行最终排序。最后，将少量高相关度块送给 LLM 生成答案。流式输出也能改善用户体感，让模型边生成边返回结果。
+
+    在整个流水线中，缓存是提升低延迟体验的最有效手段。可以对不同层级的结果进行缓存：解析结果的缓存、查询嵌入的缓存、查询结果的缓存。这样，随着系统的运行，重复或相似查询的响应延迟会趋近于零。最终，一个精心优化的多模态 RAG 系统，可以在几百毫秒内完成从用户提问到返回包含图文表信息的精确答案。
+
+    - 文本区域：保持原样，进行常规分块。
+
+    - 表格区域：使用表格结构识别模型提取，并转换为 Markdown 文本。
+
+    - 图片区域：提取图片文件，并用多模态模型生成详细的 Caption 描述。
+
+    - content：用于生成向量的主文本内容。对于图片块，是 Caption；对于表格块，是 Markdown 文本。
+
+    - modality：标识该块是“文本”、“表格”还是“图片”。
+
+    - metadata：包含来源、页码、位置、层级标题等。
+
+    - payload：存储原始数据。对于图片，是图片的存储路径；对于表格，是原始表格的 JSON 或 Markdown 表示。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/FXgmws02nis5pvkd25rcgWzCnbb
+  block_id: LvWddAE9To1VLcxAthpcgaymncc
+  page_token: FXgmws02nis5pvkd25rcgWzCnbb
+  original_title: 在低延迟要求下，多模态文档的解析和检索如何优化流水线？
+  imported_at: '2026-09-21'

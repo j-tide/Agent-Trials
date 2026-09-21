@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-76b48b93ff83
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释“KV 缓存压缩”除了 MQA/GQA 外的其他方法：如基于 Token 重要性的剪枝（H2O, StreamingLLM）。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 解释“KV 缓存压缩”除了 MQA/GQA 外的其他方法：如基于 Token 重要性的剪枝（H2O, StreamingLLM）。
+answer:
+  mode: rubric
+  reference_answer: |-
+    除了结构上的 MQA/GQA，还有大量不改变模型架构、通过选择性丢弃不重要的 KV 对来压缩缓存的方法，统称为 KV Cache 稀疏化/淘汰。核心思想是：并非所有历史 token 对未来的生成同等重要，可以仅保留一部分关键 token 的 KV。
+
+    - H2O (Heavy-Hitter Oracle)
+
+    - 原理：观察到注意力分数的分布呈现长尾特性，少数 token 累积了大部分注意力权重，这些 token 称为“重击者”（Heavy Hitters）。H2O 在每个注意力头中动态跟踪所有历史 token 的累积注意力分数，保留累积得分最高的 top-k 个 token 的 KV，同时总是保留最近的几个 token（局部上下文）。淘汰策略基于贪心算法，移除分数最低的 token。
+
+    - 特点：无需额外训练，在长文本生成中几乎不损失质量，显著降低 KV 缓存占用至原来的 20%~30%，适合长文档摘要、对话等。
+
+    - StreamingLLM
+
+    - 原理：发现即使在无限长输入下，只要保留开头的几个“沉没 token”（Attention Sinks，通常是 BOS 或初始 token）加上最近的一个滑动窗口的 token，模型就能生成连贯的文本，而不会发生困惑度爆炸。注意力沉没 token 吸收了多余的注意力，保持 softmax 稳定。StreamingLLM 固定保留前 n sink 个 token 和最新的 n local 个 token，中间的长历史全部丢弃。
+
+    - 特点：极其简单，内存占用恒定（不随序列长度增长），可实现无限长度流式输入，适合多轮对话和流媒体应用。轻微损失但稳定性极佳。
+
+    - 其他重要方法：
+
+    - FastGen：为每个注意力头学习一个二值掩码策略，裁剪掉对该头不重要的 token，策略多样化（如特殊标点、低频位置等）。
+
+    - Token Merging (ToMe)：不直接丢弃，而是通过相似度聚类将若干冗余 token 的 KV 合并为一个，减少 token 数量。
+
+    - CacheGen：将 KV Cache 量化、编码后存储，使用时通过解码恢复近似 KV，属于有损压缩。
+
+    - 滑动窗口注意力 + 全局注意力（如 Mistral）：通过固定窗口大小强制压缩缓存，同时保留部分全局 token，是一种结构设计与缓存压缩的结合。
+
+    - Low-Rank 压缩：将 KV 对分解为低秩矩阵，仅存储较小的核心张量，牺牲一定精度换取空间。
+
+    这些方法与 MQA/GQA 正交，可以叠加使用，进一步将 KV Cache 压缩数倍，让大模型在有限显存下处理更长的上下文、支撑更高的并发。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YD2SwSsy9iTGMmkEs4jcylEZnnd
+  block_id: UktGdsGX5oYvf8xdadycZ8mznOd
+  page_token: YD2SwSsy9iTGMmkEs4jcylEZnnd
+  original_title: 解释“KV 缓存压缩”除了 MQA/GQA 外的其他方法：如基于 Token 重要性的剪枝（H2O, StreamingLLM）。
+  imported_at: '2026-09-21'

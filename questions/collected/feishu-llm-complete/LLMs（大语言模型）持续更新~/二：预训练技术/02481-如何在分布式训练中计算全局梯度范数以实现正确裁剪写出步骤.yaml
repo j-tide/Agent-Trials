@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-04f61f877ef6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在分布式训练中计算全局梯度范数以实现正确裁剪？写出步骤。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 如何在分布式训练中计算全局梯度范数以实现正确裁剪？写出步骤。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在数据并行（DDP）或模型并行中，每个设备只持有部分参数的梯度，必须通过通信获得全局所有参数的梯度总范数，才能进行统一的缩放裁剪。步骤：
+
+    - 本地计算平方范数：对于本设备上的每个参数（或梯度分片），计算 grad.detach().norm(2).pow(2)，将所有参数的平方范数累加得到一个标量 local_norm_sq。
+
+    - 跨设备求和（All-Reduce）：对 local_norm_sq 执行 all_reduce 操作（求和 SUM），得到全局平方范数 global_norm_sq。这个通信数据量极小（每个设备只传一个浮点数）。
+
+    - 计算全局范数：global_norm = global_norm_sq.sqrt()。
+
+    - 裁剪：如果 global_norm > max_norm，则计算缩放因子 scale = max_norm / global_norm，并将本设备上所有参数的梯度乘以 scale。
+
+    PyTorch 的 clip_grad_norm_ 在分布式环境下已经内部处理了上述逻辑，因此用户通常只需直接调用该函数，无需手动通信。但对于自定义并行模式（如模型并行未使用 PyTorch 包装），需自行实现类似过程。
+
+    完整步骤（手动实现思路，理解用）：
+
+    total_norm_sq = torch.tensor([0.0], device=device)
+    for p in model.parameters():
+        if p.grad is not None:
+            total_norm_sq += p.grad.detach().pow(2).sum()
+    torch.distributed.all_reduce(total_norm_sq, op=torch.distributed.ReduceOp.SUM)
+    global_norm = torch.sqrt(total_norm_sq)
+    if global_norm > max_norm:
+        scale = max_norm / global_norm
+        for p in model.parameters():
+            if p.grad is not None:
+                p.grad.detach().mul_(scale)
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TlYvww7Aoi1oXhkFGQwcFQYxnin
+  block_id: LG5kd7rHno824DxcXNjcsQQ4ndg
+  page_token: TlYvww7Aoi1oXhkFGQwcFQYxnin
+  original_title: 如何在分布式训练中计算全局梯度范数以实现正确裁剪？写出步骤。
+  imported_at: '2026-09-21'

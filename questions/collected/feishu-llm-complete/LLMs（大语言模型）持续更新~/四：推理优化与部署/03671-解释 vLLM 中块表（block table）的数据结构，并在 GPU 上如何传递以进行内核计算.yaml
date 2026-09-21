@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8849abf0de8b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 vLLM 中“块表”（block table）的数据结构，并在 GPU 上如何传递以进行内核计算。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 解释 vLLM 中“块表”（block table）的数据结构，并在 GPU 上如何传递以进行内核计算。
+answer:
+  mode: rubric
+  reference_answer: |-
+    块表数据结构：
+    在 vLLM 中，块表是一个二维整数张量，形状为 [num_requests, max_num_blocks_per_req]，存储物理块索引。对于每个请求，其块表的一行记录了该请求的逻辑块号到物理块号的映射，未使用的槽位填充为 -1 或无效值。每个请求的实际逻辑块数由 seq_lens 跟踪。
+
+    例如：
+
+    ```text
+    block_table = [
+        [2, 5, 7, -1, -1],  # 请求0：3个逻辑块
+        [0, 3, -1, -1, -1], # 请求1：2个逻辑块
+    ]
+    ```
+
+    伴随的还有 context_lens（已生成序列长度，即 token 总数）等元数据。
+
+    GPU 传递方式：
+
+    - 在每次 decode 迭代前，CPU 调度器更新块表（如追加新块、释放块），然后将块表作为 PyTorch 张量拷贝到 GPU。
+
+    - GPU kernel（如 paged_attention_kernel）接收该块表以及 seq_lens、block_size 等参数。
+
+    - 在 kernel 中，每个线程块负责一个请求（或一个注意力头）的计算。它读取对应请求的块表行，根据 seq_len 计算需要迭代的逻辑块数。对于每个逻辑块 i，通过 block_id = block_table[request_idx][i] 获取物理块索引，然后计算该物理块的基地址（base + block_id * block_size * head_dim * element_size），从该地址加载该块的 K 或 V 数据。
+
+    - 因为物理块在显存中是连续存储的，加载一个块内部的数据是合并访问的，非常高效。非连续的块之间通过多次索引跳转，但每个块内是完全顺序的，避免了随机 gather 开销。
+
+    优化点：块表通常常驻 GPU，或在每次迭代前通过异步拷贝（cudaMemcpyAsync）更新增量。vLLM 还支持将块表置于统一虚拟内存（UVA）中，CPU 可见，便于动态修改。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  block_id: AGe8dSjpXobA4bxZuyacBJtFnQh
+  page_token: Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  original_title: 解释 vLLM 中“块表”（block table）的数据结构，并在 GPU 上如何传递以进行内核计算。
+  imported_at: '2026-09-21'

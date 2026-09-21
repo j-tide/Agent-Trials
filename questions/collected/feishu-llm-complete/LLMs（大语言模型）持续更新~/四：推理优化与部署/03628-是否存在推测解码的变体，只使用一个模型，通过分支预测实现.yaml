@@ -1,0 +1,99 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e2700e261b09
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 是否存在“推测解码”的变体，只使用一个模型，通过分支预测实现？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 是否存在“推测解码”的变体，只使用一个模型，通过分支预测实现？
+answer:
+  mode: rubric
+  reference_answer: |-
+    存在，这类方法通常被称为自推测解码（Self-Speculative Decoding）或并行解码。 它们不引入独立的草稿模型，而是利用目标模型自身的特性实现投机。
+
+    主要变体：
+
+    - 早期退出（Early Exiting）或跳层预测
+
+    - 并行解码（Jacobi Decoding）
+
+    - Prompt Lookup Decoding
+
+    - 递归自推测（Recurrent Drafting）
+
+    优势：无需加载第二个模型，显存友好，部署简单。劣势：通常接受率可能略低于专用草稿模型，或需要额外训练（如 Medusa heads）。但总体上，单模型推测解码是实现推理加速的重要方向，已在多种框架中得到支持。
+
+    - 草稿阶段：使用共享层 + 草稿模型独有部分（如果有）进行自回归。因为共享层已加载，可直接调用。
+
+    - 验证阶段：目标模型执行完整前向时，同样从共享层开始，再经过自己的高层。因为共享层在一次前向中可以被两个模型复用？注意：在推测解码的一轮中，草稿模型先运行，产生 K 个 token，然后目标模型需要一次性验证。这时输入序列已经包含草稿 token，目标模型需计算完整序列。由于草稿模型刚运行完，其产生的共享层中间激活（如 prefix 部分的 K/V）其实可以被目标模型复用！这称为KV Cache 复用或状态共享。
+
+    - 草稿模型在生成时，会为 prefix 计算并存储 KV Cache。如果共享层完全一致，目标模型验证时可以直接复用草稿模型已计算的 prefix 部分 KV，只需计算新增的 K 个 token 的 KV 以及高层独有的 KV，极大减少目标模型的 prefill 计算量。
+
+    - 这需要推理系统支持跨模型的 KV 传递，并确保两个模型共享层的定义完全一致（相同 hidden size、头数等）。
+
+    - 执行一次草稿 batch（多个请求并行，每个请求草稿模型自回归 K 步），然后这些请求转入验证组。
+
+    - 执行一次验证 batch（所有验证请求的目标模型并行前向），完成后根据结果更新请求状态（接受 token、丢弃等），并决定下一轮草稿。
+
+    - 将草稿模型放在 CPU 或一个低端 GPU 上，通过 PCIe 传输 logits/token。虽然增加了通信延迟，但如果草稿模型很小且验证阶段接受率高，额外延迟可以被并行验证的收益覆盖。
+
+    - 特别适用于单 GPU 显存紧张的场景（如边缘设备），用 CPU 运行草稿模型，GPU 专职运行大模型验证。
+
+    - 目标模型前向，得到隐藏状态。LM head 产生当前 token 分布；同时，每个 Medusa head 预测各自位置的 token（如 head_1 预测 t+1 token，head_2 预测 t+2 token，等等）。
+
+    - 将预测出的多个 token 构建成树状候选序列（tree），通过树注意力（Tree Attention） 让目标模型一次性验证所有候选序列。验证过程同样基于拒绝采样，保证输出分布与目标模型一致。
+
+    - 草稿生成后，需要将草稿 token（及可能需要的 KV Cache）发送给目标模型的首个 GPU 或主控节点。这涉及设备间数据传输（PCIe/NVLink）。
+
+    - 验证完成后，如果需要继续草稿（如需要更新草稿模型的状态），可能需要回传信息。这引入了往返延迟。
+
+    - 如果草稿模型和目标模型距离远（跨节点网络），通信延迟可能侵蚀加速收益。因此通常要求两者在同一节点或高速互联上。
+
+    - 避免占用珍贵 GPU 显存，但每次草稿 token 需要从 CPU 拷贝到 GPU，验证结果可能需回传。PCIe 带宽有限，对于高吞吐场景可能成为瓶颈，但在 batch=1 的延迟敏感场景下，通信量小（每次几个 token），开销可接受。
+
+    - 若草稿模型是目标模型的前几层，且目标模型本身张量并行，草稿模型可以复制在每个 TP rank 上（或只存在于部分 rank），通过 All-reduce 同步。这样通信模式与目标模型一致，无额外跨设备传输，是最高效的方式。
+
+    - 在目标模型的中间某一层添加一个 LM head，让模型在“浅层”就能预测下一个 token，作为草稿 token。然后将完整模型作为验证器。由于浅层计算量小，相当于自带草稿模型。
+
+    - 典型工作：Self-Speculative Decoding（通过早期退出实现），LayerSkip 等。
+
+    - 利用 Jacobi 迭代求解序列，一次性输入多个假设 token，模型并行输出修正后的 token，反复迭代直到收敛。虽然不完全等同于“推测解码”，但思想类似：一次前向产生多个 token 候选，然后验证/修正。
+
+    - 代表：Blockwise Parallel Decoding，Jacobi Decoding。加速效果依赖序列的可预测性。
+
+    - 利用输入 prompt 中已经出现过的 token 序列作为草稿。例如，如果 prompt 中有“1+1=2”，当解码到“2+2=”时，可以查找 prompt 中匹配的模式，将其后续 token（例如“4”）作为草稿 token。草稿成本几乎为零。
+
+    - 无需任何额外模型，接受率依赖于上下文重复度，在总结、代码生成等任务中有效。
+
+    - 使用目标模型已经生成的上一个 token 的隐藏状态直接预测未来多个 token（通过额外的小型预测头，如 Medusa），这也可以视为单模型方案。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Us9awBi8iiwtfZkqtRzcSfVcnJe
+  block_id: BJ2Pd9yHSo1DuuxpY5ycsvfunVh
+  page_token: Us9awBi8iiwtfZkqtRzcSfVcnJe
+  original_title: 是否存在“推测解码”的变体，只使用一个模型，通过分支预测实现？
+  imported_at: '2026-09-21'

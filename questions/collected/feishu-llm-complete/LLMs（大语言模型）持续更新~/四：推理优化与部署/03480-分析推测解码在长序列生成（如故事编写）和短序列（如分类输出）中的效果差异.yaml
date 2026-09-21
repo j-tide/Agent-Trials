@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ffe05d272847
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分析推测解码在长序列生成（如故事编写）和短序列（如分类输出）中的效果差异。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 分析推测解码在长序列生成（如故事编写）和短序列（如分类输出）中的效果差异。
+answer:
+  mode: rubric
+  reference_answer: |-
+    长序列生成（高 decode 占比）：
+
+    - 生成数百到数千 token，自回归 decode 阶段占据绝对主导。推测解码的加速完全体现在减少 decode 迭代次数上。
+
+    - 接受率通常在长文本中较稳定，加速比可接近理论值（如 2~3x）。
+
+    - Prefill 开销占比很小，即使推测解码可能略微增加 prefill 复杂度（如构建 tree），整体影响微乎其微。
+
+    - 效果显著，是推测解码最佳应用场景。
+
+    短序列生成（如分类、简短回答，输出 1~10 token）：
+
+    - Decode 阶段极短，端到端延迟主要由 prefill（处理输入）占据。推测解码无法加速 prefill。
+
+    - 推测解码的每轮开销（草稿生成 + 验证设置）可能超过直接自回归生成少量 token 的时间。例如，输出仅 3 个 token，若需先草稿 5 个 token 再验证，反而增加了计算量和延迟。
+
+    - 接受率影响放大：如果第一个草稿 token 被拒绝，可能本轮只生成 1 个 token，加上草稿开销，反而变慢。
+
+    - 效果微弱甚至负优化，需通过自适应策略在短输出场景下关闭推测解码或降至极小 K（如 K=1）。
+
+    总结：推测解码适合 decode 密集的长生成任务；对于 prefill 为主或输出极短的场景，收益有限，需谨慎启用或动态跳过。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Us9awBi8iiwtfZkqtRzcSfVcnJe
+  block_id: LD8bdcuoYofQsux73iEcEjiinJe
+  page_token: Us9awBi8iiwtfZkqtRzcSfVcnJe
+  original_title: 分析推测解码在长序列生成（如故事编写）和短序列（如分类输出）中的效果差异。
+  imported_at: '2026-09-21'

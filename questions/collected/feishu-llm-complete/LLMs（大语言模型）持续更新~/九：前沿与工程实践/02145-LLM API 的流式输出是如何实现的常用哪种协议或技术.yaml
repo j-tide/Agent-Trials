@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-95911f1f3fef
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: LLM API 的流式输出是如何实现的？常用哪种协议或技术？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 九：前沿与工程实践
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 九：前沿与工程实践
+content:
+  prompt: LLM API 的流式输出是如何实现的？常用哪种协议或技术？
+answer:
+  mode: rubric
+  reference_answer: |-
+    LLM API 的流式输出，其核心在于将模型生成 token 的过程与 HTTP 响应传输解耦，使得服务端可以一边生成 token，一边将已生成的 token 通过网络推送给客户端，而不必等待全部生成完毕。
+
+    实现原理：在传统的非流式模式下，LLM 必须生成完整个序列后，才将结果打包成一个 JSON 响应返回。流式模式则不同：模型自回归地生成每个 token 时，服务端立即将其包装成一个事件（event），写入到 HTTP 响应体中，并立即刷新缓冲区（flush），客户端就可以逐条接收并处理这些事件。
+
+    常用协议/技术：Server-Sent Events (SSE)
+
+    SSE 是 W3C 标准，是一种基于 HTTP 的轻量级推送协议，非常适合 LLM 的流式输出。
+
+    - 工作原理：
+
+    - 客户端发送一个常规 HTTP GET/POST 请求，并在请求头中指定 Accept: text/event-stream。
+
+    - 服务端收到请求后，返回一个 Content-Type: text/event-stream 的响应头，并保持连接不关闭。
+
+    - 服务端通过该持久连接，不断向客户端推送以 data: 开头的文本行。每行代表一个事件。
+
+    - 事件之间用空行 \n\n 分隔。
+
+    - 当生成结束时，服务端发送一个特殊事件（如 data: [DONE]\n\n）并关闭连接。
+
+    - 为什么选择 SSE：
+
+    - 简单：基于纯文本和 HTTP，实现和调试都非常容易。任何支持 HTTP 的库都可以轻松消费。
+
+    - 单向推送：非常契合 LLM 生成（服务端→客户端）的单向数据流。
+
+    - 自动重连：SSE 规范支持浏览器自动重连，增强了鲁棒性。
+
+    - 广泛支持：OpenAI, Anthropic, Google 等几乎所有 LLM 提供商的流式 API 都基于 SSE。
+
+    - 其他可选技术：
+
+    服务端实现关键点：
+
+    - 确保 HTTP 响应头 Content-Type 和 Transfer-Encoding: chunked 正确设置。
+
+    - 在生成每个 token 后，立即调用 response.write() 并 flush()，避免框架缓冲导致客户端长时间无响应。
+
+    - 异常处理：生成过程中若发生错误，应通过 SSE 事件发送错误信息，然后关闭连接。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  block_id: TfkPdXSHlokLdOxaasQcic4hnhg
+  page_token: Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  original_title: LLM API 的流式输出是如何实现的？常用哪种协议或技术？
+  imported_at: '2026-09-21'

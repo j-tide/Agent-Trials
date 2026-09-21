@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-79aef7a67bc6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 描述 Medusa 中多个预测头的结构：它们如何附加在原始 LLM 上？输出是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 描述 Medusa 中多个预测头的结构：它们如何附加在原始 LLM 上？输出是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Medusa heads 直接附加在目标大模型的最后一层隐藏状态之上。对于 Transformer 架构，就是在最终的 layer norm 之后、原始的 LM head 之前（或与之并行）。
+
+    结构：
+
+    - 每个 Medusa head i 对应预测未来第 i 个 token（i = 1, 2, ..., K）。
+
+    - 最简单的实现是每个 head 为一个单层全连接网络 + 残差连接：
+
+    ```text
+    h = final_hidden_state  # 形状 [batch, seq_len, d_model]
+    head_i_out = SiLU(h @ W1_i + b1_i) @ W2_i + b2_i + h @ W_res_i  # 残差
+    logits_i = head_i_out @ LM_head_weight + LM_head_bias  # 共享输出 embedding
+    ```
+
+    - 也可以更轻量：直接 h @ W_i 然后乘上共享的 LM head 权重得到 logits，不加激活函数。
+
+    - 输出：每个 head 输出一个形状为 [batch, seq_len, vocab_size] 的 logits 张量，分别代表对未来各位置的预测分数。这些 logits 通过 softmax 得到候选 token 的概率分布。
+
+    关键点：Medusa heads 与原始 LM head 共享最后的输出投影矩阵（unembedding weights），这不仅减少了参数量，还使预测头能利用预训练的语言建模知识，大幅提升候选质量。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NR2xwXzjpi4F01khCQ7c89EgnWg
+  block_id: E6LVdeBIGoMm4pxempvcOoinnQc
+  page_token: NR2xwXzjpi4F01khCQ7c89EgnWg
+  original_title: 描述 Medusa 中多个预测头的结构：它们如何附加在原始 LLM 上？输出是什么？
+  imported_at: '2026-09-21'

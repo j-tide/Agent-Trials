@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a3ae98fc0c28
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在 Medusa 中应用重复惩罚和 logits 处理器？是对每个预测头分别处理吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如何在 Medusa 中应用重复惩罚和 logits 处理器？是对每个预测头分别处理吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 Medusa 中，需要分别对每个预测头（包括原始 LM head 和各 Medusa heads）独立应用重复惩罚和其他 logits 处理器，以确保每个候选 token 的预测都考虑到已生成的 token 历史。
+
+    原因与机制：
+
+    - 重复惩罚基于已生成的 token 序列，降低这些 token 的 logits。对于原始 LM head，历史序列就是当前请求已生成的全部 token。对于 Medusa head i（预测未来第 i 个 token），其“历史序列”是当前已生成 token 加上该 head 所在分支之前已接受的草稿 token。因此，不同 head 乃至不同分支节点的历史序列可能不同，需各自独立计算。
+
+    - 实现时，在树验证的前向传播之后，获取每个树节点的 logits。然后针对每个节点，收集其唯一的祖先 token 序列，应用重复惩罚、温度缩放、top-p/top-k 过滤等。由于这些操作计算量很小，可以高效地以 batch 形式处理所有节点。
+
+    - 在草稿生成阶段（即使用 Medusa heads 预测候选 token 时），如果 Medusa heads 是贪心或采样输出，也需要根据节点当前历史应用重复惩罚（如果该阶段就需要过滤重复 token）。这可以在每个 head 的 logits 输出后立即处理。
+
+    总结：是的，重复惩罚等 logits 处理器必须对每个预测头（或树节点）分别应用，以保证每个候选 token 的合法性。实现上可通过向量化或循环处理所有树节点来完成。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NR2xwXzjpi4F01khCQ7c89EgnWg
+  block_id: SEsOdlbvgoINbux8LeRczEinnRg
+  page_token: NR2xwXzjpi4F01khCQ7c89EgnWg
+  original_title: 如何在 Medusa 中应用重复惩罚和 logits 处理器？是对每个预测头分别处理吗？
+  imported_at: '2026-09-21'

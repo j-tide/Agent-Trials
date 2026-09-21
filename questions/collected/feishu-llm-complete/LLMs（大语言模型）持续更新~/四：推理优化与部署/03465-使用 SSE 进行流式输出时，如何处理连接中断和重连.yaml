@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a1f56c2859ef
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 SSE 进行流式输出时，如何处理连接中断和重连？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 使用 SSE 进行流式输出时，如何处理连接中断和重连？
+answer:
+  mode: rubric
+  reference_answer: |-
+    SSE 内置了自动重连机制，并且可以通过 Last-Event-ID 实现断点续传，但需要服务端配合。
+
+    处理机制：
+
+    - 浏览器端自动重连
+    EventSource API 会在连接中断后自动尝试重新连接（默认间隔约几秒）。重连时会发送 Last-Event-ID HTTP 头，其值是最近接收到的 id 字段。
+
+    - 服务端支持 id 和 Last-Event-ID
+
+    - 自定义重连策略
+    如果使用自定义 SSE 客户端（如 fetch + ReadableStream），需要手动实现重连：
+
+    - 服务端清理与过期
+    为避免服务端无限期缓存，可以设置超时时间。如果客户端长时间未重连（如 30 秒），服务端清理该请求的缓存，客户端重连后可能无法恢复，只能重新发起完整请求。
+
+    - 连接中断的检测
+    客户端通过 EventSource.onerror 或 fetch 的 reader.cancel 检测中断，并触发重连逻辑。
+
+    最佳实践：在 LLM 流式服务中，通常不实现复杂的重连续传，因为生成的内容具有实时性和上下文依赖，重连后重新发送完整请求更简单且可靠。但对于超长输出，可以通过客户端缓存已接收文本，重连后发送已接收长度提示给服务端，由服务端跳过已生成部分继续推送新 token（如果引擎支持断点续生成）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/P30KwGxJIiaDg5kjcX0c8HC6ntd
+  block_id: CUajdMO4rozEZsxtDAwcOmb0n0d
+  page_token: P30KwGxJIiaDg5kjcX0c8HC6ntd
+  original_title: 使用 SSE 进行流式输出时，如何处理连接中断和重连？
+  imported_at: '2026-09-21'

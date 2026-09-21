@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a20db5a97977
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分析 vLLM 的调度器如何决定每次迭代的 batch 组成，使用了何种排队策略？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 分析 vLLM 的调度器如何决定每次迭代的 batch 组成，使用了何种排队策略？
+answer:
+  mode: rubric
+  reference_answer: |-
+    vLLM 的调度器是实现其高吞吐的核心，它采用迭代级连续批处理，在每个推理步动态决定 batch 组成。其策略融合了FCFS 等待队列 + 资源感知准入 + 抢占。
+
+    运行机制：
+
+    - 等待队列：新到达的请求进入一个 FCFS 等待队列（waiting_queue）。默认情况下没有复杂的优先级重排，但支持通过 API 为请求指定优先级（社区版本已有相关 PR）。
+
+    - 运行队列（活跃请求）：正在参与 decode 的请求构成 running 集合。每个生成步，这些请求默认全部继续参与下一迭代（因为它们只是生成一个 token，抛弃会浪费 KV Cache）。
+
+    - 准入决策（每步后）：
+
+    - Prefill 的分块处理：当 prompt 很长时，vLLM 采用 Chunked Prefill，将 prompt 分割为多个 chunk，与 decode 请求混合。每个迭代只处理 prompt 的一部分 token（受 max_num_batched_tokens 限制），避免了长 prompt 造成的大延迟。
+
+    - 最大 token 预算：通过 --max-num-batched-tokens 参数限制一个迭代中处理的总 token 数（prefill token + decode token），从而间接限制单步延迟。
+
+    使用的排队策略总结：
+
+    - 等待队列：默认 FCFS，无 SJF。社区有 PR 支持基于请求优先级的队列（类似于优先级队列）。
+
+    - 运行集维持：所有活跃请求均保留，除非完成或抢占。这可以视为一种“最短剩余时间优先”的近似吗？实际上它没有主动排序运行请求，而是全部保留，通过抢占来给新请求让路。当抢占时，选择低优先级长请求换出，相当于让短请求或高优请求更容易进来。
+
+    - 本质上，vLLM 调度器是一种“FCFS + 资源驱动 + 抢占”策略，而非基于作业长度的精细化 SJF。 但是，因为连续批处理允许短请求在完成后立即退出，短请求的自然周转很快，客观上起到了降低平均延迟的效果，无需显式 SJF。
+
+    - 更高级的调度算法（如基于虚拟时间的公平分享）可以通过定制调度器实现，vLLM 的设计允许扩展调度逻辑。
+
+    因此，vLLM 调度器的核心是资源感知的连续批处理调度，在保持实现简单的同时，通过抢占和分块 prefill 解决了长请求阻塞问题，获得了优秀的平均延迟和吞吐。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  block_id: WiOodZToMoIsQwxNs6DcoytfnLd
+  page_token: Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  original_title: 分析 vLLM 的调度器如何决定每次迭代的 batch 组成，使用了何种排队策略？
+  imported_at: '2026-09-21'

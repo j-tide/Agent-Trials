@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2b47e8bff184
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当新请求的 prefill 计算量较大时，如何分割 prefill 成多个 chunk 以避免延迟抖动？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 当新请求的 prefill 计算量较大时，如何分割 prefill 成多个 chunk 以避免延迟抖动？
+answer:
+  mode: rubric
+  reference_answer: |-
+    若一次性处理整个长 prompt 的 prefill，会导致单次迭代耗时剧增，使其他正在 decode 的请求等待时间过长（延迟抖动）。分块预填充（Chunked Prefill） 解决了这一问题。
+
+    实现方法：
+
+    - 固定 chunk 大小：设定一个最大 chunk 大小（如 512 个 token）。对于新请求的 prompt，若非空且未处理完，则每次迭代只取前 min(max_chunk_size, remaining_length) 个 token 作为一个 prefill chunk。
+
+    - 状态维护：每个请求维护一个 prefill_progress 指针，标记已处理的 prompt token 数。初始为 0。
+
+    - 混合调度：在每次迭代中，调度器将 decode 请求的单个 token 与若干个 prefill chunk 合并为一个变长 batch。例如，batch 中有 5 个 decode 请求，外加 1 个 prefill chunk（长度 512），总序列数 6，通过 varlen 注意力一起计算。
+
+    - 逐步分配 KV Cache：当处理第一个 chunk 时，为该请求分配若干物理块用于存储该 chunk 的 K、V。后续 chunk 继续追加分配。直到整个 prompt 处理完毕，请求进入纯 decode 阶段。
+
+    - 避免抖动：由于每个 chunk 计算量被限制，单次迭代的延迟上限得以保证。最长迭代时间由最大 chunk 大小和当前 decode 请求数量共同决定，可通过调整 max_chunk_size 控制 tail latency。
+
+    附加优化：对于极长 prompt，还可通过多步 chunked prefill 在多个迭代中完成，同时系统可在此期间继续服务其他请求的 decode，实现了 prompt 处理与 token 生成的 pipeline 并行，整体吞吐进一步优化。
+
+    因此，分块预填充是连续批处理维持低延迟平稳性的核心手段。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqBawimrwioo11kNL45cwrfznle
+  block_id: YjTTd3UTloVX3DxZN6VcW7NLnpg
+  page_token: EqBawimrwioo11kNL45cwrfznle
+  original_title: 当新请求的 prefill 计算量较大时，如何分割 prefill 成多个 chunk 以避免延迟抖动？
+  imported_at: '2026-09-21'

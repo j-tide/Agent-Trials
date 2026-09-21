@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-653856e58436
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 序列并行：如何将长序列切分到多个设备并结合 Ring Attention 计算？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 序列并行：如何将长序列切分到多个设备并结合 Ring Attention 计算？
+answer:
+  mode: rubric
+  reference_answer: |-
+    序列并行（Sequence Parallelism） 旨在处理极长序列，将 Transformer 层的输入序列沿序列维度切分到多个设备，每个设备仅处理一个子序列。但由于自注意力需要全局交互，序列并行必须与特定的注意力算法结合。
+
+    切分方式：
+
+    - 在 Transformer 的非注意力部分（如 LayerNorm、Dropout、MLP），序列并行可以直接独立计算，因为这些操作对每个 token 是独立的。将序列 L 切分成 N 段，每个设备处理 L/N 个 token。
+
+    - 对于自注意力，需要跨设备通信来计算全局注意力。
+
+    Ring Attention（环形注意力） 结合序列并行的机制：
+
+    Ring Attention 是一种将自注意力计算分布到序列维度的算法，非常适合结合序列并行。
+
+    步骤：
+
+    - 每个设备持有输入序列的一个块（chunk），以及对应的 Q, K, V 投影结果（局部块）。
+
+    - 为了计算全局自注意力，每个设备的 Q 需要和所有其他设备的 K, V 进行交互。Ring Attention 将设备组织成环。
+
+    - 分块计算与通信轮换：
+
+    [图片内容未导入]
+
+    序列并行的整体方案：
+
+    - 将 Ring Attention 与前后的线性层（如 QKV 投影、输出投影）的序列并行结合。在投影阶段，各设备独立对本地 chunk 做线性变换（因为权重共享）。序列并行使显存占用与序列长度线性缩放，极大提升长序列训练能力。
+
+    - 在 Megatron-LM 等框架中，序列并行与张量并行结合：张量并行负责切分模型权重，序列并行负责切分激活的序列维，共同降低激活显存。例如，在 LayerNorm 和 Dropout 上使用序列并行，而在注意力矩阵上使用张量并行。通信方面，序列并行在 LayerNorm 前需要 All-Gather（恢复完整序列），在 MLP 后需要 Reduce-Scatter（重新切分序列）。Ring Attention 本身需要的 P2P 通信也可融入这一框架。
+
+    通过序列并行 + Ring Attention，训练数十万长度序列成为可能。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQ7qw1klCirayhkUauicscbqnpc
+  block_id: Kdngd6s54ohsDOxkDW7cYU7Hn4q
+  page_token: GQ7qw1klCirayhkUauicscbqnpc
+  original_title: 序列并行：如何将长序列切分到多个设备并结合 Ring Attention 计算？
+  imported_at: '2026-09-21'

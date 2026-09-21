@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e980e5e8e33c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果答案空间是连续的或生成式文本（而非离散标签），自洽性如何应用？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: 如果答案空间是连续的或生成式文本（而非离散标签），自洽性如何应用？
+answer:
+  mode: rubric
+  reference_answer: |-
+    自洽性起源于离散答案（分类、数学计算）任务，但其思想可以推广到更复杂的生成场景，只是聚合方式需要调整。
+
+    对于连续数值答案（如“预测明天的气温是 23.5 度”），多数投票失效，因为每次生成的数字可能略有不同。此时可以用以下方法：
+
+    - 取平均值或中位数：采样 N 次，把所有数值答案取平均。平均值容易受极端值影响，中位数更鲁棒。如果分布呈现多峰（说明模型对答案不确定），可以先聚类再取主要聚类的中心。
+
+    - 置信区间：不输出单一数值，而是给出一个区间，如“22.8-24.1 度”，并附上置信度。这更诚实地反映了模型的不确定性。
+
+    对于生成式文本答案（如摘要、翻译、开放性问答），每条路径生成的文本字面可能都不同，但核心信息相似。聚合策略包括：
+
+    - 语义聚类后选代表：用句子嵌入模型（如 all-MiniLM-L6-v2）将所有答案向量化，然后用聚类算法（如 DBSCAN 或层次聚类）将语义相同的答案归为一组。选择最大聚类中“最靠近聚类中心”的那条文本作为输出。也可以对最大聚类内的文本做多文档摘要，融合生成一个最终答案。
+
+    - 基于一致性的信息提取：如果任务是抽取式（如从文章中找答案），可以统计不同路径中抽取的片段，保留被多条路径共同抽取的内容，丢弃只出现一次的孤立片段。
+
+    - 成对比较与投票：用 LLM 或 NLI 模型判断两个答案是否语义等价，构建等价关系图，找出最大连通子图，从中挑出一个代表。
+
+    关键挑战在于计算成本和语义等价的判断准确性。对每对答案做比较的复杂度是 O(N²)，当 N 较大时成本很高。此时可以先用聚类缩减候选数，或者限制 N 不要过大。
+
+    一个重要的思想转变：在生成式文本任务中应用自洽性，我们追求的不再是“完全相同的字词”，而是“语义一致的信息内核”。这就要求聚合方法具备一定的语义理解能力，通常需要借助另一个语言模型或嵌入模型来完成，从而形成了一个“模型生成—模型聚合”的多智能体流水线。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MGuPw0n6Ji2qNJkRj17cdAcWnue
+  block_id: OBKbdA85boju4AxkcAfcSQZWnQb
+  page_token: MGuPw0n6Ji2qNJkRj17cdAcWnue
+  original_title: 如果答案空间是连续的或生成式文本（而非离散标签），自洽性如何应用？
+  imported_at: '2026-09-21'

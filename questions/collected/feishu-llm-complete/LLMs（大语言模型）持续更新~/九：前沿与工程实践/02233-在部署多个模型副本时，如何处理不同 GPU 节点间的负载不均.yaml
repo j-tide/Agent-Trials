@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6ff81a09a230
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在部署多个模型副本时，如何处理不同 GPU 节点间的负载不均？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 九：前沿与工程实践
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 九：前沿与工程实践
+content:
+  prompt: 在部署多个模型副本时，如何处理不同 GPU 节点间的负载不均？
+answer:
+  mode: rubric
+  reference_answer: |-
+    负载不均是异构集群和 LLM 请求特性下必然出现的问题。不同 GPU 节点可能有微小的性能差异（如功率限制、散热），而不同 LLM 请求的计算量（Prompt/生成长度）差异巨大。处理此问题的关键在于动态、智能的调度，而非静态分配。
+
+    - “最少Token数”调度策略
+
+    基于负载均衡器的智能调度，是解决此问题最直接的手段。
+
+    - 与其用“最少请求连接数”来评判实例负载，不如用 “待处理/正在生成的 Token 总数” 来衡量。这个指标直接反映了实例的计算和显存压力。
+
+    - 负载均衡器（或自定义的调度网关）需要实时从每个后端推理实例获取其当前 Token 负载。在分发新请求时，总是选择当前负载最轻的实例。这可以最大程度地平衡各节点的压力。
+
+    - 推理引擎内部动态调整
+
+    在连续批处理框架下，推理引擎本身具有一定的“削峰填谷”能力。
+
+    - 如果某个节点上的生成长度普遍较短，该节点会很快完成并释放资源，调度器自然会将更多的新请求分配给这个“高周转率”的节点。
+
+    - 系统应避免“超大批量积压”：如果一个请求的生成长度极长，可能会在该节点上形成“长尾效应”，阻塞后续请求。虽然连续批处理可以动态插入，但若积压过多，仍需调度器将新请求引导至其他更空闲的节点。
+
+    - 处理异构 GPU 性能差异
+
+    如果集群中存在不同型号的 GPU（如 A100 和 H100），解决负载不均需要更主动的策略。
+
+    - 权重路由：在负载均衡器上，为不同性能的节点设置不同的权重。H100 的权重设为 2，A100 的权重设为 1。这样 H100 会承担大约两倍于 A100 的流量，从根本上避免了将同等流量分给不同性能节点导致的不均衡。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  block_id: TLGAdNBlgoVGnKx6utHc5YNVnIh
+  page_token: Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  original_title: 在部署多个模型副本时，如何处理不同 GPU 节点间的负载不均？
+  imported_at: '2026-09-21'

@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-af96756ec0e1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 描述 LLM 工具调用的一般流程：从用户输入到执行工具再到整合结果的完整链路。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 描述 LLM 工具调用的一般流程：从用户输入到执行工具再到整合结果的完整链路。
+answer:
+  mode: rubric
+  reference_answer: |-
+    完整链路概述
+
+    LLM 工具调用是一个涉及用户、大模型、应用程序后端和外部 API 等多个参与方的协同过程。其完整链路通常包含五个关键环节，形成一个从“理解意图”到“交付答案”的闭环。
+
+    第一步：意图识别与工具选择
+
+    流程从用户输入一个自然语言查询开始。应用程序后端会将这个查询与系统预设的、所有可用工具的详细描述（即工具的 JSON Schema 列表）一同发送给 LLM。LLM 被提示分析用户意图，并判断是否需要调用某个工具来满足该意图。如果需要，它会从工具列表中选择最合适的一个或多个工具。这个决策过程完全是 LLM 基于其对自然语言和工具描述的理解完成的。
+
+    例如，当收到查询“查一下公司最新的企业内训课程有哪些？”，LLM 会分析出“查询”和“最新”等关键意图，并根据工具描述锁定到一个名为 search_courses 的函数，而不是一个 get_weather 或 send_email 的函数。
+
+    第二步：参数提取与指令生成
+
+    一旦选定了工具，LLM 接下来会根据该工具定义的参数 Schema，从用户的自然语言查询中提取出所需的具体参数值。这个过程非常巧妙，模型需要理解参数的类型和语义描述，并在查询中寻找对应的信息。如果查询中信息不全，某些先进的实现还可以让模型生成一个反问，向用户请求缺失的必填参数。
+
+    最终，模型会输出一个结构化的、符合工具 Schema 定义的 JSON 对象，通常被称为“工具调用请求”。该请求包含了明确的 function_name 和 parameters 键值对。例如：{"name": "search_courses", "arguments": {"category": "企业内训", "sort_by": "latest"}}。
+
+    第三步：后端验证与执行
+
+    LLM 生成的工具调用请求会被应用程序后端拦截和解析。后端首先会执行一系列关键的安全和逻辑校验：
+
+    - Schema 验证：检查生成的 JSON 是否符合工具定义的 Schema，参数类型是否正确，必填参数是否都已提供。
+
+    - 安全沙箱与权限控制：检查此次调用是否在用户的权限范围内，是否存在注入攻击的风险。
+
+    - 业务逻辑校验：进行一些模型无法完成的业务规则检查。
+
+    验证通过后，后端会正式调用实际的函数或 API，并将从 LLM 接收到的参数传入。函数执行其内部逻辑，例如查询数据库、运行 Python 代码、或调用第三方 API。执行完成后，函数会返回一个原始结果。
+
+    第四步：结果处理与上下文整合
+
+    工具返回的原始结果（例如，一个包含课程列表的 JSON 数组，或一个“操作成功”的状态码）通常不能直接展示给用户。应用程序后端需要先对其进行格式化，将其转换为更适合 LLM 理解的文本摘要。例如，将一个复杂的 API 返回 JSON 清洗掉无关的元数据，只保留核心信息。
+
+    然后，这个处理过的“工具响应”文本会被作为新的上下文消息，追加到与 LLM 的对话历史中。它被标记为一个特殊的角色，如 tool 或 function，并附带上该次工具调用的唯一 ID。
+
+    第五步：生成最终答案
+
+    最后，后端将包含有工具响应文本的完整对话历史再次发送给 LLM。模型现在拥有了来自外部工具的真实、结构化的信息。它会被提示基于这些新信息，来生成一个流畅、准确、直接回答用户原始问题的最终答案。例如，它可能会根据返回的课程列表 JSON，生成一个格式清晰、附带简要说明的课程推荐清单。
+
+    这个五步链路形成了一个完整的智能循环，让 LLM 能够通过标准化的接口，无缝地接入和利用整个数字世界的能力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IA43wgi1niRa19kxIa6c0Qo5nCh
+  block_id: RNF5drhpaoaMjaxZ4O7ctMgLnzT
+  page_token: IA43wgi1niRa19kxIa6c0Qo5nCh
+  original_title: 描述 LLM 工具调用的一般流程：从用户输入到执行工具再到整合结果的完整链路。
+  imported_at: '2026-09-21'

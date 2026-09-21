@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2c4e53cb471d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 因果注意力掩码如何实现？在 Transformer 中怎样保证当前位置只能关注历史 token？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 因果注意力掩码如何实现？在 Transformer 中怎样保证当前位置只能关注历史 token？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 Transformer 的自注意力层中，因果掩码（Causal Mask）通过修改注意力分数矩阵来实现，使得每个位置只能注意到自身及之前的 token，而不能看到未来的信息。
+
+    自注意力计算公式为：
+
+    [图片内容未导入]
+
+    实现方式：构建一个上三角矩阵，其中上三角部分（不包括对角线）填充为 −∞（或一个非常大的负数），下三角部分为 0：
+
+    [图片内容未导入]
+
+    将 M 加到注意力分数上后，softmax 操作会对 −∞ 的指数输出接近 0 的权重，从而屏蔽未来 token。
+
+    代码实现示例（PyTorch）：
+
+    ```python
+    import torch
+
+    def generate_causal_mask(seq_len):
+        # 创建一个形状为 (seq_len, seq_len) 的上三角矩阵（对角线以上为 True）
+        mask = torch.triu(torch.ones(seq_len, seq_len), diagonal=1).bool()
+        # 将 True 的位置替换为 -inf，其余为 0
+        causal_mask = torch.zeros(seq_len, seq_len).masked_fill(mask, float('-inf'))
+        return causal_mask
+    ```
+
+    在多头注意力中，掩码通常被广播到 batch 和 head 维度。这样，在训练时，即使输入整个序列，模型在预测位置 t 时也无法看到 t 之后的 token，从而保持因果性。
+
+    为什么 Transformer 能够保证当前位置只关注历史 token？
+
+    - 因果掩码直接作用于注意力分数，使得未来位置的注意力权重被清零。
+
+    - 结合 Transformer 的自回归生成：推理时，每次生成一个 token，其 key 和 value 会被缓存（KV Cache），后续步骤的 query 只能与缓存的过去 key 交互，自然无法看到未来。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y05JwS1wNiBIw7kvxw2cKEhVnrb
+  block_id: PZIsdxET9o1JFKxUVOMcvACXn5c
+  page_token: Y05JwS1wNiBIw7kvxw2cKEhVnrb
+  original_title: 因果注意力掩码如何实现？在 Transformer 中怎样保证当前位置只能关注历史 token？
+  imported_at: '2026-09-21'

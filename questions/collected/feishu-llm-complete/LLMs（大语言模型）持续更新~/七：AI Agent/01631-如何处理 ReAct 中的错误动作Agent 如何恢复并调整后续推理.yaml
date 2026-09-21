@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1ae6a8bd3ff6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何处理 ReAct 中的错误动作？Agent 如何恢复并调整后续推理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 如何处理 ReAct 中的错误动作？Agent 如何恢复并调整后续推理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ReAct 的核心优势在于其闭环结构，使其拥有在遭遇错误时自我恢复的独特能力。错误不再是致命失败，而是变成了一个可以被分析和应对的“观察”，驱动 Agent 的下一步推理。
+
+    错误的类型
+
+    在 ReAct 循环中，错误主要有两类。一类是动作执行错误，即工具返回了运行时的错误，如“搜索超时”、“计算语法错误”、“API 权限不足”。另一类是逻辑性错误，即动作本身执行成功了，但返回的结果与预期不符，或是无用的信息，例如搜索返回了完全不相关的内容。
+
+    Agent 如何恢复：将错误作为特殊的观察
+
+    Agent 的恢复能力，来源于它对观察的智能解读。当后端捕获到一个执行错误时，我们不会直接将其抛给模型，而是将它格式化成一个特殊的、富含上下文的观察文本。例如，对于一次超时的搜索，观察不是 Error，而是 Observation: 搜索操作超时，未能获取到结果。你可以尝试简化查询词或更换搜索源。 这条精心设计的消息，本身就是一条行动指南。
+
+    当 LLM 收到这样的观察时，它在下一轮的 Thought 中就会进行“故障分析”和“策略调整”。常见的恢复策略包括：
+
+    - 重试与参数修正：如果错误是临时性的或参数明显有误，Agent 可能会决定重试，并修正参数。例如，它观察到 Calculator[10 / 0] 返回了除零错误，下一轮 Thought 就会分析：“我试图除以零，这是错误的。我需要重新思考这个计算。”
+
+    - 降级与工具替换：如果一个工具反复失败，Agent 会尝试切换到功能相似但更可靠的替代工具。例如，“搜索引擎似乎不可用，我试试查询内部数据库。”
+
+    - 回溯与目标修正：如果 Agent 发现当前错误是因为最初的假设有误，它会执行更根本的回溯。它可能在 Thought 中反思：“看来我假设这个信息是公开的是错误的。我需要调整搜索方向，或者向用户询问更具体的线索。”
+
+    工程层面的增强
+
+    除了依赖 LLM 的推理能力，我们还可以在系统层面对错误进行预处理。例如，后端可以自动对第一次失败的搜索进行关键词简化后重试，只有在重试仍然失败后，才将“已重试但依然失败”的观察返回给 LLM。这减少了不必要的推理循环。同时，全局步数和时间限制依然是最终的熔断机制，防止 Agent 陷入无限恢复的循环。
+
+    ReAct 的这种“观察-反思-调整”的闭环比传统的“调用-返回”模式要鲁棒得多，因为它赋予了 Agent 面对不确定性的弹性和智慧。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/T6N3wE7x0iKDNzkl3qjchqJtntb
+  block_id: JTcldnk2joWoQbx11mzctCr1nQb
+  page_token: T6N3wE7x0iKDNzkl3qjchqJtntb
+  original_title: 如何处理 ReAct 中的错误动作？Agent 如何恢复并调整后续推理？
+  imported_at: '2026-09-21'

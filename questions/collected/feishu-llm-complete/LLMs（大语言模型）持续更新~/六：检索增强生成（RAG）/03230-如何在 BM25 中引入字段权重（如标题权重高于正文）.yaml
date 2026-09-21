@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e5e22fba5a06
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在 BM25 中引入字段权重（如标题权重高于正文）？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 如何在 BM25 中引入字段权重（如标题权重高于正文）？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在现实文档中，不同字段的重要性是不同的。标题、摘要、关键词通常比正文更能代表文档的主题。BM25 本身没有内置的字段加权机制，但可以通过扩展或在应用层实现。
+
+    实现方法：
+
+    应用层独立查询与加权融合 (Elasticsearch multi_match + boost)：
+    这是最主流、最灵活的方法。不为整个文档建立一个全局索引，而是将不同字段视为独立的索引区域。查询时，分别对每个字段执行 BM25 查询，最后将各个字段的得分进行加权求和，得到文档的最终总得分。
+
+    例如，总得分可以定义为：
+
+    [图片内容未导入]
+
+    在 Elasticsearch 中，这可以通过 multi_match 查询的 fields 参数和 boost 语法直接实现：
+
+    {
+      "query": {
+        "multi_match": {
+          "query": "搜索关键词",
+          "fields": ["title^5", "abstract^2", "body"]
+        }
+      }
+    }
+
+    title^5 表示标题字段的权重是正文字段的 5 倍。Elasticsearch 内部会分别计算每个字段的 BM25 分数，再乘以对应的 boost 值，然后求和。
+
+    - 索引时字段增强 (Index-time Boosting)：
+    在文档索引阶段，将标题等关键字段的文本，按其权重大小，在文档的索引文本中物理地重复多次。例如，如果标题权重是 5，就将标题文本重复 5 次后再与正文拼接，建立一个统一的索引。这种方法实现简单，无需在查询时修改，但会导致索引膨胀，且无法灵活地动态调整权重。
+
+    最佳实践：推荐使用应用层独立查询与加权融合的方法。它权重调整灵活，不增加索引大小，且逻辑清晰，是工业界处理字段权重的标准方案。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Vb7IwCWIWiJRpIkluiicTYcOnnd
+  block_id: K7Ofdxv6eo8vWox0tHlcQNXJndf
+  page_token: Vb7IwCWIWiJRpIkluiicTYcOnnd
+  original_title: 如何在 BM25 中引入字段权重（如标题权重高于正文）？
+  imported_at: '2026-09-21'

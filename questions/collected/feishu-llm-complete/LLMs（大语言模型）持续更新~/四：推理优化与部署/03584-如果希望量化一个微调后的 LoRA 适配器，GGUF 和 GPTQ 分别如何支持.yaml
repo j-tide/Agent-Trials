@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0a3b9fd3e20e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果希望量化一个微调后的 LoRA 适配器，GGUF 和 GPTQ 分别如何支持？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如果希望量化一个微调后的 LoRA 适配器，GGUF 和 GPTQ 分别如何支持？
+answer:
+  mode: rubric
+  reference_answer: |-
+    对 LoRA 适配器的量化支持，二者路径完全不同。
+
+    GPTQ 的处理方式：
+
+    - GPTQ 量化通常针对完整的合并后模型。流程是：先将 LoRA 适配器与基座模型合并（使用 PEFT 库的 merge_and_unload()），得到一个完整的 FP16 模型，然后对这个合并后的模型执行 GPTQ 量化。量化后的模型不再包含独立的 LoRA 权重。
+
+    - 也可以尝试只量化基座模型，然后在推理时动态加载 FP16 的 LoRA 适配器，但这样需要在计算时进行反量化后的混合精度加法，支持较少（AutoGPTQ 有实验性 LoRA 支持，通过 --use-lora 加载独立的 LoRA 权重并在 kernel 中融合）。
+
+    GGUF 的支持方式（llama.cpp）：
+
+    - llama.cpp 本身不支持动态 LoRA，但有一个重要特性：可将 LoRA 适配器预先融合并导出为 GGUF 格式。具体流程：
+
+    - 从 2024 年开始，llama.cpp 也引入了动态 LoRA 加载（实验性）：可以在加载基础 GGUF 模型后，通过 --lora 参数指定一个独立的 LoRA 适配器文件（也是 GGUF 格式），推理时在线融合。这需要重新实现 LoRA 的矩阵乘，对量化权重进行反量化、加 LoRA、再量化的操作，性能有额外开销，但实现了不改变基座模型的多适配器切换。
+
+    对比总结：
+
+    - GPTQ 生态通常需要合并后量化，适合固定适配器的部署。
+
+    - GGUF 支持合并导出，也可尝试动态 LoRA，在边缘端提供了一定的灵活性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/J01swL7KPiURbSkqde0cJq63nHc
+  block_id: H2hjdNBB3oBgHaxuuttcBbWYntb
+  page_token: J01swL7KPiURbSkqde0cJq63nHc
+  original_title: 如果希望量化一个微调后的 LoRA 适配器，GGUF 和 GPTQ 分别如何支持？
+  imported_at: '2026-09-21'

@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a185438d6052
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 AutoGen 中，如何实现人类参与（Human-in-the-Loop）的交互模式？如何配置？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 在 AutoGen 中，如何实现人类参与（Human-in-the-Loop）的交互模式？如何配置？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Human-in-the-Loop 是 AutoGen 的核心设计理念之一，它将人类用户无缝地嵌入到多 Agent 对话流中，使其成为协作网络中的一个一等公民。这通过 UserProxyAgent 及其配置来实现。
+
+    实现机制
+
+    UserProxyAgent 是代表人类用户在对话中的代理。它的核心职责是执行 AssistantAgent 提出的、需要与现实世界交互的操作，并代表人类用户向其他 Agent 提问或提供反馈。其交互模式的关键配置在于 human_input_mode 参数，它决定了人类在对话中的介入程度。
+
+    human_input_mode 的三种模式
+
+    - "ALWAYS"：这是最高级别的介入模式。每当 UserProxyAgent 收到一条来自其他 Agent 的、期待回复的消息时，它都会暂停并等待人类用户从终端输入实际的回复内容。这适用于需要对每一步决策都进行人工把控的极高风险场景，例如，AI 生成的每一封对外邮件都需经人工确认后发送。
+
+    - "TERMINATE"：这是最常用的模式。UserProxyAgent 在大多数情况下会自动处理来自其他 Agent 的消息，例如自动执行代码或确认请求。只有当对话状态达到一个“终止条件”时（例如，AssistantAgent 发送了一条包含 "TERMINATE" 关键词的消息），它才会停下来，将最终结果呈现给人类用户，并询问用户是否同意终止任务。这种模式在“自动化执行”和“关键节点人工审核”之间取得了极佳的平衡。
+
+    - "NEVER"：此模式下，UserProxyAgent 完全自主运行，永远不会主动请求人类输入。它仅根据预设的逻辑和其他 Agent 的消息来自动响应。适用于完全自动化的、低风险的批处理任务。
+
+    配置示例
+
+    ```python
+    from autogen import UserProxyAgent
+
+    user_proxy = UserProxyAgent(
+        name="user_proxy",
+        human_input_mode="TERMINATE",  # 在TERMINATE时请求人类介入
+        max_consecutive_auto_reply=10,  # 最大自动回复次数，防止死循环
+        code_execution_config={
+            "work_dir": "coding",
+            "use_docker": False,        # 是否使用Docker沙箱
+        },
+        system_message="你是一个代表人类用户的代理，负责执行代码和请求。"
+    )
+    ```
+
+    人类介入的具体场景
+
+    - 请求批准：AssistantAgent 可以在消息中明确要求人类批准。例如，在生成一个投资组合后，它会发送“TERMINATE”，UserProxyAgent 便会暂停并将方案呈现给用户，由用户决定是否接受。
+
+    - 澄清与提问：当 AssistantAgent 需要更多信息时，它可以向 UserProxyAgent 发送一个包含具体问题的消息。如果 human_input_mode 为 "ALWAYS"，用户将直接看到问题并回答。
+
+    - 异常与错误处理：如果 AssistantAgent 的代码执行失败，UserProxyAgent 会收到错误报告，并可以自动将其反馈给 AssistantAgent 进行修正。在 "TERMINATE" 模式下，如果修正多次失败，它会请求人类介入判断。
+
+    通过这种灵活的人类参与模式，AutoGen 将 AI 的高效与人类的智慧完美结合，构建出既强大又可控的智能系统。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/F9htw07hOih4oik4Vi3cSBIjnVd
+  block_id: FiirdOQ87o7djuxeLEpcaXdLnwF
+  page_token: F9htw07hOih4oik4Vi3cSBIjnVd
+  original_title: 在 AutoGen 中，如何实现人类参与（Human-in-the-Loop）的交互模式？如何配置？
+  imported_at: '2026-09-21'

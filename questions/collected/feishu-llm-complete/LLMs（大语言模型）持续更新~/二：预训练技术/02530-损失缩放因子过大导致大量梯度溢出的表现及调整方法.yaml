@@ -1,0 +1,103 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f335cb3ddfe6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 损失缩放因子过大导致大量梯度溢出的表现及调整方法。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 损失缩放因子过大导致大量梯度溢出的表现及调整方法。
+answer:
+  mode: rubric
+  reference_answer: |-
+    表现：
+
+    - 训练日志中频繁出现 GradScaler 的跳过更新（skip update）警告。
+
+    - 缩放因子曲线呈现“锯齿状”：每次增大后立即因溢出被砍半，无法稳定增长。
+
+    - 损失值出现突刺或变为 NaN。
+
+    - 梯度范数在溢出步变为 NaN 或无穷大。
+
+    - 模型参数可能因部分更新被跳过而无法有效学习，收敛停滞。
+
+    调整方法：
+
+    [图片内容未导入]
+
+    - 降低增长因子：将 growth_factor 从 2.0 减小到 1.5 或 1.2，使得缩放因子更缓慢地增大，减少溢出风险。
+
+    - 延长增长间隔：增加 growth_interval，例如从 2000 步增加到 5000 步，让模型在更稳定的阶段才尝试增大缩放因子。
+
+    - 手动设置静态缩放：如果动态调整仍不稳定，可通过实验找到一个固定的安全缩放因子，切换为静态缩放。
+
+    - 检查模型初始化：过大的权重初始化可能导致前向激活和梯度异常大，改善初始化可降低溢出频率。
+
+    - 使用 BF16：如果硬件支持，切换到 BF16 可从根源消除损失缩放的需求，彻底避免此类问题。
+
+    - 调整学习率：过大的学习率会导致参数更新剧烈，间接增大梯度，适当降低学习率可缓解。
+
+    最佳实践：在训练初期密切监控缩放因子和溢出频率，通过调整上述参数，使得缩放因子能够在一定步数后稳定在一个较高水平，且溢出步数占比低于 1%。这通常是训练健康的重要标志。
+
+    - 检查梯度是否包含 inf/NaN。
+
+    - 若无溢出：unscale 梯度，调用 optimizer.step()。
+
+    - 若有溢出：跳过参数更新，并将当前步标记为溢出。
+
+    - 如果本次 step 被跳过（溢出），则 S←max⁡(S×β,1)，并重置连续无溢出计数。
+
+    - 如果没有溢出：连续无溢出计数 += 1。当计数达到 T 时，S←S×α。
+
+    - scale(loss).backward()：将损失乘以当前缩放因子，产生放大梯度。
+
+    - unscale_(optimizer)：将优化器状态中存储的放大梯度除以缩放因子，恢复真实尺度。
+
+    - step(optimizer)：检查所有参数的梯度是否包含 inf/NaN。若无，则调用 optimizer.step()；若有，跳过更新。
+
+    - update()：根据本次是否发生溢出，按前述规则调整缩放因子。
+
+    - 若本次 step 被跳过（溢出），S←max⁡(S×0.5,1)，连续成功计数 = 0。
+
+    - 若未跳过，连续成功计数 += 1。当计数达到 growth_interval（默认 2000）时，S←S×2.0，连续成功计数 = 0。
+
+    - 敏感原因：需要计算均值和方差（或均方根）。在 FP16 下，平方和容易溢出，且减去均值时的对齐操作可能丢失精度，导致归一化效果变差。
+
+    - 保持精度：通常 LayerNorm 内部计算全部使用 FP32，输入和输出可以是 FP16。autocast 也会自动处理，将 nn.LayerNorm 强制以 FP32 运行。
+
+    - 敏感原因：交叉熵涉及 log 计算，对预测概率的微小变化敏感，FP16 下概率可能因舍入而失真，导致梯度不准确。
+
+    - 保持精度：损失函数通常在 FP32 下计算。autocast 默认将 nn.CrossEntropyLoss 保持 FP32。
+
+    - 如梯度累积、动量更新等，这些操作需要高精度以防止累积误差，均在 FP32 下进行。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H1LqwP3PkibEdykjijgc533Rnue
+  block_id: NMMxdopoOofMGMxNCBQcnnG2nTf
+  page_token: H1LqwP3PkibEdykjijgc533Rnue
+  original_title: 损失缩放因子过大导致大量梯度溢出的表现及调整方法。
+  imported_at: '2026-09-21'

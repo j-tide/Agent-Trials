@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f2bda0aecdb0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果对话数据格式为 [User] ... [Assistant] ...，如何构造 labels 张量实现仅对 assistant 部分计算损失？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 如果对话数据格式为 [User] ... [Assistant] ...，如何构造 labels 张量实现仅对 assistant 部分计算损失？
+answer:
+  mode: rubric
+  reference_answer: |-
+    以最简单的纯文本格式对话数据为例：
+
+    ```text
+    [User] 你好，请问... [Assistant] 您好！很高兴为您服务...
+    ```
+
+    构造步骤：
+
+    - 确定目标序列与掩码的对应关系：目标序列长度 = 输入序列总长度 - 1（每个位置预测下一个词）。因此，掩码长度 = len(input_ids) - 1。
+
+    - 找到所有“非Assistant”部分的 token 位置：定位到[User]、[System]这些特殊标记，以及它们后面的所有内容，直到下一个角色的特殊标记开始为止。这些位置对应的所有 token 都是需要被掩盖的。
+
+    - 创建与 input_ids 等长的数组：遍历整个 input_ids，根据每个 token 所属的角色段，在数组的对应位置上标记该 token 是否参与损失计算。对于 assistant 部分的 token，设为原始 token ID；对于非 assistant 部分，设为 -100。
+
+    具体示例：
+
+    假设对话为："[User] 你好 [Assistant] 我很好"
+
+    经过 tokenization 后得到 input_ids = [101, 102, 103, 104, 105]。
+
+    标签序列（labels）长度 = len(input_ids) = 5。
+
+    由于 "[User] 你好" 是用户部分，不需要计算损失，所以 labels 的前 3 个位置设为 -100。
+
+    "[Assistant] 我很好" 是助手回复，需要计算损失，所以 labels 的后 2 个位置保持为原始 token ID。
+
+    最终 labels = [-100, -100, -100, 104, 105]。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VOrVwrhLzi4WRokQOMPcOsPWnwg
+  block_id: QTrBd5ERHoyitrxG2ChcTe5lnqe
+  page_token: VOrVwrhLzi4WRokQOMPcOsPWnwg
+  original_title: 如果对话数据格式为 [User] ... [Assistant] ...，如何构造 labels 张量实现仅对 assistant
+    部分计算损失？
+  imported_at: '2026-09-21'

@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f83d035972e0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何处理多语言语料的平衡和代码切换问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 如何处理多语言语料的平衡和代码切换问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多语言预训练模型需要在各种语言上均衡的性能，但原始语料中高资源语言（如英语）占比极大，低资源语言样本稀少。同时，文本中经常出现代码切换（code-switching），即同一句子内混用多种语言。处理策略如下：
+
+    一、多语言语料的平衡处理
+
+    - 数据量统计与配比设定
+    统计每种语言的总 token 数或总文档数。为了避免高资源语言淹没低资源语言，人为设定一个采样权重。对于每种语言，计算其目标占比与原始占比的比值，作为采样概率。常用方法如：
+
+    [图片内容未导入]
+
+    - 硬性上限/下限：设置每种语言的最大占比（如英语不超过 30%）和最小占比（如每种语言至少 0.1%）。
+
+    - 实践中，XLM-R 使用 α=0.3α=0.3 对语言进行平滑采样。
+
+    - 数据增强与扩展
+    对于极低资源语言，通过回译（将高资源语言句子翻译为低资源语言，再翻译回来）生成伪平行语料，增加训练数据。此外，利用Wikipedia等多语言来源进行定向爬取，并严格清洗。
+
+    - 语言标签标记
+    在序列开头添加语言 ID token（如 [en], [zh]），让模型显式地知道当前语言，帮助其在多语言混合训练时分离语言空间。这在多语言 MLM 中非常有效。
+
+    二、代码切换问题的处理
+
+    - 代码切换的识别
+    使用 fastText 等语言检测器在句子级别进行识别。对于包含混合语言的句子，检测结果可能是低置信度或多标签。可以设置一个阈值：如果句子的主要语言概率 < 0.8，就将其标记为“代码切换”句子。
+
+    - 处理策略
+
+    三、整体流程
+
+    - 在语言识别步骤后，根据每个句子或文档的语言标签，按配比进行加权采样。
+
+    - 代码切换句子作为特殊类别，保留但不纳入平衡计算（或赋予较低的采样权重）。
+
+    - 对于生成式模型，保留代码切换可以提升其在真实对话中的流畅性和自然度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VQryw3HUdiWHbekHEfpc0JK2nDe
+  block_id: VhBqdCmWfoZbc5xi6DZcKQZ0nzV
+  page_token: VQryw3HUdiWHbekHEfpc0JK2nDe
+  original_title: 如何处理多语言语料的平衡和代码切换问题？
+  imported_at: '2026-09-21'

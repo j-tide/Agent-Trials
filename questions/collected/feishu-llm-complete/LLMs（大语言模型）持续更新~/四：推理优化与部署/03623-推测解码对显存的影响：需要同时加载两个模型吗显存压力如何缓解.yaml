@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-424c6eea1531
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 推测解码对显存的影响：需要同时加载两个模型吗？显存压力如何缓解？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 推测解码对显存的影响：需要同时加载两个模型吗？显存压力如何缓解？
+answer:
+  mode: rubric
+  reference_answer: |-
+    基本显存需求： 朴素推测解码需要同时加载草稿模型和目标模型到 GPU 显存，显存压力显著增加。
+
+    缓解策略：
+
+    - 共享参数架构
+    如前所述，使用目标模型的子集作为草稿模型（如共享 embedding 和前几层）。此时，重复的层只需存储一份，草稿模型独有部分极少，额外显存开销可忽略。
+
+    - 草稿模型卸载到 CPU 或辅助 GPU
+
+    - 使用极小的草稿模型
+    设计参数量极小的草稿模型（如几百万参数），其显存占用相比于数十亿的目标模型几乎可以不计，例如使用轻量级 RNN 或 n-gram 模型。这些模型甚至可以放在寄存器或 L2 cache 中。
+
+    - 复用 KV Cache 减少显存占用
+    如果草稿模型是目标模型的严格前缀（同架构，共享前若干层），则草稿模型生成的 K、V 可以直接作为目标模型对应层的 KV 前缀，无需重复存储，从而减少额外的 KV Cache 分配。
+
+    - 分时加载（非实时服务可接受）
+    在离线批量推理中，可以分阶段执行：先集中用草稿模型处理所有请求生成草稿，保存草稿到 CPU，然后卸载草稿模型，加载目标模型进行验证。但这会引入模型切换开销，不适合在线服务。
+
+    总结：通过共享参数、卸载或使用微型草稿模型，可以在几乎不增加显存压力的情况下实现推测解码的加速，使该技术在显存受限的部署中也具备实用性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Us9awBi8iiwtfZkqtRzcSfVcnJe
+  block_id: QJiOdErcnozMgVxpqDtcsty6ntg
+  page_token: Us9awBi8iiwtfZkqtRzcSfVcnJe
+  original_title: 推测解码对显存的影响：需要同时加载两个模型吗？显存压力如何缓解？
+  imported_at: '2026-09-21'

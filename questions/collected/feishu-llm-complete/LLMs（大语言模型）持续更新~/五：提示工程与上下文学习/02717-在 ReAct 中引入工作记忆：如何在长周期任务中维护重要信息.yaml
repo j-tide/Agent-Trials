@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-61319dd500cd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 ReAct 中引入“工作记忆”：如何在长周期任务中维护重要信息？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: 在 ReAct 中引入“工作记忆”：如何在长周期任务中维护重要信息？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ReAct 在多轮交互中，所有的 Thought、Action、Observation 都直接累积在提示的上下文窗口里。对于长周期、多步骤的任务，这会导致上下文过长、重点信息被淹没，模型可能遗忘早期的重要发现。因此，需要引入“工作记忆”机制，将关键信息提炼并持久化。
+
+    工作记忆的实现方式：
+
+    - 结构化笔记（Scratchpad）：在提示中专门开辟一个“笔记”区域，要求模型在每轮或每隔几轮，将当前已知的关键事实、约束条件、子任务完成状态总结到笔记中。这个笔记区域不参与 Thought-Action 循环，而是作为固定的背景信息始终存在于上下文里。例如，可以这样定义：
+
+    ```text
+    [工作笔记]
+    - 关键实体：巴黎，人口216万
+    - 已确认：需要比较2020年和2022年数据
+    - 待解决：尚未找到2022年GDP数据
+    ```
+
+    模型可以在 Thought 中决定更新笔记，然后调用一个 UpdateNote[新内容] 行动，由系统将内容追加或合并到笔记区。
+
+    - 分层摘要：当上下文超过一定长度时，可以触发一个后台线程，使用一个更便宜、更快的 LLM 对历史对话进行摘要，压缩早期的详细观察，只保留关键事实和决策点。摘要后的文本可以替换掉原来的详细历史，从而释放上下文空间。这类似于操作系统的内存分页，将“冷”数据换出到摘要中。
+
+    - 外部记忆存储：使用外部数据库或键值存储来维护工作记忆。模型可以执行 SaveMemory[主题][内容] 和 FetchMemory[主题] 行动，主动将重要信息存入外部记忆，在需要时再读取。这不仅可以跨多轮会话保持信息，还能让记忆持久化。
+
+    - 图结构记忆：对于复杂任务，可以用图（如 GoT）来组织记忆。实体和关系被存储为图节点和边，模型通过扩展子图来推进推理。这比线性笔记更擅长捕捉交叉依赖。
+
+    优势与注意：
+
+    引入工作记忆后，ReAct 不再受限于有限的上下文窗口，能够处理更长、更复杂的任务，并保持信息的一致性。但需要注意更新笔记的时机和内容质量，避免模型陷入记“流水账”或遗漏关键信息的误区。提示中需要示范如何精炼总结，以及何时应该更新笔记。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UNcyw9ACIiJYN3krDjDcNJ1Rndc
+  block_id: FvmfdUki7oJRx4xv2gKczjYvnkf
+  page_token: UNcyw9ACIiJYN3krDjDcNJ1Rndc
+  original_title: 在 ReAct 中引入“工作记忆”：如何在长周期任务中维护重要信息？
+  imported_at: '2026-09-21'

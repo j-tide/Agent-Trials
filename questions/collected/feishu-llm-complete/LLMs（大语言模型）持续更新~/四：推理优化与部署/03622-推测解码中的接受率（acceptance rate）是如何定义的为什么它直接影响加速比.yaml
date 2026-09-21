@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-360818edf161
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 推测解码中的“接受率”（acceptance rate）是如何定义的？为什么它直接影响加速比？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 推测解码中的“接受率”（acceptance rate）是如何定义的？为什么它直接影响加速比？
+answer:
+  mode: rubric
+  reference_answer: |-
+    接受率（Acceptance Rate, α） 定义为：在验证阶段，草稿模型生成的 token 被目标模型接受的比例的期望值。更精确地，对于单个位置，接受率 α 是目标分布与草稿分布之间相似度的一种度量：α = E[min(1, p(x)/q(x))]，其中 x ~ q。它等于两个分布的重叠概率质量。
+
+    为何直接影响加速比：
+
+    推测解码每次验证至多产生 K 个草稿 token。若每步平均接受率为 α，则在一次验证中，期望生成的 token 数为（考虑几何分布）：
+
+    [图片内容未导入]
+
+    当 K 较大时，近似于 1 / (1 - α)。因此，平均每调用一次目标模型，就生成了 1/(1-α) 个 token。
+
+    加速比公式（简化的 Amdahl 模型）：
+    设目标模型单次前向耗时 T_target，草稿模型单次前向耗时 T_draft。每轮推测解码包含：草稿模型自回归生成 K 个 token（耗时 K * T_draft），目标模型一次验证（耗时 T_target）。该轮生成的期望 token 数为 E = (1 - α^{K+1})/(1 - α)。则加速比为：
+
+    [图片内容未导入]
+
+    若目标模型极慢，草稿模型极快，T_draft ≈ 0，则加速比趋近于 E，即完全由接受率决定。实际上 T_draft 不可忽略，因此 α 越大，E 越大，加速越显著。当 α 从 0.5 提升到 0.8 时，E 从约 2 增长到约 5，潜在加速比近乎翻倍。
+
+    结论：接受率 α 是决定推测解码效率的核心因素。它直接关联平均每次验证的产出 token 数，在草稿模型延迟不可忽略时，也影响开销部分。提高草稿模型质量以提升 α 是推测解码优化的首要目标。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Us9awBi8iiwtfZkqtRzcSfVcnJe
+  block_id: JtPEdLT5doXAHFxmRNncyETpnvg
+  page_token: Us9awBi8iiwtfZkqtRzcSfVcnJe
+  original_title: 推测解码中的“接受率”（acceptance rate）是如何定义的？为什么它直接影响加速比？
+  imported_at: '2026-09-21'

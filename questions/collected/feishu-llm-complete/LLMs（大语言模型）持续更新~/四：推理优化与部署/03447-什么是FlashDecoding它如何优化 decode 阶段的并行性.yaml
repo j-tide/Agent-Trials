@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8ed791675b67
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“FlashDecoding”？它如何优化 decode 阶段的并行性？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 什么是“FlashDecoding”？它如何优化 decode 阶段的并行性？
+answer:
+  mode: rubric
+  reference_answer: |-
+    FlashDecoding 是专门针对自回归解码（decode）阶段优化的注意力算法，基于 FlashAttention 的分块思想，但重新设计了并行策略，以克服长序列 decode 时并行度不足的瓶颈。它由 FlashAttention 团队和社区提出，并被集成到 FlashInfer、TensorRT-LLM 等框架中。
+
+    Decode 阶段的并行困境：
+
+    - 在 decode 时，查询 Q 长度通常为 1（或很小的 batch）。传统注意力（含 FlashAttention）将 Q 的序列维和头维作为并行维度，分配线程块。当 Q 序列长度为 1 时，可并行的维度只有 batch 和 heads。假设 heads=32，batch=1，则仅有 32 个线程块可用，每个线程块需要顺序处理整个 KV 序列（可能是 128k）。这种有限的并行性使 GPU 大量 SM 闲置，计算时间受单个线程块处理长 K,V 的延迟限制。
+
+    - FlashAttention 在 prefill 时表现优异，因为 N_q 很大，有充足的并行度。但在 decode 时，其并行策略不够理想。
+
+    FlashDecoding 的解决方案：
+
+    FlashDecoding 将 KV 序列沿着长度维度分割，实现序列级别的并行，同时保持分块计算和 online softmax 数值稳定性。具体步骤分为两个阶段：
+
+    - Split-KV 分块计算（第一阶段）：
+    将 KV 序列切分为多个块，每个线程块负责一个 KV 块，并处理所有 Q 头（或部分 Q 头）。每个块独立计算局部的 QK^T、softmax 分子和分母（指数和），并输出部分结果：一个加权的 V 累积项和 softmax 分母（l）。这样，即使 Q 长度为 1，也可以利用成百上千个线程块并行处理不同的 KV 段，极大提升并行度。
+
+    - Reduce 合并（第二阶段）：
+    对同一 Q 头的所有 KV 块产生的结果进行归约，合并局部 softmax 统计量，最终得到正确的注意力输出。这可以通过一个高效的 all-reduce 或专门的 kernel 完成。
+
+    优化效果：
+
+    - 对超长序列（如 128k）的 decode，FlashDecoding 可以实现比原 FlashAttention 高数倍的吞吐，因为 GPU 的 SM 得到了充分利用。
+
+    - 与 GQA/MQA 结合时，进一步降低每个 KV 块需要处理的 Q 头数量，提升效率。
+
+    与 FlashAttention 的关系：
+
+    FlashDecoding 可以视作 FlashAttention 在 序列维度并行 上的扩展，它解决了 decode 阶段并行度不足的痛点，成为大模型长文本推理服务的标准 decode 算子之一。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/OuSIwe7IQi1cflkQ601cDNfQn3c
+  block_id: O2EBdCIzLoigraxHpy8ccrhRntd
+  page_token: OuSIwe7IQi1cflkQ601cDNfQn3c
+  original_title: 什么是“FlashDecoding”？它如何优化 decode 阶段的并行性？
+  imported_at: '2026-09-21'

@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0aed5289b804
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在连续批处理中，prefill 请求和 decode 请求能否混合在同一 batch 中？为什么？如何处理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在连续批处理中，prefill 请求和 decode 请求能否混合在同一 batch 中？为什么？如何处理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    可以，并且应该混合，这是提升效率和降低延迟的关键优化。 这种技术称为 Chunked Prefill 或混合批处理（Mixed Batch）。
+
+    原因：
+
+    - Prefill 是计算密集（大矩阵乘），Decode 是内存带宽密集（大 KV Cache 读取，小矩阵乘）。将二者混合可以同时利用 GPU 的计算资源和内存带宽，提高整体硬件利用率。
+
+    - 如果严格串行（先 prefill 再 decode），新的请求必须等待一个完整的 prefill batch 结束才能进入 decode，增加了首 token 延迟。混合允许 prefill 与已有 decode 请求并行，新请求可以更快地产生第一个 token。
+
+    如何处理（典型方案）：
+
+    - 将 prefill 请求的 prompt 切分为 chunks（例如，每次只处理 prompt 中的 512 个 token）。这个 chunk 的 prefill 操作被当作一个变长序列，与当前 decode 请求的单个 token 拼接成一个变长 batch。
+
+    - 使用 FlashAttention 的 varlen 接口或 PagedAttention kernel，同时处理不同长度的序列：
+
+    - 调度策略：调度器选择一个或多个等待请求，为它们分配物理块，然后将其 prompt 的第一个 chunk 放入当前 batch 中进行 prefill。如果 prompt 很长，剩余的 chunk 将在后续迭代中逐步处理（每个迭代一个 chunk），直到整个 prompt 处理完毕。这种“分块预填充”保证了每个迭代的计算量可控，不会因为一个极长 prompt 而导致单步延迟暴增。
+
+    优势：chunked prefill + mixed batch 实现了“细粒度的时间片轮转”，让系统对任意长度 prompt 都有平稳的延迟表现，是 vLLM、TensorRT-LLM 等框架的核心竞争力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqBawimrwioo11kNL45cwrfznle
+  block_id: DHSZdWoBwoaRsHx52DecHY2EnLg
+  page_token: EqBawimrwioo11kNL45cwrfznle
+  original_title: 在连续批处理中，prefill 请求和 decode 请求能否混合在同一 batch 中？为什么？如何处理？
+  imported_at: '2026-09-21'

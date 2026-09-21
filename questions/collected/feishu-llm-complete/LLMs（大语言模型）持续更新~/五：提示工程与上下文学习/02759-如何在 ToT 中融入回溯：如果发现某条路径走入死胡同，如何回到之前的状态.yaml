@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-375798825a25
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在 ToT 中融入回溯：如果发现某条路径走入死胡同，如何回到之前的状态？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: 如何在 ToT 中融入回溯：如果发现某条路径走入死胡同，如何回到之前的状态？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 ToT 中，回溯是其区别于链式思维（CoT）的核心能力之一。CoT 一旦生成错误步骤，便无法回头，只能沿着错误方向继续。而 ToT 将推理过程组织成树状结构，天然支持在多条分支间跳转，当发现某个分支走入死胡同时，能够回退到之前的节点，尝试其他候选分支。
+
+    回溯的具体实现依赖于所采用的搜索策略。
+
+    - 深度优先搜索（DFS）中的回溯：DFS 本身便是一种深度优先、遇阻则退的搜索算法。在 ToT 中，若使用 DFS，流程是：从根节点开始，选择一个最有希望的子节点深入探索；在深入的过程中，不断生成和评估下一步状态；若某一节点被评估为“无望”（如评分低于预设阈值、违反规则或无法继续生成有效后继），则算法自动返回该节点的父节点，从父节点的其他未探索子节点中再选一个继续深入。这种回溯是 DFS 的内置机制，无需额外设计，只需在程序中维护一个栈结构来记录当前路径。当需要回溯时，弹出当前节点，回到栈顶的父节点，并尝试下一个候选。
+
+    - 束搜索（Beam Search）中的回溯：束搜索通常并不显式地回溯，因为它在每一层只保留固定数量（束宽 K）的最佳状态，其余被丢弃。但我们可以为束搜索增加回溯能力，使其成为束搜索 + 回溯的变体。方法如下：当束搜索进行到某一层后，发现所有保留的状态的评分都低于某个“可行阈值”，或者经过若干步后无法找到满意解，此时可以触发回溯。回溯的做法是返回到上一层的候选池（这个池通常已被丢弃，但我们可以选择性地保留更多候选，而不仅仅是束宽 K 个）。实现方式有：
+
+    - 基于评估的回溯触发条件：关键在于准确判断何时应该放弃当前分支。常用的触发条件包括：
+
+    回溯中的状态恢复：回溯时，不仅需要知道回到哪个节点，还需要能够正确地恢复该节点的完整上下文（即当时的“思维状态”文本）。因此，每个节点必须存储其完整的、自包含的状态描述。当回溯到某节点时，直接读取该节点的状态文本，即可从该点重新开始生成和评估，无需重放整条路径。
+
+    通过上述机制，ToT 实现了类似于人类在解题时的“试错-撤回-重试”循环，极大地增强了处理复杂问题的鲁棒性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YLhCwBILIiMYuXkdn6IcggP8nEh
+  block_id: Jal9d8FkqofZ6yxn1P6cVocUnTh
+  page_token: YLhCwBILIiMYuXkdn6IcggP8nEh
+  original_title: 如何在 ToT 中融入回溯：如果发现某条路径走入死胡同，如何回到之前的状态？
+  imported_at: '2026-09-21'

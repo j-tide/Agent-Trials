@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0f03cdd514bc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用倒排索引加速近似重复文档的检索，阐述其流程。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 使用倒排索引加速近似重复文档的检索，阐述其流程。
+answer:
+  mode: rubric
+  reference_answer: |-
+    除了 MinHash + LSH，另一种经典的近似去重方案是基于 TF-IDF 特征词的倒排索引 (Inverted Index) 加速候选对检索。它对中等规模数据或需要精确词匹配的场景特别有效。
+
+    核心思想：如果两个文档是近似重复的，它们一定共享了大量不常见的、有区分度的特征词（如专业术语、人名、特定名词）。通过为这些特征词建立倒排索引，可以快速聚合出共享这些词的文档。
+
+    实现流程：
+
+    - 特征提取与加权：对每个文档，提取其核心特征词（通常是名词、动词，过滤停用词），并计算它们的 TF-IDF 权重。选择每个文档中权重最高、最具代表性的词作为其“指纹词”。
+
+    - 构建倒排索引：为整个语料库构建一个倒排索引。键是“特征词”，值是一个 posting list，记录了包含该词的所有文档 ID 以及该词在该文档中的 TF-IDF 权重。
+
+    - 生成候选对：顺序扫描所有文档。对于文档 D，取其所有高权重的特征词，从倒排索引中查询这些词对应的 posting list。将所有出现在这些列表中的文档 ID 聚合起来，并累加它们的“共享特征词分数”（例如，将 TF-IDF 权重之和作为相似度预估值）。设定一个分数阈值，分数高于阈值的文档对成为候选对。
+
+    - 精确比对与过滤：对候选对，使用更精确的算法（如计算完整的 TF-IDF 向量余弦相似度、或 Jaccard 相似度）进行最终判断。超过最终阈值的被标记为近似重复。
+
+    - 优化技巧：
+
+    倒排索引的优势在于它可以精确地反映出“因为共享了某个特定实体所以相似”的情况，而 MinHash 更偏向于整体内容重叠。两者可以互补。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KVkRw5fvSilOXfkibArc5VHSndf
+  block_id: QIWDdnGrdo4CJYxQye5cQpdanWd
+  page_token: KVkRw5fvSilOXfkibArc5VHSndf
+  original_title: 使用倒排索引加速近似重复文档的检索，阐述其流程。
+  imported_at: '2026-09-21'

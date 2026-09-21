@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4979e95356a1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何实现针对表格的精准检索：使查询能定位到特定单元格或行列？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 如何实现针对表格的精准检索：使查询能定位到特定单元格或行列？
+answer:
+  mode: rubric
+  reference_answer: |-
+    实现对表格的精准单元格级检索，需要一种比“把整个表格作为一个向量”更细粒度的索引策略。
+
+    策略一：单元格级索引（Cell-level Indexing）。
+    将表格的每一个单元格，都单独作为一个独立的文档块进行索引。在嵌入时，不仅包含单元格自身的值，还要融合其完整的语义上下文，包括所属表头、行列号、表名和所在章节等。例如，一个单元格的嵌入文本是：“表格：2023年销售数据；行名：北京；列名：Q3；值：150万”。这样，当用户查询“北京 Q3 的销售额”时，查询向量会与这个单元格的语义上下文高度匹配，从而实现精准定位。缺点是索引量会显著膨胀。
+
+    策略二：行列摘要索引（Row/Column Summary Indexing）。
+    对表格的每一行和每一列分别生成一个摘要向量。例如，为“北京行”生成一个向量，其文本为：“2023年北京销售数据：Q1: 100万, Q2: 120万, Q3: 150万, Q4: 200万”。查询时，首先通过语义匹配找到最相关的行或列，然后在检索后处理阶段，再从元数据中解析出所需的具体单元格数据。这种方法比单元格索引更节省空间，但精度稍低。
+
+    策略三：检索后处理 (Post-Retrieval Processor)。
+
+    整个表格块被检索到后，不直接提供给 LLM，而是先经过一个轻量级的文本到 SQL 的翻译器。将用户的查询意图转换为 SQL 语句，直接在检索到的表格数据上执行精确查询，最后将查询结果交给 LLM 进行答案生成。这种方式最精确，完全排除了模糊匹配的风险，但对查询的鲁棒性和 SQL 翻译器的准确度要求较高。
+
+    在实践中，策略一（单元格级索引）配合策略三（后处理） 是构建高精度表格问答系统的黄金组合。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/FXgmws02nis5pvkd25rcgWzCnbb
+  block_id: VxtRdxRoyoc3XtxLcETcHQdFnHd
+  page_token: FXgmws02nis5pvkd25rcgWzCnbb
+  original_title: 如何实现针对表格的精准检索：使查询能定位到特定单元格或行列？
+  imported_at: '2026-09-21'

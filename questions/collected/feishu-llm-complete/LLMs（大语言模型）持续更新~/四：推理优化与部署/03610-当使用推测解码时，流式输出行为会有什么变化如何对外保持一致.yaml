@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-088baf1721ed
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当使用推测解码时，流式输出行为会有什么变化？如何对外保持一致？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 当使用推测解码时，流式输出行为会有什么变化？如何对外保持一致？
+answer:
+  mode: rubric
+  reference_answer: |-
+    推测解码（包括 Medusa）在内部一次验证多个 token，会批量产生多个 token，而标准自回归一次只产生一个 token。这可能导致流式输出出现“突发”行为：客户端可能在一段时间内没有 token，然后一次收到多个 token。
+
+    行为变化：
+
+    - 在标准流式中，token 产生间隔大致均匀。
+
+    - 在推测解码中，草稿阶段不产生输出（全部为候选），验证阶段一次性接受多个 token，这些 token 会在极短时间间隔内一起交付给流式模块，随后是下一轮草稿+验证的间隔。因此，流式输出会呈现批次性：一组 token 快速连续推送，然后停顿，再下一组。
+
+    - 从客户端看，接收 token 的节奏变得不规则，可能略微影响“逐字出现”的细腻感。
+
+    对外保持一致的方法：
+
+    - 加入平滑发送机制：在推理引擎内部，将验证后接受的多个 token 暂存，然后以模拟自回归的速度（根据平均每 token 延迟）逐个释放给流式层。但这会人为增加延迟。
+
+    - 客户端归一化：客户端接收 token 时不做任何假设，只是按到达顺序渲染。实际体验中，只要整体速度提升，短暂的 burst 对用户影响不大，因为文本仍在快速涌现。
+
+    - 透明处理：不对流式层做特殊处理，直接批量推送。这是最常见的做法，因为推测解码带来的总加速远大于流式不平滑的微小缺陷。
+
+    总结：推测解码会使流式输出产生 token 的突发到达，但这对于终端用户是透明的或可接受的。为保持 API 行为一致，服务端无需特殊处理，继续以 token 为单位推送即可。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/P30KwGxJIiaDg5kjcX0c8HC6ntd
+  block_id: X4iXdOLTUoWfa5xf4uScAU2Cnxb
+  page_token: P30KwGxJIiaDg5kjcX0c8HC6ntd
+  original_title: 当使用推测解码时，流式输出行为会有什么变化？如何对外保持一致？
+  imported_at: '2026-09-21'

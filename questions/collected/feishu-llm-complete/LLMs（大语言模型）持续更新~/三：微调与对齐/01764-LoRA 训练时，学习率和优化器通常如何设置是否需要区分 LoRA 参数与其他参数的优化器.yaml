@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-100863cb59d3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: LoRA 训练时，学习率和优化器通常如何设置？是否需要区分 LoRA 参数与其他参数的优化器？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: LoRA 训练时，学习率和优化器通常如何设置？是否需要区分 LoRA 参数与其他参数的优化器？
+answer:
+  mode: rubric
+  reference_answer: |-
+    LoRA 训练的学习率和优化器设置与全参数微调有所不同，核心在于对可训参数“小而精”的特性的适应。
+
+    - 学习率设置（通常高于全参数微调）
+    由于 LoRA 只训练极少量参数，且这些参数是从零初始化的（B=0），它们需要相对较大的步长来快速收敛到合适的值。因此，LoRA 的学习率通常比全参数微调高 1 到 2 个数量级。
+
+    - 典型范围：对于 LLM 的 LoRA 微调，常见的学习率范围是 1e-4 到 5e-4（例如 2e-4），而全参数微调通常使用 1e-5 到 5e-5。
+
+    - 学习率调度：通常配合余弦退火（Cosine Annealing）学习率调度，并带有少量的 warmup 步数（如总步数的 3%-10%），以稳定训练初期。
+
+    - 优化器选择与参数分组
+
+    - 优化器：AdamW 依然是首选的优化器。
+
+    - 参数分组：强烈建议在优化器中对 LoRA 参数和其他参数（如果有的话）进行分组，并设置不同的学习率。
+
+    - 是否需要区分优化器？
+    不需要使用不同的优化器，但必须在同一个优化器实例中，为不同的参数组定义不同的超参数（主要是学习率和权重衰减）。PyTorch 的优化器天然支持 param_groups 参数，可以轻松实现这一点。
+
+    示例代码 (PyTorch):
+
+    optimizer = torch.optim.AdamW([
+        {'params': model.lora_A.parameters(), 'lr': 2e-4, 'weight_decay': 0.01},
+        {'params': model.lora_B.parameters(), 'lr': 2e-4, 'weight_decay': 0.01},
+        {'params': model.classifier.parameters(), 'lr': 2e-5} # 其他可训参数
+    ])
+
+    这种精细化的分组设置能确保 LoRA 模块高效学习，同时防止其他参数过拟合，是 LoRA 训练的最佳实践。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KERuwM7l4iMJpckLtDacUoP4n5d
+  block_id: QzXqdHaMeoQ0qRxi3iIc0BDvnic
+  page_token: KERuwM7l4iMJpckLtDacUoP4n5d
+  original_title: LoRA 训练时，学习率和优化器通常如何设置？是否需要区分 LoRA 参数与其他参数的优化器？
+  imported_at: '2026-09-21'

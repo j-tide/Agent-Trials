@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-334374f9b546
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何将 Medusa 与动态批处理结合，当 batch 内请求的预测头行为不同时如何处理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如何将 Medusa 与动态批处理结合，当 batch 内请求的预测头行为不同时如何处理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    动态批处理（Dynamic Batching）要求同一 batch 内的请求执行相同操作。Medusa 的各个请求可能因树结构不同（不同分支宽度、深度）导致计算图不同。处理方法如下：
+
+    - 统一树结构（静态化）
+
+    在每轮迭代中，强制所有请求使用相同的树拓扑（例如相同的分支因子和深度）。这可以通过对每个请求的 heads 输出取固定数量的 top-k 候选来实现，即使某些 head 的 top-k 概率很低，也强制填充到相同数量。这样，所有请求的树节点数相同，可以整齐地批处理。
+
+    - 动态填充（Padding）
+
+    允许每个请求有不同的树节点数，但在组织 batch 时，找到最大节点数，将其它请求的树节点序列填充到该长度，并构造相应的块对角树掩码。填充部分的注意力掩码完全屏蔽，计算时额外开销为冗余节点计算。只要节点数差异不大，填充开销可接受。
+
+    - 分组批处理
+
+    将请求按树大小分组，相同组内的请求组成子 batch，分别执行验证前向。这增加了 kernel launch 次数，但避免了大量填充。适合请求间树大小差异极大的情况。
+
+    - 贪心解码简化
+
+    若所有请求都采用贪心解码（每个 head 只取 top-1），则树退化为单链，所有请求的树结构完全一致（链长相同或相似），可直接作为普通 batch 处理。这是最简单且常见的优化。
+
+    结论：通过统一树结构或动态填充，Medusa 可以与动态批处理有效结合。实践中，为了最大化吞吐，常限制树的分支宽度（如 top-2）并统一拓扑。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NR2xwXzjpi4F01khCQ7c89EgnWg
+  block_id: Yobqd4ZRvoOa0Tx1CJIcO2snnch
+  page_token: NR2xwXzjpi4F01khCQ7c89EgnWg
+  original_title: 如何将 Medusa 与动态批处理结合，当 batch 内请求的预测头行为不同时如何处理？
+  imported_at: '2026-09-21'

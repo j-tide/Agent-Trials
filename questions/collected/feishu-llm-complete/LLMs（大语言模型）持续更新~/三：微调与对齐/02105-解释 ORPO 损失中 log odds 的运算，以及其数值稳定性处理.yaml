@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ff1ff60e9de6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 ORPO 损失中 log odds 的运算，以及其数值稳定性处理。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 解释 ORPO 损失中 log odds 的运算，以及其数值稳定性处理。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 ORPO 的损失函数中，核心运算是计算一个回复的 log odds，其定义为：
+
+    [图片内容未导入]
+
+    其中 Pθ(y∣x) 是模型在给定提示 x 下，生成整个回复序列 y 的累积概率。在自回归语言模型中，这通常是序列中所有 token 的条件概率的乘积。
+
+    数值稳定性问题：
+    在实际计算中，Pθ(y∣x) 可能是一个极小的小数（因为长序列的概率连乘），直接计算 P / (1 - P) 可能会导致数值下溢（P 被当作 0）或除法溢出。尤其是在训练初期，模型对某些回复的预测概率可能极不稳定。
+
+    稳定性处理方法：
+
+    为了避免直接计算概率和除法，实践中通常使用 Log-Sigmoid 和 Log-Sum-Exp 技巧，将对数空间的计算转换为稳定形式。
+
+    - 直接使用对数概率：我们不会显式计算 Pθ 和 odds，而是直接使用模型输出的对数概率（log probabilities），这是深度学习框架中非常自然的操作。
+
+    - 计算 log odds 的稳定公式：
+    我们可以将 log odds 重写为：
+
+    [图片内容未导入]
+
+    但 log(1 - P) 在 P 很小时仍然可能数值不稳定。一个更稳定的方式是利用 Log-Sigmoid 函数。实际上，log odds 可以等价地表示为：
+
+    [图片内容未导入]
+
+    但更常见的工程实现是：不单独计算 log odds，而是直接计算 ORPO 损失中所需的整个表达式。
+
+    - 直接计算 OR 损失项的稳定形式：
+    ORPO 的 L OR 损失项为：
+
+    [图片内容未导入]
+
+    - 而 log(1 - e^A) 可以通过 torch.log1p(-torch.exp(A)) 或 torch.log(-torch.expm1(A)) 来稳定计算。最终，整个 OR 损失的计算都可以在 log-space 中完成，从而彻底避免概率值的直接计算和除法，确保数值稳定性。
+
+    此外，一些实现还会对最终计算出的 log odds 差值进行裁剪（clamping），以防止其在 sigmoid 函数的饱和区产生梯度消失问题。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LDEaws7M2ib3h0k3LxMcQiy0nKe
+  block_id: KmfNdj8floBXRQxZ4CGcE5njntb
+  page_token: LDEaws7M2ib3h0k3LxMcQiy0nKe
+  original_title: 解释 ORPO 损失中 log odds 的运算，以及其数值稳定性处理。
+  imported_at: '2026-09-21'

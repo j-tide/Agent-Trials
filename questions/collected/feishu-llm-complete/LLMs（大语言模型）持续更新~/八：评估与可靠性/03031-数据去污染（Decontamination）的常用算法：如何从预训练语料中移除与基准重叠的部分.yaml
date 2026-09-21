@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c59dad28f3ff
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 数据去污染（Decontamination）的常用算法：如何从预训练语料中移除与基准重叠的部分？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 八：评估与可靠性
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 八：评估与可靠性
+content:
+  prompt: 数据去污染（Decontamination）的常用算法：如何从预训练语料中移除与基准重叠的部分？
+answer:
+  mode: rubric
+  reference_answer: |-
+    数据去污染是指在模型训练之前，主动对预训练语料库进行清洗，将其中与已知评测基准高度重叠的文档移除或替换，从而从源头上阻断污染。
+
+    常用的去污染算法
+
+    - 基于 n-gram 重叠的精确匹配与过滤。这是最基础、应用最广的方法。对于基准测试集中的每一个样本，将其分解为连续的 13-gram（或更长）。然后，在预训练语料库的每一篇文档中，查找是否包含了这些 13-gram 中的大部分。如果一篇文档与某个基准样本的重叠 n-gram 数量超过一个高阈值（例如，80% 的 13-gram 被命中），则该文档被视为“受污染文档”，并从训练语料中整体移除。此方法的优点是精准，擅长发现几乎一字不差的复制；缺点是计算量极大，且对于经过改写或翻译的污染无能为力。
+
+    - 基于 MinHash 的近似重复检测与过滤。MinHash 算法可以用来快速估算两个文档集合的 Jaccard 相似度，非常适合在海量数据中发现近似重复的文档。流程是：先将基准测试集中的每个样本和训练语料中的每个文档，都通过 MinHash 压缩成紧凑的签名。然后，在全体签名中查找高度相似的配对。由于 MinHash 签名比原始文本小得多，这个过程的效率远高于逐对计算 n-gram 重叠。一旦发现与基准样本相似的文档，即可将其移除。此方法效率高，能捕捉到轻微改写后的污染，但精确度不如 n-gram 匹配。
+
+    - 基于嵌入向量的语义相似度过滤。使用一个强大的文本嵌入模型，将基准样本和训练语料文档都编码为向量。然后，通过近似最近邻搜索，找到与基准样本向量距离最近的训练文档。如果相似度超过特定阈值，则判定为污染并移除。这种方法可以发现那些“换一种说法”的深层污染，但计算成本最高，且阈值设定较困难，容易引入误删。
+
+    - 分类器引导的过滤。可以训练一个专门的二分类器，来区分“干净的文本”和“受污染的文本”。训练数据可以人工构造，或者使用上述精确匹配方法生成的高置信度伪标签。这个分类器可以捕捉到比 n-gram 重叠更复杂的污染模式。LM-Contamination 工具就采用了这种思路。
+
+    - 后缀数组与公共子串挖掘。这是一种更彻底的精确匹配方法。通过构建整个训练语料库的后缀数组，可以极快地查找出所有与基准文本共享的最长公共子串。这使得我们能够发现那些精确复制的、但长度不固定的污染片段。BigCode 项目就使用了这种方法来去除代码数据集中与 HumanEval 等基准重叠的代码。
+
+    这些算法通常被组合成一个分层管道：先用 MinHash 快速初筛，再用 n-gram 或嵌入方法精细复核，最后由规则或分类器进行最终过滤，从而在效率和精度上达到平衡。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Xrm5wnXFcihdGEknRXScMe7zn5c
+  block_id: KzJ3dVl4EoIXtDxcvSocz5s5nwd
+  page_token: Xrm5wnXFcihdGEknRXScMe7zn5c
+  original_title: 数据去污染（Decontamination）的常用算法：如何从预训练语料中移除与基准重叠的部分？
+  imported_at: '2026-09-21'

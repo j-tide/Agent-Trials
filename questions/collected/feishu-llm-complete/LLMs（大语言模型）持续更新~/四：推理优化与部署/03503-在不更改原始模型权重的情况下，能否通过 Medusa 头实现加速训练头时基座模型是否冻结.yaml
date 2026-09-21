@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1ea99b8d98ef
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在不更改原始模型权重的情况下，能否通过 Medusa 头实现加速？训练头时基座模型是否冻结？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在不更改原始模型权重的情况下，能否通过 Medusa 头实现加速？训练头时基座模型是否冻结？
+answer:
+  mode: rubric
+  reference_answer: |-
+    可以，这正是 Medusa 的设计初衷之一：添加 Medusa heads 不修改基座模型权重，仅新增可训练的轻量级参数，从而在保持基座模型能力完全不变的前提下实现加速。
+
+    训练时基座模型冻结：
+
+    - 基座模型（包括 Transformer 层、embedding、原始 LM head）全部冻结，不参与梯度更新。
+
+    - 仅训练新增的 Medusa heads 参数。通常只需要在训练数据上运行几次 epoch（如 1-2 个 epoch 的通用语料），heads 即可快速收敛。
+
+    推理时的部署：
+
+    - 训练好的 Medusa heads 可以单独保存（或与基座模型权重打包），推理时将它们加载到模型中。
+
+    - 模型前向时，正常计算基座模型得到最终隐藏状态，然后并行通过冻结的 LM head 和新增的 Medusa heads，同时产生当前 token 和多个草稿 token 的分布。随后进入树验证阶段。
+
+    - 整个流程对原始模型无任何破坏，可随时移除 Medusa heads 恢复原始单步生成。
+
+    结论：Medusa 是一种完全非侵入式的加速方案，通过冻结基座模型仅外挂训练小头，既保证了原始模型的能力完整性，又获得了显著的推理加速，兼具灵活性和高性能。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NR2xwXzjpi4F01khCQ7c89EgnWg
+  block_id: U0F7dcqm3o7pWwxfH4mcX1GYnhh
+  page_token: NR2xwXzjpi4F01khCQ7c89EgnWg
+  original_title: 在不更改原始模型权重的情况下，能否通过 Medusa 头实现加速？训练头时基座模型是否冻结？
+  imported_at: '2026-09-21'

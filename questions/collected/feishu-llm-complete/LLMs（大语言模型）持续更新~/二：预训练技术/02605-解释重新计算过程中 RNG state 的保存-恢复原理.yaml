@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-be2aa3388015
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释重新计算过程中 RNG state 的保存/恢复原理。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 解释重新计算过程中 RNG state 的保存/恢复原理。
+answer:
+  mode: rubric
+  reference_answer: |-
+    PyTorch 使用全局随机数生成器（RNG）来产生随机数。Dropout 等操作依赖此 RNG。为了确保重计算时 dropout mask 一致，checkpoint 机制需保存和恢复 RNG 状态。
+
+    原理步骤：
+
+    - 首次前向开始前：获取当前 CUDA RNG 状态（通过 torch.cuda.get_rng_state() 或类似的底层接口），保存为 rng_state_before。
+
+    - 执行首次前向：模型内部正常调用 dropout，消耗 RNG，产生 mask。
+
+    - 首次前向结束后：立即恢复 RNG 状态到 rng_state_before。这确保了主训练循环的 RNG 序列不受检查点段内 dropout 的影响（即检查点段的 dropout 对后续其他操作的随机性不可见）。
+
+    - 重计算时：再次恢复 RNG 状态到 rng_state_before，然后重新执行前向。由于 RNG 回退到相同起点，dropout 会生成与首次完全相同的 mask，保证重计算出的激活一致。
+
+    关键点：
+
+    - 每个检查点段独立管理自己的 RNG 恢复，互不干扰。
+
+    - 需要保存和恢复的不仅是 CUDA RNG 状态，还包括 CPU RNG 状态（如果 CPU 上有随机操作），以及可能存在的其他 RNG（如 torch.Generator）。
+
+    - 这种机制保证了重计算与首次前向的确定性，是检查点训练正确性的基石。
+
+    - preserve_rng_state=True 启用此功能，带来少量 CPU 开销（保存/恢复 RNG 状态），对于深层网络这个开销累积可能明显，但通常可接受。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  block_id: HPoJdWu8Io3wz0xvTRcc4dvqnNg
+  page_token: DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  original_title: 解释重新计算过程中 RNG state 的保存/恢复原理。
+  imported_at: '2026-09-21'

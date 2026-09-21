@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-08e73d59c912
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 HuggingFace 的 transformers 中，如何利用 -100 忽略某些位置的损失？具体写出代码片段。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 在 HuggingFace 的 transformers 中，如何利用 -100 忽略某些位置的损失？具体写出代码片段。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 HuggingFace 的 transformers 库中，所有模型的损失函数都遵循 PyTorch 的约定：当 labels 中的某个值为 -100 时，该位置的损失贡献为零。这是内置的、自动处理的行为。
+
+    ```python
+    import torch
+    from transformers import AutoTokenizer, AutoModelForCausalLM
+
+    tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
+    model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf")
+
+    messages = [
+        {"role": "system", "content": "你是一个有用的助手。"},
+        {"role": "user", "content": "你好，请问..."},
+        {"role": "assistant", "content": "您好！很高兴为您服务..."}
+    ]
+
+    # 1. 使用 chat_template 格式化对话
+    input_text = tokenizer.apply_chat_template(messages, tokenize=False)
+
+    # 2. Tokenize 整个序列，返回 PyTorch 张量
+    inputs = tokenizer(input_text, return_tensors="pt")
+
+    # 3. 构建 labels 张量（与 input_ids 形状相同）
+    labels = inputs["input_ids"].clone()
+
+    # 4. 找到 assistant 回复的起始位置（示例中为固定位置，实际开发中需要根据 tokenized 后的序列自动识别）
+    assistant_start_pos = 10  # 假设从第10个token开始是assistant回复
+
+    # 5. 将非 assistant 部分的所有位置的 label 设置为 -100
+    labels[0, :assistant_start_pos] = -100
+
+    # 6. 前向传播，自动计算损失（只对 labels != -100 的位置计算）
+    outputs = model(input_ids=inputs["input_ids"], labels=labels)
+    loss = outputs.loss
+    loss.backward()
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VOrVwrhLzi4WRokQOMPcOsPWnwg
+  block_id: IRyBdw9qLod9dwxTljScctVxnFh
+  page_token: VOrVwrhLzi4WRokQOMPcOsPWnwg
+  original_title: 在 HuggingFace 的 transformers 中，如何利用 -100 忽略某些位置的损失？具体写出代码片段。
+  imported_at: '2026-09-21'

@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1082a68eaf5d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 讨论 RedPajama、The Pile、C4 等数据集的数据收集与清洗思路差异。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 讨论 RedPajama、The Pile、C4 等数据集的数据收集与清洗思路差异。
+answer:
+  mode: rubric
+  reference_answer: |-
+    C4 (Colossal Clean Crawled Corpus)
+
+    - 来源：从 Common Crawl 抽取的英文网页。
+
+    - 清洗思路：以规则和启发式过滤为主。核心步骤包括：只保留英文文本；过滤包含“脏话列表”中任何词的文档（基于一个包含 500 多个“坏词”的名单）；丢弃文本长度小于 3 句或包含任何 ‘{’ 的页面（认为可能是代码或模板）；剔除任何包含 “lorem ipsum” 等占位文本的页面；以行级别去重和文档级近似去重。最终采用简单的流水线，牺牲一些召回以确保高精度。
+
+    - 特点：清洗规则非常激进，导致损失了大量可能有益的文本（如代码、数学内容），但保证了最终数据的低噪声和高流畅度。C4 规模约 750 GB，主要用于 T5 等模型。
+
+    The Pile
+
+    - 来源：专门收集的多个高质量文本子集（共 22 个），包括 PubMed、Books3、OpenWebText2、Stack Exchange、GitHub、Wikipedia、ArXiv、法律文书等，并非单一从 Common Crawl 提取。
+
+    - 清洗思路：每个子集有专门的清洗流水线。例如，对 Common Crawl 部分使用 justext 和 trafilatura 提取；GitHub 代码过滤掉不含许可证的仓库；书籍、论文等保留原始格式。整体注重数据多样性和最小化过滤，尽量保留原始文本的完整性（包括代码、数学公式）。仅在最终阶段进行全局去重和 PII 清洗。
+
+    - 特点：强调多样性和原始性，包含大量专业领域数据。规模约 825 GB，适用于训练 GPT‑Neo、GPT‑J 等模型。
+
+    RedPajama
+
+    - 来源：以重现 LLaMA 训练数据为目标，收集了 Common Crawl (5 dumps)、C4、Wikipedia、Books、StackExchange、ArXiv、GitHub 等七大类别。
+
+    - 清洗思路：对 Common Crawl 部分大量借鉴 C4 和 CCNet 的流程，但使用 fastText 进行语言识别（保留英文）；采用 trafilatura 提取文本；然后通过质量分类器（一个基于 miniLM 的线性模型）对文本进行质量打分，保留高质量文本；最后进行 MinHash 去重和 PII 过滤。对于其他来源（如 GitHub），则进行文件级去重、许可证过滤等。
+
+    - 特点：结合了规则过滤和 ML 质量分类，质量比纯 C4 更高，且努力覆盖 LLaMA 的原始数据配比。规模约 5 TB 文本，用于训练 OpenLLaMA、MPT 等模型。
+
+    总结差异：
+
+    - C4：纯规则，激进清洗，简单可复现，牺牲多样性换取高流畅度。
+
+    - The Pile：多源精选，保留原始性，清洗程度因源而异，追求全面知识和能力覆盖。
+
+    - RedPajama：采用 ML 辅助质量分类，在规模和干净度之间取得更好的平衡，是新一代数据集的代表。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VQryw3HUdiWHbekHEfpc0JK2nDe
+  block_id: ZPxHdATbfosf0mxyBuTcxxMEnTf
+  page_token: VQryw3HUdiWHbekHEfpc0JK2nDe
+  original_title: 讨论 RedPajama、The Pile、C4 等数据集的数据收集与清洗思路差异。
+  imported_at: '2026-09-21'

@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c95d5d15b99a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么简单的“忽略之前的指令”就能实现注入？根本原因在于 LLM 的什么特性？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: 为什么简单的“忽略之前的指令”就能实现注入？根本原因在于 LLM 的什么特性？
+answer:
+  mode: rubric
+  reference_answer: |-
+    “忽略之前的指令”能够奏效，根源在于大语言模型的指令遵循机制和上下文窗口内的扁平化注意力架构。
+
+    - 缺乏指令与数据的天然边界：LLM 被训练为根据给定的整个上下文来预测下一个 Token。它没有一个内置的安全机制来区分“这是系统设定，不可更改”和“这是用户输入，仅供参考”。对整个上下文窗口内的所有文本，模型都一视同仁，以相同的注意力机制进行理解和回应。当一段文本说“忽略之前的指令”，模型在语义上理解这是一个要求优先级覆盖的请求，并且由于这段文本就是当前上下文的一部分，它缺乏任何权限标签来拒绝执行。
+
+    - 注意力机制中的“近因效应”与“冲突解决”：Transformer 的自回归生成过程中，最后的 Token 对下一个 Token 的预测拥有最强的影响力（近因效应）。当用户在输入末尾写入“忽略之前的指令”，这些 Token 在注意力权重中占据显著位置。同时，当模型面对多个冲突指令时，它会根据训练数据中习得的模式来解决冲突。不幸的是，训练数据中充满了诸如“更正一下”、“实际上，应该是”、“忽略我刚才说的”这类语言模式，这教会了模型一个统计规律：后出现的、明确要求覆盖前文的指令，通常应被视为最终意图。攻击者正是利用了这一统计规律。
+
+    - 系统提示的“软约束”本质：尽管开发者可以通过系统提示（System Prompt）设定行为边界，但系统提示本质上也只是开头的一段文本。它没有被模型架构视为不可变只读的硬约束。当用户输入以更强的“覆盖”语义进入时，系统提示的优先权在统计上就被超越了。这就像在一篇文档的开头写了“本文禁止修改”，但后面又加了一句“以上禁止声明作废”——语言模型会遵循后者的指示，因为它更符合自然语言的冲突消解习惯。
+
+    因此，注入成功的根本在于：LLM 将“安全控制指令”和“用户数据”视为同一种东西——即待预测下一个Token的文本上下文，并且其核心能力“指令遵循”被攻击者巧妙劫持，用于覆盖先前的正当指令。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VbnfwFB7sisNr4kOSH3cNarMnsd
+  block_id: Z58Vd8TZmoDjLbxAW1zceV23nAc
+  page_token: VbnfwFB7sisNr4kOSH3cNarMnsd
+  original_title: 为什么简单的“忽略之前的指令”就能实现注入？根本原因在于 LLM 的什么特性？
+  imported_at: '2026-09-21'

@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2325fa7244ec
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 量化推理中，反量化（dequant）与计算（如 INT4 matmul）如何融合？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 量化推理中，反量化（dequant）与计算（如 INT4 matmul）如何融合？
+answer:
+  mode: rubric
+  reference_answer: |-
+    量化推理采用 W4A16 或 W8A8，权重以 INT4 打包存储，激活为 FP16。反量化与矩阵乘的融合是实现性能的关键。
+
+    融合方式：
+
+    - 在矩阵乘 kernel（GEMM）的加载阶段，从全局内存加载打包的 INT4 权重和对应的分组缩放因子（FP16）到共享内存。
+
+    - 在共享内存或寄存器中，将 INT4 权重即时解包并转换为 FP16（乘以 scale，加零点若有），然后直接与激活块进行 FP16 矩阵乘累加。
+
+    - 这个过程是深度流水线化的：当一块权重被解包时，另一块正在参与 MMA（矩阵乘累加）运算。加载、解包、MMA 重叠。
+
+    具体实现（以 CUTLASS/TensorRT-LLM 为例）：
+
+    - 内核主循环：每次迭代加载一个权重 tile（以 uint8 或 int32 打包的 4-bit 元素）和对应的 scales。
+
+    - 在 shared memory 中，通过向量化指令（如 dp4a 或自定义解包）将 4-bit 权重提取并转换为 FP16（或直接使用 INT4 Tensor Core 指令，如果硬件支持）。
+
+    - 立即将解包后的权重送入 mma.sync 与激活进行乘加，累加到 FP32 累加器。
+
+    - 最后 epilogue 将累加器转换为输出精度并写回。
+
+    优势：避免了先反量化整个权重矩阵写出 HBM，再读取进行 GEMM 的两遍访存。反量化计算与 GEMM 计算在片上流水线执行，几乎不增加额外时间。这是 W4A16 推理能达到接近 FP16 吞吐的基石。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Uhg6wKBvGiSyqckdgPTciRAMn9f
+  block_id: OQR0dJQKuojTkcx12wBcUbLKn2d
+  page_token: Uhg6wKBvGiSyqckdgPTciRAMn9f
+  original_title: 量化推理中，反量化（dequant）与计算（如 INT4 matmul）如何融合？
+  imported_at: '2026-09-21'

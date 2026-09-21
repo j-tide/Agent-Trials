@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f9b4832d8653
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果模型输出的 token 经过 tokenizer decode 后形成不完整的 UTF‑8 字符，如何处理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如果模型输出的 token 经过 tokenizer decode 后形成不完整的 UTF‑8 字符，如何处理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    LLM 的 tokenizer 会将文本切分为子词单元，一个 token 可能对应一个完整字符，也可能只是多字节 Unicode 字符的一部分（如 emoji 的起始字节）。直接 decode 单个 token 可能会产生无效的 UTF-8 字节序列，显示为乱码 �。
+
+    处理方法：
+
+    - 缓冲与重试解码：维护一个字节或字符缓冲区。每次收到新 token，将其对应的原始字节（或 token 的文本片段）追加到缓冲区。尝试对整个缓冲区进行 UTF-8 解码：
+
+    - 使用安全的流式 tokenizer：HuggingFace 的 tokenizers 提供了 decode 的 skip_special_tokens 和保留原始字节的方法，以及用于流式的 decode_async（部分库支持）。可以将 token 积累到一定程度（如遇到完整词边界）再 decode。
+
+    - 字节级 tokenizer：某些模型（如 GPT-2 之后的很多模型）采用字节级 BPE，每个 token 对应的是一段完整的字节序列，直接拼接即可得到有效 UTF-8，但仍可能出现多字节字符跨 token 的问题，同样需要上述缓冲。
+
+    - 客户端容错：服务端在 SSE 推送时，可先推送已确认安全的字符串片段，对于不完整的末端保留。更简单的方案是服务端只推送 token 文本，不做 decode 保证，由客户端负责累积并处理解码错误。
+
+    典型实现（如 vLLM）在流式传输时会维护一个 previous_text 和当前文本，智能地只发送新增的可解码部分，避免发送不完整字符。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/P30KwGxJIiaDg5kjcX0c8HC6ntd
+  block_id: BVVldWnwto4auLxLEtJceAlgn9d
+  page_token: P30KwGxJIiaDg5kjcX0c8HC6ntd
+  original_title: 如果模型输出的 token 经过 tokenizer decode 后形成不完整的 UTF‑8 字符，如何处理？
+  imported_at: '2026-09-21'

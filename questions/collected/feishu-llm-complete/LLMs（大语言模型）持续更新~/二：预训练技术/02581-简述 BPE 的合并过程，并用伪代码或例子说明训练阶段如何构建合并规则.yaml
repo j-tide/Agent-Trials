@@ -1,0 +1,135 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fa21d15229ea
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 简述 BPE 的合并过程，并用伪代码或例子说明训练阶段如何构建合并规则
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 简述 BPE 的合并过程，并用伪代码或例子说明训练阶段如何构建合并规则
+answer:
+  mode: rubric
+  reference_answer: |-
+    BPE（Byte Pair Encoding）是一种自底向上的子词分词算法，其核心思想是通过迭代地合并高频相邻符号对来学习文本中的常见子词单元。训练阶段的目标是构建一个合并规则表（merges），推理时则应用这些规则对文本进行分词。
+
+    训练阶段的完整流程（伪代码）：
+
+    ```text
+    输入: 训练语料文本, 期望词表大小 vocab_size (例如 32000)
+    输出: 有序的合并规则列表 merges, 以及最终词表 vocabulary
+
+    1. 预处理：
+       a. 将语料中的每个单词以空格分隔，并在每个单词末尾添加特殊结束符（如 </w>）。
+       b. 统计所有单词的频率，得到词频字典 word_freq。
+          例如：word_freq = {"l o w </w>": 5, "l o w e r </w>": 2, ...}
+       c. 初始化符号表：所有在语料中出现过的唯一字符（包括 </w>）。
+       d. 为每个单词建立一个字符列表表示（splits），例如 "l o w </w>" 变成 ['l','o','w','</w>']。
+
+    2. 构建合并规则：
+       while len(符号表) < vocab_size:
+           a. 统计所有相邻符号对 (symbol_pair) 在整个语料中的总频率。
+              频率计算：对于每个单词及其字符列表，遍历所有相邻位置，将符号对出现次数累加（乘以单词频率）。
+           b. 如果没有任何符号对（即所有单词都已被合并成单个符号），则退出循环。
+           c. 找出频率最高的符号对 (A, B)。
+           d. 将合并规则 (A, B) -> AB 添加到 merges 列表中（保持顺序）。
+           e. 将新符号 AB 添加到符号表中。
+           f. 更新所有单词的字符列表：在每个单词的 splits 中，将连续的 A 和 B 合并为 AB。
+           g. 更新词频字典中的单词拼写（将 A B 替换为 AB 后的字符串），用于后续的符号对统计。
+
+    3. 构建最终词表：
+       最终词表 = 基础字符表 + 所有合并产生的新符号（以及特殊 token 如 <unk>, <s>, </s> 等）。
+    ```
+
+    伪代码关键部分（统计最高频符号对）：
+
+    ```python
+    def get_stats(word_freq, splits):
+        pairs = defaultdict(int)
+        for word, freq in word_freq.items():
+            symbols = splits[word]
+            for i in range(len(symbols)-1):
+                pairs[(symbols[i], symbols[i+1])] += freq
+        return pairs
+
+    # 主循环
+    merges = []
+    vocab = set(all_characters)
+    while len(vocab) < vocab_size:
+        stats = get_stats(word_freq, splits)
+        if not stats:
+            break
+        best_pair = max(stats, key=stats.get)
+        merges.append(best_pair)
+        vocab.add(''.join(best_pair))
+        # 更新 splits
+        for word in word_freq:
+            symbols = splits[word]
+            new_symbols = []
+            i = 0
+            while i < len(symbols):
+                if i < len(symbols)-1 and symbols[i] == best_pair[0] and symbols[i+1] == best_pair[1]:
+                    new_symbols.append(''.join(best_pair))
+                    i += 2
+                else:
+                    new_symbols.append(symbols[i])
+                    i += 1
+            splits[word] = new_symbols
+    ```
+
+    简单例子：
+
+    假设训练语料只有两个单词："low"（频率5）和 "lower"（频率2）。初始拆分为：
+
+    - low: l o w </w>
+
+    - lower: l o w e r </w>
+
+    词频字典：{"l o w </w>": 5, "l o w e r </w>": 2}
+
+    初始符号对统计（部分）：
+
+    - (l, o): 5+2=7
+
+    - (o, w): 7
+
+    - (w, </w>): 5
+
+    - (w, e): 2
+
+    - (e, r): 2
+
+    - (r, </w>): 2
+
+    假设 (l, o) 频率最高（7次），第一次合并得到 "lo"。更新 splits 后将所有 "l o" 合并为 "lo"。符号表增加 "lo"。下一次统计时，(lo, w) 的频率为 7，可能成为最高频对。如此迭代，逐渐合并出 "low", "er", "lower" 等子词。
+
+    推理时应用合并规则：对输入文本，先拆分为字符序列，然后按训练得到的 merges 顺序，逐个尝试应用合并规则，直到无法合并。例如输入 "lowest"，拆成 l o w e s t，依次检查：若 (l,o) 在 merges 中，则合并为 lo；然后检查 (lo,w) 是否可合并... 最终得到子词序列。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UKVSwsmrvizh73kD8qpckkNRnQh
+  block_id: HOYJduvj7ozC6kx1e4wciXEcnEf
+  page_token: UKVSwsmrvizh73kD8qpckkNRnQh
+  original_title: 简述 BPE 的合并过程，并用伪代码或例子说明训练阶段如何构建合并规则
+  imported_at: '2026-09-21'

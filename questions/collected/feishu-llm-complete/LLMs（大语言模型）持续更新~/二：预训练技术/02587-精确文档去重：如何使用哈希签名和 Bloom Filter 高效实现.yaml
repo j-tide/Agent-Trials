@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7fd016cddb10
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 精确文档去重：如何使用哈希签名和 Bloom Filter 高效实现？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 精确文档去重：如何使用哈希签名和 Bloom Filter 高效实现？
+answer:
+  mode: rubric
+  reference_answer: |-
+    精确文档去重用于找出内容完全一致的文档。在海量语料（如数千亿 Token）中，直接比较所有文档对是不现实的（O(N²) 复杂度）。高效的实现方法是哈希签名结合布隆过滤器。
+
+    核心思想：
+
+    将文档内容映射为一个固定长度的、唯一的“指纹”（哈希值）。因为加密哈希算法（如 SHA-256）的抗碰撞性，内容相同的文档其指纹必然相同；而指纹相同的文档，其内容也极大概率相同。这样，文档去重问题就转化为了在海量哈希值集合中寻找重复值的问题。
+
+    实现步骤：
+
+    - 预处理与规范化：为了消除因空格、大小写、标点等造成的假象差异，先对文档内容进行规范化处理。常见步骤包括：将文本转换为小写、使用 Unicode 规范化（如 NFKC）、将连续空白符替换为单个空格、移除或统一特定的标点符号。这一步对于精确去重至关重要。
+
+    - 生成文档哈希签名：对规范化后的文档内容，使用一个强加密哈希算法（如 SHA-256、Blake2）生成一个 256 位的哈希值。这个哈希值就是该文档的唯一标识符（ID）。
+
+    - 使用布隆过滤器过滤重复：
+
+    - 布隆过滤器 (Bloom Filter) 是一个高空间效率的概率性数据结构，用于测试一个元素是否在一个集合中。它可以 100% 确定一个元素“绝对不在”集合中，但有一定误判概率（false positive）判断一个元素“可能在”集合中。
+
+    - 流程：
+
+    - 初始化一个足够大的布隆过滤器。
+
+    - 遍历所有文档。对于每一个文档的哈希值：
+
+    - 查询该哈希值是否已经存在于布隆过滤器中。
+
+    - 如果存在，说明该文档极大概率是一个重复文档，将其丢弃或标记。
+
+    - 如果不存在，说明这是一个新的、唯一的文档。将其内容写入最终数据集，并将它的哈希值插入到布隆过滤器中。
+
+    - 通过调节布隆过滤器的位数组大小和哈希函数个数，可以将误判率（把新文档误判为重复）控制在可接受的范围内（如 <0.1%）。
+
+    - 大规模环境下的扩展：当单台机器的内存无法容纳整个布隆过滤器时，可以采用分桶策略。例如，按文档内容的 MD5 哈希值的前缀，将文档分配到不同的桶（文件夹或数据库表）中。每个桶里的文档集合足够小，可以在单机内存中独立完成上述的精确去重流程。
+
+    优点：这种方法只需要对每个文档进行一次哈希计算和一次布隆过滤器查询，时间复杂度为 O(N)，且内存占用极小，非常适合 TB 甚至 PB 级别的数据处理。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KVkRw5fvSilOXfkibArc5VHSndf
+  block_id: SOe4dD1XNocPlSxEJaQcyNhpnTg
+  page_token: KVkRw5fvSilOXfkibArc5VHSndf
+  original_title: 精确文档去重：如何使用哈希签名和 Bloom Filter 高效实现？
+  imported_at: '2026-09-21'

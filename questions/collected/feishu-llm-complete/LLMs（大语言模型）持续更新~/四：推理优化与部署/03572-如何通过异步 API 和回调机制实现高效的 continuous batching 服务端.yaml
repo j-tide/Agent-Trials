@@ -1,0 +1,115 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b3bba1382ba1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何通过异步 API 和回调机制实现高效的 continuous batching 服务端？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如何通过异步 API 和回调机制实现高效的 continuous batching 服务端？
+answer:
+  mode: rubric
+  reference_answer: |-
+    高效的 continuous batching 服务端通常采用异步事件循环 + 推理引擎线程的架构，以最大化连接并发和 GPU 利用率。
+
+    核心设计模式：
+
+    - 推理引擎分离：将 LLM 推理引擎（如 vLLM 的 AsyncLLMEngine）运行在独立的线程或进程中，负责模型前向和采样。它提供异步接口（如 add_request 和 step_async），或内部自行循环。
+
+    - 异步 Web 框架：使用 FastAPI（基于 Starlette 和 asyncio）处理 HTTP/WebSocket 连接。每个客户端连接对应一个协程。
+
+    - 请求提交流程：
+
+    - 引擎调度循环：
+
+    - 流式响应：服务端利用 Python 的异步生成器，yield 每个 token，FastAPI 的 StreamingResponse 自动将 yield 的内容转换为 SSE 字节流发送给客户端。无需手动管理连接，框架层处理断开重连等。
+
+    - 连接关闭与清理：当请求结束时，引擎回调发送结束信号，协程退出，异步生成器关闭，Web 框架自动断开连接。引擎内部的请求状态被清理，释放 KV Cache 块。
+
+    vLLM 实现示例：AsyncLLMEngine 提供 generate() 方法，它返回一个 AsyncIterator[RequestOutput]。服务层可以用 async for 循环获取每个 token 的生成结果，并 yield 给客户端。引擎内部使用调度器 step 循环，通过 asyncio 确保高效并发。
+
+    优势：此架构下，单个服务进程可同时维持数百个连接，而 GPU 专用于批量推理。回调与异步队列实现了解耦，引擎专注吞吐，Web 层专注 I/O，实现了高效且可扩展的 continuous batching 在线服务。
+
+    - Decode 请求序列长度为 1（新 token）。
+
+    - Prefill chunk 序列长度为 chunk_size（例如 512）。
+
+    - 将这些序列拼接，传入统一的注意力 kernel，根据各自的 cu_seqlens 和块表计算注意力并更新 KV Cache。
+
+    - 选择被抢占的请求（例如，最长时间未生成 token 的低优先级请求，或者占用块最多的大请求）。
+
+    - 将该请求在 GPU 上的所有物理块中的 K、V 张量拷贝到 CPU 内存的缓冲区（换出）。同时，在块表中标记这些 GPU 物理块为“空闲”或“被换出”。
+
+    - 释放的物理块可以立即分配给新请求。
+
+    - 当需要换入时，将 CPU 缓冲区的 K、V 数据复制回新分配的 GPU 物理块，更新块表，请求继续从断点解码。
+
+    - 放弃被抢占请求的 KV Cache，直接将其状态重置为 prefill 完成时的状态（或仅保留 prompt 和少量生成 token）。
+
+    - 当恢复时，利用原始 prompt 和已生成的 token 重新执行一次 prefill 和部分解码，重构 KV Cache。这个方法省去了换出的 CPU 内存开销和拷贝时间，但恢复时有重计算成本。适合显存极度紧张且 CPU 内存也不足的场景。
+
+    - 对于温度缩放：logits[i] /= temperature_i
+
+    - 重复惩罚：根据该请求已生成的 token 序列，降低对应 token 的 logits。
+
+    - 过滤：应用 top_p、top_k 等屏蔽。
+
+    - 采样：从处理后的分布中抽取一个 token。
+
+    - 在一次迭代完成后，引擎获得了 batch 中每个请求新生成的 token。
+
+    - 对于每个活跃请求，引擎调用其绑定的回调函数或异步事件，立即将新 token 发送给客户端。
+
+    - 如果采用异步框架（如 vLLM 的 AsyncLLMEngine），生成 token 的协程会 yield 该 token，由 Web 框架层封装为 SSE 事件或 WebSocket 消息推送给客户端。
+
+    - 纯 decoder 模型无独立的 encoder。encoder-decoder 模型（如 T5、BART）的 encoder 接收完整 input 序列，并生成一组 encoder hidden states（及/或 key/value）供 decoder 交叉注意力使用。这些 encoder 输出需要被缓存（类似于 decoder 的 KV Cache，但它是静态的，不会随解码步变化）。
+
+    - 不同请求的 encoder 输入长度不同，因此 encoder 输出的长度也不同。连续批处理需管理这些变长的 encoder cache。
+
+    - 每个 decoder 层包含交叉注意力，其 Q 来自 decoder，K、V 来自 encoder 输出。在每次 decode 迭代，都需要读取 encoder cache。不同请求的 encoder cache 长度各异。
+
+    - 连续批处理在组织 batch 时，不仅要考虑 decoder 的自注意力 KV Cache，还要正确索引每个请求的 encoder cache，并在交叉注意力计算时传入相应的 K、V 块。
+
+    - 显存中除了 decoder 的 KV Cache，还有 encoder cache。长 encoder 序列会占用大量显存，限制并发。可采用分块 prefill 和 encoder cache 量化等方法缓解。
+
+    - 调度器需要决定何时对 encoder 进行 prefill，通常在一次性的 encoder forward 中完成，或者分块处理。新请求加入时，需要先完成 encoder prefill 才能进入 decoder 循环，这增加了调度粒度。
+
+    - 客户端发起请求，服务端创建一个 asyncio.Queue 或使用 async_generator 作为 token 管道。
+
+    - 调用 engine.add_request(request_id, prompt, params, callback)，其中 callback 可以是接受 token 的异步回调函数，或者将 token 放入该请求的队列。
+
+    - 推理引擎在生成新 token 时，调用回调或向队列推送，客户端的协程从队列中取出 token 并通过 SSE/WS 发送。
+
+    - 引擎内部不断执行 step()，完成一次前向和采样。然后根据结果调用注册的回调，将 token 发送出去。
+
+    - 为了不阻塞事件循环，引擎的 step() 可以在专用线程中运行，并通过 asyncio.run_coroutine_threadsafe 安全地调用回调。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqBawimrwioo11kNL45cwrfznle
+  block_id: WIrKdcH0loYXvLxSsB0cROFPnid
+  page_token: EqBawimrwioo11kNL45cwrfznle
+  original_title: 如何通过异步 API 和回调机制实现高效的 continuous batching 服务端？
+  imported_at: '2026-09-21'

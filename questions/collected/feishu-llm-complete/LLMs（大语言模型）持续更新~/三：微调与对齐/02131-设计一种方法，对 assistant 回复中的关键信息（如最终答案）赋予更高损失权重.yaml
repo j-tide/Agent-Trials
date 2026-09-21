@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c7e650d5ca8c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 设计一种方法，对 assistant 回复中的关键信息（如最终答案）赋予更高损失权重。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 设计一种方法，对 assistant 回复中的关键信息（如最终答案）赋予更高损失权重。
+answer:
+  mode: rubric
+  reference_answer: "在某些任务中，assistant 回复的某些部分比其他部分更重要。例如，在一个包含推理过程的任务中，最终答案比客套话更加关键。我们希望模型在预测“答案”时更加精确。\n\n设计方法：\n\n-
+    在数据标注时标记关键片段：使用特殊标记符 [IMPORTANT] 和 [/IMPORTANT] 将回复中的关键信息包裹起来。\n\n- 在损失计算时赋予更高权重：\n\n```python\ndef
+    create_importance_weighted_loss(input_ids, labels, tokenizer, importance_weight=3.0):\n
+    \   # 默认所有权重为 1.0\n    weights = torch.ones_like(input_ids, dtype=torch.float)\n
+    \   \n    important_start = tokenizer.convert_tokens_to_ids(\"[IMPORTANT]\")\n
+    \   important_end = tokenizer.convert_tokens_to_ids(\"[/IMPORTANT]\")\n    \n
+    \   in_important = False\n    for i in range(input_ids.shape[1]):\n        token
+    = input_ids[0, i].item()\n        if token == important_start:\n            in_important
+    = True\n            weights[0, i] = 0.0  # 标记符本身不计算损失\n        elif token == important_end:\n
+    \           weights[0, i] = 0.0\n            in_important = False\n        elif
+    in_important:\n            weights[0, i] = importance_weight  # 关键信息区域赋予高权重\n
+    \   \n    # 结合原始的 assistant 掩码\n    assistant_mask = create_assistant_mask(input_ids,
+    tokenizer)\n    final_weights = weights * assistant_mask  # 只有 assistant 部分且是关键信息的区域才获得高权重\n
+    \   \n    # 后续损失计算逻辑与分段加权类似...\n    return final_weights\n```\n\n效果：模型会更加关注 [IMPORTANT]
+    区域内的 token，在预测这些 token 时更加准确，从而提升模型在关键信息上的生成质量。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VOrVwrhLzi4WRokQOMPcOsPWnwg
+  block_id: TXt5diIWiosxC1xNcuqcZNCRn2e
+  page_token: VOrVwrhLzi4WRokQOMPcOsPWnwg
+  original_title: 设计一种方法，对 assistant 回复中的关键信息（如最终答案）赋予更高损失权重。
+  imported_at: '2026-09-21'

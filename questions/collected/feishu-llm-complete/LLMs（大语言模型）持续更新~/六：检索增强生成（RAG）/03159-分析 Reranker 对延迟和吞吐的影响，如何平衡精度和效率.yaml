@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3b0934aeb543
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分析 Reranker 对延迟和吞吐的影响，如何平衡精度和效率？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 分析 Reranker 对延迟和吞吐的影响，如何平衡精度和效率？
+answer:
+  mode: rubric
+  reference_answer: |-
+    引入 Reranker 会显著增加 RAG 管道的端到端延迟，并降低系统的最大吞吐量。理解其开销来源，并采取相应的优化策略，是工程部署的关键。
+
+    延迟与吞吐的影响分析：
+
+    - 延迟：系统的总延迟 = 初检索延迟 + Reranker 推理延迟 + 生成延迟。Reranker 推理延迟是新增的主要部分。它等于 Cross-encoder 模型处理一个 mini-batch（大小为 N）的时间。这个时间与 N 成正比。如果 N=100，一个中等的模型可能需要 50~200 毫秒，这可能是初检索延迟的数倍。
+
+    - 吞吐：Reranker 的推理是计算密集型的，会大量占用 GPU 或 CPU 资源。每个查询都需要消耗固定的计算量，这导致系统的并发处理能力下降，最大 QPS 受限。
+
+    平衡精度和效率的策略：
+
+    - 限制候选集大小（N）：这是最直接有效的方法。不要贪多，将 N 控制在 50~100 范围内。通过离线实验，绘制 N 与最终 Recall@K 的曲线，找到 Recall 增长的饱和点。超过这个点，增加 N 带来的精度提升微小，而延迟和成本线性增长。
+
+    - 模型选型与加速：
+
+    - 预过滤与异步化：
+
+    - 结果缓存：对高频查询的重排序结果进行缓存。如果用户查询命中缓存，则完全跳过 Reranker 推理，实现零额外延迟。
+
+    - 动态调整策略：根据查询的复杂度动态决定是否启用 Reranker 或调整 N。对于简单、意图明确的查询，可以使用较小 N 甚至跳过 Reranker；对于复杂、模糊的查询，则启用完整管道。
+
+    通过这些策略，可以在保持大部分精度收益的同时，将 Reranker 引入的额外延迟和成本控制在可接受范围内，实现精度与效率的最佳平衡点。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MdouwCwh3iP6HNkt4PZcw9CSnYb
+  block_id: MAGodpbcPouqNTxZ1wgcYxP1nRg
+  page_token: MdouwCwh3iP6HNkt4PZcw9CSnYb
+  original_title: 分析 Reranker 对延迟和吞吐的影响，如何平衡精度和效率？
+  imported_at: '2026-09-21'

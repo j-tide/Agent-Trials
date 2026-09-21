@@ -1,0 +1,95 @@
+---
+schema_version: 1
+id: feishu-llm-complete-50b98d8a54c7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何解析 ReAct 的输出以提取动作并执行？常用的正则或有限状态机方法。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 如何解析 ReAct 的输出以提取动作并执行？常用的正则或有限状态机方法。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ReAct 的输出是一段自由文本与结构化指令的混合体。解析器的工作就是从这段文本中精准地识别出最新的一个“Action”指令，将其提取出来并传递给执行器；同时，当“Finish”动作出现时，能够终止循环。
+
+    解析器的核心任务
+
+    - 提取最新的 Action：解析器必须能够从可能包含多轮历史文本的模型中，找出最后一次出现的、符合格式的 Action 行。
+
+    - 提取 Action 类型和参数：将 Action: Search[2024 Nobel] 这样的字符串，解析为结构化的数据：{"action_type": "Search", "action_param": "2024 Nobel"}。
+
+    - 处理边界情况：模型可能输出格式错误的 Action（如缺少方括号、拼写错误），解析器需要有一定的容错或明确的错误处理机制。
+
+    常用解析方法
+
+    - 基于正则表达式的解析
+
+    这是最常用、最轻量的方法。编写一个正则模式，去匹配 Action 的格式。例如：
+
+    ```text
+    Action:\s*([^\[]+)\[(.*)\]
+    ```
+
+    - \s* 匹配可能的空格。
+
+    - ([^\[]+) 捕获组1：提取 [ 之前的字符串，作为动作类型（如 Search）。
+
+    - \[(.*) 捕获组2：提取 [ 之后的内容，作为参数。
+
+    解析流程是：获取完整模型输出 -> 用正则匹配所有 Action -> 取最后一个匹配项 -> 提取动作和参数。如果匹配失败，可以返回一个错误观察，要求模型重新输出。
+
+    - 基于有限状态机的解析
+
+    当 ReAct 的格式更灵活或更复杂时，可以设计一个简单的状态机。状态机逐行阅读文本，在“自由文本”和“结构化指令”之间切换。
+
+    - 状态1：等待Action。逐行扫描，寻找以 Action: 开头的行。
+
+    - 状态2：读取Action。一旦找到，进入此状态，记录动作类型和参数。
+
+    - 状态3：确认结束。检查 Action 是否为 Finish，如果是，状态机进入停止状态。
+
+    状态机的优势是逻辑更清晰，易于处理多行 Action（如果参数跨多行）等复杂情况。
+
+    - 基于 JSON 模式的直接输出
+
+    现代 LLM 已经强大到可以直接输出 JSON 格式的响应。在提示中要求模型输出：
+
+    ```json
+    {"thought": "...", "action": {"type": "Search", "query": "..."}}
+    ```
+
+    这样，解析器只需一行 JSON.parse() 即可。这彻底消除了正则解析的脆弱性，是目前最可靠的方法。如果模型不支持原生 JSON 模式，正则解析依然是健壮的首选。
+
+    无论哪种方法，解析器都必须被设计为可容错的。当解析失败时，系统应能将错误信息作为一次观察返回给模型，让模型有机会进行自我修正，而不是直接崩溃。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/T6N3wE7x0iKDNzkl3qjchqJtntb
+  block_id: WV48dNcR3oZ1yqxb5iycaJHknXb
+  page_token: T6N3wE7x0iKDNzkl3qjchqJtntb
+  original_title: 如何解析 ReAct 的输出以提取动作并执行？常用的正则或有限状态机方法。
+  imported_at: '2026-09-21'

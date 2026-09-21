@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c114cbae950c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 PagedAttention 中的“copy-on-write”机制在并行采样（如 beam search）中的应用。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 解释 PagedAttention 中的“copy-on-write”机制在并行采样（如 beam search）中的应用。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在并行采样或 beam search 中，一个 prompt 会产生多个候选序列。这些序列最初共享 prompt 的 KV Cache，但在 decode 过程中各自走向不同的 token，形成分叉。
+
+    PagedAttention 使用写时复制（Copy-on-Write, COW）来管理这种共享与分叉：
+
+    - 初始共享：当从同一 prompt 启动多个采样序列时，它们的块表中，prompt 部分的逻辑块指向相同的物理块。每个物理块的引用计数设为序列数（例如 num_samples）。
+
+    - 分叉点：在 decode 阶段，所有序列都从 shared prompt 开始生成第一个 token。由于每个序列生成的 token 不同，它们需要将新 token 的 K、V 写入各自独立的物理块。对于 prompt 部分，它们只读共享块，不会修改。
+
+    - 写时复制触发条件：如果某个序列需要修改一个共享块（例如，在分块预填充中后续写满了该块？但实际 prompt 块在 prefill 后不会再被修改，除非有极特殊的设计）。在标准 decode 中，共享块始终只读，因此通常不需要真正触发 COW。真正需要 COW 的场景是：当某个序列需要在原本共享的逻辑块范围内插入或修改 KV（如某些回溯策略），或者当块内未满但需要写入导致影响其他序列时。但 PagedAttention 中，每个序列的逻辑块一旦被填满并共享，后续写入只会发生在新的独立块上。因此，COW 更多是一种防御性机制，确保万一有共享块被写入时，先拷贝再修改，避免污染其他序列。
+
+    - 实现：当检测到要对一个 ref_count > 1 的物理块进行写操作时，分配一个新物理块，将原块数据拷贝过去，将请求的块表对应项指向新块，原物理块引用计数减一（可能归零回收），然后写入新块。
+
+    应用收益：COW 使得并行采样的显存开销接近单个序列加上每个额外序列的差异部分，而非完整的 num_samples 倍。这在需要大量采样（如评估时生成多个答案）时节省极为可观的显存。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  block_id: MV5ydwP4JonavNxHFHJcRe1gnAf
+  page_token: Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  original_title: 解释 PagedAttention 中的“copy-on-write”机制在并行采样（如 beam search）中的应用。
+  imported_at: '2026-09-21'

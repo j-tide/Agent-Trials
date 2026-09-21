@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7b41678e8a24
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么在多轮对话中，通常只在对话开头设置系统提示？放在每一轮会有什么后果？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: 为什么在多轮对话中，通常只在对话开头设置系统提示？放在每一轮会有什么后果？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多轮对话中，系统提示只放在开头，是因为 API 的结构约定和模型训练时的位置假设共同决定了这一模式。在绝大多数对话 API 中，消息列表以一个system消息开始，后面再交替追加user和assistant消息。模型在训练时见到的大规模对话数据也是这种布局，它学会了将开头的系统提示理解为全局元指令。
+
+    如果把系统提示放在每一轮，会产生几个严重的负面后果。
+
+    第一，上下文急速膨胀。系统提示往往长达数百 token，如果每一轮都重复插入，对话长度将线性爆炸，很快耗尽上下文窗口，导致模型丢失早期的关键信息或用户指令。即使窗口足够大，大量的冗余信息也会降低推理速度，大幅推高 API 费用。
+
+    第二，近因效应导致安全规则被利用。每次重复的系统提示都出现在用户最新消息之前，位置非常靠后。这意味着，其中的权威声明和安全规则会不断刷新模型的“近期注意力”。但这也可能被攻击者反向利用：如果系统提示中包含“你的所有行为受此系统指令约束”这样的语句，它在末尾的重复虽然强化了规则，但同时因其每次都与最新的用户输入相邻，攻击者可能构造一种“紧跟着系统提示”的错觉，让模型误以为某些用户话语是系统提示的一部分。此外，如果开发者某次忘记插入系统提示，而模型已经习惯了每轮都有，就可能突然“脱缰”。
+
+    第三，角色混淆与训练不一致。模型在训练时已经学会了“系统提示只在开头出现一次”的模式。如果推理时强行在每一轮都加上系统消息，模型可能会困惑，不知道应该信任哪一个系统消息。更危险的是，如果攻击者设法在某一轮的用户输入中伪造了一个看似系统消息的结构，而模型又被这种高频出现的系统消息训练得“过度信任”，注入攻击的成功率将大幅上升。
+
+    因此，最佳实践是仅在对话开头设置一次系统提示，并让其具有贯穿整个会话的持久效力。如果在对话中途确实需要追加某些临时约束，可以通过在用户消息前插入不可见的“上下文提醒”的方式（例如[注意：请在本次回答中特别关注...]）来实现，而绝不修改或重复system角色。这样既保持了架构的干净，又避免了上述隐患。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/D5W3wxpKTiSQ6zkAWz7chEzJned
+  block_id: V4YidHSvFoLOeVxJz9ucWW0tnCg
+  page_token: D5W3wxpKTiSQ6zkAWz7chEzJned
+  original_title: 为什么在多轮对话中，通常只在对话开头设置系统提示？放在每一轮会有什么后果？
+  imported_at: '2026-09-21'

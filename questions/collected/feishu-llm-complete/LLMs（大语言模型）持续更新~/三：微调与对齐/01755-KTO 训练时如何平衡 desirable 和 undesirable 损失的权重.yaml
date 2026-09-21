@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3a4a54e83fb4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: KTO 训练时如何平衡 desirable 和 undesirable 损失的权重？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: KTO 训练时如何平衡 desirable 和 undesirable 损失的权重？
+answer:
+  mode: rubric
+  reference_answer: |-
+    平衡 desirable (LD) 和 undesirable (LU) 损失的权重，是 KTO 训练中最核心的调优艺术。这直接决定了模型是更偏向于“乐于助人”，还是更偏向于“小心谨慎”。KTO 提供了一套多层次的平衡机制。
+
+    - 超参数 λDλD 和 λUλU：最直接的权重调节
+    这是最基础的杠杆。总损失通常写为：
+
+    [图片内容未导入]
+
+    - 经验法则：通常固定 λD=1.0，然后调整 λU。根据前景理论的“损失厌恶”原理，λU 通常设为大于 1 的值（如 1.5, 2.0, 甚至 5.0）。
+
+    - λU 较大（> 2.0）：模型对生成“坏回复”的恐惧远超对生成“好回复”的渴望。它会变得极其安全，但可能过度拒答，对边界模糊的问题也倾向于回答“我不知道”。
+
+    - λU 较小（< 1.0）：模型更关注如何生成好回复，对负面反馈的重视程度不够，可能导致安全性对齐不足。
+
+    - 调优方法：通过小规模实验，监控模型在安全基准和有用性基准上的表现，寻找帕累托最优的比值 λU/λD。
+
+    - 参考点 Z ref：隐式的全局调节器
+    参考点 Z ref 的选取，会间接地影响两类样本的损失贡献。如果 Z ref 设置得过高，大部分 desirable 样本的隐式奖励都难以超越它，模型就会受到持续的“催促”，去提升所有好回复的质量；而坏回复可能已经远低于参考点，损失很小，模型就不再关注它们。反之亦然。因此，Z ref 可以看作是一个全局的“难度调节器”。
+
+    - 数据层面的平衡（Batch 内采样）
+
+    除了在损失函数中加权，我们还可以在构造训练 batch 时，通过分层采样来平衡两类样本的出现频率。例如，我们可以确保每个 batch 中 desirable 和 undesirable 样本的数量保持一个固定的比例（如 1:1 或 2:1）。这种方法可以防止模型在某个 epoch 内只看到一种数据而产生偏差。
+
+    - 自适应权重 (Adaptive Weighting)
+    对于一些更高级的应用，我们可以不固定 λD 和 λU，而是让它们根据训练过程中的指标动态变化。例如，我们可以监控模型在验证集上对坏回复的平均隐式奖励，如果该奖励值开始抬头，就自动增大 λU 以加强打压。
+
+    最佳实践：通常的调参路径是，先固定 Z ref 为一个简单值（如 0.0），然后通过网格搜索找到一个在 helpness 和 harmlessness 之间平衡的 λU/λD 比值。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Oa9Sw3zd0iM5wzk0nEscATBnnog
+  block_id: R31hdFTkLoMlP4x2l7Fclngcntf
+  page_token: Oa9Sw3zd0iM5wzk0nEscATBnnog
+  original_title: KTO 训练时如何平衡 desirable 和 undesirable 损失的权重？
+  imported_at: '2026-09-21'

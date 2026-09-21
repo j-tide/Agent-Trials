@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-839cf26497e4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在分数融合中，如何对稠密分数和稀疏分数进行归一化，使其在同一量级？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 在分数融合中，如何对稠密分数和稀疏分数进行归一化，使其在同一量级？
+answer:
+  mode: rubric
+  reference_answer: |-
+    如果选择分数融合而非 RRF，归一化是必不可少的预处理步骤。目标是将任意分布的原始分数，转换为具有可比性的标准分布。常见方法有三种，各有优劣。
+
+    - Min-Max 归一化
+
+    它将每个检索器返回的分数独立地线性映射到 [0, 1] 区间。
+
+    公式：
+
+    [图片内容未导入]
+
+    优点：计算简单，保证了所有分数在 [0,1] 范围内。
+    缺点：极度脆弱。如果一次查询中，某个检索器返回的结果分数都很接近，Min-Max 归一化后，这些原本微小的差异会被不成比例地放大；反之，一个异常的高分或低分会压缩其他所有结果的分数区间。
+
+    - Z-Score 归一化
+
+    该方法假设分数呈正态分布，将其转换为均值为 0、标准差为 1 的标准正态分布。
+
+    公式：
+
+    [图片内容未导入]
+
+    这里的 μ 和 σ 通常是该检索器在本次查询返回结果中的均值和标准差。
+
+    优点：对异常值的鲁棒性优于 Min-Max。
+    缺点：如果分数分布严重偏离正态分布，效果会打折。此外，Z-Score 归一化后的分数可能为负数，且范围不确定，仍不宜直接做加权求和，有时需要后续再接一个 Sigmoid 函数映射到 (0,1)。
+
+    - 基于历史分布的校准
+
+    这是最工程化的方法。不依赖单次查询的分数分布，而是通过离线采样，预先为该检索器学习一个固定的分数分布模型。在线查询时，使用该模型将原始分数转化为一个稳定的概率值或百分位数。例如，可以预先统计分数分布的累积分布函数，在线时将分数转换为该分布的百分位。这种方法最稳定，但需要预先建立和维护离线统计模型。
+
+    实践选择：
+
+    如果必须使用分数融合，Z-Score 归一化 + Sigmoid 是一个相对较好的折中。但再次强调，在大多数情况下，直接使用 RRF 能完全规避这些复杂的归一化问题，是更优的选择。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/I3Q6wybdkimYExkHeC4cPJOwnQh
+  block_id: Hy9ldAyyzojLQTxFT7IcWS4SnIc
+  page_token: I3Q6wybdkimYExkHeC4cPJOwnQh
+  original_title: 在分数融合中，如何对稠密分数和稀疏分数进行归一化，使其在同一量级？
+  imported_at: '2026-09-21'

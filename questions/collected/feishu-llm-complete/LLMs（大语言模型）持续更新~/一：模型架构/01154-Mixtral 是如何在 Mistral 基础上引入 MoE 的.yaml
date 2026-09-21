@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-36cc5e5cf411
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Mixtral 是如何在 Mistral 基础上引入 MoE 的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: Mixtral 是如何在 Mistral 基础上引入 MoE 的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Mixtral 8x7B 以 Mistral 7B 的架构为基座，将 FFN 层替换为混合专家（MoE）模块，具体实现如下：
+
+    - 专家结构：保留 Mistral 的 SwiGLU FFN 设计作为每个专家的基本计算单元。Mixtral 有 8 个专家，每个专家的 FFN 维度与原始 Mistral 7B 相同（intermediate_size = 14336）。
+
+    - 路由机制：添加一个轻量的门控路由器（线性层），对于每个 token，输出 8 个专家的 logits，通过 softmax 选择 Top-2 专家。两个专家各自处理 token，输出按门控权重加权求和。
+
+    - 稀疏激活：每个 token 仅激活 2 个专家，因此实际计算量约为原始密集模型的 2/8（加上路由开销），而总参数量增至约 46.7B（约 7B 的 8 倍减去共享部分）。
+
+    - 负载均衡：训练时添加辅助损失，鼓励路由器均匀选择专家，避免少数专家过载。
+
+    - 继承 Mistral 其他特性：滑动窗口注意力（窗口大小仍为 4096）、RoPE、RMSNorm、GQA（Mixtral 使用了 8 个 KV 头）等架构要素保持不变。
+
+    结果：Mixtral 8x7B 在大多数基准上超越了 LLaMA-2 70B 等更大密集模型，同时推理速度更快（因稀疏激活）。它开创了高效 MoE 语言模型的范例，证明了在 Mistral 架构上引入 MoE 的巨大潜力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UbClwmrYXiwNeTkgdSEcuNYunif
+  block_id: Le99dMlmSoariYxuSDBcIZE4nse
+  page_token: UbClwmrYXiwNeTkgdSEcuNYunif
+  original_title: Mixtral 是如何在 Mistral 基础上引入 MoE 的？
+  imported_at: '2026-09-21'

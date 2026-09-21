@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a0cad5369414
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Medusa 的训练过程：如何训练预测头？损失函数是什么？需要何种数据？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: Medusa 的训练过程：如何训练预测头？损失函数是什么？需要何种数据？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Medusa 训练仅更新新增的预测头参数，基座模型权重完全冻结。
+
+    训练数据：
+
+    - 直接使用基座模型预训练或微调时使用的文本语料即可，无需额外标注。任何自回归文本都可以。
+
+    - 数据格式：对于文本序列，将其截成固定长度的片段。在片段中，每个位置 t 的未来第 i 个 token 就是该 Medusa head i 在该位置的监督标签。
+
+    训练过程：
+
+    - 将文本输入冻结的基座模型，收集最后一层隐藏状态 h_t。
+
+    - 将 h_t 送入各个 Medusa head，得到预测 logits logits_i。
+
+    - 计算交叉熵损失：对于 head i，其目标 token 是序列中 t+i 位置的 token。损失为：
+
+    [图片内容未导入]
+
+    实际训练中通常对多个 head 的损失求和或平均。
+
+    - 反向传播只更新 Medusa heads 的参数；基座模型和 LM head 保持冻结。
+
+    其他技巧：可以使用更复杂的训练策略，如蒸馏损失，让 head 的预测分布接近目标模型自身在这些未来位置的分布，进一步提高接受率。但简单交叉熵已能取得不错效果。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NR2xwXzjpi4F01khCQ7c89EgnWg
+  block_id: ImsQdqPEUo61IHxSWc7c5VSqnVc
+  page_token: NR2xwXzjpi4F01khCQ7c89EgnWg
+  original_title: Medusa 的训练过程：如何训练预测头？损失函数是什么？需要何种数据？
+  imported_at: '2026-09-21'

@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f4872e9f4690
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 将 MLP 中的 FC1、激活、FC2 融合是否可行？面临的主要困难是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 将 MLP 中的 FC1、激活、FC2 融合是否可行？面临的主要困难是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    融合是可行的，且已有实现，但面临诸多挑战。
+
+    可行性：
+
+    - 可将 FC1、激活（如 GeLU）和 FC2 合并为一个 kernel。输入一次加载，在片上完成 FC1 的矩阵乘、应用激活、再进行 FC2 的矩阵乘，最终写出结果。
+
+    - 需要在片上同时容纳 FC1 和 FC2 的部分权重块、中间激活 tile，以及相关累加器，对 SRAM 容量要求高。
+
+    主要困难：
+
+    - 片上内存容量限制
+    FC1 和 FC2 的权重块以及中间激活 tile 需要同时驻留在共享内存或寄存器中。若 d_ff 很大（如 11008），权重块尺寸可能超出 SRAM 限制，导致必须切分为更细粒度，增加复杂度。
+
+    - 计算与数据流调度复杂
+    需要精心设计分块策略，使得 FC1 的输出 tile 生成后立即被 FC2 作为输入消费，形成“生产者-消费者”流水线。这对 warp 调度和同步要求高。
+
+    - 寄存器压力
+    同时进行两个 GEMM 和激活计算，会消耗大量寄存器，容易导致 occupancy 下降，抵消融合收益。
+
+    - 激活函数的数值特性
+    GeLU 等非线性函数可能需要在 FP32 高精度下计算，而矩阵乘常使用 FP16 Tensor Core，需要精度转换，增加逻辑。
+
+    - 性能收益不确定性
+    如果 FC2 的矩阵乘本身足够大，单独 kernel 已经能近乎饱和带宽，融合节省的中间写入可能微乎其微，却因寄存器溢出变慢。
+
+    现状：部分框架（如 TensorRT）在特定配置下将 FC1 + Activation 融合，但将 FC2 也融合较为罕见，常见的是 FC1 + Activation 融合，然后 FC2 单独 kernel，或者通过 CUDA Graph 串联。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Uhg6wKBvGiSyqckdgPTciRAMn9f
+  block_id: JIefd28KvobwZtxreVicTHN4nGf
+  page_token: Uhg6wKBvGiSyqckdgPTciRAMn9f
+  original_title: 将 MLP 中的 FC1、激活、FC2 融合是否可行？面临的主要困难是什么？
+  imported_at: '2026-09-21'

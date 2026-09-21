@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fd9f133e2f2f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: HumanEval 的每个问题包含什么？如何判定生成代码的正确性？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 八：评估与可靠性
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 八：评估与可靠性
+content:
+  prompt: HumanEval 的每个问题包含什么？如何判定生成代码的正确性？
+answer:
+  mode: rubric
+  reference_answer: |-
+    每个问题包含的内容
+
+    HumanEval 基准中的每个问题都是一个独立的编程任务，其数据结构是一个包含以下关键字段的字典：
+
+    - task_id：问题的唯一标识符，如 HumanEval/0。
+
+    - prompt：提供给模型的输入文本。这包括函数的完整签名（函数名和参数列表）以及一个用三个双引号包裹的文档字符串。文档字符串内详细描述了函数需要实现的功能，并可能包含输入/输出示例。例如：
+
+    ```json
+    def has_close_elements(numbers: List[float], threshold: float) -> bool:
+        """ 检查给定的数字列表中，是否存在两个数字之间的绝对差值小于给定的阈值。
+        >>> has_close_elements([1.0, 2.8, 3.0, 4.0, 5.0, 2.0], 0.3)
+        True
+        """
+    ```
+
+    模型的任务就是续写 prompt，完成函数体的代码。
+
+    - canonical_solution：一个正确实现该功能的参考代码。
+
+    - test：一个包含多个单元测试用例的字符串，用于验证生成的函数代码是否正确。
+
+    - entry_point：需要被测试的入口函数名。
+
+    判定生成代码正确性的流程
+
+    判定流程是全自动化的，具体步骤如下：
+
+    - 代码提取：从模型生成的文本中，提取出函数体的代码部分。然后将这段代码与原始的 prompt 拼接，形成一个完整的 Python 函数。
+
+    - 组装测试环境：将拼接好的完整代码与问题中的 test 字符串组合，形成一个可执行的 Python 脚本。这个测试脚本会调用以 entry_point 命名的函数，并对其返回值进行断言（assert）。
+
+    - 沙箱执行与验证：在一个隔离的安全沙箱（如 Docker 容器）中执行这个测试脚本。如果脚本运行过程中，所有断言都成功通过，没有抛出异常，则判定该生成的代码完全正确。如果在执行过程中出现语法错误、运行时异常或断言失败，则判定为错误。
+
+    这种“执行即验证”的方式确保了评估的绝对客观性，完全杜绝了人类评估中的主观性和模糊性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KJfiw0IndiyQjCkfUbmc7tGDnqf
+  block_id: GEbqdaOZoogIhPxhdqKcdqvnnph
+  page_token: KJfiw0IndiyQjCkfUbmc7tGDnqf
+  original_title: HumanEval 的每个问题包含什么？如何判定生成代码的正确性？
+  imported_at: '2026-09-21'

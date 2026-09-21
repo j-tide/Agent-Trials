@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8589e70351dd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 LLM 的 agent 场景中，索引需要支持工具和 API 的描述检索，有何特殊设计？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 在 LLM 的 agent 场景中，索引需要支持工具和 API 的描述检索，有何特殊设计？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 Agent 场景中，LLM 需要根据用户的自然语言指令，从可能有成百上千个工具或 API 的库中，选择出正确的一个并填充其参数。这就要求索引系统能够处理一种新的数据类型：结构化的功能描述。
+
+    特殊设计要点：
+
+    - 多字段的混合索引：工具的检索不是单一的文本搜索。它需要同时匹配多个维度：工具名称的精确匹配、功能描述的语义匹配、以及参数名的匹配。因此，索引结构必须支持多字段。可以为功能描述建立向量索引，为工具名称和参数名建立倒排索引。查询时，同时进行语义搜索和关键词搜索，再进行融合。
+
+    - 利用工具调用的特殊语法：OpenAI 的 Function Calling 格式、LangChain 的 Tool 定义等都是高度结构化的 JSON。在索引构建时，不能将整个 JSON 作为一段文本去嵌入。相反，需要将其中对语义检索最重要的部分（如“description”字段）提取出来进行向量化。有时，为了区分功能相似的 API，甚至需要为每个工具构造一些假设的用户查询语句（Query Generation），将这些合成查询的向量作为索引的一部分，以提高真实用户查询时的匹配率。
+
+    - 意图与参数的分离检索：这是一个更高级的设计。用户查询：“帮我查一下明天北京的天气”。Agent 的索引需要首先通过语义搜索找到一个“天气查询”的工具，然后再根据工具的参数定义，从用户查询中抽取“北京”和“明天”这两个参数值。这意味着索引不仅要存储工具的描述，最好还能存储该工具历史上成功的调用案例或参数的示例值，以辅助参数抽取的准确率。
+
+    - 权限与上下文的实时过滤：不同的用户或不同的对话场景，可能只能使用一部分工具。这就要求索引系统具备强大的标量过滤能力。在检索时，必须强制带上当前用户的可调用工具列表（Tool IDs）作为硬过滤条件，确保不会向 LLM 暴露它无权使用的工具，防止注入攻击或权限泄露。
+
+    因此，Agent 场景下的索引设计，是一个从“文档搜索”向“功能搜索”的演进。它要求索引系统不仅要理解语义，还要理解元数据结构，并能与权限系统和参数提取模块紧密配合。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SkhxwrnkSi7qcRkf8LOcNILdnr0
+  block_id: KE3pdyEjJok779xc0xncx7hMnBe
+  page_token: SkhxwrnkSi7qcRkf8LOcNILdnr0
+  original_title: 在 LLM 的 agent 场景中，索引需要支持工具和 API 的描述检索，有何特殊设计？
+  imported_at: '2026-09-21'

@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ee734e060ae1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 PagedAttention 后，如何解决因预分配固定最大长度造成的显存浪费？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 使用 PagedAttention 后，如何解决因预分配固定最大长度造成的显存浪费？
+answer:
+  mode: rubric
+  reference_answer: |-
+    传统方式为每个请求分配大小为 max_seq_len 的连续显存，例如最大 2048 token 的 KV Cache。但实际请求长短不一：
+
+    - 短请求（如 20 token）浪费了 2028 个 token 的未使用空间（内部碎片极大）。
+
+    - 释放时留下的空洞大小不同，无法被新请求完美复用，产生外部碎片。
+
+    PagedAttention 从根本上解决了这一问题：
+
+    消除内部碎片：
+
+    不再预分配固定最大长度，而是以小块（如 16 token）为单位按需分配。短请求仅占用极少块（如 20 token 占 2 块，最后一个块有 12 个空位，内部碎片仅为 12/16，远小于之前的上千浪费）。内部碎片仅限于每个请求的最后一个物理块的部分空间，总浪费与块大小成正比，与最大长度无关。
+
+    消除外部碎片：
+
+    所有物理块大小相同，回收后的块直接并入空闲池，任何请求都能使用。不存在因长度不一导致的“无法利用的空洞”。显存被组织为统一的块池，所有分配和释放都是块粒度的，天然无外部碎片。
+
+    统计效果：
+
+    在真实负载下，传统方案的显存利用率通常不足 50%，而 PagedAttention 可将利用率提升到 90% 以上，相同显存下可支持数倍的并发请求，直接转化为系统吞吐的成倍增长。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  block_id: Z2iYdxTL4oHm9yxCQXhct7ILnyc
+  page_token: Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  original_title: 使用 PagedAttention 后，如何解决因预分配固定最大长度造成的显存浪费？
+  imported_at: '2026-09-21'

@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ef2371a0e5ee
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ReAct 的 token 消耗通常很大，如何通过压缩历史或总结来优化？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: ReAct 的 token 消耗通常很大，如何通过压缩历史或总结来优化？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ReAct 的每次循环都会显著增加上下文的长度，因为 Thought、Action 和 Observation 不断累积。长上下文不仅大幅增加 token 成本，还可能降低模型在长文本上的推理质量。优化势在必行。
+
+    优化策略：
+
+    - 历史压缩（上下文窗口滑动与摘要）：当历史长度超过一个预设阈值时，不直接将完整历史删除（这会丢失重要信息），而是对早期轮次进行摘要。可以使用一个轻量级、快速的 LLM 或通过精心提示让主模型自身在适当时机生成对历史的压缩总结。摘要只保留“为达成目标，到目前为止已获得的关键事实、已确认的决策和未解决的子问题”。然后用这段摘要替换掉早期的详细对话历史，从而释放上下文空间。这个“压缩-替换”过程可以周期性进行。
+
+    - 观察内容精炼：外部工具返回的观察（如搜索摘要）往往包含大量冗余或无关文本。可以在 Observation 返回给模型之前，先用一个小的摘要模型或规则进行精炼，只保留与当前问题最相关的句子。或者，在行动设计时，要求工具返回结构化且精炼的数据，而不是长篇大论的网页全文。例如，搜索引擎返回的 snippets 通常比全文更适合直接注入。
+
+    - 选择性记忆（工作笔记）：如前所述，引入“工作笔记”区域。模型被训练将重要的中间成果（如提取的关键实体、计算出的中间数值、已验证的假设）主动保存到笔记中。而冗长的、过程性的思考（如“让我试试这个查询”）在几轮后便不再重要，可以被安全地移除或压缩。这样，上下文只保留精华，丢弃过程噪声。
+
+    - 分层提示设计：将提示分为不可变的“系统指令和少样本示例”、半固定的“工作笔记”、以及动态的“最近N轮历史”。当需要压缩时，只压缩“最近N轮历史”的早期部分，更新“工作笔记”。系统指令和示例保持不变，保证行为稳定。
+
+    - Token 高效的工具定义：精心设计 Action 和 Observation 的格式，使其尽可能简洁。使用缩写、固定字段名，避免冗长的自然语言描述。例如，用 Obs[1]: ... 代替 Observation 1: ...。节省的每个 token 在长循环中都会积累成可观的成本优势。
+
+    - 模型内缓存（KV Cache 优化）：从工程角度，利用推理引擎的前缀缓存功能。由于每次循环的上下文只有最后部分变化，前半部分的 Key-Value 缓存可以被复用，从而减少重复计算，间接降低延迟和计算成本。但这不影响 token 数量，仅加速推理。
+
+    通过历史压缩、观察精炼和结构化记忆的组合，ReAct 的 token 消耗可以得到有效控制，使其在长周期复杂任务中保持经济可行，同时又不牺牲推理所需的上下文连贯性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UNcyw9ACIiJYN3krDjDcNJ1Rndc
+  block_id: Sdoldq9wnoiXXkxkvLCcmtSunFg
+  page_token: UNcyw9ACIiJYN3krDjDcNJ1Rndc
+  original_title: ReAct 的 token 消耗通常很大，如何通过压缩历史或总结来优化？
+  imported_at: '2026-09-21'

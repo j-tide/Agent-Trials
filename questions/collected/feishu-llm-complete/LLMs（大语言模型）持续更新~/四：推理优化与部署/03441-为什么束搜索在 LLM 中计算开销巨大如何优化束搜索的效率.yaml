@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e42bb83a1706
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么束搜索在 LLM 中计算开销巨大？如何优化束搜索的效率？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 为什么束搜索在 LLM 中计算开销巨大？如何优化束搜索的效率？
+answer:
+  mode: rubric
+  reference_answer: |-
+    束搜索的计算开销主要来自两个方面：自回归生成过程中的重复计算和成倍增长的模型前向传播次数。
+
+    开销来源分析：
+
+    - 成倍的计算量：在标准束搜索中，束宽 k=4 意味着在每一个生成步骤，模型需要对 4 个不同的候选序列（各自拥有不同的上下文历史）进行独立的前向传播。这导致每一步的计算量直接变为原先的 4 倍。
+
+    - 巨大的显存占用：每个候选序列都需要维护自己独立的 Key-Value（KV）缓存，以实现高效推理。k 个束意味着 KV 缓存的大小也会是原来的 k 倍。对于长序列生成，这将导致显存占用的急剧膨胀。
+
+    - 自回归的本质：与所有自回归方法一样，束搜索的生成也是逐 token 串行的，无法像训练时那样并行处理整个序列。
+
+    效率优化方法：
+
+    - KV 缓存的智能管理：这是最核心的优化。对于束中多个候选序列高度共享的前缀，它们的 KV 缓存可以被共享，避免重复计算。当束中序列发生分叉时，才需要复制和更新各自独立的 KV 缓存。现代推理引擎（如 vLLM 的 PagedAttention）通过精细的内存管理，可以对这种高度结构化的缓存进行高效复用，最大程度减少显存碎片和重复计算。
+
+    - 动态束宽（Adaptive Beam Width）：在生成初期，使用较大的束宽来探索不同的可能性。一旦生成路径已经比较明确，束中序列的差异性变小时，可以动态缩减束宽，将计算资源集中到最有希望的少数几个序列上。
+
+    - 假设验证（Hypothesis Verification）：这是一个更前沿的思路。先使用一个极小的模型（草案模型）快速地、低成本地探索多个生成方向，然后让大模型并行地对这些候选方向进行验证和重排序。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/B2WpwnpvmiqW35k9hzvcJ4wTncd
+  block_id: JyDwddmmioRPiFxC8FjcotvNnyh
+  page_token: B2WpwnpvmiqW35k9hzvcJ4wTncd
+  original_title: 为什么束搜索在 LLM 中计算开销巨大？如何优化束搜索的效率？
+  imported_at: '2026-09-21'

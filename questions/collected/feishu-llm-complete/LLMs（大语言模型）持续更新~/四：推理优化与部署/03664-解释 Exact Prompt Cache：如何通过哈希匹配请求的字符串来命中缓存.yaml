@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d0c559fc30b2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 Exact Prompt Cache：如何通过哈希匹配请求的字符串来命中缓存？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 解释 Exact Prompt Cache：如何通过哈希匹配请求的字符串来命中缓存？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Exact Prompt Cache（精确提示缓存） 是一种基于请求字符串完全相等的缓存策略。当新请求到达时，系统计算其 prompt（通常为完整的原始字符串或关键字段的拼接）的哈希值，并在缓存存储中查找是否已有相同哈希的条目。若命中，则直接返回对应的缓存结果（如完整响应文本或 KV Cache）。
+
+    实现流程：
+
+    - 缓存键生成：将请求的 prompt 标准化（如去除尾部空格、统一小写？通常为了精确匹配，不做改变），然后计算哈希（如 SHA256、MD5，或直接使用字符串本身作为键）。
+
+    - 缓存查询：以哈希键查询分布式缓存（如 Redis、Memcached）或本地字典。如果存在且未过期，即为命中。
+
+    - 缓存命中处理：
+
+    - 若缓存的是完整响应，直接返回该文本，跳过模型推理。
+
+    - 若缓存的是KV Cache，则将对应的 KV 张量加载到推理引擎，与新追加的 token 继续解码，避免重复 prefill。
+
+    - 缓存未命中：正常执行模型推理，并将该 prompt 和结果存入缓存（设置合适的 TTL 和淘汰策略）。
+
+    应用场景：
+
+    - 系统指令缓存：众多用户共享相同的系统提示（如“你是一个编程助手”），其 KV Cache 可被所有请求复用。
+
+    - 重复问答：对于高频标准问题（如“公司地址是什么”），直接返回缓存答案。
+
+    - 多轮对话前缀：同一用户的多轮对话，历史消息部分完全重复，可复用其 KV Cache。
+
+    优点：实现简单，命中后延迟极低或计算开销为零。
+
+    缺点：无法处理语义相同但表述不同的 prompt（如“你好”和“您好”），缓存命中率受限于字符串完全相同。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Suarwd0MSiF56MkUyBScW6UmnhB
+  block_id: Kg9PdjDhBoSufbxciwtcgmrpnFc
+  page_token: Suarwd0MSiF56MkUyBScW6UmnhB
+  original_title: 解释 Exact Prompt Cache：如何通过哈希匹配请求的字符串来命中缓存？
+  imported_at: '2026-09-21'

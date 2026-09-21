@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7984ae98648d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何检测预训练数据中是否混入了特定基准的测试题？有哪些方法（n-gram 重叠、嵌入相似度、min-hash 等）？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 八：评估与可靠性
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 八：评估与可靠性
+content:
+  prompt: 如何检测预训练数据中是否混入了特定基准的测试题？有哪些方法（n-gram 重叠、嵌入相似度、min-hash 等）？
+answer:
+  mode: rubric
+  reference_answer: |-
+    检测预训练数据中是否混入了特定基准的测试题，是一个典型的大规模文本匹配和相似度搜索问题。由于预训练数据集通常极其庞大（TB 或 PB 级），检测方法必须在计算效率与检测精度之间取得平衡。
+
+    - n-gram 重叠分析。这是最基础、最快速的方法。将基准测试集中的每一个样本（如一个问题）分割成连续的 n-gram（如 13-gram）片段。然后，在预训练语料库中查找包含这些相同 n-gram 的文档。如果某个测试样本的多个长 n-gram 都在训练语料中被精确命中，那么该样本极有可能被污染。这种方法擅长发现几乎完全复制的污染，但对经过改写、翻译或细微修改的污染效果较差。通常会设置一个命中 n-gram 比例的最低阈值（如 80%），超过阈值才判定为污染。
+
+    - 基于嵌入向量的语义相似度搜索。这种方法能够捕捉更隐蔽的、经过改写或翻译的污染。首先，使用一个预训练的文本嵌入模型（如 BERT, E5），将基准测试集中的每个样本和预训练语料中的每个文档段落都编码成稠密向量。然后，通过近似最近邻搜索，查找与基准样本向量高度相似的训练语料片段。这种方法能发现“换一种说法”的污染，但计算成本远高于 n-gram 分析，通常只能作为第二阶段的精细筛选手段。
+
+    - Min-Hash 与局部敏感哈希。Min-Hash 是一种专门用于快速估算两个集合相似度的算法，常用于大规模文本去重和抄袭检测。首先，将每段文本表示为其包含的 n-gram（或单词）的集合。然后，通过多个哈希函数，为每个文本集合生成一个紧凑的“Min-Hash 签名”。如果两段文本的 Min-Hash 签名高度相似，说明它们包含了大量相同的 n-gram，极可能互为副本或高度重叠。这种方法能够高效地发现训练语料中是否存在与基准样本高度相似的“近似重复”文档，是对 n-gram 方法在效率上的重大提升。
+
+    - 基准特定字符串与金丝雀测试。在创建基准数据集时，有意识地混入一些独一无二的、人造的、在自然语言中绝不会出现的“金丝雀字符串”。然后，只需在预训练数据中查找是否存在这个特定的字符串。如果存在，就 100% 确证了污染。这是一种极其精确的“钓鱼”检测。
+
+    - 困惑度分析。将被检测的基准文本输入到一个经过良好训练的参考语言模型中，计算其困惑度。如果一段文本的困惑度异常低，说明模型对这段文本“极其熟悉”，这是它曾在训练数据中被见过的强烈信号。通过比较模型在基准文本和同领域未见文本上的困惑度差异，可以间接推断污染。
+
+    综合检测策略：在实际操作中，通常采用分层检测策略。先用基于 Min-Hash 或长 n-gram 的方法进行快速初筛，然后对初筛出的可疑文档，再用基于嵌入向量的语义相似度方法进行精细复核，最终由人工对高置信度的污染样本进行最终裁定。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Xrm5wnXFcihdGEknRXScMe7zn5c
+  block_id: ZgSFdHPuVoRNMZxys4xcD4FTnde
+  page_token: Xrm5wnXFcihdGEknRXScMe7zn5c
+  original_title: 如何检测预训练数据中是否混入了特定基准的测试题？有哪些方法（n-gram 重叠、嵌入相似度、min-hash 等）？
+  imported_at: '2026-09-21'

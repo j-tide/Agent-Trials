@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f424f46f67c2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何处理长文本请求导致的 GPU 显存溢出问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 九：前沿与工程实践
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 九：前沿与工程实践
+content:
+  prompt: 如何处理长文本请求导致的 GPU 显存溢出问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    长文本请求的显存压力主要来自 Prefill 阶段的巨大 KV Cache 分配。处理这个问题的核心策略是“分解压力”和“妥协交换”。
+
+    - 强制限制与预处理
+    这是最基础的防线。必须在 API 层面或推理引擎配置中，设置一个硬性的 max_input_tokens 限制。对于超长的用户输入，API 服务可以拒绝，或利用模型自身对长文本进行摘要，压缩到可接受的长度后再进行推理。
+
+    - 前置分块与检索增强生成 (RAG)
+
+    这是处理超长文本的“银弹”。不要在推理时直接处理整个长文档。在预处理阶段，将长文本分割成大量小块，存入向量数据库。推理时，只检索与用户问题最相关的片段作为上下文。这从根本上解决了显存溢出的问题，是成本效益最高的方案。
+
+    - 推理引擎的内置优化
+
+    高性能推理引擎提供了多种技术来应对此问题：
+
+    - 分块 Prefill：将长 Prompt 切分成多个小块，逐块进行 Prefill，并将每个块的计算结果（KV Cache）与之前块的计算结果合并。这削平了显存占用的峰值。
+
+    - Prefix Caching：如果多个请求共享相同的长 System Prompt，引擎可以复用已计算的 KV Cache，避免重复计算和存储。
+
+    - 量化 KV Cache：将 KV Cache 量化为 INT8/FP8，直接将其显存占用减半。
+
+    - 模型架构层面的支持
+
+    - 对于需要原生支持超长上下文的模型（如 128K），通常会使用 GQA/MQA 和 滑动窗口注意力 等技术，从底层减少 KV Cache 的大小。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  block_id: YNwEdFvQLooqZ5xg9jsc8TTcnFb
+  page_token: Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  original_title: 如何处理长文本请求导致的 GPU 显存溢出问题？
+  imported_at: '2026-09-21'

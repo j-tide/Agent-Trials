@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d7b96e62a139
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 张量并行中列/行切分后 all-reduce 的缘由及 MLP 通信示意
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 张量并行中列/行切分后 all-reduce 的缘由及 MLP 通信示意
+answer:
+  mode: rubric
+  reference_answer: |-
+    张量并行（Tensor Parallelism, TP）通过将单层参数矩阵切分到多张 GPU 上并行计算，以突破单卡显存和算力瓶颈。在 Transformer 的 MLP 块中，通常包含两个全连接层：第一个将隐藏维度映射到 4 倍维度，第二个映射回来。TP 通过列切分和行切分组合，并在必要时插入 All‑Reduce 通信来保证数学等价性。
+
+    列切分（Column‑wise）
+
+    [图片内容未导入]
+
+    MLP 切分与通信流程图（文字描述）：
+
+    输入 X (完整)  →  列切分 W₁: 各GPU独立计算 Yᵢ
+                      ↓
+    各GPU拥有部分激活 Yᵢ (形状 [b,s,4d/N])
+                      ↓
+    行切分 W₂: 各GPU计算部分和 Zᵢ = Yᵢ W₂⁽ⁱ⁾  (形状 [b,s,d])
+                      ↓
+                 All‑Reduce (求和)
+                      ↓
+                各GPU得到完整输出 Z
+
+    在反向传播中，All‑Reduce 的前向对应反向的 Identity（梯度直接分发），但实践中常将 All‑Reduce 分解为 Reduce‑Scatter（前向，每个 GPU 最终得到完整输出的一个分片）与 All‑Gather（反向，收集梯度），以便更好地与序列并行或流水线重叠通信。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQ7qw1klCirayhkUauicscbqnpc
+  block_id: GywbdWoYQoL1pexFeZ8cxmVMnYf
+  page_token: GQ7qw1klCirayhkUauicscbqnpc
+  original_title: 张量并行中列/行切分后 all-reduce 的缘由及 MLP 通信示意
+  imported_at: '2026-09-21'

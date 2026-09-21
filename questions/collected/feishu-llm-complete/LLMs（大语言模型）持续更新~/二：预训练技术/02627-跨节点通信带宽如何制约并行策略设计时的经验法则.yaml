@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-040ba46e73cf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 跨节点通信带宽如何制约并行策略？设计时的经验法则。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 跨节点通信带宽如何制约并行策略？设计时的经验法则。
+answer:
+  mode: rubric
+  reference_answer: |-
+    通信带宽是分布式训练中最稀缺的资源，直接决定了何种并行策略可行。
+
+    - 张量并行 (TP)：每个Transformer层都需要通信，通信量极大，延迟极其敏感。因此，TP必须限制在单机内部，利用高带宽的NVLink（900 GB/s+） 或NVSwitch。跨节点的TP（即使有IB）也会因带宽骤降（如200-400 GB/s）和延迟增加，导致通信时间远超计算时间，GPU大量空闲，性能急剧恶化。经验法则：绝对不要跨节点做TP。
+
+    - 流水线并行 (PP)：通信只在层边界，且是顺序的点对点传输，通信量相对较小，对带宽要求较低。因此，PP非常适合跨节点扩展。利用InfiniBand网络即可高效运行。经验法则：当模型单机放不下时，优先使用PP跨节点，单机内用TP。
+
+    - 数据并行 (DP)：通信是一次性的梯度All-Reduce，通信量与模型大小成正比。在模型规模固定时，DP的通信带宽需求随GPU数增加而增加。当节点数非常多（如数百个），All-Reduce可能成为瓶颈。经验法则：DP可以跨节点，但需注意使用分层All-Reduce（节点内NVLink+节点间IB）来优化。如果模型太大导致TP/PP后每卡剩余显存仍不足，则引入ZeRO-DP来分摊。
+
+    - ZeRO：通信量大于标准DP，因为需要频繁的All-Gather/Reduce-Scatter参数。这种通信对带宽压力很大，通常限制在单机内或高速互联的少量节点内。DeepSpeed ZeRO-3的论文建议，ZeRO-3最适宜在单机或少数高速节点内使用，超大规模跨节点仍需结合PP和TP。
+
+    经验法则决策：设计时，画一个“带宽需求金字塔”，最底层是单机高速NVLink（供TP），中间是节点间IB（供PP和分层DP），最上层是跨机架/跨集群的低带宽网络。将高通信强度、低延迟需求的操作放在高速层，将低通信强度或能容忍延迟的操作放在低速层。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQ7qw1klCirayhkUauicscbqnpc
+  block_id: IZxqdtdJpomKCuxnbRmctiJGnZf
+  page_token: GQ7qw1klCirayhkUauicscbqnpc
+  original_title: 跨节点通信带宽如何制约并行策略？设计时的经验法则。
+  imported_at: '2026-09-21'

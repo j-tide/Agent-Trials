@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0c4dfe343965
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分析 Medusa 的接受率：预测头的质量如何影响有效加速？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 分析 Medusa 的接受率：预测头的质量如何影响有效加速？
+answer:
+  mode: rubric
+  reference_answer: |-
+    接受率（α） 定义为验证阶段草稿 token 被目标模型接受的比例。在 Medusa 中，接受率由各 Medusa head 的预测准确度决定。
+
+    预测头质量对接受率的影响：
+
+    - 每个 head i 预测未来第 i 个 token 的准确度（top-1 accuracy 或分布重叠度）决定了该位置的平均接受概率。head 质量越高，分布与目标模型越接近，接受率越高。
+
+    - 因为树验证可以同时提交多个候选，实际接受率可以通过增加分支宽度（如 top-k 采样）来提高，但这依赖于 heads 提供的分布质量：如果 head 的 top-k 列表中包含了目标模型会选中的 token，则有机会被接受。
+
+    - 训练良好的 Medusa heads（例如在足够多数据上训练，与基座模型分布匹配）能够达到较高的单 token 接受率（如 0.7~0.9），从而使得期望接受长度 E = (1 - α^{K+1})/(1 - α) 较大。
+
+    对有效加速的影响：
+
+    - 加速比 ≈ E * T_target / (T_target + T_draft)。在 Medusa 中，T_draft 几乎为零（heads 计算与主模型并行），所以加速比 ≈ E。因此接受率几乎直接决定了加速比。
+
+    - 如果 heads 质量差，接受率低，E 接近 1，加速消失。质量过高（接近 1），E 接近 K+1，加速接近 K+1 倍。
+
+    - 此外，低接受率导致更多树分支被拒绝，浪费了验证阶段对无效节点的计算。过多的分支还会增加树注意力开销，可能反而慢于原始模型。因此必须保证 heads 有足够质量，才能获得正加速。
+
+    结论：预测头质量是 Medusa 的生命线，直接决定接受率和最终加速效果。良好的训练至关重要。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NR2xwXzjpi4F01khCQ7c89EgnWg
+  block_id: CwEldclZkosModxMzNGc6QWnn0g
+  page_token: NR2xwXzjpi4F01khCQ7c89EgnWg
+  original_title: 分析 Medusa 的接受率：预测头的质量如何影响有效加速？
+  imported_at: '2026-09-21'

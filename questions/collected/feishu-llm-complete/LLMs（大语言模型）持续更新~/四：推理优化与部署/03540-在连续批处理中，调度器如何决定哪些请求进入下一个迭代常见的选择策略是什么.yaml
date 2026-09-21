@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-568d04a0fac0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在连续批处理中，调度器如何决定哪些请求进入下一个迭代？常见的选择策略是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在连续批处理中，调度器如何决定哪些请求进入下一个迭代？常见的选择策略是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    连续批处理调度器在每个迭代（生成一个 token）后，需从等待队列（新请求）和运行队列（继续生成的请求）中挑选请求组成下一 batch。常见策略：
+
+    - 运行请求全部保留（默认）：所有未完成的运行请求默认进入下一迭代，因为它们只需继续生成一个 token，计算成本极低，且丢弃会导致 KV Cache 浪费。除非发生抢占。
+
+    - 新请求准入控制：决定从等待队列中拉取多少个新请求（执行 prefill 或分块 prefill）。依据：
+
+    - 分块 prefill 的调度：对于长 prompt，不会一次性 prefill 完，而是将其分成多个 chunk，在多个迭代中逐步处理，与 decode 请求混合。调度器在每个迭代决定每个 prefill 请求处理多少个 chunk token。
+
+    - 抢占与换出：当资源紧张时，选择一些低优先级或长运行请求，将其 KV Cache 换出到 CPU 内存，腾出显存给新请求。
+
+    选择策略：
+
+    - FCFS + 资源驱动：等待队列按 FCFS 排序，只要有资源就顺序拉入。简单公平，但可能让长 prompt 阻塞后续短 prompt（资源被长 prompt 预占）。
+
+    - SJF/SRPT：优先拉取预计生成长度最短的请求，以降低平均延迟。
+
+    - 优先级队列：等待队列按优先级排序（VIP > 普通），高优先级的先准入。
+
+    - 混合策略：例如，vLLM 目前默认采取 FCFS 等待队列，但通过抢占和分块 prefill 来保证长请求不阻塞。社区也支持通过请求优先级进行干预。
+
+    调度器的核心是在资源上限和延迟约束下，选择能使吞吐最大或延迟最小的请求子集。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  block_id: TUDFdHN1VoXbfEx0P0GcfdwVnEg
+  page_token: Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  original_title: 在连续批处理中，调度器如何决定哪些请求进入下一个迭代？常见的选择策略是什么？
+  imported_at: '2026-09-21'

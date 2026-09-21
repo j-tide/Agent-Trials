@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bbfebfdee813
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出一个简单的连续批处理调度器的主要数据结构（如运行队列、等待队列）及其状态转换。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 写出一个简单的连续批处理调度器的主要数据结构（如运行队列、等待队列）及其状态转换。
+answer:
+  mode: rubric
+  reference_answer: |-
+    一个基本的连续批处理调度器可包含以下核心数据结构：
+
+    ```python
+    class Request:
+        id: str
+        prompt: List[int]            # 原始 prompt token IDs
+        generated: List[int]         # 已生成的 token 序列
+        max_tokens: int              # 最大生成数
+        status: Enum("waiting", "prefill", "running", "finished", "preempted")
+        block_table: List[int]       # KV Cache 物理块索引
+        num_blocks: int              # 占用的块数
+        # 位置等元信息
+
+    class Scheduler:
+        waiting_queue: List[Request]   # 等待 prefill 的请求
+        running_set: List[Request]     # 正在参与 decode 的请求
+        prefill_set: List[Request]     # 当前步正在 prefill 的请求（可选）
+        free_blocks: int               # 空闲物理块数量
+        max_batch_size: int
+        block_size: int
+        # 其他显存管理
+    ```
+
+    状态转换流程：
+
+    - 新请求到达 → 状态 waiting，进入 waiting_queue。
+
+    - 调度加入：每轮迭代结束，调度器检查 free_blocks 和当前 running 数量。若条件满足，从 waiting_queue 取出请求，状态变为 prefill，执行 prefill 操作：分配所需的初始物理块，处理 prompt，产生第一个 token。prefill 完成后，请求状态变为 running，移入 running_set。
+
+    - Decode 迭代：对 running_set 中所有请求执行一步解码，生成新 token，并追加到各请求的 generated 列表。如果新 token 是 EOS 或达到 max_tokens，请求状态变为 finished，释放其占用的块，从 running_set 移除。
+
+    - 抢占（若显存不足）：当需要加入新请求但 free_blocks 不够时，可挑选部分 running 请求（如低优先级或最不活跃），将其 KV Cache 块换出到 CPU 内存，状态变为 preempted，释放的块给新请求。待有空闲时，再将被抢占的请求换入恢复为 running。
+
+    上述数据结构与状态机即可支撑基本的连续批处理。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqBawimrwioo11kNL45cwrfznle
+  block_id: W1opdlE5ModaTexjQQuckj0UnMg
+  page_token: EqBawimrwioo11kNL45cwrfznle
+  original_title: 写出一个简单的连续批处理调度器的主要数据结构（如运行队列、等待队列）及其状态转换。
+  imported_at: '2026-09-21'

@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-89633e662da9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么 FlashAttention 要求输入张量在内存中连续？不连续时如何处理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 为什么 FlashAttention 要求输入张量在内存中连续？不连续时如何处理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    FlashAttention 的 CUDA 实现为了达到极致性能，假设 Q, K, V 的最后两维（序列长度和头维度）是紧密连续的，并且通常要求步长（stride）符合特定格式。这是因为：
+
+    - 向量化内存访问：高效的内存读取需要合并访问（coalesced access），即相邻线程读取连续的内存地址。如果张量不是连续的，GPU L1/纹理缓存和 DRAM 的吞吐会大幅下降。
+
+    - 块加载指令：FlashAttention 使用 cp.async 或向量化加载指令，直接从全局内存复制连续数据到共享内存。如果数据有间隙或非连续步长，这些指令无法直接使用，需要复杂的索引或额外的 gather 操作，严重拖慢速度。
+
+    - 分块计算假设：kernel 根据预定义的 block 尺寸直接计算内存偏移，若步长非标准，偏移计算会变得复杂且低效。
+
+    不连续时的处理：
+
+    - 如果输入张量因切片或转置而不连续（如 K[:, :, :seq_len, :] 可能是连续的，但如果做了 permute 或 slice 且不在最内层，可能不连续），最直接的方案是调用 .contiguous() 方法，将数据复制为连续布局。这会增加额外的显存和复制开销，但确保了 kernel 的高效。
+
+    - 更优方案：在框架级别保证传递给 FlashAttention 的 Q,K,V 本身就以最优内存格式分配。例如，在推理框架中，KV Cache 从一开始就以连续块分配；或者使用支持任意步长的 FlashAttention 变体（如 FlashInfer 的部分 kernel 支持通过索引间接查找，但这有性能代价）。
+
+    - PagedAttention 场景：vLLM 等使用非连续物理页存储 KV Cache，FlashAttention kernel 必须能够处理非连续的 KV 块。这时，它们不能直接使用标准的连续 FlashAttention，而是采用专门支持块表索引的 kernel（如 vLLM 的 flash_attn_with_kvcache），这类 kernel 内部会根据块表多次加载不同的物理块，并对每个块使用连续的向量化读取（块内连续），从而在非连续存储下依然保持高效。
+
+    因此，连续性是高性能的保证；不连续时，要么拷贝为连续，要么使用专门设计的 scatter/gather kernel。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/OuSIwe7IQi1cflkQ601cDNfQn3c
+  block_id: FC0OdtJPdoKvcWxylXRc6ql8nzd
+  page_token: OuSIwe7IQi1cflkQ601cDNfQn3c
+  original_title: 为什么 FlashAttention 要求输入张量在内存中连续？不连续时如何处理？
+  imported_at: '2026-09-21'

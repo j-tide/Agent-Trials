@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-be381e8aab96
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在实现 ReAct 时，如何解析模型输出以提取“Thought”和“Action”？常用的解析技术。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: 在实现 ReAct 时，如何解析模型输出以提取“Thought”和“Action”？常用的解析技术。
+answer:
+  mode: rubric
+  reference_answer: |-
+    ReAct 的实现依赖于可靠地从 LLM 的生成文本中分离出 Thought 和 Action。模型输出通常是自由文本，需要解析器将结构提取出来。
+
+    常用解析技术：
+
+    - 正则表达式（Regex）解析：最常用的方法。如果提示模板强制要求了固定的格式，如：
+
+    ```text
+    Thought: [思考文本]
+    Action: [行动类型][行动参数]
+    ```
+
+    解析器可以用正则表达式分别匹配 Thought: 和 Action: 字段，提取出思考内容、行动类型和参数。例如，匹配 Action:\s*(\w+)\[(.*?)\] 来获取行动名和参数。正则方法简单高效，但对格式偏差敏感。一旦模型输出多了一个空格或换行，可能导致匹配失败。因此，需要编写容错性较强的正则，或对文本进行预处理（如合并多余空格、统一大小写）。
+
+    - 结构化输出（JSON 模式）：利用现代 LLM 支持 JSON 模式输出的能力，可以直接要求模型以 JSON 格式返回 Thought 和 Action，例如：
+
+    ```json
+    {"thought": "...", "action": {"type": "Search", "query": "..."}}
+    ```
+
+    然后使用标准 JSON 解析器提取。这种方法从根本上解决了格式不稳定的问题，但对提示设计要求高，且在某些开源模型中可能不如文本格式稳定。此外，JSON 输出会增加一些 token 开销。
+
+    - 特定分隔符 + 字符串分割：在提示中要求模型使用特殊分隔符（如 ### Thought、@@Action），然后通过简单的字符串分割和搜索来定位各字段。这种方法的鲁棒性介于正则和 JSON 之间。
+
+    - LLM 自解析（后处理）：如果原始输出格式混乱，可以再调用一次 LLM，将混乱的原始输出和格式要求作为提示，让 LLM 重新输出结构化的 Thought 和 Action。这相当于一个“格式化器” LLM 调用，可以挽救很多解析失败的情况，但增加了成本和延迟。
+
+    - 错误处理与重试：无论采用哪种解析方法，都必须配备健壮的错误处理。如果解析失败，系统可以：
+
+    实践中的最佳做法：优先尝试 JSON 模式（如果模型和平台支持），因为其确定性最高。如果不支持，则使用带有强容错机制的正则表达式，并辅以重试逻辑。同时，在少样本示例中严格统一格式，降低模型输出偏差的概率。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UNcyw9ACIiJYN3krDjDcNJ1Rndc
+  block_id: JEuDdRIRkoU7gExATgQcuF27nOe
+  page_token: UNcyw9ACIiJYN3krDjDcNJ1Rndc
+  original_title: 在实现 ReAct 时，如何解析模型输出以提取“Thought”和“Action”？常用的解析技术。
+  imported_at: '2026-09-21'

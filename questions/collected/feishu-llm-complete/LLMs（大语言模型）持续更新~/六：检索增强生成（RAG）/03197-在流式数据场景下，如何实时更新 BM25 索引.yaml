@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4459e4e4eade
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在流式数据场景下，如何实时更新 BM25 索引？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 在流式数据场景下，如何实时更新 BM25 索引？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在流式数据场景（如日志、社交媒体、新闻流）中，新文档必须尽快变为可搜索。这要求 BM25 索引支持近实时的更新。
+
+    近实时搜索与索引刷新：
+    Elasticsearch 等引擎通过近实时机制实现此需求。新文档被索引时，首先写入内存缓冲区，同时写入事务日志以保证数据安全。默认情况下，每秒执行一次 refresh 操作，将内存缓冲区中的数据生成一个新的 Lucene 分段，并打开搜索，使新数据变为可见。这种机制使得新文档在 1 秒左右即可被检索到。
+
+    处理高吞吐写入：
+
+    对于每秒成千上万条的写入，单次请求的开销不可接受。必须使用批量索引 API，将数百甚至数千条文档合并为一个 HTTP 请求发送，大幅降低网络和 I/O 开销。同时，使用 Kafka 等消息队列作为缓冲，接收端进行削峰填谷。
+
+    分段合并的挑战：
+
+    频繁的刷新会产生大量小的 Lucene 分段，这会严重拖累查询性能和消耗文件句柄。因此，Elasticsearch 后台会持续进行分段合并，将多个小分段合并为一个大分段，并物理删除被标记为删除的文档。在流式写入的高峰期，合并压力巨大，需要合理调整合并策略和分配足够的 I/O 资源，避免因合并而影响写入和查询性能。
+
+    对一致性的权衡：
+    实时更新在带来可见性优势的同时，也引入了对一致性的挑战。可以通过设置 wait_for 参数，要求在刷新或日志写入完成后再返回写入结果，来平衡实时性和数据可靠性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Vb7IwCWIWiJRpIkluiicTYcOnnd
+  block_id: CCtcdPYdlo16XCxEMKtcbT6onYf
+  page_token: Vb7IwCWIWiJRpIkluiicTYcOnnd
+  original_title: 在流式数据场景下，如何实时更新 BM25 索引？
+  imported_at: '2026-09-21'

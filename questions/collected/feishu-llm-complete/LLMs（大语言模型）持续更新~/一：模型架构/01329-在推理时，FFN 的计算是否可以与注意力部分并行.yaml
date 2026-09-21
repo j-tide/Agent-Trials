@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-33ac40768c0e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在推理时，FFN 的计算是否可以与注意力部分并行？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 在推理时，FFN 的计算是否可以与注意力部分并行？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在单层内，不能并行，因为 FFN 的输入依赖于注意力子层的输出（经过残差连接和层归一化）。这是 Transformer 的顺序结构：注意力 → 残差+LN → FFN → 残差+LN。
+
+    但跨层存在并行机会：如果使用流水线并行（Pipeline Parallelism），可以将不同层分配到不同设备上，第 L 层的 FFN 可以与第 L+1 层的注意力计算重叠执行。但这属于系统级优化，而非单层内的并行。
+
+    注意力的 KV Cache 阶段：在自回归推理时，注意力的 KV Cache 更新和 FFN 计算是串行的，无法并行，因为当前 token 必须通过注意力后再进入 FFN。但当前 token 的 FFN 计算可以和下一 token 的输入处理重叠，前提是使用异步或多步调度（如 vLLM 的连续批处理）。
+
+    结论：单层内 FFN 和注意力必须串行；跨层和跨步可以通过调度实现部分并行。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Lh8vwqpgeir7KHk0c0LccEIrn8b
+  block_id: OuM7dD6m7oIpHLxoFKscSBQQnDb
+  page_token: Lh8vwqpgeir7KHk0c0LccEIrn8b
+  original_title: 在推理时，FFN 的计算是否可以与注意力部分并行？
+  imported_at: '2026-09-21'

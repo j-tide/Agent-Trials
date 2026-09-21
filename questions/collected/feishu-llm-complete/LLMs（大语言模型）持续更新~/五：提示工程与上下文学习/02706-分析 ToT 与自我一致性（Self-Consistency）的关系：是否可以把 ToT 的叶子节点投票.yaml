@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fea97a4ab33f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分析 ToT 与自我一致性（Self-Consistency）的关系：是否可以把 ToT 的叶子节点投票？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: 分析 ToT 与自我一致性（Self-Consistency）的关系：是否可以把 ToT 的叶子节点投票？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ToT 和自我一致性（SC）都是从多候选结果中择优的机制，但运作层面和哲学不同。两者可以结合，形成更强大的推理策略。
+
+    ToT 与 SC 的关系：
+
+    - SC：对同一问题，用同一 prompt 多次采样（通过高温度解码）生成多条完整的推理链，然后对最终答案进行多数投票。它没有中间状态的显式搜索或评估，是全路径级的集成。
+
+    - ToT：显式构建一棵搜索树，生成和评估中间状态，动态地选择有希望的分支进行扩展，最终得到一条或少量几条路径。它的择优发生在步骤级，通过逐层筛选来实现，而不是路径生成完后再投票。
+
+    相似点：都通过产生多个候选并聚合来提高准确率，都利用了采样的多样性。
+
+    不同点：SC 是“事后投票”，对完整路径的结果进行统计；ToT 是“事前与事中择优”，在路径形成过程中就不断筛选和引导。ToT 的资源分配更智能，因为它可以只深入探索少部分最有希望的节点，而 SC 对所有完整路径平均用力。
+
+    能否对 ToT 的叶子节点投票？
+
+    完全可以，这相当于将 SC 集成到 ToT 的末端，或者说是对 ToT 搜索树中所有到达叶子（或满足终止条件）的完整路径进行答案投票。具体做法：
+
+    - 执行 ToT 搜索，当搜索到达一定深度或因资源耗尽而停止时，收集所有叶子节点（或所有曾被评估为“最终答案”的节点）的答案。
+
+    - 对这些答案进行多数投票或加权投票（权重可以是节点评估分数、访问次数等）。
+
+    - 选出投票最多的答案作为最终输出。
+
+    这种结合的优点：
+
+    - ToT 保证了候选路径的整体质量远高于 SC 中随机采样的路径，因为大量低质量分支在早期已被剪枝。因此，投票候选池的“纯度”更高，投票结果更可靠。
+
+    - 对于评估不确定的末端节点，投票可以弥补单一评估的偏差。
+
+    - 保留了 ToT 的探索广度，因为不同分支可能导向不同但都合理的答案，投票能整合多方意见。
+
+    实际案例：在数学推理中，先进行 ToT 搜索，保留所有达到最深层的 10 条完整推理路径（即使某些路径评分不高）。然后提取每条路径的最终答案，进行多数投票。实验表明，这种 ToT + SC 的组合能进一步将 GSM8K 准确率提升 2~5 个百分点，因为 ToT 有时会剪掉暂时低分但最终正确的路径，而 SC 可以将它们“捞回”。
+
+    注意事项：ToT 本身已经消耗大量资源，再对所有叶子节点投票会增加额外的提取和统计成本，但这些成本相较树搜索本身很小。因此，ToT + SC 是可行的低成本增益手段。
+
+    总结：ToT 与 SC 是互补的。ToT 负责高效地探索和筛选推理路径，SC 负责在最后阶段整合多路径结果，减少剪枝带来的误伤。两者结合比单独使用任何一种都更鲁棒。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YLhCwBILIiMYuXkdn6IcggP8nEh
+  block_id: X0ybdAfZxooY7gxSLuIct229nUh
+  page_token: YLhCwBILIiMYuXkdn6IcggP8nEh
+  original_title: 分析 ToT 与自我一致性（Self-Consistency）的关系：是否可以把 ToT 的叶子节点投票？
+  imported_at: '2026-09-21'

@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b7e30cf09722
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分布式训练中检查点的特殊要求，如在模型并行和序列并行下如何工作。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 分布式训练中检查点的特殊要求，如在模型并行和序列并行下如何工作。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在分布式环境下，梯度检查点需要与并行策略协同。
+
+    - 张量并行（TP）：模型被切分到多GPU，每张卡只持有部分参数。检查点通常在每个设备的模型部分独立应用。重计算时，各卡只需重新计算自己负责的前向部分，通信（如All-Reduce）也会被重新执行。由于检查点保存的是段输入（即TP通信前的张量？），需要注意通信边界。在Megatron-LM等实现中，检查点通常包裹整个Transformer块，该块内部包含TP的通信操作。重计算时通信也将重放。这增加了额外的通信开销，但总体仍可接受。
+
+    - 流水线并行（PP）：模型按层分配到不同设备。每个设备上的若干层形成一个流水线stage。检查点通常在每个stage内部应用（例如每个Transformer层）。因为流水线本身使用微批次调度，检查点不会干扰跨stage的通信。但重计算增加了stage的计算量，可能导致气泡增大。可以通过调度优化（如1F1B）来缓解。
+
+    - 序列并行（SP）：结合张量并行，将序列切分，进一步减少激活内存。检查点可以与序列并行同时使用，此时每卡保存的输入也是序列并行分片。重计算时同样进行序列并行计算。
+
+    - ZeRO/FSDP：这些分片数据并行策略将参数和梯度分片。检查点在前向时保存的输入可能是完整张量（由All-Gather恢复），重计算时需再次收集参数分片。这在实现上已由框架处理（如DeepSpeed ZeRO全面支持检查点）。
+
+    - 特殊要求：随机数状态同步：在模型并行组内需要确保重计算时随机性一致。通常框架（如Megatron）会统一管理RNG，确保检查点恢复时确定性。
+
+    实现要点：使用 torch.utils.checkpoint 时，需要确保通信操作（如 all_reduce）能够正确重放且不产生死锁。新版PyTorch的 use_reentrant=False 更好地支持了通信操作。在实际大模型代码（如Megatron-LM、HuggingFace Transformers）中，梯度检查点已经与3D并行无缝集成。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  block_id: Lt5nd27sAoLePjxZV3AcyoHCnTg
+  page_token: DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  original_title: 分布式训练中检查点的特殊要求，如在模型并行和序列并行下如何工作。
+  imported_at: '2026-09-21'

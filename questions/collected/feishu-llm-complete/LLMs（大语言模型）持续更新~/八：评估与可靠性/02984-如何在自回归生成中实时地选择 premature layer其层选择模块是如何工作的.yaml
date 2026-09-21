@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bd22a690672c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在自回归生成中实时地选择 premature layer？其层选择模块是如何工作的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 八：评估与可靠性
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 八：评估与可靠性
+content:
+  prompt: 如何在自回归生成中实时地选择 premature layer？其层选择模块是如何工作的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    DoLa 的层选择模块是其性能的核心，它必须在自回归生成过程中的每一步都做出实时决策，为当前要预测的下一个词元选择最合适的 premature layer。
+
+    层选择模块的工作原理
+
+    层选择模块的工作流程可以分解为以下几步：
+
+    - 全层前向传播与缓存：在预测当前词元时，输入序列通过模型的所有层。系统不仅获取最终层的 logits，还会获取并缓存每一层的输出 logits（或隐藏状态）。这是 DoLa 在推理时产生额外开销的来源。
+
+    - 计算“赢家层”：对于词汇表中的每一个候选词，我们并不需要为它单独选择层。DoLa 采用一个更高效的全局策略。它遍历所有层（从第 1 层到最后一层 L），计算每一层预测的下一个词元的概率分布。然后，它计算每一层预测分布的最大概率值 max(softmax(logits_layer))。拥有最高最大概率值的那一层，被认为是该位置当前最“自信”、最“成熟”的预测来源。这一层就是“赢家层”，其索引记为 M。
+
+    - 动态确定 premature layer：一旦找到了赢家层 M，系统就动态地将 premature layer 设置为 M 减去一个预先设定的超参数 d（例如 d=2）。即，premature_layer_index = M - d。d 的大小控制了“对比强度”——d 越大，被减去的层越浅，减去的“噪音”可能越多，但也可能过于激进；d 越小，对比越保守。
+
+    - 确定 mature layer：mature layer 则通常被固定为模型的最终层 L。这是因为最终层代表了模型在经过最深层推理后的综合判断。
+
+    实时性保障
+
+    这个选择过程发生在每一次自回归步骤中，因此是完全实时和自适应的。它能够根据当前上下文的复杂度和模型对其预测的确定性，动态调整对比的强度。例如，当模型对一个常见词非常确定时，赢家层可能很早（中层）就出现了，此时 premature layer 会更浅；当模型需要进行复杂推理时，赢家层会在深层出现，premature layer 也会相应更深。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KnwjwVxIViBqwlkhcvwczHR8nTf
+  block_id: YqcOd1KXIolGo9xdLn0cKvsBnfe
+  page_token: KnwjwVxIViBqwlkhcvwczHR8nTf
+  original_title: 如何在自回归生成中实时地选择 premature layer？其层选择模块是如何工作的？
+  imported_at: '2026-09-21'

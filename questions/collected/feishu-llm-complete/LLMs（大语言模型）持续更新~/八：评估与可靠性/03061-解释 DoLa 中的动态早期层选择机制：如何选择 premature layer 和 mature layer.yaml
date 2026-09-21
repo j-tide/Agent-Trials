@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cad30da589b7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 DoLa 中的“动态早期层选择”机制：如何选择 premature layer 和 mature layer？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 八：评估与可靠性
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 八：评估与可靠性
+content:
+  prompt: 解释 DoLa 中的“动态早期层选择”机制：如何选择 premature layer 和 mature layer？
+answer:
+  mode: rubric
+  reference_answer: |-
+    DoLa 的一个关键创新点在于其层选择是动态的、自适应的，而非固定不变的。这是因为，不同的输入词元、不同的生成位置，其“事实性知识”在模型中成熟所需的层数可能是不同的。
+
+    动态选择机制的工作原理
+
+    DoLa 不需要预先训练一个层选择器，而是利用模型自身每一层的输出来进行实时判断。其核心假设是：当模型对某个事实性知识非常确定时，其深层（例如，高索引的层）对该词元的预测概率会超过浅层，形成一个“赢家通吃”的局面。
+
+    动态 premature layer 选择的算法流程
+
+    - 计算每层的预测分布：在生成下一个词元时，DoLa 会计算并缓存所有层的输出 logits（或转换为概率分布）。这是一个计算开销的关键来源。
+
+    - 寻找“赢家层”：对于待预测的下一个位置，遍历所有层（从第 1 层到最终层 L），计算每一层对该位置的预测概率分布。然后，寻找哪一层的预测概率分布具有最高的最大概率值，或者最高的预测置信度。这一层就被称为该位置当前的“赢家层”。
+
+    - 确定 premature layer：找到赢家层后，DoLa 将赢家层的索引 M 减去一个固定的偏移量 d（超参数），所得到的层索引 M - d 就被动态地选作当前的 premature layer。偏移量 d 是根据经验或在验证集上调优的，例如 d=2, 4, 6 等。
+
+    - 确定 mature layer：mature layer 则固定为模型的最终层 L 或赢家层 M 加上某个偏移量。一些实现中直接使用最终层作为 mature layer。
+
+    这种动态选择的优势
+
+    - 自适应性：对于简单的、模型非常确定的事实，其“赢家”可能在中层就已出现，此时选择的中层索引较小，premature layer 也会更浅。对于复杂的、需要深层推理的事实，其“赢家”在更深的层才出现，premature layer 也会相应更深。
+
+    - 效率：它避免了为每一个模型和每一个任务手动调优一个固定的层索引。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KnwjwVxIViBqwlkhcvwczHR8nTf
+  block_id: MnFrdNQItorw42xH3C9c8KyMnUb
+  page_token: KnwjwVxIViBqwlkhcvwczHR8nTf
+  original_title: 解释 DoLa 中的“动态早期层选择”机制：如何选择 premature layer 和 mature layer？
+  imported_at: '2026-09-21'

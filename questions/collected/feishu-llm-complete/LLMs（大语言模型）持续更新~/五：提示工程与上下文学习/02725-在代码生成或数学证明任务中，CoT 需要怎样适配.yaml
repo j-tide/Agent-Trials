@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1fe17c7980b1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在代码生成或数学证明任务中，CoT 需要怎样适配？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: 在代码生成或数学证明任务中，CoT 需要怎样适配？
+answer:
+  mode: rubric
+  reference_answer: |-
+    代码生成和数学证明都属于对准确性要求极高、输出具有严格形式约束的任务。直接将通用 CoT 套用过来，往往效果不佳，必须进行专门的适配。
+
+    代码生成任务的 CoT 适配
+
+    代码生成通常以函数签名和文档字符串为输入，输出可执行的程序。CoT 在这里的价值在于：让模型先理清逻辑，再动手写代码，而不是一气呵成地输出可能漏洞百出的程序。
+
+    适配要点：
+
+    - 用结构化注释作为推理链：推理步骤可以用高层级的伪代码或注释形式呈现。例如，先写“# 步骤1: 遍历列表，找到最大值”，然后写出对应代码；接着“# 步骤2: 检查边界条件”，再写出代码。这样既实现了 CoT 的分步推导，又不破坏代码的语法。
+
+    - 展示“思路-代码-测试”的完整流程：在少样本示例中，不仅给出最终代码，还要展示开发者是如何从题目要求出发，逐步推导出算法、编写代码、并且用简单用例跑一遍验证的。这样模型在生成时，也会模仿这种“思考-实现-自测”的闭环。
+
+    - 结合可执行环境：这是最关键的一步。可以遵循 PAL（Program-Aided Language）范式，让模型生成的推理部分本身就是可执行的 Python 脚本。推理链即代码，最后直接运行得到精确结果，完全避免人工计算错误。例如数学题中不再用自然语言“12+34=46”，而是生成 result = 12 + 34 并由 Python 执行。
+
+    数学证明任务的 CoT 适配
+
+    数学证明要求逻辑严密，每一步都必须有依据，且不能有隐藏的跳跃。
+
+    适配要点：
+
+    - 强制采用严谨的逻辑模板：少样本示例必须展示“已知条件 → 引用定理 → 推导结论”的固定模式。比如“由条件A，根据勾股定理得…”“因为…且…，由反证法假设…，矛盾，故原命题成立”。这种模板化能大幅减少模型“瞎编”的空间。
+
+    - 分情况讨论的清晰展开：证明中常有分支情况，示例应展示如何用“情况1：…；情况2：…”的方式逐一处理，并在最后总结。
+
+    - 嵌入自我验证步骤：要求模型在给出完整证明后，附加一个“验证”段落，检查每一步是否有逻辑漏洞，或者用具体数值代入验证。这种元认知提示能提升正确性。
+
+    - 使用 LaTeX 或符号化表达：对于有公式的证明，引导模型使用 LaTeX 格式，不仅清晰，而且便于渲染和后续处理。需要注意的是，某些符号在 tokenization 时会被拆分，可能影响模型理解，需进行针对性测试。
+
+    共性适配原则
+
+    - 使用明确的标签（<thinking>, <code>, <proof>）将推理与最终输出分隔开，便于后处理提取。
+
+    - 示例必须完美无误：代码和证明中的示例如果有任何细微错误，都会被模型当作“正确答案范本”模仿，后果严重。
+
+    - 能调用外部工具时决不依赖模型自己的计算或知识，因为幻觉在这类任务中代价极高。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LXJlwBNini6BizkrUhhcyWpunsf
+  block_id: IPGyd5J8ZoifLXxeVzMclj7knvh
+  page_token: LXJlwBNini6BizkrUhhcyWpunsf
+  original_title: 在代码生成或数学证明任务中，CoT 需要怎样适配？
+  imported_at: '2026-09-21'

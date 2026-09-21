@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d1ed20939918
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何设计规划的停止条件？何时宣布目标达成或失败？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 如何设计规划的停止条件？何时宣布目标达成或失败？
+answer:
+  mode: rubric
+  reference_answer: |-
+    规划一个清晰、鲁棒的停止条件，是 Agent 系统设计中与生成计划同等重要的一环。一个不完善的停止机制，会导致 Agent 过早在信息不足时收手，或者无限执行下去直到资源耗尽。
+
+    成功的停止条件：目标达成
+
+    目标达成不是简单的“模型认为自己做完了”，而必须是一套客观、可验证的判断逻辑。
+
+    - 显式的“完成”信号：最可靠的方式是训练或提示 Agent，在它认为自己已经完成任务时，输出一个专门的、不可被误用的结束动作令牌，如 FINISH 或 SUBMIT_ANSWER。这个动作不是普通工具调用，而是向调度器宣告任务结束。
+
+    - 基于验证函数的客观判断：定义一个外部的、非 LLM 驱动的验证函数来评估任务的完成状态。例如，在代码生成任务中，最终生成的代码必须通过所有预设的测试用例，才算成功。在问答任务中，可以在生成答案后，由另外一个 LLM 评判者来验证答案是否完整覆盖了原始问题的所有方面。这种外部验证比模型的自评可靠得多。
+
+    - 规划完成度的对比检查：如果 Agent 最初使用了任务分解的范式，那么一个直接的判断标准就是“计划中的所有子任务是否都已被执行完毕”。系统会维护一个任务清单，每完成一项就标记一项。当清单被清空时，任务即告完成。
+
+    失败的停止条件：优雅地承认失败
+
+    并非所有任务都能被完成。一个成熟的 Agent 必须具备“自知之明”，知道何时应该放弃并优雅退出。
+
+    - 资源耗尽的失败：这是最常见的失败类型。当 Agent 的执行步数、Token 消耗量或时间超过了预设的硬性上限时，调度器应强制终止规划循环。此时，不应简单地丢弃所有信息，而应触发一个“最佳尝试总结”的流程，将已完成的部分成果呈现给用户。
+
+    - 逻辑无解的失败：Agent 经过多轮搜索和探索后，发现所有可能的路径都已被证明是走不通的。这通常在搜索式规划（如 ToT）中通过评估分数体现出来——所有待探索节点的前景评估分数都低到了一个不可接受的阈值。此时，Agent 应返回一个“无法完成”的状态，并向用户清晰解释它尝试了哪些路径以及失败的原因。
+
+    - 检测到无法恢复的错误：当 Agent 连续多次陷入死循环无法自拔，或者触发了严重的安全/合规错误时，调度器应立即终止任务，将其标记为“错误终止”，并进入错误处理和用户告知流程。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TcFcwAAj0i5ktvkAOGDcronQnKO
+  block_id: LPAGdnXwuoipTFxNHXLcugUDngj
+  page_token: TcFcwAAj0i5ktvkAOGDcronQnKO
+  original_title: 如何设计规划的停止条件？何时宣布目标达成或失败？
+  imported_at: '2026-09-21'

@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7bc955f5154c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是多头注意力（MHA）？它如何导致 KV Cache 过大？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 什么是多头注意力（MHA）？它如何导致 KV Cache 过大？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多头注意力（Multi-Head Attention, MHA） 是 Transformer 模型的核心机制。它将输入序列的每个 token 通过线性变换投影到多个不同的“表示子空间”，并行计算注意力，最后拼接结果再进行一次线性变换。
+
+    具体流程如下：
+
+    [图片内容未导入]
+
+    在自回归生成（如 GPT）中，每生成一个新 token，模型都需要对所有历史 token 计算注意力。如果每次都重新计算所有历史 token 的 K 和 V，计算量会随序列长度平方增长。KV Cache 正是为了缓解这个问题：在推理时，把之前所有 token 在每一层的 K 和 V 向量存储起来，新 token 生成时只需计算自身的 Q,K,V，然后把新 K,V 追加到缓存中，Q 与缓存的全部 K 做注意力运算。这避免了历史 token 的重复前向计算。
+
+    KV Cache 过大的根源就来自 MHA 的设计：
+
+    - 每个注意力头都需要独立的、完整的 KK 和 VV 序列。
+
+    - 对于一个单层，KV Cache 的总元素量为：
+
+    [图片内容未导入]
+
+    - 其中 n 为已生成的 token 数（序列长度）。
+
+    - 考虑全部 L 层 Transformer、batch size 为 b，以及浮点数字节数（如 FP16 为 2 字节），总显存消耗为：
+
+    [图片内容未导入]
+
+    - 这意味着 KV Cache 随序列长度和 batch size 线性增长。当处理长序列（如 32k、128k token）或高并发服务（大 batch）时，KV Cache 会迅速挤爆 GPU 显存。例如，一个 70B 模型（L=80,d model=8192）在 FP16 下处理一条 2048 token 的序列，单层 KV Cache 约 32MB，全部 80 层就超过 2.5GB。若 batch=32，便需要 80GB 以上，这还未计模型权重本身。因此，减少每个头、每层的 KV Cache 尺寸成为推理优化的关键，而 MHA 中多头重复存储同一序列的 K,V 是冗余的一大源头。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YD2SwSsy9iTGMmkEs4jcylEZnnd
+  block_id: K324dW5ExoFTHNxLeYPcV7GtnOe
+  page_token: YD2SwSsy9iTGMmkEs4jcylEZnnd
+  original_title: 什么是多头注意力（MHA）？它如何导致 KV Cache 过大？
+  imported_at: '2026-09-21'

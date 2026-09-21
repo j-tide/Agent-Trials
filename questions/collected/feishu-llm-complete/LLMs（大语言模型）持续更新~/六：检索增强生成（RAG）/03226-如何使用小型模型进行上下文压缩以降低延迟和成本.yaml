@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b4589ff47184
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用小型模型进行上下文压缩以降低延迟和成本？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 如何使用小型模型进行上下文压缩以降低延迟和成本？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在在线服务中，调用大模型来做上下文压缩会带来显著的延迟和成本开销。解决这个问题的有效手段，就是用小型专用模型来承担压缩任务。这些小型模型可以小到几百万参数，推理速度极快，可以在 CPU 上运行，甚至能集成到 RAG 服务的同一进程中，实现零额外网络开销。
+
+    实现方法主要分两条路径：抽取式和生成式。抽取式压缩更容易用小模型实现。你可以使用一个微调过的轻量级 Cross-encoder（例如基于 MiniLM 的架构，参数量仅 22M），让它为检索到的文档块中的每个句子独立打分，然后选出得分最高的若干句。因为只需要做一次前向传播，整个过程在 10 毫秒内就能完成。这种模型可以通过知识蒸馏得到：教师模型是一个大型的 Cross-encoder，在大量“查询-句子”对上进行相关度打分，然后学生模型去学习这些软标签。由于模型极小，即使处理上千个句子，延迟也完全可控。
+
+    生成式摘要压缩则可以使用小型 Seq2Seq 模型，如 Flan-T5-Small（80M）或 T5-Base（220M）。它们已经经过指令微调，能够理解“提取相关要点”的任务。但为了达到满意的压缩质量，通常需要进行领域适配：收集由大模型生成的高质量压缩样本作为训练数据，再对小模型进行监督微调。微调后，小模型能够学会以非常简洁的语言重写原文，同时忠实保留关键事实。推理时，这些小模型可以用 TensorRT 或 ONNX Runtime 进行 INT8 量化，进一步加速，使其能够在毫秒级内完成一段文本的摘要。
+
+    另外，还可以采用更极端的模板填充方案：将压缩任务转化为句子检索和排序问题，完全不依赖生成。预先计算每个句子的嵌入并建立索引，查询时，用查询向量快速检索最相关的 N 个句子，直接拼接输出。这是无生成模型的轻量版上下文压缩，延迟可低至个位数毫秒。
+
+    关键是，小模型压缩带来了成本和延迟的剧降，但也存在一定精度折损。对此，可以通过人机协作和反馈闭环来持续改进：将小模型压缩后导致下游任务出错的案例收集起来，作为新的训练数据去迭代小模型，逐步逼近大模型的压缩质量。这样，随着时间的推移，系统可以享受接近零额外成本的优质压缩服务。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZalwwBaIBiyRcGk5NTBcHrX6nKd
+  block_id: K9ikdxXNcoVKy4x3rlBcdPzanee
+  page_token: ZalwwBaIBiyRcGk5NTBcHrX6nKd
+  original_title: 如何使用小型模型进行上下文压缩以降低延迟和成本？
+  imported_at: '2026-09-21'

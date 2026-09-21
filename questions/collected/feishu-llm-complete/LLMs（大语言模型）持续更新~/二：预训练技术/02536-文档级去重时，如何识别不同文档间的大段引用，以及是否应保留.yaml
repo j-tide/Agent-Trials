@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-42b424923558
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 文档级去重时，如何识别不同文档间的大段引用，以及是否应保留？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 文档级去重时，如何识别不同文档间的大段引用，以及是否应保留？
+answer:
+  mode: rubric
+  reference_answer: |-
+    文档级去重通常依赖全文哈希或 MinHash，它对整个文档的相似度敏感。但对于大段引用（如一篇长文引用了另一篇文章的几个段落），整体 Jaccard 相似度可能并不高，因此可能逃过文档级去重。这就需要专门处理。
+
+    识别方法：
+
+    - 子串/片段级去重（Exact Substring Dedup）：如 Gopher 项目使用后缀数组检测出所有超过一定长度（如 50 字节）的、跨文档重复的精确子串。这能直接抓出大段引用。
+
+    - MinHash 的“包含”变体：我们可以预先计算每个文档的 MinHash 签名，然后对于较短的文档，检查其是否与某个较长文档的签名高度相似（即使长文档只有一小部分与短文档重叠）。通过设定一个较低的相似度阈值（如 0.5），并结合文档长度比，可以过滤掉那种“短文档 B 是长文档 A 的一部分”的包含关系。
+
+    应否保留的决策：
+
+    对于大段引用，不能简单地“一刀切”删除，需要根据引用的性质来决策：
+
+    - 应删除的情况：无意义的重复和抄袭。例如，内容农场的文章直接拷贝了维基百科的段落作为自己的主体；或者一个新闻聚合站，其文章的主体就是其他新闻的片段拼凑。这种情况下，后续出现的副本应当被移除，因为它们没有提供新的信息，并且可能会侵犯版权。
+
+    - 应保留的情况：有意义的引用和评论。例如，一篇学术论文引用了另一篇论文的结论，并进行了深入讨论；或者一篇新闻评论中引用了某官员的一段话。这种引用是创作新内容的基础，必须保留。这里的边界在于：引用部分必须是被明确标记（如引号）的，并且它周围有足够的独创性评论或分析。如果被引用部分占据了文档的绝大部分（如超过 50%），且周围没有实质性的新内容，则可视为抄袭。
+
+    实现策略：在实现上，通常会先运行子串去重，并设定一个长度下限（如 200 字符）以避免误杀短小的常见短语。然后，结合上下文质量评分：如果围绕引用的原创文本质量很低（如短小、重复），则倾向于删除；如果原创部分信息密度高，则保留。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KVkRw5fvSilOXfkibArc5VHSndf
+  block_id: C2xGdBBUooi7AfxUppScxL0Pn2f
+  page_token: KVkRw5fvSilOXfkibArc5VHSndf
+  original_title: 文档级去重时，如何识别不同文档间的大段引用，以及是否应保留？
+  imported_at: '2026-09-21'

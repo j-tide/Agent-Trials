@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-78d5b5406f0b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在多头注意力中，残差连接加在拼接投影之后，这个顺序重要吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 在多头注意力中，残差连接加在拼接投影之后，这个顺序重要吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    非常重要，这是由维度匹配、信息完整性和梯度流共同决定的。
+
+    多头注意力的标准流程为：
+
+    - 输入 x 通过线性投影得到各头的 Q、K、V。
+
+    - 各头独立计算注意力并输出 head_i。
+
+    - 将所有头的输出在特征维度上拼接：Concat(head_1, ..., head_h)。
+
+    - 经过输出投影矩阵 W_O，恢复为 d_model 维。
+
+    - 残差连接：y = x + Concat(head_1,...,head_h) W_O。
+
+    为什么残差连接必须加在投影之后？
+
+    - 维度匹配：残差加法要求 x 和 Sublayer(x) 维度严格一致（均为 d_model）。拼接后的维度是 h * d_k = d_model，但这是未经投影的混合多头信息，其语义空间可能与 x 不同。W_O 的作用正是将拼接后的多头特征映射回原始的残差空间，使其与 x 可加。如果跳过 W_O 直接相加，相当于在拼接空间做加法，而该空间的维度虽然相同，但每个维度的含义已经改变（混入了多个头的信息），残差连接的效果会大打折扣。
+
+    - 保持恒等路径的纯净：残差连接的主路径是 x，我们希望它原封不动地传递到下一层。如果残差加在没有 W_O 的拼接结果上，那么支路输出的分布与 x 差异会更大，破坏了 Pre-Norm 中“支路输出应是对主路径的微小扰动”的理想状态，可能导致训练初期不稳定。
+
+    - 梯度流的对称性：反向传播时，梯度通过两条路径流向 x：一条直接（恒等），另一条通过 W_O 和注意力计算。W_O 的存在为梯度提供了额外的调节能力，有助于平衡两条路径的贡献。
+
+    若将残差放在投影之前会怎样？
+    可以先拼接，然后加上残差，再投影：y = (x + Concat(heads)) W_O。这种结构改变了恒等路径的纯粹性，因为 x 也必须经过 W_O 才能与支路结合，不再是真正的“残差连接”，而是一种“门控”或“融合”形式。实验表明，标准做法（先投影再加残差）的性能和稳定性最优。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KmS5w89VIig4zEkCkcecHTuKn1d
+  block_id: NkhAd40kWoiO3mxNbiWcMNR6n7e
+  page_token: KmS5w89VIig4zEkCkcecHTuKn1d
+  original_title: 在多头注意力中，残差连接加在拼接投影之后，这个顺序重要吗？
+  imported_at: '2026-09-21'

@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bba67a2c2d9e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: PPO 训练时，如何监控和改进训练的稳定性？有哪些常用的 trick（如 reward normalization, advantage normalization）？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: PPO 训练时，如何监控和改进训练的稳定性？有哪些常用的 trick（如 reward normalization, advantage normalization）？
+answer:
+  mode: rubric
+  reference_answer: |-
+    RLHF 的 PPO 训练是出了名的敏感和不稳定，但它也有一套行之有效的稳定性工具箱。这些技巧的核心目标是控制梯度信号的尺度、防止策略发生不可逆的崩溃。
+
+    核心监控指标：
+
+    在 PPO 训练过程中，必须实时监控以下几个核心指标，它们构成了训练状态的“仪表盘”：
+
+    - 奖励值：包括原始奖励和归一化后的奖励。原始奖励的均值应在训练过程中健康上升，但不能出现激增或骤降。如果奖励值一直原地踏步或急剧上升，都可能预示着问题。
+
+    - KL 散度：这是最重要的监控指标。理想情况下，它应该随着训练步数平滑、缓慢地增长。如果 KL 散度在短时间内出现尖峰或爆炸性增长，说明策略模型正在“跑偏”，远离 SFT 模型。
+
+    - 策略熵：衡量 Actor 模型生成概率分布的不确定性。熵值过低意味着模型多样性丧失，正在趋于模式崩溃；熵值过高则可能生成乱码。
+
+    - 策略更新幅度的比率 rt(θ)：即新旧策略的概率比。分布应该在 1.0 附近，受限于裁剪范围 [1-ε, 1+ε]。如果该比率频繁触及裁剪边界，说明更新可能过于激进。
+
+    - Critic 损失和价值估计：Critic 的损失应该在下降。同时，我们要监控 Critic 预测的价值 V(s) 的均值和方差，防止价值估计出现巨大的漂移。
+
+    常用的稳定性改进技巧：
+
+    - 奖励归一化 (Reward Normalization)：这是最有效、最基础的技巧。在整个 PPO 训练批次中，计算所有生成回复的奖励分数的均值和标准差，然后对每个奖励进行 Z-score 标准化（减去均值，除以标准差）。这能确保奖励信号始终在均值0、标准差1的稳定范围内，消除了奖励模型打分可能存在的整体漂移。没有这一步，PPO 对奖励值的绝对值极其敏感，调参几乎不可能。
+
+    [图片内容未导入]
+
+    - 梯度裁剪 (Gradient Clipping)：对参数梯度进行全局范数裁剪，限制单步参数更新的最大幅度。这是防止梯度爆炸、导致模型参数突然被推向不可恢复状态的标准防御措施。
+
+    - Critic 学习率独立调整：通常 Critic 的学习率会设置得比 Actor 更高（例如 5-10 倍）。因为 Critic 的价值头需要从相对较低的水平开始学习，而 Actor 已经是一个强大的 SFT 模型了。让 Critic 更快地学习，能为 Actor 提供更准确、更稳定的价值估计和优势信号。
+
+    - 经验回放池的准在线使用：PPO 是 on-policy 算法，但为了提高效率，我们通常采用“准在线”方式。用当前模型生成一批经验后，在这批经验上重复进行数次（如 2-4 个 epoch）更新。这样做需要在“数据利用率”和“策略过时（off-policy）”之间权衡，严格控制更新 epoch 数，并密切监控 KL 散度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QNW3wg7bCinLPQkL0kGc4IdynHh
+  block_id: PgB9dym6ZoMEflxzAZ1crfoJn6f
+  page_token: QNW3wg7bCinLPQkL0kGc4IdynHh
+  original_title: PPO 训练时，如何监控和改进训练的稳定性？有哪些常用的 trick（如 reward normalization, advantage
+    normalization）？
+  imported_at: '2026-09-21'

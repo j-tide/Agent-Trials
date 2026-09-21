@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2a2b5a40e11f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 流水线并行中，梯度裁剪的同步时机与数据并行的区别
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 流水线并行中，梯度裁剪的同步时机与数据并行的区别
+answer:
+  mode: rubric
+  reference_answer: |-
+    流水线并行（Pipeline Parallelism）和数据并行（Data Parallelism）对梯度裁剪的同步时机要求截然不同，根源在于两种并行策略对梯度的产生和消费方式有本质区别。
+
+    在数据并行中，每个设备都有一个完整的模型副本，处理不同的micro-batch。反向传播结束时，每张卡都拥有自己那份数据的梯度。此时，我们需要把所有设备的梯度做All-Reduce，算出全局平均梯度。梯度裁剪必须发生在这个All-Reduce之后，优化器step之前。因为我们要裁剪的是“最终用于更新参数的那个梯度”，也就是经过所有设备协商后的全局梯度。如果在All-Reduce之前就各自裁剪，那么相当于每个设备的梯度方向都被不同程度地扭曲，然后再平均，得到的既不是原始平均梯度的方向，也不是某个单一设备的方向，数学上完全错了。
+
+    流水线并行的情况要复杂得多。在PP中，模型被切成多个stage，每个stage只负责一部分层。一个micro-batch的前向和反向是交错进行的（比如1F1B调度）。因此，一个stage的梯度并不是一次性全部算完的，而是随着不同micro-batch的反向逐步累积的。同时，在PP中，参数更新通常发生在所有micro-batch的反向都完成之后，而且只有每个stage的第一张卡（或者最后一张，取决于实现）持有完整的该stage的梯度（其他卡可能通过张量并行持有部分梯度）。
+
+    这就引出了关键问题：在PP中，梯度裁剪必须在“全局”意义上进行，但这个“全局”并不是整个模型的所有参数，而是每个stage内的所有参数。实际上，DeepSpeed等框架的做法是：每个PP stage独立计算本stage内所有参数的全局梯度范数（通过本stage内的TP group做All-Reduce），然后对本stage的梯度进行裁剪。不同stage之间不需要同步这个范数，因为不同stage的参数更新本来就是独立的。所以PP中裁剪的同步时机是：每个stage在自己的梯度全部累积完毕（所有micro-batch处理完），且在本stage内部做了必要的TP通信之后，再进行裁剪，然后执行优化器step。
+
+    这和数据并行的“全局统一裁剪”完全不同。如果在PP中错误地试图跨所有stage计算一个全局范数，就会引入巨大的通信开销，而且毫无必要。因此，理解并行策略的拓扑结构，是正确实施梯度裁剪的前提。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TlYvww7Aoi1oXhkFGQwcFQYxnin
+  block_id: B8S1dDrlfopZ4SxzGlRcCRXvngg
+  page_token: TlYvww7Aoi1oXhkFGQwcFQYxnin
+  original_title: 流水线并行中，梯度裁剪的同步时机与数据并行的区别
+  imported_at: '2026-09-21'

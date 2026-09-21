@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a087094cc148
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 ReAct 循环中，如何防止无限循环？最大步数、停止动作（如 Finish）的设计。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 在 ReAct 循环中，如何防止无限循环？最大步数、停止动作（如 Finish）的设计。
+answer:
+  mode: rubric
+  reference_answer: |-
+    无限循环是自主 Agent 最常见的失败模式之一。当 Agent 陷入无法自拨的困境时，它会不断消耗 Token、时间和计算资源。因此，设计健壮的终止机制是工程实现中的重中之重。
+
+    - 设计明确的停止动作
+
+    最优雅、最智能的退出方式是让模型自己按下“停止键”。这就是 Finish 动作的作用。我们需要在系统提示中明确定义，当模型认为“我的信息已足够，可以回答用户问题了”，就必须生成一个特殊的、不可被混淆的结束动作，如 Finish[最终答案]。
+
+    解析器一旦捕获到这个动作，就意味着任务成功完成，循环立即终止。关键在于教会模型何时应该 Finish。这需要在少样本示例中，清晰展示“信息足够，可以回答”和“信息不足，仍需探索”的场景对比。
+
+    - 设置硬性的最大步数限制
+
+    永远不要相信模型会总是正确地自行终止。必须在系统层面设置一个无法逾越的“安全阀”——最大循环次数（例如，10 或 15 步）。这是一个独立的计数器，与模型的生成行为无关。
+
+    当循环计数达到这个上限时，调度器强制终止循环，并接管控制权。此时，它不会直接丢弃所有信息，而是采取一个保底策略：将迄今为止所有的对话历史发送给 LLM，并要求它“根据以上所有信息，给出你当前能得出的最佳答案，并指出还有哪些问题未解决”。
+
+    - 其他辅助终止条件
+
+    - 动作重复检测：如果监控到 Agent 在连续几步内，执行了完全相同或高度相似的 Action（例如，连续三次用同一个关键词搜索），这通常意味着它陷入了思维僵局。系统可以注入一条警告 Observation，或者直接强制终止。
+
+    - 无效 Action 次数限制：统计返回“错误”或“无结果”的 Action 次数，如果比例过高，说明当前策略失效，应提前终止。
+
+    - 时间预算限制：为整个 ReAct 循环设置一个全局的执行时间上限。
+
+    通过“模型自我终止”和“系统强制终止”的双层保护，我们可以在充分发挥 Agent 自主性的同时，牢牢将风险控制在可接受的范围之内。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/T6N3wE7x0iKDNzkl3qjchqJtntb
+  block_id: ZKc9d8M1go1kCDxXpc5cLm58n9c
+  page_token: T6N3wE7x0iKDNzkl3qjchqJtntb
+  original_title: 在 ReAct 循环中，如何防止无限循环？最大步数、停止动作（如 Finish）的设计。
+  imported_at: '2026-09-21'

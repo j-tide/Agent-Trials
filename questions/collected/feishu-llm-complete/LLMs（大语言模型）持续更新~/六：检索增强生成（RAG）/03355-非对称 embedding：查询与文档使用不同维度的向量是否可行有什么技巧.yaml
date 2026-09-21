@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e3627b820c42
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 非对称 embedding：查询与文档使用不同维度的向量是否可行？有什么技巧？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 非对称 embedding：查询与文档使用不同维度的向量是否可行？有什么技巧？
+answer:
+  mode: rubric
+  reference_answer: |-
+    非对称 embedding 指的是查询和文档在嵌入时使用不同维度的向量。这在理论上是可行的，但在标准的向量相似度计算（如内积或余弦相似度）中会遇到障碍，因为这些操作要求两个向量的维度必须相等。
+
+    为什么需要非对称 embedding？
+
+    这是由计算效率和成本驱动的现实需求。文档向量通常是离线生成并存储在向量数据库中的，我们希望它拥有较高的维度（如 1024 维）来保留丰富的语义信息，保证检索的精度。而查询向量需要在用户提问时实时生成，如果查询编码器很小、输出维度低（如 256 维），那么它的推理速度将极快，延迟和成本都会显著降低。这就构成了非对称结构：高维的文档向量 + 低维的查询向量。
+
+    实现技巧：
+
+    - 线性映射/投影层：
+    这是最常用的方法。在两个编码器之后，各自增加一个可训练的线性投影层（全连接层），将它们的原始输出向量映射到一个统一的、相同的目标维度。例如，文档编码器原始输出 1024 维，通过一个线性层降维到 256 维；查询编码器原始输出 256 维，也通过一个线性层映射到 256 维。训练时，这两个 256 维的向量被要求进行对比学习。推理时，文档使用降维后的向量建库，查询则直接输出映射后的向量进行检索。这个方法本质上是通过投影统一了最终维度。
+
+    - Matryoshka Representation Learning：
+    这是一种更高级的技术。它的核心思想是训练模型学习一个内在嵌套的表示结构：让向量的前 d 维（无论 d 取多少）自身就构成一个有效的语义表示。训练时，对向量的不同前缀长度（如 64, 128, 256, 512...）都施加对比损失。这样训练出的模型，其文档向量在离线时可以保留完整的 1024 维，但在实时检索时，只需取其前 256 维（或任意想要的低维）与同样被截断的查询向量进行匹配即可，几乎不损失精度。OpenAI 的 text-embedding-3 和 BGE-M3 都支持或借鉴了这种思想，它实现了在同一模型中灵活权衡成本和精度的能力。
+
+    - 异步维度匹配：
+    另一种思路是，文档和查询使用完全独立的编码器，训练时通过一个可学习的“交互矩阵”将它们映射到可以比较的公共空间中。这种方法灵活性最高，但训练也更复杂，目前应用较少。
+
+    总的来说，非对称 embedding 是平衡精度与成本的关键技术。通过线性投影或 Matryoshka 学习，可以让轻量级的查询编码器快速检索由重量级编码器构建的高质量文档库。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LAk6woP24iTIs8kKvMhcr6QZn0g
+  block_id: ApiGdY2BpooORSxQpQRcfLpNnGg
+  page_token: LAk6woP24iTIs8kKvMhcr6QZn0g
+  original_title: 非对称 embedding：查询与文档使用不同维度的向量是否可行？有什么技巧？
+  imported_at: '2026-09-21'

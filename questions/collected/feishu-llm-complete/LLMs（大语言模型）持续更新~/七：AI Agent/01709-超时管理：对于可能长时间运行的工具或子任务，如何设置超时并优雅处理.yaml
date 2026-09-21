@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-11f11203cc0b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 超时管理：对于可能长时间运行的工具或子任务，如何设置超时并优雅处理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 超时管理：对于可能长时间运行的工具或子任务，如何设置超时并优雅处理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    长时间运行的工具是 Agent 延迟和不可靠性的主要来源。没有超时管理，一个网络请求可能挂起数分钟，导致整个 Agent 系统无响应。优雅的超时管理需要从工具封装和执行器两个层面共同实现。
+
+    工具层面的超时与异常封装
+
+    每个工具函数在被封装时，必须对其内部的长时间 I/O 操作（如 HTTP 请求）设置严格的超时。这通常通过 HTTP 库的 timeout 参数或 Python 的 asyncio.wait_for 来实现。一旦超时，工具函数应捕获超时异常，并将其转换为一个明确的、包含错误信息的字符串返回，而不是让原始异常向外抛出。例如，它应返回“错误：搜索请求超时。请稍后重试或尝试简化查询词。”
+
+    执行器层面的超时与降级
+
+    仅仅依赖工具层面的超时是不够的，因为工具可能因逻辑死锁而非 I/O 超时卡住。AgentExecutor 需要提供更底层的保障：
+
+    - 设置全局步数/时间限制：在启动 Agent 时，就设定一个硬性的最大执行步数或时间上限。一旦达到，Agent 无条件终止，防止无限执行。
+
+    - 为子任务设置独立超时：对于 Plan-and-Execute 模式，可以为计划中的每个子任务设置独立的超时。如果一个子任务超时，Agent 可以将其标记为失败，然后优雅地跳过它，继续执行后续不依赖于此的其他任务。
+
+    - 优雅的降级与总结：当 Agent 因超时而终止时，不应直接丢弃所有已有成果。系统应触发一个“优雅退出”流程。它会调用 LLM，将当前所有已完成步骤的成果和因超时未完成的步骤列表作为输入，要求 LLM 生成一份“最佳尝试”的最终报告。这份报告会清晰地向用户展示已完成的工作和未能完成的部分，并给出后续建议。
+
+    超时管理的目标不是粗暴地打断任务，而是在不可控的延迟面前，做出最可控、对用户最有价值的响应。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/N9kPwKx7siGuUMkJ3jRc5htKnAb
+  block_id: GqW1daDGZomVEPx5OQKcwbTene0
+  page_token: N9kPwKx7siGuUMkJ3jRc5htKnAb
+  original_title: 超时管理：对于可能长时间运行的工具或子任务，如何设置超时并优雅处理？
+  imported_at: '2026-09-21'

@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f9bd7a0d2419
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现连续批处理时，如何设置最大 batch size？动态 batch size 的调整策略。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 实现连续批处理时，如何设置最大 batch size？动态 batch size 的调整策略。
+answer:
+  mode: rubric
+  reference_answer: |-
+    最大 batch size 的设置受限于两个主要因素：
+
+    - 显存约束：KV Cache 物理块总数固定。每个请求占据若干块，最大并发请求数 B max 需满足 sum(blocks_per_req) <= total_free_blocks。调度器通常设定一个硬上限 max_num_seqs，即使有空闲块，也不再增加请求，防止意外 OOM 或留给系统余量。
+
+    - 计算效率约束：过大的 batch 可能导致单次迭代延迟超出目标（如 TTFT 或 TPOT SLO），因为 decode 的矩阵乘计算量线性增长。可根据 GPU 算力和带宽计算满足延迟要求的上限。例如，A100 上 batch size 256 可能仍能保持 TPOT 在 50ms 内，但 512 则超时。
+
+    动态 batch size 调整策略：
+
+    - 水位线策略：设定空闲块数量低水位和高水位。当空闲块高于高水位时，积极从等待队列拉取请求；低于低水位时，停止拉取，甚至考虑抢占。
+
+    - 基于延迟反馈：监测最近几次迭代的实际延迟，若超过阈值，则减小下一轮允许加入的 prefill chunk 大小或 decode 请求数。
+
+    - 优先级与公平性：不单纯追求最大 batch，还要考虑长请求不饿死。例如，vLLM 允许为等待请求设置最小保证调度，即便资源紧张也会轮流服务。
+
+    - 分层调度：将 prefill 和 decode 分开限制，例如 max_num_batched_tokens 限制一次迭代中处理的总 token 数（包括 prefill chunk 和 decode），从而间接限制 batch size。
+
+    因此，最大 batch size 是动态变化的，由显存余量、延迟目标和公平性策略综合决策，实现弹性并发。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqBawimrwioo11kNL45cwrfznle
+  block_id: M2Z3d80vxoyrqpxS5FRcPD2uncg
+  page_token: EqBawimrwioo11kNL45cwrfznle
+  original_title: 实现连续批处理时，如何设置最大 batch size？动态 batch size 的调整策略。
+  imported_at: '2026-09-21'

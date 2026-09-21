@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2e0d1cec722d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何验证搜索到的缩放因子是有效的？除了困惑度，可以分析哪些指标？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如何验证搜索到的缩放因子是有效的？除了困惑度，可以分析哪些指标？
+answer:
+  mode: rubric
+  reference_answer: |-
+    验证 AWQ 缩放因子有效性需从宏观性能、层间误差和权重分布等多维度评估。困惑度是核心但非唯一指标。
+
+    - 困惑度（PPL）及下游任务准确率
+
+    在通用基准（WikiText-2, C4）和特定任务（HellaSwag, MMLU, GSM8K 等）上比较 FP16 和 AWQ 模型的得分。PPL 上升 < 0.1 通常认为缩放因子近乎最优。
+
+    - 逐层输出重构误差（Layer-wise MSE）
+
+    比较每一层 FP16 输出与 AWQ 量化后输出的均方误差。有效的缩放应使得各层误差较低且均匀，无明显误差剧增的层。如果某层误差突出，说明该层缩放可能不足或过度。
+
+    - 权重相对量化误差的分布
+
+    计算量化前后权重的逐元素相对误差。对于重要通道（根据激活排序），其相对误差应显著小于非重要通道。可绘制通道重要性 vs. 量化误差的散点图，验证缩放是否将误差从重要通道转移。
+
+    - 激活幅度的变化（在量化后的模型上）
+
+    运行量化模型，收集各层激活，观察原本离群值通道的幅度是否被有效抑制。若缩放无效，离群值依然突出，且可能导致后层误差累积。
+
+    - 注意力分布一致性
+
+    比较 FP16 模型和 AWQ 模型在相同输入下的注意力权重分布（使用 KL 散度或余弦相似度）。有效的缩放应保持注意力模式高度一致，无异常聚焦。
+
+    - 长文本生成稳定性
+
+    在超长序列（如 32k）上测试困惑度崩塌点，以及“大海捞针”（Needle-in-a-Haystack）测试。好的缩放应使长文本性能与 FP16 持平。
+
+    - 缩放因子的数值特性
+    分析缩放因子 s 的分布。合理的 s 应与激活幅度呈正相关，且无极端值（过大导致权重截断）。若出现大量极端缩放因子（如 > 100 或 < 0.01），可能意味着超参数 α 不当。
+
+    通过以上多角度验证，可以确定缩放因子是否真正实现了误差重分布，而不仅仅是让 PPL 数字好看。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CNm5w5hEKiUhQ5kMnPrcFoSGnVd
+  block_id: DOS0d0symoIKkRxsWpDcoMhinue
+  page_token: CNm5w5hEKiUhQ5kMnPrcFoSGnVd
+  original_title: 如何验证搜索到的缩放因子是有效的？除了困惑度，可以分析哪些指标？
+  imported_at: '2026-09-21'

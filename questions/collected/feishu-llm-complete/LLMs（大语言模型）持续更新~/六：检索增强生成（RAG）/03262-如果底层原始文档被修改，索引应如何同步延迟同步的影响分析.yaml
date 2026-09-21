@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d5aabde6fdf0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果底层原始文档被修改，索引应如何同步？延迟同步的影响分析。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 如果底层原始文档被修改，索引应如何同步？延迟同步的影响分析。
+answer:
+  mode: rubric
+  reference_answer: |-
+    当底层原始文档发生修改时，索引同步是一个典型的“写后读一致性”问题。通常有三种策略来处理这种变更。
+
+    策略一：全量重建。最彻底也最“笨重”。每当有文档更新，就废弃旧索引，用最新的文档集合重新构建一个全新的索引，然后通过原子性的切换将查询流量从旧索引导向新索引。这种策略实现简单，索引质量永远是最优的，但代价巨大：在重建期间，计算资源消耗极高，且对于大型索引，重建可能需要数小时，导致新数据长期不可见。
+
+    策略二：增量更新。不重建整个索引，而是直接修改索引中的对应向量。理论上，这就是“找到旧向量，删除它，插入新向量”。但不同索引结构的执行难度差异巨大。对于 IVF 索引，需要将新向量插入到其所属的簇中，并标记或删除旧向量；对于 HNSW，删除一个节点需要断开其所有连接，并可能需要在局部区域重新补图，成本很高。简单的实现常常不执行真正的删除，而是在索引旁边维护一个“墓碑”列表，查询时过滤掉已删除的向量，然后再定期通过后台 Compaction 合并。增量更新的最大挑战是索引漂移：随着越来越多的新向量被插入，原有索引的全局结构（如 IVF 的簇中心、PQ 的量化码本）逐渐无法反映数据的真实分布，导致查询精度持续下降。
+
+    策略三：分区与版本化。借鉴 LSM 树思想。索引按时间或版本号划分为多个不可变的分区，新的修改总是写入一个新的分区。查询时，需要同时查询所有相关分区，并合并结果。当旧分区的大小或比例达到一定阈值时，由后台进程将多个小分区合并成一个新的大分区，并在此过程中执行真正的删除和更新。这既保证了新数据的快速可见，又通过定期合并解决了索引漂移问题，是大多数成熟向量数据库（如 Milvus）所采用的核心机制。
+
+    延迟同步的影响完全取决于业务场景。对于时效性敏感的应用（如金融实时资讯、突发事件新闻），哪怕分钟级的延迟都可能导致用户获取到错误或过时的信息，造成直接的经济损失或信任危机。对于知识库类应用，数小时甚至一天的延迟通常是可接受的。从技术上看，索引的不一致不仅影响用户，还可能影响依赖这些数据的下游 Agent 行为。因此，在系统设计时，需要明确写出数据更新的 SLA，并据此选择合适的同步策略和架构。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SkhxwrnkSi7qcRkf8LOcNILdnr0
+  block_id: WtSMduYeeoUehYxxvVwcazZNnAh
+  page_token: SkhxwrnkSi7qcRkf8LOcNILdnr0
+  original_title: 如果底层原始文档被修改，索引应如何同步？延迟同步的影响分析。
+  imported_at: '2026-09-21'

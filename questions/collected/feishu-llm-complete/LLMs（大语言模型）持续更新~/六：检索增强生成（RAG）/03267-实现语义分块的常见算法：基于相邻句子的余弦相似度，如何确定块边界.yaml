@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a4f2d28c41a3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现语义分块的常见算法：基于相邻句子的余弦相似度，如何确定块边界？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 实现语义分块的常见算法：基于相邻句子的余弦相似度，如何确定块边界？
+answer:
+  mode: rubric
+  reference_answer: |-
+    基于相邻句子余弦相似度的语义分块算法，其核心在于如何从一连串的相似度数值中，自动化地、鲁棒地识别出那些代表“话题转移”的边界点。下面详细描述其算法流程。
+
+    第一步：构建句向量与相似度数组。
+    使用分句工具将文档拆分为句子列表 S = [s1, s2, ..., sn]。通过句子嵌入模型，得到每个句子的向量 V = [v1, v2, ..., vn]。计算所有相邻句子的余弦相似度，得到一个数组 Sim = [sim(v1, v2), sim(v2, v3), ..., sim(vn-1, vn)]。
+
+    第二步：识别异常低点作为候选边界。
+    一个好的边界点应该是它前后的句子“不相似”。简单的做法是设定一个全局阈值，如 0.3，低于此值的直接标记为边界。但全局阈值往往过于僵化，无法适应文档中语义密度的变化。一种更鲁棒的做法是相对阈值法：维护一个滑动窗口，计算窗口内相似度的均值 μ 和标准差 σ。对于窗口中心的点 i，如果 Sim[i] < μ - β * σ（β 是调节因子，如 1.5），则将 i 标记为候选边界。滑动窗口可以平滑局部波动，识别出相对于其局部环境而言的“突变点”。
+
+    第三步：应用分块大小约束。
+
+    纯粹基于语义断点可能会导致块的大小极不均匀，出现只有一句话的超小块，或依然是数页之长的超大块。因此，必须引入工程约束。
+
+    - 最大块长度约束：设置一个上限 MAX_LEN（如 1024 Token）。当从上一个边界到当前边界之间的累计 Token 数超过 MAX_LEN 时，即使下一个句子的语义相似度很高，也必须强制执行切割。此时，我们不再依赖语义边界，而是寻找距离 MAX_LEN 最近的一个“次级语义边界”（如相似度相对较低的点）进行切割。这确保了块大小永远可控。
+
+    - 最小块长度约束：设置一个下限 MIN_LEN（如 256 Token）。如果从上个边界到当前边界太短，即使遇到了一个很强的语义断点，也先不切割，而是将它和后续的句子暂时合并，直到超过 MIN_LEN 或遇到更强的强制切割条件。这防止了碎片的产生。
+
+    第四步：合并句子生成最终块。
+    根据确定好的边界索引，将 S 中的句子合并，形成最终的文本块列表。
+
+    算法的优点：它完全是自适应的，无需预先设定固定的块大小，能产出语义质量极高的块。算法的挑战：对嵌入模型质量有依赖；对于没有清晰逻辑结构的文本，自动识别的边界可能不稳定；计算所有句子的嵌入和相似度会引入额外的预处理开销。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HQmwwCPl6ixKGwkuwgTcKbbpnBd
+  block_id: VbV0dP2wxo8a9Cx9HqkcYIuXncb
+  page_token: HQmwwCPl6ixKGwkuwgTcKbbpnBd
+  original_title: 实现语义分块的常见算法：基于相邻句子的余弦相似度，如何确定块边界？
+  imported_at: '2026-09-21'

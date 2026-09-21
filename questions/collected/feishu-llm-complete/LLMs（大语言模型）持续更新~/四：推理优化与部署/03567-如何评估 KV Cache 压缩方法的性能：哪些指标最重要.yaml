@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-22525afb6b36
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何评估 KV Cache 压缩方法的性能：哪些指标最重要？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如何评估 KV Cache 压缩方法的性能：哪些指标最重要？
+answer:
+  mode: rubric
+  reference_answer: |-
+    评估 KV Cache 压缩方法需要从模型质量、压缩效率、系统性能、实际可用性四个维度综合考量。以下指标按重要性排序并详细说明。
+
+    - 模型质量指标（首要）
+
+    - 困惑度 (Perplexity, PPL)：最核心的指标，衡量模型对测试语料的预测能力。压缩方法应在不同序列长度下保持与原模型接近的 PPL。通常绘制 “PPL vs. 缓存预算” 曲线，观察在同等压缩比下的 PPL 退化幅度。
+
+    - 下游任务准确率：在零样本/少样本基准（如 HellaSwag, PIQA, ARC, MMLU）上的分数，以及与长文本相关的专用基准（如 LongBench, L-Eval, Needle-in-a-Haystack 测试）的得分。这些指标直接反映压缩是否损害了实际应用能力。
+
+    - 生成质量：ROUGE-L、BLEU、人类偏好评估等，用于需要文本生成的场景。稳定性也非常重要——在超长上下文下是否出现突然的输出崩塌（困惑度爆炸）。
+
+    - 压缩效率指标
+
+    - 压缩比 (Compression Ratio)：原始 KV Cache 尺寸与压缩后尺寸的比值，或节省比例。需要区分“峰值压缩比”和“平均压缩比”，因为部分方法（如淘汰策略）可能在短序列时不压缩，长序列时才显著。
+
+    - 内存占用绝对减少量：以 GB/token 或 GB/sequence 表示，这是部署时最直接的约束。
+
+    - 是否与序列长度解耦：最优的方法能实现恒定缓存大小（如 StreamingLLM、滑动窗口），此时压缩比随序列长度线性增长，而内存消耗不增长，这是长上下文推理的关键特性。
+
+    - 系统性能指标
+
+    - 吞吐量 (Throughput)：每秒生成的 token 数。需要测试在不同 batch size 下的表现。压缩减少了 HBM 读取量，应显著提升 decode 阶段的内存带宽受限场景的吞吐。
+
+    - 延迟 (Latency)：首 token 延迟（TTFT）和每 token 生成延迟（TPOT）。淘汰类方法可能因为额外计算（排序、掩码生成）而增加延迟，因此必须控制开销。
+
+    - 计算与访存开销 (Overhead)：压缩算法本身引入了多少 FLOPs 和额外的 HBM 访问。例如 H2O 需要计算累积分数、排序、构建淘汰掩码，这些开销必须远小于节省的访存收益。
+
+    - 通用性与工程可用性
+
+    - 是否依赖架构修改：能否直接应用于预训练模型（如 MQA/GQA 需要改变结构，而 H2O、量化可即插即用）。
+
+    - 与现有框架的兼容性：能否与 FlashAttention、PagedAttention、张量并行、量化等无缝集成。
+
+    - 适用场景：对 batch size 是否敏感，对输入长度分布是否有假设，以及是否支持多轮对话的连续缓存管理等。
+
+    综合来看，PPL vs. 内存预算的帕累托前沿是学术界的金标准，而在工业界部署时，吞吐量提升倍数 + 任务准确率不降是决定性因素。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YD2SwSsy9iTGMmkEs4jcylEZnnd
+  block_id: Hc3LdZzjeo5uWZxB7ksc1LsdnYe
+  page_token: YD2SwSsy9iTGMmkEs4jcylEZnnd
+  original_title: 如何评估 KV Cache 压缩方法的性能：哪些指标最重要？
+  imported_at: '2026-09-21'

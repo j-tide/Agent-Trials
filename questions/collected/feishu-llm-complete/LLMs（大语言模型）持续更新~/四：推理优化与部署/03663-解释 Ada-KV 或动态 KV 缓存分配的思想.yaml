@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6c802f594863
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 Ada-KV 或动态 KV 缓存分配的思想。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 解释 Ada-KV 或动态 KV 缓存分配的思想。
+answer:
+  mode: rubric
+  reference_answer: |-
+    动态 KV 缓存分配（Adaptive KV Caching） 的核心思想是：并非模型中的所有层和所有注意力头都需要相等的历史上下文窗口。 它们对远距离依赖的需求是不同的，因此应该根据各自的重要性动态地、非均匀地分配有限的 KV 缓存预算，从而在总显存约束下最大化模型质量。
+
+    动机：
+
+    - 研究表明，浅层倾向于捕获局部语法和简单模式，深层则更需要全局语义。某些注意力头可能专门负责短程交互，另一些则对长距离依赖敏感。
+
+    - 统一分配（所有头保留相同数量的 token）会导致“预算浪费”：不需要长上下文的头被迫存储冗余 token，而需要长上下文的头却可能因预算不足而丢失关键信息。
+
+    Ada-KV 的工作方式（以代表性方法为例）：
+
+    - 重要性离线测量或在线评估：可以使用一小组校准数据，计算每个头、每层在注意力计算时对不同距离 token 的“依赖度”（例如，注意力权重的距离分布、梯度的敏感度）。或者在线，根据实际运行时的注意力分数统计动态调整。
+
+    [图片内容未导入]
+
+    好处：
+
+    相比统一分配，动态分配可以在相同总显存下显著降低 PPL、提高长文本任务得分，实现“好钢用在刀刃上”的效果。例如，某研究发现通过动态分配，可以用 40% 的总缓存预算实现与全缓存相当的质量，而统一淘汰则需要 60%~70% 的预算。
+
+    此类方法代表了 KV 缓存优化的精细化管理方向，与 MQA/GQA 等结构压缩完全正交，未来可能融合进标准推理框架。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YD2SwSsy9iTGMmkEs4jcylEZnnd
+  block_id: Ke42d84xko2W37xtVkkcMhdtnce
+  page_token: YD2SwSsy9iTGMmkEs4jcylEZnnd
+  original_title: 解释 Ada-KV 或动态 KV 缓存分配的思想。
+  imported_at: '2026-09-21'

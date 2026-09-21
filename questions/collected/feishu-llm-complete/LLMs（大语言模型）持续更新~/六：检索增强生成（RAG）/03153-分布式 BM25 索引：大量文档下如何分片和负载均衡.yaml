@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6ef8c279561e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分布式 BM25 索引：大量文档下如何分片和负载均衡？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 分布式 BM25 索引：大量文档下如何分片和负载均衡？
+answer:
+  mode: rubric
+  reference_answer: |-
+    当文档规模达到数十亿级别时，单机显然无法承载。分布式 BM25 索引需要将数据和查询负载分散到集群中的多个节点上，核心机制是分片。
+
+    分片策略：
+
+    Elasticsearch 是目前最成熟的分布式 BM25 解决方案。它在创建索引时，允许指定主分片数。文档根据其 ID 进行哈希，然后被均匀地分配到各个主分片上。每个主分片本身就是一个完整的、独立的 Lucene BM25 索引。查询时，协调节点会将查询请求广播到所有相关分片，每个分片在本地执行查询并返回自己的 Top K 结果，再由协调节点进行全局排序和合并，返回最终的 Top K 文档。
+
+    负载均衡：
+
+    为了实现查询负载的均衡和系统的高可用，每个主分片可以配置零个或多个副本分片。副本分片是主分片的完整拷贝，可以分布在不同的节点上。这样，查询请求可以被路由到主分片或其任意一个副本上执行，从而分散单个节点的查询压力。分片的大小对性能影响巨大，通常建议单个分片大小在 10GB 到 50GB 之间。分片过小会导致元数据管理开销增大，分片过大则会使查询和恢复速度变慢。
+
+    自研系统的考量：
+
+    如果自研分布式索引，通常会采用基于一致性哈希的分片策略，它能在集群扩缩容时最小化数据迁移。每个分片独立构建和管理其 BM25 索引。查询时，由一个代理节点将查询广播到所有分片，收集结果后归并。这种架构的关键在于全局统计信息（如 IDF、平均文档长度）的同步，可以采用全局定期统计或分片本地统计后近似合并的方式。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Vb7IwCWIWiJRpIkluiicTYcOnnd
+  block_id: Nn9IdfOcHoyxHqxo0p7cf2sYnWf
+  page_token: Vb7IwCWIWiJRpIkluiicTYcOnnd
+  original_title: 分布式 BM25 索引：大量文档下如何分片和负载均衡？
+  imported_at: '2026-09-21'

@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-24fe5f2eb7db
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当使用 FlashAttention 结合 PagedAttention 时，如何在内核中实现分页查询？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 当使用 FlashAttention 结合 PagedAttention 时，如何在内核中实现分页查询？
+answer:
+  mode: rubric
+  reference_answer: |-
+    vLLM 等框架将 FlashAttention 的分块计算 与 PagedAttention 的分页加载 融合，形成 flash_attn_with_kvcache 等高效内核。
+
+    融合原理：
+
+    - FlashAttention 本身循环加载 K、V 块（沿序列长度分块）到 SRAM，与 Q 块计算。在支持连续 KV Cache 时，K、V 块的地址是连续递增的。
+
+    - 要实现分页，内核在每次加载 K、V 块之前，通过块表将逻辑块索引转换为物理块地址，然后从该物理地址加载连续的 block_size 个 token 的 K、V。
+
+    - 具体步骤：
+
+    优化细节：
+
+    - 为了避免在每个块都计算块表，可以一次性将当前请求的整个块表条目预加载到寄存器或共享内存中。
+
+    - 物理块内部连续，与 FlashAttention 原本的分块连续性假设完全兼容，因此只要解决了地址映射，循环体几乎不需要改动。
+
+    - 由于分页导致的非连续，预取距离可能需要调整，确保在需要数据前发出加载请求，隐藏延迟。
+
+    因此，结合的关键就是在 FlashAttention 的外层循环中加入一次“地址重映射”，将逻辑连续变为物理块内连续、块间跳转的访问模式。 这种融合让分页管理和高效注意力计算结合得天衣无缝。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  block_id: OwfkdCv95oAd3Qxq0ZTc9TmNnid
+  page_token: Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  original_title: 当使用 FlashAttention 结合 PagedAttention 时，如何在内核中实现分页查询？
+  imported_at: '2026-09-21'

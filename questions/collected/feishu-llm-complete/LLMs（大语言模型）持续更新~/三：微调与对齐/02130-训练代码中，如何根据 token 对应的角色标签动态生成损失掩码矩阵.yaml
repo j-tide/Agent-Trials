@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1afe7374439e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练代码中，如何根据 token 对应的角色标签动态生成损失掩码矩阵？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 训练代码中，如何根据 token 对应的角色标签动态生成损失掩码矩阵？
+answer:
+  mode: rubric
+  reference_answer: "在实际训练中，对话数据往往以结构化的角色信息（如 role: user/assistant）存储，而不是简单的文本。我们需要根据这些角色标签动态生成损失掩码。\n\n核心思路：遍历整个
+    tokenized 序列，识别每个 token 所属的角色。可以通过特殊标记（如 <|im_start|>user）来区分角色边界。一旦确定了每个 token
+    的角色，就可以生成掩码：assistant 角色的 token 对应的 label 保持为原始 token ID，其他角色的 token 对应的 label
+    设为 -100。\n\n完整代码示例：\n\n```python\nimport torch\n\ndef create_loss_mask_from_roles(input_ids,
+    tokenizer, roles):\n    \"\"\"\n    input_ids: [1, seq_len] 的 token ID 张量\n    tokenizer:
+    用于获取特殊标记的 ID\n    roles: 一个列表，每个元素为 (start_index, end_index, role)，\n           表示
+    input_ids[0, start_index:end_index] 属于哪个角色。\n           例如 roles = [(0, 5, 'system'),
+    (5, 12, 'user'), (12, 20, 'assistant')]\n    返回: labels 张量 [1, seq_len]，其中非 assistant
+    部分为 -100\n    \"\"\"\n    labels = input_ids.clone()\n    \n    # 首先将所有位置初始化为
+    -100（默认不计算损失）\n    labels.fill_(-100)\n    \n    # 然后只将 assistant 部分的 label 恢复为原始
+    token ID\n    for start, end, role in roles:\n        if role == 'assistant':\n
+    \           labels[0, start:end] = input_ids[0, start:end]\n    \n    return labels\n```\n\n自动化识别角色边界：在实际项目中，我们通常不手动传入
+    roles，而是利用 chat_template 生成的特殊 token 自动识别。例如，Llama 的模板会生成 <|im_start|>assistant\\n...<|im_end|>。我们可以扫描
+    input_ids，找到所有 <|im_start|>assistant 和 <|im_end|> 对，将两者之间的 token 标记为 assistant
+    角色。\n\n```python\ndef auto_detect_roles_and_create_labels(input_ids, tokenizer):\n
+    \   labels = input_ids.clone().fill_(-100)\n    \n    assistant_start = tokenizer.encode(\"<|im_start|>assistant\")[0]\n
+    \   assistant_end = tokenizer.encode(\"<|im_end|>\")[0]\n    \n    seq_len = input_ids.shape[1]\n
+    \   i = 0\n    while i < seq_len:\n        if input_ids[0, i] == assistant_start:\n
+    \           # 找到对应的结束标记\n            j = i + 1\n            while j < seq_len
+    and input_ids[0, j] != assistant_end:\n                j += 1\n            if
+    j < seq_len:\n                # 将 assistant 部分的 token 恢复为原始 ID\n                #
+    注意：我们通常也把 assistant_start 和 assistant_end 设为 -100\n                # 因为它们是格式标记，不是自然语言\n
+    \               labels[0, i+1:j] = input_ids[0, i+1:j]\n            i = j + 1\n
+    \       else:\n            i += 1\n    return labels\n```\n\n这种方法完全自动化，无需人工标注角色边界，是现代
+    SFT 训练的标准做法。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VOrVwrhLzi4WRokQOMPcOsPWnwg
+  block_id: TGc5d4It8oEbvHxE6yAcd0kYnib
+  page_token: VOrVwrhLzi4WRokQOMPcOsPWnwg
+  original_title: 训练代码中，如何根据 token 对应的角色标签动态生成损失掩码矩阵？
+  imported_at: '2026-09-21'

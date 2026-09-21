@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ba6159987deb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 物理块大小（block size）如何选择？对显存利用率和计算效率有何影响？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 物理块大小（block size）如何选择？对显存利用率和计算效率有何影响？
+answer:
+  mode: rubric
+  reference_answer: |-
+    物理块大小（每块包含的 token 数）是一个重要的超参数，需要在内部碎片、块表开销、计算效率之间权衡。
+
+    - 内部碎片：平均每个请求的最后一个块有 block_size/2 的期望浪费。块越大，内部碎片越多，显存利用率越低。例如，block_size=128 可能造成每个请求 ~64 token 的浪费；block_size=16 则仅 ~8 token。
+
+    - 块表开销：块越小，块表行数（最大逻辑块数）越大，块表本身占用内存和传输开销增加。同时，注意力 kernel 需要循环更多次（每次加载一个块），循环开销和索引计算也增加。
+
+    - 计算效率：较大的块可以更好地利用内存合并访问和 Tensor Core 的 tile 尺寸。块内连续区域大，向量化加载效率更高；循环次数少，kernel 启动和指令开销降低。但过大的块在 batch 中不同请求的长度差异大时，可能导致负载不均（某些块只部分填充，GPU 线程束利用率下降）。
+
+    - 实践经验：vLLM 默认 block_size = 16（或 32）是一个平衡点，既保持内部碎片在可接受范围（几%），又维持了较高的 kernel 效率。对于内存非常充裕或面向极长序列的场景，可适度增大块尺寸以减少循环开销。
+
+    影响总结：
+
+    [嵌入表格未展开]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  block_id: BXYPddpFBofq7RxKVUbcDrKZnkd
+  page_token: Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  original_title: 物理块大小（block size）如何选择？对显存利用率和计算效率有何影响？
+  imported_at: '2026-09-21'

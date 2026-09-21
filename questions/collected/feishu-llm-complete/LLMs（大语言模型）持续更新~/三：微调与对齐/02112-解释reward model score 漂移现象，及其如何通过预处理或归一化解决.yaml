@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bc93b2c9d3cc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释“reward model score 漂移”现象，及其如何通过预处理或归一化解决。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 解释“reward model score 漂移”现象，及其如何通过预处理或归一化解决。
+answer:
+  mode: rubric
+  reference_answer: |-
+    现象描述：
+
+    在 PPO 训练过程中，随着 Actor 模型参数的不断更新，它生成的回复的分布会逐渐发生变化。这意味着，奖励模型（RM）在 PPO 训练初期看到的数据分布，与在训练中后期看到的数据分布是不同的。由于 RM 是在一个静态的、主要由 SFT 模型生成的数据集上训练的，面对这种新的、分布外的数据，它给出的分数可能会发生整体性的偏移，例如分数整体偏高或整体偏低。
+
+    这种“漂移”会导致严重的问题：PPO 算法对奖励的尺度非常敏感。如果 RM 给出的分数整体越来越高，优势函数 At 的绝对值会不断变大，导致策略更新幅度不受控制，引发训练崩溃。
+
+    解决方案：
+
+    - 奖励归一化 (Reward Normalization)：这是最基本、最有效的策略。在每一个 PPO 训练批次（Batch）中，对 RM 给出的所有回复的奖励分数进行 Z-score 标准化：
+
+    [图片内容未导入]
+
+    - 在线奖励模型更新：在 PPO 训练过程中，定期利用新生成的数据对 RM 进行微调。这可以保持 RM 对当前数据分布的适应性，但工程实现复杂，成本较高。
+
+    - 固定奖励值域（Reward Clipping）：对 RM 的输出进行硬截断，将其限制在一个固定的范围之内（如 [-10, 10]）。这也能防止奖励值漂移到过于极端的区域。
+
+    奖励归一化是一种无成本的、即时的、极其有效的解决方案，它使得 PPO 调参变得容易得多，是 RLHF 训练中的标准实践。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QNW3wg7bCinLPQkL0kGc4IdynHh
+  block_id: ZDrbdHLSVoICbTxt8BtcPSCJn7c
+  page_token: QNW3wg7bCinLPQkL0kGc4IdynHh
+  original_title: 解释“reward model score 漂移”现象，及其如何通过预处理或归一化解决。
+  imported_at: '2026-09-21'

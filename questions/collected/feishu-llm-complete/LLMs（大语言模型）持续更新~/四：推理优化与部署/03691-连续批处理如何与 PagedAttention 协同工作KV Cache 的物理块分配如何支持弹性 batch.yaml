@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-86a7522e1aaa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 连续批处理如何与 PagedAttention 协同工作？KV Cache 的物理块分配如何支持弹性 batch。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 连续批处理如何与 PagedAttention 协同工作？KV Cache 的物理块分配如何支持弹性 batch。
+answer:
+  mode: rubric
+  reference_answer: |-
+    PagedAttention 是一种受操作系统虚拟内存启发，将 KV Cache 划分为固定大小的物理块（如每块 16 个 token），并通过块表将逻辑 KV 序列映射到非连续的物理块上的技术。它彻底解决了静态连续缓存导致的碎片化和内存浪费。
+
+    与连续批处理的协同：
+
+    - 动态 batch 大小的基础
+    连续批处理要求随时加入或移除请求。传统连续的 KV Cache 需要为每个请求预分配最大长度的连续显存，不仅浪费巨大，而且释放后留下无法利用的碎片，无法灵活调整 batch。PagedAttention 将 KV Cache 打散成小块，使得请求长度的增长只需追加块，请求退出时整块回收，完全无碎片。这样，调度器可以在任何时候安全地增减运行请求数，无需担心显存布局。
+
+    - 零拷贝的请求换入换出
+    新请求进入时，调度器从空闲块池中分配若干物理块给该请求，建立初始块表。请求退出时，其所有物理块直接回收到空闲池。这些操作仅涉及指针/索引的修改，无数据移动。抢占式调度中，换出一个请求就是将其物理块的内容拷贝到 CPU 并将块标记空闲；换入时分配新块并拷回数据。PagedAttention 的块式存储让换入换出无比简洁。
+
+    - 注意力 kernel 的无缝支持
+    PagedAttention 专用的 CUDA kernel（如 vLLM 的 flash_attn_with_kvcache）可直接根据每个请求的块表，动态加载对应的 K、V 块进行计算。无论 batch 内请求的序列长度如何不同、块分配如何零散，kernel 都能高效处理。这保证了连续批处理下，异构请求的注意力计算不会退化为低效的循环，始终保持高吞吐。
+
+    - 内存共享与复杂调度
+    例如在 beam search 中，多个候选序列可以共享相同的物理块（写时复制）。PagedAttention 的块表映射让这种共享天然实现，而连续批处理调度器可以利用这一点节省显存，容纳更多请求。
+
+    弹性 batch 的具体实现：
+    调度器在每轮迭代后，查看空闲块数 F。对于等待队列中的请求，估算其所需块数（prompt 长度 + 预留生成长度）。如果 F 足够，就分配块、执行 prefill（分块）、将该请求加入运行集。通过物理块的动态分配与回收，batch 的组成与大小弹性变化，显存利用率可达 90% 以上，而静态方案往往不足 50%。
+
+    总结：连续批处理负责“什么时候改变 batch”，PagedAttention 负责“怎样在显存中高效组织数据以支持改变”。两者结合，实现了 LLM 推理服务在吞吐、延迟和资源利用率上的代际飞跃。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqBawimrwioo11kNL45cwrfznle
+  block_id: Sx0adthfSophpKxVbXncsuXHnmb
+  page_token: EqBawimrwioo11kNL45cwrfznle
+  original_title: 连续批处理如何与 PagedAttention 协同工作？KV Cache 的物理块分配如何支持弹性 batch。
+  imported_at: '2026-09-21'

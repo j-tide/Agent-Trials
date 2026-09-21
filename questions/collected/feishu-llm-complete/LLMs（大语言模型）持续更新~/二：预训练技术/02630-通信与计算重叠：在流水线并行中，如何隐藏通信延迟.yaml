@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-17d8408b321c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 通信与计算重叠：在流水线并行中，如何隐藏通信延迟？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 通信与计算重叠：在流水线并行中，如何隐藏通信延迟？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在流水线并行中，通过1F1B调度（One Forward, One Backward）和异步通信，可以有效地将激活/梯度的传输与计算重叠，从而隐藏通信延迟。
+
+    重叠原理：
+
+    - 在1F1B调度中，设备完成一个micro-batch的前向或反向计算后，会立即将结果发送给下一阶段（前向）或上一阶段（反向），同时不等待发送完成，马上开始执行下一个micro-batch的计算。
+
+    - 例如，设备1完成micro-batch 1的前向计算后，立即发起异步Send将激活传给设备2，然后马上开始micro-batch 2的前向计算。此时，micro-batch 1的激活正在网络上传输，而设备1的计算单元在处理micro-batch 2，实现了通信与计算的重叠。
+
+    - 同理，在反向传播中，设备2计算完micro-batch 1的梯度后，异步Send给设备1，然后立即开始micro-batch 2的反向计算。
+
+    实现要点：
+
+    - 使用CUDA流：PyTorch的流水线库默认利用多个CUDA流，使计算核和通信核可以并行执行。
+
+    - 预分配缓冲区：提前为待发送/接收的激活和梯度分配固定大小的缓冲区，避免动态内存分配开销。
+
+    - 数据依赖管理：必须确保接收方在需要使用数据时，数据已经到达。1F1B调度本身通过固定数量的预热micro-batch，保证了在反向开始前，所需的前向激活已就绪，或采用了重计算（rematerialization）来释放激活显存，此时通信与计算的重叠同样适用。
+
+    - 在GPipe调度中，因为所有前向完成后才统一反向，通信完全暴露在气泡中，难以重叠。1F1B因其交替特性，天然适合隐藏通信。
+
+    通过这种精细的调度，流水线并行中的通信延迟几乎可以被完全隐藏，使得总体训练时间更接近纯计算时间，极大提升了硬件效率。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQ7qw1klCirayhkUauicscbqnpc
+  block_id: AIKbdNXpco1jKhxjdckcDFwHnrd
+  page_token: GQ7qw1klCirayhkUauicscbqnpc
+  original_title: 通信与计算重叠：在流水线并行中，如何隐藏通信延迟？
+  imported_at: '2026-09-21'

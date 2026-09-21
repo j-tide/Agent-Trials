@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-43f81429c7b5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么现在的 LLM 预训练普遍采用因果掩码而不是前缀掩码？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 为什么现在的 LLM 预训练普遍采用因果掩码而不是前缀掩码？
+answer:
+  mode: rubric
+  reference_answer: |-
+    现代通用大语言模型（如 GPT 系列、LLaMA、PaLM 等）几乎全部使用纯因果掩码（Decoder-Only 架构），而非前缀掩码（Prefix LM），主要有以下深层原因：
+
+    - 简洁统一的生成范式：纯因果掩码将所有输入（包括指令、上下文、历史）都视为“已生成的序列”，模型以“预测下一个 token”为唯一目标。这带来了极其简洁的训练目标、数据格式和推理流程。前缀掩码则需要区分“前缀”和“生成”部分，训练时对两者使用不同掩码，增加了系统复杂性。
+
+    - 上下文学习的天然适配：在纯因果模型中，few-shot 示例和用户指令自然地作为“历史 token”存在，模型无需任何架构调整就能通过自注意力从它们中提取模式和指令。而在前缀模型中，前缀部分是双向编码的，虽然理论上也支持，但纯因果模型在统一的单向框架下展现出了极强的上下文学习（in-context learning）能力。
+
+    - 更好的长文本外推与位置编码兼容：现代的 RoPE 等位置编码在纯因果模型上表现极佳，且可以通过 NTK、YaRN 等技术高效外推上下文窗口。前缀模型由于前缀和生成部分的位置编码可能需要不同的处理，增加了复杂性。
+
+    - 训练与推理高度一致：纯因果模型在预训练、SFT、RLHF 等各个阶段使用的都是相同的自回归格式，连数据格式都无需转换。前缀模型在预训练（可能是因果）和下游任务（前缀+因果）之间存在差异，需要额外的适配。
+
+    - 显存与计算效率：对于给定的序列长度，纯因果模型的注意力计算量是确定的，且现代 FlashAttention 可以高效利用其下三角结构。前缀模型的双向前缀部分虽然可能带来更好的理解，但也意味着前缀部分的注意力计算是稠密的（全矩阵），当序列很长时显存和计算开销更大。
+
+    - 经验证明的缩放定律：过去几年的实践证明，将计算资源全部投入解码器的扩大，遵循 scaling law 可以持续、可预测地提升性能。而前缀模型尚未在超大规模（>100B）上展现出超越纯因果模型的显著优势。
+
+    因此，纯因果掩码凭借其架构的极致简洁性、强大的涌现能力以及成熟的工程生态，成为了当前 LLM 预训练的绝对主流。
+
+    - 在预训练时，使用不同的掩码矩阵混合训练。同一个模型既可以用双向掩码（全0，如阅读理解），也可以用单向掩码（因果掩码，如文本生成），还可以用 seq2seq 掩码（前缀部分双向，后缀部分单向）。通过控制自注意力掩码，单个 Transformer 模型就可以同时具备理解和生成能力。
+
+    - 输入序列被切分为前缀（通常为任务描述或上文）和后续待生成部分。前缀部分使用双向注意力（所有 token 可以互相看），生成部分使用因果掩码（只能看前缀和已生成的前文）。这种设计在 T5 的“prefix language modeling”和 GLM 等模型中得以应用。
+
+    - 采用排列语言建模（Permutation Language Modeling），通过打乱 token 顺序，对排列中的每个 token，只使用其“排列上下文”（即排列中在它之前的 token，可能来自原文的前后）。虽然不直接是“同时双向和单向”，但它在单次训练中融合了双向的语境理解能力。
+
+    - 如果 i<P（前缀部分），则列 j 无限制（全0）。
+
+    - 如果 i≥P（生成部分），则列 j 只能为 j<P（前缀）或 P≤j≤i（生成部分的前文），j>i 的生成部分 token 被 mask（−∞）。
+
+    - 掩码A：仅允许当前像素的上下文包含已生成的像素（不包括当前像素本身），用于初始层。
+
+    - 掩码B：允许包含当前像素，用于后续层。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/T1lDwb4hxi97hzkT5A3c9KeJnrf
+  block_id: ATg7dyk6loezo9xzBVccSdpnnUb
+  page_token: T1lDwb4hxi97hzkT5A3c9KeJnrf
+  original_title: 为什么现在的 LLM 预训练普遍采用因果掩码而不是前缀掩码？
+  imported_at: '2026-09-21'

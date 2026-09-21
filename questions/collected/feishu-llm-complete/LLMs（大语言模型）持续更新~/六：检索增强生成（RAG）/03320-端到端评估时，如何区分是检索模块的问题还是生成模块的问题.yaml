@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9e68a8738f5b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 端到端评估时，如何区分是检索模块的问题还是生成模块的问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 端到端评估时，如何区分是检索模块的问题还是生成模块的问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    当一个 RAG 系统输出了一个糟糕的答案时，我们面临的核心诊断问题是：到底是检索阶段没有提供好的素材（检索失败），还是生成阶段没有用好素材（生成失败）？这需要一套系统化的故障定位流程。
+
+    区分方法：逐层排除与对比实验
+
+    - 使用“黄金上下文”进行消融实验：
+    这是最根本、最权威的定位方法。对于一批测试问题，由人工标注出“如果模型看到这些文档，就一定能正确回答”的黄金上下文。然后，用这些黄金上下文替换掉检索模块的输出，直接喂给生成模型。如果此时生成的答案质量依然很差（如出现幻觉或答非所问），那问题一定出在生成模块本身。反之，如果换上黄金上下文后答案变得完美，那么就确凿无疑地证明是检索模块出了问题，它没能找回这些关键文档。
+
+    - 分层指标追踪：
+    在系统上线后，每个查询的日志中都应记录下分层指标。
+
+    - 引入“上下文相关性”作为中间裁判：
+    这个指标专门评估检索到的文档与查询的相关性。如果答案失败，而上下文相关性得分很高，说明检索给的是对的，但模型理解或生成出了错。如果上下文相关性得分很低，说明检索本身就是失败的。
+
+    - 分析模型的“引用”行为：
+    如果你的 RAG 系统要求模型在生成答案时提供引用（例如，引用来源文档的编号），那么可以通过分析这些引用来快速诊断。如果模型的引用是准确的，但答案依然错误，可能是推理错误。如果模型完全不引用，或者引用的是不相关的文档，则可能是检索文档质量差，或者模型选择了错误的文档作为依据。
+
+    诊断流程总结：
+
+    输出质量差 → 检查上下文相关性 → 相关性低则检索失败 → 相关性高则检查忠实度 → 忠实度低则生成失败 → 忠实度高但答案错则推理失败。
+
+    通过这套流程，可以像经验丰富的医生一样，对 RAG 系统的“病症”进行精准分诊，从而有针对性地去优化检索管道、调整分块策略、或微调生成模型。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AZ8BwcRC4irBITk2iaMc0ZqDnLc
+  block_id: JizJdw9kyo9Qklx0a6PcIbffnSf
+  page_token: AZ8BwcRC4irBITk2iaMc0ZqDnLc
+  original_title: 端到端评估时，如何区分是检索模块的问题还是生成模块的问题？
+  imported_at: '2026-09-21'

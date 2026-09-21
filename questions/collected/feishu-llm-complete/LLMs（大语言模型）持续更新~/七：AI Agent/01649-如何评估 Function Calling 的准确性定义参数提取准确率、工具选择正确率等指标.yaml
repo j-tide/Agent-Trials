@@ -1,0 +1,121 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c5bf0ff82c24
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何评估 Function Calling 的准确性？定义参数提取准确率、工具选择正确率等指标。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 如何评估 Function Calling 的准确性？定义参数提取准确率、工具选择正确率等指标。
+answer:
+  mode: rubric
+  reference_answer: |-
+    评估 Function Calling 的准确性，需要将其拆解为三个关键环节：工具选择、参数提取和流程规划。每个环节都需要独立的评估指标。
+
+    一、工具选择正确率
+
+    这是衡量模型能否在正确的时间选择正确的工具。
+
+    - 指标：Tool Selection Accuracy
+
+    二、参数提取准确率
+
+    这是衡量模型在选定工具后，能否为其提供准确参数的能力。
+
+    - 指标1：Exact Match (EM)
+
+    - 指标2：F1 Score for Parameters
+
+    - 指标3：幻觉参数率
+
+    三、流程规划与鲁棒性
+
+    对于需要多步工具调用的复杂任务，评估其整体流程的正确性。
+
+    - 指标1：Task Success Rate
+
+    - 指标2：Planning Efficiency
+
+    - 指标3：Error Recovery Rate
+
+    评估数据集的构建：一个高质量的评估基准是核心。它必须包含多样化的查询、每个查询对应的正确工具调用序列的标注、以及针对不同错误类型的对抗性测试用例（如缺少参数、歧义查询、工具混淆等）。通过这套指标体系，可以全方位地诊断一个 Function Calling 系统的是工具选择不准、参数提取不清、还是整体规划逻辑混乱。
+
+    - type：参数的数据类型，如 "string", "number", "boolean", "array", "object"。
+
+    - description：此字段是重中之重。必须提供参数的语义描述、它的作用，并且尽量给出值的示例或格式要求。例如，对于 city 参数，描述可以是：“需要查询天气的城市名称，使用标准中文全称，如‘北京’、‘上海’。不要使用拼音或缩写。”
+
+    - enum：如果参数的值是一个固定的集合，必须使用此字段列出所有可能的值。这能极大提高模型输出合法参数值的概率。
+
+    - Llama 3：通过特殊的提示词格式（如 <|start_header_id|>assistant<|end_header_id|>）和预定义的 python 或 json 格式输出来实现。其模型本身被训练为直接输出包含工具调用的文本。
+
+    - Mistral：引入了专门的 token 和格式来处理函数调用。
+
+    - 通用适配：许多社区微调的开源模型采用了类似 OpenAI 的 tool 消息格式，但具体的提示词模板和特殊 token 各不相同。这导致“即插即用”的通用性较差。
+
+    - 请求转换：将你的内部 Schema 和对话历史，翻译成该特定 LLM API 所要求的格式。这包括处理提示词模板、特殊 token 的注入和角色定义的映射。
+
+    - 响应转换：将该 LLM 的原始响应（可能是 OpenAI 的 tool_calls，也可能是 Claude 的 tool_use 结构），解析并转换回你的内部统一格式。这包括提取函数名和参数，并处理多模态或文本格式的差异。
+
+    - 信息密度优先：使用结构化的纯文本或 Markdown 列表、表格，往往比一个巨大的嵌套 JSON 对象更容易被模型理解。
+
+    - 结果与参数呼应：在格式化结果时，应附加上本次调用的工具名和使用的查询参数，帮助模型建立起“因”与“果”的联系。
+
+    - 错误格式化：必须将技术性的错误堆栈转换为一条清晰、可执行的文本指令，如“工具调用失败，原因是：权限不足”。
+
+    - 对话摘要：可以定期（例如，每N轮对话后）在后台异步地对之前的对话历史进行一次摘要，将长篇的、琐碎的交互提炼为一份简洁的“工作进展报告”，并将其作为一条 system 级的记忆注入回上下文。
+
+    - 外部状态存储：对于一些关键的状态变量（如“已完成任务列表”、“当前假设”、“需要验证的关键事实”），可以维护一个外部的、结构化的记忆对象。在每次向 LLM 发送请求时，将这个外部记忆格式化为清晰的文本块，注入到对话历史的合适位置。这使得记忆管理更加可控和可编程。
+
+    - “当需要调用工具时，如果某个必填参数没有被用户明确提供，不要猜测或使用默认值。”
+
+    - “生成一个礼貌的追问，向用户请求这个缺失的信息。”
+
+    - “如果信息模糊（例如，‘查下苹果’），不要自行消歧，而是列出可能的解释，让用户选择。”
+
+    - 定义：在需要调用工具的场景中，模型选择了正确工具的比例。
+
+    - 计算：(正确选择工具的调用次数) / (所有应触发工具调用的总次数)。
+
+    - 细化：对于多工具场景，还可以计算 Precision@K（正确的工具是否在模型的 Top-K 候选里）和 MRR（正确的工具在候选列表中的排名）。
+
+    - 定义：模型生成的参数键值对，与标准答案（Ground Truth）在所有必填字段和值上都完全一致的比例。这是最严格的标准。
+
+    - 定义：将生成的参数看作一个键值对集合，分别计算 Precision（生成的参数中有多少是正确且必要的）和 Recall（标准答案中有多少参数被正确生成），然后取调和平均。这比 EM 更鲁棒，能评估部分正确的调用。
+
+    - 定义：模型生成了 Schema 中不存在的参数（幻觉）的调用比例。这是衡量模型对 Schema 遵循能力的重要负面指标。
+
+    - 定义：Agent 最终成功完成端到端任务的比例。这是最终的、最重要的业务指标。
+
+    - 定义：完成任务所需的最小工具调用步数与实际调用步数之比。评估 Agent 是否存在不必要的、冗余的调用。
+
+    - 定义：当某次工具调用失败时（如参数错误），Agent 能在一到两轮内通过重试或修正参数成功恢复的比例。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IA43wgi1niRa19kxIa6c0Qo5nCh
+  block_id: KlCfd9xMUoXaH1xztfkcaav3nyc
+  page_token: IA43wgi1niRa19kxIa6c0Qo5nCh
+  original_title: 如何评估 Function Calling 的准确性？定义参数提取准确率、工具选择正确率等指标。
+  imported_at: '2026-09-21'

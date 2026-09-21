@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7f038d48fe7a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 利用 torch.compile 或 TensorRT 进行自动算子融合，需要用户做什么？对动态 shape 的支持如何？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 利用 torch.compile 或 TensorRT 进行自动算子融合，需要用户做什么？对动态 shape 的支持如何？
+answer:
+  mode: rubric
+  reference_answer: |-
+    用户需要做的事：
+
+    - torch.compile：通常用户只需在模型或函数上添加 @torch.compile() 装饰器，或在调用时使用 torch.compile(model, mode="reduce-overhead")。可选的配置包括指定后端（如 inductor）、是否动态形状（dynamic=True）。无需手动改写模型代码。但为了获得最佳性能，可能需要避免某些不支持的 Python 操作，尽量使用 PyTorch 原生函数，以及提供示例输入或 shape 约束。
+
+    - TensorRT：需要先将 PyTorch/TensorFlow 模型转换为 ONNX 或直接使用 TensorRT 的 Python API 定义网络。对于 PyTorch，常用 torch-tensorrt 或 torch2trt 进行转换，需提供示例输入，可能需指定量化精度（如 FP16/INT8）、最大 batch size 等。对不支持的算子需要自定义插件。
+
+    对动态 shape 的支持：
+
+    - torch.compile：已支持动态 shape。通过设置 dynamic=True，编译时会生成能够处理多种输入形状的泛化 kernel（或针对常见 shape 生成多个特化 kernel）。但由于动态 shape 可能阻止某些图优化，或导致每次 shape 变化都触发重新编译，运行时可能有额外开销。建议尽量使用固定或很少变化的 shape 以获得最佳性能。
+
+    - TensorRT：从 6.0 开始支持动态形状。在构建引擎时，可以为每个输入指定一个优化配置文件，包含 min, opt, max 形状。TensorRT 会在这些范围内生成一个统一的引擎，运行时根据实际 shape 调整执行。如果实际 shape 超出配置范围，需要重新构建引擎。对 shape 维度变化频繁的情况，性能可能略低于静态 shape。
+
+    总之，两者都大幅简化了算子融合的实施，用户主要需要提供标注或转换，并合理配置动态维度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Uhg6wKBvGiSyqckdgPTciRAMn9f
+  block_id: C56XdtM42o5mWyxrOWvccDilnjh
+  page_token: Uhg6wKBvGiSyqckdgPTciRAMn9f
+  original_title: 利用 torch.compile 或 TensorRT 进行自动算子融合，需要用户做什么？对动态 shape 的支持如何？
+  imported_at: '2026-09-21'

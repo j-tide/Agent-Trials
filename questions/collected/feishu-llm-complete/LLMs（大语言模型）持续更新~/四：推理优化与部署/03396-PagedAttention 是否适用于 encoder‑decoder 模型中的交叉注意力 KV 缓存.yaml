@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1df344b37b3f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: PagedAttention 是否适用于 encoder‑decoder 模型中的交叉注意力 KV 缓存？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: PagedAttention 是否适用于 encoder‑decoder 模型中的交叉注意力 KV 缓存？
+answer:
+  mode: rubric
+  reference_answer: |-
+    适用，但需要将分页管理扩展到 encoder 输出缓存。
+
+    在 encoder-decoder 模型（如 T5、Whisper）中，除了 decoder 的自注意力 KV Cache，还有 交叉注意力（cross-attention）的 KV 缓存，其 K、V 来自 encoder 的最终输出（对所有输入 token 的编码）。这些 encoder K、V 在整个 decoder 生成期间是静态只读的。
+
+    PagedAttention 的适配：
+
+    - 将 encoder 输出的 K、V 同样组织为固定大小的物理块，建立encoder 块表。不同请求的 encoder 输入长度不同，故 encoder 块数不同。
+
+    - 在 decoder 的交叉注意力计算时，kernel 根据请求的 encoder 块表和该层交叉注意力的 K、V 存储布局，加载对应块的 K、V 数据。
+
+    - 共享潜力：如果多个请求共享相同的 encoder 输入（例如批量翻译同一句话），它们的 encoder KV 块可以共享，大幅节省显存。
+
+    - 内存管理：encoder 块在请求的生命周期内始终存在（只读），直到请求完成才释放。同样采用引用计数，可跨请求共享。
+
+    与纯 decoder 的区别：
+
+    - 需要维护两套块表：一套用于 decoder 自注意力（动态增长），一套用于 encoder 交叉注意力（静态）。
+
+    - 内核需要支持双路分页加载：自注意力从 decoder 块表读，交叉注意力从 encoder 块表读。这增加了内核参数和逻辑复杂度，但原理完全一致。
+
+    - Prefill 阶段需要为 encoder 处理分配块并写入，之后 decoder 方可开始。
+
+    结论：PagedAttention 完全可以推广到 encoder-decoder 模型，通过独立管理 encoder KV 块实现了统一的分页缓存架构。当前 vLLM 的实验性支持已经在做此类扩展。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  block_id: UslPd6P4zoEBvxxGF7rcBbX0nog
+  page_token: Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  original_title: PagedAttention 是否适用于 encoder‑decoder 模型中的交叉注意力 KV 缓存？
+  imported_at: '2026-09-21'

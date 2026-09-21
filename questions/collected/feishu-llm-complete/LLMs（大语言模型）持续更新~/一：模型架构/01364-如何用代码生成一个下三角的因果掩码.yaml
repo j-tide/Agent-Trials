@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-50086f55f660
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何用代码生成一个下三角的因果掩码？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 如何用代码生成一个下三角的因果掩码？
+answer:
+  mode: rubric
+  reference_answer: |-
+    使用 PyTorch 生成一个形状为 (seq_len, seq_len) 的下三角布尔掩码（True 表示需要屏蔽的未来位置，False 表示保留），然后转换为加性掩码。示例如下：
+
+    ```python
+    import torch
+
+    def generate_causal_mask(seq_len):
+        # 生成上三角矩阵，对角线以上为True，表示需要mask
+        # triu: upper triangle, diagonal=1 表示不包含对角线
+        mask = torch.triu(torch.ones(seq_len, seq_len), diagonal=1).bool()
+        # mask 中 True 的位置需要被屏蔽，转为 -inf
+        # 在注意力分数上使用时： scores.masked_fill_(mask, float('-inf'))
+        return mask
+
+    # 示例：长度为4
+    mask = generate_causal_mask(4)
+    print(mask)
+    ```
+
+    输出：
+
+    ```text
+    tensor([[False,  True,  True,  True],
+            [False, False,  True,  True],
+            [False, False, False,  True],
+            [False, False, False, False]])
+    ```
+
+    然后可以在注意力计算中使用：
+
+    ```python
+    scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
+    scores = scores.masked_fill(mask, float('-inf'))
+    attn_weights = torch.softmax(scores, dim=-1)
+    ```
+
+    如果还需要同时处理 padding mask，可以先将 padding mask 扩展为与 scores 相同的形状，然后组合：
+
+    ```python
+    scores = scores.masked_fill(causal_mask, float('-inf'))
+    scores = scores.masked_fill(padding_mask, float('-inf'))
+    ```
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/T1lDwb4hxi97hzkT5A3c9KeJnrf
+  block_id: MhZedcrjWo2T1QxUBkQc6EKFnnd
+  page_token: T1lDwb4hxi97hzkT5A3c9KeJnrf
+  original_title: 如何用代码生成一个下三角的因果掩码？
+  imported_at: '2026-09-21'

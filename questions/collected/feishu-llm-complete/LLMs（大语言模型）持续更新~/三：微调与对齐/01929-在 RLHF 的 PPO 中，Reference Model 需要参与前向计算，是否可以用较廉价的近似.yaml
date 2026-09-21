@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1d96e93f8777
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 RLHF 的 PPO 中，Reference Model 需要参与前向计算，是否可以用较廉价的近似？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 在 RLHF 的 PPO 中，Reference Model 需要参与前向计算，是否可以用较廉价的近似？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 RLHF 中，Reference Model 的作用是计算 KL 散度，作为防止策略偏离的约束。用“廉价”的近似来替代它是可能的，但风险很高，需要谨慎权衡。
+
+    潜在方案与风险：
+
+    - 使用量化 (Quantization) 或更小的 Reference Model：将 Reference Model 量化为 INT8 或 INT4，或者直接使用一个参数量更小的 SFT 模型作为参考。
+
+    - 定期更新 Reference Model (Stale Reference Model)：这是一种策略上的近似。我们并不在每一个 PPO 步都使用最新的、与优化前完全一致的 SFT 模型作为参考，而是使用一个“稍旧”版本的 SFT 模型，或者每隔 N 步才更新一次 Reference Model 的权重。这可以在某些工程实现中提高效率，但本质上引入了偏差。
+
+    为什么主流方案不轻易使用廉价近似？
+
+    RLHF 的成功很大程度上依赖于稳定性和可复现性。Reference Model 所提供的稳定、精确的 KL 约束是整个 PPO 训练能够收敛而不崩溃的基石。一旦这个基石出现偏差，整个训练过程就会变得不稳定，极易出现奖励黑客、策略崩溃等问题。因此，工业界和学术界的共识是，Reference Model 的计算开销是“必要的成本”，宁可通过硬件和工程优化（如 offload、量化）来承担，也不轻易用不准确的近似来替代其数值精度。
+
+    更可行的优化方向：
+
+    相比于用近似 Reference 模型，更主流的优化方向是使用 LoRA 进行 PPO 训练。在这种模式下，Actor 模型本身的可训练参数极少，Reference 模型与 Actor 共享冻结的基座模型，需要额外计算的仅仅是 Actor 的 LoRA 权重所带来的一小部分前向开销。这从根本上降低了整体计算量。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QNW3wg7bCinLPQkL0kGc4IdynHh
+  block_id: EozFdXwKOoGL7GxvDe8ctwnenxf
+  page_token: QNW3wg7bCinLPQkL0kGc4IdynHh
+  original_title: 在 RLHF 的 PPO 中，Reference Model 需要参与前向计算，是否可以用较廉价的近似？
+  imported_at: '2026-09-21'

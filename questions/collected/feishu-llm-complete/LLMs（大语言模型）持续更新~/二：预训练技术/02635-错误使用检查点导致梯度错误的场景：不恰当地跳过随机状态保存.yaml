@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-713b63cd1b9d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 错误使用检查点导致梯度错误的场景：不恰当地跳过随机状态保存。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 错误使用检查点导致梯度错误的场景：不恰当地跳过随机状态保存。
+answer:
+  mode: rubric
+  reference_answer: |-
+    梯度检查点的正确性依赖于重计算时的前向传播与首次前向完全一致。如果模型包含非确定性操作（如 dropout、random data augmentation 等），且检查点未保存和恢复随机数生成器（RNG）状态，则两次前向的随机掩码不同，导致重计算产生的激活与首次前向不同。此时反向传播计算的梯度会错误，模型收敛可能出现偏差或不稳定。
+
+    典型错误场景：
+
+    - 设置 preserve_rng_state=False：在包含 dropout 的 Transformer 中，为了提升性能而关闭 RNG 保存，导致每次重计算 dropout mask 不同，梯度估计有偏。
+
+    - 自定义操作使用了独立 RNG：某些用户自己编写的 CUDA 核或扩展使用了独立的随机数源（如 torch.cuda.random 的单独状态），checkpoint 无法自动追踪，导致重计算时这部分随机性不一致。
+
+    - 检查点段内使用了多线程或异步操作改变了 RNG 顺序：重计算时的执行顺序可能与首次不同，使得 RNG 的消耗序列错位。
+
+    后果：梯度不正确，模型收敛速度下降，最终精度受损，甚至训练发散。
+
+    解决方法：
+
+    - 默认情况下，PyTorch 的 checkpoint 会保存和恢复 RNG 状态（preserve_rng_state=True），这通常能保证 dropout 等 PyTorch 内置操作的确定性。
+
+    - 对于自定义操作，需要确保它们也尊重全局 RNG，或在检查点段内显式地保存/恢复自己的随机状态。
+
+    - 验证方法：在训练初期，分别用 preserve_rng_state=True 和 False 运行少量步骤，比较梯度范数和损失曲线，若差异显著，则必须保留 RNG 保存。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  block_id: MwkxdyRgKot6pZx08C8cHCKtnvb
+  page_token: DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  original_title: 错误使用检查点导致梯度错误的场景：不恰当地跳过随机状态保存。
+  imported_at: '2026-09-21'

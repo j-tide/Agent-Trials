@@ -1,0 +1,102 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8be469f70e90
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: DeepSpeed ZeRO 配置示例：写出开启 Stage 2 的关键 JSON 参数
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: DeepSpeed ZeRO 配置示例：写出开启 Stage 2 的关键 JSON 参数
+answer:
+  mode: rubric
+  reference_answer: |-
+    以下是一个典型的 DeepSpeed ZeRO Stage 2 配置文件（JSON 格式），用于优化器状态和梯度的分片：
+
+    {
+      "train_batch_size": 32,
+      "gradient_accumulation_steps": 4,
+      "optimizer": {
+        "type": "AdamW",
+        "params": {
+          "lr": 1e-4,
+          "betas": [0.9, 0.999],
+          "eps": 1e-8,
+          "weight_decay": 0.01
+        }
+      },
+      "scheduler": {
+        "type": "WarmupLR",
+        "params": {
+          "warmup_min_lr": 0,
+          "warmup_max_lr": 1e-4,
+          "warmup_num_steps": 1000
+        }
+      },
+      "zero_optimization": {
+        "stage": 2,
+        "allgather_partitions": true,
+        "allgather_bucket_size": 5e8,
+        "overlap_comm": true,
+        "reduce_scatter": true,
+        "reduce_bucket_size": 5e8,
+        "contiguous_gradients": true,
+        "offload_optimizer": {
+          "device": "none"
+        }
+      },
+      "fp16": {
+        "enabled": true,
+        "loss_scale": 0,
+        "initial_scale_power": 16
+      }
+    }
+
+    关键参数说明：
+
+    - "stage": 2：启用 ZeRO-2，分片优化器状态和梯度。
+
+    - "allgather_partitions": true：在前向/反向需要完整参数时，通过 All-Gather 从分片中收集完整参数（此选项通常为默认，但在 Stage 2 中参数不分片，因此这个选项实际用于 Stage 3。Stage 2 中梯度通过 Reduce-Scatter 分片，参数不分片，故此处配置仅为说明，实际 Stage 2 无需此参数）。
+
+    - "reduce_scatter": true：使用 Reduce-Scatter 来聚合梯度，实现梯度分片。
+
+    - "overlap_comm": true：将通信与计算重叠，提高效率。
+
+    - "reduce_bucket_size" 和 "allgather_bucket_size"：设置桶大小以合并小通信。
+
+    - "contiguous_gradients": true：梯度在 reduce 前被整理为连续内存，提升通信性能。
+
+    - "offload_optimizer"：这里设为 "device": "none" 表示不卸载。
+
+    请注意，Stage 2 参数不分片，所以配置中没有参数分片相关选项。如果需要卸载到 CPU，则设置 "offload_optimizer": {"device": "cpu"}。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdlMwr6zHiurCIkdVS6c9aFDnUg
+  block_id: SzHddw88xoZYxrxviifc16MXnXf
+  page_token: RdlMwr6zHiurCIkdVS6c9aFDnUg
+  original_title: DeepSpeed ZeRO 配置示例：写出开启 Stage 2 的关键 JSON 参数
+  imported_at: '2026-09-21'

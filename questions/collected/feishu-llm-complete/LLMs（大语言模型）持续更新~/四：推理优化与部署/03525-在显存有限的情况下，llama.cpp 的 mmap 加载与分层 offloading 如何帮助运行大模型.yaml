@@ -1,0 +1,123 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6385f045ed7d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在显存有限的情况下，llama.cpp 的 mmap 加载与分层 offloading 如何帮助运行大模型？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在显存有限的情况下，llama.cpp 的 mmap 加载与分层 offloading 如何帮助运行大模型？
+answer:
+  mode: rubric
+  reference_answer: |-
+    llama.cpp 的两大特性——mmap 加载和分层 offloading——让用户在显存（或内存）极少的设备上也能运行大模型。
+
+    mmap 加载（内存映射）：
+
+    - 模型文件（GGUF）通过操作系统的 mmap 映射到虚拟地址空间。此时并不实际读取文件内容进入物理内存，而是让操作系统在需要时（缺页中断）按需加载。
+
+    - 只有推理过程中实际访问的权重页才会被加载到 RAM 中。对于大模型，不常使用的部分可能一直留在磁盘（交换文件），这允许在物理内存远小于模型大小的情况下运行。例如，16GB 内存的电脑可以运行 20GB 的量化模型，超出部分使用 swap。
+
+    - 此外，mmap 允许零拷贝加载，推理过程中直接读取文件页缓存，无需额外解压缓冲区，内存占用极小。
+
+    分层 offloading（层卸载）：
+
+    - 通过 --n-gpu-layers 参数，可将模型的若干层权重加载到 GPU 显存，其余层留在 CPU 内存。
+
+    - GPU 负责执行其上的层，产生的中间激活传回 CPU，CPU 继续执行剩余层。这样可结合 GPU 的算力和 CPU 的大内存，突破单 GPU 显存限制。
+
+    - 例如，在 4GB 显存的 GPU 上，可卸载 20 层到 GPU，其余 20 层在 CPU，成功运行 7B 模型。GPU 加速了部分计算，整体速度优于纯 CPU。
+
+    结合使用效果：
+
+    - 在仅有 8GB RAM 的树莓派或旧笔记本上，通过 mmap + swap 可运行 Q4 量化的 7B 模型（约 4GB），虽然很慢（~几 token/s），但已可实现本地推理。
+
+    - 在带有小显存 GPU + 大内存的系统中，分层 offloading 提供了最佳性价比：GPU 加速前端层，CPU 处理剩余层，显存和内存同时充分利用。
+
+    这两大特性使得 llama.cpp 成为边缘设备和个人电脑运行大模型的事实标准工具。
+
+    - 预分配显存池，规划 KV Cache 块大小和最大 batch size。
+
+    - 支持分页 KV Cache（与 vLLM 类似的块管理），消除碎片。
+
+    - 权重预加载并重排布局，以匹配 kernel 的最佳访问模式。
+
+    - 从内存加载一块打包权重和对应 scale 到向量寄存器。
+
+    - 利用 SIMD 指令（如 _mm256_shuffle_epi8、_mm256_sign_epi8）在寄存器中解包 4-bit 为 8-bit。
+
+    - 使用 _mm256_maddubs_epi16 等整数乘加指令，同时将激活（也动态量化为 uint8）与权重进行点积，并将 scale 融入（通过后续的浮点乘加）。
+
+    - 最终累加到 FP32 累加器，无需写出中间浮点权重矩阵。
+
+    - flash_attn：强制使用 FlashAttention（注意：vLLM 已将其作为核心，但自定义的 PagedAttention 往往与之融合）。
+
+    - torch_sdpa：使用 PyTorch 的 scaled_dot_product_attention，适用于兼容性测试或非 NVIDIA 平台。
+
+    - xformers：使用 XFormers 内存高效注意力。
+
+    - 自定义：可以通过继承 AttentionBackend 接口，实现自己优化的注意力内核，并通过插件方式注册。
+
+    - 编译：make LLAMA_CUDA=1 或使用 CMake 开启 -DLLAMA_CUDA=ON。
+
+    - 运行：./main --n-gpu-layers 35 -m model.gguf，--n-gpu-layers 控制多少层卸载到 GPU。
+
+    - 编译：make LLAMA_METAL=1 或 CMake 开启 -DLLAMA_METAL=ON。
+
+    - 运行：./main --n-gpu-layers 99 -m model.gguf 将所有层放在 GPU 上（M 系列芯片共享内存）。
+
+    - 编译：make LLAMA_VULKAN=1 或 -DLLAMA_VULKAN=ON。
+
+    - 运行：./main --n-gpu-layers ... 与 CUDA 类似。
+
+    - 识别新旧上下文的差异点（通常是新的用户消息追加在历史末尾）。
+
+    - 仅对新增的 token 部分进行 prefill，复用已缓存的 KV 块。
+
+    - 通过调整位置编码（RoPE）和 KV 缓存的逻辑索引，使模型“认为”新 token 紧跟在旧历史之后，而无需重新处理整个序列。
+
+    - 草稿模型自回归生成 K 个候选 token。
+
+    - 目标模型一次并行验证，通过拒绝采样决定接受与否。
+
+    - 采用树注意力或链式验证。
+
+    - 双模型管理：引擎需同时管理主模型和草稿模型的权重、KV 缓存等。草稿模型可能共享部分层或独立。
+
+    - 调度器修改：每轮推测解码包含草稿和验证阶段，调度器需要决定何时为哪些请求执行草稿，以及如何将多个推测请求与普通请求混合批处理。
+
+    - 注意力内核扩展：支持树注意力（tree attention）来并行验证多个分支。vLLM 实现了一种树掩码版本的 PagedAttention，能够处理不同分支的不等长节点。
+
+    - 采样逻辑：在验证阶段，需要根据拒绝采样公式修正 logits 并生成 token，这被集成在 vLLM 的采样器后处理中。
+
+    - 显存管理：额外的草稿模型或预测头会占用更多显存。vLLM 通过共享权重、KV 缓存复用等策略减轻压力。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZXcXweoHiilNSmkYRs9cZyF8n1f
+  block_id: Nil0d4MlUo3VocxamDNcj9Z5n0e
+  page_token: ZXcXweoHiilNSmkYRs9cZyF8n1f
+  original_title: 在显存有限的情况下，llama.cpp 的 mmap 加载与分层 offloading 如何帮助运行大模型？
+  imported_at: '2026-09-21'

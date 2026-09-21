@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-632dc424dbb5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在极深的 LLM 中，残差连接会导致激活内存占用过高吗？如何解决？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 在极深的 LLM 中，残差连接会导致激活内存占用过高吗？如何解决？
+answer:
+  mode: rubric
+  reference_answer: |-
+    会导致，这是训练大模型的核心显存挑战之一。
+
+    残差连接要求在前向传播时保留每一层的输入激活，以便在反向传播时计算支路的梯度。对于 LLM，输入激活的维度为 (batch, seq_len, d_model)。一个 100 层、d_model=8192、序列长度 4096 的模型，单层激活占用 batch * 4096 * 8196 * 4 bytes ≈ batch * 128 MB（FP32）。若 batch=1，仅一层的激活就超过 100 MB，100 层则需数十 GB 显存，根本无法训练。
+
+    解决方案：
+
+    - 激活重计算（Activation Checkpointing）：只保存部分层的输入激活（通常每隔 1~2 层保存一个检查点），在反向传播时，对于未保存的层，从最近的检查点重新进行前向计算来恢复激活。这样以计算换内存，可将激活显存降低到约 O(sqrt(L)) 级别。这是训练 LLM 的标准做法。
+
+    - FlashAttention：对注意力部分，使用分块计算并在线更新 softmax，无需保存完整的注意力矩阵，极大减少了注意力层的激活内存。
+
+    - 梯度累积与微批次（Micro-batching）：将大 batch 切分成多个微批次，逐一前向、反向并累积梯度，进一步降低峰值显存。
+
+    - 混合精度训练（FP16/BF16）：将激活存储为 FP16 或 BF16，减小每元素字节数。
+
+    - 模型并行（张量并行、流水线并行）：将模型切分到多个 GPU，每张卡只存储部分层的激活。
+
+    综合运用上述技术，才能在有限显存下训练数千亿参数的 LLM。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KmS5w89VIig4zEkCkcecHTuKn1d
+  block_id: DVJ4dr7oLoWmd6xmKXFceckgnXc
+  page_token: KmS5w89VIig4zEkCkcecHTuKn1d
+  original_title: 在极深的 LLM 中，残差连接会导致激活内存占用过高吗？如何解决？
+  imported_at: '2026-09-21'

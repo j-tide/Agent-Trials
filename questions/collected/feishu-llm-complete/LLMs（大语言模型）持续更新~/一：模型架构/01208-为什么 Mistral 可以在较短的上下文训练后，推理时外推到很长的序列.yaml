@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bee34b54b804
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么 Mistral 可以在较短的上下文训练后，推理时外推到很长的序列？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 为什么 Mistral 可以在较短的上下文训练后，推理时外推到很长的序列？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Mistral 的长文本外推能力源于其滑动窗口注意力的固有特性，而非依赖于可泛化的位置编码（尽管 RoPE 也提供了辅助）。
+
+    - 固定窗口大小：无论是在训练还是推理时，每个 token 的注意力范围都被硬性限制在最近的 4096 个 token。训练期间，模型只见过最多 4096 长度的序列，但从未需要关注超过该窗口的历史。
+
+    - 推理时等变性：当推理长度从 4K 扩展到 100K 时，模型每个 token 仍然只处理最近的 4096 个 token，计算图完全一致。没有任何新的位置索引或注意力模式出现。因此，模型可以无缝外推，行为与训练时完全一致。
+
+    - 与位置编码无关：虽然 Mistral 使用了 RoPE，但 RoPE 的外推限制在此并非瓶颈，因为有效注意力距离从未超过 4096。RoPE 只需在 4096 以内准确编码相对位置，这在其训练长度内已经满足。
+
+    - 滚动缓冲实现：利用固定大小的 Rolling Buffer Cache，推理框架可以高效管理任意总长度的 KV 缓存，而不增加显存。
+
+    对比 LLaMA：LLaMA 采用全注意力，训练时每个 token 需要关注全部历史（如 4K），推理时若扩到 32K，模型会遇到未曾见过的远距离注意力和位置编码，因此必须通过插值等外推技术来“伪造”未见过的位置。Mistral 则完全避开了这个问题。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UbClwmrYXiwNeTkgdSEcuNYunif
+  block_id: XOk9dpWDKo17PnxvkbvcA16Enye
+  page_token: UbClwmrYXiwNeTkgdSEcuNYunif
+  original_title: 为什么 Mistral 可以在较短的上下文训练后，推理时外推到很长的序列？
+  imported_at: '2026-09-21'

@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9523183571fb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么 MLM 推理需要计算所有位置，包括未掩码部分？能否优化？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 为什么 MLM 推理需要计算所有位置，包括未掩码部分？能否优化？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在标准的 MLM 推理中，模型会处理整个输入序列，并输出所有位置的预测 logits。即使下游任务只需要一个句子表示（如用 [CLS]）或特定几个位置的输出，模型仍必须计算整个序列的完整前向传播。
+
+    原因：Transformer 的自注意力机制是全连接的。为了计算出任意一个位置的最终表示，模型需要该位置与序列中所有其他位置的交互信息。即使 [MASK] 只出现在某些位置，未掩码位置的表示也通过自注意力层混合了整个序列的上下文，而被掩码位置的表示又依赖于这些未掩码位置的信息。换句话说，我们不能单独“抽出”某几层的计算，必须完整运行整个编码器，否则被掩码位置无法获得充分的、由全局上下文构成的表示来进行准确预测。
+
+    能否优化：
+
+    - 推理时无法避开全序列计算，因为双向注意力需要完整的上下文。与自回归模型可以利用 KV Cache 避免重复计算不同，MLM 编码器每次推理的输入是几乎完整的，无法缓存。
+
+    - 训练时，由于掩码是稀疏的，一个优化方向是选择性计算：只对被掩码的位置计算输出层（分类头）的损失，而对未掩码位置不计算损失。这已经是在训练时节省计算的标准做法（因为不需要为所有位置计算 logits 和 softmax）。
+
+    - 在模型部署时，如果下游任务只使用 [CLS] 向量（如分类），那么可以完全丢弃编码器输出层的其余部分，但整个编码器本身仍需要完整运行。无法进行实质性的推理加速。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HhEuw3Eb2ic7MJkbiKUcJxh8nVO
+  block_id: OaR1dnycHoKhxFx1Tq8cgp0wn3d
+  page_token: HhEuw3Eb2ic7MJkbiKUcJxh8nVO
+  original_title: 为什么 MLM 推理需要计算所有位置，包括未掩码部分？能否优化？
+  imported_at: '2026-09-21'

@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-83a0694f6283
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何将 ReAct 与 RAG 结合，让模型自主决定何时检索？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: 如何将 ReAct 与 RAG 结合，让模型自主决定何时检索？
+answer:
+  mode: rubric
+  reference_answer: |-
+    将 ReAct 与检索增强生成（RAG）结合，相当于为 LLM 装上了一个“检索行动”，让它能够自行判断什么时候需要查找外部知识库，以及如何查找。这比单纯的 RAG（每次请求都无条件检索）更智能、更高效。
+
+    结合方式：
+
+    - 将“检索”定义为 ReAct 的一个 Action：在 ReAct 的行动空间中，增加一个 Retrieve[查询语句] 行动。当模型思考后认为需要从知识库获取信息时，就发起这个行动。系统执行该行动时，调用 RAG 管道，将查询语句转换为嵌入向量，从向量数据库中检索相关文档片段，并将这些片段作为 Observation 返回给模型。
+
+    - 多轮、可迭代的检索：与一次性检索不同，ReAct 允许模型进行多轮检索。如果第一轮检索到的文档不够充分，模型可以在 Thought 中分析原因，然后构造一个更精确的查询，再次发起 Retrieve。这实现了迭代式 RAG，能显著提升复杂问题的召回率和准确率。
+
+    - 与搜索行动互补：可以同时设置 Search（互联网搜索）和 Retrieve（内部知识库检索）两个行动。模型可根据问题类型自主决定：对于时效性问题用 Search，对于企业内部文档问题用 Retrieve。这种工具选择的自主性让 Agent 更加智能。
+
+    - 基于置信度的自适应检索：模型可以在 Thought 中自评对当前问题的了解程度。如果“我很清楚这个答案”，则直接回答，不触发检索；如果“我对这个领域不太确定，需要查一下资料”，则触发 Retrieve。这避免了不必要的检索调用，降低了成本和延迟。
+
+    实现示例：
+
+    在少样本提示中，加入类似下面的轨迹：
+
+    ```text
+    问题：公司最新的年假政策是什么？
+    Thought：这是公司内部政策，我需要查询内部知识库。
+    Action：Retrieve[年假政策]
+    Observation：[检索到的相关文档片段...]
+    Thought：根据文档，员工入职满一年享有5天年假...信息足够，可以回答。
+    Action：Finish[根据公司政策...]
+    ```
+
+    优势：ReAct + RAG 结合，赋予了模型“信息获取的主动性”，既避免了无关检索造成的上下文噪音和成本，又通过迭代检索提升了对复杂问题的覆盖。这使得知识密集型应用的效率和质量达到了一个更好的平衡点。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UNcyw9ACIiJYN3krDjDcNJ1Rndc
+  block_id: NXIBd0AfDo1Reoxht19cHJ4Bndf
+  page_token: UNcyw9ACIiJYN3krDjDcNJ1Rndc
+  original_title: 如何将 ReAct 与 RAG 结合，让模型自主决定何时检索？
+  imported_at: '2026-09-21'

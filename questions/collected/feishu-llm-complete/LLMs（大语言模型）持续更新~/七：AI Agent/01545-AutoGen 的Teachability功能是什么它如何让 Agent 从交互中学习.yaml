@@ -1,0 +1,101 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6229ecac9d54
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: AutoGen 的“Teachability”功能是什么？它如何让 Agent 从交互中学习？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: AutoGen 的“Teachability”功能是什么？它如何让 Agent 从交互中学习？
+answer:
+  mode: rubric
+  reference_answer: |-
+    AutoGen 的 "Teachability" 是一个赋予 Agent 长期学习和适应能力的强大功能。它使得 Agent 可以从与用户或其他 Agent 的交互中获取新知识、记住用户的偏好和修正自己的错误，并将这些学习成果应用到未来的对话中。
+
+    Teachability 的工作机制
+
+    Teachability 本质上是一个与 Agent 绑定的、轻量级的记忆和学习管理系统。它主要由以下几个步骤组成：
+
+    - 知识提取与触发：当一个交互会话结束，或者当用户在对话中明确表示“记住这个”时，Teachability 会被触发。它会分析整个对话历史，提取出有价值的信息，例如新的概念、事实性知识、用户的个人偏好，或者用户对 Agent 错误回答的纠正。
+
+    - 记忆存储与管理：提取出的知识不是被简单地追加到某个日志文件中，而是被语义化地存储。Teachability 会将每条知识生成一个向量（Embedding），然后存入一个专用的向量数据库中（如 ChromaDB）。同时，它还会存储知识的原始文本和时间戳等元数据。这种存储方式支持后续的高效语义检索。
+
+    - 知识的检索与应用：当 Agent 开始一个新的对话时，Teachability 会在后台静默地工作。它会将当前用户的查询和对话上下文进行向量化，然后从记忆中检索出最相关的几条历史知识。这些知识会被精心地格式化，并作为一条无声的“提示”注入到 Agent 的系统消息中。Agent 能看到这些提示，但用户看不到。例如，检索到的记忆可能是：“（记忆：用户偏好简洁的代码注释，使用中文）”。
+
+    它如何让 Agent “学习”？
+
+    - 用户教学：用户可以直接教 Agent。“记住，我们的服务器地址是 10.0.0.1”。Teachability 会存储这条信息。下次 Agent 需要连接到服务器时，这条记忆就会被检索出来，Agent 就能知道正确的地址。
+
+    - 错误纠正：当 Agent 回答错误被用户纠正后，Teachability 会存储“用户更正”这一事实。下次遇到类似问题时，Agent 会优先参考被纠正后的信息。
+
+    - 偏好学习：用户说“下次生成代码时，别用类，用函数实现”。Teachability 会记住这个偏好，并在未来生成代码时自动应用。
+
+    配置 Teachability
+
+    启用 Teachability 非常简单，在创建 Agent 时将其添加即可。
+
+    ```python
+    from autogen import ConversableAgent, teachability
+
+    agent = ConversableAgent(
+        name="teachable_agent",
+        llm_config={"config_list": [{"model": "gpt-4", "api_key": "..."}]},
+        teach_config=teachability.Teachability(
+            verbosity=0,  # 0 (静默), 1 (简要), 2 (详细日志)
+            reset_db=False, # 是否重置记忆库
+            recall_threshold=1.5, # 检索记忆的阈值
+        )
+    )
+    ```
+
+    Teachability 为 AutoGen 的 Agent 装上了真正的“长期记忆”和“学习能力”，让它们不再是每次都从零开始，而是能够随着使用时间的增长变得越来越智能、越来越个性化。
+
+    - UserProxyAgent 作为代表：使用一个 UserProxyAgent，它是代表我们（开发者）的“眼和手”，可以执行代码或作为对话的发起者。
+
+    - 初始化 GroupChat：将客服 Agent、客户 Agent 和 UserProxyAgent 放入同一个 GroupChat。
+
+    - 设置初始消息：通过 UserProxyAgent 发送一条初始消息来触发整个角色扮演流程。例如，user_proxy.initiate_chat(manager, message="李明：你好，我刚收到货，但衬衫太大了，我想退货。")。
+
+    - Agent 自动对话：GroupChatManager 会管理发言权。客服 Agent 会基于其专业的 Prompt 进行回复，客户 Agent 则会根据其“人设”和“目标”继续推进对话，如进一步询问电子产品。它们会像真人一样完成一个完整的客服对话场景。
+
+    - 触发时机：在 Agent 每次调用 LLM 之前和之后。
+
+    - 监控信息：可以记录发送给 LLM 的完整 Prompt 序列，以及 LLM 返回的原始响应和 Token 消耗。这是分析 Agent “思考”过程的第一手资料。
+
+    - 触发时机：在 Agent 每次调用一个工具之前、成功之后、或出现错误之后。
+
+    - 监控信息：可以记录工具的名称、传入的输入参数、工具执行后的输出结果，以及如果出错时的详细错误信息。这是分析 Agent 行动合理性的关键。
+
+    - 触发时机：当 Agent 做出一个决策（要调用某个工具）时，以及当 Agent 决定结束任务并返回最终答案时。
+
+    - 监控信息：on_agent_action 事件能捕获到 Agent 选择的具体 Action 和输入参数，这是在 LLM 输出之后、工具执行之前的重要中间状态。on_agent_finish 则记录了最终返回给用户的完整输出。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/F9htw07hOih4oik4Vi3cSBIjnVd
+  block_id: DK9YdfKZ0oXDshxdOYycRFYenMf
+  page_token: F9htw07hOih4oik4Vi3cSBIjnVd
+  original_title: AutoGen 的“Teachability”功能是什么？它如何让 Agent 从交互中学习？
+  imported_at: '2026-09-21'

@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dbafa83f3096
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么在 DPO 中，通常要在计算损失时 detach reference model 的 logits？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 为什么在 DPO 中，通常要在计算损失时 detach reference model 的 logits？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 DPO 训练的代码实现中，对参考模型输出的对数概率（logits/log probabilities）使用 .detach() 操作，是一个绝对必要的步骤。这是由参考模型在 DPO 中所扮演的角色决定的。
+
+    [图片内容未导入]
+
+    如果我们不对其进行 detach，会发生以下严重问题：
+
+    - 优化目标完全错乱：反向传播的梯度会流向参考模型的参数，并试图更新它。这完全违背了 DPO 的设计初衷——参考模型应当是优化前的“快照”，用于衡量策略的偏离程度。如果参考模型也随训练改变，它就失去了作为“参照系”的意义。
+
+    [图片内容未导入]
+
+    正确的做法：在 DPO 训练开始时，将 SFT 模型的权重加载为参考模型，并在整个训练过程中完全冻结其参数。在计算损失时，对从参考模型得到的 tensor 调用 .detach()，切断其梯度流。这保证了优化信号只
+
+    [图片内容未导入]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WVwowCMnFiuxmKkTemzc0jiFnnb
+  block_id: KCHodVk7aobYVsxcRrDcY2wInQH
+  page_token: WVwowCMnFiuxmKkTemzc0jiFnnb
+  original_title: 为什么在 DPO 中，通常要在计算损失时 detach reference model 的 logits？
+  imported_at: '2026-09-21'

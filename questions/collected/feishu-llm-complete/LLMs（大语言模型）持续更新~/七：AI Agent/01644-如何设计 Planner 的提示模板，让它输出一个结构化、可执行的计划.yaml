@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9e3cf4df3c17
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何设计 Planner 的提示模板，让它输出一个结构化、可执行的计划？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 如何设计 Planner 的提示模板，让它输出一个结构化、可执行的计划？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Planner 是整个 Plan-and-Execute 系统的战略大脑。其提示模板的设计，直接决定了生成计划的质量和可执行性。设计目标是引导模型进行严谨、全面、结构化的思考，而不仅仅是罗列一串动作。
+
+    核心设计要素
+
+    - 角色设定与目标明确化：必须首先为模型设定一个高度具体的战略规划专家角色，并清晰地定义它的使命。例如，“你是一位资深的项目规划师，你的任务是为给定的用户目标，制定一份详尽、可执行的行动计划。”
+
+    - 注入任务分解的元原则：在提示中明确指导模型如何进行高质量的分解。例如：“请遵循以下原则进行任务分解：① 自顶向下，先识别核心里程碑，再细化具体动作；② 每个子任务必须是一个原子操作，可以被一个工具调用或一个生成动作完成；③ 明确标注子任务之间的逻辑依赖关系；④ 确保所有子任务加在一起，能够完整地实现总目标，不遗漏关键步骤。”
+
+    - 强制要求结构化的输出格式：这是实现自动执行的关键。必须要求模型以固定的、可被程序解析的格式输出计划。最常用的是 JSON，因为它可以清晰表达层级和属性。要求输出的 JSON 数组中，每个对象包含 step_id、goal、action_type、parameters、depends_on、expected_outcome 等字段。这为后续的 Executor 提供了明确的执行指令。
+
+    - 提供高质量、多样化的少样本示例：抽象的指令不如鲜活的例子有效。在提示中提供 1-2 个完整的、从高维目标到详细计划的示例，展示如何正确处理依赖关系、如何将模糊意图转化为具体的工具调用，以及如何覆盖边界情况和失败的应对策略。示例是最好的老师。
+
+    - 注入对可用工具的理解：Planner 在制定计划时，必须清楚地知道 Agent 有哪些工具可用。因此，提示中需要包含所有可用工具的详细描述（名称、功能、参数 Schema）。这使规划不会天马行空，而是建立在可实现的基础之上。
+
+    示例提示词片段
+
+    ```text
+    [系统] 你是一个世界级的任务规划师。你的职责是将一个复杂的用户目标，拆解成一个有序的、可执行的JSON计划。
+
+    [任务分解原则]
+    1. 自顶向下：先识别核心里程碑，再逐步细化每个里程碑下的具体动作。
+    2. 最小动作：每个子任务应该是一个原子操作。
+    3. 明确依赖：清晰地指出哪些任务是其他任务的前置条件。
+    4. 完整覆盖：确保所有子任务完成后，总目标可以被完美达成。
+
+    [可用工具]
+    - search(query): 搜索互联网信息。
+    - calculator(expression): 计算数学表达式。
+
+    [输出格式]
+    请严格以JSON列表格式输出你的计划，每个元素包含以下字段：
+    - "step": 步骤编号 (整数)
+    - "goal": 本步骤要达成的子目标 (字符串)
+    - "action": 需要执行的具体动作 (字符串)
+    - "depends_on": 依赖的步骤编号列表 (列表)
+
+    [示例]
+    ...
+
+    [现在请处理]
+    总目标：{用户输入}
+    计划：
+    ```
+
+    通过这种精心设计的提示，LLM 能够生成一份既高屋建瓴又脚踏实地、且能被机器自动调度执行的行动计划。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WDvlwZLdCiVKBBkGGE5cn93onvc
+  block_id: XYqRd48eCowz9fx5Fs2cMBIEnbd
+  page_token: WDvlwZLdCiVKBBkGGE5cn93onvc
+  original_title: 如何设计 Planner 的提示模板，让它输出一个结构化、可执行的计划？
+  imported_at: '2026-09-21'

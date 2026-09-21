@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-79f05b1ceb7a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果对话数据中 assistant 回复存在严重错误，除了直接丢弃，能否通过损失掩码做部分学习？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 如果对话数据中 assistant 回复存在严重错误，除了直接丢弃，能否通过损失掩码做部分学习？
+answer:
+  mode: rubric
+  reference_answer: "直接丢弃数据是一种浪费，我们可以通过损失掩码从错误中学习正确的部分。\n\n场景：assistant 回复整体是好的，但某个句子存在明显的事实错误（例如，在介绍北京时，错误地写成了“北京有3000万人口”）。\n\n部分学习策略：\n\n-
+    利用强大的裁判模型识别并标记错误片段：使用 GPT-4 等模型作为标注工具，让它找出 assistant 回复中存在错误的具体句子，并用 [ERROR] 和
+    [/ERROR] 等标记符将其包裹起来。\n\n- 在构建 labels 时掩码错误片段：\n\n```python\ndef create_error_masked_labels(input_ids,
+    tokenizer):\n    labels = input_ids.clone()\n    error_start = tokenizer.convert_tokens_to_ids(\"[ERROR]\")\n
+    \   error_end = tokenizer.convert_tokens_to_ids(\"[/ERROR]\")\n    \n    in_error
+    = False\n    for i in range(labels.shape[1]):\n        token = labels[0, i].item()\n
+    \       if token == error_start:\n            in_error = True\n            labels[0,
+    i] = -100\n        elif token == error_end:\n            labels[0, i] = -100\n
+    \           in_error = False\n        elif in_error:\n            labels[0, i]
+    = -100\n    return labels\n```\n\n效果：模型会学习错误片段周围的正确上下文，但不会学习错误内容本身。这比直接丢弃整条数据要好，因为它保留了数据中的其他有效信息。\n\n更高级的做法：可以将错误片段替换为正确的信息（如果可获取），然后用掩码确保模型只学习替换后的正确内容，不学习原始的错误内容。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VOrVwrhLzi4WRokQOMPcOsPWnwg
+  block_id: D4lgde16moeeoWxXE3Qc7hh5nYe
+  page_token: VOrVwrhLzi4WRokQOMPcOsPWnwg
+  original_title: 如果对话数据中 assistant 回复存在严重错误，除了直接丢弃，能否通过损失掩码做部分学习？
+  imported_at: '2026-09-21'

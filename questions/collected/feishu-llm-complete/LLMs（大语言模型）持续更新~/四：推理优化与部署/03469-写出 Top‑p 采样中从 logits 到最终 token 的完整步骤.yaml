@@ -1,0 +1,98 @@
+---
+schema_version: 1
+id: feishu-llm-complete-12e6907bb09f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出 Top‑p 采样中从 logits 到最终 token 的完整步骤。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 写出 Top‑p 采样中从 logits 到最终 token 的完整步骤。
+answer:
+  mode: rubric
+  reference_answer: |-
+    以下是从 logits 到最终生成 token 的完整、可操作步骤，用于实现 Top‑p (Nucleus) 采样。
+
+    输入：模型输出的原始 logits 向量 logits，形状为 (batch_size, vocab_size)。
+    输出：一个标量，代表采样出的 token id。
+
+    ```python
+    def sample_token_top_p(logits, p=0.9, temperature=1.0, min_tokens_to_keep=1):
+        """
+        执行 Top-p (Nucleus) 采样
+        Args:
+            logits: 模型原始输出 logits
+            p: 累积概率阈值
+            temperature: 温度参数，默认为 1.0 (无缩放)
+            min_tokens_to_keep: 最少保留的 token 数量，防止极端情况
+        Returns:
+            sampled_token_id: 采样出的 token id
+        """
+        # 1. 应用温度参数 T，控制概率分布的“软硬”程度
+        if temperature != 1.0:
+            logits = logits / temperature
+
+        # 2. 对 logits 进行 softmax，得到初始概率分布
+        probs = torch.softmax(logits, dim=-1)
+
+        # 3. 将概率进行降序排序
+        probs_sort, probs_idx = torch.sort(probs, dim=-1, descending=True)
+
+        # 4. 计算排序后概率的累积和
+        probs_cumsum = torch.cumsum(probs_sort, dim=-1)
+
+        # 5. 创建过滤掩码：累积概率和超过 p 的，且排序位置在 min_tokens_to_keep 之后的 token 被移除
+        #    即：保留那些累积概率和 <= p 的，以及排在最前面的 min_tokens_to_keep 个
+        cutoff_mask = (probs_cumsum - probs_sort) > p  # 一个巧妙的技巧：如果某个token的概率远超p，此掩码会从它之后开始生效
+        # 更通用的掩码逻辑：
+        # mask = (probs_cumsum <= p) | (torch.arange(len(probs_sort)) < min_tokens_to_keep)
+        # 这里使用更精确的掩码:
+        mask = torch.zeros_like(probs_sort, dtype=torch.bool)
+        mask[:, :min_tokens_to_keep] = True
+        mask[:, min_tokens_to_keep:] = (probs_cumsum[:, :-min_tokens_to_keep] <= p)
+
+        # 6. 将掩码外的 token 概率设为 0，并重新归一化
+        probs_sort[~mask] = 0.0
+        probs_sort = probs_sort / probs_sort.sum(dim=-1, keepdim=True)
+
+        # 7. 从新的多项式分布中随机采样一个 token
+        sampled_token_idx_in_sorted = torch.multinomial(probs_sort, num_samples=1)
+
+        # 8. 获取原始词表中的 token id
+        sampled_token_id = torch.gather(probs_idx, dim=-1, index=sampled_token_idx_in_sorted)
+
+        return sampled_token_id.squeeze(-1)
+    ```
+
+    步骤总结：温度缩放 -> Softmax -> 概率排序 -> 累积和计算 -> 动态掩码过滤 -> 重归一化 -> 多项式采样。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/B2WpwnpvmiqW35k9hzvcJ4wTncd
+  block_id: YWfOdZOihoPOrUxLvQdcuDzpnMg
+  page_token: B2WpwnpvmiqW35k9hzvcJ4wTncd
+  original_title: 写出 Top‑p 采样中从 logits 到最终 token 的完整步骤。
+  imported_at: '2026-09-21'

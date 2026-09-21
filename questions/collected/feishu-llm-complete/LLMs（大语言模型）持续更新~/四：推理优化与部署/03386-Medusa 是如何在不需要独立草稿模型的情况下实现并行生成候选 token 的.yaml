@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d1ad2e546f54
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Medusa 是如何在不需要独立草稿模型的情况下实现并行生成候选 token 的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: Medusa 是如何在不需要独立草稿模型的情况下实现并行生成候选 token 的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Medusa 的核心思想是在目标大模型的最后隐藏层上附加多个轻量级预测头（Medusa heads），每个头负责预测未来不同步的 token，从而在一次大模型前向传播中同时产生多个候选 token，构成草稿序列，无需额外的独立草稿模型。
+
+    具体流程：
+
+    - 在正常自回归解码时，大模型处理当前序列，产生最后一层隐藏状态。
+
+    - 除了原始的 LM head 预测当前步 token 外，新增的 Medusa heads（例如 4 个头）分别直接预测当前步之后第 1、2、3、4 个位置的 token。
+
+    - 这样，一次 forward 就得到了一个由当前 token 和多个未来 token 组成的候选序列。这些候选序列随后通过树注意力由大模型自身并行验证（拒绝采样），保证最终输出分布与原始大模型完全一致。
+
+    因为 Medusa heads 非常小（通常为单层全连接或简单残差块），其计算量相比大模型几乎可忽略，因此“草稿生成”成本近乎为零，实现了无独立草稿模型的投机解码。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NR2xwXzjpi4F01khCQ7c89EgnWg
+  block_id: L4lkdWxC1oiwUTxxyrscAvKcnVc
+  page_token: NR2xwXzjpi4F01khCQ7c89EgnWg
+  original_title: Medusa 是如何在不需要独立草稿模型的情况下实现并行生成候选 token 的？
+  imported_at: '2026-09-21'

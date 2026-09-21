@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ec1c8b3d0821
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 BLEU 或 ROUGE 评估模型生成多样性时有什么问题？如何补充？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 八：评估与可靠性
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 八：评估与可靠性
+content:
+  prompt: 使用 BLEU 或 ROUGE 评估模型生成多样性时有什么问题？如何补充？
+answer:
+  mode: rubric
+  reference_answer: |-
+    BLEU 和 ROUGE 不仅无法衡量多样性，而且它们的内在机制实际上是惩罚多样性的。这是因为它们的设计目标就是衡量一个输出与单一参考文本的“相似度”，而多样化的输出恰恰意味着与参考文本的“差异”。
+
+    问题所在
+
+    - 鼓励“安全”的万能回答：如果一个对话模型对所有问题都回答同一个高频的、安全的句子（如“好的，我明白了”），它在与单一参考文本的词汇重叠上可能得分很高，但显然这是一个完全失败的、毫无多样性的模型。
+
+    - 抑制创造性和丰富表达：模型使用不同的词汇、句式来表达相同的语义，是语言能力的体现。但 BLEU/ROUGE 会因为这些用法与参考文本不同而降低分数，从而变相地惩罚模型的创造性。
+
+    补充多样性的评估指标
+
+    为了全面评估模型，必须引入专门衡量多样性的指标。
+
+    - 词汇多样性指标：
+
+    - 语义多样性指标：
+
+    结论：一个全面的评估体系，必须将“质量导向”的指标（如BERTScore, GPT-4 Eval）与“多样性导向”的指标（如Distinct-n, Self-BLEU）结合使用。只关注质量会导致模型输出变得单一、无聊，而只关注多样性又可能导致模型胡说八道。一个优秀的模型，必须在质量和多样性之间取得绝佳的平衡。
+
+    - 召回率：对于参考文本中的每个词元，在候选文本中找到与其余弦相似度最高的词元，取该最大相似度。所有参考词元的平均最大相似度即为 Recall_BERTScore。它衡量了参考文本中的信息是否被候选文本所覆盖。
+
+    - 精确率：反向操作，计算候选文本中的每个词元在参考文本中的最大匹配相似度。平均即为 Precision_BERTScore。
+
+    - F1 分数：最终 BERTScore 通常是召回率和精确率的调和平均数。
+
+    - AST Match（抽象语法树匹配）：将代码解析为 AST，比较生成的 AST 与参考代码的 AST 在结构上的相似度。这比文本匹配更鲁棒，能忽略变量名差异。
+
+    - CodeBLEU：这是专门为代码设计的 BLEU 变体。它将 n-gram 匹配与 AST 和 DFG 匹配结合起来，比传统 BLEU 与代码质量的相关性更高。
+
+    - 困惑度：衡量模型对自身生成文本的“确信度”。虽然不能直接衡量质量，但可以反映模型是否在“挣扎”。
+
+    - 预测熵：模型在生成每个词元时的预测熵。高熵表示模型不确定，可能是在胡编；低熵则表示模型很自信。
+
+    - SelfCheckGPT：用于检测幻觉。它让模型对同一个问题生成多次回答，然后衡量这些回答之间在事实层面的矛盾程度。如果多次回答的事实相互矛盾，说明模型很可能在编造信息。
+
+    - 自洽性：通过多数投票来提升答案质量，其投票的一致性本身也可以作为模型对答案自信度的一种度量。
+
+    - 使用针对目标语言的高质量分词器。
+
+    - 应用词干提取或词形还原，将不同形态的词归一化。
+
+    - 引入多语言同义词表进行匹配。
+
+    - Distinct-n：计算模型生成的所有回答中，不重复的 n-gram 数量占总 n-gram 数量的比例。Distinct-1 衡量词汇丰富度，Distinct-2 衡量短语丰富度。这是最常用的多样性指标。
+
+    - Type-Token Ratio (TTR)：文本中不重复词的数量除以总词数。在多个回答上取平均，可以衡量模型的词汇广度。
+
+    - 自BLEU（Self-BLEU）：让模型对同一个提示生成多个回答，然后计算这些回答两两之间的 BLEU 分数。如果两两之间的 BLEU 分数都很高，说明模型在机械地重复自己，缺乏多样性。分数越低，多样性越高。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ze2qwNmkvivezrkOvudcXB0KnOd
+  block_id: SU3pdkz39oudEUxy6sNcMbzunTf
+  page_token: Ze2qwNmkvivezrkOvudcXB0KnOd
+  original_title: 使用 BLEU 或 ROUGE 评估模型生成多样性时有什么问题？如何补充？
+  imported_at: '2026-09-21'

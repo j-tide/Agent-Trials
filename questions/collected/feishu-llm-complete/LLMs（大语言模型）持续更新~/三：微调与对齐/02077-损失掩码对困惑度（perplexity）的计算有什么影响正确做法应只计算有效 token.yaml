@@ -1,0 +1,52 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b0f45b30dfc2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 损失掩码对困惑度（perplexity）的计算有什么影响？正确做法应只计算有效 token。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 损失掩码对困惑度（perplexity）的计算有什么影响？正确做法应只计算有效 token。
+answer:
+  mode: rubric
+  reference_answer: "困惑度是衡量语言模型性能的核心指标，定义为交叉熵损失的指数：PPL = exp(Loss)。如果计算困惑度时包含了被掩码的
+    token（即 -100 的位置），会导致两个问题：\n\n- 数值扭曲：-100 的位置在交叉熵计算中被忽略，但如果手动计算困惑度时错误地将它们包含在内，会导致分母变大，从而低估真实的困惑度。\n\n-
+    不反映真实能力：困惑度应该衡量模型在“它需要学习的任务”上的表现。如果包含了 user 和 system 部分的 token，就等于在评估模型“生成用户提问”的能力，这不是我们关心的。\n\n正确做法：在计算困惑度时，只计算
+    labels != -100 的有效 token 的平均损失，然后取指数。\n\n```python\ndef compute_perplexity(logits,
+    labels):\n    \"\"\"\n    logits: (batch, seq_len, vocab_size)\n    labels: (batch,
+    seq_len)，其中非目标位置为 -100\n    \"\"\"\n    # 将所有非 -100 的 label 取出\n    active_labels
+    = labels[labels != -100]\n    active_logits = logits[..., :-1, :][labels[...,
+    1:] != -100]  # 错位对齐\n    active_labels = labels[..., 1:][labels[..., 1:] != -100]\n
+    \   \n    loss_fct = torch.nn.CrossEntropyLoss()\n    loss = loss_fct(active_logits.reshape(-1,
+    active_logits.size(-1)), active_labels.reshape(-1))\n    return torch.exp(loss)\n```\n\n在
+    HuggingFace 的 Trainer 中，如果 labels 中包含了 -100，损失计算会自动忽略这些位置，因此困惑度计算也是正确的。但如果自定义评估循环，务必手动过滤。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VOrVwrhLzi4WRokQOMPcOsPWnwg
+  block_id: Pc2gdTjWAoptMExoR1LcEWVInIg
+  page_token: VOrVwrhLzi4WRokQOMPcOsPWnwg
+  original_title: 损失掩码对困惑度（perplexity）的计算有什么影响？正确做法应只计算有效 token。
+  imported_at: '2026-09-21'

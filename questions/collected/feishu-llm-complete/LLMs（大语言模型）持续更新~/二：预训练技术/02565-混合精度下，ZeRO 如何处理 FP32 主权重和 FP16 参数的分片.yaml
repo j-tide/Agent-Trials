@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-18f3a63c6d20
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 混合精度下，ZeRO 如何处理 FP32 主权重和 FP16 参数的分片？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 混合精度下，ZeRO 如何处理 FP32 主权重和 FP16 参数的分片？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在混合精度训练（FP16 前向/反向，FP32 优化器状态）中，ZeRO 分片管理多种精度副本：
+
+    - FP16 参数：用于前向/反向计算。在 ZeRO-3 下，FP16 参数按数据并行度 Nd 分片。每个 GPU 持有分片的一部分，需要完整 FP16 参数时通过 All-Gather 收集。
+
+    - FP16 梯度：反向计算得到 FP16 梯度。ZeRO-2/3 对 FP16 梯度进行 Reduce-Scatter，归约并分片到各 GPU。
+
+    - FP32 主权重（Master Weights）：优化器实际更新的参数副本，通常保存为 FP32。ZeRO-1/2/3 中，FP32 主权重随优化器状态一起分片。每个 GPU 只存储其负责分片的 FP32 主权重，以及对应的 FP32 动量（m, v）。
+
+    - 参数更新：优化器在 FP32 精度下更新分片的主权重。更新后，再将 FP32 主权重转换为 FP16，并分发给所有需要的 GPU（通过 All-Gather 获取最新 FP16 参数分片，但每个 GPU 仅提供自己更新后的 FP16 分片）。实际上，每个 GPU 只更新自己的分片，然后其他 GPU 需要该分片时通过 All-Gather 获取。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdlMwr6zHiurCIkdVS6c9aFDnUg
+  block_id: LQdQdUeXSoE3aFxbtNac1ZuWnlg
+  page_token: RdlMwr6zHiurCIkdVS6c9aFDnUg
+  original_title: 混合精度下，ZeRO 如何处理 FP32 主权重和 FP16 参数的分片？
+  imported_at: '2026-09-21'

@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-719a37c48adb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 增量索引：当新文档到达时，如何在不重建整个索引的情况下更新？有哪些挑战？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 增量索引：当新文档到达时，如何在不重建整个索引的情况下更新？有哪些挑战？
+answer:
+  mode: rubric
+  reference_answer: |-
+    增量索引是指在不重建整个索引的前提下，将新到达的文档（及其向量）添加到已有索引中，并使其立即可被查询。这是实现实时搜索和动态知识库的关键能力。
+
+    实现方式：
+
+    不同的索引算法对增量更新的支持程度不同。HNSW 天然支持高效的增量插入，它只需为新向量计算邻居并插入到图的各层中即可，算法复杂度仅为 O(log N)，这是它的巨大优势。对于 IVF 系列，操作稍显复杂。最简单的方式是直接将新向量追加到距离它最近的现有簇中。但这种“硬加”方式会逐渐改变簇的分布，导致检索精度缓慢下降。更高级的做法是，维护一个小型的增量缓冲区（如一个小的 Flat 或 HNSW 索引），当缓冲区满了，再将其与主 IVF 索引进行后台合并或触发主索引的增量重新训练。
+
+    主要挑战：
+
+    - “索引漂移”与精度衰减：这是增量更新最核心的问题。随着新数据的不断加入，原有索引的结构（如 IVF 的簇中心、PQ 的量化码本）会逐渐无法准确反映新的数据分布。最终导致搜索精度持续下降，需要定期重建以恢复性能。
+
+    - 内存管理与碎片化：增量插入，尤其是随机、持续的插入，可能导致内存碎片。如果索引文件是内存映射的，频繁的微小写入可能使文件迅速膨胀，出现很多“空洞”，最终导致内存利用率低下，查询性能下降。
+
+    - 事务一致性与并发控制：在增量更新期间，索引需要同时服务于读查询和写操作。如何保证一个查询不会看到一半新的、一半旧的不一致状态？这需要实现类似数据库的MVCC（多版本并发控制）或至少一个轻量级的读写锁机制。
+
+    - 删除与更新的复杂性：标记删除一个向量比插入它更复杂。HNSW 的删除可能需要标记并后续重建连接，IVF 的删除则涉及从簇列表中物理移除。全量的更新通常意味着“删除旧向量+插入新向量”，挑战叠加。因此，很多系统对更新操作的处理并不高效。
+
+    因此，一个健壮的增量索引系统，不仅需要依赖算法本身的能力，还常常需要一套复杂的后台运维机制，比如定期的不紧急的全量重建、实时的增量日志合并等。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SkhxwrnkSi7qcRkf8LOcNILdnr0
+  block_id: GXXcdmj7OoZ62qx4fRPccjePnDc
+  page_token: SkhxwrnkSi7qcRkf8LOcNILdnr0
+  original_title: 增量索引：当新文档到达时，如何在不重建整个索引的情况下更新？有哪些挑战？
+  imported_at: '2026-09-21'

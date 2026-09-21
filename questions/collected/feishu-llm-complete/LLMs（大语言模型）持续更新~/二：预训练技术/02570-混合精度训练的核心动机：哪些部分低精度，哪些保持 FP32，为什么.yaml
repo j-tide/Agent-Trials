@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e12046407f62
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 混合精度训练的核心动机：哪些部分低精度，哪些保持 FP32，为什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 混合精度训练的核心动机：哪些部分低精度，哪些保持 FP32，为什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    核心动机
+
+    混合精度训练（Mixed Precision Training）旨在在不降低模型最终准确率和收敛性的前提下，通过使用半精度浮点数（FP16 或 BF16）大幅减少显存占用、加速训练过程，并降低分布式训练中的通信带宽需求。现代 GPU（如 NVIDIA Volta、Ampere、Hopper 架构）配备了专门为半精度矩阵运算设计的 Tensor Cores，可在 FP16 或 BF16 下提供数倍于 FP32 的吞吐量。显存和通信带宽通常是训练大模型的瓶颈，因此混合精度是扩展模型规模的必备技术。
+
+    低精度部分（FP16 或 BF16）
+
+    - 模型参数（Weights）：以半精度存储，用于前向和反向传播中的矩阵乘法。参数量大的模型（数十亿参数）显存减半收益巨大。
+
+    - 激活值（Activations）：前向传播产生的中间张量以半精度存储和传递。激活通常占据训练显存的大部分（尤其长序列、大 batch），减半能显著降低显存压力，允许更大的 batch size 或更长的序列。
+
+    - 梯度（Gradients）：反向传播计算的梯度同样以半精度存储。在数据并行训练中，梯度需要跨 GPU 进行 All-Reduce，通信量减半直接加速同步过程。
+
+    保持 FP32 的部分
+
+    - 主权重副本（Master Weights）：优化器在更新参数时需要累加微小更新量（学习率 × 梯度）。FP16 的尾数精度（10 位）和 BF16 的尾数（7 位）对于累加小量时可能产生严重舍入误差，导致更新丢失。因此需保留一份 FP32 权重副本，优化器在 FP32 下更新，前向时再转换为半精度。
+
+    - 优化器状态（Optimizer States）：如 Adam 的一阶动量 mm、二阶动量 vv 等，这些状态需要高精度来稳定收敛，通常保持 FP32。
+
+    - 精度敏感的算子：某些计算（如 softmax、LayerNorm、交叉熵损失）对数值范围或精度要求高，在半精度下容易溢出/下溢或产生较大偏差，因此通常在 FP32 下执行，或内部提升到 FP32 再输出半精度。
+
+    为什么这样设计
+
+    半精度带来的高速度和低内存是主要收益，但其有限的动态范围和精度需要 FP32 作为“安全网”。现代混合精度策略本质是“存算用半精度，关键状态和敏感计算用单精度”，通过精细管理二者，达到效率与准确性的平衡。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H1LqwP3PkibEdykjijgc533Rnue
+  block_id: VLxcdIlr0oQmLDxA2mQc5YhlnBb
+  page_token: H1LqwP3PkibEdykjijgc533Rnue
+  original_title: 混合精度训练的核心动机：哪些部分低精度，哪些保持 FP32，为什么？
+  imported_at: '2026-09-21'

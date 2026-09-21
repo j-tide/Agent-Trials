@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-eb1e659d3f49
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: PagedAttention 如何处理多个序列共享相同前缀的 KV Cache 块？这种共享对吞吐的提升有多大？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: PagedAttention 如何处理多个序列共享相同前缀的 KV Cache 块？这种共享对吞吐的提升有多大？
+answer:
+  mode: rubric
+  reference_answer: |-
+    共享机制（例如 parallel sampling 或 beam search）：
+
+    - 当多个序列源自同一个 prompt（如对同一 prompt 生成多个候选回复），它们的 prompt 部分是相同的。PagedAttention 可以为这些序列共享同一组物理块来存储 prompt 的 K、V。
+
+    - 实现方式：为每个序列维护独立的块表，但将 prompt 部分的逻辑块映射到相同的物理块。同时，使用引用计数跟踪每个物理块被多少序列共享。
+
+    - 当某个序列需要修改共享块（追加新 token 导致写操作）时，采用写时复制（Copy-on-Write, COW）：先将共享的物理块复制到一个新分配的块，然后修改新块，原共享块引用减一。但通常 prompt 的 KV 是只读的，真正需要 COW 的情况较少；decode 阶段生成不同 token 后，各个序列会产生各自独有的新块。
+
+    对吞吐的提升：
+
+    - 显存节约：假设 batch 中有 32 个请求共享同一 prompt，传统方式需要存储 32 份完整的 prompt KV。PagedAttention 只需 1 份。以 prompt 长度 1024 token 为例，每个请求可节省约 1024 * 2 * d_model * layers 字节的显存，释放出的空间可容纳更多请求，提高并发数。
+
+    - 吞吐增益：更大的 batch size 直接提升 GPU 利用率和总 token/s。理论上，如果 batch 全部由相同 prompt 驱动，显存可支撑的并发度翻倍，吞吐接近翻倍。在混合负载中，前缀共享也能带来 10%~30% 的吞吐提升，具体取决于请求的相似度。
+
+    - 减少 prefill 计算：vLLM 还会利用共享前缀跳过重复的 prefill 计算（prefix caching），不仅省显存，还省算力，进一步降低首 token 延迟。
+
+    因此，PagedAttention 的块级共享机制使系统在并行采样、多轮对话等场景下具有极大的内存和性能优势。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  block_id: WZymdO81roFARDxos3Sc94janMF
+  page_token: Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  original_title: PagedAttention 如何处理多个序列共享相同前缀的 KV Cache 块？这种共享对吞吐的提升有多大？
+  imported_at: '2026-09-21'

@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c93c7c6d3d36
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在推理时，残差连接需要额外的计算吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 在推理时，残差连接需要额外的计算吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    几乎不需要额外的计算开销，且可通过编译器优化完全融入计算图。
+
+    - 加法操作本身极轻量：残差连接仅仅是两个张量的逐元素加法 x + Sublayer(x)，其计算复杂度为 O(n·d)，与现代 GPU 的算力相比微乎其微。它不涉及任何权重乘法，也不引入新的参数。
+
+    - 可与前序操作融合：推理引擎（如 TensorRT、ONNX Runtime、PyTorch 2.0 的 torch.compile）通常会将残差加法与前面的矩阵乘法或注意力计算合并为一个融合内核。这样，加法运算的内存读写可以与矩阵乘法的结果写回合并，完全隐藏延迟。
+
+    - 带宽不是瓶颈：与注意力机制的 O(n²·d) 或 FFN 的矩阵乘加相比，残差加法的带宽需求极小。在典型的 Transformer 推理中，主要瓶颈在于权重加载和注意力计算，残差加法的开销可忽略不计。
+
+    - 对并行没有影响：残差连接不引入跨 token 或跨层的依赖，因此不会破坏任何并行策略。无论是张量并行、流水线并行还是序列并行，残差加法的实现都保持简单高效。
+
+    因此，残差连接在推理时的额外计算量几乎为零，却带来了模型质量和训练稳定性的巨大提升，是极其划算的设计。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KmS5w89VIig4zEkCkcecHTuKn1d
+  block_id: NjfZds8oMoAFF1xNpyCcy4TVnSh
+  page_token: KmS5w89VIig4zEkCkcecHTuKn1d
+  original_title: 在推理时，残差连接需要额外的计算吗？
+  imported_at: '2026-09-21'

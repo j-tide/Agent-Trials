@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-10f66cddbd61
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在多轮对话 RAG 中，如何处理上下文压缩和对话历史？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 九：前沿与工程实践
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 九：前沿与工程实践
+content:
+  prompt: 在多轮对话 RAG 中，如何处理上下文压缩和对话历史？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多轮对话 RAG 的核心挑战在于：既要保留对话的连贯性，又要避免上下文窗口被无用的历史信息和大量检索文档撑爆。处理上下文压缩和对话历史，通常采用“压缩-融合-重写”的策略。
+
+    - 对话历史的处理
+
+    - 独立存储与按需加载：对话历史不直接和所有检索文档混在一起，而是作为一个独立的信息源。通常使用 ConversationBufferWindowMemory 保留最近几轮对话，或 ConversationSummaryMemory 将早期对话压缩为摘要。
+
+    - 查询改写（核心步骤）：用户的当前提问往往是省略的、指代性的（如“那它的副作用呢？”）。在检索之前，必须利用 LLM 和对话历史，将用户问题重写为一个独立、完整、不需要上下文就能理解的查询。例如，改写为“XX药物的副作用是什么？”。这一步直接影响检索质量。
+
+    - 上下文压缩（Context Compression）
+
+    这是应对“检索返回过多文档，超出 LLM 上下文窗口”的核心技术。
+
+    - 原理：不是直接丢弃文档，而是使用一个轻量、快速的模型（或LLM本身）对检索到的每个文档片段进行“精炼”，只提取其中与当前问题直接相关的句子或段落，丢弃无关内容。
+
+    - 实现：LangChain 提供了 ContextualCompressionRetriever，它可以将一个基础的检索器和一个压缩器（如 LLMChainExtractor）包装在一起。其流程是：基础检索器返回10个文档 → 压缩器对每个文档进行压缩，只保留与问题相关的内容 → 将压缩后的、信息密度更高的内容送入 LLM。
+
+    - 优势：这使得在有限的上下文窗口内，可以容纳更多文档的信息，极大提高了回答的完整性和准确性。
+
+    - 完整工作流
+    用户提问 → 结合对话历史改写为独立查询 → 去向量库检索 → 压缩检索结果 → 将压缩后的内容与最近的对话历史摘要一起，送入 LLM 生成答案 → 更新对话历史。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WjIewQgCniX1OTkmXrychn0kn15
+  block_id: JoCpdBT3goNhOwxyi7Lc8yE8nHh
+  page_token: WjIewQgCniX1OTkmXrychn0kn15
+  original_title: 在多轮对话 RAG 中，如何处理上下文压缩和对话历史？
+  imported_at: '2026-09-21'

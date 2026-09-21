@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ccafb0c6554f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 混合过滤策略：如何融合困惑度分数、分类器分数和启发式规则做出最终决策？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 混合过滤策略：如何融合困惑度分数、分类器分数和启发式规则做出最终决策？
+answer:
+  mode: rubric
+  reference_answer: |-
+    混合过滤策略的目标是综合不同维度的信号，取长补短，以达到更精准、更鲁棒的质量评估。
+
+    融合架构
+
+    典型的混合策略采用级联 + 加权的方式，分为三阶段：
+
+    - 第一阶段：启发式规则快速拦截
+    用计算成本极低的规则（如长度、乱码比例、URL 密度）过滤掉明显无效的文本。这一阶段通常直接丢弃，不进入后续流程，节省大量计算资源。
+
+    - 第二阶段：困惑度粗筛
+    对通过规则筛选的文本，用 n-gram 困惑度进行评分。设定一个宽松的阈值（如 PPL < 5000），保留几乎肯定高质量及“中等”文本，丢弃极端低质量（PPL > 10000）。这一阶段的目标是剔除最恶劣的噪声，同时保留不确定性文本给下一级。
+
+    - 第三阶段：分类器精筛
+    对于困惑度处于中间地带（如 1000-5000）或来自重点领域的文本，运行轻量 BERT 质量分类器，得到“高质量概率”。最后，结合所有分数做出最终决策。
+
+    分数融合方法
+    最终决策时，如何综合 PPL 分数 SpplSppl（归一化为 0-1，越高越好）、分类器分数 SclsScls 和启发式规则计数 SruleSrule（如规则违规次数）？
+
+    - 加权线性组合：FinalScore = α*S_ppl + β*S_cls + γ*S_rule，其中权重可以通过在验证集上最大化保留目标数据比例来学习。
+
+    - 投票机制：如果某文本满足以下任一“淘汰条件”则丢弃：PPL > 极高阈值 且 分类器分数 < 0.2；或 规则违规数 > 2 且 PPL > 3000。
+
+    - 学习排序：将这三个分数作为特征，用逻辑回归或小型决策树在人工标注集上训练一个最终的二分类器，让模型自动学习最佳融合方式。
+
+    实施要点
+
+    - 所有分数需经过归一化（如 Min-Max 或 Z-score），以消除量纲差异。
+
+    - 需维护一个验证集来持续监控融合效果，调整权重和阈值。
+
+    - 对不同领域（如新闻、代码、诗歌）可以设定不同的融合权重，因为其质量判断标准不同。
+
+    这种混合策略在实践中被证明非常有效，既保留了困惑度的高效和分类器的精准，又通过规则兜底，显著提升了数据纯度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LJDQwfND7i0r4WkMK9TcAUA2nnf
+  block_id: N7zvdgp2zo1hPjxGPovcg7EMnAc
+  page_token: LJDQwfND7i0r4WkMK9TcAUA2nnf
+  original_title: 混合过滤策略：如何融合困惑度分数、分类器分数和启发式规则做出最终决策？
+  imported_at: '2026-09-21'

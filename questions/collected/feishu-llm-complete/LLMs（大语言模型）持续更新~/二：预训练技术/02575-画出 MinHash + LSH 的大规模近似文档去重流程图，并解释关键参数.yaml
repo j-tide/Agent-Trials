@@ -1,0 +1,92 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fc2aee8a36ba
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 画出 MinHash + LSH 的大规模近似文档去重流程图，并解释关键参数。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 画出 MinHash + LSH 的大规模近似文档去重流程图，并解释关键参数。
+answer:
+  mode: rubric
+  reference_answer: |-
+    MinHash + LSH（局部敏感哈希）是大规模近似文档去重的工业标准方案。它将文档压缩为紧凑的签名，然后利用 LSH 高效地将相似签名分入同一个“桶”中，避免了对所有文档对进行穷举比较。
+
+    MinHash + LSH 流程图（文字描述）：
+
+    原始文档集合 (N 个文档)
+           |
+           v
+    ① 文档预处理与 Shingling
+       将每个文档转为 n-gram 集合，并进行规范化（小写、去停用词等）。
+           |
+           v
+    ② 生成 MinHash 签名
+       使用 k 个不同的哈希函数，将每个文档的 n-gram 集合映射为一个 k 维整数向量（即签名）。
+           |
+           v
+    ③ 应用 LSH 分桶
+       将每个文档的 k 维签名切分为 b 个波段 (bands)，每个波段包含 r 行 (rows) (k = b * r)。
+       对每个文档的每个波段，使用一个哈希函数将该波段的 r 个整数值映射到一个桶 (bucket) 中。
+       拥有完全相同波段哈希值的文档，会被分到同一个桶里。
+           |
+           v
+    ④ 生成候选对
+       对于同一个桶内的任意两个文档，将它们视为一对“相似候选对”。
+       只要两个文档的签名在任意一个波段上碰撞，它们就会成为候选对。
+           |
+           v
+    ⑤ 精确相似度计算与过滤
+       对每一对候选文档，重新计算它们原始的 Jaccard 相似度（或直接比较完整的 MinHash 签名）。
+       如果相似度大于预设阈值（如 0.8），则将这一对文档标记为近似重复。
+           |
+           v
+    ⑥ 连通分量与去重
+       将所有标记为近似重复的文档对构建成一个图。
+       找出图中的所有连通分量，每个连通分量内的文档互为近似重复。
+       通常从每个连通分量中保留一份文档（如最长的那份，或来自最可信源的那份），删除其余。
+           |
+           v
+    最终去重后的文档集合
+
+    关键参数解释：
+
+    - n-gram 的大小 (n)：决定了文档特征的粒度。n 越大，能捕捉到的上下文就越长，但也会降低对局部微小修改的鲁棒性。对于文本去重，n=3 (tri-gram) 或 n=5 是常见选择，能很好地平衡精确度和鲁棒性。
+
+    - 签名长度 (k)：即使用的哈希函数数量。k 越大，MinHash 估计的 Jaccard 相似度方差就越小，结果越精确。但也会增加计算和存储开销。通常取值在 128 到 256 之间。
+
+    - 波段数 (b) 和每个波段的行数 (r)：这是 LSH 算法的核心参数，且 k = b * r。
+
+    - 相似度阈值 (Similarity Threshold)：最终决定哪些文档被删除的标准。这是根据最终需求设定的，如 0.8 或 0.9。它决定了去重的“严格程度”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KVkRw5fvSilOXfkibArc5VHSndf
+  block_id: SrCkdQh13oAqcjxOTQlc1rxknNd
+  page_token: KVkRw5fvSilOXfkibArc5VHSndf
+  original_title: 画出 MinHash + LSH 的大规模近似文档去重流程图，并解释关键参数。
+  imported_at: '2026-09-21'

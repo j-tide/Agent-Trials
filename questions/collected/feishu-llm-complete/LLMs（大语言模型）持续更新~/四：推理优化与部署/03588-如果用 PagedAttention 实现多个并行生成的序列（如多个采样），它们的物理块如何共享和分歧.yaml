@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-33f5eddc3ae0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果用 PagedAttention 实现多个并行生成的序列（如多个采样），它们的物理块如何共享和分歧？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如果用 PagedAttention 实现多个并行生成的序列（如多个采样），它们的物理块如何共享和分歧？
+answer:
+  mode: rubric
+  reference_answer: |-
+    共享部分：
+
+    - 所有序列共享 prompt 的物理块（完全相同）。这些块的引用计数 = 采样数。
+
+    - 在 prompt 处理完毕后，每个序列的块表最初完全相同（全部指向共享块）。
+
+    分歧过程（Decode 阶段）：
+
+    - 第一轮 decode：每个序列各自生成 token_1，但此时它们各自需要一个新物理块来存储 token_1 的 K、V。因为 token_1 不同，不能共享，所以为每个序列分配独立的物理块，并追加到各自的块表中。此时引用计数：prompt 块仍然是 num_samples（只读）；各序列自己的新块引用计数为 1。
+
+    - 第二轮 decode：若上一步分配的块未满（如 block_size=16，则新块还有 15 个空位），则每个序列继续在自己的这个块中追加 token_2，仍不共享。若某序列的块满了，则再分配一个独立块。
+
+    - 因此，从分叉点开始，每个序列产生的 KV 都写入各自完全独立的物理块中，不再共享。这自然形成“共享前缀 + 私有后缀”的物理块布局。
+
+    块表管理：调度器为每个序列维护独立的块表，初始相同，之后各自扩展。当某个序列完成时，将其私有块回收，同时 prompt 共享块的引用计数减一；只有当所有采样序列都完成，prompt 共享块才被回收。
+
+    无需特殊同步：因为生成过程中，各序列写入的物理块是完全隔离的（COW 保证了写入安全），因此可以完全并行地执行，没有任何锁竞争。这相比传统需要完整拷贝 KV Cache 的方案，性能和显存优势巨大。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  block_id: QzCcdKA5ToVY2AxKpF5cvLcpnjf
+  page_token: Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  original_title: 如果用 PagedAttention 实现多个并行生成的序列（如多个采样），它们的物理块如何共享和分歧？
+  imported_at: '2026-09-21'

@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8df33c516989
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何实现基于 n‑gram 的重复惩罚（禁止同一 n‑gram 重复出现）？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如何实现基于 n‑gram 的重复惩罚（禁止同一 n‑gram 重复出现）？
+answer:
+  mode: rubric
+  reference_answer: |-
+    基于 n-gram 的重复惩罚是一种比 token 级别惩罚更结构化的抑制策略。它不再是惩罚单个词，而是惩罚一个连续的词组（如 bigram, trigram）的重复出现。其实现方式通常是一个硬约束或一个强软约束。
+
+    实现方法一：硬约束（Hard Constraint）
+
+    这是最严格的实现，直接禁止同一 n-gram 再次出现。
+
+    - 维护历史：在生成过程中，维护一个集合 generated_ngrams，用于存储所有已经生成过的、长度为 N 的 n-gram。
+
+    - 实时查询：在当前生成步 t，对于束搜索或采样中的每个候选 token yt，构造出以 yt 结尾的、长度为 N 的 n-gram。
+
+    - 硬性屏蔽：如果这个新构造的 n-gram 已经存在于 generated_ngrams 集合中，则将该候选 token yt 的概率强制设为 0（logit 设为 −∞），从而绝对禁止选择它会导致的重复。
+
+    - 更新：当一个 token 被最终选定并加入序列后，更新 generated_ngrams 集合。
+
+    实现方法二：软约束（Soft Constraint）
+    这种方法不绝对禁止，而是通过一个可调节的惩罚系数 λ，大幅降低重复 n-gram 中最后一个 token 的 logits。
+
+    - 维护历史：同上，维护一个字典 ngram_counts，记录每个 n-gram 出现的次数。
+
+    [图片内容未导入]
+
+    工程实现技巧（高效查询）：
+    为了在海量的 n-gram 历史中进行快速查询，可以使用哈希表（字典）来存储 n-gram。键是 n-gram 的元组（或哈希值），值是出现次数。在每一步，只需查询以当前序列最后 N−1 个 token 为前缀、以候选 token 为后缀的 n-gram 是否存在于字典中。查询复杂度为 O(1)，非常高效。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/S2cBwJgVmiRDbukXddacJX2qn6d
+  block_id: E8PBdgPR7ouhLFxjUZvcrpIvn5f
+  page_token: S2cBwJgVmiRDbukXddacJX2qn6d
+  original_title: 如何实现基于 n‑gram 的重复惩罚（禁止同一 n‑gram 重复出现）？
+  imported_at: '2026-09-21'

@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3fa2db2d9b87
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 自洽性与简单的重采样（reranking）有何区别？它依赖什么样的解码设置？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: 自洽性与简单的重采样（reranking）有何区别？它依赖什么样的解码设置？
+answer:
+  mode: rubric
+  reference_answer: |-
+    自洽性和重采样（reranking）虽然都涉及生成多个候选结果，但它们的核心逻辑和使用场景有本质区别。
+
+    重采样通常是这样做的：先用某种方法（比如集束搜索、或者高温度采样）生成 N 个候选输出，然后设计一个评分函数对这 N 个结果打分排序，选出得分最高的那个。这个评分函数可以是模型自身的 log probability（序列的平均对数似然），也可以是另一个专门训练的奖励模型，甚至是人工设计的规则。重采样的目标是“从多个候选中挑出最好的那个”，它依赖一个显式的“质量标准”。
+
+    自洽性则完全不同。自洽性不做打分，不评估哪条推理链“写得好”或者“看起来更合理”。它只做一件事：看最终答案是什么，然后数数。它的核心假设是：正确答案会以更高频率出现，而不需要去评判推理链本身的质量。这种“只看结果，不看过程”的做法看似粗暴，但在推理任务中被证明极其有效。
+
+    为什么自洽性不依赖推理链的评分？因为推理链的语言质量和它的逻辑正确性之间并不完全对应。一条推理链可能写得非常流畅、自信、引经据典，但中间藏着一个致命的逻辑错误；另一条推理链可能写得磕磕巴巴、语言简朴，但逻辑严谨、答案正确。如果用序列概率或者其他质量指标去评分，往往会被表面流畅但实质错误的文本所迷惑。自洽性巧妙地绕开了这个陷阱，它不评判过程，只看最终答案在多次独立采样中是否“站得住脚”。
+
+    在解码设置上，自洽性有明确的依赖性：
+
+    - 它必须使用较高温度的采样解码（如 temperature ≥ 0.5），而不是贪心解码（temperature=0）。贪心解码每次都会生成完全相同的输出，采样 N 次得到 N 条一模一样的路径，自洽性就退化成了单次推理，没有任何意义。
+
+    - 它需要关闭或降低 top-p 和 top-k 的过度约束，保证足够的 token 选择空间，否则生成的路径多样性不足，投票的意义也会打折扣。
+
+    - 它通常不需要 beam search，因为 beam search 倾向于选出模型自己认为“最好”的几条路径，这些路径可能高度相似，缺乏真正的多样性，而自洽性需要的是“独立的多角度思考”。
+
+    总结：重采样是“裁判打分选最优”，自洽性是“民主投票看共识”。自洽性依赖采样多样性，因此必须在解码时引入足够的随机性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MGuPw0n6Ji2qNJkRj17cdAcWnue
+  block_id: O4AkdzUlYoe0Nhx8EvrclwJVned
+  page_token: MGuPw0n6Ji2qNJkRj17cdAcWnue
+  original_title: 自洽性与简单的重采样（reranking）有何区别？它依赖什么样的解码设置？
+  imported_at: '2026-09-21'

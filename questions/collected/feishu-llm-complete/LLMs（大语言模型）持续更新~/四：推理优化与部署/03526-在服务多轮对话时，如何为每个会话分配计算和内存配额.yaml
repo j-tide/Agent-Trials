@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e05ae81410bf
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在服务多轮对话时，如何为每个会话分配计算和内存配额？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在服务多轮对话时，如何为每个会话分配计算和内存配额？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多轮对话中，每个会话随着历史增长，其 KV Cache 不断膨胀，会占用越来越多的显存资源。若不加以限制，可能导致某些会话耗尽资源，影响其他用户。需设计配额管理机制。
+
+    配额分配方法：
+
+    - 最大上下文长度限制
+    设置每个会话的最大 token 数（如 4096）。当历史超过限制，采用滑动窗口丢弃最早的消息，或通过摘要压缩历史。这直接限制了单个会话的最大 KV Cache 占用。
+
+    - 每个会话的 KV Cache 块配额
+    为每个会话设定最多可分配的物理块数（max_blocks_per_seq）。一旦达到上限，新 token 的 KV 无法存储，可采取：
+
+    - 基于并发会话数的动态配额
+    采用公平分享思想：当系统负载低时，允许单个会话占用更多资源；当并发高时，收紧配额以容纳更多会话。调度器可动态调整每个会话的 max_blocks 或 max_length。
+
+    - 用户/租户级别的资源保证
+    为付费用户预留最小 KV Cache 块数，确保其会话不会被饿死。这需要在物理块池中划分预留区域，或通过调度权重实现。
+
+    - 生成 token 配额（Token Quota）
+    除了内存，还可限制每个会话的总生成 token 数（如每日限额），防止单一会话无限生成消耗算力。
+
+    工程实现：
+
+    - 在 PagedAttention 框架中，物理块分配由中央块管理器负责。当请求需要新块时，检查该会话已占用块数是否超过阈值，超过则拒绝分配并采取相应动作（截断、换出、错误）。
+
+    - 监控每个会话的资源占用，调度器可根据配额决定是否将该会话的请求换出或降低优先级。
+
+    通过多级配额管理，既能提供流畅的长对话体验，又能防止资源被少数超长对话垄断，保障整体服务稳定性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  block_id: NraXd4nK4oIMPYxEgN0cWxROnag
+  page_token: Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  original_title: 在服务多轮对话时，如何为每个会话分配计算和内存配额？
+  imported_at: '2026-09-21'

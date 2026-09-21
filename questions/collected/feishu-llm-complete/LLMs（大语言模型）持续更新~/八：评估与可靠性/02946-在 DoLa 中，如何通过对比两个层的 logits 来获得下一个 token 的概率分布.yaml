@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1292dbaad0c8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 DoLa 中，如何通过对比两个层的 logits 来获得下一个 token 的概率分布？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 八：评估与可靠性
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 八：评估与可靠性
+content:
+  prompt: 在 DoLa 中，如何通过对比两个层的 logits 来获得下一个 token 的概率分布？
+answer:
+  mode: rubric
+  reference_answer: |-
+    DoLa 的核心操作是在解码阶段，使用来自两个不同层（mature layer 和 premature layer）的输出 logits 进行相减，从而得到一个被“净化”后的最终 logits，并据此预测下一个词元。
+
+    操作流程
+
+    - 前向传播与缓存：在生成当前词元时，输入序列会通过整个 Transformer 模型。DoLa 要求这一过程不仅输出最终层的 logits，还需要缓存并输出所有中间层的 logits。这是 DoLa 计算开销的主要来源。
+
+    - 动态层选择：根据前面所述的“动态早期层选择”机制，实时地确定当前步骤应使用的 mature layer 索引 J 和 premature layer 索引 M。
+
+    - 提取两个层的 logits：从缓存中提取第 J 层和第 M 层的预测 logits 向量。记 l_J 为成熟层的 logits，l_M 为早熟层的 logits。
+
+    - 应用 Softmax：对这两个 logits 向量分别应用 Softmax 函数，将其转化为概率分布 p_J 和 p_M。这代表了该层对下一个词元的所有可能选项的预测概率。
+
+    - 对比相减：计算最终的 logits 或概率分布。DoLa 在实践中通常对比的是 logits，并通过一个公式来计算最终的概率分布。一个常见的做法是：
+
+    [图片内容未导入]
+
+    - 或者，有时会对相减后的结果除以一个温度系数，然后进行 softmax。
+
+    这样做的直观含义
+    最终的预测概率分布 p_final 是通过 “用成熟层的知识减去早熟层的噪音” 得到的。在早熟层中普遍存在的、与当前语境关联不紧密的通用词（如“the”、“is”），由于在两个层中的 logits 都较高，相减后它们的 logits 会降低，从而在最终分布中受到抑制。相反，那些在成熟层中 logits 显著高于早熟层的词（往往是正确的事实性词汇、特定的实体），其 logits 差异会更大，从而在最终分布中被放大。
+
+    通过这种对比，模型从“可能会说出常见错误”的模式，被导向了“更确定、更事实性”的预测模式，从而减少了幻觉。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KnwjwVxIViBqwlkhcvwczHR8nTf
+  block_id: XmHsdWULPoFm88x6lDmcWVlqnob
+  page_token: KnwjwVxIViBqwlkhcvwczHR8nTf
+  original_title: 在 DoLa 中，如何通过对比两个层的 logits 来获得下一个 token 的概率分布？
+  imported_at: '2026-09-21'

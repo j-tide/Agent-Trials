@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8b68818fe85c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 残差连接与层归一化（Add & LayerNorm）如何融合？写出可能的内核实现思路。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 残差连接与层归一化（Add & LayerNorm）如何融合？写出可能的内核实现思路。
+answer:
+  mode: rubric
+  reference_answer: |-
+    融合目标：将残差张量 x 和子层输出 y 相加，然后立即对结果进行 LayerNorm，避免写出中间加法结果。
+
+    内核实现思路（CUDA 伪代码）：
+
+    假设 x 和 y 形状均为 [N, D]（N 为 token 数，D 为特征维度），LayerNorm 有可学习参数 gamma 和 beta，epsilon 为小常数。
+
+    一个 kernel 完成以下操作：
+
+    - 每个线程块处理一个 token（一行），或使用 warp 级并行。
+
+    - 计算该行的和与平方和（用于均值方差）。首先从全局内存加载 x[i] 和 y[i] 到寄存器，计算 sum = x + y。
+
+    - 进行 warp/block 内的归约（reduction），得到均值 mean = sum(D) / D，以及方差 var = sum((sum - mean)^2) / D。
+
+    - 根据均值方差和 gamma、beta 对每个元素计算归一化结果：out = (sum - mean) / sqrt(var + eps) * gamma + beta。
+
+    - 将 out 写回全局内存。
+
+    关键点：
+
+    - x + y 的中间结果完全保留在寄存器中，不写回 HBM。
+
+    - LayerNorm 的统计计算也直接使用这个寄存器值，避免了额外的显存读取。
+
+    - 如果 x 和 y 都是 FP16，计算过程中可能需要提升到 FP32 以保证数值稳定性。
+
+    这种融合在 TensorRT、vLLM 等推理引擎中广泛实现，可以将 Add 和 LayerNorm 的延迟降低为接近单一内存操作的时间。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Uhg6wKBvGiSyqckdgPTciRAMn9f
+  block_id: FRwWdugDIoLGmuxLI0LcXVJnnnn
+  page_token: Uhg6wKBvGiSyqckdgPTciRAMn9f
+  original_title: 残差连接与层归一化（Add & LayerNorm）如何融合？写出可能的内核实现思路。
+  imported_at: '2026-09-21'

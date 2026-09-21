@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-50995fb16977
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 ZeRO 优化中，参数分片后如何高效计算全局梯度范数？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 在 ZeRO 优化中，参数分片后如何高效计算全局梯度范数？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO 将参数、梯度和优化器状态分片到数据并行组内的多个 GPU 上。每个 GPU 只持有部分参数及其梯度。要计算全局梯度范数，同样采用分布式平方和归约。由于每个 GPU 只管理一个分片，它只需计算自己分片内梯度的平方和，然后通过 all_reduce（SUM）得到全局平方和，最后开方。
+
+    高效实现：
+
+    - 每个 GPU 遍历自己负责的参数分片，计算 local_norm_sq（每个参数的 .grad 的平方和）。
+
+    - 调用 torch.distributed.all_reduce(local_norm_sq, op=SUM)，得到 global_norm_sq。
+
+    - 全局范数 = global_norm_sq.sqrt()。
+
+    因为只传输一个标量，通信开销极低。DeepSpeed 的 ZeRO-1/2/3 在实现 clip_grad_norm_ 时，自动完成了上述分布式范数计算。用户只需在配置中设置 "gradient_clipping": 1.0 即可。
+
+    注意事项：在 ZeRO-3 中，某些参数可能在前向/反向过程中被动态收集并释放，其梯度可能分散在不同设备上。但最终每个参数的梯度在反向结束时都存储在拥有该参数分片的设备上，因此上述方法仍然有效。DeepSpeed 已内建处理这些细节，确保正确性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TlYvww7Aoi1oXhkFGQwcFQYxnin
+  block_id: UPgAdllueozx2Px2a9lcaSKbneb
+  page_token: TlYvww7Aoi1oXhkFGQwcFQYxnin
+  original_title: 在 ZeRO 优化中，参数分片后如何高效计算全局梯度范数？
+  imported_at: '2026-09-21'

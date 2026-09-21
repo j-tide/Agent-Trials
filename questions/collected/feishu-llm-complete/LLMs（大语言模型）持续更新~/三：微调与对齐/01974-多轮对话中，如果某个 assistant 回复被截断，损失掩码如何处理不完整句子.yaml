@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-86f790aaf3a8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多轮对话中，如果某个 assistant 回复被截断，损失掩码如何处理不完整句子？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 多轮对话中，如果某个 assistant 回复被截断，损失掩码如何处理不完整句子？
+answer:
+  mode: rubric
+  reference_answer: "这是一个实际的工程问题。处理方式取决于截断点的位置和数据标注的完整性。\n\n最佳实践：丢弃不完整的助手回复片段。\n\n如果
+    assistant 回复在一个句子的中间被截断，这个回复就是不完整的。如果不对其进行掩码，模型会学习生成一个不完整的句子，这会影响生成质量。\n\n实现方式：\n\n```python\ndef
+    create_mask_with_truncation_handling(input_ids, tokenizer):\n    labels = input_ids.clone()\n
+    \   \n    assistant_start = tokenizer.convert_tokens_to_ids(\"<|im_start|>assistant\")\n
+    \   assistant_end = tokenizer.convert_tokens_to_ids(\"<|im_end|>\")\n    \n    i
+    = 0\n    while i < labels.shape[1]:\n        token = labels[0, i].item()\n        if
+    token == assistant_start:\n            # 找到这个 assistant 回复的结束位置\n            found_end
+    = False\n            for j in range(i + 1, labels.shape[1]):\n                if
+    labels[0, j].item() == assistant_end:\n                    found_end = True\n
+    \                   # 这是一个完整的助手回复，保留其损失计算\n                    # 将开始和结束标记设为 -100\n
+    \                   labels[0, i] = -100\n                    labels[0, j] = -100\n
+    \                   i = j\n                    break\n            if not found_end:\n
+    \               # 没找到结束标记，说明这个回复被截断了！\n                # 将这个不完整回复的所有 token 都掩码掉\n
+    \               labels[0, i:] = -100\n                return labels  # 直接返回，因为后续都是不完整的\n
+    \       else:\n            # 非 assistant 部分，掩码\n            labels[0, i] = -100\n
+    \       i += 1\n    return labels\n```\n\n核心原则：只保留完整的、带有明确结束标记的 assistant 回复用于训练。任何不完整的片段都应被掩码，避免模型学习到错误的终止行为。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VOrVwrhLzi4WRokQOMPcOsPWnwg
+  block_id: Bz6sdzylQoBGJ6xo976cr4Ebnfc
+  page_token: VOrVwrhLzi4WRokQOMPcOsPWnwg
+  original_title: 多轮对话中，如果某个 assistant 回复被截断，损失掩码如何处理不完整句子？
+  imported_at: '2026-09-21'

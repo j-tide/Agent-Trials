@@ -1,0 +1,98 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dfe0a01ef33b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ToT 的提示模板设计有哪些技巧？如何让模型输出可解析的结构化思维？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: ToT 的提示模板设计有哪些技巧？如何让模型输出可解析的结构化思维？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ToT 高度依赖提示模板来引导 LLM 完成状态生成和评估。设计不佳的提示会直接导致输出混乱、不可解析，使搜索失败。以下是一些关键技巧：
+
+    - 角色与目标明确化
+
+    开篇即用清晰的指令告知 LLM 它在解决什么问题、扮演什么角色。例如：“你是一个正在解决逻辑谜题的AI。你的任务是通过逐步推理找到答案。”
+
+    - 状态上下文的清晰注入
+    使用明确的标记（如 [当前状态], [历史步骤], [剩余目标]）将当前状态信息结构化地嵌入提示中。这能让 LLM 准确理解“当前在哪”，避免混淆。
+
+    - 输出格式的严格约束
+
+    要求 LLM 以固定格式输出，便于程序解析。常用方法：
+
+    - 列表格式：
+
+    请提出3个可能的下一步操作，每个操作用一行表示，格式为：步骤N: [操作描述]
+
+    JSON 格式：强制输出 JSON，易于解析。但需注意 LLM 可能会输出无效 JSON（遗漏括号等），可以结合重试机制或使用约束解码（constrained decoding）来保证格式正确。例如：
+
+    请以JSON格式输出：
+    {
+      "candidates": [
+        {"step": "操作1", "reasoning": "理由"},
+        ...
+      ]
+    }
+
+    - 特殊分隔符：使用 --- 或 ### 等特殊标记分隔不同的候选或不同的字段，减少解析歧义。
+
+    - 利用 Few-Shot 示例固化格式
+
+    在提示词中提供 1~3 个完整的示例，展示从某种状态生成候选、评估候选的完整过程和输出格式。示例是让 LLM 遵循格式要求最有效的方式。示例必须格式绝对一致，且覆盖可能出现的边界情况（如状态无解时如何输出）。
+
+    - 分离生成与评估的提示模板
+
+    生成和评估任务性质不同，应设计不同的模板。
+
+    - 生成模板侧重于开放性、创造性，指令中常有“请提出多样的、不寻常的方案”、“从不同角度思考”。温度通常较高。
+
+    - 评估模板侧重于批判性、分析性，指令中常有“请严格评估”、“指出潜在风险”、“给出一个1-10的分数并说明理由”。温度通常较低。
+
+    - 引入思维链作为辅助
+
+    在要求评估输出分数前，让 LLM 先进行一段自由文本的分析（CoT），再给出结构化的评分。例如：“请先分析该状态的优缺点，然后给出最终评分：...”。这能提高评分的可靠性。
+
+    - 错误处理与重试提示
+
+    如果 LLM 输出无法解析，系统应能捕获错误，并构造一个“修正提示”重新提交。修正提示包含原始提示、LLM的错误输出、以及明确的纠错指令，例如：“你的上一条输出格式不正确，请严格按照JSON格式重新输出。”
+
+    - 使用更可靠的解码策略
+
+    对于结构化输出，可以开启 LLM 的 JSON mode（如 OpenAI 的 response_format）或使用 guidance、outlines 等库进行约束解码，从 token 级别保证输出符合预设的语法，根本上解决格式解析问题。
+
+    通过这些技巧，ToT 系统能够可靠地与 LLM 交互，将模型的不确定性输出转化为确定性的结构化数据，支撑起可靠的搜索过程。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YLhCwBILIiMYuXkdn6IcggP8nEh
+  block_id: BPabd7pyCoDeopxMMNic5vsJnKc
+  page_token: YLhCwBILIiMYuXkdn6IcggP8nEh
+  original_title: ToT 的提示模板设计有哪些技巧？如何让模型输出可解析的结构化思维？
+  imported_at: '2026-09-21'

@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-baa94784d897
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 能否缓存或预计算常见查询的假设文档，以加速 HyDE？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 能否缓存或预计算常见查询的假设文档，以加速 HyDE？
+answer:
+  mode: rubric
+  reference_answer: |-
+    答案是肯定的，而且这种缓存和预计算策略，正是 HyDE 在生产环境中从“能用”走向“好用”的关键一步。 通过缓存，我们可以将 HyDE 的高昂的生成成本在时间和空间上进行分摊，使其成为一种经济、高效的检索增强手段。
+
+    实现层次：
+
+    - 精确查询缓存：
+    这是最直接、命中率也相对较低的缓存方式。系统维护一个键值对（例如在 Redis 中），键是用户输入的原始查询字符串的哈希值，值是该查询对应的、已经生成好的假设文档及其向量。当用户查询进来时，系统先计算其哈希，查找缓存。如果命中，则直接返回假设文档的向量进行检索，完全跳过 LLM 生成步骤，延迟为零。这种方式适用于那些完全重复的、标准化的查询，对于长尾查询则力不从心。
+
+    - 语义近似缓存：
+    这是更具威力、命中率也更高的策略。它利用了向量 Embedding 本身的能力。缓存库不仅存储了查询字符串，还存储了查询的向量。当一个新的用户查询进来，系统同样将其向量化，然后向缓存库发起一个 ANN 搜索。如果找到一个与它语义高度相似的、已缓存的查询（例如余弦相似度 > 0.92），那么就可以直接复用那个旧查询的假设文档和向量。
+
+    - 离线预计算与索引增强：
+    这是一种更彻底的预计算策略，尤其适用于企业级或特定领域的 RAG 系统。
+
+    通过这种“在线缓存 + 离线预计算”的组合，HyDE 带来的性能增益与它的额外延迟和成本逐渐解耦。随着系统运行时间的增长，缓存命中率稳步提升，HyDE 的边际成本会越来越低，最终趋近于零。这使得它成为一种非常实用且可持续的检索优化技术。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EyyswXtsriVa9Tkpr17czXpHnjd
+  block_id: VvwOdQ5DRo9keyx8rizceqcOnAe
+  page_token: EyyswXtsriVa9Tkpr17czXpHnjd
+  original_title: 能否缓存或预计算常见查询的假设文档，以加速 HyDE？
+  imported_at: '2026-09-21'

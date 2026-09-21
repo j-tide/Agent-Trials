@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-40077585e069
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ReAct 能否处理需要长期规划和行动序列的任务，如“预订酒店+会议”这样的多步事务？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: ReAct 能否处理需要长期规划和行动序列的任务，如“预订酒店+会议”这样的多步事务？
+answer:
+  mode: rubric
+  reference_answer: |-
+    能，但这需要将 ReAct 与更高层次的规划机制相结合，因为原生 ReAct 更擅长动态响应，而非长程严格规划的严格执行。
+
+    原生 ReAct 的不足：
+
+    对于“预订酒店+会议”这类事务，它需要遵循严格的商业流程：查询酒店 → 选择酒店 → 查询空闲会议室 → 预订二者 → 发送确认邮件。步骤之间有严格的依赖关系，且需要满足多个约束（日期、地点、预算）。原生 ReAct 在每一步都重新审视整个状态，它可能在前几步游刃有余，但随着步骤增加，容易在上下文长度膨胀中丢失总体目标或早期约束，也可能在行动选择上做出次优决策（例如过早预订了不可退款的酒店，导致后续会议时间不符）。
+
+    使 ReAct 胜任长程规划任务的方法：
+
+    - 引入高层次计划（Plan）作为全局约束：在开始执行前，先让 LLM 基于任务要求生成一个分步计划。这个计划被存储在“工作记忆”或系统提示中，始终可见。后续的每一轮 ReAct 循环，模型除了进行动态思考外，还需对照计划，检查当前步骤是否在按计划推进，以及是否需要修改计划。这相当于给 ReAct 装上了一个“指南针”。
+
+    - 组合使用“宏观 ReAct”与“微观 ReAct”：使用分层架构。上层是一个“规划智能体”，它以较慢的频率运行，负责任务分解、监控进度和处理重大异常（如酒店售罄）。它通过调用下层多个专门的“执行智能体”来完成子任务（如“酒店预订智能体”、“会议安排智能体”）。每个执行智能体内部可以用 ReAct 循环来完成各自子任务的具体信息检索和操作。这样，长序列被拆解成了多个短序列，由全局规划协调。
+
+    - 状态机与 ReAct 结合：将整个事务流程建模为一个状态机，每个状态代表一个阶段（如“搜索酒店”、“选择酒店”、“确认预订”）。ReAct 在每个状态内部进行相对自由的探索和决策，但状态之间的跳转由规则或上层逻辑严格控制。这确保了整体流程不会偏离正轨，同时保留了在每个阶段内的灵活性。
+
+    - 持久化工作记忆与外部任务列表：在上下文中维护一个结构化的任务清单（Todo List），明确列出“已完成”、“进行中”、“待处理”的子任务。ReAct 的思考过程会显式地引用和更新这个任务列表，确保不遗漏任何步骤。
+
+    - 事务性行动的幂等性与回滚设计：在设计行动空间时，让关键事务性操作支持幂等性和回滚。例如，预订酒店可能有 PreBook（暂时锁定）和 Confirm 两个行动，这为 ReAct 提供了犯错和回溯的空间。如果后续步骤发现冲突，可以回滚之前的预锁，而不是直接承受损失。
+
+    通过上述增强，ReAct 可以从一个“灵活应变但可能短视”的探险家，升级为一个“既有大局观又灵活执行”的项目经理，从而胜任长程、多步的事务性任务。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UNcyw9ACIiJYN3krDjDcNJ1Rndc
+  block_id: GdKbdLlePo6jxIxyuZLcJ90Vnwg
+  page_token: UNcyw9ACIiJYN3krDjDcNJ1Rndc
+  original_title: ReAct 能否处理需要长期规划和行动序列的任务，如“预订酒店+会议”这样的多步事务？
+  imported_at: '2026-09-21'

@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c730846e29f8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 V100（不支持 Ampere 以上架构）上能否使用 FlashAttention？为什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在 V100（不支持 Ampere 以上架构）上能否使用 FlashAttention？为什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    标准 FlashAttention-2 官方实现不支持 V100，但可以使用功能类似的替代品，如 XFormers 的 Memory-Efficient Attention 或 PyTorch 的 SDPA 后端。
+
+    原因分析：
+
+    - 硬件指令依赖：FlashAttention-2 的官方 CUDA kernel 强依赖于 Ampere 及更新架构（SM80+）的硬件特性，主要有：
+
+    - V100 的 Tensor Core 是初代，对 FP16 矩阵乘法支持良好，但缺少高效的异步拷贝和数据预取机制，导致即使实现分块算法，也难以达到在 Ampere 上的加速比。
+
+    在 V100 上的替代方案：
+
+    - XFormers 提供了 memory_efficient_attention，它采用与 FlashAttention 类似的分块和 online softmax 算法，但使用更通用的 CUDA 指令（如普通的 __ldg 和 wmma 指令），可以在 V100 上良好运行，并实现内存节省和一定加速（通常 1.2-2x）。
+
+    - PyTorch 的 SDPA 在 V100 上通常选择 EFFICIENT_ATTENTION 后端（来自 xformers），因此通过 scaled_dot_product_attention 也能获得内存高效的好处。
+
+    - 上限：V100 缺乏异步拷贝和高性能 Tensor Core 指令，因此无法享受到 FlashAttention-2 的 2-4 倍加速，但内存节省依然有效，可支持更大 batch 或更长序列。
+
+    总结： V100 不能使用官方的 FlashAttention-2，但可以通过 XFormers 或 PyTorch SDPA 获得近似 IO-aware 效益，只是绝对性能不及 Ampere+ 硬件。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/OuSIwe7IQi1cflkQ601cDNfQn3c
+  block_id: Q6kTdUu5Iot2hPx1338cXLvknlg
+  page_token: OuSIwe7IQi1cflkQ601cDNfQn3c
+  original_title: 在 V100（不支持 Ampere 以上架构）上能否使用 FlashAttention？为什么？
+  imported_at: '2026-09-21'

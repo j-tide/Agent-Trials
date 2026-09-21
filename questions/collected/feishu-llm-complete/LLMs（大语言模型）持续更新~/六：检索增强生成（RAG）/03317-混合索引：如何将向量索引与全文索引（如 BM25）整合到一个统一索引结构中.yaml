@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d7f368fa3d13
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 混合索引：如何将向量索引与全文索引（如 BM25）整合到一个统一索引结构中？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 混合索引：如何将向量索引与全文索引（如 BM25）整合到一个统一索引结构中？
+answer:
+  mode: rubric
+  reference_answer: |-
+    混合索引是为了解决单一索引局限性而生的架构。向量索引长于语义，但对精确的专有名词、术语匹配效果可能不佳；全文索引长于关键词匹配，但无法理解同义词和句子含义。一个健壮的 RAG 系统通常需要将两者融合。
+
+    整合方式：
+
+    - 松耦合：应用层的结果融合。这是最简单、最灵活的做法。系统分别维护一个向量索引（如 Milvus）和一个全文索引（如 Elasticsearch）。查询时，将用户问题并行发送给两个索引，各召回 Top K 个结果。然后，应用层通过一个融合算法（如倒数排名融合 RRF）将两个结果集合并重排序后输出。这种方式的优点是各自独立维护，术业有专攻，彼此不受影响；缺点是需要在应用层处理融合逻辑，且难以进行联合的标量过滤。
+
+    - 紧耦合：数据库内部的混合查询。现代的向量数据库（如 Weaviate、Elasticsearch 8.x 的向量检索模块）正在朝着在单一系统中同时支持向量和全文索引的方向发展。它们底层存储一个文档对象，同时为其建立向量索引和倒排索引。一个查询 API 可以同时携带语义搜索指令（nearText）和关键词搜索指令（bm25），数据库内核在完成双路召回后，内部使用自定义的融合评分函数（如加权线性组合）对结果进行最终排序。这种方式的优势在于开发者体验统一，且能执行更复杂的混合查询策略。
+
+    统一索引结构的挑战：
+
+    最大的挑战在于评分融合。BM25 的分数是基于词频的统计值，而向量距离是数学空间中的度量，两者的尺度完全不同。简单加权求和，如果权重设置不当，其中一路的信号会完全压制另一路。更先进的系统会采用学习排序的方式，使用一个小的模型来学习如何根据查询、文档和两个基础分数，计算出一个最优的最终相关性分数。另一个挑战是联合过滤，如何处理同时包含“语义相似”和“关键词包含”的复杂布尔查询，对数据库的查询优化器提出了很高的要求。
+
+    因此，实际的整合往往是分阶段的：先通过松耦合的方式进行快速验证和迭代，待业务模式稳定后，再考虑迁移至提供原生混合搜索的数据库，以获得更高的效率。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SkhxwrnkSi7qcRkf8LOcNILdnr0
+  block_id: PFmEdLNbroTqMwxM9IKcnoBfnid
+  page_token: SkhxwrnkSi7qcRkf8LOcNILdnr0
+  original_title: 混合索引：如何将向量索引与全文索引（如 BM25）整合到一个统一索引结构中？
+  imported_at: '2026-09-21'

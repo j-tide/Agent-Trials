@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5de63ed6bb0f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 画出正常反向传播和梯度检查点模式下前向/反向执行图，说明重计算机制。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 画出正常反向传播和梯度检查点模式下前向/反向执行图，说明重计算机制。
+answer:
+  mode: rubric
+  reference_answer: |-
+    正常反向传播模式
+
+    [图片内容未导入]
+
+    梯度检查点模式
+
+    - 将网络划分为若干段（checkpoint segments）。在标准实现中，每个段作为检查点运行。
+
+    - 前向传播：
+
+    - 对于检查点段，正常计算该段输出，但不保存该段内部各层的中间激活（即不保留计算图中间张量）。仅保存该段的输入张量（即从此段开始的输入）以及与该段无关的其他状态。
+
+    - 对于非检查点段（通常是将整个模型划分为多个段，每个段可以是单个Transformer层或多层），则按正常模式保留中间激活。
+
+    - 反向传播：
+
+    - 当反向传播到达一个检查点段的输出时，由于该段内部的中间激活未被保存，需要重新计算该段的前向传播来获得所需的中间激活。
+
+    - 使用保存的该段输入，重新执行该段的前向计算（这次需要保留中间激活），然后再执行反向传播计算该段的参数梯度。
+
+    - 之后，即可丢弃这些重新计算的激活，继续反向到前一个检查点段。
+
+    - 执行图示意（以两个检查点段为例）：
+
+    ```text
+    Forward:
+      x -> [Segment 1] -> a1 (只保存a1, 内部不保留) -> [Segment 2] -> loss
+    Backward:
+      loss grad -> Segment 2: 需要内部激活 -> 用保存的a1重计算Segment 2前向，保留中间，然后反向传播得梯度，释放
+                -> Segment 1: 用输入x重计算Segment 1前向，保留中间，反向传播得梯度，释放
+    ```
+
+    - 重计算机制实质是“牺牲计算，节省内存”。每个检查点段被计算两次：一次在前向（不保留中间），一次在反向时重计算（保留中间用于梯度计算）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  block_id: Jkg4dNBk2oJrxyxylgzc1c4Dn9n
+  page_token: DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  original_title: 画出正常反向传播和梯度检查点模式下前向/反向执行图，说明重计算机制。
+  imported_at: '2026-09-21'

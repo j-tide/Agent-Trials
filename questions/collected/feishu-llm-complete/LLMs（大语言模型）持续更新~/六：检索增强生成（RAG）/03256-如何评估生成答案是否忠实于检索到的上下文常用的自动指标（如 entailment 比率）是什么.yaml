@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-001672282fb0
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何评估生成答案是否忠实于检索到的上下文？常用的自动指标（如 entailment 比率）是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 如何评估生成答案是否忠实于检索到的上下文？常用的自动指标（如 entailment 比率）是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    评估生成答案的忠实度，本质上是在做细粒度的事实核查。这项工作不能依赖简单的词重叠（如 ROUGE），因为一个句子完全可以和上下文使用完全不同的词汇，但意思相同；或者使用完全相同的词汇，但通过拼接和扭曲产生虚假陈述。我们需要的是对“陈述是否得到证据支持”的语义判断。
+
+    核心自动指标：蕴含比率
+
+    “蕴含比率”是忠实度评估中应用最广、最经典的自动指标。它的工作流程如下：
+
+    - 答案分解：将待评估的生成答案，分解为一组最小、独立的“原子事实”。每个原子事实都是一个简短的、包含单一信息的陈述句。例如，“爱因斯坦出生于1879年的德国乌尔姆市”可以被分解为两个原子事实：“爱因斯坦出生于1879年”和“爱因斯坦出生于德国乌尔姆市”。
+
+    - 逐条验证：将每一个原子事实作为“假设”，将检索到的所有上下文拼接起来作为“前提”。送入一个自然语言推理（NLI）模型（如 RoBERTa-Large fine-tuned on MNLI）。NLI 模型会输出三种标签之一：entailment（蕴含，即上下文支持该事实）、contradiction（矛盾，即上下文与该事实冲突）、neutral（中立，即上下文不涉及该事实，无法判断）。
+
+    - 比率计算：统计所有被标记为 entailment 的原子事实数量，除以原子事实总数，得到的就是“蕴含比率”。这个比率直接代表了答案中有多大比例的事实是有据可查的。
+
+    为什么这个指标有效？
+
+    NLI 模型经过大量数据训练，能够捕捉到词汇层面的同义表达、逻辑蕴含和矛盾关系，而不只是字面匹配。它能够判断“苹果发布了新手机”是否在语义上得到“Apple 公司推出了下一代 iPhone”的支持。这种能力是忠实度评估所需要的，也是 n-gram 匹配完全无法比拟的。
+
+    其他辅助指标
+
+    - 矛盾率：如果某些原子事实被标记为 contradiction，这是一个非常危险的信号，说明模型不仅在编造，而且在编造与事实相反的信息，这比信息缺失危害更大。
+
+    - 基于问答的指标（QAGS 等）：通过“答案-问题-再回答”的闭环，评估信息的一致性。如果从答案中提取的问题，用原文能够回得到相同的答案，则说明该信息是忠实于原文的。
+
+    注意事项
+
+    自动 NLI 模型并非完美，它在处理需要复杂推理、领域专有知识或长文档时准确率会下降。因此，对于高风险的医疗、法律等场景，建议定期用“蕴含比率”进行全量自动化扫描，发现异常案例后，再由人工或昂贵的 GPT-4 进行二次复核。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AZ8BwcRC4irBITk2iaMc0ZqDnLc
+  block_id: UuqxdEoYToQe9PxCkjlcUpZcnjh
+  page_token: AZ8BwcRC4irBITk2iaMc0ZqDnLc
+  original_title: 如何评估生成答案是否忠实于检索到的上下文？常用的自动指标（如 entailment 比率）是什么？
+  imported_at: '2026-09-21'

@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4c726a8a165b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在推理中，如何高效实现 padding、truncation 以及生成 attention_mask？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 在推理中，如何高效实现 padding、truncation 以及生成 attention_mask？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 LLM 推理中，处理变长序列的批处理需要统一序列长度，同时避免浪费计算资源。
+
+    Padding 策略：
+
+    - 动态 padding（Dynamic Padding）：不在整个数据集上统一到最大长度，而是在每个 batch 内部，将序列填充到该 batch 中最长序列的长度。这可以大幅减少填充 token 的数量，提高有效计算比例。
+
+    - 左填充 vs 右填充：对于自回归生成任务，通常采用左填充（将 PAD token 放在序列左边）。因为生成是从右端最后一个有效 token 开始，左填充可以确保生成的起始位置不受填充影响。对于编码器模型（如 BERT），则使用右填充。
+
+    - padding token ID：通常使用 0 或词表中的特殊 token（如 <pad>）的 ID。需要保证模型在初始化时正确设置 pad_token_id。
+
+    Truncation 策略：
+
+    - 最大长度限制：根据模型支持的上下文窗口（如 4096），对超长序列进行截断。
+
+    - 保留关键信息：对于对话历史，通常只保留最近的几轮（truncation='longest_first' 或自定义函数保留最近轮次）。对于长文档，可以保留开头和结尾。
+
+    - 步进截断：对极长文本，可采用滑动窗口，分段处理。
+
+    生成 attention_mask：
+
+    - attention_mask 是一个与输入序列等长的二进制张量，1 表示有效 token，0 表示填充 token。
+
+    - 在自注意力计算中，将 attention_mask 广播到注意力分数矩阵，对填充位置施加一个极大的负数（如 -inf），使 softmax 后的权重为 0。
+
+    - 现代推理框架（如 vLLM）能自动处理变长序列的注意力掩码，甚至无需显式填充（通过连续批处理和分页注意力）。
+
+    高效实现：
+
+    - 使用 tokenizer.pad() 方法或 DataCollator 自动完成。
+
+    - 对于大批量在线服务，连续批处理技术（Continuous Batching）允许动态插入新请求，不需要提前统一长度，框架内部通过 CUDA 内核处理掩码。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UKVSwsmrvizh73kD8qpckkNRnQh
+  block_id: BwIudiMkco9kfjx08l0cmiWzn4g
+  page_token: UKVSwsmrvizh73kD8qpckkNRnQh
+  original_title: 在推理中，如何高效实现 padding、truncation 以及生成 attention_mask？
+  imported_at: '2026-09-21'

@@ -1,0 +1,94 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b6fe63dc28a2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 torch.utils.checkpoint 实现梯度检查点的基本代码模式。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 使用 torch.utils.checkpoint 实现梯度检查点的基本代码模式。
+answer:
+  mode: rubric
+  reference_answer: |-
+    PyTorch提供了 torch.utils.checkpoint.checkpoint 函数来实现检查点功能。基本模式：
+
+    ```python
+    import torch
+    from torch.utils.checkpoint import checkpoint
+
+    class TransformerBlock(nn.Module):
+        def __init__(self, ...):
+            # 定义注意力层、FFN等
+            ...
+
+        def forward(self, x):
+            # x: 输入张量
+            # 使用checkpoint包裹需要重计算的部分
+            # 注意：checkpoint内不能有需要保存状态的dropout等（或需设置preserve_rng_state=False）
+            return checkpoint(self._forward_impl, x, use_reentrant=False)
+
+        def _forward_impl(self, x):
+            # 实际的前向计算：注意力、残差、FFN等
+            attn_out = self.attn(self.ln1(x))
+            x = x + attn_out
+            ffn_out = self.ffn(self.ln2(x))
+            x = x + ffn_out
+            return x
+    ```
+
+    关键点：
+
+    - checkpoint(func, *args, use_reentrant=False) 会将func和args打包。前向时，func被执行，但中间激活不被保留（通过torch.no_grad？实际上内部使用了自定义autograd函数，前向时不保存中间结果，反向时重新运行func）。
+
+    - 使用 use_reentrant=False 是推荐的新版本用法，更安全且支持更多场景。
+
+    - 若模块内有Dropout等非确定性操作，需要设置 preserve_rng_state=True（默认）以便重计算时恢复相同的随机状态，保证两次前向结果一致。但注意，开启此选项会增加少量显存和时间开销。如果不需要精确一致（如推理时），可设为False。
+
+    - 检查点可以嵌套在多个层级，但通常每个Transformer块作为一个检查点单位。
+
+    完整训练循环示例：
+
+    ```python
+    model = MyTransformer()
+    optimizer = torch.optim.Adam(model.parameters())
+    for data, target in dataloader:
+        optimizer.zero_grad()
+        output = model(data)
+        loss = criterion(output, target)
+        loss.backward()
+        optimizer.step()
+    ```
+
+    模型内部的Transformer块已经通过checkpoint封装，自动实现重计算。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  block_id: NJkyd9rG0oZSARxsWdnc5KzInDf
+  page_token: DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  original_title: 使用 torch.utils.checkpoint 实现梯度检查点的基本代码模式。
+  imported_at: '2026-09-21'

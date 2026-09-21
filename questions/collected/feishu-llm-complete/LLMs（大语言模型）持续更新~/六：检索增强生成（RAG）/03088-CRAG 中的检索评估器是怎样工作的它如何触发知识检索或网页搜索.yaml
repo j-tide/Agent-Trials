@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b961c32e506b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: CRAG 中的“检索评估器”是怎样工作的？它如何触发知识检索或网页搜索？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: CRAG 中的“检索评估器”是怎样工作的？它如何触发知识检索或网页搜索？
+answer:
+  mode: rubric
+  reference_answer: |-
+    检索评估器的构成与训练
+
+    CRAG 的检索评估器是整个系统的质量守门员，其核心是一个经过专门微调的置信度评估模型。它通常选用一个轻量级的大语言模型（如 T5-Large），因为轻量级模型推理速度快，能满足作为前置过滤器的低延迟要求。
+
+    训练该评估器需要构建一个特定的数据集，其中包含大量的“查询-文档块”对，并且每个对都被标注了相关性等级，例如“完全相关”、“部分相关”或“不相关”。使用这些标注数据对基础模型进行微调后，它就学会了为任意输入对输出一个介于 0 到 1 之间的相关性置信度分数。
+
+    工作流程与触发逻辑
+
+    当一次检索返回多篇文档后，评估器会对每篇文档进行独立评估，输出一系列置信度分数。接下来，CRAG 的决策逻辑会根据这些分数的整体分布，与预设的上下阈值进行比较，从而触发不同的行动：
+
+    - 触发内部知识检索（默认或优化检索）
+    当所有文档的平均置信度或最高置信度超过一个高阈值（例如 0.8）时，评估器判定检索质量良好，此时不触发任何外部纠正，系统默认使用这些高置信度文档。
+
+    - 当置信度分数分散，部分高于高阈值、部分低于低阈值（例如 0.5）时，评估器判定为模糊状态。此时，它会触发知识检索优化。系统会利用原始查询和已确认相关的高置信度文档内容，由 LLM 生成一个更精准、更细化的子查询。这个子查询会被重新发送到内部知识库进行第二次检索，以期补全或修正信息。
+
+    - 触发网页搜索
+    当绝大多数文档的置信度分数都低于一个低阈值（例如 0.4）时，评估器判定此次检索失败。此时，它会触发网页搜索的纠正行动。系统首先利用原始查询（或 LLM 为其生成一个更适合搜索引擎的关键词查询）调用外部搜索 API。获取到搜索结果后，系统会抓取这些网页的文本内容，并进行分块。这些新的网页文档块会再次被送入同一个检索评估器进行打分，只有那些被评估为高置信度的网页内容，才会被最终保留下来，替换掉原先的劣质检索结果。
+
+    通过这种基于置信度和阈值的动态分流，CRAG 能够智能地判断何时信任内部知识库，何时需要向外部网络求助，从而在保证答案质量的同时，最大限度地利用自身已有的知识储备。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y1dXw3l0KiZYg7kLXpQcX5gpn3f
+  block_id: ViYgd0udZoOABnxufpjcsNJAnOc
+  page_token: Y1dXw3l0KiZYg7kLXpQcX5gpn3f
+  original_title: CRAG 中的“检索评估器”是怎样工作的？它如何触发知识检索或网页搜索？
+  imported_at: '2026-09-21'

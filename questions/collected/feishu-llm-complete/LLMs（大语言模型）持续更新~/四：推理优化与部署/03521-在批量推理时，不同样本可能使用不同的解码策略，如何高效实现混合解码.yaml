@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8135e9279327
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在批量推理时，不同样本可能使用不同的解码策略，如何高效实现混合解码？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在批量推理时，不同样本可能使用不同的解码策略，如何高效实现混合解码？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在面向多用户的 API 服务中，高效处理混合解码请求是一个核心工程挑战。关键在于将核心计算（模型前向传播）与轻量级的后处理（解码逻辑）解耦。
+
+    高效实现方案：
+
+    - 统一 Logits 处理器框架：这是现代推理引擎（如 vLLM, TensorRT-LLM）的标准做法。整个推理 pipeline 被设计为：
+
+    - 请求级元数据绑定：每个推理请求在进入引擎时，都会被绑定一个唯一的 ID 和它的解码配置（如 {"temp": 0.8, "top_p": 0.95}）。在 logits 处理器阶段，引擎会根据这个配置，为每个样本动态地调用其专属的处理逻辑。
+
+    - 采样内核的并行化：最后一步，对于需要随机采样的请求，使用优化过的、支持不同随机种子的 GPU 采样内核，一次性完成整个 batch 内所有样本的 token 采样。
+
+    通过这种“统一模型计算 + 差异化后处理”的架构，我们可以在不影响 GPU 核心计算效率的前提下，灵活地支持各种解码策略的混合使用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/B2WpwnpvmiqW35k9hzvcJ4wTncd
+  block_id: NZJYdPMVwoOanExVD7XcOrlYnke
+  page_token: B2WpwnpvmiqW35k9hzvcJ4wTncd
+  original_title: 在批量推理时，不同样本可能使用不同的解码策略，如何高效实现混合解码？
+  imported_at: '2026-09-21'

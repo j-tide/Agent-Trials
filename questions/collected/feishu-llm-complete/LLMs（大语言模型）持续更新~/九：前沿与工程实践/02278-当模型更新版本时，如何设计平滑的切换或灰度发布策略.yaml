@@ -1,0 +1,163 @@
+---
+schema_version: 1
+id: feishu-llm-complete-561b4483ec6d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当模型更新版本时，如何设计平滑的切换或灰度发布策略？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 九：前沿与工程实践
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 九：前沿与工程实践
+content:
+  prompt: 当模型更新版本时，如何设计平滑的切换或灰度发布策略？
+answer:
+  mode: rubric
+  reference_answer: |-
+    大语言模型的权重文件动辄数十 GB，模型服务的切换不是简单的代码更新，而是一个有状态的、涉及到 GPU 显存资源蓝绿置换的复杂过程。粗糙的更新会导致服务中断、请求超时和资源争抢。平滑发布策略是保障模型服务高可用的关键。
+
+    策略一：金丝雀发布 (Canary Deployment)
+
+    这是最主流的、风险最低的发布方式。
+
+    - 原理：新旧版本模型同时运行，但新版本只接收一小部分流量。
+
+    - 实现：
+
+    策略二：蓝绿部署 (Blue-Green Deployment)
+
+    适用于需要快速、完整切换的大版本更新。
+
+    - 原理：维护两套完全独立的、规模相同的生产环境（Blue为旧版，Green为新版）。新版环境部署、测试、预热完毕后，通过修改负载均衡器的指向，将 100% 的生产流量一次性切换到 Green 环境。
+
+    - 优势：切换迅速，且旧环境（Blue）保留，一旦出现问题，可以立刻切回，回滚速度极快。
+
+    - 挑战：资源开销巨大。在切换期间，需要同时运行两套完整的生产集群，对 GPU 等昂贵资源是一种浪费。
+
+    策略三：滚动更新 (Rolling Update)
+
+    对于某些场景（如模型微调后的快速迭代），可以使用 Kubernetes 原生的滚动更新策略，但需要精细配置。
+
+    - 关键配置：
+
+    - 风险：整个集群会短暂地处于新旧版本并存的状态，需要确保 API 网关的负载均衡策略能正确处理这种情况。并且，如果新版 Pod 启动后立刻崩溃，maxUnavailable: 0 策略也会阻止更新继续进行，需要人工介入。
+
+    - WebSocket：全双工通信，适合需要客户端频繁向服务端发送数据的场景（如语音对话）。但用于纯文本生成时，其复杂性高于 SSE，不如 SSE 轻量。
+
+    - gRPC 流：基于 Protocol Buffers，性能极高，适合内部微服务之间的流式通信。但对于公网 API，兼容性和调试便利性不如 HTTP+SSE。
+
+    - 将 messages 列表（带有 system/user/assistant 角色）拼接成特定格式的 Prompt 字符串，或者直接映射为你模型微调时使用的 ChatML 格式。
+
+    - 将 temperature, max_tokens 等参数映射到推理引擎的配置项。
+
+    - 对于 stop 词、logit_bias 等高级参数，需要在推理引擎中找到对应的功能实现或进行后处理。
+
+    - 非流式：将推理引擎返回的完整文本，封装为标准 OpenAI 响应 JSON。
+
+    - 流式：监听推理引擎的 token 生成事件，将其逐个封装为 SSE data: {...} 块，包含 id, object, choices[0].delta.content 等字段。第一个块需包含 role，最后一个块需设置 finish_reason，并在末尾发送 [DONE]。
+
+    - 模型唯一 ID（如 llama-3-70b-instruct）
+
+    - 版本号（如 v1, v2, production, canary）
+
+    - 模型文件在对象存储（如 S3）中的路径
+
+    - 运行配置（所需 GPU 类型、显存、推荐批处理大小等）
+
+    - 模型类型（LLM, Embedding, Reranker）
+
+    - 接收所有 API 请求，解析请求中的 model 参数。
+
+    - 根据路由表，将请求映射到负责该模型/版本的具体推理服务实例组。
+
+    - 负责认证、限流、日志记录等公共功能。
+
+    - 支持灵活的版本指向策略：production 标签指向最稳定的版本，latest 指向最新版本，也支持用版本哈希直接访问。
+
+    - 支持流量分发：将特定百分比的流量分配给金丝雀版本，实现平滑上线。
+
+    - 模型不是直接运行在裸机上，而是容器化后由 Kubernetes 等进行编排。
+
+    - 可以水平自动伸缩。例如，当发现负责某个热门模型的推理服务负载过高时，自动增加 Pod 数量；冷门模型长时间无请求时，可以将实例缩容到 0，以节省算力。
+
+    - 模型版本更新时，采用滚动更新或蓝绿部署，保证服务不中断。
+
+    - 所有模型文件集中存储在高性能共享存储（如 Ceph, MinIO）或对象存储中。
+
+    - 当一个新的推理 Pod 启动时，通过 Init Container 或预加载机制，从存储中快速拉取模型文件到本地 SSD 或加载到 GPU 显存中。
+
+    - 设置 Kubernetes 的 HPA（水平自动伸缩）最小副本数为 1，即使没有流量也保留一个实例常驻。
+
+    - 实现一个定时 Ping 机制，每隔一段时间（如 5 分钟）向推理服务发送一个简单的请求，确保其活跃状态。
+
+    - 尽管这会浪费一些空闲资源，但对于需要保证低延迟的高优先级应用是必需的。
+
+    - 用户级限流 (Per-User)：对单个用户的 TPM、RPM (Requests Per Minute) 或 TPD (Tokens Per Day) 进行限制。这保证了公平性，防止个别用户的突发流量影响到其他人。
+
+    - 模型级限流 (Per-Model)：对整个集群上某个模型的总体吞吐量设置上限，以保护后端推理服务不过载。
+
+    - 并发限流：使用信号量限制同时处理的请求数，防止等待队列无限增长导致雪崩。
+
+    - KV Cache 使用率：这是最精准的指标。当 GPU 显存中可用 KV Cache 块的数量低于阈值时，说明并发能力即将饱和，需要扩容。
+
+    - 请求队列长度/等待时间：当推理请求的平均排队等待时间超过设定的延迟目标时，触发扩容。
+
+    - GPU 利用率/吞吐量：当 GPU 计算核心的利用率持续接近 100% 时，也是一个扩容信号。
+
+    - 冷却时间：必须设置足够的缩容冷却时间（如 5-10 分钟），避免在流量波动时频繁销毁和创建实例，这会导致反复的模型加载（冷启动）。
+
+    - 保护策略：如果预测到定时的高峰流量，可以提前预热并禁止在高峰期间缩容。
+
+    - 对于单卡能放下的模型，使用标准的 Deployment 管理多个相同的 Pod 副本。
+
+    - 对于需要跨多张 GPU 的张量并行或流水线并行的模型，使用 Kubernetes 的 LeaderWorkerSet 或其他自定义资源（如 PyTorch Job 的变体）来管理一组关系紧密的 Pod。
+
+    - Init Container + 共享存储：最简单的方案。使用一个 Init Container 将模型文件从对象存储（如 S3）拷贝到一个 emptyDir 卷（或基于 SSD 的 PVC）中，然后主容器加载模型。每次 Pod 启动都要拷贝，可能较慢。
+
+    - Persistent Volume Claim (PVC) + ReadOnlyMany：对于更大的模型，提前将模型拷贝到一个共享的 PVC（如基于 NFS 或高性能并行文件系统）中，Pod 启动时直接只读挂载。启动速度快，但对存储系统有要求。
+
+    - Container 镜像内嵌模型：将模型文件直接打包到 Docker 镜像中。这是最快的启动方式，但镜像体积会非常庞大。
+
+    - 注入攻击检测：识别并拦截诸如“忽略之前的指令”、“你现在是 DAN 模式”等企图覆盖系统提示的 Prompt。
+
+    - 有害内容过滤：识别并拦截包含暴力、色情、仇恨言论等违规内容的提问。
+
+    - 创建一个新的 Deployment 或 Rollout 对象，部署新版本的模型服务 Pod。所有 Pod 启动并完成模型加载后，都注册到同一个 API 网关后端。
+
+    - 在 API 网关或 Ingress 层，配置流量路由策略。将带有特定 Header（如 X-Canary: true）的请求，或随机抽取 5% 的生产流量，路由到新版服务。
+
+    - 密切监控新版服务的核心指标（TTFT, TPS, 回答质量, 错误率）。如果一切正常，逐步将流量比例从 5% -> 25% -> 50% -> 100%。
+
+    - 如果新版本出现问题，可以立即将流量比例调回 0%，实现秒级回滚，完全不影响旧版本服务。
+
+    - maxSurge: 1。先启动一个新版 Pod，等待其完成模型加载并通过健康检查。
+
+    - maxUnavailable: 0。确保在更新过程中，没有旧版 Pod 被提前终止，保证整体容量不下降。
+
+    - 当新版 Pod Ready 后，一个旧版 Pod 才会被终止。这个过程以逐个替换的方式进行，直到所有 Pod 都更新完毕。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  block_id: B4H8dQE9GoFgM9xSAikcBB7on46
+  page_token: Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  original_title: 当模型更新版本时，如何设计平滑的切换或灰度发布策略？
+  imported_at: '2026-09-21'

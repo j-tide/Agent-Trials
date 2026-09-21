@@ -1,0 +1,112 @@
+---
+schema_version: 1
+id: feishu-llm-complete-273a3d40fb7c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 画出大规模预训练语料构建的端到端流水线，并标注各环节常见工具。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 画出大规模预训练语料构建的端到端流水线，并标注各环节常见工具。
+answer:
+  mode: rubric
+  reference_answer: |-
+    大规模预训练语料构建的端到端流水线通常包括以下几个关键环节，形成一个从原始网页抓取到最终高质量文本的漏斗形处理过程。以下以处理 Common Crawl 等网页数据为例说明各环节及其常见工具。
+
+    整体流水线示意图（文字描述）：
+
+    ```text
+    [Web Crawl / WARC 文件]
+            |
+            v
+    ① 数据获取与解压：从 WARC/WET 文件提取 HTML 及元数据
+       工具：warcio, requests, Common Crawl Index (cdx)
+            |
+            v
+    ② 正文提取与 HTML 去噪：从 HTML 中提取主体文本内容
+       工具：trafilatura, readability-lxml, boilerpy3, jusText, dragnet
+            |
+            v
+    ③ 语言识别与过滤：保留指定语言（如中文、英文）的文本
+       工具：fastText (langdetect), langid.py, CLD3, pycld2
+            |
+            v
+    ④ 启发式规则清洗：基于规则和统计过滤低质量文本
+       工具：自定义脚本（正则、文本特征）、textstat, datasketch
+            |
+            v
+    ⑤ 文档去重：去除完全重复或高度相似的文档
+       工具：MinHash + LSH (datasketch, gaoya), SimHash, Onion
+            |
+            v
+    ⑥ PII 及敏感信息过滤：移除邮箱、电话、身份证号等个人隐私
+       工具：presidio, scrubadub, 正则表达式库, transformers NER
+            |
+            v
+    ⑦ 毒性/偏见/违规内容过滤：筛除有害、歧视、违法内容
+       工具：Perspective API, detoxify, hatexplain, 自定义分类器
+            |
+            v
+    ⑧ 质量分级与采样：根据文本质量评分进行过滤或加权采样
+       工具：KenLM 困惑度、fastText 质量分类器、CDL 模型
+            |
+            v
+    ⑨ 数据混合与分片：将多个来源的数据按比例混合，切分为训练分片
+       工具：HuggingFace Datasets, dask, spark, numpy
+            |
+            v
+    [最终训练语料]
+    ```
+
+    各环节简要说明：
+
+    - ① 数据获取：从 Common Crawl 的 WARC（原始抓取）或 WET（纯文本）文件读取。warcio 库可高效解析 WARC 格式。利用 cdx 索引可提前筛选语言、域名等。
+
+    - ② 正文提取：移除 HTML 标签、导航、广告、评论区等非正文内容，提取页面主要内容。工具如 trafilatura（适用于多语言、新闻正文）、readability-lxml（基于浏览器可读性算法）、boilerpy3（轻量级，适合英文新闻）、jusText（去链接/导航效果好）。
+
+    - ③ 语言识别：识别文本主要语言，过滤掉非目标语言的文档。fastText 的语言识别模型（lid.176.bin）速度快且准确，适合大规模处理；pycld2（Compact Language Detector 2）基于 Chrome 的检测器，速度快；langid.py 适用于短文本。
+
+    - ④ 启发式清洗：一系列规则和统计量过滤垃圾内容。例如，文本长度、乱码比例、敏感词出现频次、重复 n-gram 比例、标点异常等。通常用 Python 脚本搭配正则和简单统计实现。
+
+    - ⑤ 文档去重：移除重复文档，降低记忆风险和提升数据效率。MinHash+LSH 是处理海量文档相似去重的经典方案（datasketch）；SimHash 适用于近似去重。
+
+    - ⑥ PII 过滤：移除个人身份信息，如邮箱、电话号码、身份证号、社会安全号码等。presidio（微软）提供可配置的 PII 识别和匿名化；scrubadub 适用于多种格式的 PII；也可用正则表达式或微调的 NER 模型。
+
+    - ⑦ 毒性/偏见过滤：筛除包含仇恨言论、暴力、色情、严重偏见的内容。可用 Google 的 Perspective API（在线）；离线工具如 detoxify（基于 BERT 的毒性分类器）或自训练的分类模型。通常也结合关键词黑名单。
+
+    - ⑧ 质量分级：进一步筛选高质量文本。利用语言模型（如 KenLM）计算困惑度，低困惑度更流畅；或者训练一个轻量的文本质量分类器（如 FineWeb-Edu 使用的）。对文本评分后，可设置阈值过滤或加权采样。
+
+    - ⑨ 数据混合：将经过清洗的多个领域（百科、书籍、新闻、论坛、代码等）的数据按预设比例混合，并打乱顺序，最终切分为训练所需的 shard（如 jsonl 文件）。
+
+    此流水线可根据具体需求定制，通常在大规模 Spark 或分布式计算框架（如 Ray、Dask）上运行，以保证效率。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VQryw3HUdiWHbekHEfpc0JK2nDe
+  block_id: WSOldGdMmoxYwcxIAdMcZZYAnRc
+  page_token: VQryw3HUdiWHbekHEfpc0JK2nDe
+  original_title: 画出大规模预训练语料构建的端到端流水线，并标注各环节常见工具。
+  imported_at: '2026-09-21'

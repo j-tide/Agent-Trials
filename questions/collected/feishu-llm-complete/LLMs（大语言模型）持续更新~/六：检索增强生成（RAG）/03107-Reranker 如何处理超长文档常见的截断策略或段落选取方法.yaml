@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d85bb62059b9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Reranker 如何处理超长文档？常见的截断策略或段落选取方法。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: Reranker 如何处理超长文档？常见的截断策略或段落选取方法。
+answer:
+  mode: rubric
+  reference_answer: |-
+    Reranker 模型通常有严格的输入长度限制（如 512 或 8192 个 Token）。当候选文档的长度超出这一限制时，必须进行截断或段落选取。这并非简单的丢弃，而是需要尽可能保留与查询最相关的部分。
+
+    常见策略：
+
+    - 简单头部截断：
+    直接保留文档的前 L 个 Token（L 为模型最大长度减去查询长度和特殊 Token）。这种方法最简单，但假设文档的开头部分包含最重要信息，这在很多文档（如新闻、论文摘要）中是成立的，但可能丢失正文中关键的细节。
+
+    - 与查询相关的动态滑动窗口：
+    先使用一个轻量级的算法（如 BM25 或稠密检索）对文档进行分段，找到与查询最相关的一个或多个段落。然后，以这些段落为中心，截取一个固定长度的窗口。也可以将多个相关段落拼接，但总长度不超过限制。这种方法更智能，能最大化保留信号。
+
+    - 滚动分块，分别评分后取最大值：
+    将长文档按固定步长切分为多个有重叠的块（Chunk）。将每个块与查询独立送入 Reranker 打分。然后，取所有块得分的最大值作为整篇文档的最终得分。这种方法保证了不会因为截断而漏掉文档中间的关键信息，但计算开销增加了数倍。
+
+    - 摘要注入：
+    如果系统在索引阶段就为每篇长文档生成了摘要，那么可以直接使用摘要作为 Reranker 的输入。因为摘要已经高度概括了文档的核心内容，信息密度极高。这是一种非常高效的策略。
+
+    最佳实践：
+
+    - 优先使用智能截断：利用初检时命中的分块位置，直接将该分块及其周围上下文作为 Reranker 的输入。这是 RAG 中最常见的做法，因为检索时的分块已经是最相关的候选片段。
+
+    - 结合元数据：文档的标题、小标题等信息可以作为前缀注入，为 Reranker 提供全局背景。
+
+    - 动态策略：根据文档长度和类型自动选择截断方式。对于极长的文档，结合摘要和关键片段。
+
+    通过精心的截断设计，可以极大限度地降低长文档带来的信息丢失风险，保证 Reranker 的精度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MdouwCwh3iP6HNkt4PZcw9CSnYb
+  block_id: QHWRdSHsjo5lx0xpB9pcmJG3nDf
+  page_token: MdouwCwh3iP6HNkt4PZcw9CSnYb
+  original_title: Reranker 如何处理超长文档？常见的截断策略或段落选取方法。
+  imported_at: '2026-09-21'

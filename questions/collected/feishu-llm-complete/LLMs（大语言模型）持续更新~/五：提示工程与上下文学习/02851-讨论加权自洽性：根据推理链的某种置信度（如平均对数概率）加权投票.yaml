@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8462ea2d3545
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 讨论加权自洽性：根据推理链的某种置信度（如平均对数概率）加权投票。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: 讨论加权自洽性：根据推理链的某种置信度（如平均对数概率）加权投票。
+answer:
+  mode: rubric
+  reference_answer: |-
+    普通自洽性给每条路径的投票权相同，加权自洽性则想给那些“看起来更靠谱”的路径更高的权重，以期得到更准的聚合结果。
+
+    可行的权重类型：
+
+    - 平均对数概率（Average Log Probability）：这是最常用的置信度指标。模型生成一段文本时，可以计算每个生成 token 的对数概率，取整个序列的平均值。直觉上，模型对自己说出来的话“越确定”，平均对数概率越高。加权时，每条路径的投票权可以设为 exp(平均对数概率) 或者直接使用归一化后的概率和。
+
+    - 答案条件概率：如果模型不仅输出推理链，还单独给答案标了概率，那么可以直接用 P(answer | prompt, reasoning) 作为权重，这更直接地表达了模型对答案的把握。
+
+    - 推理长度或复杂度：过于简短或过于冗长的推理可能质量不高，可以给中等长度的推理更高权重。但这是一个很强的假设，不一定普适。
+
+    - 基于外部验证的置信度：如第 12 问所说，如果能用计算器验证中间步骤，验证结果的一致性可以作为权重因子。
+
+    加权投票的潜在问题：
+
+    - 流畅性偏差：模型生成的平均对数概率往往更青睐那些语言流畅、常见的路径。但流畅≠正确。一个包含致命逻辑错误但语言顺滑的推理链，其平均对数概率可能比一条正确但语言简朴的推理链更高。如果按照这个指标加权，反而可能放大错误。
+
+    - 过拟合模型的“自信”：模型对错误答案也可能极度自信。平均对数概率反映的是模型对自身输出的内部确信度，而非客观正确性。错误认知下，确信度可能极高。加权投票在这种情况下会帮倒忙。
+
+    - 额外计算开销：计算每条路径的对数概率需要模型输出 logprobs，这会增加计算量和显存占用，对于大批量生成不利。
+
+    - 实际提升有限：在多项研究中，加权自洽性相比简单多数投票，准确率提升微乎其微，有时甚至因为引入上述偏差而略微下降。多数投票的“简单粗暴”反而让它对各种偏差更加鲁棒。
+
+    实用建议：
+
+    除非在特定任务上经过严格实验验证加权确实能带来明确且稳定的提升，否则不要轻易用加权投票替代简单多数投票。多数投票的简洁性本身就是一种优势——它没有引入任何可能出错的中间评判机制。如果模型对多个路径的置信度差异非常大，加权可能有用，但这种情况在实际中并不普遍。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MGuPw0n6Ji2qNJkRj17cdAcWnue
+  block_id: GZAKd9LhCoa5GDxXMvxcxm3HnZf
+  page_token: MGuPw0n6Ji2qNJkRj17cdAcWnue
+  original_title: 讨论加权自洽性：根据推理链的某种置信度（如平均对数概率）加权投票。
+  imported_at: '2026-09-21'

@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-080af93c1bb2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现流式输出时，如何保证客户端接收 token 的顺序性和完整性？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 实现流式输出时，如何保证客户端接收 token 的顺序性和完整性？
+answer:
+  mode: rubric
+  reference_answer: |-
+    流式输出基于可靠传输协议（如 HTTP/1.1 长连接或 HTTP/2 流），其底层 TCP 连接保证了字节流的顺序性和无丢失。因此，只要服务端按正确顺序写入数据，客户端就能按相同顺序接收。
+
+    保障措施：
+
+    - TCP 的有序性：SSE 和 WebSocket 都依赖 TCP，TCP 保证数据包按发送顺序交付。服务端推送的每个 token 片段会依次到达客户端，不会乱序。
+
+    - 消息边界：使用 SSE 的 data: 消息边界或 WebSocket 的消息帧，确保每个推送单元是一个完整消息，客户端解析时不会混淆。
+
+    - 序列号与确认（应用层可选）：在 WebSocket 或自定义流中，可为每条消息附带递增序列号。客户端检测到序列号跳跃即可发现丢包（尽管 TCP 已保证有序，但可防止应用层处理错误）。对于 SSE，标准允许 id 字段用于断线重连后恢复，客户端可在重连时发送 Last-Event-ID，服务端据此重传丢失的消息，保证完整性。
+
+    - 缓冲与 ACK：服务端可维护发送缓冲区，并仅在收到客户端 TCP ACK 后丢弃已发送数据，但一般内核 TCP 栈已保证。
+
+    因此，基于 TCP 的流式输出天然保证顺序性和完整性；SSE 的 id 和重连机制进一步增强了应用层鲁棒性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/P30KwGxJIiaDg5kjcX0c8HC6ntd
+  block_id: IfyAdsLCco9Iisx22cNcycdcnQb
+  page_token: P30KwGxJIiaDg5kjcX0c8HC6ntd
+  original_title: 实现流式输出时，如何保证客户端接收 token 的顺序性和完整性？
+  imported_at: '2026-09-21'

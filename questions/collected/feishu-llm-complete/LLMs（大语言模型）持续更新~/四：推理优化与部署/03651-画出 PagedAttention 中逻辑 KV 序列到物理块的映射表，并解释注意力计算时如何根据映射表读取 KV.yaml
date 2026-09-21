@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0f9f1ef7e923
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 画出 PagedAttention 中逻辑 KV 序列到物理块的映射表，并解释注意力计算时如何根据映射表读取 KV。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 画出 PagedAttention 中逻辑 KV 序列到物理块的映射表，并解释注意力计算时如何根据映射表读取 KV。
+answer:
+  mode: rubric
+  reference_answer: |-
+    我们可以用示意图来描述映射关系。假设物理块大小为 4（简化），共有 8 个物理块，编号 0~7。请求 A 的序列长度为 10，请求 B 的序列长度为 6。
+
+    逻辑到物理映射表：
+
+    ```text
+    请求 A (seq_len=10):
+    逻辑块0 (token 0-3)  -> 物理块 2
+    逻辑块1 (token 4-7)  -> 物理块 5
+    逻辑块2 (token 8-9)  -> 物理块 7 (仅用前2个位置)
+
+    请求 B (seq_len=6):
+    逻辑块0 (token 0-3)  -> 物理块 0
+    逻辑块1 (token 4-5)  -> 物理块 3 (仅用前2个位置)
+    ```
+
+    块表可表示为数组：
+
+    A.block_table = [2, 5, 7]
+
+    B.block_table = [0, 3]
+
+    注意力计算时如何读取：
+
+    在 Decode 阶段，每个请求需读取其全部历史 KV。对于请求 A，计算其第 10 个 token（新 token）的注意力时，需要访问 token 0~9 的 K、V。
+
+    - 确定逻辑块范围：0..2。迭代每个逻辑块 blk_idx：
+
+    在 GPU 内核中，这些操作通过传入块表和请求的上下文信息（序列长度）实现，循环加载非连续的物理块地址。由于块大小固定，可以高效实现向量化访问，每个物理块内部是连续内存，无需逐 token 的 scatter/gather 操作。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  block_id: I7pVdyvUWojSNMx413Zcy2XQnce
+  page_token: Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  original_title: 画出 PagedAttention 中逻辑 KV 序列到物理块的映射表，并解释注意力计算时如何根据映射表读取 KV。
+  imported_at: '2026-09-21'

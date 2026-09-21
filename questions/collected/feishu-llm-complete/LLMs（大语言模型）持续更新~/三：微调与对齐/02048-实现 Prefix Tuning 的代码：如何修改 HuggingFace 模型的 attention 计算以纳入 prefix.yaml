@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8ce007bf0516
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 Prefix Tuning 的代码：如何修改 HuggingFace 模型的 attention 计算以纳入 prefix？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 实现 Prefix Tuning 的代码：如何修改 HuggingFace 模型的 attention 计算以纳入 prefix？
+answer:
+  mode: rubric
+  reference_answer: |-
+    实现 Prefix Tuning 的核心在于修改模型每一层的自注意力计算，将可训练的前缀向量拼接在原始输入的 Key 和 Value 之前。
+
+    核心代码逻辑 (以 PyTorch 为例)：
+    你不需要重写整个 attention 层，只需在 HuggingFace 模型的前向传播中，在调用 attention 之前，对你的 Query, Key, Value 矩阵进行修改即可。
+
+    # 假设你有一个可训练的参数 self.prefix_keys 和 self.prefix_values
+    # 其形状为 (batch_size, num_heads, prefix_len, head_dim)
+    # 你的原始输入经过线性层后，得到的 Q, K, V 矩阵形状分别为 (batch_size, num_heads, seq_len, head_dim)
+
+    def modified_attention_forward(Q, K, V, prefix_keys, prefix_values):
+        # 1. 将前缀 Key 和 Value 与原始的 Key 和 Value 沿序列维度（dim=2）拼接
+        # 注意：需要先将前缀扩展到与原始输入相同的 batch_size
+        batch_size = K.shape[0]
+        prefix_keys = prefix_keys.expand(batch_size, -1, -1, -1)
+        prefix_values = prefix_values.expand(batch_size, -1, -1, -1)
+
+        K_prime = torch.cat([prefix_keys, K], dim=2)
+        V_prime = torch.cat([prefix_values, V], dim=2)
+        # Q 保持不变
+
+        # 2. 使用拼接后的 K' 和 V' 以及原始的 Q 执行标准的缩放点积注意力
+        attention_scores = torch.matmul(Q, K_prime.transpose(-2, -1)) / math.sqrt(Q.size(-1))
+        attention_probs = torch.softmax(attention_scores, dim=-1)
+        attention_output = torch.matmul(attention_probs, V_prime)
+
+        return attention_output
+
+    关键点：你需要确保在训练时，只有 prefix_keys 和 prefix_values 的梯度被计算，基座模型的其他所有参数都保持冻结。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/BeFOwhNKoiejIgkKjfpcfQZWnlc
+  block_id: VJrvdqVK8oYIE5xxUmUcAcGSnld
+  page_token: BeFOwhNKoiejIgkKjfpcfQZWnlc
+  original_title: 实现 Prefix Tuning 的代码：如何修改 HuggingFace 模型的 attention 计算以纳入 prefix？
+  imported_at: '2026-09-21'

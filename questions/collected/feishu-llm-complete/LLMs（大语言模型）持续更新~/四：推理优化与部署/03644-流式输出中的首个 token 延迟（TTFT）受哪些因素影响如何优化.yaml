@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f7a1cd63a705
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 流式输出中的“首个 token 延迟”（TTFT）受哪些因素影响？如何优化？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 流式输出中的“首个 token 延迟”（TTFT）受哪些因素影响？如何优化？
+answer:
+  mode: rubric
+  reference_answer: |-
+    TTFT (Time To First Token) 是从请求发出到客户端收到第一个 token 的时间。它直接影响用户感知的响应速度。
+
+    影响因素：
+
+    - 模型加载与初始化（首次请求）：若模型尚未加载到显存，冷启动会显著增加 TTFT。可通过预热或持久化模型避免。
+
+    - Prompt 长度（Prefill 时间）：prefill 阶段需要一次处理整个 prompt，其计算量与 prompt 长度成正比。长 prompt 导致高 TTFT。
+
+    - 模型大小与计算速度：模型参数量越大，计算越慢；量化可减少计算时间。
+
+    - 并发请求与调度：在连续批处理中，新请求可能需要等待当前 batch 执行完才能加入（或等待资源）。高并发下调度延迟增加。
+
+    - 网络延迟：客户端与服务端之间的 RTT。
+
+    - 输入处理：tokenization、截断等预处理开销。
+
+    优化方法：
+
+    - 使用推测解码：草稿模型或 Medusa 头在 prefill 时就开始生成候选 token，可能隐藏部分 TTFT，但主要优化后续 token 延迟。对 TTFT 优化有限。
+
+    - 分块预填充（Chunked Prefill）：将长 prompt 分成多个 chunk 与 decode 混合，这样第一个 chunk 很快完成，可以提前开始解码，显著降低 TTFT（vLLM 支持）。
+
+    - 前缀缓存（Prefix Caching）：如果请求有共同前缀，复用已计算的 KV Cache 直接跳过 prefill，TTFT 降为接近单 token decode 延迟。
+
+    - 量化与内核优化：使用 FP8/INT8 加速 prefill 计算。
+
+    - 动态批处理调度优化：优先调度新请求的 prefill（与 decode 混合），避免长时间等待。
+
+    - 减少预处理开销：预编译 tokenizer 或缓存编码结果。
+
+    - 边缘部署：将模型部署在离用户更近的节点，降低网络延迟。
+
+    总结：TTFT 的关键瓶颈在 prefill 和调度。采用前缀缓存、分块预填充和高效的混合批处理是当前最优实践。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/P30KwGxJIiaDg5kjcX0c8HC6ntd
+  block_id: FjWGdr8rNoKJ2JxECTPcB7I8nwe
+  page_token: P30KwGxJIiaDg5kjcX0c8HC6ntd
+  original_title: 流式输出中的“首个 token 延迟”（TTFT）受哪些因素影响？如何优化？
+  imported_at: '2026-09-21'

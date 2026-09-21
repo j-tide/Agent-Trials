@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0a3014263993
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 预训练分词器训练语料与下游任务数据分布不一致时，可能引发哪些问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 预训练分词器训练语料与下游任务数据分布不一致时，可能引发哪些问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    分词器是模型接触数据的第一道关口。如果预训练分词器的训练语料与下游任务的数据分布存在显著差异（领域漂移），会产生一连串负面效应。
+
+    - 词汇覆盖不足与碎片化
+
+    下游任务中的高频术语、专有名词如果在预训练语料中从未出现或频率极低，就不会被 BPE 合并为紧凑的 token，而是被切分成非常碎的字符序列。例如，医疗领域术语 "pneumonoultramicroscopicsilicovolcanoconiosis" 可能被切成数十个无意义的子词。这导致：
+
+    - 序列长度显著增加，超出模型的最大上下文限制，或增加计算成本。
+
+    - 语义信息稀释，模型需要更多的层和注意力来整合这些碎片，理解难度加大。
+
+    - 合并规则不合理
+
+    BPE 的合并规则是基于预训练语料的统计频率。在下游代码数据中，"model" 和 "train" 可能经常相邻出现，如果预训练语料将它们合并为 "modeltrain" token，那么在代码任务中这个 token 就是有害的，因为它将两个应独立的词素粘合在一起。模型将难以学习到 "model" 和 "train" 各自的语义。
+
+    - 表示质量退化
+
+    模型在预训练阶段学到的子词嵌入（Embedding）是针对源分布的。当分布漂移时，那些在下游数据中频繁出现但预训练中极少出现的长尾子词，其嵌入向量训练不充分，质量很差，成为模型理解的瓶颈。即使下游任务微调，由于这些 token 缺乏良好的初始化，也很难学到高质量表示。
+
+    - 鲁棒性下降
+    如果下游数据包含新的特殊符号（如编程语言中的 =>, !=）、不同风格的空白字符、或新语言文字，而分词器没有经过这些数据的训练，可能将其处理为 <UNK> 或产生不可预测的切分，导致模型行为异常。
+
+    缓解措施：
+
+    - 继续训练分词器：在下游任务数据上继续运行 BPE 的合并过程（增量训练），或者重新训练一个分词器，然后调整模型嵌入矩阵大小并继续预训练（Domain-adaptive Pretraining）。
+
+    - 使用子词正则化（BPE-Dropout）：训练时引入随机性，增强模型对多种分词结果的鲁棒性。
+
+    - 采用字节级 BPE：因其基础字符集固定，不会出现 UNK，对所有符号都有基本表示，但碎片化问题依然存在。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UKVSwsmrvizh73kD8qpckkNRnQh
+  block_id: PNmDdQD1goCZBNxWa5JcuoVVnPe
+  page_token: UKVSwsmrvizh73kD8qpckkNRnQh
+  original_title: 预训练分词器训练语料与下游任务数据分布不一致时，可能引发哪些问题？
+  imported_at: '2026-09-21'

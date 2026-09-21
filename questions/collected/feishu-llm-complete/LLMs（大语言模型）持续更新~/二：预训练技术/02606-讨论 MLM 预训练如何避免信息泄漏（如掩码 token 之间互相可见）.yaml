@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bf91d5ebcf5f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 讨论 MLM 预训练如何避免信息泄漏（如掩码 token 之间互相可见）。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 讨论 MLM 预训练如何避免信息泄漏（如掩码 token 之间互相可见）。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在标准的 BERT MLM 预训练中，输入序列中的多个 [MASK] token 是互相可见的。这意味着，当模型预测一个 [MASK] 时，它可以通过自注意力机制“偷看”到其他 [MASK] 位置的上下文表示，而这些表示本身也包含了它们各自位置的语义信息。这可能导致一种信息泄漏：模型可能学会利用其他被掩码 token 的表示来猜测当前被掩码 token，而不是完全依赖未被掩码的上下文。这削弱了 MLM 任务的难度，使得模型学到的表示不够鲁棒。
+
+    为什么 BERT 没有完全避免这个问题：因为 BERT 使用标准的双向自注意力，所有 token（包括 [MASK]）都平等地参与互相注意。[MASK] 是一个特殊的嵌入向量，它本身没有携带语义，但当它经过第一层 Transformer 后，与其他 token 交互，其表示就获得了上下文信息。如果多个 [MASK] 互相可见，它们的表示会相互影响，形成一个“作弊圈”。
+
+    避免信息泄漏的方法：
+
+    - XLNet 的方案：通过排列语言模型，完全不使用 [MASK] token，从根本上消除了 [MASK] 之间的信息泄漏问题。
+
+    - MPNet：结合 MLM 和 PLM，对掩码 token 采用排列自回归预测，避免了它们之间的独立性假设和互相可见。
+
+    - 严格的双向屏蔽：虽然理论上可以对注意力矩阵进行修改，使得 [MASK] token 之间不能互相注意（即加入一个掩码，让 [MASK] 只看到非 [MASK] 的 token），但 BERT 没有这样做。这主要是出于实现简单性的考虑。后来的某些模型尝试了这种策略，但通常会结合更复杂的掩码策略。
+
+    - Span 掩码：通过掩码连续的片段，减少了 [MASK] token 的数量，从而间接降低了它们互相泄露信息的概率。T5 的 Span Corruption 也有类似效果，因为被破坏的片段被替换为单个哨兵 token，不同哨兵之间可互相看见，但它们各自代表的片段内部是连贯的，信息泄漏影响相对小。
+
+    总体而言，信息泄漏是原始 BERT MLM 的一个已知缺陷，后续大量工作通过改进掩码策略或预测范式来缓解这一问题，从而获得更强的上下文表示。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HhEuw3Eb2ic7MJkbiKUcJxh8nVO
+  block_id: UBnyduwV7oeXZ3xKzNScfmQjnMc
+  page_token: HhEuw3Eb2ic7MJkbiKUcJxh8nVO
+  original_title: 讨论 MLM 预训练如何避免信息泄漏（如掩码 token 之间互相可见）。
+  imported_at: '2026-09-21'

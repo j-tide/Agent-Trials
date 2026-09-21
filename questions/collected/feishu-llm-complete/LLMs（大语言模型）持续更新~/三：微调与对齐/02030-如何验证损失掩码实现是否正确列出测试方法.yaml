@@ -1,0 +1,91 @@
+---
+schema_version: 1
+id: feishu-llm-complete-741e08c920c2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何验证损失掩码实现是否正确？列出测试方法。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 如何验证损失掩码实现是否正确？列出测试方法。
+answer:
+  mode: rubric
+  reference_answer: |-
+    损失掩码的实现错误非常隐蔽，因为模型依然能训练，但可能学到错误的行为。必须进行系统性的测试。
+
+    测试方法：
+
+    - 单元测试：人工构造小样本并手动计算损失
+
+    创建一个只包含2-3个 token 的极简对话。手工计算正确的交叉熵损失值。在代码中运行该样本，对比框架输出的损失与手工计算值。如果完全一致，则掩码逻辑正确。
+
+    - 梯度检查：验证非掩码部分梯度是否为零
+
+    ```python
+    # 进行一次完整的前向+反向传播
+    loss.backward()
+
+    # 检查嵌入层权重的梯度
+    embed_grad = model.get_input_embeddings().weight.grad
+
+    # 找到 input_ids 中被掩码位置（labels == -100）对应的 token ids
+    masked_positions = (labels == -100)
+    masked_token_ids = input_ids[masked_positions]
+
+    # 关键验证：这些被掩码 token 对应的嵌入向量的梯度应该全部为零
+    for token_id in masked_token_ids.unique():
+        assert torch.all(embed_grad[token_id] == 0), f"Token {token_id} 的梯度不为零！"
+    ```
+
+    - 生成行为测试：推理时模型是否正确扮演角色
+    用完全相同的 prompt，分别输入给一个未正确施加掩码的模型和一个正确施加掩码的模型。如果正确掩码的模型只输出 assistant 回复，而错误掩码的模型会输出 user 提问和 system 提示，则证明掩码实现正确。
+
+    - 过拟合测试：小数据集上过拟合，检查损失是否降为零
+
+    准备一个包含50条固定对话的数据集，反复训练。如果损失能降到极低（接近0），说明掩码正确。如果损失卡在某个非零值无法下降，说明掩码实现可能有问题。
+
+    - 可视化 labels 张量
+
+    ```python
+    # 将 labels 张量中的 -100 替换为特殊标记，其他位置显示为对应的 token 文本
+    print("Labels visualization:")
+    for i, label_id in enumerate(labels[0]):
+        token = tokenizer.decode([input_ids[0, i]])
+        if label_id == -100:
+            print(f"[MASKED] {token}")
+        else:
+            print(f"[LEARN] {token}")
+    ```
+
+    通过可视化，可以直观地检查哪些部分的 token 被正确地掩码了。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VOrVwrhLzi4WRokQOMPcOsPWnwg
+  block_id: MRxHdGAF9ocgsVx1mZ2cVjUJnpc
+  page_token: VOrVwrhLzi4WRokQOMPcOsPWnwg
+  original_title: 如何验证损失掩码实现是否正确？列出测试方法。
+  imported_at: '2026-09-21'

@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9724368a6f1b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在多标签或结构化输出任务中，如何定义“答案一致性”？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: 在多标签或结构化输出任务中，如何定义“答案一致性”？
+answer:
+  mode: rubric
+  reference_answer: |-
+    自洽性最原始的形态是为单标签分类或单值输出设计的，但当输出变成多个标签的集合、JSON 结构、或者关系三元组时，“一致性”的定义就需要重新设计。
+
+    多标签任务：比如一篇文章同时属于“科技”和“教育”两个类别。不同路径可能预测出不同的标签集合。如何定义两个集合的“一致性”？
+
+    - 完全匹配：只有两条路径的标签集合完全一样，才算它们答案相同。这非常严格，可能导致极少有完全相同的结果，投票失效。
+
+    - Jaccard 相似度：将标签集合视为集合，用交集大小除以并集大小来衡量相似度。然后可以根据相似度进行聚类，找出核心标签。
+
+    - 基于标签级别的投票：不投票选出一个完整集合，而是对每个候选标签单独投票。统计每个标签在 N 条路径中被提及的频率，设定一个阈值，高于阈值的标签都输出。这样可以产生一个“共识标签集”，而不是强制选出一个完整集合。这是多标签场景下最自然、最常用的方法。
+
+    结构化输出任务：比如生成一个 JSON，包含多个字段。
+
+    - 字段级投票：把 JSON 打散成一个个字段，对每个字段的值单独进行投票。例如 {"name": "Alice", "age": 30} 和 {"name": "Alice", "age": 31}，在 name 字段上完全一致，在 age 字段上有分歧。最终可以选 name 多数为 Alice，age 多数为 30（如果30出现更多）。
+
+    - 结构化相似度：设计针对该结构的专门相似度度量（如树编辑距离）。相似度高的可以被归为同一簇，然后从最大簇中选一个代表。
+
+    - 约束满足：如果结构化输出有严格的模式约束，可以先过滤掉不符合模式的结果，然后在合法结果中投票。
+
+    - 生成而非投票：另一种思路是不做硬投票，而是把所有路径的 JSON 输出作为参考，让模型自己“总结”出一个最一致的结构。例如，把 N 个 JSON 喂给同一个模型，请它“根据这些样例，给出一个最能代表共识的 JSON”。这是一种基于模型能力的聚合，更灵活但计算成本更高。
+
+    关键难点：结构化输出中，两个语义等价但字面不同的答案可能被误判为不一致。例如 {"age": 30} 和 {"age": "30"} 类型不同但值相同。因此，在定义一致性之前，通常需要一个“规范化”步骤，把所有答案转换到统一格式。
+
+    在实践中，大多数结构化输出任务采用“字段级投票”或“先过滤无效结构，再对合法结构的整体做完全匹配/相似度聚类”的策略。选择哪种取决于对输出一致性的严格要求和可容忍的格式差异程度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MGuPw0n6Ji2qNJkRj17cdAcWnue
+  block_id: Nu57dbjOSotRlUxKxCScY3oonXf
+  page_token: MGuPw0n6Ji2qNJkRj17cdAcWnue
+  original_title: 在多标签或结构化输出任务中，如何定义“答案一致性”？
+  imported_at: '2026-09-21'

@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c5282d074162
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: PPO 训练的计算开销主要在哪里？如何优化？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: PPO 训练的计算开销主要在哪里？如何优化？
+answer:
+  mode: rubric
+  reference_answer: |-
+    RLHF 的 PPO 训练是极其昂贵的，其计算开销主要来自于以下几个环节：
+
+    - 经验生成 (Rollout)：这是最耗时的部分之一。需要让巨大的 Actor 模型（策略模型）对批量提示生成完整的回复。这个过程是自回归的，无法并行加速，且生成长度不一。
+
+    - 多模型的前向传播：对于每一个生成的 token，我们都需要用它来计算：
+
+    - PPO 参数更新：Actor 和 Critic 模型的反向传播和参数更新，本身也需要消耗巨大的计算资源。
+
+    优化技巧：
+
+    - LoRA (Low-Rank Adaptation)：不对整个大模型进行全参数微调，而是只训练低秩旁路矩阵。这可以将训练中的可训练参数数量减少上千倍，极大降低显存占用和计算量，使得 PPO 训练可以在更廉价的硬件上进行。
+
+    - 模型卸载 (Offloading)：将 Reference Model 和 Critic Model 卸载到 CPU 内存，仅在需要计算时异步加载到 GPU。这可以节省大量 GPU 显存，虽然增加了 CPU-GPU 通信开销，但对降低成本至关重要。
+
+    - Critic 模型缩小：实践表明，Critic 模型不需要和 Actor 一样大。使用一个更小的 SFT 模型初始化 Critic，可以在几乎不损失训练效果的前提下，显著降低其前向传播和参数更新的开销。
+
+    - 准在线训练与数据复用：如前所述，在一个经验 batch 上执行多个 epoch 的更新，可以在牺牲少量 On-policy 性质的情况下，显著提高数据的利用率和训练的吞吐量。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QNW3wg7bCinLPQkL0kGc4IdynHh
+  block_id: YADWdZVBJogxQExe3dkcEyspnle
+  page_token: QNW3wg7bCinLPQkL0kGc4IdynHh
+  original_title: PPO 训练的计算开销主要在哪里？如何优化？
+  imported_at: '2026-09-21'

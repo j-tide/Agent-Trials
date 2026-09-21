@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7e486f725ffd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 讨论“排队论”如何指导连续批处理的并发配置。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 讨论“排队论”如何指导连续批处理的并发配置。
+answer:
+  mode: rubric
+  reference_answer: |-
+    排队论为连续批处理系统的容量规划和调度设计提供了理论基石。可将推理服务建模为排队系统，分析其延迟与吞吐特性。
+
+    模型抽象：
+
+    - 单服务器模型：整个 GPU 推理引擎视为一个服务台，连续批处理使其能同时处理多个请求（相当于批量服务）。但由于 batch 内请求共享单次迭代，可建模为 M^X/M/1 或 G/G/1 批量服务队列。
+
+    - 服务时间：一个请求的服务时间取决于其所需生成的总 token 数。在连续批处理下，token 以迭代速率（tokens/s）生成，故请求服务时间 = (生成 token 数) / (有效 token 生成速率)。
+
+    - 到达过程：请求到达间隔通常服从泊松分布。
+
+    指导并发配置：
+
+    - 最大并发数：根据显存容量 M 和每个请求的平均缓存占用 c，得到理论最大并发数 Nmax⁡=M/c。排队论可估计在给定到达率 λ 和平均服务率 μ 下，需要的并发数，以避免系统过载。若请求平均长度长，则必须提高并发数以维持吞吐。
+
+    - 延迟 SLO 保障：利用 M/G/1 或批量服务模型的公式，可以计算在不同到达率下，请求的平均等待时间和尾部等待时间。若要求 P99 延迟 < 某值，可通过排队论反推最大可承受的负载 ⁡λmax，从而设置接入控制。
+
+    - 优先级与调度策略：排队论证明，最短剩余处理时间优先（SRPT） 能最小化平均等待时间。连续批处理可以近似实现 SRPT：优先调度预计剩余 token 少的请求，或是通过抢占长请求来降低平均延迟。这为 vLLM 类引擎的调度算法提供了理论依据。
+
+    - 容量规划：给定目标吞吐和延迟，排队论可以帮助确定所需的 GPU 数量、batch size 上限以及显存配置。例如，若到达率为 10 req/s，每个请求平均生成 100 token，引擎吞吐 2000 token/s，则恰好平衡；若引擎 token/s 不足，排队将无限增长，此时需增加 GPU 或降低并发。
+
+    应用局限：现实系统远比理论模型复杂（序列长度分布、prefill 与 decode 混合、抢占开销），但排队论提供了基本的分析框架，用于早期设计和容量预估。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqBawimrwioo11kNL45cwrfznle
+  block_id: JZjHddFmfot50zxrqFHcKOvgnbc
+  page_token: EqBawimrwioo11kNL45cwrfznle
+  original_title: 讨论“排队论”如何指导连续批处理的并发配置。
+  imported_at: '2026-09-21'

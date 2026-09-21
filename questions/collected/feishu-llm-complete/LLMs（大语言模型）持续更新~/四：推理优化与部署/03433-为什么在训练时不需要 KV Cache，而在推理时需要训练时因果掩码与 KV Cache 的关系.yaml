@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9a77676bdc18
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么在训练时不需要 KV Cache，而在推理时需要？训练时因果掩码与 KV Cache 的关系。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 为什么在训练时不需要 KV Cache，而在推理时需要？训练时因果掩码与 KV Cache 的关系。
+answer:
+  mode: rubric
+  reference_answer: |-
+    训练时不需要 KV Cache 的原因：
+
+    在训练阶段，模型是并行计算的。我们拥有完整的目标序列，可以一次性将整个序列输入模型。通过因果掩码，模型可以同时计算所有位置的预测输出，而不违反“只看过去”的约束。
+
+    具体来说，训练时，输入是一个完整的序列 x1:T。模型在计算自注意力时，会一次性算出 Q,K,V 矩阵，然后通过一个上三角为 −∞ 的掩码矩阵，确保位置 tt 只能关注到位置 1…t。由于所有 token 的 Key 和 Value 是同时产生的，不存在“重新计算”的问题，因此不需要缓存。
+
+    推理时需要 KV Cache 的原因：
+    推理是串行生成的。我们无法提前知道未来的 token，必须逐个生成。每生成一个新 token，如果重新计算整个序列的 K 和 V，会造成巨大的重复计算。因此，必须将已计算好的历史 Key 和 Value 缓存起来，避免重复计算。
+
+    训练时因果掩码与 KV Cache 的关系：
+    两者是“异曲同工”的关系。训练时的因果掩码通过一个 T×T 的掩码矩阵，一次性实现了“每个位置只看过去”的约束，从而可以并行计算。推理时的 KV Cache 则是通过“保存过去、追加现在”的方式，在串行生成中实现了同样的约束，并极大地节省了计算量。KV Cache 本质上是对自回归生成过程的增量式注意力计算。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  block_id: XRwhdCGjqoZ2RixC8rLcX2USnTg
+  page_token: N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  original_title: 为什么在训练时不需要 KV Cache，而在推理时需要？训练时因果掩码与 KV Cache 的关系。
+  imported_at: '2026-09-21'

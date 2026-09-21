@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-958451cf3629
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多模态 RAG 的索引设计：是用统一向量空间还是多索引分治？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 多模态 RAG 的索引设计：是用统一向量空间还是多索引分治？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多模态 RAG 的索引设计面临一个根本抉择：是将所有模态（文本、图像向量、表格向量）强行映射到同一个向量空间，还是分而治之，为每种模态构建独立的专门索引。
+
+    统一向量空间的理想很丰满。如果存在一个完美的多模态嵌入模型，能够将文本段落、图片、表格都精准地映射到同一个语义空间，那么检索就变得无比简单：只需一个查询向量，就能跨模态地找到所有相关信息。CLIP 等模型在图文对齐上迈出了一大步，但对于富含结构化信息的表格，目前仍缺乏完美的统一模型。强行使用可能导致某种模态的表达能力被削弱。例如，将 Markdown 表格用 CLIP 文本编码器编码，虽然可行，但其对表格行列结构内在语义的捕捉能力，远不如专门的文本嵌入模型。统一空间最大的吸引力在于其简洁性和天然的跨模态关联能力。
+
+    多索引分治是目前更务实、更强大的方案。它为文本、图像、表格分别构建专用的索引。文本使用强语义文本嵌入模型，图像使用 CLIP 视觉编码器，表格则可以使用经过表格数据微调的特殊嵌入模型，甚至直接采用单元格级索引。查询时，系统并行地在三个索引中检索，得到三个各自最优的结果集，然后通过结果融合（如 RRF 或加权求和）来生成最终的 Top K 列表。这种方案的优点是每个索引都可以针对其数据特性进行极致优化，不牺牲任何精度。缺点是需要维护多个检索管道和融合逻辑，工程复杂度较高。
+
+    在工程实践中，通常推荐多索引+混合重排序的架构：用多索引保证各个模态的召回率，然后用一个强大的多模态重排序模型（或直接使用多模态 LLM）在精排阶段进行深度融合。这是当前在技术能力和工程可控性之间找到的最佳平衡。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/FXgmws02nis5pvkd25rcgWzCnbb
+  block_id: B3hHdG4fmo2h41xz1enchla1n8g
+  page_token: FXgmws02nis5pvkd25rcgWzCnbb
+  original_title: 多模态 RAG 的索引设计：是用统一向量空间还是多索引分治？
+  imported_at: '2026-09-21'

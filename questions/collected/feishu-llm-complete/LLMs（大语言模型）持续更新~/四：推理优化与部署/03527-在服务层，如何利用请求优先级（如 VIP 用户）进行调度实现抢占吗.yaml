@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f43d1ec68a0e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在服务层，如何利用请求优先级（如 VIP 用户）进行调度？实现抢占吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在服务层，如何利用请求优先级（如 VIP 用户）进行调度？实现抢占吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    优先级调度 将请求分为不同优先等级（如 high、medium、low），高优先级请求优先获得资源。实现方式包括：
+
+    - 等待队列优先级排序：新请求根据用户标签或请求类型分配优先级，插入优先级队列（堆），总是从最高优先级开始准入。
+
+    - 运行请求的优先级：在连续批处理中，当资源紧张时，可比较运行中请求的优先级，决定哪些请求继续执行，哪些被抢占。
+
+    - 抢占（Preemption）：若高优先级请求到达时资源不足，可以强制暂停（换出）低优先级请求，释放显存给高优先级请求。恢复时，低优先级请求从断点继续（通过 KV Cache 换入或重计算）。
+
+    - 分级资源预留：为高优先级请求预留一定比例的显存/KV Cache 块，确保它们总有可用资源。低优先级请求只能使用剩余资源，当资源低于水位线时低优先级暂停准入。
+
+    抢占实现细节：
+
+    - 在 vLLM 中，可以通过 --preemption-mode 参数配置，支持 swap（换出到 CPU 内存）和 recompute（重计算）模式。调度器检测到高优先级请求需要资源时，选择低优先级序列进行抢占。
+
+    - 抢占对象通常选择优先级最低且占用资源较多的请求，以最小化受害请求数量。
+
+    注意事项：
+
+    - 需避免饥饿（低优先级永远得不到服务），可采用老化提升（等待时间超过一定限度后提升优先级）。
+
+    - 监控抢占率，过高意味着资源规划不足。
+
+    优先级调度与抢占是保障商业 SLA 的关键手段，常见于提供分级服务的 LLM 平台。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  block_id: UbAvdlq8BoYeCZxEK0ccz6YbnyX
+  page_token: Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  original_title: 在服务层，如何利用请求优先级（如 VIP 用户）进行调度？实现抢占吗？
+  imported_at: '2026-09-21'

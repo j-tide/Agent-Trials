@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a0323be89384
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 ReAct 中，如何处理行动依赖？能否并行执行多个行动？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: 在 ReAct 中，如何处理行动依赖？能否并行执行多个行动？
+answer:
+  mode: rubric
+  reference_answer: |-
+    行动依赖和并行性是在将 ReAct 扩展到更复杂场景时必须考虑的问题。
+
+    处理行动依赖：
+
+    在标准的 ReAct 循环中，行动是顺序执行的，每一步的 Action 都基于之前所有 Thought 和 Observation。这种串行模式天然处理了依赖关系：如果一个行动依赖前一个行动的结果，模型必须等到前一个行动的 Observation 返回后，才能在下一个 Thought 中分析并产生新 Action。这符合人类的一般解决问题逻辑，顺序保证了因果关系的正确。
+
+    但如果任务中有些行动没有依赖关系，顺序执行就会浪费时间。例如，需要同时查询“北京天气”和“上海天气”，两次搜索之间没有依赖。此时，如果模型能够识别出无依赖关系，就可以并行发起行动以提高效率。
+
+    并行执行多个行动：
+
+    让模型在单轮中生成多个独立的 Action 是实现并行的关键。需要修改提示模板和解析器来支持“多行动”输出。
+
+    - 提示设计：可以在少样本示例中展示模型在同一轮 Thought 后，输出多个 Action。例如：
+
+    ```text
+    Thought：我需要同时获取北京和上海的天气来比较。
+    Action 1: Search[北京天气]
+    Action 2: Search[上海天气]
+    ```
+
+    - 或者使用列表格式。
+
+    - 系统执行：外部解析器识别到多个 Action 后，将它们同时派发给相应的工具，并将所有结果收集起来。返回的 Observation 也应结构化，指明对应哪个行动的结果，例如：
+
+    ```text
+    Observation 1: 北京天气...
+    Observation 2: 上海天气...
+    ```
+
+    - 后续的 Thought 就可以同时基于这两个结果进行推理。
+
+    挑战：
+
+    - 结果对齐：确保返回的观察能与模型发起的行动正确对应，避免混淆。
+
+    - 依赖误判：模型可能错误地认为两个行动无依赖而要求并行，但实际上有隐含依赖，导致其中一个行动使用了过期假设。训练模型准确判断依赖关系是关键。
+
+    - 复杂度增加：并行行动会使提示模板和解析逻辑变得复杂，也要求工具后端支持并发处理。
+
+    目前，一些高级 Agent 框架（如 LangChain 的 ReAct 实现或 AutoGPT）已经支持一定程度的并行工具调用。实际应用中，可以设计为：默认顺序执行，仅当模型通过特定语法（如 Actions: [act1, act2]）明确请求并行时，才触发并行执行。这种按需并行的方式兼顾了性能与安全。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UNcyw9ACIiJYN3krDjDcNJ1Rndc
+  block_id: Rysfd4HAjoLzNCxrmnScC6xfnDb
+  page_token: UNcyw9ACIiJYN3krDjDcNJ1Rndc
+  original_title: 在 ReAct 中，如何处理行动依赖？能否并行执行多个行动？
+  imported_at: '2026-09-21'

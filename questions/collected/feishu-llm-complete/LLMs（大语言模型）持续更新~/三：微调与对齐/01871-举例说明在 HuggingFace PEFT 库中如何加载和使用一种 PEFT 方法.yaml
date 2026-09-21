@@ -1,0 +1,103 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b42d6e33c3c7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 举例说明在 HuggingFace PEFT 库中如何加载和使用一种 PEFT 方法。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 举例说明在 HuggingFace PEFT 库中如何加载和使用一种 PEFT 方法。
+answer:
+  mode: rubric
+  reference_answer: |-
+    以最流行的 LoRA 为例，在 HuggingFace peft 库中，这是一个极其简化的流程。以下代码展示了如何使用 QLoRA（量化 + LoRA）加载一个 70 亿参数的模型并进行微调。
+
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+    from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+
+    # 1. 配置量化 (QLoRA)
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.bfloat16
+    )
+
+    # 2. 加载模型并应用量化
+    model = AutoModelForCausalLM.from_pretrained(
+        "meta-llama/Llama-2-7b-hf",
+        quantization_config=bnb_config,
+        device_map={"": 0}
+    )
+
+    # 3. 为 k-bit 训练准备模型
+    model = prepare_model_for_kbit_training(model)
+
+    # 4. 配置 LoRA
+    lora_config = LoraConfig(
+        r=8,                          # 秩，低秩矩阵的秩，决定了可训参数量
+        lora_alpha=32,                # 缩放因子，通常设置为 r 的 2-4 倍
+        target_modules=["q_proj", "v_proj"], # 应用 LoRA 的目标模块，这里只作用于注意力的 Q 和 V
+        lora_dropout=0.05,            # LoRA 层的 Dropout 概率
+        bias="none",                  # 不训练额外的 bias 参数
+        task_type="CAUSAL_LM"         # 任务类型
+    )
+
+    # 5. 获取 PEFT 模型
+    peft_model = get_peft_model(model, lora_config)
+
+    # 6. 打印可训参数量，感受 PEFT 的极致效率
+    peft_model.print_trainable_parameters()
+    # 输出示例: trainable params: 4,194,304 || all params: 6,742,609,920 || trainable%: 0.0622
+
+    # 7. 开始正常的训练循环...
+    # peft_model 可以直接用于训练，就像使用一个普通的 PyTorch 模型一样。
+
+    代码解析：
+
+    - 量化配置：定义了 4-bit 量化的详细参数。
+
+    - 模型加载：加载预训练模型时，直接应用了量化配置。
+
+    - k-bit 训练准备：prepare_model_for_kbit_training() 是一个关键步骤，它会对模型进行微调，使其在低精度环境下也能正确进行梯度和优化器状态的更新。
+
+    - LoRA 配置：这是核心。我们指定了秩 r、应用的目标模块 target_modules 等。target_modules 的选择是影响性能和参数量的关键超参数。
+
+    - 模型替换：get_peft_model 将原始的 model 转换为一个可训练的 peft_model，它内部的 LoRA 模块已经就绪。
+
+    - 打印参数：print_trainable_parameters() 函数可以让你立刻看到，只有极少一部分参数需要被训练。
+
+    通过以上几个步骤，你就将训练一个 7B 模型所需的显存从数百 GB 降低到了单张消费级显卡可承受的范围，并可以开始微调了。这就是 PEFT 带来的革命性效率提升。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RJ0Zwq5JDi5vZjktgV2cXAfynSh
+  block_id: A1YEd5n32oRhYfx1L0NcOKRfnCf
+  page_token: RJ0Zwq5JDi5vZjktgV2cXAfynSh
+  original_title: 举例说明在 HuggingFace PEFT 库中如何加载和使用一种 PEFT 方法。
+  imported_at: '2026-09-21'

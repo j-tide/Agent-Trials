@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3e5b16837b6a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何利用“预留实例”或“弹性伸缩”应对突发流量？结合 K8s 的调度策略。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如何利用“预留实例”或“弹性伸缩”应对突发流量？结合 K8s 的调度策略。
+answer:
+  mode: rubric
+  reference_answer: |-
+    推理服务的流量具有波动性，利用预留实例保证基础容量，结合弹性伸缩应对突发，是生产系统的标准做法。在 Kubernetes 环境中，可通过 HPA、KEDA 等实现自动伸缩。
+
+    预留实例：
+
+    - 维持一组常驻的推理 Pod（如 4 个 GPU 节点），确保低负载时的即时可用性和最低延迟。这些 Pod 一直加载模型，能立即处理请求。
+
+    - 预留实例数量根据历史流量的基线（如 P50 流量）设定。
+
+    弹性伸缩：
+
+    - 当流量上升（如请求排队深度 > 阈值、GPU 利用率持续 > 70%、或自定义指标如 inflight_requests 过高），自动增加推理 Pod 数量（水平伸缩）。
+
+    - 新增 Pod 需要经历模型加载时间（冷启动），可能长达数分钟。为了缩短冷启动：
+
+    - 流量下降后，自动缩容，释放 GPU 节点以节省成本。
+
+    K8s 调度策略结合：
+
+    - 节点亲和性/反亲和性：将推理 Pod 调度到有足够 GPU 的特定节点（如 GPU 节点池）。使用 nodeSelector 或 nodeAffinity。
+
+    - 拓扑分布约束（Topology Spread Constraints）：确保 Pod 均匀分布在可用区/节点，避免单点故障。
+
+    - 资源请求与限制：为每个推理 Pod 准确设置 resources.requests 和 limits（如 nvidia.com/gpu: 1），使调度器能正确管理资源。
+
+    - Pod 优先级与抢占：为推理服务设置高优先级，确保在资源紧张时关键推理 Pod 不被驱逐，甚至可抢占低优先级批处理任务。
+
+    - KEDA 或 HPA：
+
+    弹性伸缩策略示例：
+
+    - 当等待请求数 > 10 时，增加 2 个 Pod；当 < 2 时，减少 1 个 Pod，缩容冷却时间 300 秒。
+
+    - 使用集群自动扩缩器（Cluster Autoscaler） 在节点资源不足时自动增加 GPU 节点。
+
+    通过预留实例保证基准性能，弹性伸缩吸收突发，同时利用 K8s 的精细调度和自动扩缩能力，能构建高可用、高性价比的 LLM 推理服务平台。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  block_id: IhyTdtZthorDYAxi31LcDC90nmA
+  page_token: Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  original_title: 如何利用“预留实例”或“弹性伸缩”应对突发流量？结合 K8s 的调度策略。
+  imported_at: '2026-09-21'

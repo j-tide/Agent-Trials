@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-84d40a543094
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当使用张量并行时，GQA 的 KV 头划分与查询头划分有什么关系？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 当使用张量并行时，GQA 的 KV 头划分与查询头划分有什么关系？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这道题深入上一问的划分逻辑。张量并行 (TP) 需要将注意力头的计算分配到多个设备。GQA 的 g 与 h 不相等，使得划分产生耦合关系。
+
+    关系表述：
+    假设 TP 度为 N。理想情况下，我们希望将全部计算和存储均分，且最小化通信。有两种约束：
+
+    - 查询头均分：每个设备应拥有 h/N 个查询头，以平衡计算负载。
+
+    - KV 头均分（可选）：若要切分 KV 缓存，每个设备应拥有 g/N 个 KV 头，并且该设备上的查询头必须是这些 KV 头所在的组的成员，即查询头分配必须与 KV 头分配在分组上对齐。
+
+    [图片内容未导入]
+
+    若采用 KV 复制策略，则查询头划分完全独立于 KV 头：每个设备获得 h/N 个查询头，并拥有完整 g 个 KV 头。这时 KV 头划分不存在，但 KV 缓存存在 N 倍冗余。
+
+    总结：
+
+    - 无冗余切分：要求 g modN=0，且查询头按分组聚拢分配，实现“本地 KV 缓存”。
+
+    - 有冗余切分：不要求整除，查询头可任意划分，KV 全复制，实现简单但占用 N 份缓存。
+
+    - 在实践中，大型模型 g 通常选 8 或 4，TP 常为 2,4,8，往往满足整除条件，因此可以灵活选择。但为了通用性，许多系统默认复制 KV 以避免复杂的分组逻辑。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YD2SwSsy9iTGMmkEs4jcylEZnnd
+  block_id: XrSddZPN7oXQuqxrAhrcpzIanNe
+  page_token: YD2SwSsy9iTGMmkEs4jcylEZnnd
+  original_title: 当使用张量并行时，GQA 的 KV 头划分与查询头划分有什么关系？
+  imported_at: '2026-09-21'

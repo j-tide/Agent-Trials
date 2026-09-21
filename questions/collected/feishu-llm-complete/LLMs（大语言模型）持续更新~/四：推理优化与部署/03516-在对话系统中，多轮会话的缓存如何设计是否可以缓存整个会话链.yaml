@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3d45910ac1d1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在对话系统中，多轮会话的缓存如何设计？是否可以缓存整个会话链？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在对话系统中，多轮会话的缓存如何设计？是否可以缓存整个会话链？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多轮对话的缓存设计更为复杂，因为上下文依赖于历史消息。可以缓存，但需精细管理。
+
+    缓存策略：
+
+    - 前缀缓存（最有效）
+    将对话历史视为一个不断增长的前缀。使用 KV Cache 缓存所有前缀。当用户发送新消息时，其完整输入为 历史消息 + 新消息。如果历史前缀已被缓存，则只需对新消息部分进行 prefill，大幅降低延迟。
+
+    - 完整对话会话缓存
+    对于高度重复的对话流程（如客服引导树），可以将整个对话链的每一步都进行缓存。当用户进入相同节点时，直接返回预设响应。这类似于对话状态机的缓存。
+
+    - 语义缓存 + 对话状态
+    将最近几轮对话的摘要或关键实体作为语义缓存的键的一部分。例如，缓存键 = (用户意图, 关键实体, 对话轮次)。命中后，可复用响应模板并填充当前实体。
+
+    是否可缓存整个会话链？
+
+    - 可以，但在线服务中通常不缓存无限增长的完整对话链，因为其变化无穷，缓存命中率会很低。更实用的做法是缓存对话的公共前缀和常见意图的子树。
+
+    - 对于开发测试或离线评估，可以将完整对话缓存起来用于回归测试。
+
+    设计要点：
+
+    - 缓存粒度：以单轮 prompt（历史+新消息）为单位进行缓存，便于前缀复用。
+
+    - 状态管理：每个会话 ID 绑定一个上下文状态，缓存管理器需能识别相同会话的前缀连续性。
+
+    - 失效策略：当会话结束或用户重置时，清除相关缓存。
+
+    - 隐私与安全：包含用户敏感信息的对话不应被其他用户命中，需设计隔离机制（如按用户 ID 分区）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Suarwd0MSiF56MkUyBScW6UmnhB
+  block_id: OXN7dN73WontPzx3TH0cxfyvnmg
+  page_token: Suarwd0MSiF56MkUyBScW6UmnhB
+  original_title: 在对话系统中，多轮会话的缓存如何设计？是否可以缓存整个会话链？
+  imported_at: '2026-09-21'

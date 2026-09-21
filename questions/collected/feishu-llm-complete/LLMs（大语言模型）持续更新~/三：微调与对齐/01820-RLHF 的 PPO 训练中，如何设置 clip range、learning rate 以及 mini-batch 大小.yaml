@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2e5197ad24b6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: RLHF 的 PPO 训练中，如何设置 clip range、learning rate 以及 mini-batch 大小？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: RLHF 的 PPO 训练中，如何设置 clip range、learning rate 以及 mini-batch 大小？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 RLHF 的 PPO 训练中，超参数的选择对训练稳定性和最终效果至关重要。以下是一些经过实践检验的经验法则。
+
+    - PPO 裁剪系数 (clip range)
+
+    - 典型取值：0.2。这是 PPO 原论文的推荐值，在 RLHF 中同样适用。
+
+    - 作用：定义了信任域的半径。0.2 意味着新的策略概率与旧策略概率的比值最多相差 20%。
+
+    - 影响：
+
+    - Actor 模型学习率
+
+    - 典型取值：1e-6 到 5e-6。
+
+    - 为什么这么小？
+    RLHF 是在一个已经非常强大的 SFT 模型上进行微调。我们需要的是“精细雕刻”，而不是“大刀阔斧”。过大的学习率会迅速破坏 SFT 模型已有的语言能力。
+
+    - 实践技巧：通常采用带有 warmup 的余弦退火学习率调度。训练初期用 warmup 逐步提升学习率，避免初始不稳定；后期学习率衰减，使模型能精细收敛。
+
+    - Critic 模型学习率
+
+    - 典型取值：通常是 Actor 学习率的 2 到 10 倍，例如 1e-5。
+
+    - 为什么比 Actor 高？：Critic 模型的价值头是随机初始化的（或从奖励模型微调），它需要从头（或从较低水平）开始学习准确的价值估计。而 Actor 已经在一个很好的初始点上了。因此，Critic 需要更快的更新速度来跟上 Actor 的步伐，提供准确的价值估计，否则会拖 Actor 更新的后腿。
+
+    - Mini-batch 大小与 PPO Epoch
+
+    - Mini-batch 大小：取决于 GPU 显存。在显存允许的前提下，更大的 mini-batch 能提供更稳定的梯度估计。对 LLM 而言，一个 PPO batch 通常包含数百个提示，每个提示对应一个回复。然后，这个大数据集会被进一步切分成更小的 mini-batch 用于梯度下降。
+
+    - PPO Epoch：指的是在同一个经验 batch 上重复进行参数更新的次数。
+
+    - 动态全局奖励归一化
+
+    这是一项重要的工程技巧。在 PPO 训练过程中，实时统计奖励的均值和标准差，对奖励值进行 Z-score 标准化。这能让奖励信号的尺度保持稳定，使上述超参数在不同训练阶段都能有效，极大降低了调参的难度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QNW3wg7bCinLPQkL0kGc4IdynHh
+  block_id: JN97dCJeaoHnHRxsSshcFcUhn9d
+  page_token: QNW3wg7bCinLPQkL0kGc4IdynHh
+  original_title: RLHF 的 PPO 训练中，如何设置 clip range、learning rate 以及 mini-batch 大小？
+  imported_at: '2026-09-21'

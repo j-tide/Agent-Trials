@@ -1,0 +1,126 @@
+---
+schema_version: 1
+id: feishu-llm-complete-256b6214dff7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出基于 asyncio 的流式 LLM 推理服务伪代码，处理生成和传输。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 写出基于 asyncio 的流式 LLM 推理服务伪代码，处理生成和传输。
+answer:
+  mode: rubric
+  reference_answer: |-
+    以下伪代码展示了一个基于 FastAPI + asyncio + 模拟推理引擎的流式聊天服务。
+
+    ```python
+    import asyncio
+    import uuid
+    from fastapi import FastAPI
+    from fastapi.responses import StreamingResponse
+    from typing import AsyncGenerator
+
+    app = FastAPI()
+
+    # 模拟推理引擎：一个全局协程，实际可能为独立线程
+    class InferenceEngine:
+        def __init__(self):
+            self.requests = {}  # request_id -> asyncio.Queue
+
+        async def add_request(self, prompt: str) -> str:
+            req_id = str(uuid.uuid4())
+            self.requests[req_id] = asyncio.Queue()
+            # 启动异步生成任务
+            asyncio.create_task(self._generate(req_id, prompt))
+            return req_id
+
+        async def _generate(self, req_id: str, prompt: str):
+            # 模拟自回归生成 token
+            for i in range(100):  # 最多生成 100 token
+                await asyncio.sleep(0.01)  # 模拟生成延迟
+                token = f"tok_{i}"  # 实际为 token ID 或文本片段
+                if req_id in self.requests:
+                    await self.requests[req_id].put(token)
+                else:
+                    break  # 请求已取消
+            # 生成结束，放入结束标记
+            if req_id in self.requests:
+                await self.requests[req_id].put(None)  # None 表示结束
+
+        def cancel_request(self, req_id: str):
+            if req_id in self.requests:
+                del self.requests[req_id]
+
+    engine = InferenceEngine()
+
+    # 流式 SSE 生成器
+    async def generate_stream(req_id: str) -> AsyncGenerator[str, None]:
+        queue = engine.requests.get(req_id)
+        if not queue:
+            yield "data: error\n\n"
+            return
+        try:
+            while True:
+                token = await queue.get()
+                if token is None:
+                    break
+                # 发送 SSE 格式数据
+                yield f"data: {token}\n\n"
+        except asyncio.CancelledError:
+            # 客户端断开连接
+            engine.cancel_request(req_id)
+            raise
+        yield "data: [DONE]\n\n"
+
+    @app.post("/chat")
+    async def chat(prompt: str):
+        req_id = await engine.add_request(prompt)
+        return StreamingResponse(
+            generate_stream(req_id),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
+        )
+    ```
+
+    代码说明：
+
+    - 推理引擎为每个请求分配一个 asyncio.Queue，并在后台任务中生成 token，逐个放入队列。
+
+    - FastAPI 路由创建 StreamingResponse，其中 generate_stream 是异步生成器，持续从队列获取 token 并 yield SSE 数据。
+
+    - 当客户端断开，协程被取消，通过 CancelledError 处理清理请求。
+
+    - 生成结束放入 None，流发送 [DONE] 后关闭。
+
+    实际应用中，推理引擎部分会被替换为 vLLM 的 AsyncLLMEngine 或类似的高性能引擎，但核心的队列解耦与流式传输模式保持不变。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/P30KwGxJIiaDg5kjcX0c8HC6ntd
+  block_id: T6KqdAEEjoEjnQx1Eq4cTWylnif
+  page_token: P30KwGxJIiaDg5kjcX0c8HC6ntd
+  original_title: 写出基于 asyncio 的流式 LLM 推理服务伪代码，处理生成和传输。
+  imported_at: '2026-09-21'

@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4c7bf5e9a4e2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 SFT 中为什么通常只对“assistant”部分计算交叉熵损失？写出损失掩码的实现逻辑。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 在 SFT 中为什么通常只对“assistant”部分计算交叉熵损失？写出损失掩码的实现逻辑。
+answer:
+  mode: rubric
+  reference_answer: |-
+    指令微调（SFT）的唯一目标，是让模型学会如何生成高质量的回复。我们只对“assistant”部分计算损失，原因如下：
+
+    - 明确优化目标，避免目标错乱：语言模型的训练目标是“给定上文，预测下一个词”。如果对所有角色（system, user, assistant）都计算损失，模型会被迫同时学习“如何提问”、“如何设定规则”和“如何回答”。这会导致模型在推理时无法确定自己的角色，可能不回答用户问题，而是去续写用户的提问。
+
+    - 只学习有用行为：system prompt 是开发者预先设定的，user 输入是用户给的，都不需要模型去学习生成。如果对它们也计算损失，模型就会浪费大量参数去记忆和复现这些“固定”或“多变”的输入模式，而不是去优化生成回复的质量。
+
+    - 防止有害模仿：如果对 user 输入也计算损失，模型可能会学会模仿用户的攻击性、偏见或恶意提问。这在安全上是不允许的。
+
+    损失掩码实现逻辑：
+
+    损失掩码是控制哪些位置的输出参与梯度计算的核心机制。在自回归语言模型中，输入序列和目标序列是错位对齐的：输入是 tokens[0:T-1]，目标是 tokens[1:T]。通过构造一个与目标序列等长的掩码向量，将不需要计算损失的位置标记为特殊值（在PyTorch中通常是 -100），损失函数会自动忽略这些位置。
+
+    关键点是：掩码必须作用于目标序列（即模型预测的标签），而不是输入序列。掩码与目标序列在维度上严格对齐。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VOrVwrhLzi4WRokQOMPcOsPWnwg
+  block_id: RFwzdOtgao7oFSxA3RachaUfnqd
+  page_token: VOrVwrhLzi4WRokQOMPcOsPWnwg
+  original_title: 在 SFT 中为什么通常只对“assistant”部分计算交叉熵损失？写出损失掩码的实现逻辑。
+  imported_at: '2026-09-21'

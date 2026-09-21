@@ -1,0 +1,82 @@
+---
+schema_version: 1
+id: feishu-llm-complete-97c73239a63a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何构建包含多维偏好的 DPO 数据集？如何在损失中对不同维度加权？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 如何构建包含多维偏好的 DPO 数据集？如何在损失中对不同维度加权？
+answer:
+  mode: rubric
+  reference_answer: |-
+    人类的偏好是多维度的，例如一个回复可能既“有用”又“不安全”。仅仅标注一个总体的“更好/更差”会丢失这些细微的信息。构建多维偏好数据集并进行加权，可以让对齐过程更加精细和可控。
+
+    - 构建多维偏好数据集的方法：
+
+    最直接的方法是在标注偏好时，同时记录每个维度的判断。例如，对于一对回复，标注者不仅指出哪个更好，还需要对每个维度的优劣进行标记。
+
+    - 数据格式：一个多维度的数据样本可能如下所示：
+
+    {
+        "prompt": "...",
+        "chosen": "...",
+        "rejected": "...",
+        "preference_dimensions": {
+            "helpfulness": "chosen",
+            "honesty": "chosen",
+            "safety": "rejected"  // 注意：chosen 回复在安全性上反而更差
+        }
+    }
+
+    - 数据标注：这需要标注者（或强大的标注模型）进行更细致的判断。成本会比单一维度标注高，但能提供更有价值的信息。
+
+    - 利用模型辅助：可以先训练一个多维度奖励模型，然后用它对大量回复进行自动评分，构造出多维度偏好数据。
+
+    - 在损失中对不同维度加权的方法：
+
+    一旦拥有了多维度的偏好标签，我们可以在 DPO 的损失函数中，为不同维度的偏好对赋予不同的权重。总损失可以是各个维度损失的加权和。
+
+    [图片内容未导入]
+
+    其中，λ 是各个维度的权重系数。
+
+    通过调整这些系数，我们可以实现精准的行为调控：
+
+    - 提高 λ safe：增强模型的安全对齐，即使可能会牺牲一些有用性。
+
+    - 降低 λ help：让模型在创造性任务上探索更多可能性，而不只追求四平八稳的回答。
+
+    这种方法将一个复杂的多目标优化问题，转化为简单的多数据集加权混合训练，是实践中非常有效且灵活的策略。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WVwowCMnFiuxmKkTemzc0jiFnnb
+  block_id: V9dhdxESXoSyJhxjW9CcwrzKnAh
+  page_token: WVwowCMnFiuxmKkTemzc0jiFnnb
+  original_title: 如何构建包含多维偏好的 DPO 数据集？如何在损失中对不同维度加权？
+  imported_at: '2026-09-21'

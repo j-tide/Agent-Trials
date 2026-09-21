@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a1f2d867753f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在推理框架中，如何充分利用 GQA 带来的 KV Cache 减少来增大最大 batch size？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在推理框架中，如何充分利用 GQA 带来的 KV Cache 减少来增大最大 batch size？
+answer:
+  mode: rubric
+  reference_answer: |-
+    KV Cache 是推理显存的主要消耗者。GQA 将每个 token 的 KV 缓存量压缩至 MHA 的 g/h。推理框架（如 vLLM、TensorRT-LLM）通过以下方式将节省的显存转化为更大的 batch size：
+
+    直接按比例扩大实例数：
+    设显存预算固定为 M，模型权重占用 W，其余可用作 KV Cache。最大 batch size B 与每个序列的 KV 缓存大小
+
+    C per_seq 成反比：
+
+    [图片内容未导入]
+
+    - 由于 C per_seq∝g，当 g 从 h 降至 g′ 时，理论 batch size 可提升约 h/g′ 倍。框架直接根据剩余显存动态分配更多的请求。
+
+    - PagedAttention 的高效利用：
+    vLLM 将 KV Cache 组织成固定大小的虚拟块（block），通过内存池管理。KV 缓存压缩后，每个 token 占用的块数减少，相同数量的物理块可以服务更多序列。块映射表的内存开销也相应降低。系统调度器可以在不 OOM 的前提下，将并发请求数设置得更高。
+
+    - 增大 batch 打破内存带宽瓶颈：
+    小 batch 解码时，每个 token 的计算受限于 GPU 显存带宽读取 KV Cache。GQA 减少了需要读取的 KV 数据量，使得内存带宽压力降低，原本带宽受限的 batch 区间可以容纳更大的 batch 而延迟不增。因此，框架可以在满足延迟 SLO 的条件下，将 batch size 推到更高，提升吞吐量。
+
+    - 连续批处理（Continuous Batching）：
+    使用 GQA 后，KV Cache 压力变小，推理系统可以更积极地在一个批次中混合多个不同长度的请求，而不必担心某个长序列耗尽显存。动态调整时，有更大空间拼接新请求。
+
+    - 并行策略的重优化：
+    在张量并行（TP）中，KV Cache 被分配到多个 GPU 上，GQA 使得单个 GPU 上的缓存减小，从而可以在同样数量的 GPU 下支持更大的总 batch，或者减少 TP 数，释放 GPU 用于增加数据并行路数，进一步提高 batch 和吞吐。
+
+    总之，框架通过显存感知的调度器，将 GQA 节省的每字节显存都转化为可并发处理的请求数，实现系统吞吐量的近似线性扩展。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YD2SwSsy9iTGMmkEs4jcylEZnnd
+  block_id: J38BdutaMoswmfxeW7Qc0Y2knBd
+  page_token: YD2SwSsy9iTGMmkEs4jcylEZnnd
+  original_title: 在推理框架中，如何充分利用 GQA 带来的 KV Cache 减少来增大最大 batch size？
+  imported_at: '2026-09-21'

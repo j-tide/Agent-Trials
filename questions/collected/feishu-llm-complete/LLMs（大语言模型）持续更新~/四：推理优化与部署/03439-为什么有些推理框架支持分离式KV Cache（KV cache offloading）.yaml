@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d216bc6bfde9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么有些推理框架支持“分离式”KV Cache（KV cache offloading）？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 为什么有些推理框架支持“分离式”KV Cache（KV cache offloading）？
+answer:
+  mode: rubric
+  reference_answer: |-
+    “分离式”KV Cache 或称为“KV Cache 卸载”，是一种以时间换空间的极致优化技术。它的核心思想是将 KV Cache 从昂贵的 GPU 显存（HBM）中，转移到更廉价、容量更大的 CPU 内存（RAM）甚至 NVMe SSD 中，然后在需要时再预取回显存。
+
+    为什么需要分离/卸载：
+
+    - 突破 GPU 显存墙：当处理超长序列（如 1M token）或极大 batch size 时，KV Cache 的显存占用可能远超 GPU 显存容量。卸载是唯一能继续运行的技术选择。
+
+    - 成本控制：显存是稀缺资源。将暂时不用的、旧的 KV Cache 层移到 CPU 内存，可以让 GPU 专注于当前正在计算的部分，提高 GPU 利用率和吞吐量。
+
+    - 异步流水线：现代推理引擎（如 vLLM, FlexGen）能够将卸载操作与 GPU 计算流水线化。当 GPU 正在忙于计算时，CPU 在后台异步地将未来需要的 KV Cache 块从 CPU 预取到 GPU，并将未来不需要的块从 GPU 卸载到 CPU。这种“预取”机制能极大程度地隐藏数据传输的延迟。
+
+    典型实现：FlexGen 和 DeepSpeed ZeRO-Inference 是这类技术的代表。它们允许在单张消费级显卡上运行需要数百 GB 显存的超大模型和超长序列任务，虽然速度会因 PCIe 带宽瓶颈而变慢，但至少让“不可能”变为“可能”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  block_id: U4J7d2B81o9GPGx5bjncCaIwnic
+  page_token: N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  original_title: 为什么有些推理框架支持“分离式”KV Cache（KV cache offloading）？
+  imported_at: '2026-09-21'

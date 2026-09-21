@@ -1,0 +1,91 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dbc3f1a356d4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 Medusa 中的“top‑k 候选筛选”在验证前的作用。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 解释 Medusa 中的“top‑k 候选筛选”在验证前的作用。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 Medusa 中，top‑k 候选筛选是指在每个 Medusa head 的预测阶段，选择概率最高的 k 个 token 作为候选，而不是仅取单个 top-1。这些候选 token 被组合成树形结构，送入验证阶段。
+
+    作用：
+
+    - 提升接受率与期望接受长度
+    单个 top-1 候选一旦预测错误，该分支就被截断。通过提供多个候选（如 top-2），增加了目标模型选中其中一个候选的概率，从而提高了该位置及后续位置的接受可能。这能显著增加平均每次验证生成的 token 数，提升加速比。
+
+    - 在有限验证开销内探索多条路径
+    树验证的总节点数随分支因子指数增长。top‑k 控制了每个节点的分支数，从而控制树的大小和验证计算量。通过选择适当的 k（如 2 或 3），可在额外开销和提升接受率之间取得平衡。
+
+    - 增加生成多样性（可选）
+    对于需要多样性的应用，top‑k 候选为树提供了多样化的分支，最终验证通过拒绝采样仍保证输出分布正确，所以不会破坏一致性。
+
+    - 匹配目标模型的不确定性
+    目标模型在某个位置可能有一个以上的高概率 token。如果草稿模型只提供一个候选但非目标模型的最可能 token，接受率会降低。top‑k 提高了覆盖目标模型高概率 token 的机会。
+
+    总结：top‑k 候选筛选是 Medusa 在草稿质量和验证开销之间的控制阀，通过适当的 k，可以在不大幅增加树节点数的情况下，有效提升接受率和加速效果。
+
+    - 草稿生成速度：heads 的计算与主模型最后一层并行，几乎不增加延迟。
+
+    - 验证速度：树注意力处理的 token 总数随 K 和每步采样宽度呈组合增长。树越大，验证时间越长，可能部分抵消多接受的收益。因此需权衡 K 和分支宽度（如 top-2）。实践中 K=3~5 且使用贪心或小 top-p 采样时，验证开销可控。
+
+    - 在量化后的基座模型上重新训练/微调 Medusa heads。冻结量化后的基座模型，使用相同训练数据微调 heads，使其适应量化后的隐藏状态分布。这是最可靠的方法。
+
+    - 量化感知训练：在训练 heads 时，引入伪量化模拟基座模型的量化噪声，使 heads 对量化鲁棒。
+
+    - 基线：标准自回归解码（无 Medusa）。
+
+    - 链式 Medusa：每个 head 仅取 top-1 候选（树 = 单链，无分支）。
+
+    - 树形 Medusa（top-2）：每个 head 取 top-2 候选，构建完全 2-叉树。
+
+    - 树形 Medusa（top-3）：每个 head 取 top-3 候选。
+
+    - 总推理时间（秒）。
+
+    - 平均接受 token 数（E）。
+
+    - 平均每轮验证时间（T_verify）。
+
+    - 平均每 token 延迟（ms/token）。
+
+    - 加速比（相对于基线）。
+
+    - GPU 利用率。
+
+    - 接受概率 = min(1, p(x) / q(x))，其中 q(x) 是该 Medusa head 预测该 token 的概率。
+
+    - 若接受，则继续验证下一个节点；若拒绝，则从修正分布 norm(max(0, p - q)) 中重新采样 token，并丢弃该分支之后的所有节点。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NR2xwXzjpi4F01khCQ7c89EgnWg
+  block_id: JtrLdQX7to8q2ixdVgLcKOxInub
+  page_token: NR2xwXzjpi4F01khCQ7c89EgnWg
+  original_title: 解释 Medusa 中的“top‑k 候选筛选”在验证前的作用。
+  imported_at: '2026-09-21'

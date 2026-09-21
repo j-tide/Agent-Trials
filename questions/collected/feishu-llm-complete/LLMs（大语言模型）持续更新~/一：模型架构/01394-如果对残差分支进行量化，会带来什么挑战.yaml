@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bb733d8a4f0c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果对残差分支进行量化，会带来什么挑战？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 如果对残差分支进行量化，会带来什么挑战？
+answer:
+  mode: rubric
+  reference_answer: |-
+    对残差分支（即子层输出 F(x)）进行量化（如 INT8/INT4）会引入显著的精度和稳定性挑战：
+
+    - 破坏恒等路径的精度：残差连接的主路径 x 通常需要保持高精度（如 FP16/FP32）以确保恒等映射的准确性。如果支路输出被量化，加法 x + Q(F(x)) 中的量化误差将直接污染主路径，且会逐层累积，导致深层信号严重失真。
+
+    - 误差放大效应：在 Pre-Norm 中，支路输出往往幅度较小（因为 F(x) 学习的是残差），量化噪声与信号的比例可能很大，支路信息可能被完全淹没。
+
+    - 量化参数的校准困难：不同层、不同 token 的支路输出分布差异巨大，难以用一套静态量化参数（scale, zero point）覆盖整个网络。动态量化虽可缓解，但带来额外计算开销。
+
+    - 训练时量化的复杂性：若在训练中模拟量化（QAT），残差分支的梯度经过量化器时会引入额外的噪声，可能影响收敛。需要进行精细的梯度估计（如 Straight-Through Estimator）。
+
+    缓解措施：
+
+    - 仅对 FFN 和注意力投影的权重进行量化（权重量化），保持激活为高精度，残差分支不量化。
+
+    - 使用混合精度，主路径保持 FP16，支路可量化到 INT8 但采用逐张量或逐 token 的动态缩放。
+
+    - 将量化应用于推理而非训练，并在校准时充分考虑残差连接的影响。
+
+    实际中，为了保持模型质量，大模型推理常采用权重量化（W8A8 或 W4A16），而残差流的激活仍保持较高精度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KmS5w89VIig4zEkCkcecHTuKn1d
+  block_id: Ay65d91JnoobdDxKjEhcdmp4nHd
+  page_token: KmS5w89VIig4zEkCkcecHTuKn1d
+  original_title: 如果对残差分支进行量化，会带来什么挑战？
+  imported_at: '2026-09-21'

@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8e00331ca0ff
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在推理时，MQA 的 KV Cache 内存布局是怎样的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 在推理时，MQA 的 KV Cache 内存布局是怎样的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    MQA 的 KV Cache 内存布局与 MHA 有显著不同，核心在于所有注意力头共享一份 K 和 V 缓存，这使得缓存的总元素数量大幅减少。具体来说：
+
+    - 形状：对于一层 Transformer，MQA 的 K 缓存形状为 [batch_size, seq_len, d_k]（或 [seq_len, batch_size, d_k] 取决于实现），V 缓存形状相同。与之对比，MHA 的 K 缓存为 [batch_size, seq_len, H, d_k] 或 [batch_size, H, seq_len, d_k]。
+
+    - 内存分配：因为 K 和 V 在每个 token 生成时只需存储一份，而非 H 份，因此 KV Cache 占用的总显存大幅缩小。在物理存储上，K 和 V 通常是连续的张量，按 token 顺序存放。随着序列长度增加，新的 K、V 向量被追加到缓存末尾，类似于标准 MHA，但维度更小。
+
+    - 访问模式：在解码步骤中，每个注意力头都会去读取这同一份 K 和 V。所有头的 Q 各自独立，但共享相同的 K、V 张量。这意味着内存带宽需求骤降：原本需要为每个头读取不同的 K、V，现在只需读取一次，然后广播给所有头。这种复用极大减少了对高带宽内存（HBM）的读取压力。
+
+    - 多头如何复用：在计算时，Q 的形状通常是 [batch_size, H, 1, d_k]，而 K 缓存为 [batch_size, 1, seq_len, d_k]（通过 unsqueeze 添加头维度），利用广播机制实现所有头与同一 K 进行点积。这种布局在 GPU 上高效，且无需复制 K 和 V。
+
+    因此，MQA 的 KV Cache 内存布局以单头维度存储，所有头共享，在推理时显著节省显存和带宽。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/S1OHwfCUqigwnqkQq4tcDjQOn1g
+  block_id: Pf0uduYFkotrEYxMEMjcZp9jnyf
+  page_token: S1OHwfCUqigwnqkQq4tcDjQOn1g
+  original_title: 在推理时，MQA 的 KV Cache 内存布局是怎样的？
+  imported_at: '2026-09-21'

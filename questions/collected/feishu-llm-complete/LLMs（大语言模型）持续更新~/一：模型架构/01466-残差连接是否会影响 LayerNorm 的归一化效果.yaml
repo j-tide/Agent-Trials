@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6a92970d5155
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 残差连接是否会影响 LayerNorm 的归一化效果？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 残差连接是否会影响 LayerNorm 的归一化效果？
+answer:
+  mode: rubric
+  reference_answer: |-
+    会，且这种影响在 Post-Norm 和 Pre-Norm 中截然不同。
+
+    在 Post-Norm 中：
+    LayerNorm 接收的是 x + Sublayer(x)。随着网络加深，残差流 x 的方差不断累积，x + Sublayer(x) 的方差也随之增大。LayerNorm 会将其强行缩放到单位方差，这个过程虽然控制了前向分布的稳定，但在反向传播时，LayerNorm 的梯度与输入标准差成反比。因此，深层的残差方差越大，通过 LayerNorm 回传的梯度就越小，严重削弱了残差连接本应带来的梯度增强效果。可以说，Post-Norm 的归一化效果与残差连接产生了冲突，导致深层网络训练困难。
+
+    在 Pre-Norm 中：
+    LayerNorm 仅作用于支路输入：y = x + Sublayer(LayerNorm(x))。残差流 x 完全不经过 LayerNorm，因此残差连接的梯度不受归一化的衰减。同时，LayerNorm 将支路的输入归一化，使支路输出的方差受控，从而减缓了残差流方差的累积速度。这里，残差连接和 LayerNorm 协同工作，相互增益：残差连接提供梯度高速路，LayerNorm 确保支路稳定。
+
+    因此，Pre-Norm 的设计巧妙地避开了残差连接对归一化效果的负面影响，实现了两者的双赢。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KmS5w89VIig4zEkCkcecHTuKn1d
+  block_id: LxNpdxVSWoAlWXxuEcEcwveEnoc
+  page_token: KmS5w89VIig4zEkCkcecHTuKn1d
+  original_title: 残差连接是否会影响 LayerNorm 的归一化效果？
+  imported_at: '2026-09-21'

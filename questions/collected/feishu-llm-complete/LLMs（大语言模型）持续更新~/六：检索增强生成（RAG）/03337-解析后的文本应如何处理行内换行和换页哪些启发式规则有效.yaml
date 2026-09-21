@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-118a7860fd63
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解析后的文本应如何处理行内换行和换页？哪些启发式规则有效？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 解析后的文本应如何处理行内换行和换页？哪些启发式规则有效？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是将 PDF 解析产生的“物理文本”转换为可供 RAG 使用的“逻辑文本”的最后一步，也被称为文本后处理。其核心目标有两个：合并断行和分割段落。
+
+    - 合并行内断行：
+
+    PDF 中的文本通常是一行一行提取的，行尾携带换行符。我们需要决定哪些换行是同一段落内的软换行（应该被移除），哪些是段落间的硬换行（应该保留）。以下是一个有效、经典的启发式规则：
+
+    - 规则1：去除非段落末尾的连字符。如果一行以连字符 - 结尾，且下一行以小写字母开头，这通常是一个跨越两行的单词。处理方式是移除连字符，并将两行文本直接拼接，恢复完整单词。例如，“com-\nputer” 会变成 “computer”。
+
+    - 规则2：检查行末字符。如果一行以句号 .、问号 ?、感叹号 !、冒号 : 或引号等结束，这很可能是一个段落的结尾，应保留换行。反之，如果行末是一个普通的字词，则大概率是段内断行，应移除换行符。
+
+    - 规则3：检查下一行首字符。如果下一行以大写字母开头（在英语中）并且上一行符合段落结束特征，则更确信是一个新段落的开始。如果下一行以空格开始，或者以逗号、分号等连接词开始，则很可能是段内的延续。
+
+    - 规则4：基于标点密度的判断。如果一个连续文本段中，句号等结束标点的比例极低，说明它很可能是一个长段落，内部的换行都应被视为软换行。
+
+    - 处理换页：
+    PDF 的换页（Page Break）是一个强信号。在大多数情况下，换页意味着一个大的逻辑章节的结束，因此几乎总是应将换页视为段落分隔。简单的做法是，将一个页面内的文本合并后，在块结束时附加两个换行符（\n\n），以强制在逻辑上将其与下一页的内容分开。特殊情况下，如果页面以一个连字符结束，说明一个单词或数字跨越了两页，在处理时应将其合并。
+
+    通过这套启发式规则，可以大幅改善提取文本的连贯性，使其更接近原始文档的逻辑结构，从而显著提升后续分块和嵌入步骤的质量。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ag8Qw4DUZiuEEGkvxB4ctXp7nQy
+  block_id: QV9UdwCd4oUzogxLC3hcCuAEnzc
+  page_token: Ag8Qw4DUZiuEEGkvxB4ctXp7nQy
+  original_title: 解析后的文本应如何处理行内换行和换页？哪些启发式规则有效？
+  imported_at: '2026-09-21'

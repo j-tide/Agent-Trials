@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-09082c16c58d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何将 Reranker 与混合检索结合？是否有统一的框架？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 如何将 Reranker 与混合检索结合？是否有统一的框架？
+answer:
+  mode: rubric
+  reference_answer: |-
+    将 Reranker 与混合检索结合，本质上是把混合检索输出的高质量候选池，交给 Reranker 进行最终的精细排序。这是一个经典的多阶段排序架构，业界已有成熟的统一框架和最佳实践。
+
+    结合模式：
+
+    混合检索负责高召回，Reranker 负责高精度，两者在管道中前后衔接。
+
+    - 混合检索生成候选池：用户查询被同时送入稠密检索和稀疏检索，两路结果通过 RRF 或分数融合，生成一个统一的相关文档候选集 C，大小为 N（如 50~200）。这个候选集已经初步结合了语义和关键词的优势，质量高于任何单一路径。
+
+    - Reranker 精排：将候选集 C 中的每一个文档与查询进行拼接，送入 Cross-encoder 模型，逐一计算精细相关性分数。根据新分数重新排序，从中选出最终的 Top K（如 3~10）个文档，提供给下游生成模型。
+
+    统一框架：
+
+    目前许多现代向量数据库和检索框架已经将混合检索与重排序集成在统一 API 中。例如：
+
+    - LlamaIndex：提供了 HyDE、Reciprocal Rerank Fusion 等模块，可以轻松将多种检索器与各种 Reranker（如 Cohere, bge-reranker）组合。
+
+    - LangChain：通过 EnsembleRetriever 组合不同检索器，并使用 ContextualCompressionRetriever 或 LLMChainExtractor 等实现重排序。
+
+    - Weaviate：在内部支持混合搜索，并可通过 rerank 模块集成 Cohere 等外部 Reranker。
+
+    - Milvus：从 2.3 版本开始支持混合搜索，并在 2.4 版本中引入了内置的 Reranker 框架。
+
+    这些框架的共性在于：将检索器、融合器和重排序器视为可插拔的组件，通过配置文件或几行代码即可构建完整的检索-精排管道。开发者无需从头实现复杂的协调逻辑。
+
+    关键注意事项：
+
+    - 去重：混合检索融合时，同一文档可能来自稠密和稀疏两路。RRF 已经自然处理了排名信号累加，但在送入 Reranker 前，需要按文档 ID 去重，避免重复计算。
+
+    - 候选集大小：混合检索的召回数量 N 需要合理设置。过大则 Reranker 开销过高，过小则可能遗漏关键文档。通常 N 设为 50~200 之间，具体取决于 Reranker 速度和延迟预算。
+
+    - 分数归一化：如果混合检索阶段是分数融合，则其输出的分数可能已经归一化。Reranker 的分数与之无关，可以独立计算，不需要再做归一化。
+
+    因此，混合检索 + Reranker 已成为高性能 RAG 系统的标配架构。它就像一个“粗选-精选”的流水线，最大化利用不同模型的互补优势。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MdouwCwh3iP6HNkt4PZcw9CSnYb
+  block_id: FCrUd0OOboLmkNxxyaicvcchnPf
+  page_token: MdouwCwh3iP6HNkt4PZcw9CSnYb
+  original_title: 如何将 Reranker 与混合检索结合？是否有统一的框架？
+  imported_at: '2026-09-21'

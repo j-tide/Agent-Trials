@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3932873d4801
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 工具执行结果的序列化与回传：如何将工具的输出格式化后重新注入对话上下文？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 工具执行结果的序列化与回传：如何将工具的输出格式化后重新注入对话上下文？
+answer:
+  mode: rubric
+  reference_answer: |-
+    工具执行的结果，往往是一个包含大量元数据、嵌套复杂的数据结构（JSON、XML等）或长文本。如何将这一“原始数据”处理成 LLM 能够高效理解、并用于生成后续答案的“精炼信息”，是决定 Agent 能否有效利用工具的关键。
+
+    一、结果处理的三项核心任务
+
+    在将结果注入上下文之前，后端需要完成三项任务：清洗、压缩和格式化。
+
+    - 清洗：从工具返回的原始数据中，剔除所有与回答用户问题无关的“噪音”。这包括 API 返回的 HTTP 状态码、无关的响应头、各种技术性元数据。只保留与核心业务语义相关的数据部分。
+
+    - 压缩与信息提炼：LLM 的上下文窗口是昂贵的，而且容易被冗长的数据淹没。因此，不能将整个清洗后的结果直接丢给模型，特别是当结果很大时。需要根据任务进行智能压缩。例如，对于一个搜索列表，可以只返回前 N 条最相关结果的摘要，而不是全部；对于一段长文本，可以先调用一个小型、快速的摘要模型进行总结。
+
+    - 格式化：将清洗、压缩后的数据，转换成对 LLM 最友好的格式。虽然 LLM 能处理 JSON，但信息的呈现方式极大地影响其理解效率和准确性。
+
+    二、重新注入对话上下文的标准模式
+
+    一旦完成了格式化，接下来需要将它正确地注入对话历史，确保 LLM 能理解这条消息的语义。
+
+    遵循你所用 LLM API 的消息角色规范，使用专门的角色（如 OpenAI 的 role: "tool"）来标记这些消息。一条格式良好的工具结果消息应包含：
+
+    - tool_call_id：与之前模型发起的工具调用请求严格对应，这是 LLM 建立请求与响应之间关联的关键。
+
+    - content：经过清洗、压缩和格式化后的、信息密度高的文本内容。
+
+    将这些消息追加到对话历史末尾后，再次向 LLM 发起请求时，模型就能像阅读一份报告一样，准确地理解工具的执行结果，并基于此完成后续的推理和答案生成。这个“二次生成”过程，是 Function Calling 从“单次调用”升级为“交互式智能”的核心。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IA43wgi1niRa19kxIa6c0Qo5nCh
+  block_id: T7Gqd7PNZoq4NDxAKGZcWLqonVf
+  page_token: IA43wgi1niRa19kxIa6c0Qo5nCh
+  original_title: 工具执行结果的序列化与回传：如何将工具的输出格式化后重新注入对话上下文？
+  imported_at: '2026-09-21'

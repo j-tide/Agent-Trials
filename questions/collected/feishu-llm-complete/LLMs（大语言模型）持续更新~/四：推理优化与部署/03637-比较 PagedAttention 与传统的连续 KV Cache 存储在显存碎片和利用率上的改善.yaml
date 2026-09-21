@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-442f5d37fd6a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 比较 PagedAttention 与传统的连续 KV Cache 存储在显存碎片和利用率上的改善。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 比较 PagedAttention 与传统的连续 KV Cache 存储在显存碎片和利用率上的改善。
+answer:
+  mode: rubric
+  reference_answer: |-
+    传统连续 KV Cache 存储：
+
+    - 为每个请求预分配一段大小为 max_seq_len * 2 * num_layers * num_heads * head_dim * dtype_size 的连续显存。
+
+    - 内部碎片：每个请求实际使用的长度远小于最大长度时，大量预分配空间闲置。例如最大 2048，平均 200 token，浪费超 90%。
+
+    - 外部碎片：请求结束释放后，留下不同大小的空闲段。新的请求可能无法找到恰好合适的连续块，导致内存空洞，利用率进一步降低。
+
+    - 灵活性差：无法动态增加长度，若生成超过预分配最大值则溢出失败；无法实现零拷贝的块共享。
+
+    PagedAttention：
+
+    - 按固定大小的块分配，块内连续，块之间可以不连续。
+
+    - 内部碎片：仅在每个请求的最后一个块中存在，平均约 block_size/2 个 token 的浪费。若 block_size=16，平均浪费 8 token，相比数千的预分配近乎可以忽略。
+
+    - 外部碎片：完全消除。所有空闲块等大同构，可被任意请求使用，回收后直接合并到池，无任何空洞问题。
+
+    - 显存利用率：可从传统方案的 30~50% 提升至 90% 以上。vLLM 论文中报告，在相同负载下，显存可支撑的请求数提高了 2~4 倍。
+
+    - 额外收益：支持前缀共享，进一步节省显存；支持抢占换出换入，实现过载下的弹性调度。
+
+    定量比较（假设条件：模型 13B，max_seq_len=2048，块大小=16，平均请求长度 300 token）：
+
+    - 传统方案：每请求固定占用约 2.6 GB，64 GB 显存最多可并发 24 个请求，利用率约 (300/2048)≈14.6%，浪费严重。
+
+    - PagedAttention：每请求实际占用与长度成正比，约为 300/2048 * 2.6 GB ≈ 0.38 GB，加上少量碎片，64 GB 可支撑约 150+ 请求，利用率达 80% 以上。
+
+    因此，PagedAttention 从根本上重构了 KV Cache 的存储管理，将显存利用率推向极致，是大模型推理服务实现高吞吐低延迟的关键技术。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  block_id: QvFSd5lZooeFc9xXIClckr9fnWc
+  page_token: Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  original_title: 比较 PagedAttention 与传统的连续 KV Cache 存储在显存碎片和利用率上的改善。
+  imported_at: '2026-09-21'

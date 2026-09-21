@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f500e6d2f098
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: FlashAttention 是否与 KV Cache 兼容？如何结合？画出内存布局。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: FlashAttention 是否与 KV Cache 兼容？如何结合？画出内存布局。
+answer:
+  mode: rubric
+  reference_answer: |-
+    完全兼容。KV Cache 是推理时存储在 HBM 中的历史 K 和 V 张量，FlashAttention 在计算当前 token 的注意力时，需要读取这些缓存的 K 和 V。FlashAttention 不修改 KV Cache 的结构，只是改变计算方式。两者结合是当前所有高性能推理框架的标准做法。
+
+    结合方式：
+
+    - 在 decode 阶段，模型输入为当前 token 的 query 向量（或 batch 的 queries），以及从 KV Cache 中取出的完整历史 K 和 V。通常 K 和 V 在缓存中的布局为 [batch, num_kv_heads, seq_len, head_dim] 且序列长度维度是动态追加的。
+
+    - FlashAttention kernel 接受 Q（[batch, num_q_heads, 1, head_dim]）、K（[batch, num_kv_heads, seq_len, head_dim]）、V 作为输入。
+
+    - Kernel 内部将 K 和 V 沿 seq_len 维度分块加载到 SRAM，与 Q 块进行计算，完全无需改变 KV Cache 的存储格式。
+
+    内存布局示意（以 PagedAttention 为例，常用）：
+
+    ```text
+    HBM 内存布局（逻辑视图）:
+    KV Cache 按层和头组织，每个头存储为一个连续块？不，实际是分页的。
+
+    以 vLLM 为例，KV Cache 被组织为块表：
+    | Block 0 | Block 1 | ... | Block M |
+    每个块包含 [num_heads, block_size, head_dim] 的 K 和 V。
+
+    FlashAttention 内核被修改为支持分页：在加载 K,V 块时，根据块表索引从不同物理地址读取，但对计算逻辑透明。
+
+    更简单的连续缓存布局（如 HuggingFace）:
+    K: [batch, num_kv_heads, total_seq_len, head_dim] 连续存储，每次新增 token 时在 seq_len 维追加。
+    FlashAttention 将整个 K 和 V 传入，内部自动分块。
+
+    FlashAttention 通过参数接收 K 和 V 的指针，读入 SRAM 时可以是任意分散的页，这是 FlashAttention-2 和 FlashInfer 等框架已经支持的。
+    ```
+
+    因此，FlashAttention 与 KV Cache 是天然协同的：KV Cache 节省了重复计算历史 K,V 的成本，FlashAttention 则高效地执行基于这些缓存的注意力计算，并最小化内存带宽消耗。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/OuSIwe7IQi1cflkQ601cDNfQn3c
+  block_id: SF9AdT4SaosBmxxL9Huctkbsnlf
+  page_token: OuSIwe7IQi1cflkQ601cDNfQn3c
+  original_title: FlashAttention 是否与 KV Cache 兼容？如何结合？画出内存布局。
+  imported_at: '2026-09-21'

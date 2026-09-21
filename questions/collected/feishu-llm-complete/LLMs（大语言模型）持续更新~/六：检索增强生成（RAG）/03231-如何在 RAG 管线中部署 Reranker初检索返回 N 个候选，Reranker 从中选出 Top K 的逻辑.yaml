@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-46a04eb9895e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在 RAG 管线中部署 Reranker？初检索返回 N 个候选，Reranker 从中选出 Top K 的逻辑。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 如何在 RAG 管线中部署 Reranker？初检索返回 N 个候选，Reranker 从中选出 Top K 的逻辑。
+answer:
+  mode: rubric
+  reference_answer: |-
+    部署 Reranker 是 RAG 系统从“能检索到”到“检索得准”的关键一跃。其核心逻辑是：对初筛候选集逐一精细打分，重新排序后截取最优。
+
+    部署步骤与逻辑：
+
+    - 初检索候选集生成：
+    混合检索器（稠密+稀疏）对用户查询 qq 执行搜索，返回一个相对较大的候选文档集合 D={d1,d2,...,dN}，其中 N 通常为 50~200。这个阶段的目标是高召回率。
+
+    - 候选集预处理：
+    对每个候选文档，提取其用于重排序的文本字段。这通常是文档的一段摘要或与查询最相关的分块，而不是全文。因为 Cross-encoder 有最大输入长度限制（如 512 Token），需要对超长文档进行截断。最佳实践是保留文档的开头部分或与查询关键词最相关的局部片段。
+
+    - 构建 Batch 并执行推理：
+    将查询 q 与每一个候选文档 di 的文本拼接，构建成一系列输入对：[CLS] q [SEP] d_i [SEP]。为了提升效率，将它们打包成 mini-batch，在 GPU 上进行批量并行推理。Reranker 模型为每个文档 di 输出一个标量得分 si。
+
+    - 根据得分重排序并截取：
+    得到所有候选文档的得分后，系统根据 si 从高到低对文档进行降序排列。然后，根据预设的 K（通常为 3~10，最终提供给 LLM 的上下文数量），截取排名前 K 的文档作为最终的精排结果。
+
+    - 与下游生成模型对接：
+    将这 Top K 个高质量的文档，按照特定的格式（如 [文档1标题] 内容 [文档2标题] 内容）拼接到生成模型的 Prompt 中，供 LLM 进行答案生成。
+
+    工程优化要点：
+
+    - 去重：如果多个候选块来自同一篇父文档，在送入 LLM 前可以只保留得分最高的一个块，或合并它们的上下文，避免冗余。
+
+    - 异步与流水线：Reranker 的推理可以与后续的生成步骤流水线化，即不等所有文档评分完成，就可以开始对先评完的高分文档进行生成前的准备工作。
+
+    - 缓存：对于高频查询，可以将其重排序后的 Top K 结果直接缓存，完全绕过后续的推理。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MdouwCwh3iP6HNkt4PZcw9CSnYb
+  block_id: KjHedbtbnodBlJxlxrscGFVZngb
+  page_token: MdouwCwh3iP6HNkt4PZcw9CSnYb
+  original_title: 如何在 RAG 管线中部署 Reranker？初检索返回 N 个候选，Reranker 从中选出 Top K 的逻辑。
+  imported_at: '2026-09-21'

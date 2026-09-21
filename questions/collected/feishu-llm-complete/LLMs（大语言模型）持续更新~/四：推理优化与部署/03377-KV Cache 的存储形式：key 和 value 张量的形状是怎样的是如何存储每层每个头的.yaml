@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0722d98fdce9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: KV Cache 的存储形式：key 和 value 张量的形状是怎样的？是如何存储每层每个头的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: KV Cache 的存储形式：key 和 value 张量的形状是怎样的？是如何存储每层每个头的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在自注意力机制中，每个 token 经过线性变换后，会得到 H 个头的 Key 和 Value 向量。KV Cache 需要为模型的每一层、每一个头、每一个 token 保存这些向量。
+
+    张量形状：
+
+    - Key 张量：[batch_size, num_heads, seq_len, head_dim]
+
+    - Value 张量：[batch_size, num_heads, seq_len, head_dim]
+
+    例如，对于 batch=1, heads=32, seq_len=2048, head_dim=128，Key 张量占据的显存为 1×32×2048×128×2 bytes=16 MB。Value 同理。每一层都需要保存这样一对张量。
+
+    存储形式：
+
+    KV Cache 通常以层（layer）为单位进行组织。每个 Transformer 层维护一个独立的 Key Cache 和 Value Cache。这是因为每一层的 Key 和 Value 是完全不同的，不能跨层共享。
+
+    在物理存储上，为了高效的内存访问和 I/O，KV Cache 可以以多种形式存储：
+
+    - 连续张量：每层的 K、V 分别存储为一个大张量，形状为 [batch, heads, max_seq_len, head_dim]。随着序列增长，新 token 的 K、V 被追加到序列维度的末尾。
+
+    - 分页式存储（PagedAttention）：将 KV Cache 切分成固定大小的“页”（page），每一页存储固定数量 token 的 K 和 V。页之间可以不连续，通过页表进行管理。这种方法可以极大地减少显存碎片，提高显存利用率。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  block_id: QZ5ad9DiWobvhKxIr6ecjB2vnGm
+  page_token: N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  original_title: KV Cache 的存储形式：key 和 value 张量的形状是怎样的？是如何存储每层每个头的？
+  imported_at: '2026-09-21'

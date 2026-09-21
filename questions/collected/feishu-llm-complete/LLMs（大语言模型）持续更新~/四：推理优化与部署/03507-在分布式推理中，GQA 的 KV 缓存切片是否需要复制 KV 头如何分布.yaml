@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9f5c177c105c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在分布式推理中，GQA 的 KV 缓存切片是否需要复制 KV 头？如何分布？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在分布式推理中，GQA 的 KV 缓存切片是否需要复制 KV 头？如何分布？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在分布式推理（特别是张量并行，TP）中，GQA 的 KV 头数量 g 通常小于查询头数 h，这带来了切片策略的选择问题。
+
+    策略一：按查询头切片 + 复制 KV 头（最常用）
+
+    - 做法：将 h 个查询头均匀分配到 N 个 GPU 上（每个 GPU 拥有 h/N 个查询头），而所有 g 个 KV 头被完整复制到每个 GPU 上。每个 GPU 独立持有完整的 KV Cache。
+
+    - 计算：每个 GPU 使用本地的部分 Q 头和全部的 K、V 计算注意力，产生部分输出，最后通过 all-reduce 汇总结果。
+
+    - 优点：实现简单，完美兼容现有 MHA 的 TP 代码；KV 缓存虽然冗余，但因 GQA 已大幅减少缓存体积，N 路复制带来的额外显存开销在可接受范围内（例如 g=8, N=4，冗余因子 4，总缓存相当于没有 GQA 的 MHA 的 4×(8/h) 倍，若 h=32 则为 1 倍，刚好打平）。
+
+    - 缺点：KV 缓存没有切分，每个 GPU 显存消耗会随 TP 数线性增长，不适合非常大的 TP 度（如 8 以上）或本身内存极受限的场景。
+
+    策略二：按 KV 头切片 + 对应查询头分组
+
+    - 做法：将 g 个 KV 头均匀分配给 N 个 GPU（要求 gg 能被 NN 整除，如 g=8, N=2 则每个 4 个 KV 头）。同时，将每个查询头根据它所属的 KV 组分配至对应的 GPU。即保证 GPU i 拥有其分配到的 KV 头以及属于这些 KV 头的所有查询头。
+
+    - 计算：每个 GPU 只持有部分 KV 头及其对应的局部 KV Cache，注意力计算是局部的，无需 all-reduce 前向通信（仅需在输入和输出时保持张量并行一致）。
+
+    - 优点：KV 缓存被真正切分，无冗余，实现线性显存节省，适合大规模 TP。
+
+    - 缺点：查询头数可能无法均匀分配到每个 GPU（除非 h/g 也是整数且整除），可能导致负载不均衡；且代码改造较大，需维护组映射关系。
+
+    实际应用：目前主流框架（如 Megatron-LM, TensorRT-LLM）默认采用策略一的变体——因为 KV 缓存因 GQA 已经较小，复制开销可控，且简化通信模式，对吞吐影响不大。当 TP 过大导致内存压力时，可切换策略二或混合使用流水线并行。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YD2SwSsy9iTGMmkEs4jcylEZnnd
+  block_id: MkISd3WQtojJ5vxNkoVckoAqnle
+  page_token: YD2SwSsy9iTGMmkEs4jcylEZnnd
+  original_title: 在分布式推理中，GQA 的 KV 缓存切片是否需要复制 KV 头？如何分布？
+  imported_at: '2026-09-21'

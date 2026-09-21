@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-24014319179c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 计划中的依赖关系管理：后续步骤依赖前面步骤的结果，计划中如何体现和传递？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 计划中的依赖关系管理：后续步骤依赖前面步骤的结果，计划中如何体现和传递？
+answer:
+  mode: rubric
+  reference_answer: |-
+    依赖关系是计划的灵魂。没有依赖关系，一系列子任务就只是一盘散沙；有了清晰的依赖关系，它们才能构成一个逻辑有序、可被高效执行的行动图谱。在Plan-and-Execute中，依赖关系的体现和传递涉及计划的“静态定义”和执行的“动态数据流”两个层面。
+
+    一、在计划中静态体现依赖关系
+
+    Planner在生成计划时，必须显式地定义任务之间的依赖关系。这通常通过在计划的每个步骤中包含一个 depends_on 字段来实现。这个字段是一个列表，包含了当前步骤执行前必须完成的步骤编号。
+
+    例如，一个JSON格式的计划步骤可以这样定义：
+
+    ```json
+    {
+      "step": 3,
+      "goal": "基于收集到的信息，生成分析报告",
+      "action": "generate_report",
+      "parameters": {
+        "data": "{{step1_output}}",
+        "strategy": "{{step2_output}}"
+      },
+      "depends_on": [1, 2]
+    }
+    ```
+
+    这种静态定义使得Executor在调度时，能够准确地判断哪些任务已经就绪（其所有依赖项都已完成），哪些任务还需要等待。它也是实现任务并行化的基础：所有depends_on为空或依赖项已全部完成的步骤，可以并行执行。
+
+    二、执行时动态传递依赖数据
+
+    仅仅知道“步骤3依赖步骤1和2”是不够的，步骤3在执行时还需要步骤1和2产生的具体数据。这是动态数据流要解决的问题。
+
+    - 上下文变量传递：最直接的方法是让Executor在执行过程中维护一个“任务状态”或“上下文变量池”。当一个步骤执行完毕，它产生的重要结果（如搜索得到的实体、计算出的数值）会被以键值对的形式存入这个变量池（例如：context["step1_output"] = ...）。后续步骤在执行时，会从这个变量池中读取所需的值，动态填充到自己的参数中。
+
+    - 模板化参数引用：在计划的参数定义中，可以使用模板语法来引用前面步骤的输出。如上例中的 "data": "{{step1_output}}"。Executor在实例化该步骤时，会解析这个模板，从上下文变量池中提取对应的值进行替换。这使得计划本身就定义了数据流。
+
+    - 隐式依赖与数据流：有时步骤之间的依赖不是显式的步骤编号，而是语义上的“需要上一步的结果”。Executor的局部推理能力在这里发挥作用：它可以根据上下文的语义和当前步骤的意图，智能地选择使用哪个历史结果。但这需要Executor有较强的理解能力，风险也更高。
+
+    通过“静态依赖声明”和“动态上下文传递”的结合，Plan-and-Execute系统能够优雅地管理复杂的任务编排，确保数据在步骤间正确、高效地流动。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WDvlwZLdCiVKBBkGGE5cn93onvc
+  block_id: JOGMdczxyoiTV9x0c2fcGqVfn1b
+  page_token: WDvlwZLdCiVKBBkGGE5cn93onvc
+  original_title: 计划中的依赖关系管理：后续步骤依赖前面步骤的结果，计划中如何体现和传递？
+  imported_at: '2026-09-21'

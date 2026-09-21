@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2a813b0a0c58
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 检查点是否会影响模型收敛？理论上不影响，实践中需注意什么。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 检查点是否会影响模型收敛？理论上不影响，实践中需注意什么。
+answer:
+  mode: rubric
+  reference_answer: |-
+    理论上：梯度检查点只是用重计算替代了中间激活的存储，计算出的梯度应与无检查点时完全相同（在浮点运算确定性条件下）。因此理论上不影响收敛。
+
+    实践中：可能出现微小差异，原因：
+
+    - 浮点运算的非结合性：重计算时的计算顺序（如哪些元素先相加）可能与首次前向略有不同（例如，在多 GPU 上通信重放时），导致梯度有舍入误差。这种差异在 FP16/BF16 下可能更显著，但通常不影响最终损失。
+
+    - 随机状态处理不当：如前述 dropout 问题，若随机性未正确恢复，则收敛会受严重影响。
+
+    - 混合精度下的 autocast：重计算时需要正确恢复前向时的精度上下文。使用 use_reentrant=False 和正确的 RNG 保存可确保一致性。
+
+    - 通信重叠：在分布式训练中，重计算时的通信可能以不同顺序发生，导致微小误差。
+
+    注意事项：
+
+    - 开启 preserve_rng_state=True。
+
+    - 使用 non-reentrant 模式。
+
+    - 在分布式训练初期验证梯度在无检查点和有检查点时的一致性（例如，通过比较梯度范数）。
+
+    - 监控训练损失曲线，确保开启检查点后没有出现突增或异常震荡。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  block_id: WP4MdqRa3oXXyDxKGNLcBOTdnXf
+  page_token: DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  original_title: 检查点是否会影响模型收敛？理论上不影响，实践中需注意什么。
+  imported_at: '2026-09-21'

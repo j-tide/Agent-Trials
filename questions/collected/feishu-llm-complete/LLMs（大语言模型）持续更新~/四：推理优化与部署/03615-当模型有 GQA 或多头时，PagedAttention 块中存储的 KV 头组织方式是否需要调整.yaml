@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-34e8c54f2fb7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当模型有 GQA 或多头时，PagedAttention 块中存储的 KV 头组织方式是否需要调整？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 当模型有 GQA 或多头时，PagedAttention 块中存储的 KV 头组织方式是否需要调整？
+answer:
+  mode: rubric
+  reference_answer: |-
+    需要根据 GQA/MQA 的特性调整物理块的内部布局，以最大化内存带宽利用和计算效率。
+
+    标准 MHA 的布局：
+
+    - 一个物理块包含 block_size 个 token，对于 每个头 独立存储 K 和 V。如果物理块按层划分，通常在该层的所有头连续存储。例如，布局可能是 [token_0: head_0...head_h, token_1: head_0...head_h, ...]，或者按头分组 [head_0: token_0...token_b, head_1: ...]。
+
+    - vLLM 等实现通常采用按头分组的布局：一个块内，同一个头的所有 token 的 K 连续存储，然后下一个头的 K，再是 V 同样组织。这样做是因为注意力 kernel 以头为单位并行，每个线程块处理一个头，这样访问连续，避免交叉访问。
+
+    GQA/MQA 的调整：
+
+    - GQA 下 KV 头数 g 远小于 Q 头数 h。物理块同样可以按 KV 头 分组存储。例如，对于 g=8，有 8 个 KV 头，每个 KV 头服务一组 Q 头。块内布局为 KV_head_0: token_0..token_b, KV_head_1: ...。
+
+    - 在注意力计算时，kernel 根据 Q 头索引找到对应的 KV 头，然后加载该 KV 头的物理块数据。由于多个 Q 头共享同一 KV 头，这些 Q 头的线程块可以复用同一份 K、V 块数据，大大减少了 HBM 读取总量，这本身就是 GQA 的优势。PagedAttention 的分页机制与此完美兼容：只需按照 KV 头数而不是 Q 头数来划分和组织物理块，存储量自然减少。
+
+    - 不需要额外调整块大小，只是块内部各头的存储量减少（因为头数少）。分页机制仍然以 token 块为单位分配，块内元数据、地址计算与 MHA 一致，只是每个头的维度或头数变了。
+
+    结论：PagedAttention 的块组织方式与 GQA/MQA 天然协调：通过减少 KV 头数，物理块的总字节数减少，同样显存下可以容纳更多块，进一步提升并发。内核实现需正确映射 Q 头到 KV 头并共享块加载。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  block_id: G5dfdCV71ouxSSx2hkwciSavnCE
+  page_token: Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  original_title: 当模型有 GQA 或多头时，PagedAttention 块中存储的 KV 头组织方式是否需要调整？
+  imported_at: '2026-09-21'

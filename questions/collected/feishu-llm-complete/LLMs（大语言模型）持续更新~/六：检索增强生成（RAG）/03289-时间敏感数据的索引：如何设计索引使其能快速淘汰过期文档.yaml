@@ -1,0 +1,58 @@
+---
+schema_version: 1
+id: feishu-llm-complete-de02a7fb4060
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 时间敏感数据的索引：如何设计索引使其能快速淘汰过期文档？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 时间敏感数据的索引：如何设计索引使其能快速淘汰过期文档？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在新闻、社交、金融等场景中，数据的时效性至关重要。用户不仅想要语义相关的内容，更想要最近发生的相关事件。设计索引以支持快速淘汰过期文档，需要将时间维度作为索引架构中的一等公民来考虑，而不是简单的后置过滤。
+
+    时间分区策略：
+
+    这是最强大、最清晰的方法。就像传统数据仓库的分区表一样，可以按时间（如按天、按小时）将向量数据写入不同的物理分区或集合中。例如，为每一天的文档创建一个单独的向量索引。当需要淘汰过期数据时，比如删除 30 天前的所有文档，系统只需要直接删除整个旧的分区即可，这是一个 O(1) 的元数据操作，瞬间完成，没有任何扫描和垃圾回收的开销。这种策略不仅淘汰数据极快，还能将热数据（近期）和冷数据（远期）物理隔离，便于将热数据放在高性能硬件上，冷数据转存到廉价存储。
+
+    TTL 与高效删除机制：
+
+    如果无法做到完美的时间分区，就需要依赖系统内建的数据生命周期管理。很多向量数据库支持为每一条向量设置 TTL（生存时间）。系统会在后台异步扫描并清理这些过期的记录。这种机制的挑战在于，物理删除索引（尤其是 HNSW 图索引）中的一个点非常昂贵，可能需要标记删除并定期通过后台 Compaction 来回收空间。因此，对于 HNSW，频繁的大量过期可能不是它的最佳适用场景。此时，使用 IVF 索引配合时间过滤会更高效。
+
+    混合搜索中的时间权重：
+    对于需要“既要语义近，又要时间新”的场景，不能简单地先过滤后搜索。更优的做法是使用向量数据库的混合搜索功能，同时进行语义相似度搜索和时间衰减打分。例如，在分数计算中引入一个时间衰减因子，使用类似 final_score = similarity_score * exp(-λ * age) 的公式，然后系统可以在内部进行重新排序。这样，一个语义上略远但更新鲜的文档，有机会排在语义很近但非常陈旧的文档前面，从而完美地平衡了相关性和时效性。
+
+    因此，设计时间敏感数据的索引，从一开始就要将“时间”作为数据模型的顶层概念。最终方案通常是“时间分区 + 热/冷数据分离 + 混合排序”的组合架构。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SkhxwrnkSi7qcRkf8LOcNILdnr0
+  block_id: Yh1sdNqWZo480Ix8qWzcP3tYnSr
+  page_token: SkhxwrnkSi7qcRkf8LOcNILdnr0
+  original_title: 时间敏感数据的索引：如何设计索引使其能快速淘汰过期文档？
+  imported_at: '2026-09-21'

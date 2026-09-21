@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5479661b2054
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果训练出现 NaN 损失，梯度裁剪是否是第一道防线？排查流程。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 如果训练出现 NaN 损失，梯度裁剪是否是第一道防线？排查流程。
+answer:
+  mode: rubric
+  reference_answer: |-
+    当训练中出现NaN损失时，有经验的工程师的第一反应不是立刻调整梯度裁剪，而是先去检查数据。梯度裁剪是防止梯度爆炸的最后一道防线，而不是万能的护身符。NaN的根源往往在更上游。
+
+    我的排查流程通常是这样的：
+
+    - 检查输入数据：最近的几个batch中是否含有NaN、Inf或者极端异常值（比如文本里出现了乱码字符导致token ID异常，或者归一化后的特征值超出范围）。这是最常见的NaN来源，而且一出现就是灾难性的。
+
+    - 检查前向传播数值：在怀疑的层（比如softmax之前、LayerNorm之后）插入hook，打印激活值的统计信息（min, max, mean）。特别关注softmax的输入，如果里面有非常大的正值（比如超过80），就会产生无穷大的指数输出，导致NaN。这通常发生在注意力分数计算中。
+
+    - 检查损失函数：确认损失函数的输入是否合理。例如，交叉熵损失的输入logits是否都变成了NaN，或者目标标签是否在有效范围内。
+
+    - 检查学习率和梯度裁剪：如果数据和前向都正常，那么问题可能出在反向传播。此时，检查当前步的梯度范数。如果梯度范数极大，说明发生了爆炸，那么当前梯度裁剪的max_norm是否设置得当？是不是太小导致没触发？或者混合精度下GradScaler的缩放因子是否过大导致梯度溢出？此时可以临时调低学习率，或者收紧max_norm来观察。
+
+    - 检查模型初始化：如果训练刚开始几步就NaN，可能是某些层的初始化不当，导致输出方差过大。
+
+    梯度裁剪是防线的一部分，但它只能处理“梯度爆炸”，不能处理数据本身的NaN。所以，永远不要在没排查数据的情况下，只是简单地调整max_norm，那样做只会掩盖问题。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TlYvww7Aoi1oXhkFGQwcFQYxnin
+  block_id: GaB4dphGcomy3yx9X5zcm8Yxn5b
+  page_token: TlYvww7Aoi1oXhkFGQwcFQYxnin
+  original_title: 如果训练出现 NaN 损失，梯度裁剪是否是第一道防线？排查流程。
+  imported_at: '2026-09-21'

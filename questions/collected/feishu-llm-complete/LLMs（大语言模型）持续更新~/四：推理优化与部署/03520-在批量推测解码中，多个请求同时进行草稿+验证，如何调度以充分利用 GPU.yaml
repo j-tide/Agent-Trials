@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9cd511bde056
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在批量推测解码中，多个请求同时进行草稿+验证，如何调度以充分利用 GPU？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在批量推测解码中，多个请求同时进行草稿+验证，如何调度以充分利用 GPU？
+answer:
+  mode: rubric
+  reference_answer: |-
+    批量推测解码（Batch Speculative Decoding）要求高效调度多个请求的草稿和验证阶段，最大化 GPU 利用率，避免流水线气泡。
+
+    调度策略：
+
+    - 阶段分组（Batching by Stage）
+    将当前所有请求按阶段分为两组：草稿组（需要生成 K 个草稿 token）和验证组（已有草稿 token，等待目标模型验证）。调度器动态收集相同阶段的请求，组成 batch 执行。
+
+    - 流水线并行 (Pipelining)
+    草稿模型和目标模型可能是独立的或共享的。如果两者独立，可以让草稿 batch 和目标验证 batch 交替执行，隐藏单一模型的空闲。例如，当目标模型正在验证 batch A 时，草稿模型可以同时为 batch B 生成草稿 token（需要在不同 CUDA stream 上并行或使用多 GPU）。
+
+    - 填充与负载均衡
+    不同请求的草稿 token 数可能不同（有的请求可能在上一轮提前拒绝，剩余草稿 token 少）。为形成规整 batch，可以对草稿 token 数不足的请求进行填充（padding），或使用 tree attention 同时验证多个草稿序列（由单个请求生成多个候选）。
+
+    - 动态调整 K
+    根据当前等待验证的请求数及草稿模型吞吐，动态调整每轮生成的草稿 token 数 K。若等待验证的请求多，可以减小 K 以更快进行验证；反之增大 K 以减少目标模型调用比例。
+
+    - 共享 KV Cache 的优化
+    如前所述，若共享层，草稿阶段产生的 prefix KV 可被目标验证复用，减少验证 batch 的 prefill 计算，进一步提高吞吐。
+
+    通过精细的批调度和流水线，批量推测解码可以接近理想加速，同时维持高 GPU 利用率。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Us9awBi8iiwtfZkqtRzcSfVcnJe
+  block_id: QbWadfAw0ourpwx220rcN7TSnhf
+  page_token: Us9awBi8iiwtfZkqtRzcSfVcnJe
+  original_title: 在批量推测解码中，多个请求同时进行草稿+验证，如何调度以充分利用 GPU？
+  imported_at: '2026-09-21'

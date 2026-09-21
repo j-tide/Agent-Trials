@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-411cf9696707
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 自洽性要求生成多条推理路径，如何设置采样温度、top-p 等参数以产生多样化路径？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: 自洽性要求生成多条推理路径，如何设置采样温度、top-p 等参数以产生多样化路径？
+answer:
+  mode: rubric
+  reference_answer: |-
+    自洽性的效果直接取决于生成的推理路径是否真正“多样”。如果 N 条路径大同小异，投票的意义就很小。参数设置的核心目标就是在不严重破坏单条推理质量的前提下，最大化路径之间的多样性。
+
+    首先是采样温度（temperature）。温度控制的是模型输出概率分布的“锐度”。温度越低，分布越尖锐，模型几乎只选概率最高的那个 token，导致生成结果确定性强、多样性差；温度越高，分布越平坦，低概率 token 被选中的机会增大，生成内容的随机性增强，多样性也随之提升。对于自洽性，通常推荐的温度范围是 0.5 到 0.9。具体选择跟模型能力相关：强模型（如 GPT-4）即便在较高温度下仍能保持较好的推理质量，可以使用 0.7 甚至 0.8；较弱的模型或者容易发散的小模型，温度过高会导致推理链本身质量严重下降（语句不通、逻辑断裂），此时应适当降低到 0.5 左右。经验法则是：在验证集上测试不同温度，找到让单条推理平均质量开始明显下降的临界点，然后将温度设在该临界点之前。
+
+    其次是 top-p（核采样）和 top-k。这两个参数都是为了在高温下“去芜存菁”，剔除那些概率极低、显然不合理的 token，防止生成内容跑偏。对于自洽性，建议不要设置得过紧。top-p 可以设在 0.9 到 1.0 之间，top-k 可以设在 50 或更高。如果设得太低（比如 top-p=0.6），每步只从少数几个高概率 token 里选，路径之间的差异就会很小，产生“表面多样但实为同质”的路径，降低投票价值。但也有研究认为，不设置 top-p 而仅靠温度控制，让概率分布自然发挥，往往能获得最佳的多样性-质量平衡。实际操作中可以通过观察生成路径中答案的分布来判断：如果 N 条路径总是给出完全相同的答案，说明多样性不足，应提高温度或放宽 top-p。
+
+    还有一个重要但常被忽略的参数：采样独立性。自洽性的理论基础要求这些路径是条件独立于彼此的（在给定 prompt 的条件下）。因此，每次采样都应该是独立的，不应该使用上一轮的信息来影响下一轮。所有路径从同一个 prompt 开始，各自生成到底，彼此之间没有任何交互。
+
+    此外，如果有足够的计算资源，可以结合 dropout 和 perturb 等更深层的多样性增强技术，但单纯调整解码参数已经能取得很好效果。在工程中，通常会提供一个预设的“高多样性解码配置”（如 temperature=0.7, top-p=0.95）供自洽性使用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MGuPw0n6Ji2qNJkRj17cdAcWnue
+  block_id: KJd8dD5aCo2CjBxoaIQcPSP9nwc
+  page_token: MGuPw0n6Ji2qNJkRj17cdAcWnue
+  original_title: 自洽性要求生成多条推理路径，如何设置采样温度、top-p 等参数以产生多样化路径？
+  imported_at: '2026-09-21'

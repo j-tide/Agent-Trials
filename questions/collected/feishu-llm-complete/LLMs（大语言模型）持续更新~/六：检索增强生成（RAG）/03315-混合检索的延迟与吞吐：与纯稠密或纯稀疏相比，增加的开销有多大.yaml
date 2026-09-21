@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2e92770eb50a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 混合检索的延迟与吞吐：与纯稠密或纯稀疏相比，增加的开销有多大？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 混合检索的延迟与吞吐：与纯稠密或纯稀疏相比，增加的开销有多大？
+answer:
+  mode: rubric
+  reference_answer: |-
+    混合检索因为需要同时执行两路检索并进行结果融合，其端到端延迟和系统吞吐量必然会高于任何单一检索模式。但通过合理的架构设计和工程优化，这种额外开销可以被控制在可接受的范围内。
+
+    延迟构成分析：
+
+    混合检索的总延迟主要由三部分组成：两路检索各自的延迟，以及融合排序的延迟。
+
+    - 稠密检索延迟：这是通常的瓶颈。包括查询的实时向量化和在向量索引中的 ANN 搜索时间。向量化通常需几到几十毫秒，ANN 搜索在优化良好的索引上也可以在几毫秒内完成。
+
+    - 稀疏检索延迟：BM25 检索极快，在倒排索引上的关键词匹配通常在 1 毫秒以内，远快于稠密检索。
+
+    - 融合延迟：RRF 或分数融合的计算开销极低，通常在微秒级，可以忽略不计。
+
+    因此，混合检索的延迟近似等于 两路检索延迟的最大值（而非和），前提是两路检索可以完全并行执行。如果架构设计良好，稠密和稀疏检索是异步并发的，那么整体延迟就约等于较慢的那一路的延迟。相比于纯稠密检索，混合检索仅增加了极少量的并行调度开销，延迟增加很小。相比于纯稀疏检索，混合检索则显著变慢，因为它必须等待稠密检索完成。
+
+    吞吐量影响：
+
+    混合检索会消耗更多的计算资源。稠密检索需要 GPU 或 CPU 进行向量计算和搜索，BM25 检索需要 CPU 进行索引查找。同时运行两路会占用更多硬件。在高并发场景下，系统吞吐量会比单一检索有所下降，因为硬件需要同时支撑两种负载。为了维持吞吐，通常需要对两类检索器分别进行弹性扩容，或者使用一体化向量数据库在内部优化资源调度。
+
+    开销控制策略：
+
+    - 并行而非串行：确保两路检索完全异步，这是控制延迟的关键。
+
+    - 索引优化：为稠密检索使用高效的 ANN 索引（如 HNSW），为 BM25 使用经过调优的 Elasticsearch 集群。
+
+    - 结果缓存：对高频查询的向量和融合结果进行缓存，可大幅降低平均延迟。
+
+    总的来说，混合检索的延迟增加通常在 10%-30% 左右，但其带来的检索质量提升（Recall 和 MRR）往往是决定性的，因此是值得的。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/I3Q6wybdkimYExkHeC4cPJOwnQh
+  block_id: MiwtdJyheoQsVTxeYahcsUK6nYg
+  page_token: I3Q6wybdkimYExkHeC4cPJOwnQh
+  original_title: 混合检索的延迟与吞吐：与纯稠密或纯稀疏相比，增加的开销有多大？
+  imported_at: '2026-09-21'

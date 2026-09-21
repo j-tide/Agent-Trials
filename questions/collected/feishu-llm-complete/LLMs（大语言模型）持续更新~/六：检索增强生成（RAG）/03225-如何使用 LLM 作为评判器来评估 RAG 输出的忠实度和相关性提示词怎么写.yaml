@@ -1,0 +1,107 @@
+---
+schema_version: 1
+id: feishu-llm-complete-af7efb0c2690
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何使用 LLM 作为评判器来评估 RAG 输出的忠实度和相关性？提示词怎么写？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 如何使用 LLM 作为评判器来评估 RAG 输出的忠实度和相关性？提示词怎么写？
+answer:
+  mode: rubric
+  reference_answer: |-
+    使用大语言模型作为评判器，是当前自动化评估 RAG 输出质量最主流、最灵活的方法。它的核心思想是：给一个强大的 LLM（如 GPT-4）提供详细的评估标准和待评估的文本，让它模拟人类专家的思维过程，输出一个结构化的质量分数和判断理由。
+
+    一、评估忠实度的提示词设计
+
+    评估忠实度的目标是判断生成的答案是否严格基于给定的上下文，而不是模型自己的知识。提示词的设计必须让 LLM 扮演一个“严苛的事实核查员”。
+
+    一个高质量的忠实度评估提示词应包含以下要素：
+
+    - 角色设定：明确 LLM 的身份，如“你是一个严谨的事实核查专家”。
+
+    - 任务描述：清晰地说明任务，如“请逐句检查‘生成的答案’中的每一个事实陈述，判断它是否可以从‘给定的上下文’中直接推导或验证。”
+
+    - 判定标准：给出明确的分类指导。例如：
+
+    - 输入格式：将上下文和答案用清晰的标记分隔，如 [上下文]...[/上下文] 和 [答案]...[/答案]。
+
+    - 输出格式：要求 LLM 以结构化的方式输出，最好是 JSON 格式，包含每个句子的判定结果（Yes/No/Partly）、理由、以及最终的整体忠实度分数（如 0-100%）。
+
+    示例提示词片段：
+
+    [系统]
+    你是一个严格的事实核查员。请根据[上下文]中提供的信息，核查[答案]中的陈述是否属实。
+
+    [判定规则]
+    - 如果陈述的内容可以在[上下文]中找到明确依据，判定为 "Yes"。
+    - 如果陈述的内容与[上下文]矛盾，或[上下文]完全没有提及，判定为 "No"。
+
+    [输出格式]
+    请以JSON格式输出，包含以下字段：
+    - "verdicts": 一个列表，每个元素包含 "statement" (陈述句), "verdict" ("Yes"或"No"), "reason" (理由)。
+    - "faithfulness_score": 判定为 "Yes" 的陈述数量除以总陈述数量。
+
+    [上下文]
+    {retrieved_documents}
+
+    [答案]
+    {generated_answer}
+
+    二、评估答案相关性的提示词设计
+
+    评估答案相关性的目标是判断生成的答案是否切实回应了用户的问题。提示词需要 LLM 扮演一个“严格的用户”，判断答案是否满足了自己的信息需求。
+
+    提示词的关键要素：
+
+    - 角色设定：如“你是一个正在使用AI助手获取信息的用户。”
+
+    - 任务描述：如“请评估‘生成的答案’在多大程度上直接、准确、完整地回答了‘用户的问题’。”
+
+    - 评估维度：引导 LLM 从多个维度打分，如：
+
+    - 评分标准：给出一个 1-5 分的评分量表，并详细描述每个分数的含义。
+
+    - 输出格式：要求给出分数和详细的评分理由。
+
+    关键提示词工程技巧：
+
+    - 要求思维链：在给出最终判定前，先让 LLM 写出它的分析推理过程。这能极大提高最终判定的准确性。
+
+    - 提供少量示例：在提示词中提供一到两个高质量的示例（带有正确标签和理由），能帮助 LLM 更好地理解任务标准。
+
+    - 降低温度：将温度参数设在 0.2 以下，使 LLM 的输出更确定、更稳定。
+
+    - 多模型交叉验证：对于高风险评估，使用不同家族的强大模型分别打分，取平均值或投票结果。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/AZ8BwcRC4irBITk2iaMc0ZqDnLc
+  block_id: Zx7JdBFvOoxDCAxLY12cf0AWntC
+  page_token: AZ8BwcRC4irBITk2iaMc0ZqDnLc
+  original_title: 如何使用 LLM 作为评判器来评估 RAG 输出的忠实度和相关性？提示词怎么写？
+  imported_at: '2026-09-21'

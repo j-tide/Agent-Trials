@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7c644687762f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对于代码生成任务，HumanEval 等基准的污染如何影响评估？有哪些防泄漏措施？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 八：评估与可靠性
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 八：评估与可靠性
+content:
+  prompt: 对于代码生成任务，HumanEval 等基准的污染如何影响评估？有哪些防泄漏措施？
+answer:
+  mode: rubric
+  reference_answer: |-
+    代码生成领域对数据污染极度敏感，因为代码是一种功能等价、形式可变的符号语言。同样的逻辑可以用无数种不同的代码风格来实现。这导致了对 HumanEval 等基准的污染评估和防护面临着独特的挑战。
+
+    污染的影响
+
+    - Pass@k 指标的灾难性崩塌：HumanEval 的 Pass@k 指标是衡量模型能否在多次尝试中生成通过所有单元测试的代码。如果模型在训练时见过原题，它可以直接“背诵”出标准答案，导致 Pass@1 的分数被极度夸张。这完全不能反映模型从需求描述到代码实现的真实生成能力。一个被污染的 1B 模型，其 HumanEval 分数可能超过一个干净的 70B 模型，彻底破坏了基准的区分度。
+
+    - 评估的“公平性”被颠覆：由于不同的代码模型使用了不同的训练数据，其中对 HumanEval 的污染程度千差万别。这导致在公开的 HumanEval 排行榜上，我们根本无法判断一个模型的领先是因为其架构或训练方法的优越，还是仅仅因为它“吃”了更多的真题。这严重阻碍了代码智能领域的良性竞争和技术进步。
+
+    防泄漏措施
+
+    - 基于抽象语法树的代码去重与去污：这是代码领域独有的最有效方法。不依赖文本层面的匹配，而是将代码解析为 AST，然后对 AST 进行结构化的比较。或者，对代码进行“归一化”处理——统一变量名、移除注释、统一代码风格——然后再计算其 n-gram 重叠。这能有效识别出那些改变了变量名和注释、但逻辑结构完全相同的“高仿”污染。
+
+    - 严格的源数据隔离与“金丝雀”：在创建新基准时，必须严格保证其创建过程与任何公开代码库隔绝。在基准中植入功能性的“金丝雀”——例如，一个看似正常但实现逻辑极其怪异的函数。如果模型能够完美地复现这个怪异的实现，就构成了记忆的强证据。
+
+    - 使用程序化生成和变异：不依赖于一组固定的手写题目，而是开发一个题目生成器，根据设定的逻辑模板和约束条件，自动批量生成全新的、唯一的编程题目和对应的测试用例。每次评测时，都从生成器实时采样。
+
+    - 基于测试用例的私有评测：将评测的重点从“生成代码”转移到“执行代码”。评测者提供公开的题目描述，但保留一部分私有的、强化的单元测试用例。模型生成的代码必须通过这些不公开的测试，才能被认为是正确的。这大大增加了“背诵”答案的难度。
+
+    - 动态对抗性评测：如同 Dynabench 一样，组织社区竞赛，持续构造新的、能够难倒当前所有模型的编程题。这形成了一个永不枯竭的、未被污染的高质量题目流。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Xrm5wnXFcihdGEknRXScMe7zn5c
+  block_id: FhS2dM45uoAlgCxcroqcgye3nyf
+  page_token: Xrm5wnXFcihdGEknRXScMe7zn5c
+  original_title: 对于代码生成任务，HumanEval 等基准的污染如何影响评估？有哪些防泄漏措施？
+  imported_at: '2026-09-21'

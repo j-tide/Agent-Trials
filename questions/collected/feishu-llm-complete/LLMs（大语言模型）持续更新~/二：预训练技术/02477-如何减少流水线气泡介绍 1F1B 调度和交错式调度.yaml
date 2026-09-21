@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-55904463be8c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何减少流水线气泡？介绍 1F1B 调度和交错式调度。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 如何减少流水线气泡？介绍 1F1B 调度和交错式调度。
+answer:
+  mode: rubric
+  reference_answer: |-
+    减少气泡的核心理念是：让前向和反向传播交错执行，而不是完全串行，以填充设备空闲时间。
+
+    1F1B 调度（One Forward, One Backward）：
+
+    - 不等到所有微批次的前向都完成才开始反向。在完成足够微批次的前向后，立即开始相应微批次的反向传播。常见的“预热”阶段：先进行 PP 个微批次的前向（注满流水线），然后每个设备交替执行一个前向和一个反向。即“一个前向，一个反向”的模式。
+
+    - 这样，反向传播的计算与后续微批次的前向传播在时间上重叠，大大压缩了气泡。1F1B 能够将气泡降低到与微批次数量无关的理想水平，且不增加激活存储量（因为可以及时释放已反向微批次的激活）。
+
+    - 典型实现：PyTorch 的 torch.distributed.pipeline.sync 中的 Pipe 采用 GPipe 或 1F1B 模式。
+
+    交错式调度（Interleaved Scheduling）：
+
+    - 在 1F1B 的基础上，不是每个设备按顺序固定持有模型的连续几层，而是让每个设备负责多个不连续的层块（模型块被循环分配到设备上）。例如，设备 0 持有层 0-1，设备 1 持有层 2-3，但交错式可能让设备 0 持有层 0-1 和 6-7，设备 1 持有层 2-3 和 4-5 等。这样，每个微批次可以在多个设备上更细粒度地交替执行。
+
+    - 更进一步地，这种调度可以减少流水线深度增加带来的气泡。交错调度的微批次可以更灵活地填充空闲时间，从而将气泡压缩到几乎为零。
+
+    效果：通过 1F1B 和交错式调度，即使在设备数很多、微批次有限的条件下，也能保持较高的设备利用率，显著降低气泡开销。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQ7qw1klCirayhkUauicscbqnpc
+  block_id: K7SMdYyaOoAxNPxtQEqcp6xZnVc
+  page_token: GQ7qw1klCirayhkUauicscbqnpc
+  original_title: 如何减少流水线气泡？介绍 1F1B 调度和交错式调度。
+  imported_at: '2026-09-21'

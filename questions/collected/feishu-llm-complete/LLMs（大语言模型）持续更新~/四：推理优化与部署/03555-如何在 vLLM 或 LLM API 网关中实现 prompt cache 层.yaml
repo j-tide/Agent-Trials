@@ -1,0 +1,102 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3c73b9dc5472
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在 vLLM 或 LLM API 网关中实现 prompt cache 层？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如何在 vLLM 或 LLM API 网关中实现 prompt cache 层？
+answer:
+  mode: rubric
+  reference_answer: "实现 Prompt Cache 层可以在推理引擎内部（如 vLLM 的自动前缀缓存）或在API 网关/中间件中构建应用层缓存。两者互补。\n\n方案一：利用
+    vLLM 内置的自动前缀缓存（KV Cache 共享）\n\n- 原理：vLLM 已经内置了 Automatic Prefix Caching（自动前缀缓存），能自动识别并共享不同请求的相同
+    prompt 前缀的 KV Cache。\n\n- 使用：无需额外代码，启动 vLLM 服务即可。引擎通过 token 序列的哈希自动匹配和复用物理块。这对系统指令和多轮对话的加速是透明的。\n\n-
+    局限：仅作用于 KV Cache 层面（必须 token 序列相同），不能实现语义缓存。\n\n方案二：在 LLM API 网关中构建 Prompt Cache
+    中间件\n\n适用于实现精确响应缓存和语义缓存，作为独立于推理引擎的层。\n\n架构组件：\n\n- 网关服务：接收所有 LLM 请求，执行缓存逻辑。\n\n-
+    精确缓存：使用 Redis/Memcached，键为请求体（prompt + 重要参数）的哈希。\n\n- 语义缓存：集成向量数据库和 embedding
+    服务。\n\n- 后端推理引擎：vLLM 或任何 OpenAI 兼容 API。\n\n实现步骤（以 Python 网关为例）：\n\n```python\n#
+    网关伪代码\n@app.post(\"/v1/chat/completions\")\nasync def chat(request: ChatRequest):\n
+    \   # 1. 生成精确缓存 key\n    exact_key = hashlib.md5(json.dumps(request.dict()).encode()).hexdigest()\n
+    \   if (cached_resp := redis.get(exact_key)):\n        return cached_resp\n\n
+    \   # 2. 语义缓存查询\n    prompt_text = extract_text(request.messages)\n    emb = await
+    embedding_service.encode(prompt_text)\n    hits = vector_db.search(emb, top_k=1)\n
+    \   if hits and hits[0].score >= threshold and validate(request, hits[0]):\n        resp
+    = hits[0].response\n        redis.setex(exact_key, ttl, resp)  # 写回精确缓存\n        return
+    resp\n\n    # 3. 转发到 vLLM\n    response = await call_vllm(request)\n    \n    #
+    4. 异步写入缓存\n    background_tasks.add_task(write_cache, request, response, emb)\n
+    \   return response\n```\n\n与 vLLM 的协同：\n\n- vLLM 处理请求时，网关层可复用 vLLM 的前缀缓存加速 prefill。\n\n-
+    网关的精确缓存可以完全短路请求，连 vLLM 都不必调用。\n\n- 网关的语义缓存可以降低到达 vLLM 的请求量，使其专注于缓存未命中的复杂请求。\n\n高级部署：\n\n-
+    服务网格或 Envoy 插件：在更底层实现缓存，对所有 LLM 流量透明。\n\n- 专用缓存服务：将 Prompt Cache 作为独立的微服务，供多个推理引擎共享。\n\n-
+    缓存预热：将常见问题的答案预先计算并注入缓存，提升初始命中率。\n\n通过在 API 网关层构建分层 Prompt Cache，可以显著减少后端推理引擎的负载，提升系统整体吞吐并降低成本，同时与引擎内部
+    KV 缓存优化协同，实现全链路加速。\n\n- 高风险场景（如医疗咨询、法律建议）：要求极高准确性，阈值设高（如 0.95），确保缓存返回的答案绝对匹配用户意图，宁可少命中也不误判。\n\n-
+    低风险场景（如闲聊、写作建议）：可降低阈值（如 0.80），提高命中率和成本节省。\n\n- 接收新请求，调用 Embedding 服务获取查询向量。\n\n-
+    查询向量数据库，获取 top-k 相似项。\n\n- 根据相似度阈值和策略决定是否命中。\n\n- 执行响应处理（直接返回、改写或继续推理）。\n\n- 将未命中的新
+    prompt 及结果写入缓存。\n\n- 实现：vLLM 的自动前缀缓存、llama.cpp 的上下文偏移缓存均属此类。\n\n- 优势：无缝集成，对用户透明；每轮仅增量计算。\n\n-
+    静态知识类：如历史事件、科学常数，可设较长 TTL（数天至数月）。\n\n- 动态信息类：如股价、天气、新闻，TTL 应极短（分钟级甚至禁用缓存）。\n\n-
+    政策/文档类：与内容更新周期对齐，当源文档变更时主动通知缓存失效。\n\n- 使用分布式向量数据库（如 Milvus 集群、Pinecone、Weaviate），将索引分片到多节点，并行处理查询。\n\n-
+    采用近似最近邻（ANN）索引（如 HNSW、IVF-PQ），牺牲微量精度换取数倍至数十倍的速度提升，并合理配置索引参数。\n\n- 读写分离：使用只读副本处理查询，主节点处理写入。\n\n-
+    GPU 加速检索（如 FAISS GPU 版、RAPIDS RAFT），适用于对延迟要求极高的场景。\n\n- 使用轻量高速的 embedding 模型（如
+    all-MiniLM-L6-v2），甚至将其部署在本地 GPU 或 ONNX Runtime 上加速推理。\n\n- 对高频 prompt 的 embedding
+    进行前置计算和缓存（meta-cache），避免重复编码。\n\n- 使用 Redis 集群或兼容 Redis 的分布式缓存（如 Dragonfly），分摊请求压力。\n\n-
+    对热键进行本地内存缓存（如 Caffeine、Guava cache），减少网络往返。\n\n- 异步写入：缓存结果先快速响应用户，然后异步写入向量数据库，不阻塞请求主路径。\n\n-
+    限流与降级：当检索延迟超过阈值时，自动跳过缓存查询，直接走模型推理，保障可用性。\n\n- 精确检索：FLAT（暴力搜索），适用于数据量小（<10 万）且要求
+    100% 召回的场景。\n\n- IVF_FLAT / IVF_PQ：基于聚类的倒排索引，将向量空间划分为多个簇。检索时只搜索最近的若干个簇，大幅减少计算量。\n\n-
+    HNSW：分层可导航小世界图，检索速度极快，内存占用稍高，适合高吞吐低延迟需求。\n\n- DiskANN：当数据量巨大（亿级）且内存有限时，使用基于磁盘的近似索引。\n\n-
+    近似检索（ANN）：\n\n- 一般语义缓存推荐 IVF_SQ8/PQ 或 HNSW，在精度和速度间平衡。\n\n- 使用 embedding 模型的输出维度（如
+    384、768）。\n\n- 距离度量选内积（IP） 或余弦相似度（Cosine）（需对向量做归一化）。\n\n- nlist（聚类数）：推荐 4 * sqrt(n)，其中
+    n 为预期数据量。\n\n- nprobe（查询时搜索的聚类数）：越大召回率越高但速度越慢，通常设为 8~32。\n\n- HNSW 的 M（每层连接数）：影响内存和速度，一般
+    16~64。\n\n- 根据实际数据规模和延迟要求，通过基准测试调整参数。\n\n- 调用 collection.search(query_vector,
+    top_k=5, params={\"nprobe\": 16})，返回最相似的 k 个向量及其元数据。\n\n- 同时返回相似度分数（score）。\n\n-
+    阈值过滤：仅保留 score >= threshold 的项。\n\n- 业务规则过滤：根据用户 ID、会话 ID、模型版本等元数据进一步过滤不符合条件的缓存项（如不能跨用户共享敏感信息）。\n\n-
+    多因子决策：综合相似度、响应质量评分、新鲜度等选择最优缓存项。\n\n- prompt_text：原始 prompt 文本。\n\n- response_text：缓存的响应。\n\n-
+    model_version、timestamp、ttl、tags 等元数据。\n\n- 意图分类器可以是一个轻量的文本分类模型，延迟和成本极低。\n\n-
+    存储：Hash 表，键为 prompt 的 MD5/SHA256 哈希或标准化字符串。\n\n- 流程：请求到达 → 计算哈希 → 查哈希表。命中则直接返回响应，延迟
+    < 1ms。\n\n- 适用：重复的系统指令、高频标准问题、多轮对话的历史前缀。\n\n- 优点：极快，零语义误差。\n\n- 存储：向量数据库 + 元数据过滤。\n\n-
+    流程：L1 未命中 → 计算 prompt 向量 → 向量相似度检索 → 结合意图/实体标签过滤 → 相似度 ≥ 阈值且通过二级验证则返回响应。延迟通常 <
+    20ms。\n\n- 适用：表述不同但语义等价的开放域问题。\n\n- 优点：提高命中率，处理多样性表述。\n\n- 流程：L2 未命中或验证不通过 → 将请求发送至
+    LLM 推理引擎（如 vLLM）→ 生成结果返回客户端，同时将结果异步写入 L1 和 L2 缓存。\n\n- 优点：保证任何请求都能得到正确回答，并为未来请求建立缓存。\n\n-
+    收集用户反馈信号：点赞（准确）、点踩（不准确）、重新提问同一话题（隐式否定）、无反馈（弱正反馈）。\n\n- 对于每个缓存项或全局阈值，维护一个滑动窗口内的准确率估计（如最近
+    N 次命中的点赞率）。\n\n- 控制逻辑：若近期准确率 > 目标准确率（如 95%），则降低阈值（如 -0.02），允许更多命中，提高效率。若准确率 <
+    目标，则提高阈值（+0.02），优先保证质量。\n\n- 可采用 PID 控制器或简单的比例调节算法，平缓收敛。\n\n- 在语义检索返回相似项时，不仅考虑向量相似度，还结合一个语义等价判定模型的置信度（如
+    NLI 模型的蕴含概率）。\n\n- 设定 final_score = α * cosine_sim + β * nli_confidence。\n\n-
+    使用一个固定的 final_score 阈值，或者仍然基于反馈调整 α、β 及阈值。\n\n- 根据请求类型动态调整：检测到用户意图为“事实查询”时阈值提高，“闲聊”时阈值降低。意图可由快速分类器提供。\n\n-
+    根据系统负载：高峰期系统繁忙，可略微降低阈值以提高缓存命中率，减轻推理引擎压力；闲时恢复高标准。\n\n- 同时在线运行多个阈值候选（或少量分流），通过各组反馈指标（准确率、命中率、用户满意度）进行比较。\n\n-
+    使用贝叶斯优化或 bandit 算法自动选出最优阈值，并周期性更新。\n\n- 缓存的键中加入 用户 ID 或会话 ID 前缀，确保一个用户的缓存只能被自己的后续请求命中，绝不能跨用户共享包含用户数据的响应。\n\n-
+    对于企业级服务，还需按 租户（组织） 进行隔离。\n\n- 仅在确定响应内容无状态、无用户特定信息（如通用知识解答）时，才允许标记为“公共缓存”，可跨用户共享。\n\n-
+    在将响应写入缓存前，通过 PII 检测模型（如 Presidio、正则表达式）识别并脱敏或标记。\n\n- 若检测到高敏感性（如身份证号、信用卡号），则禁止缓存该响应，或先进行不可逆脱敏处理后再缓存。\n\n-
+    对于允许共享的通用知识缓存，确保其不包含任何请求中的 PII（尤其是用户输入可能被模型复述的情况）。\n\n- 存储在向量数据库和键值存储中的缓存内容应进行静态加密（如
+    AES-256），防止存储层被直接读取。\n\n- 传输中加密（TLS/HTTPS），确保 embedding 和缓存数据在网络中不被窃听。\n\n- 缓存管理服务需要认证和授权，仅允许内部服务组件访问，严禁外部直接查询。\n\n-
+    记录所有缓存访问日志，包含谁、何时、命中了哪条缓存。用于安全审计和泄露追溯。\n\n- 提供即时清除接口：当用户要求删除数据（如 GDPR “被遗忘权”）时，能立即从所有缓存层中删除与该用户相关的所有条目。\n\n-
+    TTL 不宜过长，过期自动清除，减少长期泄露风险。\n\n- 仅缓存必要的信息。例如，可以缓存模板或结构化参数，而非完整的包含上下文的回复，降低敏感信息夹带风险。\n\n-
+    语义缓存可以仅缓存响应骨架，在命中后利用请求中的用户特定信息进行即时填充，而不是缓存完整答案。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Suarwd0MSiF56MkUyBScW6UmnhB
+  block_id: BqTKdHiM1obyLDxbhg3c43dTneg
+  page_token: Suarwd0MSiF56MkUyBScW6UmnhB
+  original_title: 如何在 vLLM 或 LLM API 网关中实现 prompt cache 层？
+  imported_at: '2026-09-21'

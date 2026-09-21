@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-04a497d5bae2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在模型切换到新对话时，如何高效地清空或重置 KV Cache？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在模型切换到新对话时，如何高效地清空或重置 KV Cache？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在多轮对话服务中，当一个对话 Session 结束，切换到全新的对话时，必须清空或重置 KV Cache，以防止旧对话的上下文对新对话产生干扰。
+
+    高效清空/重置方法：
+
+    - 逻辑重置（零拷贝）：这是最高效的方法。不实际将 KV Cache 的显存空间清零，而是维护一个指针或计数器，记录“当前有效的 KV Cache 长度”。当一个新对话开始时，直接将有效长度指针重置为 0 或 Prompt 的长度。在后续生成中，只从这个逻辑位置开始追加新的 Key 和 Value。旧的数据虽然物理上还在显存中，但逻辑上已不可达，后续会被自然覆盖。
+
+    - 显式清空：对于分页式 KV Cache（PagedAttention），可以通过释放或回收该 Session 占用的所有物理页来彻底清空。这些页被归还到空闲页池中，供其他请求使用。
+
+    - 内存池复用：预先分配一个大块显存作为 KV Cache 内存池。每个新对话 Session 从池中按需分配页。Session 结束时，页被快速回收。这种方式避免了频繁的 cudaFree 和 cudaMalloc，效率最高。
+
+    无论哪种方法，关键都在于避免物理上的内存清零操作，这是一个极其耗时的 I/O 操作。通过逻辑重置或内存池管理，可以在微秒级内完成对话切换。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  block_id: UXSidDiwHozHajxqO03c1wgTn3b
+  page_token: N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  original_title: 在模型切换到新对话时，如何高效地清空或重置 KV Cache？
+  imported_at: '2026-09-21'

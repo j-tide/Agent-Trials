@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-960449f0773d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 批量 PDF 解析的性能优化：多进程、异步与缓存策略。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 批量 PDF 解析的性能优化：多进程、异步与缓存策略。
+answer:
+  mode: rubric
+  reference_answer: |-
+    当需要处理数百万页的 PDF 时，单机单线程的处理速度可能是分钟级一页，总耗时将长达数月，这完全无法满足生产需求。性能优化需要从 CPU/IO 并行、解析流程减负和结果复用三个维度入手。
+
+    多进程并行：PDF 解析是 CPU 密集型任务，受限于 Python 的 GIL，多线程无法有效利用多核 CPU，因此必须使用多进程。可以将待处理的文件列表分割成多个批次，分发给多个独立的进程进行处理。使用 concurrent.futures.ProcessPoolExecutor 或任务队列（如 Celery + Redis）可以方便地实现。需要注意的是，要避免在一个进程中加载超大 PDF 导致内存爆炸，可以为每个进程设置最大内存限制，并在处理完该文件后重启进程以释放内存碎片。
+
+    异步处理：在实际应用中，解析任务可能由上游的实时文件上传事件触发。使用异步框架（如 asyncio）可以配合消息队列（如 Kafka），在文件上传完成后异步发起解析任务，而无需阻塞上传接口。但需要明确，异步本身是为了提高 I/O 并发，真正的解析工作应该被提交到一个独立的多进程工作池中执行。
+
+    缓存策略：很多场景下，同一个 PDF 文件会被多次处理。对 PDF 解析结果进行缓存可以极大节省计算成本。缓存的粒度可以是文件级，也可以是页面级。缓存的内容不应只是最终文本，而应该是经过解析、布局分析、表格识别后的结构化中间结果（如 JSON）。这样，当 RAG 的分块策略、嵌入模型发生变更时，无需重新解析昂贵的 PDF，只需要重新处理这些中间结果即可。这种“解析-分块-嵌入”的流程解耦，是提升迭代效率的关键。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ag8Qw4DUZiuEEGkvxB4ctXp7nQy
+  block_id: CdaZdm7X9oTMgRxkMFmcxAqUnYc
+  page_token: Ag8Qw4DUZiuEEGkvxB4ctXp7nQy
+  original_title: 批量 PDF 解析的性能优化：多进程、异步与缓存策略。
+  imported_at: '2026-09-21'

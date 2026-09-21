@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-190004ec63cd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释推测解码与 beam search 的结合：能否在验证阶段维护多条 beam？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 解释推测解码与 beam search 的结合：能否在验证阶段维护多条 beam？
+answer:
+  mode: rubric
+  reference_answer: |-
+    可以结合，但实现上需要将 beam search 的并行探索与推测解码的验证机制相融合。
+
+    结合方式：
+
+    - 草稿阶段：草稿模型为每个活跃的 beam 独立生成 K 个候选 token（共 beam_width * K 个草稿 token）。或者更高效地，使用树形分支，从各 beam 生成多个可能的延续，形成一个候选树。
+
+    - 验证阶段：目标模型通过 树注意力（Tree Attention） 一次性验证整个候选树中的所有 token。计算每个候选序列的得分（如累积对数概率），然后根据 beam search 规则（如选择得分最高的 beam_width 个序列）保留 top beams，并应用拒绝采样来修正分布。
+
+    - 接受/拒绝与 beam 更新：对每个 beam 的每个位置，依然执行基于拒绝采样的令牌级验证，确保输出的概率分布正确。如果某个草稿 token 被拒绝，从修正分布中重采样，这可能导致 beam 的分叉。因此，beam 的维护需要与验证步骤紧密配合，可能同时保留多条路径。
+
+    挑战：
+
+    - 实现复杂度高，需要在内核中支持树形注意力。
+
+    - 计算量和显存占用较大，因为要同时验证多 beam 的多个候选。
+
+    - 理论加速比可能不如采样模式，因为 beam search 本身就需要保留多条序列，部分并行性已被利用。
+
+    实际应用：部分框架（如 TensorRT-LLM）已支持基于树注意力的推测解码与 beam search 结合，适用于对质量要求极高且可接受额外延迟的场景。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Us9awBi8iiwtfZkqtRzcSfVcnJe
+  block_id: SgGtd2j0voi5LBxCSrgcKjjJnBf
+  page_token: Us9awBi8iiwtfZkqtRzcSfVcnJe
+  original_title: 解释推测解码与 beam search 的结合：能否在验证阶段维护多条 beam？
+  imported_at: '2026-09-21'

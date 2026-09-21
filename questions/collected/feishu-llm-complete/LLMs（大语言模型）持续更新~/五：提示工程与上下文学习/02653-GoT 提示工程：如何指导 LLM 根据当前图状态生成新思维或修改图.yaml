@@ -1,0 +1,106 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a48f43f34cda
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: GoT 提示工程：如何指导 LLM 根据当前图状态生成新思维或修改图？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: GoT 提示工程：如何指导 LLM 根据当前图状态生成新思维或修改图？
+answer:
+  mode: rubric
+  reference_answer: |-
+    GoT 的提示工程比 ToT 或 CoT 更复杂，因为 LLM 不仅要生成内容，还要理解当前图的结构上下文，并根据指令输出符合图构建要求的结构化信息。核心在于设计能够清晰传达图状态、操作类型和输出格式的提示模板。
+
+    核心设计原则：
+
+    - 清晰的状态上下文注入
+    提示中需要选择性注入当前图的相关部分。不可能每次都放入全图，因此需要局部视图。通常包括：
+
+    - 操作类型与目标的明确指令
+    提示中明确告知 LLM 当前要执行的操作，并解释该操作的目标。例如：
+
+    - 结构化的输出要求
+    这是工程实现的关键。提示必须强制 LLM 输出可解析的结构。通常使用 JSON 格式，并给出 Schema：
+
+    {
+      "new_nodes": [
+        {"id": "node_1", "content": "...", "type": "intermediate"}
+      ],
+      "edges": [
+        {"from": ["current_node_id"], "to": "node_1", "type": "GENERATE"}
+      ]
+    }
+
+    在提示中，使用 few-shot 示例展示符合该格式的输出，并强调严格遵守。
+
+    - 引导的思维链
+    在要求 LLM 输出结构化 JSON 前，允许其先输出一段自由文本的思考过程（放在 JSON 之外或某个特定字段）。这可以显著提高结构化内容的准确性和质量。例如：
+
+    请先分析当前状态和你的策略，然后输出符合 JSON 格式的结果。
+    你的分析：
+    ...（自由文本）
+    JSON结果：
+    ...
+
+    - 错误处理与重试指令
+    提示中可以包含简单的“如果...则...”逻辑指导模型处理边界情况。例如：“如果当前状态已经是最终答案，请在 new_nodes 中仅输出一个 type 为‘final_answer’的节点。” 同时，系统层面需要能捕获 JSON 解析错误，并构造重试提示，包含之前的输出和错误信息。
+
+    - 角色与全局目标的贯穿
+    在每次操作的提示中，始终重申整体任务目标和当前策略的简要背景。这使 LLM 保持全局感，避免生成偏离主题的思维。
+
+    示例模板（聚合操作）：
+
+    [系统] 你是一个正在执行图推理的 AI。总任务：制定最佳营销方案。
+    当前执行操作：AGGREGATE（聚合）。
+    [聚合输入节点]
+    节点A：...（内容）
+    节点B：...（内容）
+    节点C：...（内容）
+
+    [指令]
+    请合并上述多个节点中的分析，生成一个综合节点。要求：指出共识与分歧，并给出权衡后的建议。
+    请先输出你的分析思路，然后以 JSON 格式输出新节点和边。
+
+    [输出格式]
+    {
+      "analysis": "你的分析过程...",
+      "graph_update": {
+        "new_nodes": [ {"id": "节点D", "content": "综合建议...", "type": "aggregated"} ],
+        "edges": [ {"from": ["节点A","节点B","节点C"], "to": "节点D", "type": "AGGREGATE"} ]
+      }
+    }
+
+    通过这种精心设计的提示工程，LLM 被有效地转化为一个能够理解图上下文、执行多种图操作、并输出结构化构建指令的智能执行器，这是 GoT 系统得以自动化、可靠运行的基石。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VfpYwyMjYi7BJtkipvYcRbe0ndc
+  block_id: LuF8dvdysoyw8xxywFaccrZAnWh
+  page_token: VfpYwyMjYi7BJtkipvYcRbe0ndc
+  original_title: GoT 提示工程：如何指导 LLM 根据当前图状态生成新思维或修改图？
+  imported_at: '2026-09-21'

@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bb5db14c3bb9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 通信原语：Reduce-Scatter、All-Gather在张量并行的前向和反向中如何使用？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 通信原语：Reduce-Scatter、All-Gather在张量并行的前向和反向中如何使用？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在张量并行（以Megatron 1D张量并行为例）中，不同的模型部分采用不同的切分和通信策略。我们以MLP块和自注意力块为例说明。
+
+    MLP块（前向）：
+
+    - 第一层线性层 h = xW_1 通常采用列切分 (Column-wise)。输入 x 完整，权重 W_1 按列切分到各GPU，计算后每张GPU得到部分输出 Y_i。此时不需要通信。
+
+    - 第二层线性层 Y W_2 采用行切分 (Row-wise)。权重 W_2 按行切分，每张GPU用自己的 Y_i 与部分 W_2 相乘，得到形状为 [b, s, d] 的输出，但这是部分和。最后，需要对所有GPU的输出进行All-Reduce（求和），得到完整的输出。
+
+    - 反向：All-Reduce的反向操作就是Identity（因为All-Reduce梯度本身就是求和），但在更细粒度的实现中，为优化通信，常将All-Reduce分解为Reduce-Scatter（前向）和All-Gather（反向）的对称形式。
+
+    自注意力块（前向）：
+
+    - QKV投影采用列切分，各自计算后得到分片的Q, K, V。
+
+    - 注意力计算（softmax(QK^T/√d)V）在每张GPU上独立进行（因为头维度也已切分），不需要通信。
+
+    - 最后的输出线性层 W_O 采用行切分，每张GPU输出部分和，最后需要All-Reduce汇总。
+
+    - 反向同理。
+
+    在更优化的通信方案中（如采用Reduce-Scatter），前向时，行切分层后执行Reduce-Scatter将部分和归约并分散到各GPU（每张卡得到最终完整输出的一部分），反向时对应执行All-Gather来收集梯度。这种对称模式能更好地隐藏延迟并与计算重叠。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQ7qw1klCirayhkUauicscbqnpc
+  block_id: CBd6dWZ5zo96FfxffePcnEMbngc
+  page_token: GQ7qw1klCirayhkUauicscbqnpc
+  original_title: 通信原语：Reduce-Scatter、All-Gather在张量并行的前向和反向中如何使用？
+  imported_at: '2026-09-21'

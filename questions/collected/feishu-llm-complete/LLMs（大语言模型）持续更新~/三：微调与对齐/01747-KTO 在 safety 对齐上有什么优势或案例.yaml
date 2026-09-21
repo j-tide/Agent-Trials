@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-80bb5a8cf924
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: KTO 在 safety 对齐上有什么优势或案例？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: KTO 在 safety 对齐上有什么优势或案例？
+answer:
+  mode: rubric
+  reference_answer: |-
+    KTO 在安全对齐上具有独特的优势，这主要源于其对负样本（unsafe 样本）的独立、强力惩罚机制。
+
+    优势分析：
+
+    - 不对称惩罚符合安全需求：安全对齐的核心是“不犯错”。KTO 通过设置 λU>λD，可以实现比单纯鼓励安全回复更强的对齐效果。模型会因为害怕产生不安全回复而受到更强的约束，这完美契合了“安全优先”的原则。
+
+    - 高效利用红队数据：安全红队测试产生的数据格式恰好是“提示-回复-安全/不安全标签”。这正是 KTO 最擅长的非成对数据。我们可以直接将海量的红队测试数据作为 undesirable 样本，将经过安全审核的高质量数据作为 desirable 样本，对模型进行直接的对齐训练。无需构造复杂的对比对。
+
+    - 精确打击特定不安全模式：如果发现模型在某类不安全问题上表现不佳（如泄露隐私），我们可以有针对性地收集这类 undesirable 样本，形成一个子集，并在训练时对这一子集施加更高的权重 λU，进行定向、精确的安全增强。
+
+    应用案例：
+
+    例如，为了训练一个能够拒绝回答有害问题、并且不会产生歧视性言论的客服机器人。我们可以收集两类数据：一类是人工撰写的安全、有帮助的客服回复（desirable），另一类是模型之前生成的各种有害回复（undesirable）。通过 KTO，模型会主动学习去远离那些有害的回复模式，同时被鼓励去生成安全友好的回复。相较于 DPO，KTO 不需要为每个有害提示都找到一个对应的“更好的安全回复”，它只需要知道“这个回复是有害的”就足够了。
+
+    - 如果标签是 desirable，则将该样本的损失计算为 LD，目标是将 rθ 推向高于 Z ref 的方向。
+
+    - 如果标签是 undesirable，则将该样本的损失计算为 LU，目标是将 rθ 推向低于 Z ref 的方向。
+
+    - 作用：控制模型对“好回复”的鼓励程度和对“坏回复”的惩罚程度。它们的比值 λU/λD 直接体现了“损失厌恶”的强度。
+
+    - 典型设置：通常设 λD=1.0，而 λUλU 的取值在 1.0 到 2.0 之间。一个常用的出发点是 λU=1.5，意为对坏行为的惩罚力度是对好行为奖励力度的 1.5 倍。如果数据集噪声较大，可以适当降低 λU。
+
+    - 作用：定义“中性”奖励的基准线。它决定了模型如何区分“好”与“坏”。
+
+    - 典型设置：有两种主流方法。方法一：在训练开始时，用参考模型计算整个数据集的平均隐式奖励，并将其固定为 Z ref。方法二：直接将 Z ref 设为 0，这是一种简单且效果通常不错的启发式设置。我们的目标是让好回复的奖励 > 0，坏回复的奖励 < 0。
+
+    - 作用：与 DPO 中的 β 类似，控制隐式奖励 rθ 的整体尺度，从而影响优化强度。β 越小，奖励的波动就越被放大，优化越激进。
+
+    - 典型设置：与 DPO 类似，通常在 0.1 到 1.0 之间调整。可以从 0.5 开始尝试。
+
+    - 调整 λU 和 λD：在验证集上通过实验找到一个合适的权重比值，使得模型在安全对齐和帮助性之间达到平衡。
+
+    - 数据重采样：在训练时对少数的 undesirable 样本进行上采样，或对多数的 desirable 样本进行下采样，以平衡每个 batch 中两类样本的出现频率。
+
+    - 使用 Class-balanced Loss：除了 KTO 本身的损失，可以结合类别平衡的损失函数（如 Focal Loss）来进一步让模型关注那些难以分类的 minority 样本。
+
+    - 降低 λUλU：如前所述，这是最直接、最有效的方法。
+
+    - 使用标签平滑 (Label Smoothing)：对于那些不确定的标签，不将其标记为绝对的 1.0 (desirable) 或 0.0 (undesirable)，而是赋予一个软标签（如 0.9 或 0.1）。
+
+    - 基于置信度的样本过滤：使用一个额外的模型对标签的置信度进行评估，只使用高置信度的样本进行 KTO 训练，丢弃或降权低置信度样本。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Oa9Sw3zd0iM5wzk0nEscATBnnog
+  block_id: AEkAdkNMwoknszxK8dWc6JQQnbh
+  page_token: Oa9Sw3zd0iM5wzk0nEscATBnnog
+  original_title: KTO 在 safety 对齐上有什么优势或案例？
+  imported_at: '2026-09-21'

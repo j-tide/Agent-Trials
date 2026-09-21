@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2adb98826f04
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何将 PDF 中的图片提取出来并单独描述，用于多模态 RAG？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 如何将 PDF 中的图片提取出来并单独描述，用于多模态 RAG？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在多模态 RAG 中，仅仅从 PDF 中提取文本是不够的，文档中的图片、图表和照片也包含大量语义信息。将它们提取出来并转换成可检索、可被 LLM 理解的格式，是提升 RAG 系统信息覆盖度的关键。
+
+    图片提取：
+
+    首先需要将 PDF 页面中嵌入的图片导出为独立的图像文件。可以使用 PyMuPDF，它能够遍历页面中的所有图片对象，并根据其存储的压缩数据（如 JPEG、PNG）将其还原并保存为原始图片文件。在提取过程中，应当同时记录该图片在文档中的上下文信息，比如它所在的页码，以及它周围的文本（如 Caption 或附近段落）。这些上下文会在后续步骤中用于增强描述。
+
+    为图片生成描述：
+
+    提取出的图片本身是二进制数据，无法直接进行文本检索。需要为每张图片生成一个或多个文本表示：
+
+    - 直接 Caption 提取：如果图片附近有明确的“图1：...”这样的说明文字，可以直接将该说明文字作为该图片的文本表示。这是最准确、成本最低的方法。
+
+    - 多模态模型生成 Caption：对于没有说明或需要更精细语义理解的图片，可以调用多模态 LLM（如 GPT-4V、LLaVA）来生成详细的图片描述。提示词可以设计为：“请详细描述这张图片的内容，包括其中的对象、关系、文字和任何关键数据。”生成的 Caption 将作为该图片的语义锚点，用于向量检索。
+
+    - 视觉向量索引：也可以将图片通过一个视觉嵌入模型（如 CLIP 的图像编码器）转换为向量，与文本向量一同存入索引。这样查询时可以通过文本-图像跨模态检索直接找到相关图片。
+
+    多模态 RAG 的整合：
+
+    构建 RAG 索引时，为每一张图片创建一个独立的“文档块”，其内容为上述生成的 Caption 文本，元数据中包含原始图片的存储路径或 URL。当用户查询命中这个块时，系统不仅将 Caption 文本提供给 LLM，还可以通过多模态能力将原始图片数据一起输入 LLM，使 LLM 能够直接“看到”图像并给出更准确的回答。这就实现了从“检索文本”到“检索多模态信息”的跨越。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ag8Qw4DUZiuEEGkvxB4ctXp7nQy
+  block_id: BEwvdadZFoefF9xFbzwcHx7Gnef
+  page_token: Ag8Qw4DUZiuEEGkvxB4ctXp7nQy
+  original_title: 如何将 PDF 中的图片提取出来并单独描述，用于多模态 RAG？
+  imported_at: '2026-09-21'

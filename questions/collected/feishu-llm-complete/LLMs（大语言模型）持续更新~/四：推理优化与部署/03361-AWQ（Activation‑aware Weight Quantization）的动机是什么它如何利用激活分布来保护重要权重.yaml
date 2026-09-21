@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f6c696099cec
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: AWQ（Activation‑aware Weight Quantization）的动机是什么？它如何利用激活分布来保护重要权重？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: AWQ（Activation‑aware Weight Quantization）的动机是什么？它如何利用激活分布来保护重要权重？
+answer:
+  mode: rubric
+  reference_answer: |-
+    动机：
+
+    大语言模型中的权重重要性并非均匀分布。研究发现，只有约 1% 的显著权重对模型性能起决定性作用，而这些显著权重往往对应于激活幅度很大的通道。在直接量化时，这些重要通道的权重若被同等对待，会因为量化误差而严重损害模型。然而，简单保留这部分为 FP16（混合精度）虽然有效，但破坏了硬件的规则计算模式，导致推理效率低下。
+
+    AWQ 的核心洞察是：我们可以在量化前，通过对权重进行等效数学变换（缩放），放大这些显著通道的权重，使其更易被量化保留，同时相应缩小对应的激活，不改变前向结果，但让量化误差向非重要通道倾斜。
+
+    工作原理：
+    AWQ 寻找一个逐通道的缩放因子 s（尺度向量），应用于权重矩阵的输入通道维度：
+
+    [图片内容未导入]
+
+    AWQ 通过少量校准数据，优化如下目标来搜索最优的 s：
+
+    [图片内容未导入]
+
+    通常使用基于梯度或启发式的搜索（如根据激活幅度的 α 次幂确定 s），不需重新训练。
+
+    效果：
+
+    - 避免使用混合精度（无 FP16 计算块），实现硬件友好的均匀低比特（如 INT4）运算。
+
+    - 极小的校准成本（与 GPTQ 相当），在 4-bit 下精度几乎无损，甚至优于 GPTQ。
+
+    - 已成为 vLLM、TensorRT-LLM 等主流框架推荐的 4-bit 量化方案。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Mkz0wXtPeiHfvJksSVSc0TWTnxd
+  block_id: IcetdyznboaXCQxhbDecOwSonCf
+  page_token: Mkz0wXtPeiHfvJksSVSc0TWTnxd
+  original_title: AWQ（Activation‑aware Weight Quantization）的动机是什么？它如何利用激活分布来保护重要权重？
+  imported_at: '2026-09-21'

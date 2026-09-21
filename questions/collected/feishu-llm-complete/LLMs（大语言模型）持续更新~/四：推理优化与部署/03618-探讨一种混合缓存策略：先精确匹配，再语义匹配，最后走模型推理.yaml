@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-82aaff51989a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 探讨一种混合缓存策略：先精确匹配，再语义匹配，最后走模型推理。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 探讨一种混合缓存策略：先精确匹配，再语义匹配，最后走模型推理。
+answer:
+  mode: rubric
+  reference_answer: |-
+    这种分层混合缓存策略（L1 → L2 → L3）能够最大化缓存命中率和响应质量，兼顾速度、成本与准确性。
+
+    三层架构：
+
+    - L1：精确缓存（Exact Cache）
+
+    - L2：语义缓存（Semantic Cache）
+
+    - L3：模型实时推理（LLM Fallback）
+
+    混合调度流程（伪代码）：
+
+    ```python
+    def handle_request(prompt):
+        # L1: 精确匹配
+        hash_key = md5(prompt)
+        cached = exact_cache.get(hash_key)
+        if cached and not expired(cached):
+            return cached.response
+
+        # L2: 语义匹配
+        query_vec = embed(prompt)
+        hits = vector_db.search(query_vec, top_k=3)
+        for hit in hits:
+            if hit.score >= SEMANTIC_THRESHOLD and validate_intent(prompt, hit.prompt):
+                return maybe_rewrite(hit.response, prompt)  # 可选改写
+
+        # L3: 模型推理
+        response = llm.generate(prompt)
+        # 异步写回
+        asyncio.create_task(write_to_cache(prompt, response))
+        return response
+    ```
+
+    关键设计点：
+
+    - 写入策略：L1 和 L2 同时更新，保证后续请求能命中任一层。
+
+    - 过期与淘汰：精确缓存可采用 TTL + LRU；语义缓存基于 TTL 和存储容量淘汰最久未用项。
+
+    - 性能优化：L1 使用本地内存 + Redis；L2 使用本地向量库（FAISS）热缓存 + 远程向量数据库。
+
+    - 质量保障：L2 必须配合意图过滤或二级验证，避免错误命中。
+
+    这种分层策略将精确匹配的可靠性、语义缓存的泛化性和模型推理的兜底能力有机结合，是实现高性价比 LLM 服务的理想架构。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Suarwd0MSiF56MkUyBScW6UmnhB
+  block_id: NOVWdjKoRo8X74xhim7csmhtnSb
+  page_token: Suarwd0MSiF56MkUyBScW6UmnhB
+  original_title: 探讨一种混合缓存策略：先精确匹配，再语义匹配，最后走模型推理。
+  imported_at: '2026-09-21'

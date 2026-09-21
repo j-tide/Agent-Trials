@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-44ad419cc2a7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么推测解码能在不损失生成质量的前提下加速自回归推理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 为什么推测解码能在不损失生成质量的前提下加速自回归推理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    推测解码不损失生成质量的基石在于验证阶段采用的无损拒绝采样算法，它保证了推测解码生成的 token 序列的联合分布与直接使用目标模型进行自回归采样的分布严格一致。
+
+    质量不损失的原因：
+
+    - 验证过程对每个草稿 token x 进行接受/拒绝判断，其接受概率为 min(1, p(x)/q(x))，这正是从提议分布 q 中采样并按照目标分布 p 进行拒绝采样的标准方法。拒绝采样的数学性质保证了无论草稿模型质量如何，最终输出的每个 token 都是从目标模型的条件分布 p(x_t | prefix, x_{<t}) 中正确采样的。
+
+    - 当草稿 token 被拒绝时，修正分布 norm(max(0, p_t - q_t)) 确保了重新采样的 token 分布与目标分布一致，完全消除了草稿模型偏差。
+
+    - 因此，推测解码只是改变了自回归生成的执行方式（并行验证 vs 串行生成），而没有改变生成结果的概率分布。其输出可以做到与目标模型逐 token 采样位级相同（如果随机种子一致），或至少分布上完全等价。
+
+    加速原理：
+
+    - 标准自回归每生成一个 token 需要一次目标模型前向传播（高延迟）。
+
+    - 推测解码用草稿模型快速生成 K 个 token（延迟低），然后目标模型一次性验证 K 个 token（一次前向传播）。若平均接受率为 α，则每次验证平均产生 (1 + α + α^2 + ... + α^{K}) ≈ 1/(1-α) 个 token（对于足够大的 K），因此每秒生成的 token 数可提升数倍。
+
+    - 加速完全来自于减少目标模型的调用次数，且无需任何微调或量化，不损失模型原有能力。
+
+    因此，推测解码通过拒绝采样保持分布一致性，同时利用并行验证提高硬件利用率和吞吐，实现了无损加速。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Us9awBi8iiwtfZkqtRzcSfVcnJe
+  block_id: HaxIdN33tokY9axEhQUcZs3AnfQ
+  page_token: Us9awBi8iiwtfZkqtRzcSfVcnJe
+  original_title: 为什么推测解码能在不损失生成质量的前提下加速自回归推理？
+  imported_at: '2026-09-21'

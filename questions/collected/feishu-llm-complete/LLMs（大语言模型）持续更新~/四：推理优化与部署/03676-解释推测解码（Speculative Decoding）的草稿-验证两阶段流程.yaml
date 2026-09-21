@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2456ac00be32
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释推测解码（Speculative Decoding）的“草稿-验证”两阶段流程。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 解释推测解码（Speculative Decoding）的“草稿-验证”两阶段流程。
+answer:
+  mode: rubric
+  reference_answer: |-
+    推测解码是一种针对自回归大模型的推理加速技术，它利用一个轻量级的草稿模型（Draft Model） 快速生成多个候选 token，然后由目标模型（Target Model） 一次性并行验证这些 token 的正确性。其核心流程分为两个阶段：
+
+    阶段一：草稿生成（Drafting）
+
+    - 给定当前上下文前缀 prefix，草稿模型以自回归方式连续生成 K 个草稿 token（例如 K=5），形成候选序列 x_1, x_2, ..., x_K。
+
+    - 这一步骤是串行的，但草稿模型参数量小、推理速度快，其单步解码延迟远低于目标模型。同时，草稿模型会记录每个位置生成的 token 的概率 q(x_t | prefix, x_{<t})。
+
+    阶段二：目标模型验证（Verification）
+
+    - 目标模型接收 prefix 以及完整的草稿序列 [x_1, ..., x_K]，执行一次并行前向传播，一次性地计算出这 K 个位置的目标概率分布 p(x_t | prefix, x_{<t})（每个位置的条件概率基于之前正确的 token）。
+
+    - 然后，逐个位置进行检查：对于位置 t（从 1 到 K），比较目标模型概率 p_t 与草稿模型概率 q_t。通过一种无损的拒绝采样（rejection sampling） 算法，决定是接受该草稿 token x_t，还是拒绝并从目标模型分布中重新采样。
+
+    - 具体规则：生成一个随机数 r ∈ [0, 1)，若 r < min(1, p_t(x_t) / q_t(x_t))，则接受 x_t；否则拒绝，并根据修正分布 norm(max(0, p_t - q_t)) 重新采样一个 token 作为该位置的输出，并丢弃后续所有草稿 token，结束本轮验证。
+
+    - 无论接受多少 token，目标模型只进行了一次前向传播，却可能生成了多个有效 token，从而打破了自回归的串行瓶颈。
+
+    总结：草稿模型“猜测”多个 token，目标模型一次性“批改”，接受正确的部分，拒绝并修正错误处，保证最终输出分布与纯目标模型一致，同时实现推理加速。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Us9awBi8iiwtfZkqtRzcSfVcnJe
+  block_id: J7oqde61covc1YxykEXcjTwsnZg
+  page_token: Us9awBi8iiwtfZkqtRzcSfVcnJe
+  original_title: 解释推测解码（Speculative Decoding）的“草稿-验证”两阶段流程。
+  imported_at: '2026-09-21'

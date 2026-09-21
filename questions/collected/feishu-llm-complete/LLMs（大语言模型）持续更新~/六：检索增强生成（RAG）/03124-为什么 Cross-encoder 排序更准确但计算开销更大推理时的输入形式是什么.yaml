@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f91f9a6db1dc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么 Cross-encoder 排序更准确但计算开销更大？推理时的输入形式是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 为什么 Cross-encoder 排序更准确但计算开销更大？推理时的输入形式是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    为什么排序更准确：
+
+    Cross-encoder 的准确性优势源于其全交互的注意力机制。在 Bi-encoder 中，查询和文档的表示是在彼此“不知情”的情况下生成的，向量内积是唯一的信息交汇点。这是一种极度压缩的交互，会丢失大量细粒度匹配信号。而在 Cross-encoder 中，查询和文档被拼接送入同一个 Transformer 网络。自注意力机制让模型能够：
+
+    - 精确捕捉局部匹配：查询词“苹果”可以直接注意到文档中的“iPhone”，理解二者在当前上下文中的关联。
+
+    - 理解词序和限定关系：对于“除了苹果之外的水果”，模型能通过注意力关注到“除了”这个否定词，以及它与“苹果”的关系，从而避免错误匹配。
+
+    - 建模复杂的句法结构：模型可以学习到哪些查询词对应文档中的哪些片段，以及它们之间是因果关系、并列关系还是转折关系。
+
+    - 动态评估相关性：不同于提前压缩的固定向量，Cross-encoder 可以根据查询的不同，动态地关注文档中不同的部分，实现“定制化”的相关性评估。
+
+    这种深度、上下文相关的交互，使得 Cross-encoder 在判断相关性时，更像一个“阅读理解”模型，而非简单的“向量对比”。
+
+    为什么计算开销更大：
+
+    开销大的根本原因在于无法预计算。对于每一个查询，Reranker 必须将它与每一个候选文档分别拼接，然后完整地执行一次 Transformer 前向传播。这个计算成本与候选文档数量成正比。而 Bi-encoder 的文档向量是离线计算好的，在线只需一次查询编码和快速的内积运算。
+
+    推理时的输入形式：
+
+    典型的输入格式如下（以 BERT 架构为例）
+
+    ```text
+    [CLS] 查询文本 [SEP] 文档文本 [SEP]
+    ```
+
+    - [CLS]：这是 BERT 预留的用于分类任务的聚合 Token。经过多层 Transformer 处理后，其对应的最终隐藏状态向量会被送入一个单层线性分类器，输出一个标量作为相关性分数。
+
+    - [SEP]：用于分隔查询和文档，帮助模型区分两个不同的文本段。
+
+    - 输入的文本通常会进行截断，以符合模型的最大长度限制（如 512 Token）。优先保留查询的完整性，并在必要时截断文档的尾部。
+
+    整个流程就是：对每一对 (query, doc)，构造这样一个序列，送入模型，取 [CLS] 输出，计算得分，然后对所有候选文档按得分降序排列。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MdouwCwh3iP6HNkt4PZcw9CSnYb
+  block_id: NGSkd9s1xoMopIx5xQncObqBnhh
+  page_token: MdouwCwh3iP6HNkt4PZcw9CSnYb
+  original_title: 为什么 Cross-encoder 排序更准确但计算开销更大？推理时的输入形式是什么？
+  imported_at: '2026-09-21'

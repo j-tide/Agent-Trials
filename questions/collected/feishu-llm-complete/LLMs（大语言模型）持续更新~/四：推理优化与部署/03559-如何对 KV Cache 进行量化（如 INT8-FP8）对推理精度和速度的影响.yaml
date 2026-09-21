@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8dd9a9adea3d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何对 KV Cache 进行量化（如 INT8/FP8）？对推理精度和速度的影响？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如何对 KV Cache 进行量化（如 INT8/FP8）？对推理精度和速度的影响？
+answer:
+  mode: rubric
+  reference_answer: |-
+    对 KV Cache 进行量化是解决长序列推理显存瓶颈的关键技术。其核心思想是将原本以 FP16/BF16 精度存储的 Key 和 Value 张量，压缩为 INT8 甚至 FP8 格式，从而将 KV Cache 的显存占用减少一半或更多。
+
+    量化实现方式：
+
+    - 逐张量（Per-Tensor）量化：对整个 Key 或 Value 张量使用一个统一的缩放因子。方法简单，但精度损失可能较大。
+
+    - 逐通道（Per-Channel）或逐头（Per-Head）量化：为每个注意力头或每个通道独立计算一个缩放因子。这能更好地适应不同头之间数值范围的差异，精度更高，是当前的主流方法。
+
+    - 分组量化（Group Quantization）：将张量分成更小的组（例如每 64 或 128 个元素一组），每组共享一个缩放因子。灵活性最高，精度损失最小，但元数据开销也更大。
+
+    对推理精度的影响：
+
+    实践证明，KV Cache 对低精度量化具有极高的鲁棒性。这主要是因为注意力机制中的 Softmax 操作对输入噪声具有一定的平滑作用。使用 FP8 或 INT8 量化 KV Cache，通常只会带来极其微小的精度损失（困惑度增加 < 0.1），对下游任务的生成质量几乎没有可察觉的影响。这是业界广泛使用该技术的信心来源。
+
+    对推理速度的影响：
+
+    速度的提升主要来自于内存带宽压力的缓解，而不是计算量的减少。在 Decode 阶段，瓶颈是从 HBM（高带宽显存）读取 KV Cache。量化后，需要读取的数据量直接减半，这能有效加速 memory-bound 的 Decode 过程。但对于 compute-bound 的 Prefill 阶段，速度提升不明显。因此，KV Cache 量化是一项用微小的精度代价，换取巨大显存节省和速度提升的高效工程优化。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  block_id: RnJldQtLwol0TzxZJD6cg8xUnpe
+  page_token: N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  original_title: 如何对 KV Cache 进行量化（如 INT8/FP8）？对推理精度和速度的影响？
+  imported_at: '2026-09-21'

@@ -1,0 +1,104 @@
+---
+schema_version: 1
+id: feishu-llm-complete-751f3fcd146b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 编写一个简单的 Python 函数，根据配置估算模型内存占用（参数+优化器）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 编写一个简单的 Python 函数，根据配置估算模型内存占用（参数+优化器）
+answer:
+  mode: rubric
+  reference_answer: |-
+    训练大模型时，通常需要快速估算模型状态（参数、梯度、优化器）的显存占用。以下函数支持 FP16/BF16 混合精度训练、Adam 优化器、以及 ZeRO‑1 优化器状态分片。
+
+    def estimate_model_state_memory(num_params: int,
+                                    use_fp16: bool = True,
+                                    optimizer: str = "adam",
+                                    use_zero1: bool = False,
+                                    dp_world_size: int = 1) -> dict:
+        """
+        估算模型状态（参数、梯度、优化器）的显存占用（字节）。
+        num_params: 模型参数量
+        use_fp16: 是否使用 FP16 参数和梯度
+        optimizer: 优化器类型，目前仅支持 "adam"
+        use_zero1: 是否使用 ZeRO-1 优化器状态分片
+        dp_world_size: ZeRO-1 对应的数据并行度
+        返回：各部分字节数及总和
+        """
+        # 参数和梯度字节
+        if use_fp16:
+            param_bytes = 2 * num_params
+            grad_bytes = 2 * num_params
+        else:
+            param_bytes = 4 * num_params
+            grad_bytes = 4 * num_params
+
+        # 优化器状态 (Adam)
+        if optimizer.lower() == "adam":
+            # FP32 主权重 (4) + 动量 m (4) + 动量 v (4)
+            opt_bytes = 12 * num_params
+        else:
+            opt_bytes = 0
+
+        # ZeRO‑1 分片优化器状态
+        if use_zero1 and dp_world_size > 1:
+            opt_bytes = opt_bytes // dp_world_size
+
+        total = param_bytes + grad_bytes + opt_bytes
+        return {
+            "fp16_params": param_bytes,
+            "fp16_grads": grad_bytes,
+            "optimizer_states": opt_bytes,
+            "total": total
+        }
+
+    # 示例：7B 模型，8 卡数据并行，启用 ZeRO‑1
+    mem = estimate_model_state_memory(7_000_000_000,
+                                      use_fp16=True,
+                                      optimizer="adam",
+                                      use_zero1=True,
+                                      dp_world_size=8)
+    for k, v in mem.items():
+        print(f"{k}: {v / 1e9:.2f} GB")
+
+    输出示例：
+
+    fp16_params: 14.00 GB
+    fp16_grads: 14.00 GB
+    optimizer_states: 10.50 GB
+    total: 38.50 GB
+
+    注意：该函数仅估算模型状态，未包括激活内存、临时缓冲区和通信开销。激活内存需单独根据 batch size、序列长度、隐藏维度等计算（见第3题）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/FC4Hws8cVieV7okFYIXcIkgvn0f
+  block_id: N9RQd8eJ8ovw2yxfpTkcbW6dnMc
+  page_token: FC4Hws8cVieV7okFYIXcIkgvn0f
+  original_title: 编写一个简单的 Python 函数，根据配置估算模型内存占用（参数+优化器）
+  imported_at: '2026-09-21'

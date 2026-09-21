@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-19b670d50a38
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出一个完整的 PyTorch 示例，实现给定 input_ids 和 assistant_start_pos，生成带掩码的 labels。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 写出一个完整的 PyTorch 示例，实现给定 input_ids 和 assistant_start_pos，生成带掩码的 labels。
+answer:
+  mode: rubric
+  reference_answer: "下面是一个完整的、可直接运行的 PyTorch 示例。它假设我们已经通过 chat_template 将对话格式化，并且已知
+    assistant 回复的起始位置。\n\n```python\nimport torch\nfrom transformers import AutoTokenizer\n\ndef
+    create_labels_with_assistant_mask(input_ids, assistant_start_pos):\n    \"\"\"\n
+    \   input_ids: Tensor of shape (batch_size, seq_len) 或 (seq_len,)\n    assistant_start_pos:
+    int, assistant 回复的起始 token 位置\n    返回: labels Tensor，与 input_ids 相同形状，非 assistant
+    部分为 -100\n    \"\"\"\n    # 确保 input_ids 是二维的 (batch_size, seq_len)\n    if input_ids.dim()
+    == 1:\n        input_ids = input_ids.unsqueeze(0)\n    \n    batch_size, seq_len
+    = input_ids.shape\n    labels = input_ids.clone()\n    \n    # 在 PyTorch 中，-100
+    是 CrossEntropyLoss 默认的忽略索引\n    IGNORE_INDEX = -100\n    \n    # 对于 batch 中的每个样本（这里简化为
+    batch_size=1）\n    for b in range(batch_size):\n        # 将 assistant 起始位置之前的所有
+    token 的 label 设为 -100\n        labels[b, :assistant_start_pos] = IGNORE_INDEX\n
+    \       \n        # 通常我们也希望将 assistant 回复的起始特殊标记（如 <|im_start|>assistant）设为 -100\n
+    \       # 因为它是一个格式标记，不是自然语言。\n        # 这里假设 assistant_start_pos 已经指向了 assistant
+    回复的第一个自然语言 token。\n        # 如果 assistant_start_pos 指向的是特殊标记，那么需要 +1 或做其他处理。\n
+    \   \n    return labels\n\n# ========== 完整示例 ==========\nif __name__ == \"__main__\":\n
+    \   # 1. 加载 tokenizer\n    tokenizer = AutoTokenizer.from_pretrained(\"HuggingFaceTB/SmolLM2-135M\")\n
+    \   if tokenizer.pad_token is None:\n        tokenizer.pad_token = tokenizer.eos_token\n\n
+    \   # 2. 构造一个简单的对话\n    messages = [\n        {\"role\": \"system\", \"content\":
+    \"你是一个有用的助手。\"},\n        {\"role\": \"user\", \"content\": \"你好，请问北京的首都是哪里？\"},\n
+    \       {\"role\": \"assistant\", \"content\": \"北京是中国的首都。\"}\n    ]\n\n    #
+    3. 使用 chat_template 格式化对话\n    input_text = tokenizer.apply_chat_template(messages,
+    tokenize=False)\n    print(\"格式化后的文本：\")\n    print(input_text)\n    print(\"-\"
+    * 50)\n\n    # 4. Tokenize 整个序列\n    inputs = tokenizer(input_text, return_tensors=\"pt\")\n
+    \   input_ids = inputs[\"input_ids\"]\n    print(\"Input IDs shape:\", input_ids.shape)\n\n
+    \   # 5. 找到 assistant 回复的起始位置\n    # 辅助函数：在 input_ids 中查找子序列\n    def find_sublist(seq,
+    sub):\n        for i in range(len(seq) - len(sub) + 1):\n            if seq[i:i+len(sub)].tolist()
+    == sub.tolist():\n                return i\n        return -1\n\n    # 查找 \"assistant\"
+    标记，例如 \"<|im_start|>assistant\\n\"\n    assistant_marker = tokenizer.encode(\"assistant\",
+    add_special_tokens=False)\n    # 注意：实际应用中，应使用 chat_template 生成的确切标记\n    # 这里简化为直接查找
+    \"assistant\" 的 token，但更健壮的方式是查找完整的角色标记\n    \n    # 假设我们已经知道 assistant 回复的起始位置（实际开发中需要动态查找）\n
+    \   # 这里我们手动指定（你可以通过查找 \"assistant\" 相关的 token 来定位）\n    assistant_start_pos =
+    15  # 例如：经过 tokenization 后，assistant 回复从第 15 个 token 开始\n    \n    # 6. 生成带掩码的
+    labels\n    labels = create_labels_with_assistant_mask(input_ids, assistant_start_pos)\n
+    \   \n    # 7. 可视化 labels\n    print(\"\\nToken 与 Labels 对照：\")\n    for i in
+    range(input_ids.shape[1]):\n        token_text = tokenizer.decode([input_ids[0,
+    i]])\n        label_id = labels[0, i].item()\n        if label_id == -100:\n            label_text
+    = \"[MASKED]\"\n        else:\n            label_text = tokenizer.decode([label_id])\n
+    \       print(f\"Position {i:3d}: Token='{token_text}' (ID={input_ids[0,i].item():5d})
+    -> Label={label_text}\")\n\n    # 8. 验证非 assistant 部分的 label 是否确实为 -100\n    assert
+    torch.all(labels[0, :assistant_start_pos] == -100), \\\n        \"Error: Non-assistant
+    tokens were not correctly masked!\"\n    print(\"\\n✅ 掩码验证通过！\")\n```\n\n关键点说明：\n\n-
+    在实际项目中，assistant_start_pos 应该通过自动查找 input_ids 中特定的角色标记（如 <|im_start|>assistant）来动态确定，而不是硬编码。\n\n-
+    对于多轮对话，需要找到每一个 assistant 回复的起始和结束位置，将中间的所有 token 保持为原始 ID，其余位置设为 -100。\n\n- 对于
+    assistant 回复中的特殊格式标记（如 <|im_end|>），通常也设置为 -100，因为它们不是模型需要学习生成的自然语言内容。\n\n- chat:
+    仅对 assistant 部分计算损失。\n\n- translation: 对整个序列（source+target）或仅对 target 部分计算损失。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VOrVwrhLzi4WRokQOMPcOsPWnwg
+  block_id: Efmpdw6z5ouWYCxMBhYccIPVnYf
+  page_token: VOrVwrhLzi4WRokQOMPcOsPWnwg
+  original_title: 写出一个完整的 PyTorch 示例，实现给定 input_ids 和 assistant_start_pos，生成带掩码的 labels。
+  imported_at: '2026-09-21'

@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e093116ee393
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 Self-RAG 中，模型如何决定何时检索？写出其决策过程。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 在 Self-RAG 中，模型如何决定何时检索？写出其决策过程。
+answer:
+  mode: rubric
+  reference_answer: |-
+    决策主体与信号
+
+    决定何时检索的主体就是生成模型本身，而不是外部的分类器或规则引擎。模型通过在训练中学会预测一个特殊的反思令牌 Retrieve 来发出检索指令。
+
+    决策过程的详细步骤
+
+    Self-RAG 的生成是分段进行的，决策贯穿在每一段的生成过程中：
+
+    - 段首评估：在模型准备生成一个新的段落（或句子）之前，它会根据当前的输入、已有的上下文以及自身的参数化知识，评估是否能高质量地完成该段落的生成。
+
+    - 发出检索指令：如果模型判断现有信息不足以支撑该段落的生成（例如需要某个具体的事实、数据、或对某个概念的详细解释），它会在该段落生成的起始位置直接输出 Retrieve 令牌。
+
+    - 系统拦截并执行：推理框架实时监控模型的输出 token 流。一旦检测到 Retrieve 令牌，就会立即暂停模型的生成，并使用当前的上下文（包括用户输入和已经生成的前文）作为查询，去调用检索系统（如向量数据库、搜索引擎）。
+
+    - 接收与筛选文档：检索系统返回一组文档。模型接下来会逐篇输出 Relevant 或 Irrelevant 令牌，对文档进行相关性筛选。只有被标记为 Relevant 的文档，其内容才会被添加到模型的上下文中。
+
+    - 恢复生成：模型基于筛选后获得的文档内容，继续生成该段落的剩余部分，直至该段结束，并可能随后输出事实支持度令牌。
+
+    决策的特点
+
+    这种决策机制具有按需触发、位置灵活的特点。模型不是在一个全局决策点决定“整篇回答是否需要检索”，而是在每一个可能的生成节点，都可以自主地按下“搜索按钮”。这从根本上解决了传统 RAG 中“一次检索，全篇套用”的弊端，使得在回答复杂、多方面的长问题时，模型可以进行多次、有针对性的检索。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y1dXw3l0KiZYg7kLXpQcX5gpn3f
+  block_id: Bwk7dYuzWoNnVfxnanncRiRHnCf
+  page_token: Y1dXw3l0KiZYg7kLXpQcX5gpn3f
+  original_title: 在 Self-RAG 中，模型如何决定何时检索？写出其决策过程。
+  imported_at: '2026-09-21'

@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e22f1e6e77c8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: PPO 训练时，是否需要梯度检查点或 offload 来节省内存？为什么 RLHF 通常更耗显存？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: PPO 训练时，是否需要梯度检查点或 offload 来节省内存？为什么 RLHF 通常更耗显存？
+answer:
+  mode: rubric
+  reference_answer: |-
+    答案是肯定的，梯度检查点和模型卸载是 RLHF 训练中常用的、甚至是必需的显存优化技术。
+
+    为什么 RLHF 更耗显存？
+
+    RLHF 的 PPO 阶段与标准的有监督微调（SFT）相比，显存占用有数量级的提升，原因在于需要同时承载多个巨型模型：
+
+    - 四模型协同，显存叠加：PPO 训练时，GPU 显存中需要同时存在（或频繁交换）四个大型模型：
+
+    - 生成阶段的特殊开销：PPO 的第一步是 Rollout，即 Actor 模型生成回复。这个过程会分配大量的 KV Cache 来加速自回归生成，这本身就是一个显存消耗大户。RLHF 倾向于使用较大的 batch size 来稳定训练，这进一步加剧了 KV Cache 的显存压力。
+
+    - 强化学习的多步过程：PPO 需要维持一个经验池（或一个较大的 batch），包含整个对话历史的隐藏状态、log probabilities、价值估计等，这些中间张量都需要消耗显存。
+
+    优化手段：梯度检查点与模型卸载
+
+    - 梯度检查点 (Gradient Checkpointing)：这是用来节省 Actor 和 Critic 模型在反向传播时的激活内存。因为 PPO 训练时激活内存极大，使用梯度检查点可以在前向传播时丢弃部分中间激活，在反向传播需要时重新计算，以计算时间换取显存空间。这在 RLHF 中是标配。
+
+    - 模型卸载 (Offloading)：这是用来节省 Reference 和 Reward 模型的显存。由于这两个模型在 PPO 阶段完全冻结，不需要计算梯度，我们可以将它们从 GPU 显存卸载到 CPU 内存，仅在需要计算前向传播时才异步地将其权重加载到 GPU。这可以节省出大量显存给需要更新的 Actor 和 Critic 模型。DeepSpeed ZeRO-3 和部分框架的 offload 功能正是为此设计的。
+
+    - LoRA 等参数高效微调 (PEFT)：通过仅训练低秩适配器，将可训练参数的数量减少数千倍，从而大幅降低 Actor 和 Critic 的优化器状态所占用的显存。这是近年来最有效的显存优化手段之一。
+
+    - Critic 模型缩小：实践表明，Critic 模型不需要和 Actor 一样大。使用一个更小的模型作为 Critic，可以在几乎不损失训练效果的前提下，显著降低其占用的显存和计算量。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QNW3wg7bCinLPQkL0kGc4IdynHh
+  block_id: BM8OdiWN4oylWNxZCVjcdCV1nZ2
+  page_token: QNW3wg7bCinLPQkL0kGc4IdynHh
+  original_title: PPO 训练时，是否需要梯度检查点或 offload 来节省内存？为什么 RLHF 通常更耗显存？
+  imported_at: '2026-09-21'

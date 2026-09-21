@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9a1127100826
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是服务器端 KV 缓存共享？它如何影响负载均衡？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 九：前沿与工程实践
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 九：前沿与工程实践
+content:
+  prompt: 什么是服务器端 KV 缓存共享？它如何影响负载均衡？
+answer:
+  mode: rubric
+  reference_answer: |-
+    服务器端 KV 缓存共享是指在推理服务实例（如 vLLM Pod）内部或实例组之间，通过特定的机制复用之前请求的 KV Cache。
+
+    当前的主流形式是 Prefix Caching：
+
+    - 当一个请求的 Prompt（比如 System Prompt）与之前某个请求完全相同时，推理引擎能够识别出这个“前缀”，并直接复用已存储在 GPU 显存中的、该前缀对应的 K 和 V 张量。
+
+    - 这样做的巨大好处是：跳过了 Prefill 阶段的计算，使首个 token 的生成时间 (TTFT) 几乎降为零，并且节省了大量重复计算和显存。
+
+    对负载均衡的影响：
+
+    KV Cache 共享引入了一种强烈的亲和性负载均衡需求。
+
+    - 问题：如果使用轮询或最少连接数等无状态策略，可能会将两个具有相同长 System Prompt 的对话，分发到两个不同的后端实例上。这样一来，两个实例都需要各自计算一遍 System Prompt 的 KV Cache，完全浪费了缓存复用的机会。
+
+    - 解决方案——会话亲和性或前缀感知路由：我们需要在 API 网关或负载均衡器上，引入基于 Prompt 前缀的路由功能。例如，可以计算请求中 messages[0].content（即 System Prompt）的哈希值，然后根据这个哈希值，将所有相同 System Prompt 的请求，固定路由到同一组后端实例上。
+
+    这种“有状态”的负载均衡策略，可以最大限度地发挥 KV Cache 共享的威力，但也要求我们的基础设施具备更高级的调度和流量管理能力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  block_id: PdpidNyBPojhVGx8pg4cg9JOnPf
+  page_token: Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  original_title: 什么是服务器端 KV 缓存共享？它如何影响负载均衡？
+  imported_at: '2026-09-21'

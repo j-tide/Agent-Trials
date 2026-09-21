@@ -1,0 +1,79 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a080e73e9930
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 建立 BM25 索引需要哪些步骤？如何用 Elasticsearch 或 Lucene 实现？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 建立 BM25 索引需要哪些步骤？如何用 Elasticsearch 或 Lucene 实现？
+answer:
+  mode: rubric
+  reference_answer: |-
+    建立一个可供查询的 BM25 索引，是一个经典的离线数据处理管道，主要包含文本预处理、词项统计、倒排索引构建和索引优化四个阶段。
+
+    典型步骤：
+
+    - 文档收集与解析：从各种数据源（数据库、文件系统等）读取原始文档，并解析为纯文本。
+
+    - 文本预处理：这是决定检索质量的关键。
+
+    - 构建倒排索引：这是 BM25 的物理核心。倒排索引是一种从“词项”到“文档列表”的映射表。对于词表中的每一个词项，倒排索引记录了包含该词项的所有文档 ID，以及该词在每篇文档中的词频和位置信息。这个过程由索引引擎在后台自动完成。
+
+    - 存储文档与统计信息：除了索引，引擎还会存储原始文档内容（用于结果展示）以及全局统计信息，如文档总数、每篇文档的长度、平均文档长度等，这些是 BM25 评分计算所必需的。
+
+    - 索引优化与持久化：对索引进行合并分段、压缩等优化操作，最后持久化到磁盘供查询服务加载。
+
+    用 Elasticsearch / Lucene 实现：
+
+    在实际工程中，几乎不会从零手写索引。Elasticsearch 是对 Lucene 的分布式封装，是目前最主流的实现方式。
+
+    - 定义索引映射 (Mapping)：
+    在创建索引时，通过 Mapping 定义文档的字段及其类型。对于需要 BM25 检索的文本字段，类型设置为 text。可以指定分词器、是否存储词项位置等。例如，为“标题”和“正文”使用不同的分析器或设置不同的权重。
+
+    "mappings": {
+      "properties": {
+        "title": { "type": "text", "analyzer": "ik_max_word", "boost": 2.0 },
+        "content": { "type": "text", "analyzer": "ik_smart" }
+      }
+    }
+
+    - 索引文档：
+    使用 Bulk API 批量导入文档。Elasticsearch 会自动对每个 text 字段调用指定的分析器，完成分词、过滤、统计，并构建倒排索引。
+
+    - 执行 BM25 查询：
+    使用 match 或 multi_match 查询，Elasticsearch 内部默认的相似度算法就是 BM25。Lucene 已内置了 BM25 的实现，会自动根据倒排索引中的词频、文档长度和全局统计信息，实时计算每篇文档的得分并排序返回。
+
+    开发者只需要关注 Mapping 的设计、分词器的选择和索引数据的导入，底层的复杂统计和评分计算完全由引擎负责。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Vb7IwCWIWiJRpIkluiicTYcOnnd
+  block_id: H3qad1u90oDe5lxIxEncjEhrnPx
+  page_token: Vb7IwCWIWiJRpIkluiicTYcOnnd
+  original_title: 建立 BM25 索引需要哪些步骤？如何用 Elasticsearch 或 Lucene 实现？
+  imported_at: '2026-09-21'

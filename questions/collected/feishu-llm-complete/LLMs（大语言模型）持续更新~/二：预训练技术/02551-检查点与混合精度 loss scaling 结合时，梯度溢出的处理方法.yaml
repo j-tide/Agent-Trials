@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2f0ada3e51bd
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 检查点与混合精度 loss scaling 结合时，梯度溢出的处理方法。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 检查点与混合精度 loss scaling 结合时，梯度溢出的处理方法。
+answer:
+  mode: rubric
+  reference_answer: |-
+    混合精度训练使用 GradScaler 动态调整损失缩放因子。梯度检查点不影响缩放因子的基本逻辑，但两者结合时需注意：
+
+    - 溢出检测：scaler.step(optimizer) 检查所有参数的梯度是否包含 inf/NaN。重计算产生的梯度同样受缩放因子影响，若缩放因子过大，重计算后的梯度也可能溢出。检测到溢出后，scaler 会跳过本次更新并减小缩放因子。
+
+    - 缩放因子的更新：scaler.update() 应该在完成整个 mini-batch 的反向（包括所有重计算）之后调用。由于检查点可能增加计算时间，缩放因子的更新频率不变。
+
+    - 重计算中的数值稳定性：重计算前向时，同样在 autocast 环境下进行。因此首次前向和重计算前向的数值行为一致。溢出风险主要源于原始梯度大小，检查点本身不增加溢出概率。
+
+    处理溢出：如果频繁溢出，应降低初始缩放因子、减小增长因子或延长增长间隔，而不是调整检查点配置。因为检查点只影响计算图，不影响梯度大小。溢出问题属于损失缩放的固有挑战。
+
+    最佳实践：监控缩放因子曲线。若开启检查点后溢出率明显上升（极少见），可能是由于重计算引入的数值差异（如计算顺序变化）导致部分层梯度稍大，此时可适当降低缩放因子。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  block_id: SWeqddWQHoBfIdxn8cScmTGRnLb
+  page_token: DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  original_title: 检查点与混合精度 loss scaling 结合时，梯度溢出的处理方法。
+  imported_at: '2026-09-21'

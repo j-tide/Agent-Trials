@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f60ca9bf31eb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 缩放因子搜索过程中，校准数据集的选择重要吗？如何选择？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 缩放因子搜索过程中，校准数据集的选择重要吗？如何选择？
+answer:
+  mode: rubric
+  reference_answer: |-
+    校准数据集的选择非常重要，因为它直接影响激活统计量的代表性，进而决定缩放因子能否准确识别和保护显著权重。尽管 AWQ 对校准数据的需求远低于 GPTQ（后者需要二阶海森信息），但完全不合理的校准集仍会导致缩放偏差。
+
+    影响机理：
+
+    - 缩放因子 sisi 通常基于激活的幅度统计（如绝对最大值、均值或分位数）来计算。若校准数据与推理实际分布差异巨大，激活的通道重要性排序可能错乱。
+
+    - 例如，校准数据全是短句，而实际应用是长文档，某些处理长距离依赖的通道可能在校准时未被充分激活，导致其对应的权重未被有效保护，长文本性能下降。
+
+    如何选择校准数据：
+
+    - 与下游任务对齐：尽可能使用与实际推理输入分布相似的文本。如通用对话用 ShareGPT 或 OpenChat 对话集；代码生成用 The Stack；长文本用书籍或长文档。
+
+    - 多样性与覆盖面：选取涵盖不同主题、风格、语言的样本，确保各类特征都被激活。通用场景下，C4 或 WikiText 的随机切片通常足够。
+
+    - 样本数量：AWQ 对数量不敏感，通常 32~128 个样本即可稳定估计激活统计量。过多无额外收益，过少可能统计噪声大。
+
+    - 序列长度：校准数据的序列长度应接近或略长于典型推理长度，以充分暴露位置编码和长程依赖对应的激活模式。
+
+    - 简单性：若实在无明确下游，使用 Pile 或 RedPajama 等通用大语料的随机抽取段落即可。关键要保证多样性，而非数据的“质量”或“干净度”。
+
+    总结：AWQ 对校准数据的容错性较强，但为获得最佳精度，应选择与部署任务分布匹配、多样且长度适中的少量文本。切勿使用完全领域外的数据（如医学问答校准通用聊天），否则可能导致精度不升反降。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CNm5w5hEKiUhQ5kMnPrcFoSGnVd
+  block_id: TTrgdOjLLoEBs4xzIDhcxtFrn7g
+  page_token: CNm5w5hEKiUhQ5kMnPrcFoSGnVd
+  original_title: 缩放因子搜索过程中，校准数据集的选择重要吗？如何选择？
+  imported_at: '2026-09-21'

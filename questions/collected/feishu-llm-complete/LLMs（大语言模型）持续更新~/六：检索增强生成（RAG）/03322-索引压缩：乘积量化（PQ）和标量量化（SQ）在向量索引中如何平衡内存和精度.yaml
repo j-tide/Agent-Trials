@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c44ca4dbff9a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 索引压缩：乘积量化（PQ）和标量量化（SQ）在向量索引中如何平衡内存和精度？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 索引压缩：乘积量化（PQ）和标量量化（SQ）在向量索引中如何平衡内存和精度？
+answer:
+  mode: rubric
+  reference_answer: |-
+    乘积量化（Product Quantization, PQ）和标量量化（Scalar Quantization, SQ）是两种主流的向量压缩技术，它们的核心目标都是将高维浮点向量用更少的比特位来表示，以降低海量向量场景下的内存占用和计算开销。但两者的实现路径截然不同，在内存节省幅度和精度损失之间形成了明显的差异，需要根据实际业务需求做出权衡。
+
+    乘积量化 (PQ) 是一种更激进的压缩方法。它首先将高维向量（例如 768 维）横向切分成多个子向量（例如 4 段，每段 192 维）。然后，对所有向量的每一段子向量分别进行 K-Means 聚类，生成各自的码本。原始向量的每一个子段，最终只存储其最接近的聚类中心 ID。这样，一个原本需要 768 × 4 bytes = 3072 bytes 的浮点向量，如果压缩成 8-bit 的 ID，可能只需要几十个字节。内存占用可以降低一个数量级以上，但代价是精度。因为向量被强行映射到了有限的几个聚类中心上，会产生不可逆的量化误差，导致搜索召回率下降，尤其是在需要精细区分的高相似度区域。
+
+    标量量化 (SQ) 则要温和得多。它不改变向量的结构，而是将向量中每个维度的值，从高精度浮点数（如 float32）转换为低精度整数（如 int8）。这就像将一张高保真照片降低色彩深度。它不会丢失维度信息，但每个维度的数值精度变低了。SQ 的压缩比相对固定（将 float32 变成 int8 即为 4 倍），内存节省有限，但因为它保留了原向量的结构，信息损失远小于 PQ。在多数场景下，尤其是在 IVF 索引的粗量化阶段或作为精排的前置步骤，SQ 通常能提供几乎无损的检索体验。
+
+    在实际工程中，两者常常是组合使用的。最经典的例子就是 IVF_PQ 索引。它使用 IVF 进行粗粒度的空间划分（聚类），然后在每个簇内部，使用 PQ 来压缩残差向量。这样，既通过 IVF 加速了搜索，又通过 PQ 极大地压缩了数据规模，使得在内存受限的机器上存储和搜索十亿级向量成为可能。而如果内存相对充裕，但对查询延迟极度敏感，通常可以选择 IVF 搭配 SQ，甚至是完全不压缩的 Flat 搭配 HNSW。选择哪一种，本质上是在回答“我们愿意用多少精度损失，来换取多少内存和成本的节省”这个经典问题。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SkhxwrnkSi7qcRkf8LOcNILdnr0
+  block_id: CCp2dBheqodovIx3mHNcfRTRnNg
+  page_token: SkhxwrnkSi7qcRkf8LOcNILdnr0
+  original_title: 索引压缩：乘积量化（PQ）和标量量化（SQ）在向量索引中如何平衡内存和精度？
+  imported_at: '2026-09-21'

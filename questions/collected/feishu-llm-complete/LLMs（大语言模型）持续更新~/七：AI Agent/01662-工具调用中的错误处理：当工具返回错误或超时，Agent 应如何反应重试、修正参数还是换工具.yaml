@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7a409bb55535
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 工具调用中的错误处理：当工具返回错误或超时，Agent 应如何反应？重试、修正参数还是换工具？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 工具调用中的错误处理：当工具返回错误或超时，Agent 应如何反应？重试、修正参数还是换工具？
+answer:
+  mode: rubric
+  reference_answer: |-
+    核心问题
+
+    工具调用失败是真实环境中的常态，原因多种多样：网络超时、API 权限不足、参数格式错误、业务逻辑拒绝等。一个脆弱的设计会让 Agent 在此刻“死机”，而一个鲁棒的、全面的错误处理策略，则是 Agent 可靠性的基石。
+
+    错误处理策略
+
+    当工具返回错误时，Agent 的反应不应是单一的，而应是根据错误类型和上下文，从一系列策略中进行智能选择。
+
+    - 错误信息的标准化与传递
+    后端在执行工具调用失败时，不应简单地向 LLM 返回一个 Error: true。必须将原始的错误信息进行清洗和标准化，构造成一段信息丰富的、对 LLM 友好的文本。例如，将 HTTP 500 的堆栈信息翻译为：“工具 search_database 执行失败，原因是服务器内部错误。这可能是一个临时故障，稍后重试可能会成功。” 这段文本会作为 tool 角色的消息，返回给 LLM，作为其下一步推理的依据。
+
+    - LLM 的智能响应策略
+
+    LLM 在接收到错误信息后，可以展现出几种层次的“智能”应对：
+
+    - 策略一：智能重试。如果错误信息表明这是一个临时性故障（如“连接超时”），模型可以决定以完全相同的参数再次发起调用。但必须设定最大重试次数，防止无限循环。
+
+    - 策略二：参数修正。如果错误信息是“参数错误：城市名‘北竟’不存在”，模型能够利用其常识推理能力，自动将参数修正为“北京”，并再次发起调用。这是 LLM 强大纠错能力的体现。
+
+    - 策略三：降级与替代方案。如果一个工具反复报错，模型应转向尝试功能相似的工具。例如，search_database 不可用，可以尝试 search_file_system 或 ask_user 等替代方案。
+
+    - 策略四：优雅失败与用户沟通。如果以上所有尝试均告失败，或者错误表明任务不可为（如“权限不足”），模型应停止尝试。它需要综合所有失败的尝试，生成一段清晰的、有同理心的回复，向用户解释失败的原因、它尝试了哪些方法，并提供可能的替代建议或请求人工介入。
+
+    - 系统级的兜底与保护机制
+
+    不能完全依赖 LLM 的自我纠错，系统本身也必须设定保护网。
+
+    - 全局超时与步数限制：为整个任务设置一个硬性的时间或步数上限，防止 Agent 在错误处理循环中消耗过多资源。
+
+    - 全局异常捕获与日志：所有层的异常都应被捕获、记录，并可用于后续的系统审计和优化。
+
+    - 强制终止策略：当检测到同一个工具调用连续失败超过 N 次，系统可以强制终止该分支，并向 LLM 注入一条系统指令，要求其立即改变策略。
+
+    结论：工具调用的错误处理不是一个事后补丁，而应被设计为一个贯穿前后端、融合系统级健壮性与 LLM 智能决策的分层体系。正是这种对异常情况的周全考虑，才让 Agent 从玩具变成了值得信赖的生产力工具。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IA43wgi1niRa19kxIa6c0Qo5nCh
+  block_id: IuDEdFDUsoeVQ8x3ZOsceIXPnDc
+  page_token: IA43wgi1niRa19kxIa6c0Qo5nCh
+  original_title: 工具调用中的错误处理：当工具返回错误或超时，Agent 应如何反应？重试、修正参数还是换工具？
+  imported_at: '2026-09-21'

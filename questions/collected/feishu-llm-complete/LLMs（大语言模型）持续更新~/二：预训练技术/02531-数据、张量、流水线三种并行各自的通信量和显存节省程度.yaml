@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ecf9ec48620b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 数据、张量、流水线三种并行各自的通信量和显存节省程度
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 数据、张量、流水线三种并行各自的通信量和显存节省程度
+answer:
+  mode: rubric
+  reference_answer: |-
+    数据并行 (Data Parallelism)
+
+    - 原理：每张GPU上保有完整的模型副本，数据被切分成多个micro-batch，各GPU独立前向和反向计算本地梯度，然后通过All-Reduce操作同步梯度，确保所有GPU上的模型参数在更新时保持一致。
+
+    - 通信量：在每次迭代（或梯度累积步）结束时，进行一次All-Reduce通信，通信量与模型参数量成正比，大小为 2 * (N-1)/N * P ≈ 2P (P为模型参数总量)，当GPU数量N较大时接近常数。通信频率较低，通常每个训练step一次。
+
+    - 显存节省：完全没有节省。每张GPU仍需存储完整模型参数、梯度、优化器状态和中间激活，因此单卡显存限制了模型大小。仅适用于单卡能容纳模型的情况。
+
+    张量并行 (Tensor Parallelism)
+
+    - 原理：将单层内的参数矩阵（如注意力中的QKV投影、FFN中的全连接层）切分到多张GPU上，每张卡只计算一部分，然后通过集合通信交换结果。
+
+    - 通信量：通信量巨大且极为频繁。每个Transformer层的前向和反向都需要通信。例如，Megatron的1D张量并行中，每个注意力层和FFN层都需要一次All-Reduce。总通信量与 层数 × 序列长度 × 隐藏维度 成正比。由于通信与计算强耦合，需要极高带宽。
+
+    - 显存节省：显著。每张卡只存储 1/N 的参数、梯度和优化器状态（N为张量并行度）。同时，激活也被分片存储，极大缓解了单卡显存压力。这是其核心优势。
+
+    流水线并行 (Pipeline Parallelism)
+
+    - 原理：将模型按层切分到多张GPU上，每张卡负责连续的若干层。数据像流水线一样依次通过各GPU，采用micro-batch来减少GPU空闲气泡。
+
+    - 通信量：通信量较小，仅在相邻阶段之间传递中间激活（前向）和梯度（反向）。通信频率等于micro-batch的数量，通信量与 micro-batch数 × 序列长度 × 隐藏维度 成正比。由于只在层边界通信，对带宽要求远低于张量并行，适合跨节点。
+
+    - 显存节省：显著。每张卡只存储部分层的参数、梯度和优化器状态。但激活显存可能因为需要保存多个micro-batch的中间状态而增大（取决于调度算法），不过可通过重计算等技术缓解。
+
+    总结：数据并行通信量中等但频率低，不省显存；张量并行通信量极大且频繁，但显存节省最高，需极高带宽；流水线并行通信量较小，适合跨机，显存节省良好。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQ7qw1klCirayhkUauicscbqnpc
+  block_id: UhcWdjnf4olKMExSJpHc8K8Snss
+  page_token: GQ7qw1klCirayhkUauicscbqnpc
+  original_title: 数据、张量、流水线三种并行各自的通信量和显存节省程度
+  imported_at: '2026-09-21'

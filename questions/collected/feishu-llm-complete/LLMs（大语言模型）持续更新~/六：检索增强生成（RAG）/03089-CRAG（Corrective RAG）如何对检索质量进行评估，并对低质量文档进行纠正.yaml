@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-725bccf01111
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: CRAG（Corrective RAG）如何对检索质量进行评估，并对低质量文档进行纠正？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: CRAG（Corrective RAG）如何对检索质量进行评估，并对低质量文档进行纠正？
+answer:
+  mode: rubric
+  reference_answer: |-
+    CRAG 的核心设计
+
+    CRAG 并不改变生成模型本身，而是在检索步骤之后、生成步骤之前，插入了一个独立的检索评估与自动纠正模块。它的职责是确保最终进入大模型上下文的信息，是经过质量验证和优选的。这相当于为 RAG 管道增加了一道质量保障工序。
+
+    评估机制：轻量级检索评估器
+
+    CRAG 使用一个专门训练或设计的“检索评估器”来对初次检索返回的每篇文档进行打分。这个评估器通常是一个微调过的小型语言模型（如 T5-Large），能够输出一个置信度分数，表示文档与查询的相关程度。基于这些分数，CRAG 将检索结果分为三个质量等级：
+
+    - 高质量：绝大部分文档置信度高于阈值，表明检索准确。
+
+    - 低质量：绝大部分文档置信度低于阈值，表明检索失败。
+
+    - 中等质量：介于两者之间，部分文档相关，部分不相关。
+
+    纠正策略：三条行动路径
+
+    根据评估结果，CRAG 会触发三种不同的行动路径：
+
+    - 路径一：知识正确（Confident）——直接采用。如果评估为高质量，CRAG 不做任何干预，直接将筛选出的高置信度文档送入后续生成模块。
+
+    - 路径二：知识错误（Wrong）——转向网页搜索。如果评估为低质量，CRAG 判定本地知识库无法满足需求，随即触发纠正行动：自动将用户查询改写为更适合网页搜索的形式，调用外部搜索引擎获取公开网络的实时信息。获取到的网页内容会再次经过评估器筛选，最终用高质量的网络信息替换掉原始的劣质检索结果。
+
+    - 路径三：知识模糊（Ambiguous）——优化检索。如果评估为中等质量，CRAG 采取一个更精细的优化策略。它会一方面保留那些高置信度的文档，另一方面，利用查询和这些已知相关文档的信息，生成一个更聚焦、更具体的“子查询”，向本地知识库发起二次检索，以补充更精准的信息。最后将新旧结果合并择优。
+
+    纠正的价值
+
+    CRAG 通过这个评估-分流-纠正的闭环，解决了标准 RAG “检索质量全靠运气”的痛点。它让系统在面对检索失败时，具备了主动补救的能力，而不是被动地将错就错。这种机制大幅提升了 RAG 系统在各类查询和不同文档库条件下的鲁棒性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y1dXw3l0KiZYg7kLXpQcX5gpn3f
+  block_id: HlL1dFdc2ov4RYxdLDEcifqwn3g
+  page_token: Y1dXw3l0KiZYg7kLXpQcX5gpn3f
+  original_title: CRAG（Corrective RAG）如何对检索质量进行评估，并对低质量文档进行纠正？
+  imported_at: '2026-09-21'

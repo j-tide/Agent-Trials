@@ -1,0 +1,74 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ee5abd9f5612
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 SimPO 时，如何高效计算序列的平均 log 概率？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 实现 SimPO 时，如何高效计算序列的平均 log 概率？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在自回归语言模型中，我们通常已经计算了每个 token 的交叉熵损失。实现 SimPO 的平均对数概率计算可以非常高效，无需复杂的额外操作。
+
+    高效实现方法：
+
+    - 利用模型的 forward 方法：当我们将 labels 参数传递给模型（如 HuggingFace 的 model(input_ids, labels=labels)）时，它内部会自动计算每个 token 的交叉熵损失，并返回一个形状为 (batch_size, seq_len) 的 token-level loss 张量。
+
+    - 应用损失掩码：对于回复中的每个 token，我们对其 loss 应用掩码，只保留我们关心的 token（如 chosen/rejected 回复部分的 token）。
+
+    - 计算总和与平均：
+
+    代码示例 (PyTorch)：
+
+    # logits: shape (batch_size, seq_len, vocab_size)
+    # labels: shape (batch_size, seq_len)，非目标位置为 -100
+
+    loss_fct = torch.nn.CrossEntropyLoss(reduction='none')
+    token_losses = loss_fct(logits.permute(0,2,1), labels)  # (batch_size, seq_len)
+
+    # 创建掩码：有效token位置为1，忽略位置（-100）为0
+    loss_mask = (labels != -100).float()
+
+    # 计算总损失和平均损失
+    total_loss = (token_losses * loss_mask).sum(dim=-1)  # (batch_size,)
+    num_valid_tokens = loss_mask.sum(dim=-1)             # (batch_size,)
+    avg_loss = total_loss / num_valid_tokens
+
+    # chosen 回复的平均对数概率
+    avg_log_prob = -avg_loss
+
+    这种方法完全复用了 SFT 训练中已有的计算，性能极高，无需额外开销。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NYUaw2x0Wi7SsckMF9Vc4Qjcnze
+  block_id: OPQ2dfDHpo9OatxTMyscDMXZnfb
+  page_token: NYUaw2x0Wi7SsckMF9Vc4Qjcnze
+  original_title: 实现 SimPO 时，如何高效计算序列的平均 log 概率？
+  imported_at: '2026-09-21'

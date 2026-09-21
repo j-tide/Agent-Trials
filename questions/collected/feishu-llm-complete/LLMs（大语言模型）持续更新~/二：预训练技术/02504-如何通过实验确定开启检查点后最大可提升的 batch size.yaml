@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f93094f5f6fb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何通过实验确定开启检查点后最大可提升的 batch size？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 如何通过实验确定开启检查点后最大可提升的 batch size？
+answer:
+  mode: rubric
+  reference_answer: |-
+    核心思路是：开启检查点会释放大量显存，这些节省的显存可用于增大 micro-batch size（或序列长度）。需要逐步增加 batch 并观测显存使用和吞吐，找到 OOM 边界。
+
+    实验步骤：
+
+    - 基线测量：关闭检查点，调整 batch size 至刚好不 OOM，记录此时 batch size B0B0 和峰值显存 M0M0。
+
+    - 开启检查点，逐步增加 micro-batch size，每次训练几步记录显存峰值，直到再次 OOM，记下最大 batch size B1B1。
+
+    - 计算提升倍数：B1/B0B1/B0。通常可提升 2‑5 倍，具体取决于模型深度和原激活内存占比。
+
+    - 评估吞吐：增大 batch size 后，因并行度提高，GPU 利用率可能上升，吞吐可能不降反升（即使有重计算开销）。绘制 batch size vs throughput 曲线，找到最优 batch size（吞吐最高点）。
+
+    - 考虑全局 batch size：如果受限于梯度噪声，可能需要保持相同的全局 batch size，此时可减少梯度累积步数，从而加速训练（减少了 optimizer step 的等待时间）。这也是检查点的间接收益。
+
+    关键监控指标：torch.cuda.max_memory_allocated()，以及训练日志中的 tokens/sec。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  block_id: QRW8dUcjToiguvxsU8DcLj3Bn9b
+  page_token: DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  original_title: 如何通过实验确定开启检查点后最大可提升的 batch size？
+  imported_at: '2026-09-21'

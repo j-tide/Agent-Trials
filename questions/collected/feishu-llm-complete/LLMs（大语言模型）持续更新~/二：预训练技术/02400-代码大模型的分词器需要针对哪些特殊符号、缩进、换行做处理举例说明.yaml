@@ -1,0 +1,78 @@
+---
+schema_version: 1
+id: feishu-llm-complete-988a3a9d2aef
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 代码大模型的分词器需要针对哪些特殊符号、缩进、换行做处理？举例说明。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 代码大模型的分词器需要针对哪些特殊符号、缩进、换行做处理？举例说明。
+answer:
+  mode: rubric
+  reference_answer: |-
+    代码与自然语言有显著不同的结构，分词器必须妥善处理这些特性，否则会破坏代码语法，导致模型性能骤降。
+
+    - 缩进（Indentation）：
+
+    在 Python、YAML 等语言中，缩进定义了代码块。如果分词器将缩进随意拆分，模型将无法理解代码的层级结构。
+
+    - 处理策略：通常保留原始的空格和制表符。字节级 BPE 会自然学习到空格组合。例如，连续的四个空格可能被合并成一个 token（因为它在代码中频繁出现）。这无需人工干预，模型从数据中自行学会将缩进作为有意义的单元。一些专用分词器会显式地将缩进转换为特殊 token，如 <INDENT> 和 <DEDENT>，但这较为少见，主流大模型（如 Codex, CodeLlama）均使用通用分词器处理。
+
+    - 换行符（Newline）：
+    换行是语句结束的标志，必须保留。通常将 \n（LF）或 \r\n（CRLF）作为普通字符，它会被 BPE 训练为一个独立的 token（因为无法与其他字母合并），这样模型就能明确感知到行的边界。
+
+    - 特殊符号和运算符：
+    代码中的 {, }, (, ), [, ], :, +, -, *, /, =, ==, != 等是语法核心。它们必须被完整且独立地识别。
+
+    - 处理策略：在通用分词器中，这些符号由于周围通常是空格或字母，BPE 会自然地将它们作为独立 token 合并（例如，= 本身频率极高，会保留为单独 token；== 两个等号频繁相邻，也会合并成一个 token）。因此，无需特殊规则，大数据驱动即可。
+
+    - 标识符和驼峰命名：
+    变量名和函数名如 myVariableName, get_user_by_id 常被连字符或驼峰式命名分隔。
+
+    - 处理：分词器通常会将其切分成子词。例如 myVariable 可能被切为 ["my", "Variable"] 或更碎。为了保持语义，一些代码分词器会加入启发式规则，在大小写切换处或下划线处强制分词，但这并非标准做法。现代代码大模型往往拥有超大词表（50k+），常见的代码词汇片段能被整体保留的概率更高。
+
+    举例（Python 代码片段）：
+
+    ```python
+    def factorial(n):
+        if n <= 1:
+            return 1
+        return n * factorial(n-1)
+    ```
+
+    使用 CodeLlama 分词器可能得到如下 token 序列（简化）：
+    ["def", " factorial", "(", "n", "):", "\n", " ", "if", " n", " <=", " 1", ":", "\n", " ", "return", " 1", "\n", " ", "return", " n", " *", " factorial", "(", "n", "-", "1", ")"]
+
+    可以看到，缩进 " " 成为独立 token，运算符 "<=" 被整体保留，换行符独立。这些都是数据驱动的结果。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UKVSwsmrvizh73kD8qpckkNRnQh
+  block_id: AeYddHjsNozWFVx2Y57chdtXn0g
+  page_token: UKVSwsmrvizh73kD8qpckkNRnQh
+  original_title: 代码大模型的分词器需要针对哪些特殊符号、缩进、换行做处理？举例说明。
+  imported_at: '2026-09-21'

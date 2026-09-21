@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-52a20073e474
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 ORPO 中，偏好数据如何影响 SFT 部分的梯度？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 在 ORPO 中，偏好数据如何影响 SFT 部分的梯度？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是一个关键问题。如果偏好数据中的 rejected 回复质量也很高，会不会错误地引导 SFT 部分去学习它？
+
+    答案是：偏好数据不直接污染 SFT 的梯度，而是通过共享参数施加间接影响。
+
+    具体机制如下：
+
+    - SFT 损失的梯度：在计算 L SFT 时，模型只看 chosen 回复。它会计算 chosen 回复中每个 token 的交叉熵损失，并反向传播梯度。因此，SFT 的梯度始终指向“最大化 chosen 回复概率”的方向，绝不会要求模型去学习生成 rejected 回复。
+
+    - 共享参数的交互：虽然 SFT 的梯度方向是确定的，但模型参数是共享的。L OR 损失同时也在起作用，它会计算模型对 chosen 和 rejected 回复的生成概率，并产生一个将 rejected 回复概率推向零的惩罚梯度。
+
+    - 协同效应：这两个梯度在共享参数上被加权求和。最终，模型参数更新方向是两者的合力：
+
+    因此，偏好数据通过 OR 损失项，辅助和强化了 SFT 的学习。它不仅让模型学得更快、更好，还通过惩罚机制，防止模型在学习 chosen 时“不小心”也提升了类似的、但不好的回复的概率，从而提升了模型的鲁棒性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LDEaws7M2ib3h0k3LxMcQiy0nKe
+  block_id: OGgUd0ECyoZWwqx6XGXc9ZuOnAd
+  page_token: LDEaws7M2ib3h0k3LxMcQiy0nKe
+  original_title: 在 ORPO 中，偏好数据如何影响 SFT 部分的梯度？
+  imported_at: '2026-09-21'

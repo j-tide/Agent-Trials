@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0e7368c86b8e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Decoder-Only 模型训练时，如何高效处理填充 (Padding)？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: Decoder-Only 模型训练时，如何高效处理填充 (Padding)？
+answer:
+  mode: rubric
+  reference_answer: |-
+    填充 (Padding) 是由于批次内序列长度不一，需用特殊 <PAD> token 补齐到统一长度。高效处理填充的方法包括：
+
+    - 注意力掩码：在自注意力计算时，为每个填充位置施加负无穷大的掩码（-∞），使其注意力权重归零。这是最基本的手段，确保模型不会关注填充内容。
+
+    - 动态批处理 (Dynamic Batching / Bucketing)：将长度相近的序列分组到同一个批次，最大限度减少批次内的最大长度与各序列长度的差距，从而降低填充比例。这是训练框架（如 Megatron、DeepSpeed）的标准做法。
+
+    - 序列打包 (Sequence Packing)：将多个短序列拼接成一个长序列，并用特殊的注意力掩码阻止不同序列之间的注意力交互（通过块对角掩码）。这样几乎完全消除了填充开销，极大提升了 GPU 利用率。现代 LLM 预训练普遍采用此方法。
+
+    - Loss Masking：计算损失时，忽略填充 token 的位置，只对真实 token 求损失，避免填充位置污染梯度。
+
+    - FlashAttention 的兼容：高效的 FlashAttention 内核原生支持变长序列，无需显式填充即可处理不等长序列，直接跳过了填充计算的浪费。
+
+    通过这些技术，Decoder-Only 模型可以在几乎不损失计算效率的前提下处理变长序列。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/A6fzwHMXGiFWjWk5mrPcBLIAnOc
+  block_id: SvczdbaH6oe67exRwD3csgmgnVe
+  page_token: A6fzwHMXGiFWjWk5mrPcBLIAnOc
+  original_title: Decoder-Only 模型训练时，如何高效处理填充 (Padding)？
+  imported_at: '2026-09-21'

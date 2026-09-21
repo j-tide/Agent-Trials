@@ -1,0 +1,86 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d981c5b80870
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在不使用检查点的情况下，还有哪些降低激活内存的技术？比较其效果。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 在不使用检查点的情况下，还有哪些降低激活内存的技术？比较其效果。
+answer:
+  mode: rubric
+  reference_answer: |-
+    除了梯度检查点，还有以下主流技术：
+
+    [嵌入表格未展开]
+
+    效果对比：
+
+    - 对于长序列，FlashAttention 是第一优先级，可将注意力激活几乎降为零。
+
+    - 对于模型训练本身，混合精度 是基础。
+
+    - 当上述两项仍不够时，梯度检查点 是最普遍的进一步手段。
+
+    - 如果还超显存，可叠加 激活卸载 或 序列并行。
+
+    综合运用多种技术是现代大模型训练的常态。例如，DeepSpeed 和 Megatron 通常同时使用混合精度、FlashAttention、梯度检查点和序列并行，以达到最高的内存效率。
+
+    - 可能触发 autograd 的递归限制，对于极深网络或复杂控制流容易出错。
+
+    - 与某些需要保存状态的上下文（如 autocast、torch.no_grad）交互时行为复杂，需要额外处理。
+
+    - 不支持在检查点段内包含需要梯度的通信操作（如 all‑reduce），因为这些操作在重入时可能被错误地再次执行。
+
+    - 没有递归限制，更稳定。
+
+    - 天然支持段内的分布式通信操作，因为在反向重计算时，通信可以正常执行。
+
+    - 与 autocast 等上下文更好兼容，因为重计算时可以完全恢复前向时的精度环境。
+
+    - 允许段内使用需要梯度的操作（虽然不常用）。
+
+    - 在首次前向传播之前，保存当前的 RNG 状态。
+
+    - 执行前向，dropout 使用 RNG 生成 mask。
+
+    - 输出计算完毕，释放中间激活，同时恢复 RNG 到前向前的状态（这样主训练循环的随机性不受影响）。
+
+    - 反向重计算时，再次恢复 RNG 到首次前向前的状态，然后重新执行前向。因此，dropout 会生成完全相同的 mask，保证梯度正确性。
+
+    - 第一层线性输出（升维到 4d4d）：b×s×4d=2048×49152×2≈192MB。
+
+    - 激活函数输出：同上 192 MB。
+
+    - 第二层线性输出：b×s×d=48 MB。
+    FFN 小计约 430 MB。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  block_id: LUf4dBkC6oe0oGxk5w7cU9GfniG
+  page_token: DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  original_title: 在不使用检查点的情况下，还有哪些降低激活内存的技术？比较其效果。
+  imported_at: '2026-09-21'

@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a7597723aef4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为了降低平均延迟，如何结合 “prefill 优先” 或 “decode 优先” 策略？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 为了降低平均延迟，如何结合 “prefill 优先” 或 “decode 优先” 策略？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Prefill 和 decode 对系统的影响不同：
+
+    - Prefill：计算密集，一次性处理，完成后释放大量计算资源，且能尽早开始生成第一个 token（降低 TTFT）。
+
+    - Decode：内存带宽密集，需要持续迭代，延迟直接影响每个 token 的生成时间（TPOT）。
+
+    为降低平均请求延迟（整个请求完成时间 = TTFT + 生成时间），需要平衡二者：
+
+    “Prefill 优先”策略：
+
+    - 尽快让新请求完成 prefill，进入 decode 状态，这样它们可以尽早开始产出 token，减少用户的等待感知（TTFT）。同时，尽早完成 prefill 能更快释放占用的计算资源。
+
+    - 适用：当系统有大量新请求积压，TTFT 成为主要矛盾时。方法：调度器给 prefill 请求分配更多 token 预算，或优先为新请求分配 prefill 资源，甚至暂停部分 decode 迭代。
+
+    - 代价：可能增加正在 decode 的请求的 TPOT，因为这些 decode 请求的迭代可能会被延迟（GPU 执行 prefill 耗时较长）。若过度优先 prefill，decode 请求的 token 生成会变慢。
+
+    “Decode 优先”策略：
+
+    - 尽量减少对正在进行的 decode 请求的打断，保证已生成 token 的请求能平稳、快速地完成。因为 decode 阶段用户正在实时阅读，延迟抖动更敏感。
+
+    - 适用：当交互体验、TPOT 稳定性更重要时。方法：将 prefill 分块得非常小，与 decode 混合，或者限制每轮 prefill 的总 token 数，确保 decode 请求在每次迭代中占主体，单次迭代时间短且平稳。
+
+    - 代价：新请求的 prefill 可能被拉长（多轮迭代才完成 prefill），TTFT 上升。
+
+    最优结合：
+
+    - 分块 prefill + 动态预算：将长 prompt 的 prefill 分成多个小块，每次迭代处理一个小块与若干 decode 请求。同时动态调整每个迭代中 prefill token 的预算（如不超过总 token 的 20%），这样既保证 decode 请求的迭代延迟稳定，又逐步推进 prefill，使 TTFT 合理。
+
+    - 双队列调度：将 prefill 请求和 decode 请求放入不同优先级队列，使用权重或时间片轮转。例如，每进行 N 次 decode 迭代，强制插入一次 prefill 块；或者根据当前等待 prefill 的请求数量动态调整比例。
+
+    - 抢占式优先：当系统检测到某些 decode 请求即将完成，可短暂延迟 prefill，让短请求快速结束。
+
+    TensorRT-LLM 和 vLLM 的分块 prefill 本质上就是这种平衡的产物，在保持 TPOT 稳定的同时，尽量压低 TTFT。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  block_id: Jw5md3Mplo3J6pxyP52cMvxDnag
+  page_token: Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  original_title: 为了降低平均延迟，如何结合 “prefill 优先” 或 “decode 优先” 策略？
+  imported_at: '2026-09-21'

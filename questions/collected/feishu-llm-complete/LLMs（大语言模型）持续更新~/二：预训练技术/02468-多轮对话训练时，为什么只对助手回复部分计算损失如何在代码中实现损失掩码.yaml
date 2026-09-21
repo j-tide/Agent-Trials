@@ -1,0 +1,46 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7b3d6e91bf7f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多轮对话训练时，为什么只对助手回复部分计算损失？如何在代码中实现损失掩码？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 多轮对话训练时，为什么只对助手回复部分计算损失？如何在代码中实现损失掩码？
+answer:
+  mode: rubric
+  reference_answer: |-
+    原因：多轮对话的训练目标是让模型学会如何作为助手（assistant）进行回复。用户（user）的消息是给定的条件，我们不想让模型去学习“预测用户的提问”，因为那不是模型需要具备的能力。如果对用户部分也计算损失，模型会试图优化生成用户提问，这会导致训练目标混乱，且可能浪费模型容量。我们只希望模型在给定完整对话历史后，能准确地生成助手的回复。
+
+    代码实现（损失掩码）：
+    在构造训练样本时，我们会为每个 token 生成一个 label 序列。对于属于用户消息或系统提示部分的 token，将其 label 设为 -100（PyTorch 的 CrossEntropyLoss 默认忽略 -100 的损失）。对于助手回复部分的 token，label 保持不变（即为该 token 的 ID）。然后计算交叉熵损失时，模型会自动忽略 label 为 -100 的位置。具体实现可以在 tokenization 阶段完成，也可以在 collator 中处理。例如 HuggingFace 的对话模板，使用 assistant 角色标识，通过设置 train_on_assistant_only=True 即可。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y05JwS1wNiBIw7kvxw2cKEhVnrb
+  block_id: Hu32dUyQ0o4fT8xCsMBcqEmCn8c
+  page_token: Y05JwS1wNiBIw7kvxw2cKEhVnrb
+  original_title: 多轮对话训练时，为什么只对助手回复部分计算损失？如何在代码中实现损失掩码？
+  imported_at: '2026-09-21'

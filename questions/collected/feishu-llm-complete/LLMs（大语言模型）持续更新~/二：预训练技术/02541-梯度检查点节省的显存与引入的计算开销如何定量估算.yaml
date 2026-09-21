@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d0a9e0d729c8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 梯度检查点节省的显存与引入的计算开销如何定量估算？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 梯度检查点节省的显存与引入的计算开销如何定量估算？
+answer:
+  mode: rubric
+  reference_answer: |-
+    假设模型有 L 层Transformer，每层内部激活大小为 A（字节），包括注意力矩阵、FFN中间激活等。没有检查点时，整个模型需存储 L×A 的激活。使用每层检查点后，只需同时保留当前正在重计算的这一层的激活，以及前面各层的检查点输入（张量大小远小于A）。因此激活内存近似降为 A+L×(输入张量大小)，通常节省倍数接近 L。
+
+    定量示例：
+
+    - 假设一层Transformer的激活总大小为 100 MB，模型12层。无检查点：激活内存 ≈ 1.2 GB。有检查点：仅保留当前层激活（100 MB）和每层输入（每层输入大小约 10 MB，12层共120 MB），总计约 220 MB，节省约 80%。
+
+    - 序列长度、隐藏维度越大，A越大，节省越显著。对于长序列（如2k、8k），注意力矩阵占主导，激活内存可轻易超过参数内存，检查点成为必需。
+
+    引入的计算开销：
+
+    - 每个检查点段在前向时计算一次，在反向时再重计算一次。因此，该段的前向计算量变为原来的2倍。
+
+    [图片内容未导入]
+
+    - 实测中，训练速度下降约 20%~30%，但换来了成倍的内存节省，使得更大batch或更长序列训练成为可能，总体效率往往更高。
+
+    [图片内容未导入]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  block_id: IkipdrWxuo2GRMx1V59cgUfDnqf
+  page_token: DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  original_title: 梯度检查点节省的显存与引入的计算开销如何定量估算？
+  imported_at: '2026-09-21'

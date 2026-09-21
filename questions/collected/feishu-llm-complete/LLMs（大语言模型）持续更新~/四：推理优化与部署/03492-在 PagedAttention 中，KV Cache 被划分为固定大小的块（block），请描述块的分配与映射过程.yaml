@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9baf240b6dfe
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 PagedAttention 中，KV Cache 被划分为固定大小的“块”（block），请描述块的分配与映射过程。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在 PagedAttention 中，KV Cache 被划分为固定大小的“块”（block），请描述块的分配与映射过程。
+answer:
+  mode: rubric
+  reference_answer: |-
+    物理块：在 GPU 显存中预先分配一个大块内存池，将其均匀切分为固定大小的物理块。例如，块大小 block_size = 16 个 token，则每个块存储某个注意力头（或所有头）的 16 个 token 的 K 或 V 张量。对于所有层和所有头，通常会统筹管理，但逻辑上可以按层/头独立分配。
+
+    分配过程（以请求生成为例）：
+
+    - 请求初始化（Prefill 阶段）
+
+    - 当新请求到达，系统根据其 prompt 长度估算需要的物理块数量：num_blocks = ceil(prompt_length / block_size)。
+
+    - 从空闲块池中分配 num_blocks 个物理块，分配给该请求的 KV Cache。这些物理块在显存中可能不连续。
+
+    - 建立一个块表（Block Table），长度为最大可能的逻辑块数，记录了逻辑块索引到物理块索引的映射。
+
+    - 在 prefill 过程中，随着 prompt token 被处理，生成的 K 和 V 按顺序写入这些物理块。第一个逻辑块写入 token 0..15，第二个写入 16..31，依此类推，最后一个块可能未填满（存在少量内部碎片）。
+
+    - Decode 阶段动态追加
+
+    - 每生成一个新 token，序列长度增加 1。如果当前最后一个物理块已满（即已存储 block_size 个 token），则从空闲池再分配一个新的物理块，并将其索引追加到该请求的块表末尾。
+
+    - 新 token 的 K、V 写入这个新块的起始位置（偏移 0）。后续 token 继续填充该块，直至再次满并分配下一块。
+
+    - 映射关系
+
+    - 逻辑序列位置 pos（从 0 开始的 token 索引）对应的逻辑块号为 block_id = pos // block_size，块内偏移为 pos % block_size。
+
+    - 通过块表查得物理块号 physical_block = block_table[block_id]，则该 token 的 K、V 数据位于该物理块内存区域的偏移 offset * head_dim 处。
+
+    - 释放
+
+    - 请求完成或被抢占时，其所有物理块被标记为空闲，回收到空闲池，块表销毁。
+
+    这种按块动态分配与映射的机制，完全消除了预分配连续长序列的必要性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  block_id: KuYfdsiiZoggi0xka82caKNxngg
+  page_token: Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  original_title: 在 PagedAttention 中，KV Cache 被划分为固定大小的“块”（block），请描述块的分配与映射过程。
+  imported_at: '2026-09-21'

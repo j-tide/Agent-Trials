@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-da38c504f6cc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何设计一个支持多租户的 LLM 服务平台？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 九：前沿与工程实践
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 九：前沿与工程实践
+content:
+  prompt: 如何设计一个支持多租户的 LLM 服务平台？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多租户平台的设计核心是 “逻辑隔离与资源保障”。我们需要在同一个物理集群上，为不同团队、不同业务线（即租户）提供相互独立、安全可靠、成本可度量的 LLM 服务。
+
+    - 租户模型与隔离
+
+    - 软隔离：通过应用层的逻辑划分。为每个租户创建独立的 API Key / Workspace。所有资源（如模型、工具、Prompt）都与该 Workspace 绑定。用户在访问时，通过 API Key 进行身份认证和权限校验。这是最轻量、最主流的模式。
+
+    - 硬隔离：为高安全需求或高SLA要求的租户，提供独立的物理计算资源。例如，在 Kubernetes 中为该租户独占一个 Node Group，其上只部署该租户的推理服务实例。这保证了绝对的性能和安全性，但成本较高。
+
+    - 多维度配额管理与限流
+
+    这是实现资源公平使用的核心。必须能够为每个租户设置细粒度的配额，包括：
+
+    - 请求速率：每分钟/每天的 API 请求次数（RPM/RPD）。
+
+    - Token 吞吐量：每分钟/每天的 Token 处理量（TPM/TPD），这是更贴近 LLM 成本的指标。
+
+    - 并发度：租户可以同时处理的请求数量上限。
+    当租户用量达到配额上限时，系统应返回 429 状态码，而非直接导致其服务中断。
+
+    - 计量、计费与成本归因
+
+    平台需要有一个强大的数据管道，实时收集每个 API 请求的详细元数据（租户ID、使用的模型、消耗的 Token 数、延迟等），并将其写入时序数据库或数据仓库。基于这些数据，平台可以实现：
+
+    - 用量仪表盘：让租户可以直观地查看自己的使用情况。
+
+    - 成本分摊：精确地将底层 GPU 集群的成本，按 Token 用量分摊到每个租户乃至每个部门。
+
+    - 可插拔的安全与治理策略
+
+    允许平台管理员或租户自身，为其应用配置安全策略，例如：
+
+    - 内容审核：为特定租户开启敏感词过滤或 Prompt 注入防护。
+
+    - 数据隐私：为部分租户开启“事后不记录日志”的选项。
+
+    - 这些策略应该在 API 网关层以插件的形式被动态执行。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  block_id: DgvQdxZito8LKsxYUMVctPj5nse
+  page_token: Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  original_title: 如何设计一个支持多租户的 LLM 服务平台？
+  imported_at: '2026-09-21'

@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bebccea7624e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何监控训练过程中的梯度下溢/溢出？PyTorch 提供哪些日志工具？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 如何监控训练过程中的梯度下溢/溢出？PyTorch 提供哪些日志工具？
+answer:
+  mode: rubric
+  reference_answer: |-
+    监控方法：
+
+    - GradScaler内置日志：创建 GradScaler(verbose=True)，会在每次因溢出跳过更新时打印警告，包括缩放因子的变化。
+
+    - 手动检测：在 scaler.unscale_(optimizer) 之后，遍历参数梯度，用 torch.isnan(grad).any() 和 torch.isinf(grad).any() 统计溢出比例，记录到TensorBoard等监控平台。
+
+    - 梯度范数：记录每个step的全局梯度范数（unscale后），如果突然飙升或归零，可能指示溢出/下溢。
+
+    - 钩子：注册 backward_hook 来捕获每层的梯度，检测异常。
+
+    PyTorch 日志工具：
+
+    - torch.autograd.set_detect_anomaly(True)：当反向传播产生NaN时，会抛出异常并打印堆栈，但性能开销大，仅调试用。
+
+    - torch.cuda.memory_stats() 等不直接监控梯度，但可辅助分析。
+
+    - TensorBoard SummaryWriter：可记录 scaler.get_scale()、损失、梯度范数等时序数据，便于可视化追踪。
+
+    - 结合 torch.profiler 可以观察各算子的数值行为。
+
+    实践建议：通常依赖 GradScaler 的自动处理，同时用TensorBoard绘制缩放因子曲线。若缩放因子频繁被回退，说明溢出严重，需调整初始缩放因子或增长间隔。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H1LqwP3PkibEdykjijgc533Rnue
+  block_id: Ih8OdSXy7oL9eUx6mnTcLL2Onhe
+  page_token: H1LqwP3PkibEdykjijgc533Rnue
+  original_title: 如何监控训练过程中的梯度下溢/溢出？PyTorch 提供哪些日志工具？
+  imported_at: '2026-09-21'

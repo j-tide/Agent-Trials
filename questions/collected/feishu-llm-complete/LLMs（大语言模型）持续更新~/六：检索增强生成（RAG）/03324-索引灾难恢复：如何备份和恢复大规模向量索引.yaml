@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e66900879397
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 索引灾难恢复：如何备份和恢复大规模向量索引？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 索引灾难恢复：如何备份和恢复大规模向量索引？
+answer:
+  mode: rubric
+  reference_answer: |-
+    灾难恢复（DR）是大型索引运维中不可或缺的一环，它关注的是在硬件故障、误删除或机房级灾难后，如何将索引服务恢复到可接受的时间点和状态。其核心指标是恢复点目标 (RPO) 和恢复时间目标 (RTO)。
+
+    备份策略：
+
+    - 全量备份：定期对索引的物理文件或数据存储进行全量快照。对于基于对象存储的架构（如 Milvus），一份数据会持久化到对象存储（S3, MinIO），同时元数据会存储在 etcd。这种架构下，全量备份只需对对象存储和 etcd 做快照即可。这是最彻底的备份，但面对 TB 级索引，完成一次备份的时间成本很高。
+
+    - 增量备份与 WAL：为了缩小 RPO，需要依赖事务日志（Write-Ahead Log, WAL）。每一次数据插入、更新或删除操作，都会被先记录到 WAL 中。增量备份只需备份 WAL。发生灾难时，可以先恢复最近的全量备份，然后回放之后的所有 WAL，将数据恢复到接近故障发生前的状态。这是实现秒级 RPO 的关键技术。
+
+    恢复流程：
+
+    恢复过程通常是备份的逆过程。首先，恢复 etcd 的元数据快照，让集群“知道”自己应该有哪些数据。然后，恢复对象存储中的索引文件或向量数据。如果是分布式架构，恢复工具会自动将数据分片分配到各个健康的节点上。如果系统是基于 mmap 的，恢复可能仅仅是重新建立文件映射。恢复完成后，需要进行完整性校验，例如抽样检查一些关键文档的向量是否可以被正确查询到。
+
+    大规模索引恢复的挑战与架构优化：
+
+    - 缩短 RTO：TB 级数据从对象存储拷贝到本地磁盘非常耗时。缩短 RTO 的关键在于避免数据搬迁。架构上，理想的做法是计算与存储分离。索引节点本身是无状态的，恢复时只需快速拉起新的节点，然后直接挂载远程的分布式文件系统或对象存储（配合高效的缓存层），即可立即对外服务。这就是云原生架构的优势。
+
+    - 多副本与异地容灾：备份只是最后一道防线。更主动的方案是通过多副本同步机制，在不同的物理节点或数据中心维护数据的实时副本。当主节点发生故障时，可以秒级切换到备节点，实现高可用，将灾难对业务的影响降到最低。
+
+    灾难恢复不是等到发生时才去想的预案，而是从架构设计的第一天起就必须内建的基因。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SkhxwrnkSi7qcRkf8LOcNILdnr0
+  block_id: HF9rdV70do9yIqxetUucVIz4nTe
+  page_token: SkhxwrnkSi7qcRkf8LOcNILdnr0
+  original_title: 索引灾难恢复：如何备份和恢复大规模向量索引？
+  imported_at: '2026-09-21'

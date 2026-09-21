@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-124f5d1cc7ef
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 重排序中的位置偏差：Reranker 是否会对靠前的候选更偏好？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 重排序中的位置偏差：Reranker 是否会对靠前的候选更偏好？
+answer:
+  mode: rubric
+  reference_answer: |-
+    位置偏差是指模型在评估文档相关性时，受到文档在输入列表中位置的影响，而不仅仅是其内容。对于 Cross-encoder 而言，它处理的是单个查询-文档对，理论上不存在列表位置偏差，因为每对都是独立评估的。
+
+    为什么 Cross-encoder 没有位置偏差：
+    Cross-encoder 的输入是 [query, document]，每次只对一个文档打分。它没有“看到”其他候选文档，因此不知道任何文档在初检列表中的排名。所有文档都在公平的起跑线上。这与生成式 LLM 的列表重排序有本质不同。
+
+    但 Cross-encoder 可能存在另一种“伪位置偏差”：
+
+    如果使用滚动分块策略对长文档取最大分数，那么文档中越靠前的段落被选为相关段落的概率可能更高（因为截断策略可能偏好开头）。这是一种文档内部位置偏差，而非列表位置偏差。
+
+    在模型微调阶段可能引入偏差：
+
+    如果训练数据中，正样本主要来自初检的前几名（例如只标注了前 10 个结果），模型可能学会对那些看起来“更有可能被选为正样本”的特征（如某些关键词密度）产生偏好，但这种偏差不是来自位置本身。
+
+    缓解位置偏差的措施（主要针对使用 LLM 列表重排序时）：
+
+    - 在提示中随机打乱候选文档的顺序，让 LLM 意识到位置并不重要。
+
+    - 使用成对比较（Pairwise）而非列表排序，并多次比较取平均。
+
+    - 对于 Cross-encoder，不需要特别处理，因为它本身无此问题。
+
+    因此，纯粹的 Cross-encoder 重排序不受初检排名影响，这也是它相对于某些启发式融合方法（如加权分数）的一大优势。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MdouwCwh3iP6HNkt4PZcw9CSnYb
+  block_id: LEAidT1BqoPEqYxV3upcPpYLnCe
+  page_token: MdouwCwh3iP6HNkt4PZcw9CSnYb
+  original_title: 重排序中的位置偏差：Reranker 是否会对靠前的候选更偏好？
+  imported_at: '2026-09-21'

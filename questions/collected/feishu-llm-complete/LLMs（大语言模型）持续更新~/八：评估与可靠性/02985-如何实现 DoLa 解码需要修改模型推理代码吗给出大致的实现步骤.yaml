@@ -1,0 +1,92 @@
+---
+schema_version: 1
+id: feishu-llm-complete-79d5527afe30
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何实现 DoLa 解码？需要修改模型推理代码吗？给出大致的实现步骤。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 八：评估与可靠性
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 八：评估与可靠性
+content:
+  prompt: 如何实现 DoLa 解码？需要修改模型推理代码吗？给出大致的实现步骤。
+answer:
+  mode: rubric
+  reference_answer: |-
+    实现 DoLa 需要对模型推理代码进行深度修改，以便在自回归生成过程中访问和操作中间层的输出。
+
+    所需改动
+
+    - 修改模型 forward 函数：在传统的推理中，model.forward() 只返回最后一层的 logits。为了实现 DoLa，需要修改 forward 方法，使其额外返回指定中间层（或全部层）的 logits 或隐藏状态。在 Hugging Face Transformers 中，可以通过设置 output_hidden_states=True 获取所有层的隐藏状态，再乘以词表嵌入矩阵得到 logits。
+
+    - 实现动态层选择器：编写一个函数，接收所有层的 logits，计算每层预测的最大概率值，找到“赢家层”索引 M，然后返回 premature layer 索引（M - d）和 mature layer 索引（通常为最后一层 L）。
+
+    - 修改生成循环：在自回归生成循环（如 model.generate() 内部）中，每一步均执行以下操作：
+
+    大致的伪代码实现
+
+    def doLa_generate(model, input_ids, d=2, max_len=100):
+        generated = []
+        for step in range(max_len):
+            # 1. 前向传播，获取所有层的 logits
+            outputs = model(input_ids, output_hidden_states=True)
+            all_hidden_states = outputs.hidden_states  # (num_layers, batch, seq_len, hidden_dim)
+            # 将隐藏状态转换为 logits
+            lm_head = model.get_output_embeddings()
+            all_logits = [lm_head(h) for h in all_hidden_states]  # 每层 logits
+
+            # 2. 动态层选择
+            # 计算最后一层的 logits 用于比较
+            last_logits = all_logits[-1][:, -1, :]
+            # 计算每层对当前位置的最大概率
+            max_probs = [F.softmax(l[:, -1, :], dim=-1).max().item() for l in all_logits]
+            M = max_probs.index(max(max_probs))  # 赢家层索引
+            mature_layer = len(all_logits) - 1  # 最后一层
+            premature_layer = max(0, M - d)     # 早熟层
+
+            # 3. 对比 logits
+            logits_mature = all_logits[mature_layer][:, -1, :]
+            logits_premature = all_logits[premature_layer][:, -1, :]
+            logits_final = logits_mature - logits_premature
+
+            # 4. 应用温度、重复惩罚等
+            logits_final = logits_final / temperature
+            # ... 可能添加重复惩罚
+
+            # 5. 采样
+            probs = F.softmax(logits_final, dim=-1)
+            next_token = torch.multinomial(probs, 1)
+            generated.append(next_token)
+            input_ids = torch.cat([input_ids, next_token], dim=-1)
+        return generated
+
+    在实际部署中，为了优化速度，可以只缓存后半部分层的 logits，并采用 Top-K 裁剪等策略减少内存传输。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KnwjwVxIViBqwlkhcvwczHR8nTf
+  block_id: PMf4dw6v6oz2pkxx472co5PWnig
+  page_token: KnwjwVxIViBqwlkhcvwczHR8nTf
+  original_title: 如何实现 DoLa 解码？需要修改模型推理代码吗？给出大致的实现步骤。
+  imported_at: '2026-09-21'

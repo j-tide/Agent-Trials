@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-989e8849708b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在实现 FlashAttention 时，因果掩码会如何影响分块计算？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 在实现 FlashAttention 时，因果掩码会如何影响分块计算？
+answer:
+  mode: rubric
+  reference_answer: |-
+    FlashAttention 通过分块（tiling）来减少 HBM 读写。在具有因果掩码时，其核心影响是：矩阵的上三角部分是不需要计算的，或者可以在分块时直接被跳过。
+
+    具体来说，FlashAttention 将 Q, K, V 沿着序列维度切分为块。对于因果掩码，由于位置 ii 只能注意到位置 j≤i，因此在分块计算时：
+
+    - 对于 query 块 Qi（对应位置范围），它只需要与 key 块 Kj 中满足 j≤i的块进行计算。对于 j>i的块，整块注意力输出必然为零（因为所有元素都被 mask 掉），因此 FlashAttention 可以安全地跳过这些块的加载和计算，从而进一步节省计算和显存带宽。
+
+    - 当必须计算一个块对（i≥j）时，FlashAttention 在块内部仍然进行标准的因果掩码：在 softmax 前对块内的上三角元素施加 −∞。
+
+    - 由于跳过了近乎一半的块计算（下三角部分），FlashAttention 在训练因果模型时可以获得接近 2 倍的加速。
+
+    这一优化被称为 “causal” 模式，在 FlashAttention 的 API 中通常只需设置 causal=True，底层的分块调度就会自动利用掩码的稀疏性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/T1lDwb4hxi97hzkT5A3c9KeJnrf
+  block_id: A72bdquwroAQUxxm8Nuc8SP1nOf
+  page_token: T1lDwb4hxi97hzkT5A3c9KeJnrf
+  original_title: 在实现 FlashAttention 时，因果掩码会如何影响分块计算？
+  imported_at: '2026-09-21'

@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-943a7f176439
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何从 PDF 中提取文本时保持阅读顺序？尤其是多栏排版、表格穿插时。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 如何从 PDF 中提取文本时保持阅读顺序？尤其是多栏排版、表格穿插时。
+answer:
+  mode: rubric
+  reference_answer: |-
+    保持阅读顺序是 PDF 解析中最具挑战性的问题之一，因为原始的 PDF 指令流几乎不包含任何逻辑顺序信息。要解决这个问题，就需要模拟人类的阅读行为，利用文本片段的二维空间坐标来重建它们的正确顺序。
+
+    最有效的方法被称为“基于布局分析的排序算法”：
+
+    - 获取带坐标的文本块：首先，使用 PyMuPDF 或 pdfplumber 等工具，不直接获取全文文本，而是提取页面上的所有文本片段，每个片段都包含其文本内容及其在页面上的边界框（Bounding Box，例如左上角和右下角的 x、y 坐标）。
+
+    - 分组与聚合：将空间上邻近的文本行聚合成候选段落。可以设定一个合理的行间距阈值。这一步骤的目的是重建最基本的文本行，并将属于同一段落的连续短行初步合并。
+
+    - 检测并隔离“干扰区”：在排序之前，最关键的一步是识别并暂时移除那些不属于正常文本流的区域，如表格、图片、侧边栏和页眉页脚。这通常通过分析块的尺寸、长宽比、或训练一个专门的布局分割模型来完成。将这些区域标记并移出排序序列。
+
+    - 层次化排序：对剩余的主文本区域，实施一种模仿人类阅读的层次排序逻辑：
+
+    - 自上而下，再自左而右。首先，将所有候选段落按其顶部的 y 坐标进行排序，分成不同的行。
+
+    - 栏的检测：对于同一水平行上的文本块，检查它们是否属于不同的栏。这可以通过分析 x 坐标的分布来完成。如果文本块可以清晰地根据 x 坐标被分成几个聚集的群组，那么这些群组就是独立的“栏”。
+
+    - 栏间排序：对栏从左到右进行排序。阅读顺序是先读完左栏的所有内容，再跳到右栏的开头。
+
+    - 栏内排序：在每个栏的内部，文本块的顺序就是由上至下的自然顺序。
+
+    - 回填特殊区域：在主要的文本流被正确排序后，根据文档的上下文或规则，将之前被隔离的表格、图片的标题等，插入到它们在文档中逻辑上所属的位置附近。
+
+    通过这种“空间分析 - 干扰隔离 - 层次化排序”的策略，即使面对复杂的多栏、表格穿插的 PDF，我们也能在很大程度上恢复出符合人类阅读习惯的文本顺序，为后续的 RAG 流程提供高质量的输入。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ag8Qw4DUZiuEEGkvxB4ctXp7nQy
+  block_id: ASJwd4eyaoNBblx5NnocpFKEn5D
+  page_token: Ag8Qw4DUZiuEEGkvxB4ctXp7nQy
+  original_title: 如何从 PDF 中提取文本时保持阅读顺序？尤其是多栏排版、表格穿插时。
+  imported_at: '2026-09-21'

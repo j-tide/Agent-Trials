@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fbdcd2fbeb59
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在迭代级调度中，一次推理步长是如何定义的？这个步长通常对应什么操作？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在迭代级调度中，一次推理步长是如何定义的？这个步长通常对应什么操作？
+answer:
+  mode: rubric
+  reference_answer: |-
+    一次推理步长（Iteration Step） 定义为：对所有当前活跃请求，各自生成一个 token 所需的一次完整模型前向传播。
+
+    具体而言，步长包含以下操作序列：
+
+    - 输入准备：对于 batch 中每个请求，将其前一时刻生成的 token（或 prefill 时整个 prompt）作为本轮输入，构造输入张量（形状 [batch_size, 1] 或变长序列的拼接，对于 decode 阶段通常为每个请求一个新 token）。
+
+    - 前向传播：将输入送入模型，执行全部 Transformer 层。在每一层，使用请求各自的 KV Cache 块表，通过注意力 kernel（如 PagedAttention）读取历史 K、V，计算注意力，并追加当前 token 的新 K、V 到缓存块中。
+
+    - Logits 生成与采样：从模型输出 logits 中获取最后一个 token 的预测分布，对每个请求独立进行采样（贪心、温度采样、top-p 等），产生各自的新 token。
+
+    - 状态更新与调度决策：将新 token 追加到请求的序列中，检查是否遇到 EOS 或超长；若是，标记完成并释放资源。同时，调度器检查等待队列，决定是否在下一轮迭代中加入新请求。
+
+    因此，一个迭代步长等于“一次自回归解码循环”，是连续批处理调度的原子单位。所有批处理决策（加入、退出、抢占）都发生在步长之间，确保 model 前向过程不受干扰。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqBawimrwioo11kNL45cwrfznle
+  block_id: Yc3Sd44Q9oitjqxUGJ0c85VEndg
+  page_token: EqBawimrwioo11kNL45cwrfznle
+  original_title: 在迭代级调度中，一次推理步长是如何定义的？这个步长通常对应什么操作？
+  imported_at: '2026-09-21'

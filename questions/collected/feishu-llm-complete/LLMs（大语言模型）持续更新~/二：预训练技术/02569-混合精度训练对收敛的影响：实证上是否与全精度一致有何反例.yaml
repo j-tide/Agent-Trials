@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1ad2b91cb461
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 混合精度训练对收敛的影响：实证上是否与全精度一致？有何反例？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 混合精度训练对收敛的影响：实证上是否与全精度一致？有何反例？
+answer:
+  mode: rubric
+  reference_answer: |-
+    实证一致性
+
+    在主流视觉模型（ResNet、ViT）和语言模型（BERT、GPT）中，FP16混合精度训练（含损失缩放和FP32主权重） 的收敛曲线和最终准确率与 FP32全精度基线几乎完全重合。这是经过NVIDIA论文（Mixed Precision Training, ICLR 2018）以及工业界大规模实践反复验证的结论。混合精度不仅不损害收敛性，甚至因为能使用更大的batch size或加速训练，有时会略微提升最终泛化能力。
+
+    反例与风险场景
+
+    并非所有情况都绝对安全，以下场景可能出问题：
+
+    - 极小学习率或极深网络：梯度绝对值极小（如 10−810−8 量级），即使损失缩放也可能无法完全避免下溢，导致某些层更新停滞，收敛变慢。
+
+    - 对梯度尺度敏感的算法：例如强化学习中的策略梯度，其梯度分布高度动态且噪声大，固定的缩放因子可能导致部分梯度溢出、部分下溢，破坏信噪比。
+
+    - 自定义操作未适配：用户实现的CUDA内核、复杂损失函数如果未正确处理半精度，可能产生数值错误，导致发散。
+
+    - 需要高精度的物理仿真：如PINN（物理信息神经网络），高阶导数的精度损失可能导致物理约束失效。
+
+    - FP16下某些操作的不稳定性：如 torch.rsqrt、torch.pow 等，在FP16下容易产生较大相对误差，累积后可能影响收敛。
+
+    缓解措施：动态损失缩放、将敏感操作强制FP32、使用BF16替代FP16（动态范围大）、启用梯度检查点时的精度验证，均可将不一致风险降至极低。总体而言，反例多为特定领域或配置不当所致，常规任务中混合精度收敛性与全精度一致是常态。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H1LqwP3PkibEdykjijgc533Rnue
+  block_id: JQmXdqjYqoZ9X2x2yDhcnTpXn8d
+  page_token: H1LqwP3PkibEdykjijgc533Rnue
+  original_title: 混合精度训练对收敛的影响：实证上是否与全精度一致？有何反例？
+  imported_at: '2026-09-21'

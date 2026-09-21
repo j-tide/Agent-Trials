@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-21368a4a5eec
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 ZeRO 或 FSDP 中使用混合精度，有哪些额外配置？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 在 ZeRO 或 FSDP 中使用混合精度，有哪些额外配置？
+answer:
+  mode: rubric
+  reference_answer: |-
+    DeepSpeed ZeRO：
+
+    - 配置文件：设置 "fp16": {"enabled": true, "loss_scale": 0, "initial_scale_power": 16} 来启用FP16混合精度，并配置动态损失缩放。
+
+    - BF16：设置 "bf16": {"enabled": true}。
+
+    - 通信：ZeRO自动处理梯度分片和All-Reduce，与损失缩放配合。缩放因子在所有数据并行rank间自动同步（通常通过all-reduce维持一致）。
+
+    - 卸载（Offload）：若使用ZeRO-Offload，优化器状态在CPU上通常以FP32存储，GPU端参数/梯度可以是半精度。
+
+    - 注意：混合精度下的梯度裁剪必须在unscale之后进行，ZeRO的优化器step已经内部处理。
+
+    PyTorch FSDP：
+
+    - 通过 MixedPrecision 类指定参数、梯度、通信的精度，例如 MixedPrecision(param_dtype=torch.float16, reduce_dtype=torch.float16)。
+
+    - 前向时使用 autocast，损失缩放用 GradScaler（与DDP类似）。
+
+    - FSDP的 no_sync() 上下文管理器用于梯度累积，与 GradScaler 配合无误。
+
+    - 保存检查点：需要保存FP32主权重，以便恢复训练。可使用 FullyShardedDataParallel.state_dict() 配合分布式检查点。
+
+    共同原则：确保通信发生在放大梯度上，参数更新在unscale后，缩放因子全局同步。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H1LqwP3PkibEdykjijgc533Rnue
+  block_id: DMq9dwhPjog3XPxZos8cEe9onah
+  page_token: H1LqwP3PkibEdykjijgc533Rnue
+  original_title: 在 ZeRO 或 FSDP 中使用混合精度，有哪些额外配置？
+  imported_at: '2026-09-21'

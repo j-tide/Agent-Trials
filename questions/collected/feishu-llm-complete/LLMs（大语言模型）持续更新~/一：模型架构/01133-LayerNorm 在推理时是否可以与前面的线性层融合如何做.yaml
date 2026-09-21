@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-54b20d547607
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: LayerNorm 在推理时是否可以与前面的线性层融合？如何做？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: LayerNorm 在推理时是否可以与前面的线性层融合？如何做？
+answer:
+  mode: rubric
+  reference_answer: |-
+    可以融合，这是推理优化中常用的技巧，称为“归一化融合”（LayerNorm Fusion）。
+
+    原理：LayerNorm 的核心运算是仿射变换：LN(y) = γ * (y - μ)/σ + β，其中 μ 和 σ 是 y 的均值和标准差。如果 LayerNorm 紧接在一个线性层之后（y = Wx + b），整个模块可以重新参数化为一个新的线性层。
+
+    融合方法：
+
+    - 设线性层输出 y = Wx + b。
+
+    - LayerNorm 对 y 进行归一化：LN(y) = (y - μ)/σ * γ + β。
+
+    - 将线性部分代入：
+
+    ```text
+    LN(Wx + b) = (Wx + b - μ)/σ * γ + β
+               = (γ/σ)W x + (γ/σ)(b - μ) + β
+               = W' x + b'
+    ```
+
+    - 其中 W' = (γ/σ) * W，b' = (γ/σ) * (b - μ) + β。
+
+    前提：在推理时，μ 和 σ 需要是确定的值。LayerNorm 在推理时的 μ 和 σ 通常直接由当前输入计算（无全局统计量），因此 μ 和 σ 是输入相关的。这意味着融合并非简单的静态常量替换，而是可以在计算线性层输出的同时动态应用缩放和偏移。现代推理框架（如 TensorRT、ONNX Runtime）常将这两个操作合并为一个 GPU 内核，减少内存读写和内核启动开销，即使 μ 和 σ 是动态计算的，融合依然能显著加速。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SQsMwnjJaizIS4krnzkcigPUnue
+  block_id: PB22dIbRXo7MO7xIZTdcotCvn5d
+  page_token: SQsMwnjJaizIS4krnzkcigPUnue
+  original_title: LayerNorm 在推理时是否可以与前面的线性层融合？如何做？
+  imported_at: '2026-09-21'

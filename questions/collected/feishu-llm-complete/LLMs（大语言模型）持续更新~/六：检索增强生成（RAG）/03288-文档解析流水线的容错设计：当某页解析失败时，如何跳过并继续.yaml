@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dd7e95186db7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 文档解析流水线的容错设计：当某页解析失败时，如何跳过并继续？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 文档解析流水线的容错设计：当某页解析失败时，如何跳过并继续？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在批量处理成百上千份 PDF 时，必然会遇到损坏的文件、包含无法解析对象的页面，或触发解析库的 bug。一个脆弱的流水线会因为单页或单文件的失败而崩溃，导致整个任务中断，这是不可接受的。因此，必须在架构层面进行容错设计。
+
+    核心原则：页面级隔离与优雅降级。
+
+    将每一个页面的解析任务视为一个独立的、可失败的最小工作单元。如果某个页面解析失败，它不应该影响同一文档中其他页面的处理，更不应该影响整个批处理任务。
+
+    实现方法：
+
+    - 页面级异常捕获：在处理每一页的代码块外部包裹 try-except 语句，捕获所有可能的异常（如 RuntimeError, ValueError, KeyError 等）。当异常发生时，记录详细的错误日志，包括文件名、页码、异常类型和堆栈信息，然后跳过该页，继续处理下一页。
+
+    - 多级降级策略：不要一次性放弃。如果一种解析方法失败，可以尝试更鲁棒（但可能精度更低）的备用方法。例如，先用 PyMuPDF 提取文本和布局，如果失败，则尝试用 pdfplumber 提取，如果仍然失败，则降级为将该页渲染为高清图片，送入 OCR 引擎进行识别。这个“解析器链条”能够极大地提高最终的成功率。
+
+    - 完整性校验与标记：即使解析没有抛出异常，结果也可能不完整。应设置检查点，例如判断提取的文本长度是否远小于页面应有内容，或者关键元素（如表格）是否缺失。对于结果可疑的页面，在输出的元数据中标记为“低置信度”，供下游流程选择使用或抛弃。
+
+    - 断点续传与状态管理：使用一个外部状态文件或数据库，记录每一个文件的处理状态（待处理、处理中、成功、失败）。当任务因外部原因（如机器重启）中断时，可以读取状态文件，跳过已成功的文件，仅重试失败或未处理的文件。
+
+    这样的容错设计能够确保解析流水线在面对海量、质量参差不齐的 PDF 时，依然能够稳定地输出结果。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ag8Qw4DUZiuEEGkvxB4ctXp7nQy
+  block_id: FmTfd4lCdo0p1OxU7qVcfsnFnaf
+  page_token: Ag8Qw4DUZiuEEGkvxB4ctXp7nQy
+  original_title: 文档解析流水线的容错设计：当某页解析失败时，如何跳过并继续？
+  imported_at: '2026-09-21'

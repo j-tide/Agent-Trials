@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-983988c2c2c9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 混合检索如何与重排序模型（Reranker）配合？融合后进行重排序还是分别重排？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 混合检索如何与重排序模型（Reranker）配合？融合后进行重排序还是分别重排？
+answer:
+  mode: rubric
+  reference_answer: |-
+    重排序模型（Reranker）是提升检索精度的重要组件。在混合检索中，它既可以作为一个独立的精排阶段，也可以并行工作。业界最佳实践通常是在混合融合之后进行重排序。
+
+    融合后重排序（推荐）：
+
+    这是最有效的模式。流程为：混合检索（稠密+稀疏）先各自召回一批候选文档，经过 RRF 或分数融合得到一个统一的候选列表（如 Top 50 或 Top 100）。这个列表随后被送入一个更强大的重排序模型（如 Cross-Encoder），模型逐一计算每个候选文档与查询的精细语义相关性分数，最终重新排序并返回 Top 10。
+
+    - 优势：
+
+    - 劣势：重排序模型调用引入额外延迟和成本。
+
+    分别重排再融合（较少使用）：
+
+    即稠密检索结果和稀疏检索结果分别使用重排序模型进行精排，然后再把两个精排后的列表融合。这种方法计算开销翻倍，而且分别精排无法利用另一个检索器的互补信息，容易造成偏见。通常不推荐。
+
+    重排序模型的选择：
+
+    - Cross-Encoder：如 cross-encoder/ms-marco-MiniLM-L-6-v2。精度高但速度慢，适合处理百级候选集。
+
+    - 基于 LLM 的重排序：如使用 GPT-4 对候选文档进行打分排序，效果可能更好，但成本极高，通常用于对延迟不敏感的离线评估或关键场景。
+
+    因此，一个典型的、高性能的 RAG 检索管道是：混合检索（高召回） -> 融合（RRF） -> 重排序（高精度） -> 生成。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/I3Q6wybdkimYExkHeC4cPJOwnQh
+  block_id: H7XZdWGyWoCCTuxxIA7cnZBqnRg
+  page_token: I3Q6wybdkimYExkHeC4cPJOwnQh
+  original_title: 混合检索如何与重排序模型（Reranker）配合？融合后进行重排序还是分别重排？
+  imported_at: '2026-09-21'

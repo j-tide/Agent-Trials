@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-58093c2dd3aa
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么 ZeRO‑3 的训练吞吐可能低于 Stage 2？通信量增加的分析
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 为什么 ZeRO‑3 的训练吞吐可能低于 Stage 2？通信量增加的分析
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO-3 在每层前向和反向时都需要通过 All-Gather 收集完整参数，这引入了额外的通信，相对于 ZeRO-2 增加了通信开销，从而可能导致训练吞吐下降。
+
+    通信量对比（以每步迭代、单卡视角，数据并行度 Nd）：
+
+    - ZeRO-2：
+
+    - ZeRO-3：
+
+    [图片内容未导入]
+
+    因此，ZeRO-3 的通信量约为 ZeRO-2 的 2 倍（4Ψ vs 2Ψ），并且通信次数翻倍（每一层都有额外的 All-Gather）。这些通信会抢占 GPU 计算资源，如果不能被计算完全隐藏（例如模型计算密度不够或带宽不足），就会降低吞吐。此外，参数 All-Gather 的延迟累加起来可能成为瓶颈，尤其在网络带宽有限的集群中。
+
+    吞吐下降的原因总结：
+
+    - 通信量增加约 2 倍。
+
+    - 通信频率更高（每层都需两次 All-Gather）。
+
+    - 额外的通信与计算的重叠效率受限，因为 All-Gather 需要在计算该层前完成，可能造成 GPU 等待。
+
+    因此，在显存足够的情况下，通常优先使用 ZeRO-2 获得更好的训练速度；当模型规模大到必须用 ZeRO-3 时，则付出通信代价以换取可行性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdlMwr6zHiurCIkdVS6c9aFDnUg
+  block_id: DSNMd6nrIozLVOx28OhcLb7Pnmh
+  page_token: RdlMwr6zHiurCIkdVS6c9aFDnUg
+  original_title: 为什么 ZeRO‑3 的训练吞吐可能低于 Stage 2？通信量增加的分析
+  imported_at: '2026-09-21'

@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3f179e209cfb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 假设我们要将基于 RoPE 的 4K 模型扩展到 128K，简述你会采取的步骤。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 假设我们要将基于 RoPE 的 4K 模型扩展到 128K，简述你会采取的步骤。
+answer:
+  mode: rubric
+  reference_answer: |-
+    将 RoPE 模型从 4K 扩展到 128K，需综合考虑位置编码、数据、训练策略和工程实现。
+
+    步骤1：选择外推方法
+
+    - 优先选择 YaRN 或 动态 NTK-aware 缩放，因为它们通常不需要全量微调，只需极少校准数据或零样本即可工作。
+
+    - 计算缩放因子 s=128K/4K=32。若使用 YaRN，需确定合适的基频放大倍数和温度系数。
+
+    步骤2：调整 RoPE 频率（离线或在线）
+
+    - 离线：修改模型配置文件中的 RoPE 基频（如将 10000 改为 10000 * 32 或根据 NTK 公式计算的新值），并保存新权重。
+
+    - 在线（动态）：在推理代码中集成动态 NTK，根据输入序列的实际长度自动调整 theta，无需修改权重。
+
+    步骤3：少量长文本数据微调（可选但推荐）
+
+    - 准备 128K 长度的指令微调数据，对调整后的模型进行少量步数的 SFT（如 100-500 steps）。这有助于模型适应新的位置密度和恢复可能受损的短距离性能。
+
+    - 数据需保证多样性，包含长文档 QA、多轮对话、代码等。
+
+    步骤4：工程优化
+
+    - 启用 FlashAttention-2 或 FlashAttention-3，并设置 causal=True，以在长序列上保持合理显存和速度。
+
+    - 使用 GQA（若模型已支持）减少 KV 缓存。
+
+    - 评估推理时的延迟和吞吐，必要时引入量化（如 INT8/INT4 KV Cache 量化）。
+
+    步骤5：评测验证
+
+    - 使用“大海捞针”（Needle-in-a-Haystack）测试评估在不同位置、不同长度下的检索准确率。
+
+    - 在长文本基准（如 LongBench、L-Eval）上评测生成质量、事实一致性。
+
+    - 验证短文本性能是否有退化，必要时进行短文本数据回放微调。
+
+    步骤6：迭代优化
+
+    - 根据评测结果调整 RoPE 参数（如温度、缩放因子），或增加微调数据。直至在长度-性能曲线上达到满意效果。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KYvfw3IKpinTbEktHoocP69HnSg
+  block_id: DsWwd9mPMoqL5ex5W32ccdYjnmb
+  page_token: KYvfw3IKpinTbEktHoocP69HnSg
+  original_title: 假设我们要将基于 RoPE 的 4K 模型扩展到 128K，简述你会采取的步骤。
+  imported_at: '2026-09-21'

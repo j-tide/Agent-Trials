@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-ccfff3f15b44
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 非可重入（non‑reentrant）检查点与可重入检查点的区别，PyTorch 新版本中的变更。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 非可重入（non‑reentrant）检查点与可重入检查点的区别，PyTorch 新版本中的变更。
+answer:
+  mode: rubric
+  reference_answer: |-
+    可重入（reentrant）模式
+
+    - 这是旧版 PyTorch（use_reentrant=True，曾是默认）的实现方式。
+
+    - 前向传播时，检查点段正常执行但不保留中间张量的计算图。反向传播到达该段时，再次调用该段的前向函数，并且这次在 torch.enable_grad() 环境下执行，从而构建出用于梯度的计算图。
+
+    - 因为是“重入”前向函数，其内部的 autograd 逻辑会再次被触发，产生新的计算图节点。这种方式简单，但存在以下问题：
+
+    非可重入（non‑reentrant）模式
+
+    - PyTorch 1.11 引入 use_reentrant=False，并通过自定义 autograd Function 实现。
+
+    - 其核心是将前向和重计算分离。前向阶段保存该段的输入（和必要的状态），并返回输出，但不保留中间计算图。反向阶段利用保存的输入，重新运行一次前向（这次在 torch.no_grad() 下，? 实际是重新构建计算图但不记录梯度），然后再运行反向传播。
+
+    - 优势：
+
+    - PyTorch 新版本（≥1.11）已将 use_reentrant=False 设为推荐方式，并在后续版本中可能废弃 reentrant 模式。
+
+    代码示例：
+
+    ```python
+    from torch.utils.checkpoint import checkpoint
+    # 推荐的非可重入调用
+    out = checkpoint(my_block, x, use_reentrant=False)
+    ```
+
+    如果模块内有 dropout 等需要保持随机一致性的操作，还需设置 preserve_rng_state=True（默认）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  block_id: Nc8od3WB5ol7zcxPCBCcuF9jnMe
+  page_token: DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  original_title: 非可重入（non‑reentrant）检查点与可重入检查点的区别，PyTorch 新版本中的变更。
+  imported_at: '2026-09-21'

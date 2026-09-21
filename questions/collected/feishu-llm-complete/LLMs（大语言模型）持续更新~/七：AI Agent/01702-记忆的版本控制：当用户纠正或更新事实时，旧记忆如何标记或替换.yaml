@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a620c332fd0d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 记忆的版本控制：当用户纠正或更新事实时，旧记忆如何标记或替换？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 记忆的版本控制：当用户纠正或更新事实时，旧记忆如何标记或替换？
+answer:
+  mode: rubric
+  reference_answer: |-
+    当用户说“我之前说的地址错了，不是北京，是上海”时，这不是一条新记忆，而是对一条现有记忆的修正。系统必须正确处理这种更新，而不是简单新增一条可能造成矛盾的记忆。
+
+    处理策略：标记为过时，而非物理删除
+
+    - 不可变日志与过时标记：遵循事件溯源的思想，记忆存储本身应是一个不可变的追加日志。当用户纠正事实时，不应去物理修改或删除旧的“北京”记录。相反，系统会追加一条新的“修正”记录，包含新的值（上海）和修正发生的时间戳。同时，它会在索引中将旧的“北京”记录标记为“已过时”和“已被XX记录取代”。
+
+    - 版本链的维护：新旧记忆之间通过指针形成一条版本链。这使得 Agent 在需要时，能够完整追溯一个事实的整个演变历史：“用户最初说住在北京，后来在2024年5月更正为上海”。这保留了完整的上下文。
+
+    - 检索时的默认行为：在标准检索流程中，记忆管理器自动过滤掉所有被标记为“已过时”的记录。因此，Agent 看到的用户地址永远是最新的“上海”，而不会被旧记录干扰。
+
+    - 冲突解决的回退机制：如果在极罕见的情况下，系统因并发操作而产生了多个未被标记为过时的冲突值，记忆管理器会启动冲突解决协议。最常用的协议是“最后写入者胜出”，即以时间戳最新的那条记录为准。
+
+    通过这种“追加式更新、过时标记、版本链追溯”的机制，记忆系统既保证了信息的准确性和一致性，又最大程度地保留了历史上下文。
+
+    - 精确事实 -> 写入键值存储。例如，key 为 user:lang_preference，value 为 zh-CN。
+
+    - 模糊偏好与对话摘要 -> 写入向量数据库。将提取出的偏好描述或对话摘要文本进行 Embedding，存入向量索引。
+
+    - 识别到关键意图：当 LLM 在推理过程中明确分析出“这是一个用户偏好，我需要记住”时，它可以主动调用一个 save_to_memory 的工具来触发写入。
+
+    - 交互达到一定复杂度：简单的问候、寒暄不需要被记忆。只有当对话超过一定轮次，或完成了某个具体的子任务时，才触发对这段对话的提炼和写入。
+
+    - 用户显式指令：用户说“请记住我的生日是五月一号”。
+
+    - 错误或失败发生后：当任务失败时，将失败的尝试和原因作为经验教训写入记忆，以避免重蹈覆辙。
+
+    - 记忆的新鲜度：最近发生的事件通常比久远的记忆更相关。
+
+    - 记忆的重要性：用户明确陈述的偏好，其重要性高于模型推断的模糊结论。
+
+    - 与当前任务的匹配度：如果 Agent 当前正处在一个多步任务中，与该任务目标相关的记忆应被给予更高权重。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/P3TZwdaXDitcpEkM9Ggc3yqJn1e
+  block_id: DRYqdethVoJ9nXxeKKFcuyW1nue
+  page_token: P3TZwdaXDitcpEkM9Ggc3yqJn1e
+  original_title: 记忆的版本控制：当用户纠正或更新事实时，旧记忆如何标记或替换？
+  imported_at: '2026-09-21'

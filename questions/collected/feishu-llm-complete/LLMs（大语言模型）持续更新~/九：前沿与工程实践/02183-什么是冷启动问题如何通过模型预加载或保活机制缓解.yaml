@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-afa9750a9db3
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“冷启动”问题？如何通过模型预加载或保活机制缓解？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 九：前沿与工程实践
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 九：前沿与工程实践
+content:
+  prompt: 什么是“冷启动”问题？如何通过模型预加载或保活机制缓解？
+answer:
+  mode: rubric
+  reference_answer: |-
+    冷启动是指当一个LLM推理服务实例（容器/Pod）被新创建或长时间无请求后被唤醒时，需要将庞大的模型文件从磁盘加载到 GPU 显存的过程。这个过程极其耗时（从数十秒到数十分钟不等），期间服务无法响应任何请求，导致请求超时或失败。
+
+    缓解策略：
+
+    - 模型预加载：这是最根本的解决方案。不要等到请求来了再加载模型，而是在服务实例启动的过程中，就把模型加载好，只有当模型加载完成并处于“Ready”状态后，才将其注册到负载均衡器上，开始接收流量。在 Kubernetes 中，这可以通过 startupProbe 结合一个健康检查 API 来实现。
+
+    - 实例保活：对于访问频率不高但不可或缺的模型，使用“保温”机制避免其缩容到零。例如：
+
+    - 延迟缩容：在自动缩容策略中，设置较长的缩容冷却时间。这样，即使在业务高峰期过后，服务实例也会再保留一段时间（如 30 分钟），以应对即将到来的新请求。
+
+    - 模型预热（Warmup）：在模型加载完成后，立即发送一些模拟请求数据，将模型的计算图和相关内存“预热”到一个合适的状态。这可以避免真实用户请求首次命中时出现异常高的延迟。
+
+    - 快速加载技术：优化模型加载速度本身。例如，使用更快的 GPU 显存（如 HBM）和更高效的序列化/反序列化框架；在磁盘到 GPU 的传输路径上使用 GPUDirect Storage 等技术，绕过 CPU，加速模型加载。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  block_id: DERgdwO2Sog1cJxHCDscXlWhnge
+  page_token: Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  original_title: 什么是“冷启动”问题？如何通过模型预加载或保活机制缓解？
+  imported_at: '2026-09-21'

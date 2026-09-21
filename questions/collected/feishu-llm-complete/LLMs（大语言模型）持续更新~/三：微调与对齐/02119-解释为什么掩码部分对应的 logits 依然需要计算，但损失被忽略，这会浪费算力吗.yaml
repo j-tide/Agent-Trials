@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-175ca203c7e5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释为什么掩码部分对应的 logits 依然需要计算，但损失被忽略，这会浪费算力吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 解释为什么掩码部分对应的 logits 依然需要计算，但损失被忽略，这会浪费算力吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    要回答这个问题，我们需要先理清 Transformer 解码器的计算范式。
+
+    为什么掩码部分的 logits 必须被计算？
+    Transformer 的自回归生成是串行的。在训练时，虽然我们可以一次性输入整个序列，但模型内部仍然通过因果注意力掩码确保每个 token 只能看到它之前的上下文。因此，要预测位置 t 的 token，模型必须先计算出位置 t-1 及之前所有 token 的隐藏状态。assistant 回复的第一个 token，依赖于之前 user 输入的所有 token。如果不对 user 部分进行前向计算，就无法得到 user 输入最终的隐藏状态，也就无法为 assistant 回复的第一个 token 提供正确的上下文。所以，掩码部分的 logits 作为中间计算的“副产品”，是必须存在的。
+
+    这会浪费算力吗？
+
+    这确实是一种“算力浪费”，但这种浪费是在当前深度学习框架和 GPU 架构下，为了达到最佳性能而被迫接受的权衡。
+
+    具体来说：
+
+    - 计算的必要性：user 部分的计算是必须的，它为后续的生成提供了上下文。
+
+    - 计算的浪费性：user 部分对应的 logits 被计算出来，占用了 GPU 算力，但最终被掩码忽略，这确实是浪费的。
+
+    如何最小化这种浪费？
+
+    - GPU 的并行性要求计算“浪费”：核心矛盾在于 GPU 是为稠密矩阵乘法高度优化的。整个序列（包括 user 和 assistant）被一次性送入模型，可以充分利用 GPU 的并行计算能力。如果试图跳过 user 部分的 logits 计算，就需要实现稀疏或条件计算，这在当前 GPU 上会极大地降低并行效率，得不偿失。
+
+    - 低效的替代方案：理论上可以分两次前向传播：先用 user 的输入跑一遍模型，得到其最后的隐藏状态，再将其传给 assistant 部分进行生成。但这种方式引入了串行依赖，打断了 GPU 的并行流水线，训练速度会慢数倍。
+
+    - 工程上的最优解：因此，“一次性计算整个序列 + 损失掩码”的策略，尽管在数学计算上存在浪费，但在工程实践上，它通过最大化 GPU 并行度，实现了最高的训练吞吐量。最终的 logits 计算成本远低于破坏 GPU 并行性的代价，这是一种“以空间换时间”的策略，总体效率最高。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VOrVwrhLzi4WRokQOMPcOsPWnwg
+  block_id: EfifdKqBjoYfRMxoWwycRnRxncb
+  page_token: VOrVwrhLzi4WRokQOMPcOsPWnwg
+  original_title: 解释为什么掩码部分对应的 logits 依然需要计算，但损失被忽略，这会浪费算力吗？
+  imported_at: '2026-09-21'

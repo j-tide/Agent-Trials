@@ -1,0 +1,101 @@
+---
+schema_version: 1
+id: feishu-llm-complete-172b6414612e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对于不同层，头的注意力模式通常会发生怎样的变化？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 对于不同层，头的注意力模式通常会发生怎样的变化？
+answer:
+  mode: rubric
+  reference_answer: |-
+    [图片内容未导入]
+
+    - 底层（靠近输入的层）：
+
+    - 中间层：
+
+    - 顶层（靠近输出的层）：
+
+    在生成任务（解码器）中，这种层次化同样存在，但自回归掩码使得注意力只能向前看，因此底层偏向捕捉局部的近期依赖，顶层则能够关注到非常远的历史关键信息。
+
+    这种层次化的注意力模式是 Transformer 强大的重要来源，它使得模型能像人类的阅读和理解过程一样，先解析局部结构，再逐步构建全局意义。
+
+    [图片内容未导入]
+
+    完全可以并行，这是设计使然。
+
+    等价于单头注意力，多头完全失效。
+
+    绝对不共享。如果共享，多头就退化为单头了。
+
+    可以，但不是标准做法，而且会丧失多头注意力的核心优势。
+
+    有，核心思路是让多个头共享同一组K和V，因为KV缓存的存储量与头数和序列长度成正比，是长文本推理的主要显存瓶颈。
+
+    区别集中在K和V是否被所有头共享。
+
+    GQA 提供了一把连续的旋钮，让我们可以在MHA（质量上限）和MQA（效率上限）之间平滑调节。
+
+    高效实现的核心是将所有头的计算合并为批量矩阵乘法，避免任何Python循环。
+
+    - scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k) → 形状 (B,H,N,N)。
+
+    - 由于Q和K的前两维是 (B, H)，matmul自动对这两个维度进行批量矩阵乘法，每个头独立计算自己的注意力分数矩阵。
+
+    - output = torch.matmul(attn, V) → 形状(B,H,N,dk)。
+
+    - output = output.transpose(1, 2).contiguous().view(B, N, D)。
+
+    - 先transpose将头维度移回序列维度之后，再用view将最后两维合并回 DD，恢复为原始输入形状。
+
+    可以，而且这是模型压缩的常见手段。
+
+    头冗余是指在训练好的多头注意力中，存在相当一部分头学到的注意力模式高度相似或完全可以被其他头替代，它们没有提供额外有用的信息。
+
+    Dropout 在 Transformer 中被广泛用于防止过拟合，应用在以下关键位置：
+
+    总体规律：从底层到顶层，注意力模式呈现出从局部、句法向全局、语义的层次化转变。
+
+    - 注意力模式倾向于局部，即每个词主要关注其邻近的几个词。这与CNN的低层提取局部边缘和纹理特征类似。
+
+    - 很多头会形成清晰的、可预测的模式，如“关注前一个词”、“关注对角线（自身）”、“关注后一个词”等。这些模式有助于编码短语结构和局部语法关系。
+
+    - 注意力范围开始扩大。部分头转向句法结构，例如动词的头会强烈关注其主语或宾语，介词的关注其宾语等，形成句法依存树的大致结构。
+
+    - 同时，一些头开始捕捉更长距离的语义关联，如同义词、相关概念。
+
+    - 注意力变得非常全局和稀疏。大部分注意力权重可能集中在少数几个特殊 token 上，例如句子开头的 [CLS] token（BERT中）、关键的语义中心词（如主要实体、主题词），或者特定的分隔符。
+
+    - 这种集中表明顶层在进行高层语义综合，将整个序列的信息聚合到少数关键点，为最终的分类或生成做准备。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HYsiwYLhgiMtrTkWwwMcZCKinzb
+  block_id: LhY2d1PJOodqH5xjdK6ccYiYnOb
+  page_token: HYsiwYLhgiMtrTkWwwMcZCKinzb
+  original_title: 对于不同层，头的注意力模式通常会发生怎样的变化？
+  imported_at: '2026-09-21'

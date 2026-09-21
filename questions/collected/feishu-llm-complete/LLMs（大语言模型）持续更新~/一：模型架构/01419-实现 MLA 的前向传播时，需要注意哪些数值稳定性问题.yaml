@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f67514f6ee4e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现 MLA 的前向传播时，需要注意哪些数值稳定性问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 实现 MLA 的前向传播时，需要注意哪些数值稳定性问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    MLA 在前向传播中面临与标准注意力类似的数值稳定性挑战，并且由于其低秩上投影操作，有一些额外风险需要注意：
+
+    - Softmax 的溢出与下溢：与标准注意力相同，注意力分数可能因数值过大而导致 exp 溢出。必须使用 online softmax（或 FlashAttention 内置的稳定版本），动态减去最大值以保证数值稳定性。
+
+    [图片内容未导入]
+
+    - 位置编码与内容向量的融合：解耦的 RoPE 路径中，内容部分和位置部分的相加必须保证数值量级匹配。如果位置向量的范数远大于内容向量（或反之），softmax 前的分数分布会偏向某一路径，破坏平衡。通常需要对位置编码向量进行适当的缩放。
+
+    - FP16/BF16 的精度问题：在混合精度训练中，上投影涉及大矩阵乘法，可能因 FP16 的动态范围不足而产生 NaN 或 Inf。推荐使用 BF16（有更大的指数位），或在 MLA 的上投影计算中强制使用 FP32 累加。
+
+    - 分块计算中的统计量维护：与 FlashAttention 类似，MLA 在分块实现时，每块的 online softmax 统计量（最大值、分母）需要正确维护和更新，尤其是在 K、V 是从潜在向量动态恢复时，不可出错。
+
+    只要遵循与标准 Transformer 相同的数值安全准则，并对上投影部分进行合理的初始化和精度控制，MLA 可以稳定训练。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/De9XwLns1iyyb4kgEKoc7B7unwg
+  block_id: Q0w6dgF8Go6Qvyxkpr5cHakZnbg
+  page_token: De9XwLns1iyyb4kgEKoc7B7unwg
+  original_title: 实现 MLA 的前向传播时，需要注意哪些数值稳定性问题？
+  imported_at: '2026-09-21'

@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a5c0c774a59f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 FlashAttention 内核中，是如何将 softmax 缩放、masking、dropout（推理时可不做）融合进去的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在 FlashAttention 内核中，是如何将 softmax 缩放、masking、dropout（推理时可不做）融合进去的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    FlashAttention 通过分块和 online softmax 技术，将 softmax 缩放、masking 和 dropout 全部融合在单个内核中，无中间矩阵写回。
+
+    - Softmax 缩放：
+    在计算 S = QK^T 后，立即乘以缩放因子 1/sqrt(d)（或直接在点积时缩放），这是在线计算的一部分，不额外开销。
+
+    - Masking：
+    当加载当前 K、V 块时，知道其位置范围。对于因果 mask，只需正确处理逻辑序列长度，非因果 mask 可直接将对应的 S 元素置为 -inf 或非常大的负数，在片上就地修改分数 tile。这只需简单的元素级操作。
+
+    - Dropout（训练时）：
+    在 softmax 之后得到注意力权重 P。如果启用 dropout，需要生成随机掩码并缩放。FlashAttention 在 P 上应用 dropout，同时为了反向传播，需要保存随机种子和掩码（或重计算）。推理时 dropout 通常关闭，可省略。
+
+    融合流程：
+
+    对于每个 Q 块和 K 块：
+
+    - 加载 Q_tile, K_tile，计算 S = Q*K^T * scale。
+
+    - 如果提供 mask，按位置进行 S += mask（mask 中屏蔽位置为 -inf）。
+
+    - 计算局部 softmax（online update）：更新 running max 和 running sum。
+
+    - 如果需要 dropout，生成随机掩码，P = P * mask，并重新归一化（复杂，通常用重计算）。
+
+    - 加载 V_tile，O += P * V，用 online softmax 统计量调整。
+
+    所有中间数据都在 SRAM，不写回 HBM，这是 FlashAttention 高性能的本质。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Uhg6wKBvGiSyqckdgPTciRAMn9f
+  block_id: Te04dPfZpoPQuaxlhLhcykvfnAf
+  page_token: Uhg6wKBvGiSyqckdgPTciRAMn9f
+  original_title: 在 FlashAttention 内核中，是如何将 softmax 缩放、masking、dropout（推理时可不做）融合进去的？
+  imported_at: '2026-09-21'

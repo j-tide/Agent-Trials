@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fd88a9c31ab6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 量化 ZeRO‑3 在 530B 模型上的显存占用，给出计算实例
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 量化 ZeRO‑3 在 530B 模型上的显存占用，给出计算实例
+answer:
+  mode: rubric
+  reference_answer: |-
+    530B 参数模型，混合精度训练（FP16 参数/梯度，FP32 优化器状态 Adam）。
+
+    - 总模型状态（字节）：
+
+    - ZeRO-3 将上述全部分片到 Nd 个 GPU。设 Nd=512，则每 GPU 模型状态 = 8.48 TB / 512 ≈ 16.56 GB。
+
+    - 激活内存：取决于 batch size、序列长度、隐藏维度。假设序列长度 2048，每 micro-batch 1 样本，使用激活重计算。典型 530B 模型的隐藏维度 ~20480，层数 ~105。每层激活大约需要几十 MB，乘以 micro-batch 数量和流水线深度。大致估计激活内存约 20 GB。
+
+    - 临时缓冲区/通信桶：约 2-3 GB。
+
+    - 每 GPU 总显存 ≈ 16.56 + 20 + 3 = 39.56 GB，可以轻松放入 80 GB A100。若 Nd=256，则模型状态 33.12 GB，总显存 ~55 GB，仍在 80 GB 内。
+
+    因此，ZeRO-3 在足够的数据并行度下，显存占用远低于单卡容量，使得 530B 训练成为可能。
+
+    - 反向传播后，进行一次 Reduce-Scatter 将梯度规约并分片，通信量约为 2Ψ（每个参数 2 字节梯度 × 2 倍通信因子 ≈ 2Ψ 字节）。
+
+    - 前向不需要参数通信（参数全在本地）。
+
+    - 优化器步骤无需通信。
+
+    - 总通信量：约 2Ψ 字节。
+
+    - 模型并行（张量并行 TP、流水线并行 PP）将模型计算图切分到不同设备，每张卡负责部分层或层内部分运算，需要修改模型结构，引入层内或层间通信（All-Reduce、P2P）。
+
+    - ZeRO 本质是数据并行 + 状态分片，不改变模型计算图，每张卡仍独立完成完整前向/反向，只是所需参数、梯度、优化器状态分片存储，通过集合通信动态获取完整参数。
+
+    - FP16 参数：530 × 10^9 × 2 = 1.06 TB
+
+    - FP16 梯度：1.06 TB
+
+    - FP32 优化器状态（参数副本、动量 m、动量 v）：530 × 10^9 × 12 = 6.36 TB
+
+    - 总计 ≈ 8.48 TB
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdlMwr6zHiurCIkdVS6c9aFDnUg
+  block_id: VwC7d7ATZoZK1zxdRm7cgD1fn6d
+  page_token: RdlMwr6zHiurCIkdVS6c9aFDnUg
+  original_title: 量化 ZeRO‑3 在 530B 模型上的显存占用，给出计算实例
+  imported_at: '2026-09-21'

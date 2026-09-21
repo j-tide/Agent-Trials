@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b6d46e7bcbbc
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 tokenizer 的 chat_template 后，如何自动生成对应的损失掩码？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 使用 tokenizer 的 chat_template 后，如何自动生成对应的损失掩码？
+answer:
+  mode: rubric
+  reference_answer: "现代 tokenizer 的 chat_template 会为不同角色生成特殊的、可区分的 token（如 <|im_start|>user\\n,
+    <|im_end|>）。这为自动生成损失掩码提供了极大便利。\n\n核心实现逻辑：\n\n```python\ndef create_loss_mask(input_ids,
+    tokenizer):\n    labels = input_ids.clone()\n    \n    assistant_start_token =
+    tokenizer.convert_tokens_to_ids(\"<|im_start|>assistant\")\n    assistant_end_token
+    = tokenizer.convert_tokens_to_ids(\"<|im_end|>\")\n    \n    in_assistant_section
+    = False\n    for i in range(labels.shape[1]):\n        token = labels[0, i].item()\n
+    \       \n        if token == assistant_start_token:\n            in_assistant_section
+    = True\n            labels[0, i] = -100  # 开头标记本身也不计算损失\n        elif token ==
+    assistant_end_token:\n            labels[0, i] = -100  # 结束标记本身不计算损失\n            in_assistant_section
+    = False\n        elif not in_assistant_section:\n            labels[0, i] = -100
+    \ # 非assistant部分，掩码\n            \n    return labels\n```\n\n关键逻辑：利用 chat_template
+    生成的特殊 token 作为标记位，通过一个简单的状态机，可以精确地识别出“assistant”角色所在的文本段，并自动将其他部分的 label 设为 -100。"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VOrVwrhLzi4WRokQOMPcOsPWnwg
+  block_id: AE87dylttoEHDXxJ5LccfoUfnVd
+  page_token: VOrVwrhLzi4WRokQOMPcOsPWnwg
+  original_title: 使用 tokenizer 的 chat_template 后，如何自动生成对应的损失掩码？
+  imported_at: '2026-09-21'

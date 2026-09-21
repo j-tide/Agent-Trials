@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cc7133c4ac59
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何监控 LLM API 的首 token 延迟和吞吐量？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 九：前沿与工程实践
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 九：前沿与工程实践
+content:
+  prompt: 如何监控 LLM API 的首 token 延迟和吞吐量？
+answer:
+  mode: rubric
+  reference_answer: |-
+    LLM 服务的性能监控与传统 Web 服务不同，需要聚焦于两个核心指标：TTFT（首Token延迟）和TPOT（每输出Token时间）。
+
+    - 在 API 网关层进行精确统计
+
+    由于 LLM API 通常以流式（SSE）方式响应，传统的反向代理（如 Nginx）只能监控到请求总时长，无法感知到首 Token 的生成时间。因此，我们需要在自研的 API 网关中编写专门的 SSO 解析逻辑。
+
+    统计逻辑：
+
+    - 网关在发送完请求体后，立刻记录一个时间戳 T_start。
+
+    - 当网关从推理引擎收到第一个 data: {...} 流式事件，并且该事件的 choices[0].delta.content 字段有效时，记录第二个时间戳 T_first_token。TTFT = T_first_token - T_start。
+
+    - 当网关收到 data: [DONE] 事件时，记录 T_end。
+
+    - 吞吐量（Tokens Per Second, TPS） = 本次请求生成的总 Token 数 / (T_end - T_first_token)。
+
+    网关将这些精确的延迟指标，连同 Token 消耗、请求 ID 等元数据一起，发布到 Prometheus 等监控系统。
+
+    - 基于 OpenTelemetry 的分布式追踪
+
+    在复杂链路中，仅仅监控网关是不够的。我们需要利用分布式追踪来定位瓶颈。
+
+    - 在 API 网关、调度器、推理引擎等关键环节，都集成 OpenTelemetry 的 SDK。
+
+    - 为每一个请求生成唯一的 Trace ID，并在整个调用链路中传递。
+
+    - 通过在代码中手动添加 Span，我们可以清晰地看到请求花费在网络传输、队列等待和模型计算等各个阶段的时间。这对于定位是网络问题、排队问题还是模型推理慢的问题至关重要。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  block_id: AEU1dc1p1o9Usux6O7scl0JinMg
+  page_token: Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  original_title: 如何监控 LLM API 的首 token 延迟和吞吐量？
+  imported_at: '2026-09-21'

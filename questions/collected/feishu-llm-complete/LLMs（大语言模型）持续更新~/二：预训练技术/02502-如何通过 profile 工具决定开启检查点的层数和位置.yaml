@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-001cfa95c11e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何通过 profile 工具决定开启检查点的层数和位置？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 如何通过 profile 工具决定开启检查点的层数和位置？
+answer:
+  mode: rubric
+  reference_answer: |-
+    步骤：
+
+    - 内存分析：使用 torch.cuda.memory_stats() 或 Nsight Systems 捕获训练过程的显存分配记录，找出各层产生的中间激活张量大小。重点关注注意力矩阵、FFN 升维输出等大张量。
+
+    - 计算量分析：使用 PyTorch Profiler 或 torch.cuda.Event 测量每层前向和反向的执行时间（FLOPs 或耗时）。计算量小但激活大的层是检查点的理想候选（收益高，代价小）。
+
+    - 构建成本模型：对于每一层 i，定义激活内存 Mi 和重计算代价 Ci。选择一组层开启检查点，最大化节省的内存 ∑Mi，同时约束增加的计算时间不超过某预算（例如整体训练时间增加 < 20%）。
+
+    - 贪心或整数规划：按 Mi/Ci 比降序排列，依次开启检查点，直到达到内存节省目标或计算开销上限。通常注意力层比值高，FFN 比值低。
+
+    - 实验验证：在实际训练中对比不同配置的内存使用和迭代时间，微调。
+
+    工具：
+
+    - torch.profiler.profile 可统计各算子内存占用和耗时。
+
+    - pyinstrument 或 memory_profiler 辅助分析。
+
+    - Nsight Systems 可视化 CUDA 内存分配。
+
+    在实践中，绝大多数情况直接对每个 Transformer 层开启检查点即可，无需精细调优，因为这是最佳平衡点。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  block_id: I0Ofd5RAooaGKqxXEV0cgJTEngb
+  page_token: DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  original_title: 如何通过 profile 工具决定开启检查点的层数和位置？
+  imported_at: '2026-09-21'

@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1d46e46c7735
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当使用 LoRA 进行 PPO 对齐时，如何设计 Actor 和 Critic 的参数高效方案？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 当使用 LoRA 进行 PPO 对齐时，如何设计 Actor 和 Critic 的参数高效方案？
+answer:
+  mode: rubric
+  reference_answer: |-
+    LoRA 和 PPO 的结合是当前最主流的资源友好型 RLHF 方案。核心思路是：只对 Actor 和 Critic 模型注入极少量可训练的 LoRA 参数，同时保持昂贵的 Reference 和 Reward 模型为冻结的全精度或量化模型。
+
+    一个典型的、高效的方案设计如下：
+
+    - Actor 模型（策略模型）的 LoRA 设计
+
+    - 基座模型：以 SFT 模型作为基座，完全冻结其原始参数。
+
+    - LoRA 注入位置：在 Actor 模型的所有线性层（或至少是自注意力层的 Q、V 投影矩阵以及前馈网络的线性层）注入低秩矩阵 A 和 B。
+
+    - 训练目标：PPO 训练时，只更新这些 LoRA 矩阵，而原始参数保持不变。这大大降低了需要优化的参数量和优化器状态。
+
+    - Critic 模型（价值模型）的 LoRA 设计
+
+    - 最优方案：复用 Actor 基座，独立 LoRA 头。Critic 和 Actor 可以共享同一个冻结的 SFT 基座模型，但是各自拥有独立的、分离的 LoRA 适配器。Actor 的 LoRA 专注于生成任务，Critic 的 LoRA 专注于价值评估任务。这种方式最大化地共享了底层表示，同时避免了两个不同优化目标（Actor 和 Critic 损失）之间的梯度冲突。
+
+    - 次优方案：独立的 Critic 模型 + LoRA。如果显存允许，Critic 可以使用一个独立的、较小的冻结基座（例如从 Reward Model 初始化），并同样注入 LoRA 适配器。这种方案的训练更稳定，但显存开销更大。
+
+    - 其余模型的处理
+
+    - Reference Model：必须是冻结的、不包含任何 LoRA 的原始 SFT 模型。计算 KL 散度需要与优化前的策略进行比较，因此它绝对不能包含 Actor 的 LoRA 参数。
+
+    - Reward Model：完全冻结，不使用 LoRA。
+
+    - 训练流程
+
+    训练开始时，加载：
+
+    - 一个共享的、冻结的 SFT 基座模型。
+
+    - Actor 的 LoRA 适配器。
+
+    - Critic 的 LoRA 适配器。
+
+    - Reference 模型（与 SFT 基座相同，无 LoRA）。
+
+    - Reward 模型（冻结）。
+
+    通过这种设计，整个 RLHF 训练过程中，真正需要更新和存储梯度的参数只有两组小的 LoRA 矩阵，显存和计算开销得到数量级的降低。这种方案使得在单张消费级显卡（如 24GB）上对 7B 甚至 13B 模型进行 PPO 微调成为可能。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QNW3wg7bCinLPQkL0kGc4IdynHh
+  block_id: R9VXdmFvlow1FrxITEvcF4OlnNd
+  page_token: QNW3wg7bCinLPQkL0kGc4IdynHh
+  original_title: 当使用 LoRA 进行 PPO 对齐时，如何设计 Actor 和 Critic 的参数高效方案？
+  imported_at: '2026-09-21'

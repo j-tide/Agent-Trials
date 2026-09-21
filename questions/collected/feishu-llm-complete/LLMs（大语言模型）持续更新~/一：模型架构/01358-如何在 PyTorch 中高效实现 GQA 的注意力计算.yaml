@@ -1,0 +1,95 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b7cf815eebeb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在 PyTorch 中高效实现 GQA 的注意力计算？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 如何在 PyTorch 中高效实现 GQA 的注意力计算？
+answer:
+  mode: rubric
+  reference_answer: |-
+    高效实现 GQA 的核心在于利用张量重塑和广播，避免在显存中复制 K 和 V。以下是一种典型的 PyTorch 实现思路：
+
+    ```python
+    import torch
+    import torch.nn.functional as F
+    import math
+
+    def grouped_query_attention(Q, K, V, num_kv_heads, mask=None):
+        """
+        Q: [batch, seq_len, total_heads * d_k] 或经过投影
+        我们假设输入已是投影后的形状。
+        更常见的形式：直接传入已投影的 Q, K, V 张量。
+        Q: [batch, seq_len, H, d_k]
+        K: [batch, seq_len, G, d_k]
+        V: [batch, seq_len, G, d_k]
+        """
+        batch, seq_len, H, d_k = Q.shape
+        G = K.shape[2]  # num_kv_heads
+        # 计算每个查询头对应的组索引
+        heads_per_group = H // G
+
+        # 重塑 Q: (batch, seq_len, G, heads_per_group, d_k) -> (batch, G, heads_per_group, seq_len, d_k)
+        Q = Q.view(batch, seq_len, G, heads_per_group, d_k).permute(0, 2, 3, 1, 4)
+        # K, V: (batch, seq_len, G, d_k) -> (batch, G, 1, seq_len, d_k)
+        K = K.unsqueeze(2)  # 在头维度上增加一个大小为1的维度用于广播
+        V = V.unsqueeze(2)
+
+        # 注意力分数: (batch, G, heads_per_group, seq_len, seq_len)
+        scale = d_k ** 0.5
+        scores = torch.matmul(Q, K.transpose(-2, -1)) / scale
+        if mask is not None:
+            scores = scores.masked_fill(mask == 0, float('-inf'))
+        attn = F.softmax(scores, dim=-1)
+
+        # 输出: (batch, G, heads_per_group, seq_len, d_k)
+        out = torch.matmul(attn, V)
+
+        # 恢复形状: (batch, seq_len, H, d_k)
+        out = out.permute(0, 3, 1, 2, 4).contiguous().view(batch, seq_len, H * d_k)
+        return out
+    ```
+
+    关键点：
+
+    - Q 被重塑并分组，使得其形状为 (batch, G, heads_per_group, seq_len, d_k)。
+
+    - K 和 V 在组维度后插入一个尺寸为 1 的维度，变为 (batch, G, 1, seq_len, d_k)，这样在 matmul 时会自动广播到每个查询头。
+
+    - 这样既实现了逻辑上的“每个组内头共享 K、V”，又避免了任何显式的复制。
+
+    在实际项目中，为了充分发挥硬件效率，通常会使用针对 GQA 优化的 CUDA 内核（如 FlashAttention 的 GQA 模式），但上述代码清晰地展示了 GQA 的原理。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SPxcwpiiJiDErJkkcbxc3fJLnne
+  block_id: UDUad9fTeo8yDpxeIQdc8Lt5n8I
+  page_token: SPxcwpiiJiDErJkkcbxc3fJLnne
+  original_title: 如何在 PyTorch 中高效实现 GQA 的注意力计算？
+  imported_at: '2026-09-21'

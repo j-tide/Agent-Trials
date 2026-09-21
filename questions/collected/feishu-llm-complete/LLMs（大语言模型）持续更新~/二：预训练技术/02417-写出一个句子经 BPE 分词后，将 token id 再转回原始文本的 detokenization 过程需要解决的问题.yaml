@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d1e152dd8b7e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 写出一个句子经 BPE 分词后，将 token id 再转回原始文本的 detokenization 过程需要解决的问题。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 写出一个句子经 BPE 分词后，将 token id 再转回原始文本的 detokenization 过程需要解决的问题。
+answer:
+  mode: rubric
+  reference_answer: |-
+    将 token ID 序列还原为可读的原始文本，并非简单的拼接，需要处理以下几个关键问题：
+
+    - 空格与单词边界恢复：
+
+    - BPE with </w> 后缀（如 GPT-2）：每个单词的最后一个子词会带有一个特殊结束符 </w>。解码时，需要将所有 token 直接拼接，然后将 </w> 替换为空格。例如，["Hello", "</w>", "world", "</w>"] → "Hello</w>world</w>" → 将 </w> 换为空格 → "Hello world"。
+
+    - SentencePiece 的 ▁ 元字符：▁ 代表一个空格。解码时，直接拼接所有 token，然后将 ▁ 替换为普通空格即可完美还原。这是最优雅的可逆方案。
+
+    - WordPiece 的 ## 前缀：如果一个 token 以 ## 开头，表示它紧跟前一个 token，中间没有空格。解码时，移除所有 ##，并将 token 直接连接。第一个 token 和去掉 ## 的 token 之间不加空格。例如，["play", "##ing"] → 移除 ## → ["play", "ing"] → 拼接为 "playing"。
+
+    - 特殊控制 Token 的过滤：
+
+    - 像 [CLS], [SEP], [MASK], [UNK], <|endoftext|> 等特殊 token 必须被识别并从最终文本中移除，否则会污染输出。
+
+    - 字节级 BPE 的转换：
+
+    - GPT-2 等使用的字节级 BPE，其词表中的 token 并不是直接可读的字符，而是字节到 Unicode 字符的映射。解码时，需要先将 token ID 转换为对应的字节序列，然后将这些字节序列按 UTF-8 解码回 Unicode 字符。这个过程还需要处理单个多字节字符被切分成多个字节 token 的情况，确保字符的完整性。
+
+    - 后处理规范化：
+
+    - 在某些情况下，文本中可能会残留多余空格（如标点前的空格）。理想的解码器会根据标点规则（如英文中句号前不应有空格）进行微调。但对于现代分词器，由于其训练数据驱动，通常无需额外规则，直接拼接即可。
+
+    - 对于中文等无空格语言，SentencePiece 的元字符方案同样能完美还原，因为汉字之间原本就没有空格。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UKVSwsmrvizh73kD8qpckkNRnQh
+  block_id: L1WEdBTaPocvJoxP0x3cQq4Enlc
+  page_token: UKVSwsmrvizh73kD8qpckkNRnQh
+  original_title: 写出一个句子经 BPE 分词后，将 token id 再转回原始文本的 detokenization 过程需要解决的问题。
+  imported_at: '2026-09-21'

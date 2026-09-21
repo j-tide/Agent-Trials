@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b5411e4edb05
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: vLLM 如何实现高吞吐服务？列举其主要优化技术（PagedAttention、continuous batching 等）。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: vLLM 如何实现高吞吐服务？列举其主要优化技术（PagedAttention、continuous batching 等）。
+answer:
+  mode: rubric
+  reference_answer: |-
+    vLLM 的高吞吐来自于一套协同工作的优化技术栈：
+
+    - PagedAttention（分页注意力）
+    将 KV Cache 切分为固定大小的物理块，通过块表映射逻辑序列。实现近乎零浪费的显存利用、前缀共享和高效的抢占/恢复，直接支撑更大的并发 batch。
+
+    - 连续批处理（Continuous Batching）
+    迭代级调度：每次迭代（生成一个 token）后，立即让完成的请求退出，并从等待队列加入新请求。batch 动态伸缩，GPU 始终全负荷，避免静态批处理的空泡。
+
+    - 抢占式调度与换入换出
+    当显存不足时，可抢占低优先级或长请求，将其 KV 块拷贝到 CPU 内存，释放 GPU 显存；之后恢复。保障了高负载下的系统稳定性和弹性。
+
+    - 融合 CUDA 内核
+    实现了高度优化的 PagedAttention kernel，将分页块加载、注意力计算、RoPE、缩放等融合为一次调用；同时在其他部分（如 RMSNorm、残差加）也进行了算子融合，减少 kernel launch 和带宽浪费。
+
+    - 量化支持
+    支持 AWQ、GPTQ 等 4-bit 权重量化，可进一步减少模型体积和带宽需求，提升吞吐。
+
+    - 张量并行与流水线并行
+    支持将模型切分到多块 GPU，结合 NCCL 通信，实现大模型的高吞吐分布式推理。
+
+    - 前缀缓存（Prefix Caching）
+    自动识别并复用相同 prompt 前缀的 KV 块，避免重复 prefill 计算和缓存，显著提高多轮对话和批量评估场景的效率。
+
+    这些技术的叠加，使得 vLLM 能够将 GPU 的算力和带宽推向极限，实现业界领先的服务吞吐。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZXcXweoHiilNSmkYRs9cZyF8n1f
+  block_id: L0t2dBDDPo9ZJLxO7yccARZVnZg
+  page_token: ZXcXweoHiilNSmkYRs9cZyF8n1f
+  original_title: vLLM 如何实现高吞吐服务？列举其主要优化技术（PagedAttention、continuous batching 等）。
+  imported_at: '2026-09-21'

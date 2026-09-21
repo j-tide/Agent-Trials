@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5db66d20bf70
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何用 ORPO 对已经 SFT 过的模型进行后续对齐？是否需要混合原始 SFT 数据？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 如何用 ORPO 对已经 SFT 过的模型进行后续对齐？是否需要混合原始 SFT 数据？
+answer:
+  mode: rubric
+  reference_answer: |-
+    是的，强烈建议在后续对齐中混合原始 SFT 数据。
+
+    尽管 ORPO 设计之初是为了省去单独的 SFT 阶段，但它同样可以作为一个强大的工具，对已经完成 SFT 的模型进行后续对齐。此时，ORPO 的角色就从一个“全栈”方法变为了一个纯粹的“偏好对齐”方法。
+
+    操作步骤：
+
+    - 准备对齐数据：按照 ORPO 的格式要求，构建包含 chosen 和 rejected 回复的偏好数据。这些数据应当与你的对齐目标（如安全性、特定风格）紧密相关。
+
+    - 混合原始 SFT 数据（关键步骤）：这是防止灾难性遗忘的核心。在对齐过程中，模型很容易因为过度追求新偏好而忘记它在 SFT 阶段学到的广泛能力。因此，在训练 batch 中，必须混入一部分（例如 20%-50%）高质量的、你希望模型保留的原始 SFT 数据。对于这部分数据，只计算其 L SFT 损失，而不计算 L OR 损失（因为它们没有 rejected 对）。
+
+    - 设置合适的 λ 和 β：对一个已经很强的 SFT 模型进行后续对齐，通常需要更谨慎的优化强度。建议从一个较小的 λ（如 0.5）开始，让模型平稳过渡，避免过大的更新破坏了已有的语言能力。
+
+    为什么必须混合 SFT 数据？
+
+    如果用 ORPO 做后续对齐时不混合原始 SFT 数据，就相当于只使用了一个“偏好增强”数据集。此时，ORPO 的 SFT 部分只会学习新的偏好数据中的 chosen 回复，而 OR 部分会惩罚 rejected 回复。这会导致模型逐渐遗忘它在原始 SFT 阶段学到的、未在新数据中出现的知识和指令遵循能力。混合原始 SFT 数据，就是为了持续强化这些基础能力，确保对齐过程是一个“加法”而不是“替换”。
+
+    总结：ORPO 非常灵活，既可以作为从头开始的一体化训练方案，也可以作为对已 SFT 模型的后续对齐方案。但无论哪种场景，保留高质量 SFT 数据的持续学习，都是确保模型不退化、对齐效果稳健的关键。
+
+    - 显存占用减半：ORPO 完全不需要加载 Reference Model，因此在训练时 GPU 中只需要维护一个模型。相比之下，DPO 需要同时加载策略模型和参考模型。这使得 ORPO 的显存占用降低了约 50%，或者可以在同样的硬件上训练更大的模型。
+
+    - 训练速度更快：由于只需要一次模型前向传播即可完成计算，ORPO 的训练速度比 DPO 快得多，吞吐量显著提升。
+
+    - 工程实现更简单：无需管理双模型的复杂逻辑，代码实现简洁明了。
+
+    - 一个力（来自 SFT）在“提升”好回复。
+
+    - 另一个力（来自 OR）在“拉低”坏回复，并且同时也在加固好回复。
+
+    - SFT 损失提供了稳定的“压舱石”：ORPO 的核心设计理念是将对齐任务“寄生”在一个强大的 SFT 任务之上。SFT 损失始终在引导模型学习正确的指令-回复映射，这保证了模型在最基础的层面上不会发生退化或崩溃。即使 OR 损失在训练初期产生了一些波动，SFT 损失也会将模型拉回正轨。
+
+    - 内在的自我惩罚机制更平滑：ORPO 的 Odds Ratio 惩罚项无需外部参考模型，它直接比较模型自己对 chosen 和 rejected 回复的生成概率。这种比较是在模型“自身坐标系”内进行的，因此更新信号更加平滑、内洽，不会像 DPO 那样因为外部参考模型的介入而引入额外的方差。
+
+    - 超参数 λ 的平衡问题：虽然 SFT 损失增加了稳定性，但 λ（对齐损失权重）的选择至关重要。如果 λ 设置过大，OR 损失的梯度会压倒 SFT 的梯度，导致模型在偏好对齐上“用力过猛”，反而可能损害其基础语言能力。这需要我们在训练初期仔细监控 SFT 损失和 OR 损失的相对大小。
+
+    - Odds Ratio 的数值溢出风险：在计算 Odds Ratio 时，如果模型对某个回复的生成概率极低（接近于 0）或极高（接近于 1），会导致 odds = P/(1-P) 的计算出现数值溢出或产生 inf/NaN。不过，这个问题可以通过数值稳定性处理来解决（见下题）。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LDEaws7M2ib3h0k3LxMcQiy0nKe
+  block_id: SIx8d9wtVoYcKsxNmO0cACr5nzh
+  page_token: LDEaws7M2ib3h0k3LxMcQiy0nKe
+  original_title: 如何用 ORPO 对已经 SFT 过的模型进行后续对齐？是否需要混合原始 SFT 数据？
+  imported_at: '2026-09-21'

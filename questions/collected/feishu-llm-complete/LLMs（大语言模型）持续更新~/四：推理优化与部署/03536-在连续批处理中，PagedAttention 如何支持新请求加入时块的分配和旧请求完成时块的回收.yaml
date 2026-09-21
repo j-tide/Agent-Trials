@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3dabe5c19a05
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在连续批处理中，PagedAttention 如何支持新请求加入时块的分配和旧请求完成时块的回收？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在连续批处理中，PagedAttention 如何支持新请求加入时块的分配和旧请求完成时块的回收？
+answer:
+  mode: rubric
+  reference_answer: |-
+    新请求加入时的块分配：
+
+    - 调度器在每轮迭代结束后，从等待队列取请求。首先计算其所需初始块数（基于 prompt 长度）。
+
+    - 检查空闲物理块数量是否足够。若足够，立即分配这些块，构造块表，并将请求加入运行集。然后该请求参与后续 prefill（可能分块）和 decode。
+
+    - 若空闲块不足，调度器可能延迟该请求、触发抢占（换出一些运行请求的块），或拒绝请求（流量控制）。
+
+    旧请求完成时的块回收：
+
+    - 当请求生成 EOS 或达到最大长度，标记为完成。调度器在迭代结束后，遍历该请求的块表，将所有被引用的物理块释放回空闲池。
+
+    - 对于共享块（如来自相同前缀），采用引用计数机制：每个物理块维护一个引用计数，当块被分配给新请求或共享时计数增加；当请求完成且不再需要该块时计数减一；当计数归零时，该块才真正回收为空闲。
+
+    - 被回收的块立刻可供其他请求使用，无需等待整体批次结束。
+
+    连续批处理的配合：
+
+    - PagedAttention 的块分配和回收是操作极快的纯逻辑操作（修改块表和空闲链表），没有数据搬运。因此可以在每次迭代之间无缝进行，不增加明显的调度延迟。
+
+    - 这种动态的、细粒度的显存管理是连续批处理能维持高 batch 饱和度的基础：资源一旦释放立刻复用，新请求得以快速注入。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  block_id: C9ScdzGO9oQieZxMhHPc4BHpnJh
+  page_token: Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  original_title: 在连续批处理中，PagedAttention 如何支持新请求加入时块的分配和旧请求完成时块的回收？
+  imported_at: '2026-09-21'

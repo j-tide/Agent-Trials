@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7ef2d549d99b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在 CoT 中引入外部工具（如计算器、搜索引擎）以实现更准确的推理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: 如何在 CoT 中引入外部工具（如计算器、搜索引擎）以实现更准确的推理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    LLM 的固有短板在于精确数值计算和实时知识获取，这恰好是外部工具的长处。将工具集成进 CoT，相当于给了模型“手臂和眼睛”，让它可以去操作精确的工具，而不只是在大脑里空想。
+
+    集成模式
+
+    - 标记化工具调用：在 CoT 推理链中，当模型遇到计算或查询需求时，不直接输出结果，而是生成一个约定格式的工具调用指令。例如：
+
+    ```text
+    我需要计算总价，调用计算器：
+    <tool name="calculator">85 * 1.1 + 12</tool>
+    ```
+
+    外部编排系统检测到这个标签后，暂停生成，调用相应工具，把结果（如“105.5”）以特定格式注入对话上下文，模型再继续推理。这种模式的关键在于：
+
+    - ReAct 循环（Thought-Action-Observation）：这是目前最经典的工具集成范式。模型生成一个“Thought”（推理步骤），然后是一个“Action”（要调用的工具和参数），系统执行后返回“Observation”（工具结果），模型再基于此继续下一个Thought。整个循环可以多次执行，直到得出最终答案。少样本示例中需要包含完整的 TAO 循环演示。
+
+    - 程序辅助推理（PAL）：对于数学题，直接将推理过程用 Python 代码表达。模型生成完整的 Python 脚本，由解释器执行，得到的结果就是精确答案。这样完全把容易出错的算术部分交给了计算器，模型只负责将自然语言问题翻译为代码。这也是 CoT 的一种特殊形式。
+
+    - 搜索引擎集成：当需要实时或大量事实信息时，模型生成搜索查询（如 search("2024年诺贝尔物理学奖得主")），系统调用搜索引擎 API，将返回的摘要片段以 Observation 形式返回，模型再基于这些权威信息继续推理，极大减少幻觉。
+
+    工程实现关键点
+
+    - 编排系统：需要一个中间层（如 LangChain、Semantic Kernel）负责解析模型输出，判断是否有工具调用，执行调用，并将结果格式化后重新提交给模型。
+
+    - 容错与重试：工具调用可能因为格式错误、超时或返回异常而失败。编排系统需要具备解析容错（如用正则提取关键信息）、超时处理、自动重试以及错误信息反馈给模型（让模型知道调用失败并尝试其他方法）的能力。
+
+    - 安全沙箱：尤其是执行代码时，必须在严格的沙箱环境中运行，防止注入攻击和对宿主系统的破坏。
+
+    - 成本控制：每次工具调用都会增加延迟，搜索 API 可能还有费用。在提示中应训练模型只在必要时才调用工具，而不是每步都调。
+
+    效果评估
+
+    引入工具后，CoT 在数学计算准确率上可以从 60%-70% 飞跃到近乎 100%（算术部分）。在知识问答上，结合搜索的 CoT 可以显著提高事实准确性和时效性。这种“LLM作为大脑，工具作为四肢”的模式已经成为构建可靠 Agent 的核心架构。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LXJlwBNini6BizkrUhhcyWpunsf
+  block_id: UCSodTlW4oWNZqxLgkhcpWBPnXe
+  page_token: LXJlwBNini6BizkrUhhcyWpunsf
+  original_title: 如何在 CoT 中引入外部工具（如计算器、搜索引擎）以实现更准确的推理？
+  imported_at: '2026-09-21'

@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8e487013d0fe
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 长序列推理中 KV Cache 带来的显存瓶颈如何解决？列举至少三种优化方法。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 长序列推理中 KV Cache 带来的显存瓶颈如何解决？列举至少三种优化方法。
+answer:
+  mode: rubric
+  reference_answer: |-
+    长序列推理中，KV Cache 的显存占用随序列长度线性增长，成为最大的瓶颈。以下是最主流的几种优化方法：
+
+    - 分组查询注意力 (GQA) 和多查询注意力 (MQA)
+    这是从模型架构层面压缩 KV Cache 的方法。通过减少独立的键值头数 H kv，将 KV Cache 的大小直接缩小数倍（例如，LLaMA-2 70B 使用 GQA，将 KV 头数从 64 降至 8，压缩了 8 倍）。这是目前最有效、应用最广的方法。
+
+    - KV Cache 量化 (KV Cache Quantization)
+
+    对 KV Cache 本身进行低精度量化，例如将 FP16 的 Key 和 Value 量化为 INT8 甚至 INT4。这可以在几乎不损失生成质量的前提下，将 KV Cache 的显存占用直接减半或更多。这是一种纯工程层面的优化，可以与 GQA 叠加使用。
+
+    - 滑动窗口注意力 (Sliding Window Attention)
+    一种架构层面的优化。限制每个 token 只能关注其前 W 个 token（例如 Mistral 7B 使用 4096 的窗口）。KV Cache 只需保留最近 W 个 token，超出窗口的历史 token 的 Key 和 Value 可以被直接丢弃。这使得 KV Cache 的显存占用从一个随序列长度线性增长的变量，变为一个固定大小的常数 O(W)，从而可以处理理论上无限长的序列。
+
+    - PagedAttention
+
+    一种系统层面的显存管理技术。它解决了 KV Cache 由于预分配连续大块显存而导致的碎片和浪费问题。通过将 KV Cache 切分为固定大小的页，并按需分配，显存利用率大幅提升。
+
+    - 多头潜在注意力 (MLA)
+
+    一种更极端的压缩方法，由 DeepSeek 提出。通过低秩分解，将 KV Cache 的维度压缩到一个极小的潜在空间，在推理时仅缓存这个潜在向量，从而将 KV Cache 压缩数十倍。这是目前最前沿的技术之一。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  block_id: QmIMdPNWpoQHw2xIz2ZciOOnngc
+  page_token: N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  original_title: 长序列推理中 KV Cache 带来的显存瓶颈如何解决？列举至少三种优化方法。
+  imported_at: '2026-09-21'

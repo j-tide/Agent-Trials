@@ -1,0 +1,68 @@
+---
+schema_version: 1
+id: feishu-llm-complete-dceee4c7cf96
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 这些框架如何处理工具调用的错误？如何自定义异常处理和重试逻辑？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 这些框架如何处理工具调用的错误？如何自定义异常处理和重试逻辑？
+answer:
+  mode: rubric
+  reference_answer: |-
+    工具调用是 Agent 与现实世界交互的接口，而现实世界充满了不确定性，错误是常态。LangChain 和 AutoGen 都提供了处理工具调用错误的机制，但理念和实现方式有所不同。
+
+    LangChain 的错误处理
+
+    LangChain 的 AgentExecutor 有一个核心参数 handle_parsing_errors，它决定了当模型输出的格式无法被解析时（例如 ReAct Agent 输出了错误格式的 Action），系统的行为。
+
+    - 默认行为：如果解析失败，AgentExecutor 会抛出异常，导致整个任务中断。
+
+    - handle_parsing_errors=True：这会启动一个自动修复机制。当解析失败时，AgentExecutor 会将解析错误信息格式化后，作为一个“观察”注入回对话历史，并再次请求 LLM。这给了模型一个自我修正的机会。模型会看到“你上次的输出格式不正确，请修正并重试”这样的提示，然后尝试生成正确格式的输出。
+
+    - 自定义处理函数：开发者可以传入一个函数，它接收错误信息并返回一个自定义的字符串，作为反馈给模型的“观察”。这提供了最大的灵活性。
+
+    对于工具执行期间的错误（如网络超时、API 返回错误），LangChain 的默认行为是将错误信息直接作为工具的返回结果，传递给 LLM。LLM 看到错误信息后，可能会在下一轮思考中决定重试、更换参数或使用其他工具。
+
+    AutoGen 的错误处理
+
+    AutoGen 的错误处理更加结构化，并且与代码执行深度绑定。
+
+    - 代码执行错误：这是 AutoGen 最擅长处理的错误。当代码执行器运行代码失败时，它会自动捕获 stdout、stderr 和退出码，并将这些信息作为一条格式化的错误消息，自动发送给生成该代码的 AssistantAgent。AssistantAgent 会解读错误信息，并尝试修复代码后重新生成。这个“生成-执行-纠错”循环可以自动进行多次。
+
+    - 工具调用错误：对于通过 function_map 注册的自定义函数，如果在执行中抛出异常，开发者需要在函数内部捕获异常，并将其转换为一个包含明确错误信息的字符串返回。AutoGen 会将这个返回的字符串作为观察，发送回调用方 Agent。Agent 会根据错误内容进行后续决策。
+
+    自定义重试逻辑
+    在 LangChain 中，最灵活的重试机制是使用 handle_parsing_errors 和工具内部的 try-except 来构造错误信息，引导模型去“重试”。在 AutoGen 中，可以配置 max_consecutive_auto_reply 来限制自动回复和纠错的轮数，防止无限循环。还可以在 Agent 的 System Prompt 中加入重试策略的指引。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/F9htw07hOih4oik4Vi3cSBIjnVd
+  block_id: WLKgdwd5xousY7xJFF5cMxaHn8e
+  page_token: F9htw07hOih4oik4Vi3cSBIjnVd
+  original_title: 这些框架如何处理工具调用的错误？如何自定义异常处理和重试逻辑？
+  imported_at: '2026-09-21'

@@ -1,0 +1,107 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b91e56c9ec9e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何处理 Common Crawl 数据？描述从 WARC 文件到干净文本的关键步骤。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 如何处理 Common Crawl 数据？描述从 WARC 文件到干净文本的关键步骤。
+answer:
+  mode: rubric
+  reference_answer: |-
+    Common Crawl 是一个非营利组织，每月定期爬取数十亿网页并免费发布。处理 Common Crawl 数据是构建大规模预训练语料库的常用途径。以下是将其 WARC 文件转化为干净文本的详细流程：
+
+    - 获取数据与索引初筛
+    Common Crawl 提供 crawl-data/CC-MAIN-<year>-<crawl>/ 路径，其中包含 WARC（原始 HTTP 响应）、WET（提取后的纯文本）和 WAT（元数据）。为减少处理量，通常先用 cdx 索引 快速过滤。cdx 是一个压缩的文本文件，记录了 URL、时间戳、MIME 类型、响应码、语言等。通过查询 *.cdx.gz，可以筛选出：
+
+    - 返回码为 200 的成功请求；
+
+    - MIME 类型为 text/html 的网页；
+
+    - 语言为 en 或 zh 等目标语言；
+
+    - 特定域名（如教育、政府网站，或排除低质域名）。
+
+    使用工具如 cdx_toolkit 或直接解析 cdx 文件可高效定位所需 WARC 记录。
+
+    - 解析 WARC 记录提取 HTML
+    WARC 文件包含完整的 Web 请求和响应。使用 warcio（Python 库）逐条读取 WARC 记录，过滤出类型为 response 且状态码 200 的记录。从记录中获取原始 HTML 内容。注意处理压缩（gzip）和字符编码（从 Content-Type 或 HTML meta 标签推断）。解码时采用回退机制尝试 UTF-8、Latin-1 等。
+
+    - HTML 正文抽取
+    这是关键步骤，目的是去除导航栏、页眉、页脚、广告、侧边栏、评论、JavaScript 代码等，仅保留页面主体文章内容。常用方法见下一题正文提取部分。这里推荐对多语言场景使用 trafilatura，对于英文新闻类可用 readability-lxml。这些工具基于规则和启发式算法识别主要内容区域。例如 trafilatura 会评估 HTML 元素的文本密度、链接密度等指标来提取核心文本。
+
+    - 后处理与初步清洗
+    从 HTML 提取的文本可能残留无用的空格、换行、特殊字符。需要进行：
+
+    - 合并多个空白符为单一空格；
+
+    - 移除不可见控制字符；
+
+    - 处理 HTML 实体（如 &amp; 转为 &）；
+
+    - 统一换行符（如 \r\n 转 \n）；
+
+    - 按段落分割或保留原始结构。
+
+    - 语言过滤
+    使用语言检测器（如 fastText）对抽取后的文本进行语言分类。由于正文抽取可能残留其他语言的菜单项，检测整个文档的语言概率，如果置信度低或不是目标语言，则丢弃。
+
+    - 启发式规则去劣
+    制定一系列规则清除低质量页面：
+
+    - 长度过滤：剔除字符数少于 100 或超过 10 万（避免过长但无意义的页面）的文档。
+
+    - 乱码比例：计算非目标语言字符或不可打印字符的占比，超过阈值则丢弃。
+
+    - 重复内容：计算文档内重复 n-gram 的比例，高重复可能是垃圾 SEO 页面。
+
+    - 标点异常：例如，连续感叹号、问号占比过高。
+
+    - JavaScript/CSS 残留：检查是否包含 function()、{} 代码特征。
+
+    - 文档级去重
+    使用 MinHash + LSH 对整个语料进行近似去重。对每个文档计算 k 个 MinHash 值，通过 LSH 将相似文档哈希到同一桶，仅保留桶内一或少量代表性文档。
+
+    - PII 和安全过滤
+    应用正则表达式和 NER 模型，检测并移除或掩码邮箱、电话、身份证号、社会安全号码等。筛除包含暴力、仇恨、色情等有害内容的文档。可调用 detoxify 等模型进行毒性评分。
+
+    - 质量分级与精选
+    对于需要更高质量的场景（如训练指令微调模型），可以使用语言模型计算文本困惑度，或训练一个二元分类器（高质量 vs. 低质量）对文本打分。选择分数高于阈值的文本保留。
+
+    - 输出最终文本
+    将处理后的干净文本保存为 jsonl 或 txt 格式，每条文本记录包含文本内容和可选的元数据（来源 URL、语言、质量分等）。随后可以并入整个预训练数据混合池。
+
+    整个流程可在 Apache Spark 或 Dask 上分布式运行，以应对数 PB 级别的 Common Crawl 数据。例如 The Pile、C4、RedPajama 等数据集均基于上述思路从 Common Crawl 加工而成。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VQryw3HUdiWHbekHEfpc0JK2nDe
+  block_id: DMI1dFTGoo136jxuxrscpTZVn1k
+  page_token: VQryw3HUdiWHbekHEfpc0JK2nDe
+  original_title: 如何处理 Common Crawl 数据？描述从 WARC 文件到干净文本的关键步骤。
+  imported_at: '2026-09-21'

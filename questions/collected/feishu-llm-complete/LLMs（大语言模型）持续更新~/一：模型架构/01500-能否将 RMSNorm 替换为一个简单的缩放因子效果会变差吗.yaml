@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-849b1983e3ec
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 能否将 RMSNorm 替换为一个简单的缩放因子？效果会变差吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 能否将 RMSNorm 替换为一个简单的缩放因子？效果会变差吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    效果会严重变差，模型将无法正常训练。
+
+    RMSNorm 的核心并不仅仅是“缩放”。它是一个逐 token 动态的归一化操作：对每个 token 的特征向量，计算其均方根（RMS），然后用该值对该向量的所有维度进行缩放。这意味着，不同 token（即使在同一序列中）会根据自身激活的强度被不同地缩放。
+
+    如果只使用一个固定的或可学习的缩放因子（即所有 token、所有维度共享同一个乘数），就完全丧失了这种自适应尺度控制能力。后果是：
+
+    - 激活范数较大的 token 会直接以高幅值进入后续层，导致注意力分数爆炸或 softmax 饱和。
+
+    - 激活范数较小的 token 信号被淹没。
+
+    - 深层网络前向传播的数值规模会迅速失控，梯度爆炸或消失随之而来。
+
+    一个简单的缩放因子无法应对 token 间、层间动态变化的激活规模，这是 RMSNorm 之所以不可或缺的根本原因。没有它，现代 LLM 的稳定训练无从谈起。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SQsMwnjJaizIS4krnzkcigPUnue
+  block_id: WJD6dmzcfo1YlUxDgIPcfWbMnte
+  page_token: SQsMwnjJaizIS4krnzkcigPUnue
+  original_title: 能否将 RMSNorm 替换为一个简单的缩放因子？效果会变差吗？
+  imported_at: '2026-09-21'

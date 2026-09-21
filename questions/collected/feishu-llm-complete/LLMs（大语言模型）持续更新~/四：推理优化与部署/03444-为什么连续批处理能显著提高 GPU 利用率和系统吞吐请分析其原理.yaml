@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5a236aade42d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么连续批处理能显著提高 GPU 利用率和系统吞吐？请分析其原理。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 为什么连续批处理能显著提高 GPU 利用率和系统吞吐？请分析其原理。
+answer:
+  mode: rubric
+  reference_answer: |-
+    GPU 利用率提高的原理：
+
+    - 消除“空泡”：自回归解码是内存带宽密集型的，GPU 的计算单元在单个 token 生成时远未饱和，但多个请求的 decode 步骤可以合并为更大的矩阵乘法，摊薄 kernel 启动开销并提升 Tensor Core 利用率。静态批处理中，随着短请求完成，batch 逐渐缩小，后期 GPU 利用率骤降；连续批处理通过随时补充新请求，使 batch 大小维持在较高水平，GPU 始终饱满运行。
+
+    - 批量并行度最大化：连续批处理将整个服务视为 token 级别的流水线。任何时候，只要等待队列非空且有显存，就可将新请求的 prefill 或 decode 插入当前批次，立即利用闲置的算力与带宽。相比静态批处理的“批次串行”，它实现了“请求并行”，即不同请求的不同生成步在时间上交叠，等效于提高了 GPU 的并行执行时间占比。
+
+    - 计算与内存带宽的重叠利用：prefill 阶段计算密集，decode 阶段内存密集。连续批处理允许将 prefill 与 decode 混合在一个 batch 中（见第 8 题），使 GPU 的计算资源和带宽资源同时被不同性质的负载填充，减少单一资源的空闲等待。
+
+    系统吞吐提升的分析：
+
+    [图片内容未导入]
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqBawimrwioo11kNL45cwrfznle
+  block_id: ZQdMdMbjFoFqXexNgKKcbdvunXb
+  page_token: EqBawimrwioo11kNL45cwrfznle
+  original_title: 为什么连续批处理能显著提高 GPU 利用率和系统吞吐？请分析其原理。
+  imported_at: '2026-09-21'

@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7d58904902c2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多模态模型输出时，流式输出如何同时推送文本和可能的图像占位？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 多模态模型输出时，流式输出如何同时推送文本和可能的图像占位？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多模态模型（如 GPT-4o, LLaVA）可能生成交错的文本和图像（或特殊标记）。流式输出需要定义一种协议来标识媒体片段。
+
+    常见做法：
+
+    - 特殊 Token 或标记
+    模型在生成文本过程中，在需要插入图像的位置输出一个特殊 token（如 <image> 或 <|image|>）。流式输出时，服务端将这个特殊标记作为普通文本推送，或者可以将其封装为特定事件类型。
+
+    - SSE 事件类型的区分
+    使用 SSE 的 event: 字段来区分消息类型：
+
+    ```text
+    event: text
+    data: 这是描述文字
+
+    event: image
+    data: {"url": "data:image/png;base64,...", "alt": "图片描述"}
+    ```
+
+    - 文本内嵌标记 + 延迟加载
+    服务端推送文本时，遇到图像占位符（如 [IMG: generating...]），先显示占位文本。当图像生成完成后，再通过另一个事件更新该占位符为实际图像或 URL。
+
+    - 多部分流（Multipart Streaming）
+    类似于 HTTP multipart，但实现较复杂。SSE 更简单通用。
+
+    - 客户端解析特殊标记
+    如果图像是以 token 序列生成（如扩散模型），服务端可能积累这些 token，一旦解码出一幅完整图像，就发送图像事件，并暂停文本流。
+
+    关键点：需要前后端约定统一的事件格式，使文本和图像能够在时间线上交错显示，保持流式体验。OpenAI 的多模态流式 API 目前采用特殊标记嵌入文本，配合前端解析。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/P30KwGxJIiaDg5kjcX0c8HC6ntd
+  block_id: K13Vdvn7hoEVuyxIXD9c0DBCn2g
+  page_token: P30KwGxJIiaDg5kjcX0c8HC6ntd
+  original_title: 多模态模型输出时，流式输出如何同时推送文本和可能的图像占位？
+  imported_at: '2026-09-21'

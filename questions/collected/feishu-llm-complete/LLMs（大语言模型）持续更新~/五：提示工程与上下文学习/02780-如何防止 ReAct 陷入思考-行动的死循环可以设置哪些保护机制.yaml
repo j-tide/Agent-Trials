@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c47640e9de07
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何防止 ReAct 陷入思考-行动的死循环？可以设置哪些保护机制？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: 如何防止 ReAct 陷入思考-行动的死循环？可以设置哪些保护机制？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ReAct 的迭代特性使其有可能陷入无效的循环，例如反复执行相同搜索却无结果，或在 Yes/No 问题上反复纠结。必须设置多层保护机制。
+
+    保护机制：
+
+    - 硬性步数限制（Max Steps）：最基础的保护。设定一个绝对上限（如 10 轮 Thought-Action-Observe）。一旦达到，系统强制终止循环，并要求模型基于现有信息给出最佳答案，或者直接返回“无法完成”。这防止了无限消费 Token。
+
+    - 动作重复检测与惩罚：监控最近的 Action 历史。如果模型连续 N 次（如 3 次）执行完全相同或高度相似的 Action（如相同的搜索查询），说明模型可能陷入了思维定势。可以采取以下措施：
+
+    - 无效行动计数与超限：统计无效 Action 的数量（如搜索返回空结果、代码执行报错）。如果无效行动占比超过阈值，表明当前策略可能失效，系统可以介入，建议模型重新评估整体方案或直接向用户求助。
+
+    - 语义循环检测：比字面重复更高级。定期将最近的 Thought 序列交给一个轻量级监控 LLM 或语义相似度模型分析，判断模型是否在相同的话题点上打转，而没有实质推进。如果发现语义循环，可触发反思提示。
+
+    - 时间限制：设置一个总的处理时间上限（如 60 秒）。超时则强制终止，并尝试从已有的部分结果中拼凑回答。
+
+    - 反思触发器：在提示中内置一个“元认知”机制。例如，每经过 3 轮，系统会在 Observation 末尾附加一个反思问题：“请简要评估目前进展：我们是否更接近答案了？是否需要改变策略？” 这迫使模型定期进行自我审视，避免机械循环。
+
+    - 最终保底策略：当强制终止后，系统不会直接丢弃所有信息。它可以将收集到的全部观察和模型生成的思考历史，作为提示输入给一个“总结器”模型，该模型的任务是：“尽管任务未完全解决，请基于以下信息给出一个目前能做到的最佳回答。” 从而提供一个保底的、有信息量的输出。
+
+    通过以上多层防御，可以有效遏制 ReAct 的无效循环，确保计算资源被用在刀刃上，并保障系统最终总能给用户一个合理的回应。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UNcyw9ACIiJYN3krDjDcNJ1Rndc
+  block_id: QORGdF3ZeovstbxAiGVcAZEfn1g
+  page_token: UNcyw9ACIiJYN3krDjDcNJ1Rndc
+  original_title: 如何防止 ReAct 陷入思考-行动的死循环？可以设置哪些保护机制？
+  imported_at: '2026-09-21'

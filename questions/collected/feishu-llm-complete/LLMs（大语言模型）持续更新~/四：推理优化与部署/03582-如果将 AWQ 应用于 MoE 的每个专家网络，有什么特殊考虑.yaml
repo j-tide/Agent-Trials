@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-92a192305932
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果将 AWQ 应用于 MoE 的每个专家网络，有什么特殊考虑？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如果将 AWQ 应用于 MoE 的每个专家网络，有什么特殊考虑？
+answer:
+  mode: rubric
+  reference_answer: |-
+    将 AWQ 应用于 Mixture-of-Experts (MoE) 模型时，由于专家的独立性和路由机制，需要特别考虑以下几点：
+
+    - 专家独立缩放与量化
+    每个专家本质上是一个独立的 FFN 模块。AWQ 必须对每个专家单独收集激活统计并计算缩放因子。这是因为：
+
+    - 校准数据收集的挑战
+    在校准阶段，需要确保每个专家都能得到足够多的 token 进行统计。如果某些专家路由频率极低（冷门专家），校准数据中它们可能几乎不被激活，导致统计量不足。解决方案：
+
+    - 路由网络的处理
+    路由网络（门控）本身是一个小的线性层，输出决定 top-k 专家。它的权重极度重要，直接决定 token 分配。量化路由网络可能导致错误路由，产生灾难性级联效应。因此通常保留 FP16 或采用 8-bit 量化，不宜用 4-bit AWQ 压缩。
+
+    - 共享专家与独立专家的不同策略
+    一些 MoE 架构（如 DeepSeek-MoE）有共享专家（所有 token 必经）和独立专家。共享专家与常规 FFN 类似，可常规 AWQ；独立专家需按前述独立处理，且要配合负载均衡统计。
+
+    - 推理 kernel 支持
+    AWQ 量化后的 MoE 需要推理引擎支持专家级的量化权重加载。例如，vLLM 对 MoE 的 AWQ 支持需要能根据每个 token 的专家索引，从不同内存位置读取不同专家的 INT4 权重及其缩放因子。这比密集模型复杂，需要定制的 grouped GEMM kernel。
+
+    总结：MoE 的 AWQ 核心是专家独立量化 + 路由保护 + 校准数据充足性。正确实施后，仍能大幅压缩模型体积。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CNm5w5hEKiUhQ5kMnPrcFoSGnVd
+  block_id: QKN1detwJo21KIxCLvXcLZm8nMb
+  page_token: CNm5w5hEKiUhQ5kMnPrcFoSGnVd
+  original_title: 如果将 AWQ 应用于 MoE 的每个专家网络，有什么特殊考虑？
+  imported_at: '2026-09-21'

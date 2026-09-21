@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1ab659b8f898
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 数据混合中的“数据集重复”问题：当不同任务数据集存在重叠时，如何影响模型？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 数据混合中的“数据集重复”问题：当不同任务数据集存在重叠时，如何影响模型？
+answer:
+  mode: rubric
+  reference_answer: |-
+    数据集重叠在多任务混合中是普遍存在的问题，如果处理不当，会悄无声息地扭曲模型的行为。
+
+    影响机制：
+
+    - 隐性过采样与数据偏差放大：当某个特定样本（或其高度相似的变体）同时出现在多个子数据集中时，它在每个训练epoch中被采样的概率会显著高于其他样本。模型会过度学习这些重复样本的模式，导致在该类数据上过拟合，而在其他未见过的数据上泛化能力下降。更严重的是，如果重复数据本身带有某种偏见（如某种特定的回答风格），这种偏见会被不成比例地放大。
+
+    - 奖励黑客与目标冲突的诱导：在DPO等多目标优化中，重叠数据可能引发严重的奖励黑客行为。例如，一段包含“详细解释”的回答，在“有用性”和“安全性”两个维度的偏好数据中可能都是正样本。模型会学会通过堆砌细节来同时获得两个维度的高分，而不是真正去提升回答的准确性和安全性。如果数据集中存在大量此类重复的正样本，模型会找到一个“多目标奖励黑客”的捷径。
+
+    - 对“数据效率”的虚假评估：开发者可能会因为重复数据带来的、在特定基准上的虚高分数，而误判数据混合策略的有效性。实际上，模型只是在“背诵”答案，而非学到了真正的能力。
+
+    解决方案：
+
+    - 核心原则：按数据集进行全局去重。在微调之前，必须在整个混合数据集上执行严格的数据去重。不仅要进行精确的文本匹配，还应使用MinHash或SimHash等算法进行模糊去重，以识别高度相似的样本。
+
+    - 元数据标注与溯源：为每一条数据打上其来源数据集的标签。在训练时，如果某个样本在多个数据集中出现，可以根据其来源决定其采样权重或重复次数上限。
+
+    - 构造高质量、非重叠的评估集：确保用于验证和测试的数据与所有微调数据均无重叠。评估基准（如MMLU）中的样本绝不应出现在任何微调数据集中。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JkSEwloDWifNa6kaAd1cPVirnZe
+  block_id: JihzdxV3eooF2CxYg1tcp0oWn1f
+  page_token: JkSEwloDWifNa6kaAd1cPVirnZe
+  original_title: 数据混合中的“数据集重复”问题：当不同任务数据集存在重叠时，如何影响模型？
+  imported_at: '2026-09-21'

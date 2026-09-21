@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-43726fc72679
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分析 prefill 阶段的 KV Cache 构建如何与 FlashAttention 结合，减少显存峰值。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 分析 prefill 阶段的 KV Cache 构建如何与 FlashAttention 结合，减少显存峰值。
+answer:
+  mode: rubric
+  reference_answer: |-
+    Prefill 阶段需要一次性处理整个 Prompt，并构建完整的 KV Cache。如果不加优化，这个过程会产生一个巨大的、尺寸为 S×S 的注意力分数矩阵，导致显存峰值极高。FlashAttention 与 Prefill 结合，就是为了解决这个显存峰值问题。
+
+    FlashAttention 的核心机制：
+
+    FlashAttention 通过分块（Tiling）和重计算（Recomputation） 来避免存储完整的注意力矩阵。它将 Q、K、V 切分成小块，每次只加载一个小块到高速的 SRAM 中进行计算，并将中间结果（如局部 softmax 统计量）在 SRAM 内累积和更新，最终只将输出写回 HBM。注意力的中间大矩阵（分数和权重）完全不会驻留在显存中。
+
+    Prefill 阶段的优化过程：
+
+    - 分块编码：将 Prompt 的 Q、K、V 切分为大小合适的块。
+
+    - 增量式输出与 KV 缓存构建：对于每个块，FlashAttention 在 SRAM 内完成局部注意力计算，并输出该块的注意力输出。同时，该块的 Key 和 Value 被直接增量式地、顺序地写入为 KV Cache 预分配的分页式显存中。
+
+    - 显存峰值的避免：整个 Prefill 过程中，显存中只驻留最终输出的 KV Cache，那个最大的 S×S 注意力矩阵从未被整体存储，因此显存峰值被极大地控制。
+
+    [图片内容未导入]
+
+    - 只对新输入的这一个 token 计算其 Q,K,V。
+
+    - 将新计算的 K,V 追加到 KV Cache 中。
+
+    - 用新的 Q 去与所有缓存的 Key 进行注意力计算，再对缓存的 Value 加权求和。
+
+    - 输出下一个 token。
+
+    - 重复步骤 1-4，直到生成结束符。
+
+    - 分布：TP 将每层的参数矩阵切分到多个 GPU 上。对于自注意力层，一种常见的做法是沿“头”维度切分（Column-wise）。因此，每张 GPU 只负责一部分注意力头的计算，也相应地只存储这部分头的 KV Cache。不同 GPU 上的 KV Cache 是互不相交的。
+
+    - 通信成本：TP 的通信发生在每层注意力的前向传播中。例如，在计算注意力输出时，需要进行 All-Reduce 操作来聚合各 GPU 的部分和。KV Cache 本身不需要在 TP 组内进行通信，各 GPU 只管理自己分片内的缓存。
+
+    - 分布：PP 将模型的不同层放置在不同的 GPU 上。每个 GPU 只负责其拥有的层的计算和状态维护，因此也只存储这些层的 KV Cache。
+
+    - 通信成本：PP 的通信只在相邻的流水线 Stage 之间，传递中间激活和梯度。KV Cache 不需要在 PP 的 Stage 之间传递，因为每一层的 Key 和 Value 仅由该层自己使用。
+
+    - 丢弃：在滑动窗口注意力中，超出窗口的 V 可以直接丢弃，因为注意力分数已为 0。
+
+    - 压缩：有研究指出，可以对 V 缓存进行低秩压缩或更激进的量化（如 INT4），而对最终输出的影响很小。这是因为 Softmax 后的注意力权重会进一步平滑 V 中的信息，微小的误差能够被有效稀释。
+
+    - 在验证开始前，目标模型已经保存了 Prompt 部分的完整 KV Cache。
+
+    - 验证时，引擎可以以这个缓存为起点，快速计算出 K 个候选 token 对应的 KV Cache。
+
+    - 更关键的是，在验证过程中，我们实际上已经提前计算好了未来几步的 KV Cache。如果草稿模型的某些 token 被目标模型接受，这些提前计算好的 KV Cache 就可以直接被原地保留，作为下一步生成的上下文。这使得整个验证过程极为紧凑和高效，避免了重复计算历史信息。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  block_id: N8RsdwODpofQpVxsgRzcCNranzc
+  page_token: N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  original_title: 分析 prefill 阶段的 KV Cache 构建如何与 FlashAttention 结合，减少显存峰值。
+  imported_at: '2026-09-21'

@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fdb46879f39e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 Self-RAG 中，如果反思令牌预测为“不相关”，模型采取什么行动？会重新检索吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 在 Self-RAG 中，如果反思令牌预测为“不相关”，模型采取什么行动？会重新检索吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    核心回答：在 Self-RAG 中，当模型为某篇检索到的文档预测了 <Irrelevant>（不相关）令牌时，它采取的首要行动是屏蔽该文档，而不是重新检索。重新检索的指令（<Retrieve>）是由模型在生成过程的特定位置独立发出的，它通常是对“现有信息不足”的回应，而非对“现有信息不相关”的直接反应。
+
+    对“不相关”文档的处理：主动降噪
+
+    Self-RAG 的推理框架会严格监控模型输出的反思令牌流。一旦模型在文档内容之后生成了 <Irrelevant> 令牌，系统就会将该文档标记为无效，并从当前的有效上下文中移除。在后续的生成过程中，模型将完全忽略这篇文档的内容，它的文本块不会参与注意力计算。这是 Self-RAG 的一种高度精细化的输入过滤能力。它避免了将噪音信息引入模型，从而防止了因不相关内容误导而产生的幻觉或答非所问。这种“主动忽略”是 Self-RAG 提升生成质量的核心机制之一。
+
+    何时会触发重新检索？
+
+    重新检索是由 <Retrieve> 令牌单独触发的。模型可能在以下几种情况下预测 <Retrieve> 令牌：
+
+    - 预检索：在开始生成一个新段落之前，模型预测 <Retrieve>，表示它认为需要外部知识来完成下一段的内容。这是一种主动的、计划性的检索。
+
+    - 信息不足后的补救：当模型在生成过程中，或者在对自身进行反思（输出 <No Support> 令牌后），意识到现有上下文无法支撑接下来的生成，它可能会预测 <Retrieve> 令牌，触发一次新的、有针对性的检索。这是一种被动的、补救性的检索。
+
+    关键区别：<Irrelevant> 处理的是“信息质量”问题（信息不好，我要忽略它），而 <Retrieve> 处理的是“信息量”问题（信息不够，我要找更多）。如果一个文档被判定为不相关，模型通常不会立即盲目地重新检索同一个问题，因为它可能已经通过其他相关文档获得了足够的信息。只有当它发现屏蔽掉不相关文档后，剩余的信息量不足以支撑回答时，才会在后续的生成步骤中预测 <Retrieve> 来补充信息。
+
+    因此，Self-RAG 的行动逻辑是“先筛选，再判断是否补充”。这种解耦的决策机制使得它的检索行为更加高效和精准，避免了因一两篇不相关文档就盲目发起重复检索的资源浪费。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y1dXw3l0KiZYg7kLXpQcX5gpn3f
+  block_id: I2SDdStIiohVr7xgPbQcjo6lnie
+  page_token: Y1dXw3l0KiZYg7kLXpQcX5gpn3f
+  original_title: 在 Self-RAG 中，如果反思令牌预测为“不相关”，模型采取什么行动？会重新检索吗？
+  imported_at: '2026-09-21'

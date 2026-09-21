@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-413156b511df
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Prompt Cache 如何与 KV Cache 配合？共享前缀的 KV 缓存复用属于哪种缓存？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: Prompt Cache 如何与 KV Cache 配合？共享前缀的 KV 缓存复用属于哪种缓存？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Prompt Cache 和 KV Cache 是紧密协同的，共享前缀的 KV 缓存复用本质上就是一种 Prompt Cache，而且是推理引擎层面最高效的实现方式。
+
+    配合机制：
+
+    - Prompt Cache 是上层概念，决定了“哪些内容值得缓存”，它可以是精确匹配或语义匹配。
+
+    - KV Cache 是底层存储和执行单元，当 Prompt Cache 判定命中后，系统将对应的 KV 张量加载到推理引擎，让新请求直接复用这些已计算的键值对，从而跳过这部分 token 的 prefill。
+
+    共享前缀的 KV 缓存复用属于精确缓存（Exact Cache），因为其判断标准是 token 序列的严格匹配。例如：
+
+    - 多个请求共享相同的系统提示词（如“You are a helpful assistant.”），它们的起始 token 序列完全一致。
+
+    - 在多轮对话中，同一用户的连续请求，历史 token 序列完全重合。
+
+    工作流程：
+
+    - 推理引擎维护一个全局的 KV Cache 池，按物理块组织。
+
+    - 当新请求到来，其 prompt 被 tokenize。引擎检查该 token 序列的前缀是否与某个已缓存的序列（如另一个正在进行或刚完成的请求）完全一致。
+
+    - 若存在匹配前缀，则直接将该前缀对应的物理块映射到新请求的块表中（引用计数增加），无需重新计算。
+
+    - 对于剩余的非匹配部分，正常执行 prefill 并分配新块。
+
+    - 此过程由引擎自动完成（如 vLLM 的自动前缀缓存），对用户透明。
+
+    属于哪种缓存：精确缓存，因为是基于 token 序列的精确比对。若想实现语义缓存级别的 KV 复用（例如“你好”和“您好”共享 KV），则极其困难，因为 KV 值与 token 严格绑定，不同的 token 序列无法共享同一段 KV Cache，除非进行复杂的近似映射。
+
+    总结：Prompt Cache 是策略层，KV Cache 复用是机制层。共享前缀的 KV 复用是精确 Prompt Cache 在推理引擎中的最极致应用，也是当前 LLM 服务优化的核心技术之一。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Suarwd0MSiF56MkUyBScW6UmnhB
+  block_id: VesMdovnVokXIpxVNxccswinnri
+  page_token: Suarwd0MSiF56MkUyBScW6UmnhB
+  original_title: Prompt Cache 如何与 KV Cache 配合？共享前缀的 KV 缓存复用属于哪种缓存？
+  imported_at: '2026-09-21'

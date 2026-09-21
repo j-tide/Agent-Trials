@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-44cf60753166
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: Medusa 的树形注意力（Tree Attention）是如何同时验证多个候选序列的？与标准 attention mask 的区别。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: Medusa 的树形注意力（Tree Attention）是如何同时验证多个候选序列的？与标准 attention mask 的区别。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 Medusa 中，验证阶段需要同时验证多个由不同 heads 预测的候选 token 组成的树状序列。标准因果注意力掩码是下三角矩阵，仅支持单条序列；而 Tree Attention 通过精心设计的注意力掩码，让模型在一次前向中处理树形拓扑的多个序列。
+
+    树形结构构建：
+
+    - 草稿阶段，Medusa heads 可能提出多个候选 token（例如 top-2 采样），形成分支。最终得到一个根节点为当前 prefix，子节点为不同候选的树。
+
+    - 树中的节点总数即为验证时需要处理的 token 总数。将这些 token 按某种顺序拼接成一维序列，然后构造一个二维的树注意力掩码。
+
+    树注意力掩码：
+
+    - 掩码是一个 [total_tokens, total_tokens] 的布尔矩阵。若节点 j 是节点 i 的祖先（包括自身），则允许注意力交互（mask[i, j] = 0），否则屏蔽（mask[i, j] = -inf）。
+
+    - 与标准因果掩码的区别：标准因果掩码是一维链（每个 token 只能看到它之前的所有 token）；树掩码允许一个 token 看到其从根到当前节点的所有祖先，但不能看到分支的其他路径上的节点。这保证了每个节点生成时的条件概率仅依赖其合法前缀。
+
+    - 将拼接序列和树掩码送入大模型，就可以并行计算所有树节点的 hidden states 和 logits，实现高效验证。
+
+    优势：Tree Attention 使得一次大模型前向可以同时验证多个不同长度的候选序列，极大提高并行性，让 Medusa 能够在不牺牲分布准确性的前提下加速解码。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/NR2xwXzjpi4F01khCQ7c89EgnWg
+  block_id: GGKKdzwUGoZ0ZVxpFAVcWirKn8d
+  page_token: NR2xwXzjpi4F01khCQ7c89EgnWg
+  original_title: Medusa 的树形注意力（Tree Attention）是如何同时验证多个候选序列的？与标准 attention mask 的区别。
+  imported_at: '2026-09-21'

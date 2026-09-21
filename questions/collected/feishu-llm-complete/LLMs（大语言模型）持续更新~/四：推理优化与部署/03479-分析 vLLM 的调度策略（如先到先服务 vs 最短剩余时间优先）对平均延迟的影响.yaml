@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-650d75ffdc5a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分析 vLLM 的调度策略（如先到先服务 vs 最短剩余时间优先）对平均延迟的影响。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 分析 vLLM 的调度策略（如先到先服务 vs 最短剩余时间优先）对平均延迟的影响。
+answer:
+  mode: rubric
+  reference_answer: |-
+    vLLM 默认采用先到先服务（FCFS），但结合抢占和显存管理，实际上形成了一种混合策略。对比最短剩余时间优先（SRTF），其对平均延迟影响如下：
+
+    FCFS（vLLM 基础策略）：
+
+    - 请求按到达顺序进入运行集。只要资源允许，就立即服务；资源不足时进入等待队列，直到有请求退出释放资源。这种方式公平，但长请求会阻塞后续短请求，导致平均等待时间增加。极端情况下，一个超长请求可能让许多短请求排队，系统平均延迟被拉高，同时队列长度增加，引入不必要的尾部延迟。
+
+    - vLLM 通过 preemption 缓解：当等待队列有请求且空闲块不足时，会抢占部分长请求，让短请求先运行。这实际上向 SRTF 靠拢。
+
+    SRTF（最短剩余时间优先）：
+
+    - 总是优先服务预计剩余生成 token 最少的请求。理论上，这最小化平均等待时间（排队论最优）。在连续批处理中，可以很容易估计剩余长度（基于已生成 token 和平均生成长度）。优先调度短请求，使其快速完成，释放资源，从而减少整体请求的排队时间，显著降低平均延迟。
+
+    - 缺点：长请求可能“饥饿”，需要结合老化机制或保证最低服务量。
+
+    vLLM 的实际影响：
+
+    - vLLM 尚未实现纯 SRTF，但其 优先级调度 和 抢占 设计允许用户设定优先级，间接实现类似效果。例如，将短请求或交互式请求设为高优先级，长文本处理设为低优先级，可以改善交互式用户的平均延迟。
+
+    - 测试表明，在混合长度负载下，引入基于剩余长度的优先级调度，相比纯 FCFS，平均延迟可降低 20%~40%，P50 尤其显著。
+
+    结论：SRTF 风格调度能有效降低平均延迟，但需要平衡公平性。vLLM 的抢占机制已为此提供了基础，未来可能成为默认智能调度的一部分。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqBawimrwioo11kNL45cwrfznle
+  block_id: MrELdlxhVo3npzxcEpQcRnHPnMb
+  page_token: EqBawimrwioo11kNL45cwrfznle
+  original_title: 分析 vLLM 的调度策略（如先到先服务 vs 最短剩余时间优先）对平均延迟的影响。
+  imported_at: '2026-09-21'

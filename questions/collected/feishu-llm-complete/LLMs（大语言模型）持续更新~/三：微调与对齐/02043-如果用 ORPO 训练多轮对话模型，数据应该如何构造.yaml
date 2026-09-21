@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-90643f80d8bb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果用 ORPO 训练多轮对话模型，数据应该如何构造？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 如果用 ORPO 训练多轮对话模型，数据应该如何构造？
+answer:
+  mode: rubric
+  reference_answer: |-
+    用 ORPO 训练多轮对话模型，关键在于如何在一个训练样本中同时承载“指令微调”和“偏好对齐”两重信息。数据构造需要遵循 ORPO 的核心理念：同一个样本必须同时包含 chosen 的完整对话和 rejected 的完整对话。
+
+    数据构造格式：
+
+    一个标准的多轮对话 ORPO 训练数据样本，结构如下：
+
+    {
+      "prompt": [
+        {"role": "system", "content": "你是一个有用的助手。"},
+        {"role": "user", "content": "你好，请问北京的首都是哪里？"},
+        {"role": "assistant", "content": "北京是中国的首都。"},
+        {"role": "user", "content": "那上海呢？"}
+      ],
+      "chosen": [
+        {"role": "assistant", "content": "上海是中国的一个直辖市，不是首都。"}
+      ],
+      "rejected": [
+        {"role": "assistant", "content": "上海也是中国的首都之一。"}
+      ]
+    }
+
+    关键设计原则：
+
+    - 共享 Prompt 前缀：prompt 字段包含了直到模型需要生成回复之前的所有对话历史。这个前缀对于 chosen 和 rejected 回复是完全相同的。在训练时，这个前缀会被用来作为上下文，模型需要分别计算在它之后生成 chosen 和 rejected 序列的概率。
+
+    [图片内容未导入]
+
+    损失掩码处理：
+    与标准 SFT 训练一样，在计算 chosen 和 rejected 回复的对数概率时，我们仍然需要应用损失掩码。只对回复部分的 token 计算损失，而忽略所有属于 prompt（包括用户输入、系统提示和历史助手回复）的 token。这确保了我们优化的目标始终是“如何根据对话历史生成更好的当前回复”，而不是去学习生成用户的问题或历史对话。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/LDEaws7M2ib3h0k3LxMcQiy0nKe
+  block_id: OC8Ud8VtgoC7kaxCooFcC3eOnGc
+  page_token: LDEaws7M2ib3h0k3LxMcQiy0nKe
+  original_title: 如果用 ORPO 训练多轮对话模型，数据应该如何构造？
+  imported_at: '2026-09-21'

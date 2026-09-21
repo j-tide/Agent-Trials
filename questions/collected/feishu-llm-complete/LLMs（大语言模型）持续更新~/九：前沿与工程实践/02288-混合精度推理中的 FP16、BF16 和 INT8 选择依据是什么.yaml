@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-f9ec3c9f4b68
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 混合精度推理中的 FP16、BF16 和 INT8 选择依据是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 九：前沿与工程实践
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 九：前沿与工程实践
+content:
+  prompt: 混合精度推理中的 FP16、BF16 和 INT8 选择依据是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在混合精度推理中，没有一种精度是万能的，通常需要在模型的不同部分、根据不同的任务需求动态选择。选择依据主要基于硬件能力、精度需求、速度和内存限制四个维度。
+
+    - FP16 (16位半精度浮点数)
+
+    - 硬件：几乎所有现代GPU（包括老旧的V100）和CPU都支持。
+
+    - 精度：精度损失极小，对于绝大多数任务而言等同于“无损”。但其动态范围较窄，对于某些运算（如softmax中的大数值）有溢出风险。
+
+    - 选择依据：当模型需要最高的稳定性和精度，且硬件是较旧的架构，不原生支持BF16时，FP16是首选。在推理中，由于没有梯度计算，其溢出风险远低于训练，因此是“最安全的半精度选择”。
+
+    - BF16 (Brain Floating Point)
+
+    - 硬件：需要较新的硬件支持（如NVIDIA Ampere架构及以上的A100、H100等）。
+
+    - 精度：其动态范围与FP32完全相同（8位指数），因此完全不存在溢出/下溢问题。但其尾数精度（7位）略低于FP16（10位）。实践中，两者在推理精度上几乎没有差异。
+
+    - 选择依据：当硬件支持时，BF16是更优的选择，因为它提供了最强的鲁棒性，无需担心数值不稳定。其与FP32的无缝转换也简化了部署流程。
+
+    - INT8 (8位整型)
+
+    - 硬件：广泛支持，从服务器CPU到边缘NPU，且能提供成倍的吞吐量提升。
+
+    - 精度：属于“有损”量化，但在成熟的量化方案下精度损失可控（通常<0.5%）。
+
+    - 选择依据：当目标是最大化吞吐量和最小化延迟，且可以容忍微小的精度损失时，INT8是最佳选择。它也常用于量化权重，与FP16/BF16的激活值配合（即W8A16），以降低模型体积和内存带宽压力，同时保持计算的高精度。
+
+    混合精度的实践：
+
+    - 权重精度 vs 激活值精度：最常见的方案是使用INT4/INT8来存储和加载权重（节省内存和带宽），但在实际计算时，将激活值保持为FP16/BF16（保证计算精度）。
+
+    - 层间混合：对数值敏感层（如 LayerNorm, Softmax, 以及注意力分数计算）强制使用FP32或FP16/BF16，而对参数量大、对精度相对不敏感的 Linear 层使用INT8。这种精细化的混合精度是部署高性能模型的关键。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Fl9DwXasVilyZgklkPycaeNTnVh
+  block_id: Nva2dYKAFo66u8xDRgvcG49jnfe
+  page_token: Fl9DwXasVilyZgklkPycaeNTnVh
+  original_title: 混合精度推理中的 FP16、BF16 和 INT8 选择依据是什么？
+  imported_at: '2026-09-21'

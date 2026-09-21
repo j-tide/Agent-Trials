@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d87e96ba12b2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果多个 GPU 进行 PPO 训练，如何设计 rollout 与训练的并行？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 如果多个 GPU 进行 PPO 训练，如何设计 rollout 与训练的并行？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在多 GPU 环境下，高效并行化 PPO 训练需要精细设计，将生成和经验利用两个阶段进行流水线化。
+
+    典型方案：数据并行 + 模型并行 + 流水线式处理
+
+    - 模型放置
+
+    - Actor 和 Critic：使用张量并行和流水线并行分布在多张 GPU 上，或使用 ZeRO-3 进行分片。如果使用 LoRA，则基座模型参数被分片，LoRA 参数在每个设备上冗余存储。
+
+    - Reference 和 Reward Model：这两个模型只用于推理。它们可以放置在另一组 GPU 上，或者与 Actor/Critic 共享 GPU 但使用低优先级流进行异步推理。为了最大化效率，通常将它们独立部署，形成推理服务流水线。
+
+    - 流水线并行设计
+
+    PPO 训练可以天然地分为两个阶段：生成和训练。它们可以被流水线化，以充分利用 GPU 资源。
+
+    - 生成阶段 (Rollout)：一组专门用于推理的 GPU（或 GPU 上的一个推理引擎）加载 Actor 模型（通常是 LoRA 适配后的模型），对大量 Prompt 批量生成回复。此阶段主要消耗显存（KV Cache）和推理算力。
+
+    - 经验处理与训练阶段：生成的回复、提示等数据被送入一个队列。另一组用于训练的 GPU（或同一组 GPU 在空闲时）从队列中取出数据，执行以下操作：
+
+    - 异步流水线：生成阶段和训练阶段可以异步重叠进行。当训练 GPU 正忙于更新参数时，生成 GPU 可以继续使用旧版本的 Actor 模型生成下一批数据。这实现了“准在线”的训练，其中略微的 Off-policy 偏差可以通过限制数据复用的次数（PPO Epoch）来控制。
+
+    - 关键优化点
+
+    - 使用 NCCL 进行高效通信：在模型并行中，All-Reduce 和 All-Gather 是主要瓶颈，需优化通信拓扑。
+
+    - 平衡负载：生成和训练阶段的计算时间可能不匹配。需要调整 GPU 数量配比，确保训练 GPU 不会长时间等待新数据，生成 GPU 也不会积压过多数据。
+
+    - Distributed Data Parallel (DDP)：在每个模型内部，可以使用 DDP 在多张 GPU 上复制模型副本来加速批量处理。
+
+    这种“推理集群 + 训练集群”的分离架构，是训练百亿以上参数模型进行 RLHF 的标准实践。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QNW3wg7bCinLPQkL0kGc4IdynHh
+  block_id: CbUEdfWCVotDWDxoPDLcpugTnme
+  page_token: QNW3wg7bCinLPQkL0kGc4IdynHh
+  original_title: 如果多个 GPU 进行 PPO 训练，如何设计 rollout 与训练的并行？
+  imported_at: '2026-09-21'

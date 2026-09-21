@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d03329ac997a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 同时使用 Top‑k 和 Top‑p 以及温度时，这些操作的先后顺序是什么？不同的顺序会带来什么差异？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 同时使用 Top‑k 和 Top‑p 以及温度时，这些操作的先后顺序是什么？不同的顺序会带来什么差异？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在实际工程应用中，这三者通常会同时使用，以获得最佳的生成效果。操作的先后顺序至关重要，而且只有一种顺序是正确的。
+
+    标准且正确的操作顺序：
+
+    - 温度缩放：logits = logits / T
+
+    - Top‑p 过滤：基于缩放后的概率分布，动态确定“核心”候选集，将低概率尾部直接丢弃。
+
+    - Top‑k 过滤：在 Top‑p 过滤后的候选集上，再进行一次硬性的 Top‑k 过滤。如果 Top‑p 选出的 token 数量已经小于 k，则这一步实际上无效。因此，Top‑k 的作用是作为一个绝对的数量上限，防止 Top‑p 在分布极度平坦时选出过多候选 token。
+
+    - 重归一化：对经过双重过滤后的候选 token 的概率进行重新归一化，使其总和为 1。
+
+    - 随机采样：从最终的分布中采样下一个 token。
+
+    为什么必须是这个顺序？
+
+    这个顺序的逻辑是层层递进、逐步收紧的。
+
+    - 温度是第一道“调味料”，它在不丢失任何 token 的前提下，全局性地调整了整个分布的“口感”，决定了生成的基本风格是保守还是冒险。
+
+    - Top‑p 是第二道“智能筛”，它根据温度调整后的分布，智能化地排除掉那些“不合理”的低概率噪声，保证了生成内容的底线质量。
+
+    - Top‑k 是最后一道“安全阀”，它在 Top‑p 的基础上，强行设定一个数量上限，防止在极端平坦的分布下，候选集过大导致采样效率低下或引入过多冷门噪声。
+
+    不同的顺序会带来什么差异？
+
+    如果将顺序打乱，会得到完全不同且通常是错误的结果。
+
+    - 先 Top‑k 再 Top‑p：这是最常见的一种“错误尝试”。这会导致 Top‑p 的动态调整机制完全失效。例如，当模型非常确定时，其有效候选 token 可能只有几个，但先执行的 Top‑k 可能会强制截取 40 个 token，其中包含了大量低概率噪声。后续的 Top‑p 只能在这 40 个已经被“污染”的候选集中执行，完全违背了其自适应过滤的初衷。
+
+    - 先过滤再温度：效果会大打折扣。温度的目的是通过缩放 logits 来改变分布的平坦度。如果先执行 Top‑k/Top‑p，这些操作是基于原始 logits 的分布进行的，无法利用温度带来的信息增益。正确的做法是先用温度调制分布，再基于这个调制后的分布进行智能过滤。
+
+    因此，温度 -> Top‑p -> Top‑k 是经过大量实践检验的黄金顺序。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/B2WpwnpvmiqW35k9hzvcJ4wTncd
+  block_id: Rm0RdxlDVotqLZxbxNZcV0n1npZ
+  page_token: B2WpwnpvmiqW35k9hzvcJ4wTncd
+  original_title: 同时使用 Top‑k 和 Top‑p 以及温度时，这些操作的先后顺序是什么？不同的顺序会带来什么差异？
+  imported_at: '2026-09-21'

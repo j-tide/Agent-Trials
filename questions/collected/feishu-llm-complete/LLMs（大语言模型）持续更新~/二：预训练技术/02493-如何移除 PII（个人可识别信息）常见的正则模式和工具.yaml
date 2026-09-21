@@ -1,0 +1,76 @@
+---
+schema_version: 1
+id: feishu-llm-complete-81806d8794be
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何移除 PII（个人可识别信息）？常见的正则模式和工具。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 如何移除 PII（个人可识别信息）？常见的正则模式和工具。
+answer:
+  mode: rubric
+  reference_answer: |-
+    移除 PII 是预训练数据合规化的关键步骤，必须谨慎处理以保护个人隐私。PII 包括但不限于：姓名、电子邮件、电话号码、身份证号、社会安全号码 (SSN)、信用卡号、住址、IP 地址等。常见移除方法有三种层级：正则表达式、命名实体识别 (NER)、专用 PII 检测工具。
+
+    - 正则表达式模式（基础且高效）
+    正则适合匹配格式固定的 PII 类型：
+
+    - 邮箱：[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}
+
+    - 电话号码（通用）：(?:\+\d{1,3}[-.\s]?)? ?[-.\s]?\d{2,4}[-.\s]?\d{2,4}
+    中文手机号：1[3-9]\d{9}
+
+    - 身份证号（中国）：\d{17}[\dXx] 或 \d{15}
+
+    - 信用卡号：\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}
+
+    - SSN (美国)：\d{3}-\d{2}-\d{4}
+
+    - IP 地址：\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}
+
+    实现时，可用 Python 的 re 模块批量替换为 [EMAIL], [PHONE] 等特殊 token，或直接删除。但正则容易漏报格式变体，且可能误杀非 PII 的类似字符串（如代码中的数字串），需谨慎调优。
+
+    - 命名实体识别 (NER)
+    用预训练的 NER 模型（如 transformers 库的 BERT‑NER，或 spaCy）检测 PERSON、GPE 等实体，并将人名、地名替换为实体标签 [NAME]。这种方法能捕捉非固定格式的信息，但推理成本高，不适用于海量文本。通常作为正则的补充，仅对高风险样本或采样应用。
+
+    - 专用 PII 检测工具
+
+    - Presidio（微软）：提供基于规则和 ML 的 PII 检测管道。支持多种实体类型（可自定义），能对文本进行脱敏（替换或哈希）。它结合了正则、校验和、上下文模型（基于 spaCy 或 Transformers），平衡了精度和速度。
+
+    - scrubadub：轻量级 Python 库，通过添加不同检测器（如 EmailDetector、PhoneDetector）来查找和替换 PII，适合简单快速的处理。
+
+    - AWS Comprehend PII 等云服务：效果佳，但依赖外部 API，不适合离线大规模语料。
+
+    实际应用策略：在大规模预训练数据中，通常先运行正则表达式进行高速粗筛；然后对包含可疑字符串的文档进行Presidio 的 ML 检测；最后抽样人工审核。替换后的文本可保留占位符，以便模型学习到该位置存在信息缺失，而不是完全删除。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VQryw3HUdiWHbekHEfpc0JK2nDe
+  block_id: KuHbdw2J1oKARMxSPJyc7Mp4nYc
+  page_token: VQryw3HUdiWHbekHEfpc0JK2nDe
+  original_title: 如何移除 PII（个人可识别信息）？常见的正则模式和工具。
+  imported_at: '2026-09-21'

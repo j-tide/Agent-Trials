@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0643b75ffbd9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 ZeRO‑3 时，如何管理参数的动态释放以减少通信频次？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 使用 ZeRO‑3 时，如何管理参数的动态释放以减少通信频次？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO‑3 每层前向和反向都需要 All-Gather 参数，通信频次由层数和 micro-batch 数决定。要减少通信频次或开销，可采取以下策略：
+
+    - 增大 batch size（token 数）：每个 micro-batch 中序列长度和 batch size 越大，参数通信被摊薄到更多 token 的计算中，通信与计算的比值下降，可有效隐藏延迟。实际操作中常通过梯度累积来增大有效 batch size，但通信频次不变。
+
+    - 层融合与 Prefetching：将相邻的小层合并为大层，减少 All-Gather 调用次数。同时利用预取（prefetch）技术，在当前层计算时提前异步拉取下一层参数，使通信与计算重叠，虽然不能降低通信量，但能隐藏延迟，提高吞吐。
+
+    - 参数缓存（Caching）：对于某些不常更新或共享的层（如嵌入层），可以考虑在 GPU 显存中保留一份完整副本，避免每次 All-Gather。但会牺牲部分显存，需权衡。
+
+    - 利用 ZeRO-Infinity 的 NVMe 卸载：将冷参数放到 NVMe，通过精细的调度减少 GPU 显存驻留，同时利用高带宽 NVMe 存储加速数据交换，这并不减少通信，但能降低显存压力，间接支持更大模型。
+
+    - 减少数据并行度 Nd：通信量随 Nd 增加而增加，适当减小 ZeRO 分片度，将部分显存压力转移给模型并行，可降低 All-Gather 的通信规模。
+
+    但本质上，ZeRO‑3 的参数收集次数由前向和反向的计算图决定，无法绝对减少；主要优化方向是通信与计算的重叠，以及提高每次通信的数据量（合并小通信）以降低延迟。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdlMwr6zHiurCIkdVS6c9aFDnUg
+  block_id: ZghKdtlWpod9dcxiq0yc4M9cnVb
+  page_token: RdlMwr6zHiurCIkdVS6c9aFDnUg
+  original_title: 使用 ZeRO‑3 时，如何管理参数的动态释放以减少通信频次？
+  imported_at: '2026-09-21'

@@ -1,0 +1,47 @@
+---
+schema_version: 1
+id: feishu-llm-complete-599c5cbf37e5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多节点训练下，ZeRO 的通信瓶颈如何通过分层分片（subgroup）缓解？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 多节点训练下，ZeRO 的通信瓶颈如何通过分层分片（subgroup）缓解？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多节点训练时，跨节点网络带宽（如 InfiniBand）远低于节点内（NVLink/NVSwitch），ZeRO 的 All-Gather/Reduce-Scatter 跨节点通信易成为瓶颈。分层分片（Hierarchical ZeRO / Subgroup Sharding） 的思想是：将数据并行组划分为多个子组（通常是节点内一组），先在子组内进行分片通信，再在子组间进行聚合，从而限制跨节点通信量。
+
+    例如，总数据并行度为 Nd，分成 G 个子组，每组包含 Nd/G个 GPU。ZeRO 模型状态首先在子组内分片（Stage 1/2/3），这意味着每个子组内的 GPU 共享完整模型状态，而子组之间可能采用标准 All-Reduce（对梯度）或更粗粒度的通信。对于 ZeRO-3，可设置 sub_group_size 使参数 All-Gather 仅在子组内进行，梯度 All-Reduce 则在全局范围进行。这样可以大幅减少跨节点通信量，因为参数收集被限制在高速的节点内，而梯度同步虽然跨节点，但通信量相对较小（梯度完整）。DeepSpeed 支持通过 zero_hpz_partition_size 或类似参数配置子组。
+
+    缓解效果：降低了对跨节点带宽的依赖，使得在带宽有限的集群上也能高效训练大模型。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdlMwr6zHiurCIkdVS6c9aFDnUg
+  block_id: QydNdHrp0ofej4x96rdcSTpCneh
+  page_token: RdlMwr6zHiurCIkdVS6c9aFDnUg
+  original_title: 多节点训练下，ZeRO 的通信瓶颈如何通过分层分片（subgroup）缓解？
+  imported_at: '2026-09-21'

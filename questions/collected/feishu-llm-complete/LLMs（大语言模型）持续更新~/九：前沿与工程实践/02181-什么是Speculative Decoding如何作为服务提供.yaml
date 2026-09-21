@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6cdef1e1d3cb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“Speculative Decoding”？如何作为服务提供？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 九：前沿与工程实践
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 九：前沿与工程实践
+content:
+  prompt: 什么是“Speculative Decoding”？如何作为服务提供？
+answer:
+  mode: rubric
+  reference_answer: |-
+    推测解码（Speculative Decoding） 是一种利用“小模型‘起草’、大模型‘审核’”的方式来加速 LLM 生成的算法。它能在不改变生成质量的前提下，将推理延迟降低约 2-3 倍。
+
+    工作原理：
+
+    - 草案生成：一个轻量级的“草稿模型”（Draft Model），以自回归方式快速生成连续的 K 个候选 token。
+
+    - 并行验证：将 Prompt 和这 K 个候选 token 一起，一次性输入给大型“目标模型”（Target Model）。目标模型通过一次前向传播，就能并行地验证所有 K 个 token。它输出自己的概率分布，并逐个检查草稿模型生成的 token 是否符合其“期待”。
+
+    - 接受或拒绝：目标模型会采纳其认为正确的候选 token。一旦某个候选 token 被拒绝，目标模型会基于自己的预测生成一个新 token，并丢弃后续所有草稿。这个过程循环往复。
+
+    如何作为服务提供：
+
+    将推测解码集成到 LLM 服务中，对 API 使用者是完全透明的。
+
+    - 部署架构：推理引擎（如 vLLM）可以将草稿模型和目标模型部署在同一个 GPU 进程中。草稿模型通常非常小（如 0.5B），与 70B 的目标模型相比，其显存和计算开销几乎可以忽略不计。通过共享显存或高效的 IPC 机制，两个模型可以低延迟地交互。
+
+    - API 透传：API 网关和接口设计无需做任何改变。用户发送的仍然是标准的 Chat Completions 请求。推理服务内部自动启用推测解码优化，对用户来说，只是感觉到生成速度变快了，首 Token 延迟 (TTFT) 和每 Token 延迟 (TPOT) 都显著下降。
+
+    工程挑战：推测解码的效果高度依赖于草稿模型的质量和与目标模型的对齐程度。如果草稿模型与目标模型行为差异过大，大部分候选 token 都会被拒绝，反而导致效率下降。因此，如何选择一个好的草稿模型并进行对齐是关键。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  block_id: VREUdQm8QoRe5QxKG7Bc97Ypncd
+  page_token: Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  original_title: 什么是“Speculative Decoding”？如何作为服务提供？
+  imported_at: '2026-09-21'

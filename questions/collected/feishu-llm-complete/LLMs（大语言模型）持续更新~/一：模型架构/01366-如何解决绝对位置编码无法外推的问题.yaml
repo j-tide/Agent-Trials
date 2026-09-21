@@ -1,0 +1,75 @@
+---
+schema_version: 1
+id: feishu-llm-complete-785c99cab6ca
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何解决绝对位置编码无法外推的问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 如何解决绝对位置编码无法外推的问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    针对不同编码类型，解决方案不同：
+
+    （1）正弦位置编码的外推提升
+
+    虽然正弦编码能生成任意位置的值，但其原始设计的外推能力仍有限。改进方法包括：
+
+    - 在更大长度上继续训练：直接扩增训练数据中的序列长度，让模型见到更多位置。
+
+    - 改变位置编码的频率分布：如使用相对位置编码（RoPE、ALiBi）代替绝对正弦编码，这些方法天然具有更好的外推能力。
+
+    （2）可学习位置嵌入的外推
+
+    - 线性插值（Position Interpolation）：将测试时超出部分的位置索引按比例压缩到训练长度范围内。例如，训练时最大 2048，现需要 4096，则将位置 4096 通过除以 2 映射到 2048。此时需对嵌入矩阵进行相应插值（如线性插值），获得新位置的表示。这虽简单，但会改变位置间的相对距离，损害短距离依赖。
+
+    - NTK-Aware 插值：对 RoPE 的频率进行非线性缩放，高频部分少压缩，低频部分多压缩，更好地保持局部和全局信息。
+
+    - YaRN：结合 NTK 插值和温度缩放，进一步改善外推时的注意力分布。
+
+    - ALiBi：直接在注意力分数上加上一个与距离成比例的惩罚项，免除位置编码，外推极强。
+
+    （3）架构层面的改善
+
+    使用相对位置编码代替绝对位置编码，例如：
+
+    - 相对位置表示（Shaw et al., 2018）：在注意力计算中直接使用相对距离的嵌入。
+
+    - RoPE（旋转位置编码）：将绝对位置转化为旋转矩阵作用于 Q、K，点积后自然依赖于相对位置，外推良好。
+
+    - T5 的相对偏置：每个注意力头学习一个标量偏置，仅依赖于相对距离的桶。
+
+    这些相对编码从根本上解决了“未见过绝对位置”的问题，因为它们关心的只是 token 之间的距离，而非绝对位置，因此天然支持任意长度。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XeuvwwKO8irlwIkrOlEcNQ8qn7e
+  block_id: BjSWdACObokXBFxbHutcRhKEnEg
+  page_token: XeuvwwKO8irlwIkrOlEcNQ8qn7e
+  original_title: 如何解决绝对位置编码无法外推的问题？
+  imported_at: '2026-09-21'

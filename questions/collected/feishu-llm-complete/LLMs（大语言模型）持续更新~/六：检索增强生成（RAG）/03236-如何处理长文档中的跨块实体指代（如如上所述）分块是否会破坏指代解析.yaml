@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8423fc4f88bb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何处理长文档中的跨块实体指代（如“如上所述”）？分块是否会破坏指代解析？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 如何处理长文档中的跨块实体指代（如“如上所述”）？分块是否会破坏指代解析？
+answer:
+  mode: rubric
+  reference_answer: |-
+    分块是必然会被坏文档中长距离的指代关系的。“如上所述”、“该产品”、“他”等指代词，一旦与它所指的对象分在了不同的块中，检索系统单独召回的这个块就会变得难以理解，给 LLM 造成困惑。
+
+    问题的本质：分块割裂了文本的线性阅读流。当信息被检索出来时，它是碎片化的。
+
+    处理策略：
+
+    - 上下文增强 (Context Enrichment)：这是最常用的方法。在将文档分块后，系统不是直接存储原始的块内容，而是对文本进行一次指代消解或上下文替换的预处理。例如，一个 LLM 被用来重写文本，将模糊的代词替换为具体的实体名称。将“该产品在2024年销量增长了20%”重写为“Acme AI Chatbot 在2024年销量增长了20%”。这样，每个块就变得更自包含。这种操作可以在分块前进行，也可以在分块后进行。
+
+    - 检索后的上下文扩展：在检索阶段，一旦命中了一个块，系统不直接返回这个块，而是像前面提到的“大块上下文”策略一样，返回包含该块的一个更大的上下文窗口（例如前后各几个句子或段落）。这利用了原始文档的局部连贯性，大概率能将指代的前文包含进来。这是工程上最简单、最鲁棒的解决方案。
+
+    - 利用元数据注入：如果文档中使用了大量的“如上所述”来引用上级标题或前面章节的结论，可以在分块时，通过分析文档结构，将这些被引用的“上文”直接作为元数据注入到文本块的前缀中。例如，一个块的前面被自动加上“（接上一节：LLM的三大挑战包括成本、幻觉和延迟）”。
+
+    分块是否破坏指代解析？
+
+    是的，它会严重破坏。但这通常被看作是一个预处理和检索策略的问题，而不是通过完美分块能解决的。所以，工程上接受分块对指代的破坏，然后通过检索阶段的上下文扩展和预处理阶段的指代消解来修复这个问题。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HQmwwCPl6ixKGwkuwgTcKbbpnBd
+  block_id: DUCvd4uEaoVavBxDesecJaRcnVh
+  page_token: HQmwwCPl6ixKGwkuwgTcKbbpnBd
+  original_title: 如何处理长文档中的跨块实体指代（如“如上所述”）？分块是否会破坏指代解析？
+  imported_at: '2026-09-21'

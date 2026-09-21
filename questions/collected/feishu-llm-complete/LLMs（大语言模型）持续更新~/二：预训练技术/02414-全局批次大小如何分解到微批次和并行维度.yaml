@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1bf59573e6af
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 全局批次大小如何分解到微批次和并行维度？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 全局批次大小如何分解到微批次和并行维度？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在超大模型训练中，全局批次大小（Global Batch Size, GBS）通常以token数计量。其分解公式为：
+
+    [图片内容未导入]
+
+    - micro_batch_size：单张 GPU 在一次前向‑反向中能处理的最大样本数（或 token 数），受限于单卡显存。例如，对于序列长度 2048，单卡可能仅能容纳 1 条样本。
+
+    - M：流水线并行中的 micro‑batch 数量，也是梯度累积步数。M≥PP_degree（通常取 PP 的 2~4 倍以减少气泡）。
+
+    - DP_groups：数据并行组数。每组 DP 负责处理不同的 mini‑batch，并贡献 1 份梯度。
+
+    分解流程：
+
+    - 根据单卡显存和模型大小，确定 micro_batch_size（例如每卡每次处理 2 条 2048 的序列）。
+
+    - 设定合理的 M，确保流水线效率。例如 M=32。
+
+    - 计算一个流水线组处理的总 batch：pipeline_batch = M × micro_batch_size。
+
+    - 根据目标 GBS，计算所需数据并行组数：DP_groups = GBS / pipeline_batch。例如 GBS=16384，pipeline_batch=64，则 DP_groups=256。
+
+    - 总 GPU 数 = DP_groups × PP_degree × TP_degree。
+
+    示例：GBS=8192 tokens? 实际上 GBS 是样本数。我们以样本数为例：GBS=4096 个样本，micro_batch_size=1，M=32，则 DP_groups=4096/(32*1)=128。若 PP=8，TP=4，总 GPU=128×8×4=4096。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQ7qw1klCirayhkUauicscbqnpc
+  block_id: Ku54d3nmToEScVx36ulcyUOunVc
+  page_token: GQ7qw1klCirayhkUauicscbqnpc
+  original_title: 全局批次大小如何分解到微批次和并行维度？
+  imported_at: '2026-09-21'

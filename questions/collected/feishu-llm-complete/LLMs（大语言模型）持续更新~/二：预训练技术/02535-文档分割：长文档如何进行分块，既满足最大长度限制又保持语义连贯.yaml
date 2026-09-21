@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a95c6a1c126c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 文档分割：长文档如何进行分块，既满足最大长度限制又保持语义连贯？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 文档分割：长文档如何进行分块，既满足最大长度限制又保持语义连贯？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在预训练数据准备中，文档常常超过模型的最大上下文长度（如 4096、8192 token），需要被分割成较短的块（chunks）。关键挑战在于平衡长度限制与语义连贯性：既要保证每个块不超过最大 token 数，又要尽量让每个块包含完整的语义单元（句子、段落），避免在句子中间生硬切断，从而破坏语言模型的上下文学习。
+
+    常用分块策略：
+
+    - 基于句子的滑动窗口分割
+    首先利用标点（句号、问号、感叹号、换行）将文档拆分成句子序列。然后设定一个目标长度 L（如 2048 token）和一个重叠长度 O（如 256 token）。从文档开头开始，依次累积句子，直到当前块的总 token 数接近 L。当添加下一个句子会使块超过 L 时，将该块存储并开始新块，新块可以从当前句子的开头开始，也可以根据重叠策略向前回溯 O 个 token（即包含前一块的最后部分内容），以保证上下文连贯性。这种方法确保块边界落在句子边界上，保持了句子的完整性。
+
+    - 基于自然边界的段落/章节分割
+    如果文档有清晰的 Markdown 标题、段落分隔等结构标记，优先按这些层级边界进行切分。例如，在一个 Markdown 文档中，可以尽量将整段或整节放在一个块内，只有在段落自身超过最大长度时才进一步按句子切分。这样能保留最天然的语义连贯性，尤其适用于教程、技术文档等。
+
+    - 递归字符分割
+    首先尝试用最粗粒度的分隔符（如 \n\n, \n, 句号）进行分割，如果分出的段落仍太长，再逐步用更细粒度的分隔符（空格、字符）进行递归拆分，直到满足长度要求。LangChain 的 RecursiveCharacterTextSplitter 就采用这种方法。它能够自动适应不同文体的层次结构，既保证不超长，又尽量保持语义完整性。
+
+    - 基于语言模型的语义分割
+    使用一个小的语言模型计算相邻句子的“语义相似度”或“主题连贯性”。当相似度骤降时，标记为一个自然的主题边界，优先在这些边界处切分。这种方法计算代价高，但可以得到质量极高的语义块，通常用于精细的指令数据或对话数据构造。
+
+    - 重叠分块与元数据传递
+    为了让模型在训练中能够学习跨越块边界的依赖，通常让相邻块之间有 10%~20% 的重叠。此外，在块的文本前附加全局元数据（如文档标题、章节名、URL）作为前缀，可以帮助模型在没有完整上下文的情况下仍保持一定的背景认知。
+
+    - 长度控制与 tokenization
+    分块时，长度计算应以模型实际使用的 tokenizer 的 token 数为准，而不是简单的字符数或词数。可以在分块过程中模拟 tokenization，确保每块的 token 数严格不超限。
+
+    实践建议：在预训练数据流水线中，通常采用“基于句子分割 + 滑动窗口 + 轻度重叠”作为标准方案，并辅以“元数据前缀”来维持全局连贯性。对于特定来源（如书籍），可利用章节信息进行更高层次的分割。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VQryw3HUdiWHbekHEfpc0JK2nDe
+  block_id: IkTvddltSoSld6x0h8ec3eGBnbI
+  page_token: VQryw3HUdiWHbekHEfpc0JK2nDe
+  original_title: 文档分割：长文档如何进行分块，既满足最大长度限制又保持语义连贯？
+  imported_at: '2026-09-21'

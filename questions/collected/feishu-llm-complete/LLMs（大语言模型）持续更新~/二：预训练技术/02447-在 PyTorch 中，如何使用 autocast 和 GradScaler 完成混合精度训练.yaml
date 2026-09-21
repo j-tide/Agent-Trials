@@ -1,0 +1,89 @@
+---
+schema_version: 1
+id: feishu-llm-complete-56855a04a468
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 PyTorch 中，如何使用 autocast 和 GradScaler 完成混合精度训练？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 在 PyTorch 中，如何使用 autocast 和 GradScaler 完成混合精度训练？
+answer:
+  mode: rubric
+  reference_answer: |-
+    PyTorch 的 torch.cuda.amp 模块提供了开箱即用的混合精度训练支持。核心组件是 autocast 和 GradScaler。
+
+    完整代码示例：
+
+    import torch
+    from torch.cuda.amp import autocast, GradScaler
+
+    model = MyModel().cuda()
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+    scaler = GradScaler()  # 动态损失缩放
+
+    for batch_data, batch_target in dataloader:
+        optimizer.zero_grad()
+
+        # 1. 前向传播：autocast 自动选择精度
+        with autocast():
+            output = model(batch_data)
+            loss = loss_fn(output, batch_target)
+
+        # 2. 反向传播：损失缩放
+        scaler.scale(loss).backward()
+
+        # 3. 可选：梯度裁剪（需先 unscale）
+        scaler.unscale_(optimizer)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
+        # 4. 参数更新：自动检查 inf/NaN，unscale 并 step
+        scaler.step(optimizer)
+
+        # 5. 更新缩放因子
+        scaler.update()
+
+    工作原理详解：
+
+    - autocast()：上下文管理器，在进入时将 CUDA 前向传播中的适用算子（如 nn.Linear, nn.Conv2d, torch.matmul 等）自动转换为 FP16 执行，同时将数值敏感算子（如 softmax, layer_norm, cross_entropy 等）保持为 FP32。用户无需手动修改模型代码。
+
+    - GradScaler：
+
+    关键注意事项：
+
+    - 梯度裁剪必须在 unscale_ 之后进行，否则裁剪的是放大后的梯度，导致裁剪阈值失效。
+
+    - 如果有多个优化器，需要分别创建 GradScaler（通常一个足够）或为每个优化器单独管理。
+
+    - BF16 训练可直接使用 autocast(dtype=torch.bfloat16) 而不需要 GradScaler。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H1LqwP3PkibEdykjijgc533Rnue
+  block_id: NINvd21ICoiSXgxIVuJcIsUQnsc
+  page_token: H1LqwP3PkibEdykjijgc533Rnue
+  original_title: 在 PyTorch 中，如何使用 autocast 和 GradScaler 完成混合精度训练？
+  imported_at: '2026-09-21'

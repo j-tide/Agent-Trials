@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a02da6a0ee42
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释连续批处理中请求的“加入”和“退出”机制，如何在不中断其他请求的情况下进行调度。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 解释连续批处理中请求的“加入”和“退出”机制，如何在不中断其他请求的情况下进行调度。
+answer:
+  mode: rubric
+  reference_answer: |-
+    连续批处理的核心是迭代级调度：推理循环以生成单个 token 的迭代为单位。在每次迭代结束后，调度器有机会改变运行中的请求集合。
+
+    退出机制：
+
+    - 在每一轮迭代中，模型为 batch 内所有活跃请求各生成一个 token。
+
+    - 生成后，立即检查每个请求的最新 token 是否为结束标志（EOS token）或是否已达到用户设定的最大生成长度。
+
+    - 若某请求完成，则将其从活跃运行集中移除，释放其占用的各类资源（最主要的是 KV Cache 的物理块）。其完整的生成序列被返回给客户端。
+
+    - 该退出操作是即时且无阻塞的——因为下一个迭代的 batch 可以完全不包含该请求，新的 batch 大小自然减少。
+
+    加入机制：
+
+    - 调度器维护一个等待队列（waiting queue），新到达的请求首先进行 prefill 阶段（或排队等待 prefill）。
+
+    - 在每次迭代结束时（或在某些策略下，迭代开始前），调度器检查是否有空闲资源（主要是显存中的 KV Cache 块可用量），以及当前 batch 是否已达到硬件能承受的最大 batch size（或用户设定的上限）。
+
+    - 如果有资源，调度器从等待队列中取出一个或多个请求，为其执行 prefill（即一次性处理整个 prompt，生成第一个 token），并将该请求的初始 KV Cache 分配好。此后，该请求进入活跃运行集，在下一个 decode 迭代中加入 batch。
+
+    - 更精细的实现允许 prefill 和 decode 混合批处理（见第 8 题），此时加入的新请求可能以 prefill 操作与现有 decode 请求一同计算，进一步减少调度延迟。
+
+    如何不中断其他请求：
+
+    由于每次迭代的 batch 是动态构建的，模型前向计算只依赖于当前批次的输入 token 和各自对应的 KV Cache 块。改变 batch 组成只需在 host 端重新组织输入张量、更新块表（block table），然后发起新的 kernel 调用。整个过程无需暂停或重启 GPU 计算流，仅是一次迭代与下一次迭代之间的逻辑切换。通过分页的 KV Cache 机制，不同请求的缓存物理块独立，增加或移除请求零数据搬迁，真正实现了无缝的弹性伸缩。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqBawimrwioo11kNL45cwrfznle
+  block_id: Nj9Yd2l33oJ42vxb66dco4MMnkg
+  page_token: EqBawimrwioo11kNL45cwrfznle
+  original_title: 解释连续批处理中请求的“加入”和“退出”机制，如何在不中断其他请求的情况下进行调度。
+  imported_at: '2026-09-21'

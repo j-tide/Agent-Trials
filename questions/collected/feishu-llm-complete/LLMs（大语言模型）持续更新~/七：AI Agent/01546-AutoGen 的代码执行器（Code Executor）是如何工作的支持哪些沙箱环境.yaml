@@ -1,0 +1,80 @@
+---
+schema_version: 1
+id: feishu-llm-complete-17ca29216d3f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: AutoGen 的代码执行器（Code Executor）是如何工作的？支持哪些沙箱环境？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: AutoGen 的代码执行器（Code Executor）是如何工作的？支持哪些沙箱环境？
+answer:
+  mode: rubric
+  reference_answer: |-
+    代码执行能力是 AutoGen 强大功能的核心之一，它允许 AssistantAgent 直接生成并执行 Python 代码，然后将运行结果反馈到对话中，形成一个强大的、自动化的纠错和迭代闭环。
+
+    工作原理：生成-执行-反馈的闭环
+
+    - 生成：AssistantAgent 在推理过程中，如果判断需要代码来解决问题（如进行复杂计算、数据处理、绘图），它会生成一段完整的 Python 代码，通常包裹在 Markdown 代码块（python ...）中。
+
+    - 转发与执行：UserProxyAgent 收到包含代码的消息后，会触发它的代码执行模块。它将代码提取出来，发送给配置好的代码执行器。
+
+    - 执行与结果捕获：代码执行器在一个隔离的环境中运行这段代码。它捕获代码的标准输出、标准错误和最终返回值。
+
+    - 反馈与迭代：执行结果（无论是成功输出还是错误日志）会被格式化后，作为一条新的消息发送回对话历史。AssistantAgent 会阅读这些反馈。如果代码运行出错，它会像一个经验丰富的程序员一样，分析错误信息，尝试修正代码，并再次生成。这个“生成-执行-纠错”的循环可以自动重复，直到代码成功运行。
+
+    支持的沙箱环境
+
+    代码执行的安全性至关重要，因此 AutoGen 支持多种执行环境，从最安全到最便捷依次为：
+
+    - Docker：这是生产环境的首选。AutoGen 会在指定的 Docker 镜像中创建一个隔离的容器来执行代码。容器拥有独立的文件系统、网络和进程空间。代码执行完成后，容器可以被立即销毁。这提供了最高级别的安全性，能有效防止恶意代码或错误的 rm -rf / 对宿主系统造成破坏。
+
+    - 本地命令行 (Local)：代码直接在宿主系统的子进程中执行。这种方式速度最快，成本最低，但安全性极低。它只适用于完全可信的代码生成环境或本地开发调试，绝不能用于处理不可信的外部输入。
+
+    - Jupyter Kernel：AutoGen 可以连接到一个 Jupyter Notebook 内核来执行代码。这种方式支持交互式编程，非常适合数据分析和探索性任务。
+
+    - 自定义执行器：开发者可以通过实现 CodeExecutor 接口，接入自己的代码执行服务，例如内部的云函数平台。
+
+    配置示例
+
+    ```python
+    code_execution_config = {
+        "executor": "autogen.coding.DockerCommandLineCodeExecutor",
+        "timeout": 60,  # 代码超时时间（秒）
+        "work_dir": "workspace",
+        "image": "python:3.11-slim",
+    }
+    ```
+
+    通过这种设计，AutoGen 的 Agent 不仅会“说”代码，还能真正“跑”代码，并基于结果进行反思，极大地提升了其在编程、数据科学等领域的实用性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/F9htw07hOih4oik4Vi3cSBIjnVd
+  block_id: Fpgydslx1opzYGxjVRXco1GMnWb
+  page_token: F9htw07hOih4oik4Vi3cSBIjnVd
+  original_title: AutoGen 的代码执行器（Code Executor）是如何工作的？支持哪些沙箱环境？
+  imported_at: '2026-09-21'

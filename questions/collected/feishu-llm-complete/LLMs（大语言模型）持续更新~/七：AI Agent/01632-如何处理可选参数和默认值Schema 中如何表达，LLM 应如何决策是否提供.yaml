@@ -1,0 +1,83 @@
+---
+schema_version: 1
+id: feishu-llm-complete-8a6dd7a484b8
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何处理可选参数和默认值？Schema 中如何表达，LLM 应如何决策是否提供？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 如何处理可选参数和默认值？Schema 中如何表达，LLM 应如何决策是否提供？
+answer:
+  mode: rubric
+  reference_answer: |-
+    核心回答：处理可选参数和默认值是工具设计中的精细活，它关系到模型在信息不足时的行为——是去“猜测”一个值，还是“诚实地”省略它。最佳实践是引导模型倾向于省略，而将默认值的赋权交给后端逻辑。
+
+    在 Schema 中表达可选参数和默认值
+
+    - 可选参数：在定义参数的 required 数组时，不将该参数名加入数组，即可将其标记为可选。
+
+    - 默认值：目前，标准的 LLM 工具调用 JSON Schema 本身没有一个专门的 default 字段。因此，你必须在参数的 description 字段中，用自然语言来传达默认值的信息。
+
+    示例：
+
+    ```json
+    "max_results": {
+      "type": "integer",
+      "description": "最多返回的餐厅数量。如果用户没有明确指定，请勿猜测，直接省略该参数。系统后端默认为5。"
+    }
+    ```
+
+    LLM 应如何决策是否提供
+
+    这是关键。你应该通过提示词和描述策略，明确地训练模型的行为模式。
+
+    最佳实践：引导模型“宁缺毋滥”
+
+    - 在系统提示中设定全局规则：可以加入一条指令：“当调用工具时，对于可选参数，除非用户在当前对话中明确提供了该信息，否则不要自行添加该参数。”
+
+    - 在参数描述中给出具体指引：如上述 max_results 的例子，直接告诉模型在用户没提及时“直接省略该参数”。这比依赖模型自己的“常识”要可靠得多。
+
+    为什么这样做？
+
+    - 避免臆测偏差：如果用户只是说“帮我找附近的餐厅”，模型自行填入 max_results: 3，而你的后端默认是 10，可能就错过了用户更想要的选择。把默认值的决定权留在服务器端，可以保证业务逻辑的一致性。
+
+    - 简化后端校验：后端可以更容易地判断：参数存在，说明是用户的明确意图；参数不存在，则安全地使用默认值。
+
+    - 区分“未提及”与“明确设为”：这种设计模式能完美区分“用户未提及”和“用户明确要求某个值（即使与默认值相同）”这两种情况。如果用户明确要求了某个和默认值一样的值，模型会生成该参数，后端可以据此进行特殊的业务处理（例如，记录用户偏好）。
+
+    一个需要模型“主动提供”的特殊情况：
+    当省略某个可选参数可能会导致工具执行一个危险或不恰当的默认行为时，你应该反其道而行之。例如，如果 file_deletion 工具有一个 confirm 参数，默认为 false（即不确认就删除）。此时，应该要求模型“当用户表达删除意图时，务必提供 confirm: true 作为安全确认”。这种逻辑最好通过系统提示来强制实施。
+
+    结论：处理可选参数的精髓，在于将“默认值”的逻辑从模型端剥离，回归到可控的后端代码中。让模型扮演一个忠实的“信息收集者”，而不是一个爱脑补的“决策者”。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IA43wgi1niRa19kxIa6c0Qo5nCh
+  block_id: II0QdFvpzonH0Zxif46cxDDindd
+  page_token: IA43wgi1niRa19kxIa6c0Qo5nCh
+  original_title: 如何处理可选参数和默认值？Schema 中如何表达，LLM 应如何决策是否提供？
+  imported_at: '2026-09-21'

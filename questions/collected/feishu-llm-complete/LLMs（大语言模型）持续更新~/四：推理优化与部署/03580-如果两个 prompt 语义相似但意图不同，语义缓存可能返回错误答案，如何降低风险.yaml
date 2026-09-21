@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-2001a197cab9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果两个 prompt 语义相似但意图不同，语义缓存可能返回错误答案，如何降低风险？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如果两个 prompt 语义相似但意图不同，语义缓存可能返回错误答案，如何降低风险？
+answer:
+  mode: rubric
+  reference_answer: |-
+    语义相似但意图不同（如“苹果手机怎么样”和“苹果水果怎么样”）是语义缓存的固有风险，需要从多个层面加以控制。
+
+    降低风险的策略：
+
+    - 提高相似度阈值
+    调高余弦相似度阈值（如从 0.85 提至 0.95），强制要求两个 prompt 的语义高度接近才判定为匹配。这可以减少误匹配，但也会降低命中率。
+
+    - 意图识别与标签过滤
+    在缓存项中存储 prompt 的意图标签（如“电子产品咨询”、“水果营养”）。新请求先用意图分类器判定意图，检索时增加过滤条件：intent == request_intent。这样即使语义向量接近，不同意图的缓存也不会被命中。
+
+    - 实体级别过滤
+    提取 prompt 中的核心实体（如“苹果”可能指品牌或水果），在缓存元数据中存储实体列表。匹配时要求关键实体一致或兼容。对于实体歧义，可结合知识图谱消歧。
+
+    - 二级验证机制
+    当语义缓存命中后，不直接返回，而是用一个小型判别模型（如 NLI 模型）判断“缓存问题”是否与“用户问题”等价。如果判断为矛盾或中立，则回退到实时推理。这增加了几十毫秒延迟，但大大提高了准确性。
+
+    - 缓存 key 结构化
+    将 prompt 分解为 {意图, 实体, 属性} 结构化元组，以此作为缓存键，而不仅依赖稠密向量。这样可以实现更精准的匹配。
+
+    - 响应改写而非直接复用
+    命中后，调用 LLM 进行快速的“验证与改写”：让模型判断旧答案是否适用于新问题，并做出必要的修正。虽然调用了模型，但输入极短，延迟远低于完整推理。
+
+    - 用户反馈闭环
+    对语义缓存返回的答案，提供“踩”的反馈机制。若某缓存项被多次踩，自动降低其权重或直接失效。
+
+    核心思路：不单纯依赖单一的语义相似度分数，而是引入额外的低成本意图/实体过滤或二级验证，在保持高命中率的同时，大幅降低错误匹配的风险。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Suarwd0MSiF56MkUyBScW6UmnhB
+  block_id: Ovqjd99gmo2whLxTk4AcTOeTnrd
+  page_token: Suarwd0MSiF56MkUyBScW6UmnhB
+  original_title: 如果两个 prompt 语义相似但意图不同，语义缓存可能返回错误答案，如何降低风险？
+  imported_at: '2026-09-21'

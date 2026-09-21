@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fd79f9d43525
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是连续批处理？与静态批处理相比，它解决了推理服务的什么问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 什么是连续批处理？与静态批处理相比，它解决了推理服务的什么问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    连续批处理（Continuous Batching），又称迭代级调度（Iteration-level Scheduling），是一种针对自回归大语言模型推理的服务调度策略。它允许在同一批次（batch）中同时处理处于不同生成阶段的请求，并在每个生成迭代（每生成一个 token）之后，动态地加入新请求或移除已完成的请求，而无需等待整个批次中所有请求都完成。
+
+    静态批处理（Static Batching） 的做法是：服务端将若干请求组成一个 batch，然后一次性为所有请求生成所有 token（或直到遇到 EOS/最大长度）。在此期间，即使某个请求早已生成结束，也必须等待批次内其他请求完成，才能一起返回结果；同时，新到达的请求必须等待当前批次彻底结束才能被接纳。
+
+    连续批处理解决的核心问题：
+
+    - 队头阻塞（Head-of-Line Blocking）：静态批处理中，短请求被长请求拖累，延迟极高，资源空转。连续批处理允许已完成的请求即时退出，释放资源给新请求，消除了等待。
+
+    - GPU 利用率低下：静态批处理中，批次内请求长度不一，先结束的请求的槽位在剩余时间里闲置，GPU 算力和显存带宽被浪费。连续批处理每步可调整 batch 组成，始终保持高饱和度。
+
+    - 响应延迟不可预测且长尾：静态批处理下请求延迟取决于同批次中最长的请求；连续批处理通过细粒度调度，使短请求能快速完成并返回，显著降低平均延迟和尾部延迟。
+
+    - 吞吐受限：由于不能并行处理处于不同进度的请求，系统最大吞吐受限于批次中最大长度，而非 GPU 的物理极限。连续批处理将生成过程视作流水线，每秒可服务的 token 总数大幅提升。
+
+    简言之，连续批处理将 LLM 推理服务从“批次同步”转变为“token 流式流水线”，从而实现高吞吐、低延迟和高资源利用率，已成为 vLLM、TensorRT-LLM、TGI 等主流框架的标配。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqBawimrwioo11kNL45cwrfznle
+  block_id: T137dpB7ooLHPHxjP6BcaUZunUF
+  page_token: EqBawimrwioo11kNL45cwrfznle
+  original_title: 什么是连续批处理？与静态批处理相比，它解决了推理服务的什么问题？
+  imported_at: '2026-09-21'

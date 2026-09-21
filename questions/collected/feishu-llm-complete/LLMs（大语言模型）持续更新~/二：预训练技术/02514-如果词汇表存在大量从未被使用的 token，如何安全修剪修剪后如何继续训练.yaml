@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-67a4970fce4f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果词汇表存在大量从未被使用的 token，如何安全修剪？修剪后如何继续训练？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 如果词汇表存在大量从未被使用的 token，如何安全修剪？修剪后如何继续训练？
+answer:
+  mode: rubric
+  reference_answer: |-
+    词表过大或语料分布变化（如从通用转向垂直领域）都会导致大量 token 成为“死词”。它们不仅浪费参数和显存，还会增大 softmax 计算量。安全修剪词表的步骤如下：
+
+    - 统计活跃 token：
+
+    在新的目标语料（如微调数据）上运行分词器，统计每个 token ID 被使用的次数。所有出现次数为 0 的普通 token（非特殊 token）均可标记为“待修剪”。
+
+    - 强制保留的 Token：
+
+    以下 token 绝不能移除：
+
+    - 特殊控制 token：[UNK], [PAD], [BOS], [EOS], [CLS], [SEP], [MASK] 等。
+
+    - 字节级 BPE 中的 256 个字节基础 token（如果存在）。
+
+    - 可能的话，保留一些常用的单字符 token，以确保任何文本都能被表示（但如果字节 token 保留，单字符并非绝对必要）。
+
+    - 构建新词表并调整模型权重：
+
+    [图片内容未导入]
+
+    - 继承权重：对于在新词表中保留的 token，直接从原模型权重中复制对应的向量。对于新词表中的新 token（如果有，比如新增了领域术语），则进行随机初始化（如用正态分布 N(0,0.02)）。
+
+    继续训练：
+
+    - 加载修剪后的模型，在新的目标语料上继续训练。由于模型结构已改变（词表大小不同），必须进行训练，不能直接推理。
+
+    - 设置较低的学习率，并辅以 warm-up，防止剧烈更新破坏原有知识。
+
+    - 监控模型在验证集上的损失和困惑度，直到收敛。
+
+    额外注意事项：
+
+    - 如果原分词器中有 token 是通过 BPE 合并生成的，修剪后可能导致某些合并规则链断裂。但这是可接受的，因为模型会通过继续训练，利用新词表中的 token 重新学习子词组合方式。
+
+    [图片内容未导入]
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UKVSwsmrvizh73kD8qpckkNRnQh
+  block_id: MCAxdCWWMoXfw1xWM9hcSC5knEh
+  page_token: UKVSwsmrvizh73kD8qpckkNRnQh
+  original_title: 如果词汇表存在大量从未被使用的 token，如何安全修剪？修剪后如何继续训练？
+  imported_at: '2026-09-21'

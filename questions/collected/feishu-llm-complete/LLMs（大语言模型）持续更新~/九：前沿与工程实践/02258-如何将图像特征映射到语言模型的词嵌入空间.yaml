@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-a3d401ea3a67
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何将图像特征映射到语言模型的词嵌入空间？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 九：前沿与工程实践
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 九：前沿与工程实践
+content:
+  prompt: 如何将图像特征映射到语言模型的词嵌入空间？
+answer:
+  mode: rubric
+  reference_answer: |-
+    将图像特征映射到语言模型空间，本质上是要解决一个维度和语义双重不匹配的问题。LLaVA使用的核心工具是一个极其简洁的线性投影层，通常被称为“连接器”。
+
+    [图片内容未导入]
+
+    技术实现过程：
+
+    - 特征提取：对于输入图像，CLIP视觉编码器输出一组形状为 (N, D_v) 的特征向量。其中N是图像被分割成的patch数量加上一个全局的[CLS] token（共257个），D_v是视觉编码器的输出维度（例如1024维）。
+
+    - 维度转换：这个线性投影层就是一个形状为 D_v × D_l 的矩阵W，其中D_l是语言模型的词嵌入维度（例如4096维）。通过简单的矩阵乘法 X_v · W，N个视觉patch特征的维度就变成了 D_l。
+
+    - 序列化与拼接：经过投影后，我们就得到了N个形状为D_l的向量，它们可以与语言模型词表中的每个词的嵌入向量处于同一个空间中了。它们被视为一种特殊的“视觉词元”。在输入语言模型时，只需将这些“视觉词元”序列与经过词嵌入映射的“文本词元”序列拼接起来，形成一个完整的输入序列。
+
+    不选用更复杂模块的原因：
+
+    这个线性投影层之所以有效，是因为它完全依赖了CLIP预训练带来的语义对齐优势。因为CLIP的视觉特征和文本特征已经在对比学习中被拉近到同一个语义空间，所以一个线性变换就足以进行物理上的维度对齐，无需复杂的非线性变换网络。若使用如Q-Former等可学习的查询网络，反而可能因为训练数据不足或架构复杂，破坏CLIP学到的良好预训练特性。LLaVA的实践证明了，在优秀的预训练模型之上，简单就是美，Simple is the best。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XEzWwWFJ5icEfykM3oOcTYF3n7g
+  block_id: MT31dHirPo7oNoxAsMncM5z8njg
+  page_token: XEzWwWFJ5icEfykM3oOcTYF3n7g
+  original_title: 如何将图像特征映射到语言模型的词嵌入空间？
+  imported_at: '2026-09-21'

@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-12af0ea43b68
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 用 GGUF 做多 GPU 推理是否可行？与 GPTQ 的多 GPU 部署对比。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 用 GGUF 做多 GPU 推理是否可行？与 GPTQ 的多 GPU 部署对比。
+answer:
+  mode: rubric
+  reference_answer: |-
+    GGUF 做多 GPU 推理是可行的，但实现方式和效果与 GPTQ 不同。
+
+    GGUF 多 GPU（llama.cpp）：
+
+    - llama.cpp 支持通过 --tensor-split 参数将模型的张量按比例分配至多块 GPU（如 --tensor-split 10,14 将模型权重按大小切分到两块 GPU 上）。这是模型并行（tensor parallelism 的一种简单形式：将层放置在多个设备上）。
+
+    - 推理时，计算跨 GPU 顺序执行，不同层之间通过 PCIe 或 NVLink 传输中间激活。由于 llama.cpp 并非真正的张量并行（未在单层内切分矩阵乘），当单层无法放入一块 GPU 时，该方法受限。
+
+    - 此外，llama.cpp 的 CUDA 后端对多 GPU 的优化较初步，通信开销大，不适合需要极高吞吐的服务场景。
+
+    GPTQ 多 GPU 部署：
+
+    - 主流框架（如 vLLM、TensorRT-LLM）支持张量并行 (Tensor Parallelism)，可以将单个注意力头和 FFN 矩阵切分到多个 GPU 上，并利用 NCCL 进行 all-reduce 通信。GPTQ 模型可无缝接入这些并行策略。
+
+    - 另外 GPTQ 也可以配合流水线并行 (Pipeline Parallelism)，将不同层放在不同 GPU。由于有成熟的 GPU 集群推理框架支持，多卡扩展线性度好，吞吐高。
+
+    对比总结：
+
+    - GGUF 多 GPU 属于“能跑”，适合个人用户手上有几块旧 GPU，想把玩大模型，但性能和扩展性有限。
+
+    - GPTQ 多 GPU 是生产级方案，依托专业框架，可实现高吞吐、低延迟的大规模部署。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/J01swL7KPiURbSkqde0cJq63nHc
+  block_id: Qk6kd0idzodHM1xSLY3ct3E2nhb
+  page_token: J01swL7KPiURbSkqde0cJq63nHc
+  original_title: 用 GGUF 做多 GPU 推理是否可行？与 GPTQ 的多 GPU 部署对比。
+  imported_at: '2026-09-21'

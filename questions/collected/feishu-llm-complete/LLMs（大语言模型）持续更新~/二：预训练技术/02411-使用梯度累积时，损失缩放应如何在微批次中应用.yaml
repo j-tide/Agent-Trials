@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9a9cef3737d9
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用梯度累积时，损失缩放应如何在微批次中应用？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 使用梯度累积时，损失缩放应如何在微批次中应用？
+answer:
+  mode: rubric
+  reference_answer: |-
+    梯度累积通过多个micro-batch的前向/反向累积梯度，模拟大batch效果。在混合精度下，关键在于：
+
+    - 缩放因子在一个mini-batch内保持不变：所有micro-batch的反向均使用同一个当前缩放因子 S。每个micro-batch的损失都经过 scaler.scale(loss) 放大，然后 backward() 累积放大后的梯度。
+
+    - 仅在所有micro-batch完成后更新参数：不能在每个micro-batch后调用 scaler.step(optimizer)，那会导致多次更新，违背梯度累积的初衷。正确的流程是：累积所有micro-batch的放大梯度后，调用 scaler.unscale_(optimizer) 恢复真实梯度，再执行 scaler.step(optimizer)，最后 scaler.update() 调整缩放因子。
+
+    - 损失需要按累积步数缩放：通常我们会将每个micro-batch的损失除以累积步数，以保持数学等价。由于损失被除以累积步数，其放大后的梯度也会相应缩小，但这不影响缩放因子的有效性——只要统一操作即可。
+
+    代码示例：
+
+    scaler = GradScaler()
+    for micro in data:
+        with autocast():
+            loss = model(micro) / accum_steps
+        scaler.scale(loss).backward()   # 累积放大梯度
+    scaler.unscale_(optimizer)
+    scaler.step(optimizer)
+    scaler.update()
+    optimizer.zero_grad()
+
+    注意不要在每个micro-batch后调用 scaler.update()，否则缩放因子会在同一个mini-batch内变化，破坏一致性。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H1LqwP3PkibEdykjijgc533Rnue
+  block_id: CKqVdchJeoGFc5xTQaKcVtU6nnc
+  page_token: H1LqwP3PkibEdykjijgc533Rnue
+  original_title: 使用梯度累积时，损失缩放应如何在微批次中应用？
+  imported_at: '2026-09-21'

@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-06b8bf3f8e86
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: ZeRO‑3：划分模型参数，前向/反向中如何通过 all‑gather 获取完整参数？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: ZeRO‑3：划分模型参数，前向/反向中如何通过 all‑gather 获取完整参数？
+answer:
+  mode: rubric
+  reference_answer: |-
+    ZeRO-3 将模型参数也分片到 DP 组内，每张卡不再存储完整参数，只在需要时通过 All-Gather 通信从其他进程收集完整参数。
+
+    - 前向传播：某一层计算前，该层的参数分片分布在各个 GPU 上。当前 GPU 发起 All-Gather，收集该层的全部参数；收集完成后进行该层的前向计算；计算完毕后，立即释放非本地分片的参数，只保留自己的分片（以节省显存）。
+
+    - 反向传播：同样，在计算某一层的梯度时，需要该层的完整参数，再次执行 All-Gather 获取完整参数；然后计算梯度；梯度在反向过程中通过 Reduce-Scatter 分发到对应负责的 GPU 上（与 ZeRO-2 类似），每个 GPU 最终只有自己分片的梯度。
+
+    通过这种“动态获取、即时释放”的机制，每张 GPU 显存中的参数存储量从 2Ψ 字节降为 2Ψ/Nd字节，从而使得单卡显存几乎不限制模型总大小（只要一个分片能放下）。ZeRO-3 的每卡总模型状态内存为 (2Ψ+2Ψ+12Ψ)/Nd=16Ψ/Nd 字节，实现了完全的分片。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdlMwr6zHiurCIkdVS6c9aFDnUg
+  block_id: MMQxd8lFJoI63wxQMxKcVagSnwb
+  page_token: RdlMwr6zHiurCIkdVS6c9aFDnUg
+  original_title: ZeRO‑3：划分模型参数，前向/反向中如何通过 all‑gather 获取完整参数？
+  imported_at: '2026-09-21'

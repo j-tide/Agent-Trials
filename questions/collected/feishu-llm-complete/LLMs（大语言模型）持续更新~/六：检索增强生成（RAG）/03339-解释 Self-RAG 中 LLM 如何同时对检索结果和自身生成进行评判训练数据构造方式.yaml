@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-833ea3b56ade
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 解释 Self-RAG 中 LLM 如何同时对检索结果和自身生成进行评判？训练数据构造方式。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 解释 Self-RAG 中 LLM 如何同时对检索结果和自身生成进行评判？训练数据构造方式。
+answer:
+  mode: rubric
+  reference_answer: |-
+    核心回答：Self-RAG 模型之所以能同时评判检索结果和自身生成，是因为它通过特殊的反思令牌将这一系列的评估动作内化为了统一的文本生成任务。而其训练数据的构造，则是通过一个强大的教师模型，为每一个生成决策点预先生成这些反思令牌，形成带标注的语料库，供目标模型进行监督微调。
+
+    评判机制：反思令牌驱动
+
+    Self-RAG 并不依赖外部评估器，而是让模型在逐段生成文本时，主动输出控制信号。
+
+    - 评判检索结果：当系统根据模型发出的 <Retrieve> 令牌执行检索并返回一批文档后，模型并不会立即使用它们。相反，它会进入一个“文档筛选”阶段。对于每一篇返回的文档，模型都会在其内容后生成一个评判令牌：<Relevant> 或 <Irrelevant>。这个令牌是模型阅读了该文档和当前上下文之后给出的综合判断。生成 <Irrelevant> 的文档会被自动屏蔽，不参与后续生成。这个机制让模型能够像一个严格的编辑，在信息进入大脑之前就进行把关。
+
+    - 评判自身生成：在生成一个句子或段落的文本之后，模型会紧接着输出事实核查令牌：<Supported>（生成的内容得到检索文档的支持）、<Partially Supported>（部分得到支持），或 <No Support>（完全缺乏依据）。这个动作是模型对自己的输出进行的事后审计。它基于已生成的文本和那些被判定为相关的检索文档，判断每句话的可信程度。这个过程完全模拟了人类在写作后“回头检查”的行为。
+
+    训练数据构造方式：教师模型的引导
+
+    要让模型学会这种“边写边评”的能力，需要构造一个包含大量反思令牌的训练数据集。其核心思路是利用一个更强大的教师模型来生成示范。
+
+    - 基础素材收集：收集一批标准的 (输入, 输出) 对，以及相关的检索文档集。
+
+    - 教师模型决策与标注：对于每一个训练实例，教师模型被调用来分析生成过程。它会逐段检查：在当前上下文中，是否需要额外检索？对于已检索到的每篇文档，它是否真的相关？对于已生成的每个句子，它是否能从相关文档中推断出来？教师模型将所有这些决策转化为具体的反思令牌，例如在需要检索的位置插入 <Retrieve>，在句子末尾插入 <Supported>。
+
+    - 构建增强训练语料：将教师模型生成的反思令牌与原始文本进行“交织”，形成一个全新的训练文本。例如，原始文本是“爱因斯坦于1879年出生于德国。”，增强后变为“...爱因斯坦于1879年出生于德国。<Supported>”。
+
+    - 监督微调目标模型：使用这个富含反思令牌的增强语料，对目标大语言模型进行标准的监督微调。模型的损失函数依然是预测下一个 token。通过模仿教师模型的行为，目标模型逐渐内化了“在什么情况下应该生成什么反思令牌”的能力，从而在推理时能够自主地、高质量地进行自我反思。
+
+    通过这种训练方式，Self-RAG 模型将原本需要多模型、多环节才能实现的检索评估和事实核查，统一到了一个端到端的生成模型内部，实现了高度的集成化和智能化。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Y1dXw3l0KiZYg7kLXpQcX5gpn3f
+  block_id: JlmsdiVidov578xyTyhc4cDrnzh
+  page_token: Y1dXw3l0KiZYg7kLXpQcX5gpn3f
+  original_title: 解释 Self-RAG 中 LLM 如何同时对检索结果和自身生成进行评判？训练数据构造方式。
+  imported_at: '2026-09-21'

@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-98536a3c898c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在连续批处理中，多个请求的 token 交错生成，流式输出如何正确分发到对应客户端？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在连续批处理中，多个请求的 token 交错生成，流式输出如何正确分发到对应客户端？
+answer:
+  mode: rubric
+  reference_answer: |-
+    连续批处理中，每次迭代会为 batch 内所有活跃请求各生成一个 token。这些 token 是同时批量产生的，推理引擎迭代结束后，需要将每个新 token 分发到对应请求的流。
+
+    分发机制：
+
+    - 每次迭代完成后，引擎的输出为一个形状 [batch_size, vocab_size] 的 logits 张量，经采样后得到 batch_size 个 token ID。
+
+    - 引擎维护了一个有序的请求列表（对应 batch 中每个位置的请求 ID）。采样后，遍历列表，将 (request_id, token) 对传递给调度器或分发模块。
+
+    - 分发模块查找每个 request_id 对应的连接上下文（如 asyncio.Queue），将 token 放入队列。
+
+    - 各请求的流式协程从自己的队列中取出 token，推送给客户端。
+
+    具体实现（vLLM 为例）：
+
+    - vLLM 使用 AsyncLLMEngine，其 step_async() 执行一次迭代，返回 RequestOutput 列表，每个包含该请求本次生成的一个或多个 token。
+
+    - 引擎的调度循环中，每步结束后，将这些输出通过回调或异步生成器传递给每个请求的独立流。
+
+    - 服务层（如 FastAPI）在创建请求时，生成一个 async_generator，不断从引擎获取属于该请求的输出，并 yield 为 SSE 事件。
+
+    因此，连续批处理的批量生成与流式分发是通过请求 ID 索引和独立队列实现的，批量产生后即时拆分为独立的流，互不干扰。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/P30KwGxJIiaDg5kjcX0c8HC6ntd
+  block_id: T5DtdtCDJoOdMxxdqDzcRemNnBf
+  page_token: P30KwGxJIiaDg5kjcX0c8HC6ntd
+  original_title: 在连续批处理中，多个请求的 token 交错生成，流式输出如何正确分发到对应客户端？
+  imported_at: '2026-09-21'

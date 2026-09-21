@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-926481a28383
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: LoRA 是否可以用在 embedding 层或 lm_head？会有什么影响？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: LoRA 是否可以用在 embedding 层或 lm_head？会有什么影响？
+answer:
+  mode: rubric
+  reference_answer: |-
+    技术上可以，但实践中强烈不建议，因为这会带来灾难性的后果。
+
+    - 用在 Embedding 层和 lm_head 上的影响
+
+    - 参数量爆炸：以 LLaMA-7B 为例，其词表大小 V=32000，隐藏维度 d=4096。仅 Embedding 层就有 V×d≈130M 个参数。即使使用极小的 LoRA 秩 r=8，可训参数量也会达到 130M×8/4096≈250K，虽然绝对值不大，但已远超只应用于 Attention 的 LoRA 参数量。
+
+    - 灾难性遗忘：Embedding 层是模型所有语言知识的基石。在小数据集上微调这一层，会迅速扭曲其预训练学到的通用语义映射，导致模型在未见过的数据上性能断崖式下跌。
+
+    - 过拟合风险极高：Embedding 层的参数量大，但训练信号只来自下游任务中出现的词汇。这种稀疏的信号极易导致模型对训练数据的分布过拟合。
+
+    - 工程实现复杂：对 Embedding 层应用 LoRA 需要在词表维度上进行低秩分解，这在工程实现上比在标准线性层上更复杂，且收益甚微。
+
+    - 为什么通常冻结它们？
+
+    将 Embedding 和 lm_head 冻结，相当于保留了一个强大的、通用的语义基座。它为模型提供了一个稳定的语言理解基础，使得上游的 PEFT 模块可以专注于学习任务特定的行为适配，而不是从头学习如何表示词汇。
+
+    结论：除非是进行极其特殊的、需要模型学习全新词表的任务，否则应永远冻结 Embedding 层和 lm_head 层。这是保证 LoRA 方法真正“参数高效”和“防遗忘”的前提。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KERuwM7l4iMJpckLtDacUoP4n5d
+  block_id: YNa5dOJNioMGpaxzSpOcRkFyn6c
+  page_token: KERuwM7l4iMJpckLtDacUoP4n5d
+  original_title: LoRA 是否可以用在 embedding 层或 lm_head？会有什么影响？
+  imported_at: '2026-09-21'

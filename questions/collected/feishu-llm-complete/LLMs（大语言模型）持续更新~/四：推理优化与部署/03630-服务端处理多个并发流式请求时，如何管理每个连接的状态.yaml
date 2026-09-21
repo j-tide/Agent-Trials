@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5add0cfaaa86
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 服务端处理多个并发流式请求时，如何管理每个连接的状态？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 服务端处理多个并发流式请求时，如何管理每个连接的状态？
+answer:
+  mode: rubric
+  reference_answer: |-
+    服务端需要为每个客户端连接维护独立的生成上下文和连接状态。通常采用异步框架 + 上下文对象来管理。
+
+    状态管理要素：
+
+    - 请求上下文：每个连接绑定一个唯一请求 ID，包含该请求的生成参数（prompt、温度等）、当前生成序列、以及已推送的 token 游标。
+
+    - 连接对象：保存 HTTP 响应流（如 StreamingResponse 的句柄）或 WebSocket 连接，用于推送数据。
+
+    - 生成器/队列：每个请求关联一个异步队列（如 asyncio.Queue）或回调。推理引擎生成新 token 时，将其放入对应请求的队列；服务端协程从队列中取出并推送给客户端。
+
+    实现模式（以 Python asyncio + SSE 为例）：
+
+    - 使用 FastAPI 的 StreamingResponse 结合异步生成器。
+
+    - 当请求到达，服务端创建一个 RequestState 对象，包含 asyncio.Queue 和生成参数。
+
+    - 将请求提交给推理引擎（引擎可能运行在独立线程或进程中），引擎在生成 token 时通过回调或放入 queue.put(token)。
+
+    - FastAPI 的异步生成器函数在一个协程中 await queue.get() 获取 token，yield SSE 格式的数据。
+
+    - 客户端断开连接时，捕获 CancelledError 或检查连接状态，取消对应请求的生成并清理资源。
+
+    关键点：每个连接的状态完全隔离；使用队列解耦推理生产与网络发送；利用 asyncio 高效管理数千并发连接。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/P30KwGxJIiaDg5kjcX0c8HC6ntd
+  block_id: Mctydoz2To7viux1qMlcFLv3n5e
+  page_token: P30KwGxJIiaDg5kjcX0c8HC6ntd
+  original_title: 服务端处理多个并发流式请求时，如何管理每个连接的状态？
+  imported_at: '2026-09-21'

@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bc5375714f7f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对于非 Transformer 架构（如 SSM），AWQ 的缩放因子查找是否仍然有效？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 对于非 Transformer 架构（如 SSM），AWQ 的缩放因子查找是否仍然有效？
+answer:
+  mode: rubric
+  reference_answer: |-
+    AWQ 的思想可以推广，但有效性取决于具体架构的线性层特性和激活分布。 对于状态空间模型（SSM），如 Mamba，其核心层并非传统的线性投影，而是包含输入相关的参数化矩阵，因此直接应用 AWQ 需要进行适配。
+
+    SSM（以 Mamba 为例）的挑战：
+
+    - Mamba 块中有多个线性投影：输入投影 Wx，状态投影 WB,WC，以及输出投影 WoutWout。这些是标准的线性层，AWQ 可以直接应用，方法与 Transformer 相同。
+
+    - 但是，Mamba 的核心是 SSM 扫描，其中包含了输入依赖的 Δ,B,C等参数，它们通常由小的线性层生成，还有一些可训练参数 A。此外，SSM 的循环/卷积计算中，权重与输入的交互不是简单的矩阵乘，而是包含了结构化矩阵和逐元素运算。缩放变换可能无法简单等价地融合。
+
+    AWQ 可用的部分：
+
+    - 对于 Mamba 中的标准 nn.Linear 层（如输入/输出投影、门控投影等），AWQ 完全可以照搬，因为这些层是典型的 y=xW 形式，缩放等效性成立。
+
+    - 对于参数化产生的 B,C 等，如果它们是由线性层生成，那么对该线性层仍然可用 AWQ。
+
+    局限性：
+
+    - 对于 SSM 内部的状态转移计算（例如 HiPPO 矩阵相关运算），AWQ 的等效缩放可能不适用，因为这些运算不是简单的矩阵乘，或者权重和激活以复杂方式交互。若强行量化这些部分，需要其他专有技术（如直接量化状态转移矩阵，或使用低精度卷积）。
+
+    结论：对于非 Transformer 架构中的标准线性投影部分，AWQ 同样有效；但对于其特有的非矩阵乘核心算子，需要重新设计量化方案，AWQ 的缩放查找本身的概念（根据激活分布保护权重）可以指导我们设计类似机制，但具体公式和实现必须定制。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CNm5w5hEKiUhQ5kMnPrcFoSGnVd
+  block_id: JakHd3Of5osLKMxcffScWt65nQb
+  page_token: CNm5w5hEKiUhQ5kMnPrcFoSGnVd
+  original_title: 对于非 Transformer 架构（如 SSM），AWQ 的缩放因子查找是否仍然有效？
+  imported_at: '2026-09-21'

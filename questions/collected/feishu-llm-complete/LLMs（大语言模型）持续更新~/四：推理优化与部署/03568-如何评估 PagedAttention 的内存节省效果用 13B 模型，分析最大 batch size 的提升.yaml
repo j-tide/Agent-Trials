@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-30ad1b5ee828
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何评估 PagedAttention 的内存节省效果？用 13B 模型，分析最大 batch size 的提升。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如何评估 PagedAttention 的内存节省效果？用 13B 模型，分析最大 batch size 的提升。
+answer:
+  mode: rubric
+  reference_answer: |-
+    评估方法： 比较相同显存预算下，使用传统连续分配和 PagedAttention 所能支持的最大并发请求数（max batch size），同时考虑平均序列长度和长度分布。
+
+    13B 模型假设：
+
+    - 参数：13B，d_model = 5120，层数 L=40，头数 h=40，头维度 d_head=128。
+
+    - 数据类型：FP16（2 bytes）。
+
+    - 单个 token 的 KV Cache 大小（每层）：2 * h * d_head * 2 bytes = 2 * 40 * 128 * 2 = 20480 bytes ≈ 20 KB。
+
+    - 40 层总计：40 * 20 KB = 800 KB / token。
+
+    - 显存预算：假设 GPU 显存 80 GB，其中模型权重约 26 GB (13B * 2 bytes)，剩余给 KV Cache 和其他开销约 54 GB。
+
+    传统连续分配（预分配 max_length=2048）：
+
+    - 每个请求固定预分配：800 KB * 2048 = 1638.4 MB ≈ 1.6 GB。
+
+    - 最大并发请求数：54 GB / 1.6 GB ≈ 33.75，即约 33 个请求。
+
+    - 即使平均请求长度仅 300 token，显存利用率仅为 (300/2048) ≈ 14.6%，大量浪费。
+
+    PagedAttention（block_size=16）：
+
+    - 每 token 占用 800 KB 固定，物理块大小 16 token = 16 * 800 KB = 12.8 MB。内部碎片平均半个块（8 token），即约 6.4 MB 浪费/请求，相比于显存占用，比例极低。
+
+    - 以平均长度 300 token 为例，每请求平均占用 300 * 800 KB + 碎片 ≈ 240 MB + 6.4 MB ≈ 246.4 MB。
+
+    - 最大并发：54 GB / 0.246 GB ≈ 219，理论可支持 200+ 请求。
+
+    - 相较于传统的 33 请求，提升约 6~7 倍。即使考虑调度开销和块表，实际提升通常在 3~5 倍。
+
+    考虑长度分布的影响：若混合长短请求，PagedAttention 优势更大，因为短请求不会占用过多空间，空闲块能被立即复用，整体显存利用率可达 90% 以上。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  block_id: XeTcdauqZoPDDHxBJiHcoksbnag
+  page_token: Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  original_title: 如何评估 PagedAttention 的内存节省效果？用 13B 模型，分析最大 batch size 的提升。
+  imported_at: '2026-09-21'

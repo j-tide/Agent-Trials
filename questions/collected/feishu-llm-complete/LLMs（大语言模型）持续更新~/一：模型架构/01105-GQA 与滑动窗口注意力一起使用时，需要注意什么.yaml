@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1ae875530ea2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: GQA 与滑动窗口注意力一起使用时，需要注意什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: GQA 与滑动窗口注意力一起使用时，需要注意什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    GQA 和滑动窗口注意力是两种正交的优化技术：GQA 压缩 KV Cache 的“宽度”（头数），滑动窗口限制注意力的“长度”（序列范围）。 两者结合能极大提升长序列推理效率，但需注意以下几点：
+
+    - 缓存管理要同时适配：滑动窗口注意力本身就要求只缓存最近的 W 个 token 的 K、V。使用 GQA 后，每份缓存的尺寸进一步缩小。因此，推理框架的 KV Cache 实现需同时支持“固定窗口”和“分组”，例如采用 Rolling Buffer Cache 并按照分组维度分配。
+
+    - 窗口大小与分组数的交互：如果滑动窗口非常小（如 512），那么每个查询头可以关注的上下文范围已经很有限。此时键值头的多样性需求可能降低，GQA 的信息损失会更小，甚至可以更激进地使用更小的分组（乃至 MQA）。反之，大窗口（如 128K）更需要键值多样性，GQA 的分组数不宜过小。
+
+    - 预填充和分块计算：结合 FlashAttention 等加速库时，需要确保滑动窗口掩码和 GQA 的广播机制正确融合。这通常在现代推理引擎中已得到支持（例如 FlashAttention 的 sliding_window 和 num_kv_heads 参数可同时设置）。
+
+    - 训练时的长度配置：如果在滑动窗口注意力下训练，由于感受野受到限制，模型会更加依赖局部信息。GQA 的轻微多样性损失在此场景下几乎无影响，反而因效率提升允许训练更长的序列。
+
+    总之，两者结合能实现“短缓存、窄缓存”的极简 KV 存储，是当前长上下文 LLM 的高效配置。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SPxcwpiiJiDErJkkcbxc3fJLnne
+  block_id: Qb7FdWPasoPqmUxGvppcScUcnld
+  page_token: SPxcwpiiJiDErJkkcbxc3fJLnne
+  original_title: GQA 与滑动窗口注意力一起使用时，需要注意什么？
+  imported_at: '2026-09-21'

@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5f1afe8dec52
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分析检查点对训练吞吐的影响因素：重计算时间、通信等待等。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 分析检查点对训练吞吐的影响因素：重计算时间、通信等待等。
+answer:
+  mode: rubric
+  reference_answer: |-
+    梯度检查点会增加额外的计算，从而降低训练吞吐。影响因素包括：
+
+    - 重计算时间（主要因素）：每个检查点段在反向时需要重新执行前向计算，导致模型的总前向计算量翻倍（每层计算两次）。这直接增加了约 20‑35% 的 FLOPs。由于前向传播在现代 GPU 上通常受限于计算吞吐，这会将迭代时间拉长。
+
+    - 额外通信：在分布式训练中，重计算会触发额外的通信。例如，张量并行中的 All-Reduce 或流水线并行中的 P2P 传递，这些通信在重计算时也会重复执行，可能加剧通信瓶颈。
+
+    - 内存带宽：重计算时需要重新读取模型参数（除非缓存在寄存器/SRAM），这增加了内存带宽压力。如果参数是分片存储的（如 ZeRO-3），重计算还可能引发额外的 All-Gather。
+
+    - 气泡放大：在流水线并行中，重计算增加了某些 micro-batch 的处理时间，可能导致流水线气泡略微增大。
+
+    - RNG 保存/恢复开销：preserve_rng_state 会增加少量的 CPU 时间，但通常可忽略。
+
+    优化吞吐的方法：
+
+    - 使用 use_reentrant=False（non-reentrant）模式，它在重计算时可以更好地与通信重叠，减少同步等待。
+
+    - 与混合精度训练结合：半精度计算使得重计算更快，减轻吞吐损失。
+
+    - 选择性检查点：只对激活内存占比大、计算量较小的层（如注意力子层）应用检查点，避免重计算计算量巨大的 FFN。
+
+    - 利用编译器优化（如 torch.compile）融合操作，降低重计算开销。
+
+    总体而言，检查点的吞吐损失通常可接受，因其带来的 batch size 或序列长度提升往往能弥补速度损失。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  block_id: XKh5dhmu9oxOkTxzM80chOskn5c
+  page_token: DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  original_title: 分析检查点对训练吞吐的影响因素：重计算时间、通信等待等。
+  imported_at: '2026-09-21'

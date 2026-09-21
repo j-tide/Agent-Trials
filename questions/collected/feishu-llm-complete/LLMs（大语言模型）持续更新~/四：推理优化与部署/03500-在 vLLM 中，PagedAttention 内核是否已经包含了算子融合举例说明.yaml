@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-021471d9ac9d
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 vLLM 中，PagedAttention 内核是否已经包含了算子融合？举例说明。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在 vLLM 中，PagedAttention 内核是否已经包含了算子融合？举例说明。
+answer:
+  mode: rubric
+  reference_answer: |-
+    是的，vLLM 的 PagedAttention 内核高度融合了多个操作，以最大化内存带宽利用率和减少延迟。
+
+    融合的操作包括：
+
+    - 分页 KV 加载与注意力计算
+    PagedAttention 内核将非连续的物理块加载（根据块表）与注意力分数计算、softmax 和输出累加完全融合。它在一个 kernel 中完成：遍历逻辑块，通过块表查询物理地址，加载 K、V 块，与 Q 进行点积，执行 online softmax，累加输出。这完全避免了写出任何中间注意力矩阵。
+
+    - RoPE 位置编码的融合
+    vLLM 支持在 PagedAttention kernel 内部应用 RoPE。Q 和 K 在加载后立即旋转，无需事先在外部 kernel 处理。这节省了额外的数据搬运。
+
+    - 缩放因子和反量化
+    当使用量化 KV Cache（如 FP8、INT8）时，vLLM 的 PagedAttention kernel 在加载 K、V 块的同时会进行反量化，将低精度数据转换为 FP16/BF16 进行乘加，融合了反量化操作。
+
+    - 注意力掩码和偏置
+    内核内部支持因果掩码，通过控制读取的逻辑块范围即可实现，无需额外的 mask 张量。如果提供 ALiBi 偏置，也可以在分数上直接加上对应 bias。
+
+    - 多查询共享（GQA/MQA）
+    kernel 支持分组查询注意力，自动将 KV 头映射到多个 Q 头，在块加载后复用，融合了 head mapping 逻辑。
+
+    举例：在 vLLM 的 paged_attention_v1 或 v2 kernel 中，单个 CUDA kernel 完成了：（1）查询块表，（2）从分页物理块加载 K，（3）应用 RoPE，（4）计算 Q*K^T，（5）online softmax，（6）从分页块加载 V 并累加输出。所有中间数据驻留于 SRAM/寄存器，将多次 kernel 调用合并为一次，是实现 decode 阶段高性能的基石。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Uhg6wKBvGiSyqckdgPTciRAMn9f
+  block_id: IpgSdM2L6oBYjQxkV5GcFNvBnzf
+  page_token: Uhg6wKBvGiSyqckdgPTciRAMn9f
+  original_title: 在 vLLM 中，PagedAttention 内核是否已经包含了算子融合？举例说明。
+  imported_at: '2026-09-21'

@@ -1,0 +1,72 @@
+---
+schema_version: 1
+id: feishu-llm-complete-de45543c06fe
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何对 BM25 检索结果进行评分归一化，以便与稠密检索分数融合？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 如何对 BM25 检索结果进行评分归一化，以便与稠密检索分数融合？
+answer:
+  mode: rubric
+  reference_answer: |-
+    BM25 的评分是基于词频和统计的任意值，其分值范围没有边界。而稠密检索的分数通常是经过归一化的相似度（如 0 到 1 之间的余弦相似度）。两者的分数完全不在一个尺度上，如果直接将它们加权求和，其中一路的分数很容易因为其数值范围更大而占据主导，导致另一路形同虚设。因此，分数归一化是融合前的必要步骤。
+
+    常用的归一化与融合方法：
+
+    - 倒数排名融合 (Reciprocal Rank Fusion, RRF)：
+    这是目前最推荐、最鲁棒的方法。它完全抛弃了具体的分数值，只看结果在各自检索列表中的排名。其核心假设是：排名本身是跨检索器可比的、更稳定的信号。
+
+    对于文档 d，RRF 分数的计算公式为：
+
+    [图片内容未导入]
+
+    其中 R 是参与的检索器集合（例如 {BM25, Dense}）rankr(d) 是文档 d 在检索器 r 的返回列表中的排名。k 是一个平滑常数，通常取 60，用于削弱排名靠后的文档的分数差异。
+
+    优点：无需任何训练，对分数分布不敏感，实现极其简单，效果稳定。
+
+    - Min-Max 归一化：
+    如果业务场景要求必须保留原始分数信息，可以使用 Min-Max 归一化，将各自分数缩放到 [0, 1] 区间。对于每个检索器独立进行：
+
+    [图片内容未导入]
+
+    缺点：极易受到极端高分或低分值的异常值影响。且 BM25 的分数分布可能在一次查询中很集中，另一次很分散，导致归一化后的分数在不同查询间不可比。
+
+    - 分布校准 (Distribution Calibration)：
+    一种更精细的方法。不使用单次查询的 min/max，而是通过离线采样的方式，预先学习 BM25 分数的整体分布，并将其映射到一个更稳定的概率分布或标准分布上。这需要额外的工程和数据工作，但效果更好。
+
+    实践建议：
+
+    在绝大多数 RAG 系统中，RRF 是首选方案。它简单、健壮、无需调参，能稳定地融合 BM25 和稠密检索的结果。只有在经过深入实验，确认 RRF 效果不足，且团队有能力维护更复杂的归一化管道时，才考虑其他方法。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Vb7IwCWIWiJRpIkluiicTYcOnnd
+  block_id: HCJUdJxVoo8yp8xqCQncFYwunvA
+  page_token: Vb7IwCWIWiJRpIkluiicTYcOnnd
+  original_title: 如何对 BM25 检索结果进行评分归一化，以便与稠密检索分数融合？
+  imported_at: '2026-09-21'

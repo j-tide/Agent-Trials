@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-83cdd5099eae
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何设计 API 使流式输出能够同时返回 token 的对数概率？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如何设计 API 使流式输出能够同时返回 token 的对数概率？
+answer:
+  mode: rubric
+  reference_answer: |-
+    要在流式输出中携带 token 的对数概率（logprobs），需在 SSE 事件的数据中包含相应信息。
+
+    设计方案：
+
+    - 扩展 SSE 数据字段
+    每个 SSE 消息的 JSON 负载不仅包含 token 文本，还包含该 token 的 logprob、候选 token 及其 logprobs 等。例如：
+
+    ```json
+    {
+      "token": "你好",
+      "logprob": -0.12,
+      "top_logprobs": [
+        {"token": "你好", "logprob": -0.12},
+        {"token": "您好", "logprob": -1.5},
+        ...
+      ],
+      "text": "你好"   // 累积文本
+    }
+    ```
+
+    这与 OpenAI 的流式 API 返回的 choices[0].logprobs 结构类似。
+
+    - logprobs 的计算时机
+    在模型输出 logits 并采样得到 token 后，立即计算所选 token 的对数概率（log_softmax 后的值），以及如果需要，计算 top-k 候选的概率。这些信息与 token 绑定。
+
+    - 对推理引擎的要求
+    推理引擎在采样后需保留 logits（或直接计算 logprobs），并在分发 token 时附带这些统计量。vLLM、TGI 等引擎均支持 logprobs 参数，开启后会自动在输出中包含。
+
+    - API 参数
+    类似 OpenAI，在请求中通过 logprobs=True 和 top_logprobs=5 开启。服务端在流式响应的每个 data 块中包含这些字段。
+
+    - 性能考虑
+    计算 top-k logprobs 需要在 logits 上做排序，对于大词表（如 128k）有一定开销。可使用高效的 top-k 算法，并仅在用户请求时启用，避免不必要的计算。
+
+    实现示例（OpenAI 兼容）：
+
+    ```text
+    data: {"id":"cmpl-...","object":"text_completion.chunk","created":...,"model":...,"choices":[{"index":0,"text":"你好","logprobs":{"tokens":["你好"],"token_logprobs":[-0.12],"top_logprobs":[{"你好":-0.12,"您好":-1.5,...}]}}]}
+    ```
+
+    这样客户端即可在流式接收 token 的同时获得每个 token 的概率信息。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/P30KwGxJIiaDg5kjcX0c8HC6ntd
+  block_id: MGfldwK1norrGWxCKMMcLlupnRe
+  page_token: P30KwGxJIiaDg5kjcX0c8HC6ntd
+  original_title: 如何设计 API 使流式输出能够同时返回 token 的对数概率？
+  imported_at: '2026-09-21'

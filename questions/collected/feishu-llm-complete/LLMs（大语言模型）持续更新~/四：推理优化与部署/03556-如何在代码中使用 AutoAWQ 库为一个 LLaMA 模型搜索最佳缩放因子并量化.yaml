@@ -1,0 +1,110 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7a4b6b38f162
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在代码中使用 AutoAWQ 库为一个 LLaMA 模型搜索最佳缩放因子并量化？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 如何在代码中使用 AutoAWQ 库为一个 LLaMA 模型搜索最佳缩放因子并量化？
+answer:
+  mode: rubric
+  reference_answer: |-
+    使用 AutoAWQ 库进行量化的典型流程包含：加载模型、收集校准数据统计、搜索最优 αα（可选）、应用缩放并量化、保存模型。以下是具体步骤和代码示例。
+
+    - 安装 AutoAWQ
+
+    pip install autoawq
+
+    - 加载原始 FP16 模型
+
+    from awq import AutoAWQForCausalLM
+    from transformers import AutoTokenizer
+
+    model_path = "meta-llama/Llama-2-7b-hf"
+    model = AutoAWQForCausalLM.from_pretrained(model_path)
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+
+    - 准备校准数据集
+
+    使用少量代表性文本（如来自 C4 或 WikiText 的 128 个样本）：
+
+    from datasets import load_dataset
+
+    def get_calib_data(tokenizer, n_samples=128, seq_len=512):
+        dataset = load_dataset("allenai/c4", split="train", streaming=True)
+        samples = []
+        for i, example in enumerate(dataset):
+            if i >= n_samples: break
+            tokens = tokenizer(example["text"], truncation=True, max_length=seq_len, return_tensors="pt")
+            samples.append(tokens.input_ids)
+        return samples
+
+    calib_data = get_calib_data(tokenizer)
+
+    - 搜索最佳缩放因子（可选 αα 网格搜索）
+    AutoAWQ 提供自动化搜索：
+
+    from awq.quantize import apply_awq
+
+    # 这里的 apply_awq 会进行缩放因子搜索，可指定搜索范围
+    apply_awq(model, calib_data, n_bits=4, group_size=128, alpha=None) # alpha=None 时会自动搜索
+
+    如果手动指定 αα，可设置 alpha=0.5。AutoAWQ 内部会逐层统计激活的绝对最大值，按公式生成缩放因子，并将缩放因子融合进权重，完成等效变换。
+
+    - 执行权重量化（INT4）
+
+    from awq.quantize import quantize
+
+    quantize(model, n_bits=4, group_size=128)
+
+    这一步将已缩放的权重实际转换为 INT4 打包格式，并生成对应的缩放因子（per-group）。
+
+    - 保存量化模型
+
+    model.save_quantized("llama-2-7b-awq")
+    tokenizer.save_pretrained("llama-2-7b-awq")
+
+    - 加载并使用量化模型进行推理
+
+    from awq import AutoAWQForCausalLM
+
+    model = AutoAWQForCausalLM.from_quantized("llama-2-7b-awq", fuse_layers=True)
+    # 推理...
+
+    搜索最佳 αα 的细节：
+    如果调用 apply_awq 时不指定 alpha，AutoAWQ 会在一定范围内（如 [0.2, 0.8]）对每个层或全局进行快速评估，选择使验证集 PPL 最低的 αα。这个过程仅在少量校准数据上运行，通常几分钟即可完成，是 AWQ 极低成本优势的体现。
+
+    通过上述流程，开发者可以轻松将任何 HuggingFace 格式的 LLaMA 模型量化为高性能的 AWQ 4-bit 模型，并在 vLLM、TensorRT-LLM 等框架中部署。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/CNm5w5hEKiUhQ5kMnPrcFoSGnVd
+  block_id: KYwYdJQvboRKjjx3js7cRBtrnyg
+  page_token: CNm5w5hEKiUhQ5kMnPrcFoSGnVd
+  original_title: 如何在代码中使用 AutoAWQ 库为一个 LLaMA 模型搜索最佳缩放因子并量化？
+  imported_at: '2026-09-21'

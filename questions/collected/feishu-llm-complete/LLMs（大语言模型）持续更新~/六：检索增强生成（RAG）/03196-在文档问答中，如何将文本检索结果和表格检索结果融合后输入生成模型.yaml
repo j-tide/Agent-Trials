@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d117ca3f4bcb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在文档问答中，如何将文本检索结果和表格检索结果融合后输入生成模型？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 在文档问答中，如何将文本检索结果和表格检索结果融合后输入生成模型？
+answer:
+  mode: rubric
+  reference_answer: |-
+    文档中同时包含文本和表格，两者的检索通常是分开进行的，因为它们的嵌入空间和检索特征差异很大。如何将来自不同“模态”的结果公平、有效地融合，是决定最终生成质量的关键一步。
+
+    最直接的融合发生在检索结果层面，即“分数融合”。一种常用的方法是倒数排名融合（Reciprocal Rank Fusion, RRF）。它的思想很简单：不关心各个检索器的绝对分数（因为文本相似度和表格相似度的分数尺度完全不可比），而是只看每个结果在其各自检索列表中的排名。RRF 为每个结果计算一个融合分数，等于 1 / (k + rank)，其中 k 是一个常数（通常取 60）。然后将来自文本和表格检索的结果根据这个融合分数重新排序，选出最终的 Top K。这种方法无需任何训练，对不同的检索后端非常鲁棒，在实践中效果很好。
+
+    更精细的融合是在重排序层面。可以将双路粗筛的结果合并去重后，送入一个 Cross-Encoder 重排序模型进行统一的精细打分。这个重排序模型将查询与每个候选片段（无论是文本块还是 Markdown 表格）拼接后联合编码，从而能更准确地判断其语义相关性，天然解决了跨模态的分数对齐问题。
+
+    在向生成模型输入时，顺序也很重要。通常不是将所有文本块和表格块随机摆放，而是根据它们在原文中的逻辑位置进行排序后提供给 LLM。例如，将一个段落的文本块、紧随其后的表格块、以及之后的另一个文本块按照页面阅读顺序排列，这能为 LLM 还原出最接近原始文档的上下文流，极大提升其理解能力。在 Prompt 中，还可以为不同类型的块加上清晰的标记，如 [文本段落] 和 [表格数据]，帮助 LLM 区分信息源。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/FXgmws02nis5pvkd25rcgWzCnbb
+  block_id: GBmHdjtChoi97Mx6HkfcqxUmnwg
+  page_token: FXgmws02nis5pvkd25rcgWzCnbb
+  original_title: 在文档问答中，如何将文本检索结果和表格检索结果融合后输入生成模型？
+  imported_at: '2026-09-21'

@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-24b34d5fb9f2
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 是否可以对特定操作（如激活函数）实施更细粒度的检查点？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 是否可以对特定操作（如激活函数）实施更细粒度的检查点？
+answer:
+  mode: rubric
+  reference_answer: |-
+    可以。PyTorch 的 checkpoint 本质上是一个函数包装器，可作用于任意大小的代码段。因此可以实现细粒度（operation‑level）检查点，即仅对某些算子（如注意力、特定 FFN 层）应用重计算，而不是整个 Transformer 层。
+
+    例子：
+
+    ```python
+    def forward_block(x):
+        # 仅对注意力子层使用检查点
+        x = checkpoint(self_attention, x)
+        x = x + self.ffn(self.ln2(x))
+        return x
+    ```
+
+    或者更细：
+
+    ```python
+    x = x + checkpoint(self.ffn, self.ln2(x))
+    ```
+
+    但实际中，注意力和 FFN 各自的计算量不同，且内部也有激活。可权衡：注意力计算量较小但激活内存大，适合检查点；FFN 计算量大但激活内存相对较小，可能不值得重计算。因此“选择性检查点”常选择只对注意力部分应用。
+
+    注意事项：
+
+    - 细粒度检查点会增加 checkpoint 调用次数，每次调用有少量开销（保存输入、管理 RNG）。因此不宜对过多的小操作各自独立应用，否则开销累积。
+
+    - 检查点段太短，重计算时的输入/输出张量本身可能占据一定内存，节省效果下降。
+
+    - 通常推荐至少以一个 Transformer 层为单位，或注意力子层为单位，既简单又高效。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  block_id: XD6XdevEcoNKaxxziaYcjNmYnhe
+  page_token: DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  original_title: 是否可以对特定操作（如激活函数）实施更细粒度的检查点？
+  imported_at: '2026-09-21'

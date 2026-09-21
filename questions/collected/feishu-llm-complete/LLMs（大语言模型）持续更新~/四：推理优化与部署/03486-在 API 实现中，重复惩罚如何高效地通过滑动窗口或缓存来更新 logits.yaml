@@ -1,0 +1,56 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7b5d05b7c4e1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 API 实现中，重复惩罚如何高效地通过滑动窗口或缓存来更新 logits？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在 API 实现中，重复惩罚如何高效地通过滑动窗口或缓存来更新 logits？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在需要高吞吐的在线 API 服务中，重复惩罚的实现必须极致高效，不能成为延迟瓶颈。其核心优化是使用固定大小的滑动窗口缓存。
+
+    滑动窗口缓存的设计：
+
+    - 数据结构：维护一个固定大小（如 W=512）的环形缓冲区（ring buffer），存储最近生成的 W 个 token 的 ID。
+
+    - 频率统计：基于这个滑动窗口，动态维护一个词表大小 V 的频率向量 freq。每次生成一个新 token，就更新环形缓冲区，并相应增加新 token 的计数，减少被淘汰的旧 token 的计数。
+
+    - 即时惩罚计算：在计算下一个 token 的 logits 时，从 freq 向量中获取当前上下文的 token 频率，并根据公式计算惩罚后的 logits。整个过程无需重新扫描整个生成历史，计算复杂度从 O(T)O(T) 降至 O(1)O(1)。
+
+    进一步加速的优化（缓存）：
+    对于同一个用户的多轮对话，可以将其整个对话历史（或摘要）作为一个“预上下文”进行预处理。计算出该预上下文的初始 freq 向量并缓存。在新一轮对话开始时，直接加载这个缓存好的初始频率，然后在此基础上进行增量更新。这避免了为每一轮对话都重新扫描漫长历史，极大地提升了效率。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/S2cBwJgVmiRDbukXddacJX2qn6d
+  block_id: ZOZwdCWIToHpz9xH7DActHson4g
+  page_token: S2cBwJgVmiRDbukXddacJX2qn6d
+  original_title: 在 API 实现中，重复惩罚如何高效地通过滑动窗口或缓存来更新 logits？
+  imported_at: '2026-09-21'

@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-51f741d561a1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 连续批处理（Continuous Batching）的原理和优势是什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 九：前沿与工程实践
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 九：前沿与工程实践
+content:
+  prompt: 连续批处理（Continuous Batching）的原理和优势是什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    连续批处理（Continuous Batching），也称作 In-flight Batching 或 Iteration-level Batching，是当前主流 LLM 推理引擎（vLLM, TGI, TensorRT-LLM）实现高吞吐的核心技术。
+
+    原理：它打破了传统静态批处理“必须等整个批次处理完才能处理下一批”的限制。在连续批处理中，推理过程被分解为逐个 token 的迭代。在每次迭代（生成一个 token）结束时，调度器都有机会重新调整处理中的请求组合。
+
+    - 动态插入新请求：当一个新请求到达时，不会等到当前批次全部完成，而是直接在下一个迭代开始时，将其插入到正在运行的请求组中。
+
+    - 即时释放已完成请求：当一个请求完成生成（即遇到 EOS token）时，它会被立即从当前批次中移除，其占用的 GPU 显存和计算槽位被立刻释放，供其他等待中的请求使用。无需等待同批次中的其他“慢请求”。
+
+    核心优势：
+
+    - 极高的 GPU 利用率：GPU 几乎总是满负荷运行。不会因为等待慢请求而让计算核心闲置。新请求可以填补那些已完成请求释放出的计算空间。
+
+    - 低延迟与高吞吐并存：与静态批处理相比，它在不增加延迟的前提下，将吞吐量提升了数倍甚至一个数量级。
+
+    - 有效应对变长生成：完美解决了生成任务中不同请求长度差异巨大的痛点。
+
+    实现要点：连续批处理需要精细的内存管理，因为动态地插入和移除请求会导致显存碎片。PagedAttention 技术正是为此而生，它通过分页机制管理 KV Cache，实现了零碎片的动态内存分配和回收。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  block_id: PZ3ud5JvEoK6qbxP44wccRPXnJc
+  page_token: Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  original_title: 连续批处理（Continuous Batching）的原理和优势是什么？
+  imported_at: '2026-09-21'

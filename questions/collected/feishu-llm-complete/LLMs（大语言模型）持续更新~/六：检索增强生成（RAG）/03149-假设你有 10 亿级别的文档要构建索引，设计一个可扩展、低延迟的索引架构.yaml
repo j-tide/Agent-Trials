@@ -1,0 +1,71 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7746f8429b0e
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 假设你有 10 亿级别的文档要构建索引，设计一个可扩展、低延迟的索引架构。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 假设你有 10 亿级别的文档要构建索引，设计一个可扩展、低延迟的索引架构。
+answer:
+  mode: rubric
+  reference_answer: |-
+    设计一个支持 10 亿级别文档、同时要求低延迟和高可扩展性的索引架构，是一项典型的系统工程挑战。这要求我们在数据处理的每一层都做出审慎的技术决策，构建一个深度分层的、流水线化的体系。
+
+    - 数据摄入与预处理层：
+
+    需要采用流批一体的架构。对于实时产生的新文档，通过 Kafka 等消息队列接入，使用 Flink 或 Spark Streaming 进行低延迟的流式处理。对于海量的历史文档，则通过 Spark 进行高效的离线批处理。处理任务包括解析、清洗、分块、元数据提取和去重。处理后的结果被统一写入分布式对象存储（如 S3/MinIO）作为数据湖。
+
+    - 分片策略与索引构建层：
+
+    这是架构的核心。10 亿文档产生的向量量级在数百亿以上，单机完全无法应对。必须进行分片。有两种主要分片策略：一是基于向量空间的分片，先对数据进行全局聚类，将不同簇分配到不同索引节点。这样查询时只需访问相关簇所在的少数节点，网络效率高，但增删数据时需要重新平衡。二是基于哈希的分片，如按文档 ID 一致性哈希分区。查询需要广播到所有节点，但运维和扩展极其简单。
+
+    更优的方案是采用 Segment 架构，这也是 Milvus 的核心设计。数据不断被写入新的、不可变的 Segment。每个 Segment 大小固定（如 1GB），内部独立构建索引。Segment 被均衡地分配到各个索引节点上。这种设计天然支持弹性伸缩，新增节点会自动接管新 Segment。
+
+    - 索引选型与冷热分层：
+
+    10 亿级的查询负载往往具有明显的时间局部性，新文档被频繁查询，老文档则很少被问津。因此，必须实施冷热分层。
+
+    - 热数据层：存放近期的数据，追求极致低延迟。对这部分数据采用 HNSW 索引，全内存运行，保障毫秒级响应。
+
+    - 冷数据层：存放历史数据，追求高压缩比和低成本存储。采用 DiskANN 或 IVF_PQ 索引，数据大部分存储在 SSD 上，仅用少量内存做缓存。查询时，协调节点会并行查询热层和冷层，合并结果。
+
+    - 查询与精排层：
+
+    用户查询到达网关后，被发送至查询协调器。协调器根据元数据确定需要访问哪些 Segment，将请求路由到对应的索引节点。每个节点使用各自的本地索引进行粗筛召回。所有节点的粗筛结果汇聚后，由于数量可能仍然较多，再送入一个基于 GPU 的 Cross-Encoder 重排序服务进行精细打分和最终排序。这个多层漏斗（粗筛-汇聚-精排）是平衡高召回和低延迟的关键。
+
+    - 高可用与运维：
+
+    所有组件均为无状态或有状态的多副本部署。元数据管理依赖 etcd 集群。索引文件定期备份到对象存储，并可通过 WAL 实现准实时的增量数据保护。整个系统通过 Kubernetes 编排，支持自动扩缩容和滚动升级。
+
+    这个架构通过“数据分片 + Segment 管理 + 冷热分层 + 多层检索”的组合，将 10 亿级文档的索引复杂度逐层分解，最终在可接受的成本下实现高可扩展和低延迟的检索服务。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SkhxwrnkSi7qcRkf8LOcNILdnr0
+  block_id: XBR2dHelUolSNHxLXmucn7XLn6c
+  page_token: SkhxwrnkSi7qcRkf8LOcNILdnr0
+  original_title: 假设你有 10 亿级别的文档要构建索引，设计一个可扩展、低延迟的索引架构。
+  imported_at: '2026-09-21'

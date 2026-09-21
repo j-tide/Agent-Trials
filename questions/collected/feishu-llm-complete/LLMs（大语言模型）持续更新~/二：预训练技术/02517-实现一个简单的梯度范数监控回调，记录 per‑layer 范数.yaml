@@ -1,0 +1,88 @@
+---
+schema_version: 1
+id: feishu-llm-complete-93dcec9dae48
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现一个简单的梯度范数监控回调，记录 per‑layer 范数
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 实现一个简单的梯度范数监控回调，记录 per‑layer 范数
+answer:
+  mode: rubric
+  reference_answer: |-
+    在生产环境的训练中，全局梯度范数只是汇总信息，要排查哪个层出了问题，需要更细粒度的监控。以下是一个PyTorch风格的简单回调，可以插入到训练循环中，记录每一层的梯度范数。
+
+    import torch
+    import torch.nn as nn
+
+    class LayerGradientMonitor:
+        def __init__(self, model, log_every_n_steps=100):
+            self.model = model
+            self.log_every_n_steps = log_every_n_steps
+            self.step_counter = 0
+
+        def log(self, step, writer=None):
+            """在反向传播后、optimizer.step前调用"""
+            self.step_counter += 1
+            if self.step_counter % self.log_every_n_steps == 0:
+                layer_norms = {}
+                total_norm = 0.0
+                for name, param in self.model.named_parameters():
+                    if param.grad is not None:
+                        norm = param.grad.data.norm(2).item()
+                        layer_norms[name] = norm
+                        total_norm += norm ** 2
+                total_norm = total_norm ** 0.5
+                print(f"Step {step}: Global gradient norm = {total_norm:.4f}")
+                for name, norm in layer_norms.items():
+                    print(f"  {name}: {norm:.4f}")
+                # 如果有TensorBoard等writer，可以记录histogram
+                if writer:
+                    writer.add_scalar("Gradient/Global_Norm", total_norm, step)
+                    for name, norm in layer_norms.items():
+                        writer.add_scalar(f"Gradient/Layer/{name}", norm, step)
+
+    用法：
+
+    monitor = LayerGradientMonitor(model)
+    for step, batch in enumerate(dataloader):
+        loss = model(batch).loss
+        loss.backward()
+        monitor.log(step)  # 在clip之前或之后均可，看你想记录裁剪前还是裁剪后
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        optimizer.step()
+        optimizer.zero_grad()
+
+    这个监控工具帮助我们发现，例如，是不是所有层的梯度范数都正常，唯独某一层的某个参数梯度过小或过大，从而快速定位问题。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TlYvww7Aoi1oXhkFGQwcFQYxnin
+  block_id: XRz0dNt9aogkkKxrbtHcOOAAntg
+  page_token: TlYvww7Aoi1oXhkFGQwcFQYxnin
+  original_title: 实现一个简单的梯度范数监控回调，记录 per‑layer 范数
+  imported_at: '2026-09-21'

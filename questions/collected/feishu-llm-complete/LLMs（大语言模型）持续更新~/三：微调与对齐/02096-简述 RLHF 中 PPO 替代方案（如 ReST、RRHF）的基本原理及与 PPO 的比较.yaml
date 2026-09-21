@@ -1,0 +1,140 @@
+---
+schema_version: 1
+id: feishu-llm-complete-133221afbc09
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 简述 RLHF 中 PPO 替代方案（如 ReST、RRHF）的基本原理及与 PPO 的比较。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 简述 RLHF 中 PPO 替代方案（如 ReST、RRHF）的基本原理及与 PPO 的比较。
+answer:
+  mode: rubric
+  reference_answer: |-
+    RLHF 中的 PPO 虽然效果强大，但训练不稳定、工程复杂。为此，学术界和工业界提出了一些更简洁、更高效的替代方案。
+
+    - ReST (Reinforced Self-Training)
+
+    - 基本原理：ReST 是一种基于离线强化学习和自训练的迭代式方法。它不像 PPO 那样需要在线交互。其流程是：
+
+    - 与 PPO 的比较：ReST 将复杂的在线 RL 问题简化为离线的“采样-过滤-SFT”循环。它非常稳定、易于实现，完全不需要 Critic 模型和 KL 惩罚。但它的效果高度依赖于奖励模型的准确度，且探索能力受限于初始模型，可能不如 PPO 的在线探索那么深入。
+
+    - RRHF (Rank Response to align Human Feedback)
+
+    - 基本原理：RRHF 的核心思想是通过排序损失，将人类偏好直接注入到 SFT 中。它不设计一个独立的奖励模型，也不需要强化学习。
+
+    - 与 PPO 的比较：RRHF 和 PPO 一样高效，但比 PPO 稳定得多。它避免了复杂的在线 RL 训练和 Critic 模型，直接在标准的 SFT 框架中实现了偏好对齐。它的主要缺点是需要对每个 Prompt 生成多个回复并排序，数据收集成本较高。
+
+    总结：
+
+    [嵌入表格未展开]
+
+    这些替代方案代表了 RLHF 从复杂的在线强化学习向更可控、更易于工业落地的离线学习范式的演进方向。
+
+    - 用当前版本的 Actor 模型，对同一批 Prompt 生成大量的回复（进行 rollout），收集一个较大的经验数据包。
+
+    - 在这个固定的数据包上，进行多个 mini-batch 的 PPO 参数更新（通常是 3-4 个 epoch）。
+
+    [图片内容未导入]
+
+    - 将生成的回复送入Reward Model。Reward Model 对整体回复打分，得到奖励 r(x,y)。通常只在序列的最后一个 token（EOS token）处赋予奖励值，中间 token 的奖励为 0。
+
+    - 将生成的回复送入Critic Model。Critic Model 估计序列中每个 token 位置的状态价值 V(st)。
+
+    - 计算每个 token 的即时奖励 rt（中间 token 为 0，最后为 r(x,y)）。
+
+    - 过大（如 0.4）：训练可能不稳定，更新可能过于激进。
+
+    - 过小（如 0.05）：训练会非常稳定，但更新速度极慢，可能需要非常多步才能收敛。对于 RLHF 这种成本高昂的训练，需要找到稳定和速度的平衡点。实践中，0.2 是一个优秀的平衡点。
+
+    - 典型取值：2 到 4。
+
+    - 原因：次数太少（如 1），数据利用率低，训练慢；次数太多，会因“离线偏差”导致策略漂移，可能损害模型。2 到 4 个 epoch 是在数据利用率和保持在线策略特性之间的一个良好平衡。这个参数需要根据 KL 散度的增长情况动态调整。如果发现 KL 散度增长过快，就需要减少 PPO Epoch。
+
+    - 训练高效，节省显存：只需要加载和维护一个大型语言模型的参数，这是最大的优势。LLM 的参数量动辄数十亿，复制一份作为 Critic 的显存开销是巨大的。
+
+    - 特征复用，收敛更快：Actor 和 Critic 可以共享对语言的理解和表示能力。Actor 学到的更好的文本表示，可以直接被 Critic 用来更准确地估计价值。
+
+    - 优化目标冲突：Actor（最大化奖励）和 Critic（最小化价值估计误差）的优化目标不同。共享参数可能导致梯度相互干扰，使得模型在“生成”和“评价”两个任务间难以找到最优平衡。一个过强的 Critic 损失可能会损害 Actor 的生成能力。
+
+    - 训练不稳定：如果 Actor 更新时参数发生剧烈变化，会直接影响 Critic 的评估准确性；而 Critic 不准又会反过来给 Actor 错误的指导，形成恶性循环。
+
+    - 训练稳定，避免目标冲突：两个模型可以独立地专注于自己的任务，互不干扰。这是最安全、最稳定的方案。
+
+    - 灵活性高：可以为 Actor 和 Critic 选择不同大小的模型，进行更精细的超参数调优。
+
+    - 计算和显存成本翻倍：需要同时加载和更新两个大型模型，对硬件的要求极高。因此，在实践中，为了控制成本，Critic 模型有时会被做得比 Actor 小一些。
+
+    - 大量重复文本：一段话或某个词不断重复。
+
+    - 格式崩溃：例如，在未要求代码的情况下输出大量代码或奇怪的符号。
+
+    - 角色混乱：突然不再遵循对话格式，或在一句话中混合多种角色。
+
+    - 内容空洞：回复变成千篇一律的、无信息的套话。
+
+    - Reference Model 的对数概率（计算 KL 散度）。
+
+    - Critic Model 的价值估计（计算优势函数）。
+    这意味着每一步训练都需要进行至少两次额外的、完整的大模型前向传播（Actor、Reference、Critic）。这些模型通常是同一规模，计算量极其庞大。
+
+    - Actor Model：正在被优化的策略模型，需要参与前向和反向传播，占用的显存最大。
+
+    - Critic Model：价值模型，同样需要参与前向和反向传播。
+
+    - Reference Model：冻结的原始 SFT 模型，需要参与前向传播以计算 KL 散度。
+
+    - Reward Model：冻结的奖励模型，需要参与前向传播以计算奖励分数。
+    即使 Actor 和 Critic 可能共享部分底层参数，但 Reference 和 Reward 模型通常是完全独立的。这四个模型的参数和优化器状态（对于需要更新的 Actor 和 Critic 而言）会迅速占满 GPU 显存。
+
+    - 优点：显著降低显存占用和前向计算成本。
+
+    - 风险：KL 散度的计算将变得不准确。由于 KL 散度惩罚是 PPO 优化中关键的约束项，其不准确可能导致惩罚过松（模型实际偏离已很大，但没检测到，引发崩溃）或过紧（限制了有效优化）。这种“近似”的偏差可能会被 PPO 的反复迭代放大，最终导致策略模型的行为不可控。
+
+    - 使用 Reference 和 Reward Model 进行前向计算（可能在这组 GPU 或远程服务上）。
+
+    - 计算优势函数。
+
+    - 对 Actor 和 Critic 模型进行多步 PPO 更新。
+
+    - 生成 (Generate)：使用当前模型（策略）对一个大型 Prompt 数据集生成多个回复，形成一个大规模的离线数据集。
+
+    - 评分与筛选 (Score & Filter)：使用奖励模型对生成的回复进行评分，根据分数筛选出一个高质量的子集。
+
+    - 微调 (Fine-tune)：使用这个筛选出的高质量数据集，通过标准的监督微调（SFT）方式，对模型进行下一轮的训练。
+    重复此过程，模型会通过“自我进化”不断变强。
+
+    - 采样：对于一个 Prompt，生成 K 个不同的回复。
+
+    - 排序：使用人类偏好（或一个奖励模型）对这 K 个回复进行质量排序。
+
+    - 训练：使用一个专门的排序损失函数来优化模型。这个损失函数鼓励模型提高它认为“最好”的回复的对数概率，同时降低它认为“最差”的回复的对数概率。本质上，它是在 SFT 中直接融入了对比学习的思想。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QNW3wg7bCinLPQkL0kGc4IdynHh
+  block_id: MhMhdQlPuoTpeUxEK3wc12Nnn9c
+  page_token: QNW3wg7bCinLPQkL0kGc4IdynHh
+  original_title: 简述 RLHF 中 PPO 替代方案（如 ReST、RRHF）的基本原理及与 PPO 的比较。
+  imported_at: '2026-09-21'

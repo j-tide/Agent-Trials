@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-303c865449a4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多阶段排序：能否使用多个 Reranker 级联（粗排 → 精排）？何时需要？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 多阶段排序：能否使用多个 Reranker 级联（粗排 → 精排）？何时需要？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多阶段排序（Cascading Rerankers）是在极端重视精度、且对延迟和成本有承受能力的场景下，采用的一种“层层筛选”策略。它使用多个不同复杂度、不同速度的排序模型，像漏斗一样逐步缩小候选集。
+
+    实现方式：
+
+    一个典型的三阶段排序管道如下：
+
+    - 第一级（粗筛）：混合检索（稠密+稀疏），从百万级文档中召回 Top N1，如 N1=200。
+
+    - 第二级（轻量精排）：使用一个速度极快、高度优化的轻量级 Cross-encoder（如蒸馏后的 MiniLM），对 N1 个文档进行重排序，筛选出 Top N2，如 N2=50。这一级主要用于快速去除大部分明显不相关的文档。
+
+    - 第三级（重量精排）：使用一个参数量大、精度极高的强力 Cross-encoder（如 bge-reranker-large 或 Cohere API），对 N2 个文档进行最终的精细排序，选出最终的 Top K，如 K=5，送入 LLM。
+
+    何时需要：
+
+    - 对排序精度有极致要求：例如在医疗文献、法律判例检索中，排错一个文档都可能导致严重后果，需要最强力的模型进行最终把关。
+
+    - 候选集质量参差不齐：如果初筛结果的噪声很大，轻量精排可以作为“清道夫”，为重量精排创造一个更干净、更小的输入空间，让昂贵的算力聚焦在最难辨别的候选上。
+
+    - 拥有充足的计算资源和预算：多阶段排序成本高昂，需要部署和维护多个模型，延迟也会叠加。只有在业务核心、有明确 ROI 的场景下才值得投入。
+
+    关键设计点：
+
+    多阶段排序的核心在于各级模型的能力和速度的梯度要拉开。如果两级 Reranker 的性能高度相关，级联的边际收益就会很小。通常，轻量级模型注重速度（如基于蒸馏的4层模型），重量级模型注重精度（如24层的大模型），二者形成互补。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/MdouwCwh3iP6HNkt4PZcw9CSnYb
+  block_id: KqrVdRWuionHoXx3YVJcH5NAnJg
+  page_token: MdouwCwh3iP6HNkt4PZcw9CSnYb
+  original_title: 多阶段排序：能否使用多个 Reranker 级联（粗排 → 精排）？何时需要？
+  imported_at: '2026-09-21'

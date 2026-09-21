@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e55362d5b5ea
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: DoLa 对解码速度有何影响？与标准解码相比，额外的计算开销在哪里？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 八：评估与可靠性
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 八：评估与可靠性
+content:
+  prompt: DoLa 对解码速度有何影响？与标准解码相比，额外的计算开销在哪里？
+answer:
+  mode: rubric
+  reference_answer: |-
+    对解码速度的影响
+
+    DoLa 确实会显著增加解码的延迟，这是其主要的工程代价。与标准解码相比，其速度会成倍下降。具体的下降幅度取决于模型的大小、层数、以及是否进行了工程优化。
+
+    额外的计算开销来源
+
+    - 中间层输出的缓存与传输（最主要开销）：在标准解码中，我们只需要模型最终层的输出 logits。而 DoLa 要求在一次前向传播中，提取并缓存所有（或几乎全部）中间 Transformer 层的输出 logits（或隐藏状态）。对于一个有 32 层或 80 层的模型来说，这会导致显存带宽和显存占用的大幅增加。尤其是 logits 的维度与词表大小（通常为 50k 到 200k）相关，缓存所有层的 logits 需要巨大的内存。
+
+    - 赢家层的遍历与计算：在动态层选择阶段，DoLa 需要遍历所有层的预测分布，并计算每一层的最大概率值。这个过程包含多次 softmax 操作和比较，会引入额外的计算延迟。
+
+    - 额外的 logits 运算：在得到成熟层和早熟层的 logits 后，需要进行一次相减和 softmax 操作。这部分开销相对较小，但也是额外增加的一步。
+
+    缓解开销的工程优化
+
+    尽管开销巨大，但可以通过一些工程手段来缓解：
+
+    - 只缓存关键层的 logits：不需要缓存所有层的 logits。可以只缓存后半部分（如第 16 层到第 32 层）的 logits，因为赢家层几乎不可能在前半部分出现。
+
+    - 只缓存 logits 的 Top-K 部分：为了减少内存，可以只保留每个层预测的 Top-K（如 Top-1000）logits，而不是整个词表的 logits。
+
+    - 模型量化与加速：结合模型 INT8/INT4 量化、FlashAttention 等技术，降低单层计算和显存开销。
+
+    总而言之，DoLa 是以计算延迟换取生成质量的典型策略。它最适合在对生成事实准确性有极高要求、但对延迟不那么敏感的离线或批处理场景下使用。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KnwjwVxIViBqwlkhcvwczHR8nTf
+  block_id: BbW1ddjovovEDBxewTmcTfnkn8g
+  page_token: KnwjwVxIViBqwlkhcvwczHR8nTf
+  original_title: DoLa 对解码速度有何影响？与标准解码相比，额外的计算开销在哪里？
+  imported_at: '2026-09-21'

@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9255b4647a7b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在长上下文场景中，GQA 是否足够？还需要搭配哪些压缩技术？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 在长上下文场景中，GQA 是否足够？还需要搭配哪些压缩技术？
+answer:
+  mode: rubric
+  reference_answer: |-
+    GQA 是长上下文推理的基础，但单独使用通常不足够。 GQA 通过减少头数将 KV 缓存的常量因子缩小了 g/h，然而缓存大小仍然与序列长度 n 成 O(n) 线性关系。当上下文扩展至数十万甚至百万 token 时，即便是 1/8 的缓存仍然可能触及显存天花板。
+
+    为什么不够：
+
+    以 LLaMA 2 70B (g=8) 为例，每个 token 的缓存约 320 KB (FP16)。对于 128k token 的序列，单条序列就需要约 40 GB 显存。如果 batch=8，则需要 320 GB，远超单 GPU（如 H100 80GB）的容量。因此，仅靠 GQA 无法在消费级/服务器级硬件上实现超长上下文的批量推理。
+
+    需要搭配的压缩技术组合：
+
+    - KV 量化：将 KV 缓存量化为 INT4 甚至 2-bit，与 GQA 乘法叠加，可将百万 token 缓存压缩至几十 GB 以内（见第 14 题）。这是最直接且最普适的增强。
+
+    - 基于 Token 重要性的淘汰 (H2O, FastGen 等)：通过动态保留重击者和最近窗口，让缓存大小与序列长度解耦，固定为一个最大预算 B。在超长文本中，即使生成了 500k token，内存占用仍保持恒定，只是牺牲了极少的长尾信息。
+
+    - 滑动窗口注意力 (Sliding Window)：如 Mistral 的固定窗口大小 W，仅保留最近 W 个 token 的 KV，长程依赖通过分层结构或全局 token 补偿。这直接将缓存复杂度降为 O(1)，非常适合流式无限长输入。
+
+    - 注意力沉没 (Attention Sinks) + 窗口 (StreamingLLM)：保留开头几个 token 作为“注意力沉没点”以稳定 softmax，再加一个滑动窗口，实现恒定缓存且困惑度不爆炸，是多轮对话的理想选择。
+
+    - 检索增强/记忆增强：对于超越直接上下文窗口长度的依赖，可以将旧上下文压缩为摘要或向量索引，需要时检索，从而打破显存限制。
+
+    因此，一个成熟的长上下文推理系统通常采用分层压缩策略：先利用 GQA 降低基础开销，再叠加量化进一步压缩，最后引入自适应淘汰或窗口机制来保证亚线性增长。这也正是许多前沿生产系统（如 NVIDIA TensorRT-LLM、vLLM）所推荐的方案。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YD2SwSsy9iTGMmkEs4jcylEZnnd
+  block_id: IQxOdtSLBoKxLzxfeFicBGWunef
+  page_token: YD2SwSsy9iTGMmkEs4jcylEZnnd
+  original_title: 在长上下文场景中，GQA 是否足够？还需要搭配哪些压缩技术？
+  imported_at: '2026-09-21'

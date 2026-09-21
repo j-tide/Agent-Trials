@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1dc8c281b184
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如果要将 LLaMA 作为基座进行 MoE 改造，你会如何设计？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 如果要将 LLaMA 作为基座进行 MoE 改造，你会如何设计？
+answer:
+  mode: rubric
+  reference_answer: |-
+    将 LLaMA 改造为 MoE（混合专家）模型，核心是用多个专家 FFN 替换原始的密集 FFN，并加入路由机制。步骤如下：
+
+    - 专家 FFN 设计：保留 LLaMA 的 SwiGLU FFN 结构作为每个专家的计算单元。每个专家拥有独立的 gate_proj、up_proj、down_proj 权重。可以缩小单个专家的中间维度（如从 8/3 d 缩小到 2d 或 d），通过专家数量 E 控制总参数量。
+
+    - 路由机制：在每层添加一个轻量级路由器（线性层），将每个 token 的输入 x 映射到 E 个 logits，经过 softmax 选择 Top-k 个专家（通常 k=1 或 k=2）。使用辅助损失（Load Balancing Loss）鼓励专家均衡使用。
+
+    - 参数量控制：若要保持与原始 LLaMA 相似的推理计算量（每个 token 的 FLOPs），可使 k * d_ff_expert ≈ d_ff_original，从而总参数量约为原来的 E/k 倍。例如，E=8, k=2，单个专家维度减半，总参数量约为原来的 4 倍。
+
+    - 训练策略：基于已经预训练好的 LLaMA 密集检查点，将 FFN 权重复制到所有专家作为初始化（或加以扰动），然后继续训练。这样可以利用预训练知识，加速 MoE 收敛。
+
+    - 推理优化：利用专家并行（Expert Parallelism）将专家分布到不同设备，同时用高速互联进行 token 路由。结合 vLLM 等推理框架对 MoE 的支持。
+
+    典型例子：Mixtral 8x7B 就是基于类似思想，将 LLaMA 架构改造为 MoE，总参数 46.7B，但每个 token 仅激活约 12.9B 参数，在多数基准上超越 LLaMA-2 70B。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/ZWVwwzBcjiE357kSFzmc8eA4ndb
+  block_id: C4Zxdh2tKoxe6cxP3AaclGQ6n1g
+  page_token: ZWVwwzBcjiE357kSFzmc8eA4ndb
+  original_title: 如果要将 LLaMA 作为基座进行 MoE 改造，你会如何设计？
+  imported_at: '2026-09-21'

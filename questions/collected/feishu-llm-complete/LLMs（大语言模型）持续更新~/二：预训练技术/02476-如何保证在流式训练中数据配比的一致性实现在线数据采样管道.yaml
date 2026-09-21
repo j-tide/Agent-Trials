@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-751ba965306b
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何保证在流式训练中数据配比的一致性？实现在线数据采样管道。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 如何保证在流式训练中数据配比的一致性？实现在线数据采样管道。
+answer:
+  mode: rubric
+  reference_answer: |-
+    在大规模预训练中，数据通常是以流（stream）的形式在线读取和混合的，而不是静态地全部放在磁盘上。保证在整个训练过程中，配比始终保持一致，是确保模型性能稳定、可复现的关键。
+
+    在线采样管道设计：
+
+    - 多源异步读取：为每一个数据来源（如“网页”、“书籍”）启动一个独立的异步数据加载器（worker）。每个 worker 不断地从自己的源中读取文本，放入一个独立的内存缓冲区（buffer）。
+
+    - 配比采样器：设置一个全局的数据采样器，它按照预设的概率分布（即配比），决定“下一个训练 batch 应该从哪个数据源的缓冲区中取数据”。例如，如果配比为网页:书籍:代码 = 7:2:1，则采样器会以 70% 的概率从网页缓冲区取，20% 的概率从书籍缓冲区取。
+
+    - 令牌级对齐：为了确保配比的精确性，通常以令牌（token）为最小计量单位，而不是以完整的文档。因为文档长度差异巨大，如果以文档为单位混合，最终各来源的实际 token 数可能会偏离预设比例。
+
+    - 循环填充与全局状态：对于数据量很小的来源，其缓冲区可能会被耗尽。此时，加载器应能自动循环（重复）该来源的数据，确保管道不会因此阻塞，从而保证采样器总能按概率取到数据。
+
+    - 一致性监控：在训练过程中，实时记录各来源累计消耗的 token 数。通过 TensorBoard 等工具可视化这些曲线。如果实际比例偏离预设值，可以动态微调采样器的概率，形成一个闭环反馈。
+
+    这种设计能确保无论数据源大小、文档长短，最终模型看到的各领域数据比例都是稳定、可控且符合预期的，从而保证训练的一致性和可复现性。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EaTmwTd3Xi0km5kSPN3c54TGnlf
+  block_id: MqWKd7FL3odtLKx41F9csoGLnAf
+  page_token: EaTmwTd3Xi0km5kSPN3c54TGnlf
+  original_title: 如何保证在流式训练中数据配比的一致性？实现在线数据采样管道。
+  imported_at: '2026-09-21'

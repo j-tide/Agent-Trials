@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-bae68d6ab059
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何利用损失掩码在训练中同时支持条件生成和无条件生成任务？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 如何利用损失掩码在训练中同时支持条件生成和无条件生成任务？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在一些高级训练场景中，我们希望模型既能进行“有上下文的对话”（条件生成），也能进行“开放式续写”（无条件生成）。损失掩码可以灵活地区分这两种情况。
+
+    策略：
+
+    - 条件生成（对话）：只对 assistant 部分计算损失，user 和 system 部分掩码。这是标准做法。
+
+    - 无条件生成（续写）：数据格式为一段纯文本，没有角色区分。此时，我们希望模型学习生成整个文本。因此，不对任何 token 进行掩码，或者只对一段 prompt 之后的文本计算损失。
+
+    实现动态掩码：
+    在每条数据中添加一个 task_type 字段，指示该数据的类型。在 Data Collator 中，根据 task_type 动态选择掩码策略：
+
+    ```python
+    def dynamic_loss_mask(sample, input_ids):
+        if sample["task_type"] == "dialogue":
+            return create_assistant_only_mask(input_ids, tokenizer)
+        elif sample["task_type"] == "completion":
+            # 假设 prompt 已经包含在 input_ids 中，我们只对 prompt 之后的部分计算损失
+            prompt_len = sample["prompt_len"]
+            labels = input_ids.clone()
+            labels[:, :prompt_len] = -100  # prompt 部分不计算损失
+            return labels
+        else:
+            return input_ids.clone()  # 无条件，全序列计算损失
+    ```
+
+    效果：通过这种动态掩码，一个模型可以同时学会“对话”和“续写”两种能力，并且不会互相干扰。在推理时，它可以根据输入格式自动判断应该进行哪种任务。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VOrVwrhLzi4WRokQOMPcOsPWnwg
+  block_id: UVwFdYhEWoXRkZxFJ5rcE7qQn2b
+  page_token: VOrVwrhLzi4WRokQOMPcOsPWnwg
+  original_title: 如何利用损失掩码在训练中同时支持条件生成和无条件生成任务？
+  imported_at: '2026-09-21'

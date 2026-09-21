@@ -1,0 +1,61 @@
+---
+schema_version: 1
+id: feishu-llm-complete-fb106d51b219
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多语言模型中如何设计共享词表，同时保留语言特有 token？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 多语言模型中如何设计共享词表，同时保留语言特有 token？
+answer:
+  mode: rubric
+  reference_answer: |-
+    多语言模型（如 mBERT、XLM-R、mT5）需要用一个统一的词表处理数十甚至上百种语言。设计目标是：既能高效共享跨语言的公共子词（如数字、标点、拉丁字母词根），又能充分覆盖各语言的特有字符和构词单元。
+
+    核心设计方法：
+
+    - 联合语料训练：将所有目标语言的文本混合，直接在一个统一的语料库上训练一个 BPE 或 Unigram 分词器。这是最直接、最有效的方法。训练过程中，算法会自动学习到高频的、跨语言通用的子词（例如 "tion", "ing", "年", "月"），同时也会保留每种语言特有的字符组合（如中文汉字、日文假名、韩文音节）。这个过程无需人工干预，完全由数据驱动。
+
+    - 语料采样与平衡：直接将所有语言等量混合会导致高频语言（如英语）主导词表，低资源语言的文字可能被过度碎片化。因此，必须采用采样策略来平衡各语言的影响力。常见方法有：
+
+    [图片内容未导入]
+
+    - 语言标识符：可以在每个序列的开头添加一个语言标识 token，如 [en], [zh], [ja]。这些 token 会像普通字符一样参与 BPE 合并，但通常不会被拆分，最终会作为独立 token 保留在词表中。模型通过这个 token 了解当前输入的语言，有助于激活语言特定的表示。但这并不是“保留语言特有 token”的主要方式，因为词表中的其他 token 是跨语言共享的，特有性是通过子词本身的分布自然体现的。
+
+    - 保留原始字符集：字节级 BPE（Byte-level BPE）天然支持所有语言，因为它以字节为基础，覆盖了 Unicode 的全部可能。这意味着即使某种语言只有极少量语料，其文字也能通过字节序列唯一表示。这种方式从底层保证了语言无关性，同时共享词表本质上就是所有语言共享 256 个字节及它们的合并单元。
+
+    - 超大词表：为了容纳多语言的特有字符，多语言模型通常使用超大的词表。例如，XLM-R 的词表大小为 250k，mT5 为 250k，而 Qwen 为 152k。大词表允许将常见的、语言特有的子词（如中文常见字、日文常用词）整体保留，避免过度拆分。
+
+    总结：共享词表是通过在混合语料上联合训练实现的，语言特有 token 的保留依赖于大词表、采样平衡和字节级回退机制。没有人为强制分隔，而是让数据自己决定哪些子词共享、哪些独有。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UKVSwsmrvizh73kD8qpckkNRnQh
+  block_id: PQPPdpN51oyu7Cx7jEZcvVxyngf
+  page_token: UKVSwsmrvizh73kD8qpckkNRnQh
+  original_title: 多语言模型中如何设计共享词表，同时保留语言特有 token？
+  imported_at: '2026-09-21'

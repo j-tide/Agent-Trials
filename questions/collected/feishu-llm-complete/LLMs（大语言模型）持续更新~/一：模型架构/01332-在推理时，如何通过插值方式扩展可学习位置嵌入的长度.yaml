@@ -1,0 +1,63 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6a308cbf9200
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在推理时，如何通过插值方式扩展可学习位置嵌入的长度？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: 在推理时，如何通过插值方式扩展可学习位置嵌入的长度？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是针对可学习位置嵌入在推理时无法外推的核心补救方法，称为位置插值（Position Interpolation）。
+
+    核心思想：将超出训练最大长度L_train的、新的位置索引，按比例压缩回L_train的范围内，然后通过插值算法从旧的、已训练好的位置嵌入矩阵中，计算出这些新位置对应的嵌入向量。
+
+    实现步骤：
+
+    - 确定缩放因子：scale = L_train / L_new。例如，训练最大长度为2048，现在要扩展到4096，缩放因子为0.5。
+
+    - 映射新位置：对于新序列中的任意位置pos_new（例如3000），计算它在旧坐标轴上的虚拟位置：pos_virtual = pos_new * scale （3000 * 0.5 = 1500）。
+
+    - 向量插值：pos_virtual很可能不是整数（如1500.5）。因此，需要根据它在旧嵌入矩阵中相邻的两个整数位置（如位置1500和1501）的向量，进行线性插值，得到最终的位置嵌入：
+
+    - text
+
+    - pe_new[3000] = (1 - 0.5) * pe_old[1500] + 0.5 * pe_old[1501]
+
+    - 替换位置嵌入层：将原始模型的位置嵌入层替换为一个能够执行上述映射和插值逻辑的新层，或者直接生成一个全新的、扩展后的嵌入矩阵并加载。
+
+    关键局限性：这种简单的线性插值会等比例地压缩所有位置间的相对距离。比如，距离为100的两个token，在被压缩后，模型感知到的距离变成了50。这对局部依赖（相邻词）是毁灭性的，因为原本非常近的词（距离1-2）被压得更近甚至几乎重合，模型将难以区分它们。因此，线性插值通常会带来性能损失，并且需要少量长文本数据做微调（fine-tuning）来让模型适应这种新的位置密度。这也是为什么后来会出现NTK-Aware、YaRN等更精细、更偏向于保护高频/局部信息的插值算法。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/XeuvwwKO8irlwIkrOlEcNQ8qn7e
+  block_id: SmE1dikFWohZkUxF97dcNx8Snsh
+  page_token: XeuvwwKO8irlwIkrOlEcNQ8qn7e
+  original_title: 在推理时，如何通过插值方式扩展可学习位置嵌入的长度？
+  imported_at: '2026-09-21'

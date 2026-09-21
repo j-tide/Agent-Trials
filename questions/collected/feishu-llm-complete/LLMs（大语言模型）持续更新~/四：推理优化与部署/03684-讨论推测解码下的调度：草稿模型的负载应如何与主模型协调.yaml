@@ -1,0 +1,70 @@
+---
+schema_version: 1
+id: feishu-llm-complete-41a8ce66a7a1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 讨论“推测解码”下的调度：草稿模型的负载应如何与主模型协调？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 讨论“推测解码”下的调度：草稿模型的负载应如何与主模型协调？
+answer:
+  mode: rubric
+  reference_answer: |-
+    推测解码引入了草稿模型与目标模型的协同，调度器需要管理双模型的推理节奏和资源分配。
+
+    草稿模型与主模型的负载特点：
+
+    - 草稿模型：通常很小，自回归生成 K 个草稿 token，延迟低但需串行 K 步。在 batch=1 时负载低，但在高并发 batch 下，每个请求都需要草稿阶段，总负载与 batch 大小成正比。
+
+    - 目标模型：一次并行验证 K 个 token，计算量大，但调用频率降低（每 E 个 token 调用一次）。
+
+    协调策略：
+
+    - 分离的草稿与验证线程/流
+    将草稿模型和目标模型放在不同 CUDA Stream 或不同 GPU 上执行，实现流水线并行。当目标模型验证 batch A 时，草稿模型同时为 batch B 生成下一轮草稿。调度器需管理双路 batch 的调度顺序。
+
+    - 统一调度 + 分阶段迭代
+    在一个调度循环中，先为所有请求执行草稿（batch 草稿），收集草稿 token，然后执行目标模型验证（batch 验证）。可以动态决定哪些请求参与本轮草稿（例如，刚完成验证的请求立即开始新草稿，而新请求需先 prefill）。
+
+    - 草稿模型与目标模型的资源比例分配
+    如果两个模型共享同一 GPU，需为草稿模型分配一定的 SM 资源和显存（如通过 CUDA MPS 或简单的串行执行）。由于草稿模型小，可分配较少资源保证主模型的算力。
+
+    - 自适应草稿长度与并发
+    调度器监测草稿阶段耗时与验证耗时的比例，如果草稿成为瓶颈（例如当并发很高时，草稿模型的小 batch 优势不再），则：
+
+    - KV Cache 同步
+    草稿模型产生的 K、V 如果可被目标模型复用，需要在验证时传递。调度器要确保目标模型验证前，对应 KV 块已就绪。
+
+    结论：推测解码的调度实质上是双模型流水线调度问题，需通过异步执行、负载感知的自适应调整和资源隔离，最大化整体加速比，同时避免草稿模型成为新瓶颈。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  block_id: I2S0dm5wxoxQAbxPmcicCBT9nne
+  page_token: Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  original_title: 讨论“推测解码”下的调度：草稿模型的负载应如何与主模型协调？
+  imported_at: '2026-09-21'

@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-59aface00ce7
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 分布式索引：当单机无法容纳全量向量时，如何做索引分片？有哪些一致性哈希策略？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 分布式索引：当单机无法容纳全量向量时，如何做索引分片？有哪些一致性哈希策略？
+answer:
+  mode: rubric
+  reference_answer: |-
+    当向量数据规模超越单机内存或磁盘的物理极限时，分布式索引是唯一解。其核心思想是分片：将全量数据水平切分，分布到集群中的多个节点上，每个节点只负责一部分数据的索引和查询。查询时，由协调节点并行请求所有相关分片，最后合并结果。
+
+    索引分片的基本策略：
+
+    最直观的是按数据分片，即基于某种规则将向量划分到不同的节点。一种简单的方式是随机分片或按ID取模，但这会导致每个查询都需要广播到所有节点（scatter-gather），网络开销大，且木桶效应明显（最慢的节点决定整体延迟）。更好的策略是基于空间的分片，即根据向量的空间位置进行划分，例如先对全量数据进行一次全局聚类，然后将不同的簇分配到不同节点。这样，一个查询通常只需要访问少数几个与之相关的节点（簇），大大减少了需要扫描的数据量和网络通信。
+
+    一致性哈希在向量索引中的应用：
+    一致性哈希（Consistent Hashing）主要解决的是动态扩缩容时的数据迁移问题。如果不使用一致性哈希，简单地通过 node_id = hash(id) % N 来进行分片，那么当节点数 N 发生变化时，几乎所有的数据映射关系都会改变，导致灾难性的全量数据迁移。一致性哈希将整个哈希空间组织成一个环形，每个节点占据环上的一段区间。当增加一个节点时，仅需要移动相邻节点的一部分数据；当删除一个节点时，也只需将其数据迁移给后续节点。这极大地减少了系统扰动。
+
+    在向量索引场景中，Milvus 等系统采用了更先进的分片策略。它不直接使用一致性哈希，而是将数据写入分为不断增长的 Segment。每个 Segment 内部独立构建索引。当 Segment 大小达到阈值，就触发合并或自动分裂。节点之间通过协调服务（如 etcd）来管理这些 Segment 的分布。这种架构可以视为一种更灵活的分片，它天然支持弹性伸缩，因为 Segment 可以在节点间自由迁移，新写入的数据总是进入新的 Segment，从而避免了直接对大规模静态索引进行分片的一致性问题。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/SkhxwrnkSi7qcRkf8LOcNILdnr0
+  block_id: LN7adrznToHxVKxxqBsczyaWnOb
+  page_token: SkhxwrnkSi7qcRkf8LOcNILdnr0
+  original_title: 分布式索引：当单机无法容纳全量向量时，如何做索引分片？有哪些一致性哈希策略？
+  imported_at: '2026-09-21'

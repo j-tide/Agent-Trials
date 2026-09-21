@@ -1,0 +1,51 @@
+---
+schema_version: 1
+id: feishu-llm-complete-04f298bc63b5
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 梯度累积时，ZeRO‑2 的梯度分片 reduce 发生在累积后还是每次微批次后？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 梯度累积时，ZeRO‑2 的梯度分片 reduce 发生在累积后还是每次微批次后？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 ZeRO‑2 中，梯度分片的 Reduce-Scatter 发生在每个 micro-batch 的反向传播之后，而不是等到所有累积步结束。具体流程：
+
+    - 每完成一个 micro-batch 的反向，立即启动 Reduce-Scatter，将该 micro-batch 贡献的梯度规约并分散到各 GPU 的梯度分片中，然后释放该 micro-batch 的完整梯度。
+
+    - 梯度分片缓冲区累积所有 micro-batch 的梯度贡献。当所有累积步完成后，每个 GPU 的分片梯度已经是该部分参数的总梯度（聚合了所有 micro-batch）。
+
+    - 优化器直接使用分片梯度进行参数更新，无需再执行全局 All-Reduce。
+
+    这种设计避免了保存完整梯度，同时使得通信与计算可以流水线化，提高了效率。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/RdlMwr6zHiurCIkdVS6c9aFDnUg
+  block_id: SZwadOEg6oCq8QxT8GDchhAAnDc
+  page_token: RdlMwr6zHiurCIkdVS6c9aFDnUg
+  original_title: 梯度累积时，ZeRO‑2 的梯度分片 reduce 发生在累积后还是每次微批次后？
+  imported_at: '2026-09-21'

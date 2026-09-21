@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e7a640fae1c6
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: RoPE 是否可以被应用于 V 或者 attention weights 上？为什么通常只用于 Q 和 K？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 一：模型架构
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 一：模型架构
+content:
+  prompt: RoPE 是否可以被应用于 V 或者 attention weights 上？为什么通常只用于 Q 和 K？
+answer:
+  mode: rubric
+  reference_answer: |-
+    理论上可以，但通常不需要，甚至可能有害。
+
+    为什么只用于 Q 和 K？
+    RoPE 的数学设计目标是让 注意力分数的点积 依赖相对位置。由于注意力分数由 Q⋅K 决定，只需要对 Q 和 K 施加旋转即可达成目标。一旦 Q 和 K 被旋转，它们的内积就包含了相对位置信息，之后对 V 的加权求和以及拼接、线性投影等操作，都是在已经注入了位置感知的上下文表示基础上进行。
+
+    如果应用于 V 会怎样？
+
+    若对 V 也施加旋转，意味着每个 token 的“内容”也被位置信息调制了。这会导致：
+
+    - 信息混淆：V 携带的是要被聚合的实际语义内容。如果 V 被旋转，那么越是位置靠后的 token，其内容向量就越被扭曲，这会破坏内容的语义一致性。
+
+    - 残差流污染：V 的旋转信息会通过残差连接传递到后续层，并被深层的 Q、K 再次处理，可能造成位置信息的过度叠加和混乱。
+
+    - 没有增益：实验表明，对 V 使用 RoPE 并不会提升性能，有时还会略微损害模型效果。因此学术界和工业界的一致做法是仅对 Q 和 K 应用 RoPE。
+
+    是否可应用于 attention weights？
+
+    从数学上，RoPE 作用于 Q、K 后自动改变了注意力权重（点积后 softmax 的输入分布）。如果直接在注意力权重矩阵上施加旋转，将没有清晰的物理意义，且会破坏 softmax 概率分布的性质。因此，不会这样做。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/KYvfw3IKpinTbEktHoocP69HnSg
+  block_id: Slw1dI6MjoRjVHx3F9EcYg8Wnzh
+  page_token: KYvfw3IKpinTbEktHoocP69HnSg
+  original_title: RoPE 是否可以被应用于 V 或者 attention weights 上？为什么通常只用于 Q 和 K？
+  imported_at: '2026-09-21'

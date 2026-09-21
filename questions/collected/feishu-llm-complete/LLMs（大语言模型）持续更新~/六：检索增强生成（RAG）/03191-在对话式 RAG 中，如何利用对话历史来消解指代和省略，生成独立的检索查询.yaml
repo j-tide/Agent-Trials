@@ -1,0 +1,87 @@
+---
+schema_version: 1
+id: feishu-llm-complete-eef4489d5ea4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在对话式 RAG 中，如何利用对话历史来消解指代和省略，生成独立的检索查询？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 在对话式 RAG 中，如何利用对话历史来消解指代和省略，生成独立的检索查询？
+answer:
+  mode: rubric
+  reference_answer: |-
+    对话式 RAG 的核心挑战之一是多轮交互中的上下文依赖性。用户的当前问题往往包含大量指代词（“他”、“那个”、“上次的方案”）和省略（“价格呢？”）。如果不做处理直接检索，几乎不可能命中相关文档。利用对话历史生成独立的检索查询，是保障检索质量的必要前提。
+
+    解决方案：基于 LLM 的对话查询重构。
+
+    这是目前最主流、效果最好的方法。它是一个专门的预处理步骤，发生在检索之前。流程如下：
+
+    - 维护对话状态与历史：系统保存当前会话的完整历史，包括用户和助手的所有消息。为了节省 Token，可以只保留最近 N 轮，或使用对话历史摘要。
+
+    - 构造专用提示词：编写一个专门用于消解指代和生成独立查询的提示词。这个提示词会明确告知 LLM 它当前的任务。
+
+    - 提示词关键要素：
+
+    示例：
+
+    [对话历史]
+    用户：帮我查一下2024年诺贝尔物理学奖得主是谁。
+    助手：2024年诺贝尔物理学奖授予了John Hopfield和Geoffrey Hinton。
+    用户：那他的主要贡献是什么？
+
+    [指令]
+    请根据对话历史，将用户的最后一个问题改写为一个独立的、完整的检索查询。
+
+    [正确的改写示例]
+    用户：上次说的那个产品，它的价格是多少？
+    历史：助手推荐了“智能手表A”。
+    改写查询：智能手表A 价格
+
+    现在，请改写：
+    改写查询：
+
+    LLM 输出应为：“John Hopfield 主要贡献” 或 “Geoffrey Hinton 主要贡献”。
+
+    实现架构：
+
+    这个查询重构模块通常部署为一个微服务或函数，在 RAG 检索管道的入口处被调用。它具有以下特征：
+
+    - 低延迟要求：不能显著增加端到端响应时间，因此需要选用推理速度快的轻量级 LLM。
+
+    - 专用性：专门为消解指代和查询重写而微调或精心提示，不承担其他任务。
+
+    - 可缓存：对于相同的历史前缀，可以缓存其状态。
+
+    通过这样一个前置的重构步骤，对话系统就能将口语化、碎片化的多轮交互，转化为一个个清晰明确的检索查询，从而大幅提升复杂对话场景下的 RAG 性能。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/QgHgwoUL9irPPQkXhXEcSfEXnDe
+  block_id: V5jjdyfdsoKovAxR39VcgUUVnie
+  page_token: QgHgwoUL9irPPQkXhXEcSfEXnDe
+  original_title: 在对话式 RAG 中，如何利用对话历史来消解指代和省略，生成独立的检索查询？
+  imported_at: '2026-09-21'

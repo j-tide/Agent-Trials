@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-47fd6eb422bb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: KTO 训练是否稳定？与 DPO 相比，有无独特的训练 trick 需要注意？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: KTO 训练是否稳定？与 DPO 相比，有无独特的训练 trick 需要注意？
+answer:
+  mode: rubric
+  reference_answer: |-
+    KTO 的训练整体上非常稳定，甚至在某些方面比 DPO 更稳定。因为它的优化目标不是最大化一个对比差（这可能在好坏回复都提升概率时也实现），而是分别为好回复和坏回复设定绝对的、朝向参考点的目标，优化方向更加明确和单一。
+
+    与 DPO 相比的稳定性优势：
+
+    DPO 的损失函数中，如果 chosen 和 rejected 回复的概率同时上升，loss 也可能下降，这有时会导致优化方向模糊。KTO 则不会，因为它的两个优化方向是解耦的：提升好回复的奖励和降低坏回复的奖励是两个独立的目标。
+
+    独特的训练技巧和需要注意的点：
+
+    - 参考模型质量至关重要：KTO 和 DPO 一样依赖参考模型。如果参考模型本身是一个质量很差的模型，那么其定义的隐式奖励基线将毫无意义，KTO 的训练效果会大打折扣。因此，KTO 的起点必须是一个经过良好 SFT 的模型。
+
+    - 参考点 Z ref 的初始检查：在训练开始前，务必使用初始模型计算一下数据集中 desirable 和 undesirable 样本的平均隐式奖励。确保你选择的 zrefzref 是合理的。例如，如果平均奖励已经远高于 0，那么将 Z ref 设为 0 可能就没什么挑战性了。
+
+    - Batch 内数据混合：在一个 batch 中，建议同时包含 desirable 和 undesirable 样本。这能让模型在一个统一的梯度更新中同时接收到“鼓励”和“惩罚”的信号，有助于训练稳定。
+
+    - 监控隐式奖励的分布：训练时，不要只看 loss，更要定期可视化 desirable 和 undesirable 样本的隐式奖励分布。理想情况是，随着训练进行，两个分布逐渐分离，好的奖励变高，坏的奖励变低。如果两者分布混杂，说明模型没有学到有效的偏好。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Oa9Sw3zd0iM5wzk0nEscATBnnog
+  block_id: QfAqd8OHNoaCxBx5bR6cHOoanBg
+  page_token: Oa9Sw3zd0iM5wzk0nEscATBnnog
+  original_title: KTO 训练是否稳定？与 DPO 相比，有无独特的训练 trick 需要注意？
+  imported_at: '2026-09-21'

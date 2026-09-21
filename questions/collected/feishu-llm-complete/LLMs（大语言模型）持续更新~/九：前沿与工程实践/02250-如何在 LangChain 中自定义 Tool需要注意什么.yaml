@@ -1,0 +1,88 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6389e0504dcb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 如何在 LangChain 中自定义 Tool？需要注意什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 九：前沿与工程实践
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 九：前沿与工程实践
+content:
+  prompt: 如何在 LangChain 中自定义 Tool？需要注意什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    自定义 Tool 是扩展 Agent 能力的关键。在 LangChain 中，主要有两种方式：
+
+    - 使用 @tool 装饰器：这是最简洁的方式，适用于将简单的 Python 函数快速转化为 Tool。
+
+    from langchain.agents import tool
+
+    @tool
+    def get_weather(city: str) -> str:
+        """当用户需要查询某个城市的实时天气时，使用此工具。输入是城市的英文名称。"""
+        # 你的业务逻辑
+        return f"{city}的天气是晴天，25摄氏度。"
+
+    在这里，函数名变成 Tool.name，docstring 变成 Tool.description（对 LLM 决策至关重要），参数类型和注释变成 Tool.args_schema。
+
+    - 继承 BaseTool 类：适用于需要更复杂逻辑、异步调用、或精细控制参数 Schema 的场景。
+
+    from langchain.tools import BaseTool
+    from pydantic import BaseModel, Field
+
+    class WeatherInput(BaseModel):
+        city: str = Field(description="城市英文名")
+
+    class CustomWeatherTool(BaseTool):
+        name = "weather_query"
+        description = "查询指定城市的实时天气。"
+        args_schema: Type[BaseModel] = WeatherInput
+
+        def _run(self, city: str) -> str:
+            # 具体实现
+            return f"{city}的天气是晴天。"
+
+        async def _arun(self, city: str) -> str:
+            # 异步实现
+            return self._run(city)
+
+    需要注意的要点：
+
+    - description 是灵魂：必须用精确、详细、无歧义的自然语言描述清楚这个工具“做什么”、“什么时候用”、“需要什么参数”。这直接决定了 Agent 能否在合适的时候选中它。
+
+    - 参数设计要清晰：参数名要有意义，并为每个参数添加 Field(description="...")，这对 LLM 推断参数值至关重要。
+
+    - 错误处理：工具内部必须有健壮的 try-except，并返回一个描述清晰的错误文本。因为 Agent 会阅读这个错误，并尝试修正。
+
+    - 返回类型：应返回一个字符串，这样 LLM 才能直接理解工具的执行结果。避免返回复杂的 Python 对象。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/WjIewQgCniX1OTkmXrychn0kn15
+  block_id: CiNqdZFJEog4bixCBvBcGv5Nnvh
+  page_token: WjIewQgCniX1OTkmXrychn0kn15
+  original_title: 如何在 LangChain 中自定义 Tool？需要注意什么？
+  imported_at: '2026-09-21'

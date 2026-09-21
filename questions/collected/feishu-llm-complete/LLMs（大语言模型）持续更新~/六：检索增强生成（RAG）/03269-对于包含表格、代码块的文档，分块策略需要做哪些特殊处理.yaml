@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b8b79f8c30ec
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 对于包含表格、代码块的文档，分块策略需要做哪些特殊处理？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 六：检索增强生成（RAG）
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 六：检索增强生成（RAG）
+content:
+  prompt: 对于包含表格、代码块的文档，分块策略需要做哪些特殊处理？
+answer:
+  mode: rubric
+  reference_answer: |-
+    表格和代码块具有与叙事性文本截然不同的信息结构，如果混在普通文本中一起切割，很容易导致信息被破坏，严重影响检索质量。
+
+    表格的特殊处理：
+
+    表格的语义在于其二维结构，每一行代表一个实体，每一列代表一个属性。如果将其切成碎片，数字和列名的对应关系就丢失了，对后续的 LLM 而言毫无意义。
+
+    - 表格识别与隔离：首先，需要用解析器识别出文档中的表格区域。
+
+    - 独立成块：一个完整的表格，如果大小合适，可以作为一个独立的块。
+
+    - 大型表格的处理：如果一个表格过大（超过最大块 Token），不能简单地拦腰切断。应该采用行/列感知的切割。例如，在切割时保证表头被完整保留，然后与一部分行组成一个块，下一个块依然是同一个表头，再带领后续的行。这样每个块都是一个包含完整列名的、可独立理解的结构。
+
+    - 线性化与摘要：将其转换为 LLM 更友好的格式，如 Markdown 表格，或更高级的，将其转换为一系列陈述句（如“产品A的销售额在2023年Q3为100万”）。也可以生成一个表格的摘要文本块用于向量检索，而将原始数据保留给 LLM 使用。
+
+    代码块的特殊处理：
+
+    代码的语义依赖于其语法结构。
+
+    - 代码感知解析：不能依赖标点或空格。必须使用基于抽象语法树（AST）的工具来解析代码，识别出函数、类、方法等逻辑单元。每个单元可以作为一个候选块。
+
+    - 上下文注入：一个独立的函数，如果缺少了其所在的类名或顶部的导入语句，对 LLM 来说可能难以理解。在分块时，需要为每个代码块注入其“头文件”信息，比如类签名、关键导入等。
+
+    - 混合表示：向量检索应主要基于代码的自然语言描述（如 docstring）进行。如果代码缺少注释，可以预先使用 LLM 为每个代码块生成一个简短的摘要，然后将这个摘要的向量用于检索。检索命中后，再将原始代码块作为上下文提供给 LLM。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/HQmwwCPl6ixKGwkuwgTcKbbpnBd
+  block_id: J3tPdBbxRoLmraxOSVPc0zTWnXg
+  page_token: HQmwwCPl6ixKGwkuwgTcKbbpnBd
+  original_title: 对于包含表格、代码块的文档，分块策略需要做哪些特殊处理？
+  imported_at: '2026-09-21'

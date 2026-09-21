@@ -1,0 +1,84 @@
+---
+schema_version: 1
+id: feishu-llm-complete-672e98dc41fb
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 Hugging Face Transformers 中，如何开启梯度检查点？gradient_checkpointing_enable()。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 在 Hugging Face Transformers 中，如何开启梯度检查点？gradient_checkpointing_enable()。
+answer:
+  mode: rubric
+  reference_answer: |-
+    对于 Hugging Face 的预训练模型（如 BERT, GPT‑2, T5, LLaMA 等），开启梯度检查点非常简单：
+
+    方法一：使用 gradient_checkpointing_enable() 方法
+
+    ```python
+    from transformers import AutoModel
+
+    model = AutoModel.from_pretrained("model_name")
+    model.gradient_checkpointing_enable()
+    ```
+
+    这个方法会遍历模型的所有子模块，对于支持检查点的模块（通常是 Transformer 层），自动将它们包装成检查点模式。内部实现调用了 torch.utils.checkpoint.checkpoint，并使用 use_reentrant=False（从较新版本开始）。
+
+    方法二：在 Trainer 中通过训练参数启用
+
+    ```python
+    from transformers import Trainer, TrainingArguments
+
+    args = TrainingArguments(
+        gradient_checkpointing=True,   # 开启检查点
+        ...
+    )
+    trainer = Trainer(model=model, args=args, ...)
+    trainer.train()
+    ```
+
+    方法三：手动设置
+    对于自定义模型，可以手动将需要重计算的部分用 checkpoint 包装，如前面代码所示。
+
+    注意事项：
+
+    - 开启检查点后，显存使用会显著下降，但训练速度会降低约 20‑30%。
+
+    - 如果使用了混合精度（FP16/BF16），检查点与 autocast 配合良好，无需额外修改。
+
+    - 对于某些模型（如 T5），检查点可能已经在 generate() 时自动禁用（因为推理不需要），但在训练时启用。
+
+    - 当模型非常大时，建议结合 --gradient_checkpointing 和其他显存优化（如 ZeRO）一起使用。
+
+    通过这些简单的 API，用户可以几乎零成本地启用梯度检查点，训练原本无法装入显存的大模型。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  block_id: GPtIdd1Eqo04eKxuszEc44lBnCb
+  page_token: DTSMwFnXuiiFhTkXDm5cf2KFnRh
+  original_title: 在 Hugging Face Transformers 中，如何开启梯度检查点？gradient_checkpointing_enable()。
+  imported_at: '2026-09-21'

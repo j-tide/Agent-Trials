@@ -1,0 +1,53 @@
+---
+schema_version: 1
+id: feishu-llm-complete-3d82e9cff49f
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 梯度累积时，应在所有微批次梯度合并后进行一次裁剪，为什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 梯度累积时，应在所有微批次梯度合并后进行一次裁剪，为什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    原因：梯度裁剪的目的是限制最终用于参数更新的梯度更新步长。在梯度累积中，我们将一个大批次拆分成多个微批次，每次微批次反向计算出的梯度会累加到参数的 .grad 字段中。最终的参数更新是在所有微批次完成后，使用累加后的总梯度进行优化器步骤。因此，裁剪必须基于这个总梯度，而非中间某个微批次的局部梯度。
+
+    如果在每个微批次后都裁剪一次，会破坏累加效果，产生严重的数学偏差：
+
+    [图片内容未导入]
+
+    - 若在每个微批次后都裁剪，相当于先对每个 gi 独立裁剪，再求和。但由于裁剪是按范数缩放，各微批次的梯度方向不变但模长被分别截断，求和后的总梯度方向将与正确值不同，且总模长也被错误地限制。这等价于在优化过程中引入了扭曲的梯度信号，会损害收敛性能，甚至导致无法收敛。
+
+    正确实现：在所有微批次的 loss.backward() 完成后，调用一次 clip_grad_norm_，然后再执行 optimizer.step()。PyTorch 的 GradScaler 和 DeepSpeed 的梯度累积均遵循此原则，用户无需干预。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TlYvww7Aoi1oXhkFGQwcFQYxnin
+  block_id: XpFIdxIqsoix8wxTx0dcOVkXnNg
+  page_token: TlYvww7Aoi1oXhkFGQwcFQYxnin
+  original_title: 梯度累积时，应在所有微批次梯度合并后进行一次裁剪，为什么？
+  imported_at: '2026-09-21'

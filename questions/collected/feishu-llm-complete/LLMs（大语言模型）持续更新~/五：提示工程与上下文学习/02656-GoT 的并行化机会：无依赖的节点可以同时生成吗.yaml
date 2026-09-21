@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-7abd3c27422c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: GoT 的并行化机会：无依赖的节点可以同时生成吗？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 五：提示工程与上下文学习
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 五：提示工程与上下文学习
+content:
+  prompt: GoT 的并行化机会：无依赖的节点可以同时生成吗？
+answer:
+  mode: rubric
+  reference_answer: |-
+    可以，而且这是 GoT 相对于串行链式推理的天然优势之一。图结构使不依赖于彼此的节点在生成和评估上具有极大的并行化潜力。
+
+    并行化的层次：
+
+    - 节点级并行：这是最直接的。在同一时刻，如果图中存在多个“待生成后继”的节点，且它们之间没有依赖关系（即它们不属于同一条推理链上的严格先后步骤），调度器可以同时为这些节点生成候选思维。同样，对于多个待评估的新生成节点，如果它们的评估相互独立，也可以并行进行。
+
+    - 操作级并行：对于一个节点，可以同时执行不同的操作。例如，同时对其进行“自我验证”和“潜在精炼方向探索”。这两种操作互不依赖，可以并行启动。
+
+    - 子图级并行：使用图分区（如第 25 问所述），不同的子图可以由不同的处理线程或计算节点负责，完全并行地扩展。仅在需要进行全局聚合时，子图之间才进行同步和信息交换。这是一种分布式 GoT 架构。
+
+    如何实现并行化：
+
+    - 异步任务队列：调度器将可并行的操作打包成独立任务，放入任务队列。多个 Worker（可以是同一 GPU 上的 batch 推理服务，也可以是不同 GPU 节点）从队列中拉取任务并执行，将结果（新节点、边）写回共享图数据库。
+
+    - 批量推理（Batching）：这是最重要的实现手段。将多个并行的 LLM 调用合并为一个 batch，利用 GPU 的并行性一次处理，极大地提升吞吐、降低平均延迟。GoT 的图结构天然会产生大量 batchable 的请求。
+
+    - 依赖关系图管理：调度器维护一张“任务依赖图”。只有当一个节点所有必要的前驱操作都完成时，它才能被作为生成或评估的目标。这类似于现代数据处理管道（如 Spark 的 DAG 执行）的调度方式。
+
+    优势与挑战：
+
+    - 优势：并行化能够显著缩短整个推理过程的墙钟时间，使 GoT 能够在接近 CoT 的时间内完成复杂的图搜索。这为 GoT 的实时或交互式应用提供了可能。
+
+    - 挑战：并行化可能导致“过度探索”，即大量并行分支在早期就消耗了大量资源，而这些分支本可以在后期通过聚合被更有效地处理。因此，需要调度器在“并行探索”和“聚焦利用”之间取得平衡。此外，大规模并行会对 LLM 推理服务的负载造成冲击，需要配合服务端的自动扩缩容和流控。
+
+    总之，GoT 的图结构是其并行化的内在优势。合理利用异步执行和批量推理，可以大幅压缩其有效运行时间，这是 CoT 和 ToT 难以做到的（CoT 完全串行，ToT 的树同层可以并行但不如 GoT 灵活）。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VfpYwyMjYi7BJtkipvYcRbe0ndc
+  block_id: Ckcmd0ZEpoj2xzxLqNtc58N7naf
+  page_token: VfpYwyMjYi7BJtkipvYcRbe0ndc
+  original_title: GoT 的并行化机会：无依赖的节点可以同时生成吗？
+  imported_at: '2026-09-21'

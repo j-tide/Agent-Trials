@@ -1,0 +1,77 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6eef34a9edec
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 混合精度下，梯度裁剪的正确顺序：unscale → clip → step。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 混合精度下，梯度裁剪的正确顺序：unscale → clip → step。
+answer:
+  mode: rubric
+  reference_answer: |-
+    混合精度训练中，GradScaler 为了保留小梯度会放大损失，导致反向传播得到的梯度是放大后的梯度（scaled gradients）。在裁剪之前，必须先将梯度还原为真实尺度，否则裁剪阈值失效，且可能误判梯度溢出。
+
+    正确步骤：
+
+    - scaler.unscale_(optimizer)：将优化器中累积的缩放梯度除以缩放因子，恢复真实梯度。
+
+    - 梯度裁剪：调用 torch.nn.utils.clip_grad_norm_ 对真实梯度进行裁剪。
+
+    - scaler.step(optimizer)：内部检查梯度是否含 inf/NaN；若无，则执行参数更新；若有，跳过更新。
+
+    - scaler.update()：根据是否溢出调整缩放因子。
+
+    完整代码示例（Automatic Mixed Precision）：
+
+    scaler = torch.cuda.amp.GradScaler()
+
+    for data in dataloader:
+        optimizer.zero_grad()
+        with torch.cuda.amp.autocast():
+            loss = model(data)
+        scaler.scale(loss).backward()          # 反向传播，梯度被放大
+        scaler.unscale_(optimizer)            # 1. 恢复真实梯度
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # 2. 裁剪
+        scaler.step(optimizer)                # 3. 更新参数
+        scaler.update()                       # 4. 调整缩放因子
+
+    错误顺序的后果：
+
+    - 若在 unscale 前裁剪：裁剪的是放大后的梯度，实际裁剪强度严重过度，会阻碍训练。
+
+    - 若裁剪后没有 unscale 而直接 step：GradScaler.step 会再次 unscale 并误判溢出状态。
+
+    因此，严格遵循 unscale → clip → step 的顺序是混合精度训练中梯度裁剪的强制要求。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TlYvww7Aoi1oXhkFGQwcFQYxnin
+  block_id: WlqFdFS6WoZUWBx0XnHcoyn3nhB
+  page_token: TlYvww7Aoi1oXhkFGQwcFQYxnin
+  original_title: 混合精度下，梯度裁剪的正确顺序：unscale → clip → step。
+  imported_at: '2026-09-21'

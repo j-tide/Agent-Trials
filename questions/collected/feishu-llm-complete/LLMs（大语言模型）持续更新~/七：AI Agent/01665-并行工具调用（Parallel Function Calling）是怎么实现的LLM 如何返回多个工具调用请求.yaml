@@ -1,0 +1,85 @@
+---
+schema_version: 1
+id: feishu-llm-complete-851f45a94f76
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 并行工具调用（Parallel Function Calling）是怎么实现的？LLM 如何返回多个工具调用请求？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 七：AI Agent
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 七：AI Agent
+content:
+  prompt: 并行工具调用（Parallel Function Calling）是怎么实现的？LLM 如何返回多个工具调用请求？
+answer:
+  mode: rubric
+  reference_answer: |-
+    核心回答
+
+    并行工具调用是一项高级能力，它允许 Agent 在同一轮对话中，对多个相互之间没有依赖关系的工具同时发起调用。这极大地减少了完成复杂任务所需的串行交互轮次，从而显著降低了端到端延迟，提升了用户体验。
+
+    实现机制
+
+    并行工具调用的实现，不是客户端的行为，而是由 LLM 的能力和 API 设计共同决定的。
+
+    - LLM 的决策与生成
+
+    当 LLM 分析用户请求时，如果它判断完成该任务需要的信息可以同时从多个独立的来源获取，它就会决定发起并行调用。例如，对于“帮我查一下北京和上海未来三天的天气”，模型会识别出查询“北京天气”和“上海天气”是两个互不依赖的独立任务。在生成响应时，它不会输出一个工具调用，而是输出一个包含多个工具调用对象的数组。例如：
+
+    ```json
+    [
+      {"name": "get_weather", "arguments": {"city": "北京", "days": 3}},
+      {"name": "get_weather", "arguments": {"city": "上海", "days": 3}}
+    ]
+    ```
+
+    每个对象都是一个独立、完整的工具调用指令。
+
+    - API 层面的支持
+    这需要 API 的支持。在原生支持并行调用的 API 中，LLM 的响应结构本身就允许在 tool_calls 字段中包含一个列表。如果 API 本身不支持这种结构，就需要通过提示工程来模拟。例如，可以定义一个新的函数，其参数是一个由所需子调用组成的数组。但这需要更复杂的解析逻辑，且效果不如原生支持。
+
+    - 后端的并行执行与结果聚合
+
+    应用程序后端接收到这个包含多个调用请求的数组后，立即执行一个并行（或并发）操作：
+
+    - 它同时启动多个异步任务，分别执行每个独立的函数调用。
+
+    - 等待所有任务完成后，将所有函数返回的结果收集起来。
+
+    - 将每个函数的结果分别封装为一条 tool 角色的消息，并附上对应的 tool_call_id。
+
+    - 最后，将这一批包含所有工具结果的对话上下文，再次发送给 LLM，让它综合所有信息，生成最终的总结性回答。
+
+    关键前提：无依赖性
+
+    并行调用必须严格遵守一个前提：所有被并行的调用之间，绝对不能存在相互依赖关系。例如，你不能并行执行“调用 A 获取用户 ID”和“调用 B 根据用户 ID 查询订单”，因为 B 的输入依赖于 A 的输出。这种依赖关系必须由 LLM 自身在规划时正确识别。一个错误的并行规划，会导致其中一个调用因参数缺失而失败。
+
+    结论：并行工具调用将 Agent 的效率提升到了一个新的水平。它依赖于 LLM 强大的任务分解和依赖分析能力，以及底层 API 和应用程序框架的完美配合。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/IA43wgi1niRa19kxIa6c0Qo5nCh
+  block_id: CTXPdlWMXor7vtxjgslcgMY3nJe
+  page_token: IA43wgi1niRa19kxIa6c0Qo5nCh
+  original_title: 并行工具调用（Parallel Function Calling）是怎么实现的？LLM 如何返回多个工具调用请求？
+  imported_at: '2026-09-21'

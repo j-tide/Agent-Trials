@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-0cc7bcc51a87
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 实现连续批处理时，如何处理不同请求的序列长度差异？如何组织 batch 的输入和 KV Cache？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 实现连续批处理时，如何处理不同请求的序列长度差异？如何组织 batch 的输入和 KV Cache？
+answer:
+  mode: rubric
+  reference_answer: |-
+    序列长度差异处理：
+
+    在 decode 阶段，每个请求每步只生成 1 个 token，因此输入部分长度统一为 1。长度差异主要影响 KV Cache 的大小：不同请求的已生成序列长度不同，KV Cache 的占用长度各异。通过 PagedAttention，每个请求的 KV Cache 由不定数量的物理块组成，长度不同只占用不同数量的块，管理上完全解耦。
+
+    在 prefill 阶段，不同请求的 prompt 长度不同。连续批处理通过 变长序列批处理 来高效处理：
+
+    - 将 batch 内所有请求的 prompt token 拼接成一维数组，并记录每个请求的累积长度，构成 ragged tensor。
+
+    - 使用支持变长的注意力 kernel（如 FlashAttention 的 varlen 接口）一次性计算所有请求的注意力，屏蔽跨请求的注意力（通过 cu_seqlens 和 max_seqlen 参数）。
+
+    - 或者将短 prompt 填充到等长，但利用 kernel 的变长支持可以避免计算浪费。
+
+    batch 输入的组织：
+
+    - Decode 批：输入张量形状为 [B, 1] 或 [B]，直接传入。每个请求的位置 ID 不同（其当前序列长度）。
+
+    - 混合 Prefill+Decode 批：输入是变长序列的拼接。通常用两个张量：input_ids（拼接所有 token），cu_seqlens（每个序列的起始位置），传递给 FlashAttention 等 kernel。同时，对于 decode 请求（长度=1），它们在变长 batch 中仍作为长度为 1 的序列参与。
+
+    KV Cache 组织：
+
+    每个请求维护独立的块表（Block Table），记录其逻辑块到物理块的映射。在每层计算注意力时，kernel 根据请求索引、块表和当前序列长度，从物理块中读取相应的 K、V。由于物理块可以在多个请求间共享（如 beam search）或动态分配，长度不同的请求互不影响，且无需显式填充。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqBawimrwioo11kNL45cwrfznle
+  block_id: RpC2dYfssomCGYx2SJ1cSFAKnoc
+  page_token: EqBawimrwioo11kNL45cwrfznle
+  original_title: 实现连续批处理时，如何处理不同请求的序列长度差异？如何组织 batch 的输入和 KV Cache？
+  imported_at: '2026-09-21'

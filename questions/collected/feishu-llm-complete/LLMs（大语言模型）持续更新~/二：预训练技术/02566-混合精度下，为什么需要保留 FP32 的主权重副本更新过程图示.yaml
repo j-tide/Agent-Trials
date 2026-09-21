@@ -1,0 +1,73 @@
+---
+schema_version: 1
+id: feishu-llm-complete-b273b5dec375
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 混合精度下，为什么需要保留 FP32 的主权重副本？更新过程图示。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 混合精度下，为什么需要保留 FP32 的主权重副本？更新过程图示。
+answer:
+  mode: rubric
+  reference_answer: |-
+    原因
+
+    模型参数存储为半精度（FP16/BF16）以节省显存和加速计算，但优化器更新时的数值累加需要高精度来避免舍入误差。
+
+    [图片内容未导入]
+
+    因此，训练时额外保留一份 FP32 主权重副本（Master Weights）。优化器在 FP32 精度下累积梯度、更新主权重，前向传播前再将主权重转换为半精度。这样既保证了更新准确性，又维持了前向/反向的效率。
+
+    更新过程图示：
+
+    初始：FP32 Master Weight (W_master)
+             │
+             │ (cast to FP16)
+             ↓
+          FP16 Weight (W_fp16)  ←── 用于前向/反向计算
+             │
+             ↓
+          计算 Loss，反向传播得到 FP16 梯度 (g_fp16)
+             │
+             ↓ (GradScaler.unscale，若使用)
+          FP32 梯度 (g_fp32) = g_fp16 / scale
+             │
+             ↓
+    更新 W_master:  W_master ← W_master - η * g_fp32   (FP32 运算)
+             │
+             ↓ (cast to FP16 for next iteration)
+          FP16 Weight = W_master (截断)
+
+    对 BF16 训练：同样需要 FP32 主权重，因为 BF16 尾数精度低，小更新累积同样会丢失。所以 FP32 主权重是混合精度训练的标配。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H1LqwP3PkibEdykjijgc533Rnue
+  block_id: GBSWdnVU3oh209xHE3EcsXwXnyg
+  page_token: H1LqwP3PkibEdykjijgc533Rnue
+  original_title: 混合精度下，为什么需要保留 FP32 的主权重副本？更新过程图示。
+  imported_at: '2026-09-21'

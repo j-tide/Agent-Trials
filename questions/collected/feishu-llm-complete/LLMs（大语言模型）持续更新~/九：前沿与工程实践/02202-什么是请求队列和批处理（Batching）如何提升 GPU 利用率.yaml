@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-456cb03644a4
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是请求队列和批处理（Batching）？如何提升 GPU 利用率？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 九：前沿与工程实践
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 九：前沿与工程实践
+content:
+  prompt: 什么是请求队列和批处理（Batching）？如何提升 GPU 利用率？
+answer:
+  mode: rubric
+  reference_answer: |-
+    LLM 推理是计算密集型任务，GPU 是昂贵的核心资源。请求队列和批处理是提升 GPU 利用率、增大系统吞吐量的核心技术。
+
+    请求队列：当多个用户同时发送请求时，所有请求首先进入一个调度队列，而不是立即被处理。调度器根据一定的策略（如 FCFS 先来先服务、优先级队列、最大等待时间等）从队列中取出请求，组批后发送给 GPU 进行推理。队列起到了削峰填谷、平滑负载的作用。
+
+    批处理：将多个独立的推理请求组合成一个批次（Batch），一次性送入 GPU 进行计算。GPU 的并行架构使得处理一个批次的时间远小于单独处理每个请求的时间总和。批处理能显著提升吞吐量。
+
+    提升 GPU 利用率的关键挑战：LLM 自回归生成的特性使得传统批处理面临巨大困难。
+
+    - 请求长度不一：有些请求只需要生成几个 token，有些则需要长篇大论。在传统批处理中，整个批次必须等到所有请求都生成完毕才能释放，导致 GPU 大部分时间在等待长请求而处于空闲状态。
+
+    - 流水线气泡：一个请求的生成过程包括多个迭代，不同请求可能同时处于推理的不同阶段，如何将它们高效地组合在一起是一项挑战。
+
+    解决方案：连续批处理（见下一题）
+
+    为了提升 GPU 利用率，在架构上通常这样做：
+
+    - 使用高性能推理引擎（vLLM, TensorRT-LLM），利用其 PagedAttention 和连续批处理技术。
+
+    - 设置合适的调度策略：动态地将新请求插入到正在运行的批次中（continuous batching）。
+
+    - 合理配置 max_batch_size 和 max_num_seqs 参数，平衡吞吐与延迟。
+
+    - 使用量化（INT8/INT4）和分页注意力，降低单个请求的显存占用，使得在相同硬件上能同时处理更多请求。
+
+    通过这些技术，GPU 利用率可以从传统静态批处理的 30-50% 提升到 90% 以上，吞吐量实现数倍的增长。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  block_id: QbjGd00VNo6MmoxDK6McH3MTneg
+  page_token: Tgj4wtvdMi7qPpkDUrMcpDjjnSh
+  original_title: 什么是请求队列和批处理（Batching）？如何提升 GPU 利用率？
+  imported_at: '2026-09-21'

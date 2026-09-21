@@ -1,0 +1,66 @@
+---
+schema_version: 1
+id: feishu-llm-complete-cbb53362c1d1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 不同 System Prompt 可能导致模型输出矛盾，如何在训练中让模型根据 System Prompt 灵活切换行为？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 不同 System Prompt 可能导致模型输出矛盾，如何在训练中让模型根据 System Prompt 灵活切换行为？
+answer:
+  mode: rubric
+  reference_answer: |-
+    这是一个核心的训练挑战，解决方案在于数据的多样性和损失函数的定向设计。
+
+    - 数据构造的“人格分裂”训练
+
+    在 SFT 数据集中，需要包含成百上千种不同的 System Prompt，每一个都设定了不同的角色、语气、规则和知识边界。例如：
+
+    - System Prompt A：“你是一个保守的律师，回答必须严谨、基于法律条文。”
+
+    - System Prompt B：“你是一个充满创意的说唱歌手，用押韵和节奏感回答问题。”
+
+    对于同一个 User Prompt（如“如何看待AI的进步？”），这两个 System Prompt 对应的 Assistant 回复必须完全不同，且严格遵循其各自的设定。通过在大量此类样本上训练，模型会学习到：System Prompt 具有最高优先级，我的回复风格和内容应该以它为基准进行切换。
+
+    - 利用损失掩码强化关键指令的遵从
+
+    可以在 System Prompt 中，将最核心的约束（如“必须以JSON格式输出”、“严禁提及XX”）用特殊标记包裹。在计算损失时，对 Assistant 回复中直接满足这些约束的 token 赋予更高的权重。这能强制模型关注并执行这些关键指令。
+
+    - 偏好学习中的“冲突解决”
+    在 DPO 数据中，构造 System Prompt 与 User Prompt 冲突的样本。例如，System Prompt 设定“你是古典音乐专家，只回答音乐相关问题”，而 User Prompt 是“推荐几部好看的科幻电影”。此时，一个正确遵循 System Prompt 的拒绝回复，应被标记为chosen，而直接回答问题的回复应被标记为rejected。通过这种方式，模型学会将 System Prompt 的优先级置于 User Prompt 之上。
+
+    - 推理时的“行为隐式锚定”
+
+    在推理时，用户无权修改 System Prompt（通常由服务端预设），这就从系统层面保证了行为的一致性。模型只需要专注于根据预设的 System Prompt 来生成回复。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Gpqpwc0aOiwCsqk3LkTcaPzXnsd
+  block_id: R1cwdOdClo11B5xjQwMcPmXOnNf
+  page_token: Gpqpwc0aOiwCsqk3LkTcaPzXnsd
+  original_title: 不同 System Prompt 可能导致模型输出矛盾，如何在训练中让模型根据 System Prompt 灵活切换行为？
+  imported_at: '2026-09-21'

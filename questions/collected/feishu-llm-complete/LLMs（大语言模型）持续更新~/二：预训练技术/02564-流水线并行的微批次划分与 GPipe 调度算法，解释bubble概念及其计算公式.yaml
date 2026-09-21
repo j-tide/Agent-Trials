@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-76b83c29ab95
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 流水线并行的微批次划分与 GPipe 调度算法，解释“bubble”概念及其计算公式。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 流水线并行的微批次划分与 GPipe 调度算法，解释“bubble”概念及其计算公式。
+answer:
+  mode: rubric
+  reference_answer: |-
+    微批次划分：为了减少流水线中设备的空闲等待时间，流水线并行会将一个 mini-batch 进一步切分为多个更小的微批次（micro-batches）。这样，设备在处理完一个微批次后可以立即开始下一个，而不用等待整个批次完成。
+
+    GPipe 调度算法：
+
+    - 在一个训练步中，首先将 mini-batch 切分成 M 个微批次。
+
+    - 前向传播：第 1 个微批次依次通过所有设备，完成后，第 2 个微批次开始进入设备 0，依次类推。所有微批次按顺序“流”过设备，如同一串连续的流水线。
+
+    - 反向传播：在所有微批次的前向传播全部完成后，才开始反向传播。反向传播也按微批次顺序和与正向相反的方向流动。
+
+    - GPipe 的特点是一次刷新：全部正向完成后才全部反向。这使得需要在前向阶段缓存所有微批次产生的中间激活，导致峰值显存较高。
+
+    Bubble（气泡）：由于流水线各阶段的计算时间不完全重叠，设备的空闲等待时间被称为气泡。在 GPipe 中，流水线启动和结束的“填充”和“排空”阶段，设备存在空闲。
+
+    Bubble 比例的计算公式：
+    设设备数量为 P，微批次数量为 M。在 GPipe 调度下，总的计算步数为 P+M−1（前向的填满流水线所需步数）。每个微批次在每个设备上的计算量相同，为 t。整个流水线的有效计算时间为 P×M×t，但实际由于气泡，总耗时相当于 (P+M−1)×M×t 的某个比例。更直观的，气泡时间占比（即空闲时间与总时间之比）可近似为：
+
+    [图片内容未导入]
+
+    当 M≫P 时，气泡比例趋近于 0。因此增大微批次数量能有效减少气泡，但会增大激活显存。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/GQ7qw1klCirayhkUauicscbqnpc
+  block_id: RvuNduxHWokPnvxTA5YcmC02nog
+  page_token: GQ7qw1klCirayhkUauicscbqnpc
+  original_title: 流水线并行的微批次划分与 GPipe 调度算法，解释“bubble”概念及其计算公式。
+  imported_at: '2026-09-21'

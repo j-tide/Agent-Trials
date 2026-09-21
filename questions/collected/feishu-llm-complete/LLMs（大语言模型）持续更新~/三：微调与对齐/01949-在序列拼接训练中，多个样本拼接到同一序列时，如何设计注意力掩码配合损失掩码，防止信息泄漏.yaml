@@ -1,0 +1,54 @@
+---
+schema_version: 1
+id: feishu-llm-complete-9788fed7cb24
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在序列拼接训练中，多个样本拼接到同一序列时，如何设计注意力掩码配合损失掩码，防止信息泄漏？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 在序列拼接训练中，多个样本拼接到同一序列时，如何设计注意力掩码配合损失掩码，防止信息泄漏？
+answer:
+  mode: rubric
+  reference_answer: "为了提高训练效率，我们常将多个短对话拼接成一个长序列。但必须确保不同对话之间不能互相看到，否则会造成信息泄露和错误学习。\n\n关键设计：联合构造
+    attention_mask 和 labels\n\n- 构建 Block-Diagonal 的注意力掩码：\n\n每个对话样本只能看到自己内部的上下文，看不到其他对话的内容。\n\n```python\ndef
+    create_block_diagonal_attention_mask(input_ids, tokenizer, sample_boundaries):\n
+    \   \"\"\"\n    sample_boundaries 是列表中每个样本的起止位置\n    \"\"\"\n    seq_len = input_ids.shape[1]\n
+    \   # 初始化一个全 -inf 的注意力掩码\n    attention_mask = torch.full((seq_len, seq_len),
+    float('-inf'))\n    \n    for start, end in sample_boundaries:\n        # 每个样本内部，使用标准的下三角（因果）掩码\n
+    \       for i in range(start, end):\n            for j in range(start, i + 1):\n
+    \               attention_mask[i, j] = 0.0\n    \n    # 填充位置（[PAD]）也需要隔离\n    pad_token_id
+    = tokenizer.pad_token_id\n    for i in range(seq_len):\n        if input_ids[0,
+    i].item() == pad_token_id:\n            attention_mask[i, :] = float('-inf')\n
+    \           attention_mask[:, i] = float('-inf')\n    \n    return attention_mask\n```\n\n-
+    配合损失掩码：\n对于每个样本的非 assistant 部分，同样将其 labels 设为 -100。\n\n为什么要两者配合？\n\n- 注意力掩码：保证模型在计算注意力时，看不到其他对话的
+    token，防止信息泄露。\n\n- 损失掩码：保证模型只学习生成 assistant 的回复，不学习 user 的提问和 [PAD] 等无关 token。\n两者共同作用，确保训练的正确性。\n\n---"
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/VOrVwrhLzi4WRokQOMPcOsPWnwg
+  block_id: Qql3dRPsdoMXq5xvNMGca3nQnWd
+  page_token: VOrVwrhLzi4WRokQOMPcOsPWnwg
+  original_title: 在序列拼接训练中，多个样本拼接到同一序列时，如何设计注意力掩码配合损失掩码，防止信息泄漏？
+  imported_at: '2026-09-21'

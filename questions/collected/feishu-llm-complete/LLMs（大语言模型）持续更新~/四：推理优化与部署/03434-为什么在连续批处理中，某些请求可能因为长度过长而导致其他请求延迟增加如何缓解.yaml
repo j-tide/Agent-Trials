@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-53583a177346
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 为什么在连续批处理中，某些请求可能因为长度过长而导致其他请求延迟增加？如何缓解？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 为什么在连续批处理中，某些请求可能因为长度过长而导致其他请求延迟增加？如何缓解？
+answer:
+  mode: rubric
+  reference_answer: |-
+    原因：
+
+    - 显存占用挤压并发度：长请求占据大量 KV Cache 物理块，导致系统能同时服务的总请求数（batch size）减少。batch 越小，GPU 的算力和带宽利用越不充分，每个 decode 步骤的延迟增加，吞吐下降。本来可并行 32 个短请求，可能因一个超长请求的存在只能并行 8 个，其他请求被迫在等待队列中，延迟倍增。
+
+    - decode 迭代中内存带宽争抢：长序列的 KV Cache 体积大，每次 decode 都需要从 HBM 读取更多的 K、V 数据，增加了访存总量，可能使得内存带宽成为瓶颈，拖慢同一 batch 内所有请求的生成速度。
+
+    - 调度公平性缺失：如果简单采用 FCFS 且不抢占，长请求可能持续运行数分钟，其间新到达的短请求无法插队，导致平均延迟和尾部延迟恶化。
+
+    缓解措施：
+
+    - 抢占式调度：当资源紧张时，将部分长请求的 KV Cache 换出到 CPU，让出资源给短请求。待短请求完成后再换入恢复。
+
+    - 优先级调度与短作业优先：给予短请求（或预计剩余 token 少的请求）更高的调度优先级，降低它们等待时间。
+
+    - 分离运行集：限制单个请求的最大生成长度，或将超长请求放入专门的低并发队列处理。
+
+    - KV Cache 压缩：通过 GQA、KV8 量化等减少长序列的缓存占用，使同样显存可容纳更多请求，缓解挤压效应。
+
+    - 分块预填充与公平时间片：在 prefill 阶段也采用分块，防止长 prompt 一次占用过长时间。
+
+    因此，通过显存管理和调度策略结合，可以有效控制长请求带来的延迟影响。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/EqBawimrwioo11kNL45cwrfznle
+  block_id: FEv2dPDp3oGYG0xf3jHcWnuMnPb
+  page_token: EqBawimrwioo11kNL45cwrfznle
+  original_title: 为什么在连续批处理中，某些请求可能因为长度过长而导致其他请求延迟增加？如何缓解？
+  imported_at: '2026-09-21'

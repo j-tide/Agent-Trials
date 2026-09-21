@@ -1,0 +1,67 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e8926bb47814
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: PagedAttention 是如何借鉴操作系统分页思想来管理 KV Cache 的？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: PagedAttention 是如何借鉴操作系统分页思想来管理 KV Cache 的？
+answer:
+  mode: rubric
+  reference_answer: |-
+    PagedAttention 将操作系统的虚拟内存分页机制引入到 LLM 推理的 KV Cache 管理中。其核心类比是：
+
+    - 虚拟地址空间 → 逻辑 KV 序列（每个请求的 token 序列）
+
+    - 物理内存 → GPU 显存（存储所有请求的 K、V 张量）
+
+    - 页（Page） → 固定大小的 KV 块（如每个块包含 16 个 token 的 K 和 V）
+
+    - 页表（Page Table） → 块表（Block Table），记录逻辑块到物理块的映射关系
+
+    传统方法为每个请求预分配一段最大长度的连续显存，就像早期操作系统为进程分配连续物理内存，极易产生内部碎片（未使用的预留空间）和外部碎片（释放后的不连续空洞），导致显存利用率低下，无法支持高并发。
+
+    PagedAttention 借鉴分页思想，将 KV Cache 划分为大量固定大小的小块，需要时按需分配，不使用时释放回收，实现了：
+
+    - 按需分配，动态增长：无需预分配最大长度，只需随着 token 生成逐步申请物理块，显存利用率大幅提高，接近物理极限。
+
+    - 无外部碎片：任何空闲块均可分配给任何请求，回收后又能立即用于其他请求，消除了外部碎片。
+
+    - 内存共享：多个请求可以共享相同的物理块（如相同前缀的 prompt 或 beam search 的公共部分），只需在各自块表中指向同一物理块，配合写时复制（COW）或引用计数，进一步节省显存。
+
+    - 弹性调度：连续批处理可以随时加入新请求或换出老请求，块级别的释放与分配保证了系统的动态弹性。
+
+    因此，PagedAttention 实现了接近零浪费的显存管理，使 LLM 推理服务能够支持更大的 batch 和更长的序列，是 vLLM 等系统吞吐飞跃的关键。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  block_id: DXozdSltroNEwgxm3pqcPxvbnKh
+  page_token: Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  original_title: PagedAttention 是如何借鉴操作系统分页思想来管理 KV Cache 的？
+  imported_at: '2026-09-21'

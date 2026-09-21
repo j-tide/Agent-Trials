@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-5e189565d85a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 动态 batching 中，如何平衡最大 batch size 与延迟 SLO？是否有自适应算法？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 动态 batching 中，如何平衡最大 batch size 与延迟 SLO？是否有自适应算法？
+answer:
+  mode: rubric
+  reference_answer: |-
+    动态 batching 需在吞吐和延迟间权衡：batch size 越大，每次迭代计算量越大，每 token 延迟（TPOT） 可能增加；但 batch size 大也能摊薄 kernel 启动开销，提高总吞吐。需确保 TPOT 不超过 SLO（如 50ms）。
+
+    平衡方法：
+
+    - 静态上限：通过离线基准测试，确定在目标 GPU 上，满足 SLO 的最大 batch size，并固定该值为上限。简单但无法适应负载和序列长度动态变化。
+
+    - Token 预算（Token Budget）：不是限制请求数量，而是限制一次迭代中处理的总 token 数（包括 decode token 和 prefill token）。因为单次迭代的延迟主要正比于 num_tokens * model_FLOPs_per_token。设定最大 tokens/iteration，可更精准地控制延迟。例如，限制每步最多处理 4096 个 token，则无论请求数多少，只要总 token 数不超过，延迟就可控。
+
+    - 自适应算法：
+
+    - Chunked Prefill 的影响：通过将 prefill 分成小 chunk，可将 prefill 对延迟的冲击均摊，避免突然出现大延迟。此时 batch size 可以更大，因为单步计算量被 token 预算所约束。
+
+    示例：vLLM 的 --max-num-batched-tokens 参数就是 token 预算的一种实现，限制一次迭代中最多处理的 token 数，从而间接限制延迟。
+
+    这种自适应平衡是现代推理引擎保持高吞吐且满足 SLO 的核心能力。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  block_id: D8PRdoUw0omcPkxoLP6cqnCknMb
+  page_token: Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  original_title: 动态 batching 中，如何平衡最大 batch size 与延迟 SLO？是否有自适应算法？
+  imported_at: '2026-09-21'

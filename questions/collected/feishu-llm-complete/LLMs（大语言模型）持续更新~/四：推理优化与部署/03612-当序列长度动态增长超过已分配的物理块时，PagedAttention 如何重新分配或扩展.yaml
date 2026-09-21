@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-6f9a3f74fc25
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 当序列长度动态增长超过已分配的物理块时，PagedAttention 如何重新分配或扩展？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 当序列长度动态增长超过已分配的物理块时，PagedAttention 如何重新分配或扩展？
+answer:
+  mode: rubric
+  reference_answer: |-
+    在 decode 阶段，每生成一个新 token 可能会触发块的扩展。PagedAttention 采用惰性按需分配策略：
+
+    - 检测是否满块：每次追加新 token 时，检查当前序列最后一个逻辑块内的 token 数是否已达 block_size。若未满，直接将新 K、V 写入该块的下一个空闲位置，无需新块。
+
+    - 分配新块：若最后一个块已满，从空闲物理块池中分配一个新物理块。这个块可能是之前被其他请求释放的任意空闲块。
+
+    - 更新块表：将新物理块索引追加到该请求的块表末尾（例如 block_table[num_blocks] = new_phy_block），同时请求的逻辑块计数加 1。
+
+    - 写入数据：新 token 的 K、V 被写入这个新块的起始位置（偏移 0）。
+
+    空闲块不足时：
+
+    如果空闲池没有可用块，调度器必须抢占某些请求（换出到 CPU 内存）或直接拒绝新请求。被换出的请求的物理块被释放，供其他请求使用。当资源恢复时，被抢占的请求可以重新分配物理块并从 CPU 拷贝回 KV 数据（或重计算）恢复执行。
+
+    因此，PagedAttention 通过动态扩展块表，以块为单位平滑增长，完全避免了传统方案中“空间不足需整体搬迁”的笨重操作。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  block_id: FWvad6xYCoWpFRxfHGEcHdi9nUe
+  page_token: Ym7nwpfPmigEfPkKIXWcrAa0nHf
+  original_title: 当序列长度动态增长超过已分配的物理块时，PagedAttention 如何重新分配或扩展？
+  imported_at: '2026-09-21'

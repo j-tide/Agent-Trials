@@ -1,0 +1,64 @@
+---
+schema_version: 1
+id: feishu-llm-complete-eca8939e2921
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: H2O 算法如何通过“注意力分数”动态淘汰 KV Cache 中的不重要的 token？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: H2O 算法如何通过“注意力分数”动态淘汰 KV Cache 中的不重要的 token？
+answer:
+  mode: rubric
+  reference_answer: |-
+    H2O (Heavy-Hitter Oracle) 是一种基于累积注意力分数的 KV Cache 淘汰策略。其核心洞察是：自回归生成过程中，注意力权重的分布呈现明显的长尾效应和重击者（Heavy Hitters）现象——少数 token 持续占据绝大部分注意力质量，而大量 token 的注意力权重接近于零。H2O 通过动态跟踪每个 token 的累积注意力得分，来辨别这些重击者并保护它们不被淘汰，同时丢弃那些长期获得极低注意力的“冷”token。
+
+    H2O 的具体工作流程：
+
+    [图片内容未导入]
+
+    （实际实现中，可能会对每一步的 α 做移动平均或加权，以给予近期行为更多权重，但基本思想是长期累积。）这样一来，一个 token 如果在很多生成步中都被大量“关注”，其累积分数就会很高；反之，只是偶尔被关注的 token 分数则很低。
+
+    - 重击者识别与淘汰策略
+    设定一个 KV Cache 的预算大小 B（例如最多保留 k 个 token 的 KV 对）。当缓存中的 token 数超过 B 时，触发淘汰。H2O 的保留策略由两部分组成：
+
+    淘汰时，凡是既不在重击者集合、也不在最近集合的 token，其对应的 K 和 V 向量就被从缓存中彻底移除，释放显存。这一步通常在每个生成步或每隔若干步执行一次，以实现动态自适应。
+
+    - 头特定性与工程简化
+    理想情况下，每个注意力头对“重要性”的认知不同，因此应为每个头单独维护累积分数，并各自独立地保留不同的重击者集合。这会导致不同头保留的 token 集合不一致，KV 缓存变得不规则（稀疏且不同索引），实现高效 CUDA kernel 非常复杂。
+    因此，许多工程实现采取头共享的近似：将所有头的累积注意力分数取平均值（或最大值、求和），得到一个全局 token 重要性分数，然后基于该全局分数进行统一淘汰。这样所有头保留相同的 token 索引，KV 缓存可以保持密集矩阵，可以直接利用标准 FlashAttention 等高效算子。虽然舍弃了一定灵活性，但实践证明仍然能保留绝大部分性能。
+
+    为什么该方法有效？
+
+    注意力分数是 token 间相关性最直接的反馈信号。一个 token 如果持续被查询头关注，说明它蕴含了对当前上下文至关重要的信息（如主语、关键实体、指令标记）。H2O 相当于让模型在生成过程中自发地给历史 token “投票”，累积票数低的被认为可丢弃。这一机制完全无需训练，不依赖外部知识，且能随序列增长自适应地调整保留集。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YD2SwSsy9iTGMmkEs4jcylEZnnd
+  block_id: S3wJdPyCNoz7YlxkufNc6bjsnbs
+  page_token: YD2SwSsy9iTGMmkEs4jcylEZnnd
+  original_title: H2O 算法如何通过“注意力分数”动态淘汰 KV Cache 中的不重要的 token？
+  imported_at: '2026-09-21'

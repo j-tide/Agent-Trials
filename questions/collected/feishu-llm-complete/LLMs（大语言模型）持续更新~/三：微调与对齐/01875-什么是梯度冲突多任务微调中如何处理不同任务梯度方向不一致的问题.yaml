@@ -1,0 +1,69 @@
+---
+schema_version: 1
+id: feishu-llm-complete-4c8d68e564a1
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“梯度冲突”？多任务微调中如何处理不同任务梯度方向不一致的问题？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 三：微调与对齐
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 三：微调与对齐
+content:
+  prompt: 什么是“梯度冲突”？多任务微调中如何处理不同任务梯度方向不一致的问题？
+answer:
+  mode: rubric
+  reference_answer: |-
+    梯度冲突是多任务优化中的核心挑战。当两个或多个任务的优化目标存在根本性矛盾时，它们对模型参数的梯度会指向相反或近乎相反的方向。例如，一个任务要求模型用风格A回复，另一个任务要求用相反的B风格。如果直接将这些梯度加在一起，它们会相互抵消，最终导致所有任务的训练都陷入停滞。
+
+    处理方法：
+
+    - PCGrad (Project Conflicting Gradients)
+
+    这是处理梯度冲突的经典方法。在更新参数前，它会依次检查每两个任务的梯度向量。如果它们的余弦相似度为负（即存在冲突），则将一个任务的梯度投影到另一个任务梯度的法平面上，得到一个去除了冲突分量的、修正后的梯度。最终，对所有修正后的梯度求和进行更新。这确保了最终的更新方向不会因任务间的直接冲突而停滞。
+
+    - CAGrad (Conflict-Averse Gradient Descent)
+
+    PCGrad只处理两两冲突，CAGrad则更为全局。它在进行梯度更新前，会先为每个任务寻找一个最优的梯度组合。它的目标是找到一个联合的最终更新方向，使得所有任务的损失都尽可能下降，同时最小化最差情况下的损失退化。其核心思想是找到一个所有任务都能接受的“最大公约数”方向。
+
+    - 梯度手术 (Gradient Surgery)
+
+    这是一种更直接的方法。在反向传播后，优化器更新前，主动修改或移除那些会导致某个旧任务损失显著上升的梯度分量。这种方法通常用于持续学习，防止灾难性遗忘。
+
+    在大模型微调中的简化实践：
+
+    对于十亿级以上的大模型，上述复杂算法计算开销巨大。实践中更常用的是更工程化的方案：
+
+    - 优化数据混合比例：从源头减少冲突。通过小规模实验，找到一组冲突最小、协同增益最大的数据配比。
+
+    - 梯度累积/小学习率：通过多次累积求平均，可以平滑掉一些突发的冲突信号。较小的学习率则限制每一步的更新幅度，防止模型因某一次的冲突被带偏。
+
+    - PEFT方法的隐式解耦：使用LoRA等PEFT方法，不同的任务可以训练独立的LoRA适配器，从物理上隔离了可能发生冲突的梯度更新。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/JkSEwloDWifNa6kaAd1cPVirnZe
+  block_id: PXTNd60dlogu8UxPlNlcmEFpnig
+  page_token: JkSEwloDWifNa6kaAd1cPVirnZe
+  original_title: 什么是“梯度冲突”？多任务微调中如何处理不同任务梯度方向不一致的问题？
+  imported_at: '2026-09-21'

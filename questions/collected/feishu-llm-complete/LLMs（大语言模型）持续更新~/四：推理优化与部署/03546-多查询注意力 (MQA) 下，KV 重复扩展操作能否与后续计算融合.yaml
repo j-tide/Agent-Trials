@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d82fae40db77
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 多查询注意力 (MQA) 下，KV 重复扩展操作能否与后续计算融合？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 多查询注意力 (MQA) 下，KV 重复扩展操作能否与后续计算融合？
+answer:
+  mode: rubric
+  reference_answer: |-
+    - Attention 块：QK^T -> Scale -> Mask -> Softmax -> Dropout -> x V 的整体融合（FlashAttention）。
+
+    - MLP 块：FC1 -> Bias -> GeLU -> FC2 -> Bias，将 FC1 和 FC2 分别与紧接的 bias 和激活融合。
+
+    - 残差 + LayerNorm：Add 与 LayerNorm 融合。
+
+    - QKV 投影的合并：三个独立的矩阵乘法合并为一个大矩阵乘法，共享输入 X，减少权重读取。
+
+    - 多个注意力头的输出投影也可以视作广义水平融合（但通常已自然合并）。
+
+    - 在批量请求中，将同一层的不同序列的相同操作合并（即 batch），可视为水平融合的推广。
+
+    - 将 FC1 的矩阵乘与 Bias1 和 GeLU 激活融合（epilogue 融合）。
+
+    - 如果可行，将 FC2 也与前面的操作融合，使得整个 MLP 部分仅使用 1~2 个 kernel。
+
+    - 同时，结合残差连接，将 MLP 的输入 X 和最终输出进行 Add 操作，直接融合在 FC2 的 epilogue 中。
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Uhg6wKBvGiSyqckdgPTciRAMn9f
+  block_id: ZR9PdEyzhoLWimxvvpgckImen2b
+  page_token: Uhg6wKBvGiSyqckdgPTciRAMn9f
+  original_title: 多查询注意力 (MQA) 下，KV 重复扩展操作能否与后续计算融合？
+  imported_at: '2026-09-21'

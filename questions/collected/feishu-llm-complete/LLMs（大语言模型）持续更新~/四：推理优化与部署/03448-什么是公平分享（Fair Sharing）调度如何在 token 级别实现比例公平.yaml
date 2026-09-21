@@ -1,0 +1,65 @@
+---
+schema_version: 1
+id: feishu-llm-complete-c63b01eea88c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 什么是“公平分享”（Fair Sharing）调度？如何在 token 级别实现比例公平？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 什么是“公平分享”（Fair Sharing）调度？如何在 token 级别实现比例公平？
+answer:
+  mode: rubric
+  reference_answer: |-
+    公平分享调度 旨在确保多个用户、租户或请求组能够按照预设的权重（或平均地）共享有限的推理资源（GPU 算力/显存），避免某个用户的大量请求饿死其他用户。
+
+    token 级别的比例公平实现：
+
+    - 将 GPU 的推理吞吐（token/s）视为可分配的资源。为每个用户/组分配一个权重（shares）。
+
+    - 虚拟时间调度：类似 Linux CFS（完全公平调度）或 WFQ（加权公平队列）。每个请求或用户组有一个虚拟时间，每次获得服务后虚拟时间增加（增量 = 实际处理时间 / 权重）。调度器总是选择虚拟时间最小的请求，这样长期来看，每个组获得的实际 token 吞吐与其权重成正比。
+
+    - Token 级令牌桶/漏桶：为每个用户设置 token 生成速率限制。例如，权重为 2 的用户允许每秒生成最多 2 倍于权重 1 用户的 token 数。调度器在每个迭代选择请求时，检查该用户的 token 预算是否还有余量。
+
+    - 分布式队列调度：维护每个用户的独立请求队列。每次迭代，从各队列中按权重轮询选取请求（如加权轮转）。更精细的，可以按 token 数做加权公平排队：每个请求根据其所需生成的 token 数计算成本，调度器优先从成本最小的用户队列选取，保证公平。
+
+    具体实现挑战：
+
+    - 请求长度不同，一个长请求可能占用大量资源，需要在选择时考虑请求的“成本”。例如，使用 WFQ，每个请求的完成成本（Finish Time）根据预测长度和权重计算，选择最早完成的请求。
+
+    - 结合连续批处理：在一个 batch 中同时包含多个用户的请求，那么 GPU 的吞吐自然被共享。要实现比例公平，可以在调度准入环节控制各用户的在跑请求数量，或者调整各用户的 batch 占比。
+
+    例子：用户 A 权重 1，用户 B 权重 2。假设 GPU 每秒能生成 100 token。长期稳定下，用户 A 的请求应获得约 33 token/s，用户 B 获得 66 token/s。调度器通过选择虚拟时间最小的请求，自动逼近该比例。
+
+    公平分享调度在多租户平台（如 LLM API 服务）中至关重要，防止个别大客户影响其他用户的体验。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  block_id: SYwCdxJt1oa3JFx5R3icd5L3n1b
+  page_token: Mbffw3PsFi2cuKkz2gIcaX8Onaf
+  original_title: 什么是“公平分享”（Fair Sharing）调度？如何在 token 级别实现比例公平？
+  imported_at: '2026-09-21'

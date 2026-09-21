@@ -1,0 +1,59 @@
+---
+schema_version: 1
+id: feishu-llm-complete-d4d6998fe467
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 讨论 Prefix Caching：如何通过共享相同前缀来复用 KV Cache？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 讨论 Prefix Caching：如何通过共享相同前缀来复用 KV Cache？
+answer:
+  mode: rubric
+  reference_answer: |-
+    Prefix Caching 是服务化 LLM 提高吞吐量、降低延迟的杀手锏。它的核心思想是：对于大量请求中高度重复的“公共前缀”，只计算一次其 KV Cache，然后在所有后续请求中复用。
+
+    工作原理：
+
+    - 识别公共前缀：推理引擎会分析传入的 Prompt。通常，系统提示词（System Prompt）和少样本示例（Few-shot Examples）是固定的、在所有请求中相同的公共前缀。
+
+    - 缓存与匹配：当第一个请求的 Prefill 阶段计算完公共前缀后，引擎将前缀对应的 KV Cache 存储在一个全局的、共享的缓存池中。
+
+    - 复用：当后续请求到达时，引擎会自动检测其 Prompt 的开头部分是否匹配已缓存的前缀。如果匹配，则直接复用匹配部分的 KV Cache，Prefill 阶段只需要计算剩余的不匹配部分。
+
+    实现数据结构：
+
+    高效的前缀匹配通常基于 Trie（字典树） 或 Radix Tree（基数树）。树的每个节点代表一个 Token 序列。节点中存储着该序列对应的 KV Cache 块的引用（如 PagedAttention 的页）。当一个新序列到来，引擎可以沿着树的路径快速查找，定位到最长匹配前缀，并直接获取其所有 KV Cache 块。
+
+    Prefix Caching 的最大优势在于，它将大量 Prompt 的 Prefill 时间从几秒降低到了几乎可以忽略不计的毫秒级，并能节省大量用于存储重复前缀的显存。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  block_id: PxFwdJunuoGz7FxJhLscKzuDnWb
+  page_token: N1YqwJbvDi0Kw2kjiUvcnSA9n0e
+  original_title: 讨论 Prefix Caching：如何通过共享相同前缀来复用 KV Cache？
+  imported_at: '2026-09-21'

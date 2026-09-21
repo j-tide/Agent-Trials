@@ -1,0 +1,49 @@
+---
+schema_version: 1
+id: feishu-llm-complete-513856143753
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 在 RLHF 的 PPO 训练中，梯度裁剪的特殊之处（多损失项）
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 在 RLHF 的 PPO 训练中，梯度裁剪的特殊之处（多损失项）
+answer:
+  mode: rubric
+  reference_answer: |-
+    RLHF（Reinforcement Learning from Human Feedback）中的PPO训练阶段，通常会有多个损失项加在一起：策略损失（policy loss）、价值损失（value loss）、以及可能的KL散度惩罚项。这些损失项对应的梯度在量级上可能差异极大。例如，策略损失可能产生较大的梯度，而价值损失和KL惩罚的梯度可能相对较小。如果我们在所有梯度合并之后再进行一次全局的梯度裁剪，那么裁剪的阈值就需要同时照顾到这三个非常不同的信号。这就可能带来问题：阈值设得高，策略梯度可能爆炸；阈值设得低，价值网络的梯度可能被过度压缩，导致Critic学不好，进而使得Advantage估计偏差增大，破坏整个PPO训练的稳定性。
+
+    解决这个问题的常见做法是分层裁剪或分损失裁剪。具体来说，在计算完每个损失项的梯度之后，先对该项的梯度单独进行裁剪，然后再把裁剪后的梯度累加起来，用于最终的更新。这样，每个损失项的梯度都被限制在合理的范围内，互不干扰。另一种做法是对策略网络和价值网络使用不同的max_norm阈值，因为它们的参数是完全独立的。PPO训练中，价值网络的更新幅度通常需要更谨慎，可以设一个更小的max_norm。
+
+    另外，RLHF训练中经常还会用到“early stopping”或者“KL target”机制，这些机制也会和梯度裁剪相互作用。如果KL惩罚力度不够，策略可能偏离太远，此时梯度裁剪是兜底的安全网，防止策略网络在一步中剧烈改变。因此，在RLHF的PPO训练中，梯度裁剪不仅是常规的防爆炸手段，更是维持PPO算法本身稳定性的重要组成部分。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/TlYvww7Aoi1oXhkFGQwcFQYxnin
+  block_id: ET4Yd29U7oWsrqxzPUlcaIZGnZk
+  page_token: TlYvww7Aoi1oXhkFGQwcFQYxnin
+  original_title: 在 RLHF 的 PPO 训练中，梯度裁剪的特殊之处（多损失项）
+  imported_at: '2026-09-21'

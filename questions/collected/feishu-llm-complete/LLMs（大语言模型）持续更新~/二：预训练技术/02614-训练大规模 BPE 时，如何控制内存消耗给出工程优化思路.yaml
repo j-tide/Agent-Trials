@@ -1,0 +1,62 @@
+---
+schema_version: 1
+id: feishu-llm-complete-1f11d232a97a
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 训练大规模 BPE 时，如何控制内存消耗？给出工程优化思路。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 训练大规模 BPE 时，如何控制内存消耗？给出工程优化思路。
+answer:
+  mode: rubric
+  reference_answer: |-
+    训练 BPE 时，核心内存消耗在于存储所有单词及其频率、对应的符号序列。当语料扩大到数百 GB 级别，单词种类可能达到数千万甚至上亿，直接加载到内存中完全不现实。必须采用流式和分布式策略。
+
+    工程优化思路：
+
+    - 增量式/分批训练（Mini-batch BPE）：
+    这是最常用的技巧。不一次性学习所有合并规则。首先在语料的一个足够大的随机子集（如 10GB）上训练一个 BPE 分词器，获得前几万条最重要的合并规则。然后，用这个初步的分词器去处理整个语料，此时大量常见子词已被合并，单词被“预分词”成了更长的子词序列。再在这个预分词语料的基础上，统计新的符号对频率，继续进行后面的合并。由于每次处理的单词种类和序列长度都大幅减少，内存占用可以控制。
+
+    - 外部排序与磁盘存储：
+    如果单词数量实在太大，可以将单词-频率-符号序列以文件形式存储在磁盘上。使用 MapReduce 或类似的分布式计算框架，将单词按哈希分桶到多个文件中。每个桶单独统计局部符号对频率，然后由主节点汇总所有桶的频率，选出全局最高频对。之后，主节点广播这个合并规则，各个桶再独立更新自己桶内的单词符号序列。这相当于将内存压力分摊到集群。
+
+    - 限制词汇长度和频率阈值：
+    在训练初期，过滤掉出现次数极低的单词（如频率 < 5）和超长的单词（如字符数 > 100）。这些单词对合并规则的贡献很小，却消耗了大量内存。
+
+    - 使用更高效的数据结构：
+    对于符号对频率的统计，使用前缀树（Trie）或者哈希表。对于单词的符号序列，用整型 ID 代替字符串进行存储，可以显著减少内存占用并加速合并过程。
+
+    - 采用 Unigram 模型替代 BPE：
+    Unigram 语言模型的训练天然更适合大规模数据。它的 EM 算法和剪枝过程不需要复杂的全量符号对更新，而是通过动态规划和概率统计，内存占用更可控，SentencePiece 对大规模 Unigram 训练有很好的优化。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/UKVSwsmrvizh73kD8qpckkNRnQh
+  block_id: MQysdKoayoljzBxIZT7cggHrnsj
+  page_token: UKVSwsmrvizh73kD8qpckkNRnQh
+  original_title: 训练大规模 BPE 时，如何控制内存消耗？给出工程优化思路。
+  imported_at: '2026-09-21'

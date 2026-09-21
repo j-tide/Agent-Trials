@@ -1,0 +1,57 @@
+---
+schema_version: 1
+id: feishu-llm-complete-576bb1cd9545
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 使用 RoPE 时，MQA 的 key 位置编码是否对多个查询头都有效？为什么？
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 四：推理优化与部署
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 四：推理优化与部署
+content:
+  prompt: 使用 RoPE 时，MQA 的 key 位置编码是否对多个查询头都有效？为什么？
+answer:
+  mode: rubric
+  reference_answer: |-
+    完全有效。 MQA 与 RoPE 的组合在 PaLM、Gemini 等大模型中被广泛采用，并得到了理论和实验双重验证。RoPE 的有效性与 K 是否在多个查询头间共享无关。
+
+    原理分析：
+
+    RoPE 通过旋转变换将绝对位置编码为向量方向，并使查询和键的内积仅依赖于它们的相对位置：
+
+    [图片内容未导入]
+
+    因为 k 是共享的，但每个查询头 qi 的投影矩阵不同，导致 qi 具有不同的内容表示。旋转矩阵 Rn−m 与 kk 的作用结果依然能让每个头感知到相对位置 n−m，因为对于特定的 qi，最终的点积值会同时依赖于该头的内容亲和度和相对位置。不同头可以学习利用这一相对位置信号的不同方面，就像在标准 MHA 中一样。
+
+    若使用绝对位置编码（如可学习的位置嵌入直接加到 K 上），只要该位置嵌入也被所有头共享，MQA 同样有效，因为位置信号是直接附加到共享表示中的。
+
+    因此，MQA 只压缩了键值对的“内容维度”的容量，并没有削弱位置编码的功能。RoPE 施加在共享的 K 上，能毫无障碍地让所有头都获得必要的位置感知能力，这也是为什么 MQA 在长文本任务上依然能工作良好的原因之一。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/YD2SwSsy9iTGMmkEs4jcylEZnnd
+  block_id: C6DUd5JKEooz3HxypZ7cg5lbn3O
+  page_token: YD2SwSsy9iTGMmkEs4jcylEZnnd
+  original_title: 使用 RoPE 时，MQA 的 key 位置编码是否对多个查询头都有效？为什么？
+  imported_at: '2026-09-21'

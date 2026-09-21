@@ -1,0 +1,87 @@
+---
+schema_version: 1
+id: feishu-llm-complete-e1d39eee282c
+version: 1
+type: short_answer
+status: imported
+review_status: pending
+language: zh-CN
+title: 静态损失缩放与动态损失缩放的算法细节及自动调节策略。
+summary: 从飞书题库导入，保留原题目解析，等待校对。
+difficulty: 
+estimated_minutes: 10
+category: LLMs（大语言模型）持续更新~
+derived_topic: 二：预训练技术
+tags: &1
+- LLMs（大语言模型）持续更新~
+- 二：预训练技术
+content:
+  prompt: 静态损失缩放与动态损失缩放的算法细节及自动调节策略。
+answer:
+  mode: rubric
+  reference_answer: |-
+    静态损失缩放
+
+    [图片内容未导入]
+
+    - 优点：实现简单，无额外开销。
+
+    - 缺点：S 难以选取。太小可能无法充分防止下溢；太大则可能在网络某些阶段（如早期、大梯度处）导致梯度溢出为 inf/NaN，使训练失败。由于不同模型和训练阶段梯度分布变化很大，静态缩放通常不够鲁棒。
+
+    动态损失缩放
+    动态缩放算法自动在训练过程中调整 S，以平衡下溢和溢出风险。核心机制是监控梯度是否出现 inf/NaN，并据此增大或减小缩放因子。
+    算法细节（PyTorch GradScaler 默认）：
+
+    [图片内容未导入]
+
+    - 增长因子 α（growth_factor）：2.0。
+
+    - 回退因子 β（backoff_factor）：0.5。
+
+    - 增长间隔 T（growth_interval）：连续无溢出步数阈值，如 2000。
+
+    每步操作：
+
+    - 前向：with autocast(): loss = ...
+
+    - 反向：scaler.scale(loss).backward()
+
+    - scaler.step(optimizer) 内部：
+
+    - scaler.update()：
+
+    调节逻辑图解：
+
+    if overflow:
+        S *= backoff_factor (减小 S，避免再次溢出)
+        skip update
+    else:
+        update parameters
+        consecutive_success += 1
+        if consecutive_success >= growth_interval:
+            S *= growth_factor (增大 S，尝试减少下溢)
+            consecutive_success = 0
+
+    动态缩放能自动寻找一个安全的、尽可能大的缩放因子，从而最大化梯度保留，同时最小化溢出风险。
+
+    ---
+evaluation:
+  plugin: llm_judge
+  config:
+    score: 100
+    criteria:
+    - 是否覆盖题目要求的核心概念
+    - 是否给出清晰的工程实现或判断依据
+    - 是否说明关键权衡、风险或适用边界
+learning:
+  concepts: *1
+  scheduler:
+    initial_interval_days: 1
+    max_interval_days: 30
+source:
+  type: user_provided_feishu
+  url: https://lcnipys9u0xh.feishu.cn/wiki/H1LqwP3PkibEdykjijgc533Rnue
+  block_id: AQL4dFXiNoIDMNxY3ChcdeVtnSe
+  page_token: H1LqwP3PkibEdykjijgc533Rnue
+  original_title: 静态损失缩放与动态损失缩放的算法细节及自动调节策略。
+  imported_at: '2026-09-21'
